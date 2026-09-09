@@ -72,6 +72,9 @@ if rg -q 'appendCard.*launcher|launcher.*appendCard' "${effect_cpp}" "${card_cpp
     exit 1
 fi
 rg -q 'studio\.warbler\.kadunce\.workspace-context' "${effect_cpp}"
+rg -q 'io\.github\.carlsonjm\.Tettegouche' "${effect_cpp}"
+rg -q 'identity\.compare\(QStringLiteral\("tettegouche"\)' \
+    "${effect_cpp}"
 rg -q 'QJsonDocument\(root\)\.toJson\(QJsonDocument::Compact\)' \
     "${effect_cpp}"
 rg -q 'window->internalId\(\)\.toString\(QUuid::WithoutBraces\)' \

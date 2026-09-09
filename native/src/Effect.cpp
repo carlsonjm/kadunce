@@ -395,8 +395,22 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
     if (!window) {
         return false;
     }
-    return !window->isDeleted()
-        && window->isOnCurrentDesktop()
+    if (window->isDeleted()) {
+        return false;
+    }
+    // Tettegouche's layer-shell surface is interactive, and KWin can expose it
+    // as a normal window. It is the guest presentation itself—not an
+    // application card—and admitting it here would make its own activation
+    // dismiss the lease and promote the launcher into Active.
+    const QString identity = applicationIdentity(window);
+    if (identity.compare(
+            QStringLiteral("io.github.carlsonjm.Tettegouche"),
+            Qt::CaseInsensitive) == 0
+        || identity.compare(QStringLiteral("tettegouche"),
+                            Qt::CaseInsensitive) == 0) {
+        return false;
+    }
+    return window->isOnCurrentDesktop()
         && window->isOnCurrentActivity()
         && (window->isNormalWindow() || window->isDialog());
 }
