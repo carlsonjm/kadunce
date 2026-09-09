@@ -21,6 +21,22 @@ method:    workspaceContext
 result:    compact UTF-8 JSON string
 ```
 
+After resolving an existing result from that snapshot, Tettegouche may ask
+Kadunce to activate its exact window:
+
+```text
+service:   org.kde.KWin
+path:      /Kadunce
+interface: studio.warbler.Kadunce
+method:    activateApplicationWindow(windowId)
+result:    true only when that live application window was activated
+```
+
+The command accepts only a current application `windowId` from the snapshot.
+Kadunce restores minimized windows and routes card-backed windows through its
+existing activation handling, so selection, stack membership, and presentation
+remain under Kadunce's authority.
+
 The payload identifies itself with schema
 `studio.warbler.kadunce.workspace-context` and integer `version: 1`. Consumers
 must reject unknown major versions instead of guessing at fields.
@@ -50,7 +66,7 @@ Tettegouche must not persist them as identity.
 qdbus6 org.kde.KWin /Kadunce studio.warbler.Kadunce.workspaceContext
 ```
 
-Version 1 intentionally has no mutation method and no recent-activity history.
-The first Tettegouche launcher can rank an existing focused/card-backed window
-from this snapshot. A focus-or-launch command and activity history should be
-added only when their product behavior is defined.
+Version 1 intentionally has no recent-activity history. Tettegouche can identify
+an open result from the snapshot and activate that exact window through the
+separate command above; unmatched results still use Plasma's normal application
+launch action.

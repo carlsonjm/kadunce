@@ -15,6 +15,7 @@
 #include <opengl/glshadermanager.h>
 #include <opengl/glutils.h>
 #include <window.h>
+#include <workspace.h>
 
 #include <KGlobalAccel>
 
@@ -748,6 +749,34 @@ QString Effect::workspaceContext() const
     };
     return QString::fromUtf8(
         QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+bool Effect::activateApplicationWindow(const QString &windowId)
+{
+    const QString requested = windowId.trimmed();
+    if (requested.isEmpty()) {
+        return false;
+    }
+
+    const QList<KWin::EffectWindow *> windows =
+        KWin::effects->stackingOrder();
+    for (auto iterator = windows.crbegin(); iterator != windows.crend();
+         ++iterator) {
+        KWin::EffectWindow *window = *iterator;
+        if (!isApplicationWindow(window)
+            || windowIdentity(window) != requested
+            || !window->window()) {
+            continue;
+        }
+
+        if (window->isMinimized()) {
+            window->unminimize();
+        }
+        KWin::workspace()->raiseWindow(window->window());
+        KWin::workspace()->activateWindow(window->window(), true);
+        return true;
+    }
+    return false;
 }
 
 bool Effect::toggleBentoOnOutput(const QString &outputName)

@@ -54,6 +54,8 @@ rg -q '!m_pointerPressed && !m_pointerPassthrough' "${router_cpp}"
 rg -q 'm_cardLine\.stackSizeForId\(selectedId\) > 1' "${effect_cpp}" "${card_cpp}"
 rg -q 'ExportScriptableSlots' "${effect_cpp}" "${card_cpp}"
 rg -q 'Q_SCRIPTABLE QString workspaceContext\(\) const' "${effect_header}"
+rg -q 'Q_SCRIPTABLE bool activateApplicationWindow' "${effect_header}"
+rg -q 'bool Effect::activateApplicationWindow' "${effect_cpp}"
 rg -q 'studio\.warbler\.kadunce\.workspace-context' "${effect_cpp}"
 rg -q 'QJsonDocument\(root\)\.toJson\(QJsonDocument::Compact\)' \
     "${effect_cpp}"

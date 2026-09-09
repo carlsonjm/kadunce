@@ -89,6 +89,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE void showActive();
     Q_SCRIPTABLE QStringList outputStageState() const;
     Q_SCRIPTABLE QString workspaceContext() const;
+    Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
