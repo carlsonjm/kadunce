@@ -47,6 +47,9 @@ public:
     [[nodiscard]] virtual int stackPreviewTargetForInput() const = 0;
     [[nodiscard]] virtual bool centerCardContainsForInput(
         const QPointF &position) const = 0;
+    [[nodiscard]] virtual bool launcherGuestActiveForInput() const = 0;
+    [[nodiscard]] virtual bool launcherGuestContainsForInput(
+        const QPointF &position) const = 0;
 
     [[nodiscard]] virtual bool isTabletPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
@@ -55,6 +58,7 @@ public:
     [[nodiscard]] virtual int cardStackCandidate() const = 0;
 
     virtual void toggleFromInput() = 0;
+    virtual void dismissLauncherGuestFromInput() = 0;
     virtual void pageLeftFromInput() = 0;
     virtual void pageRightFromInput() = 0;
     virtual void pageStackFromInput(int delta) = 0;
@@ -126,6 +130,7 @@ private:
     QPointF m_touchStart;
     QPointF m_touchCurrent;
     QSet<qint32> m_ownedTouchIds;
+    QSet<qint32> m_launcherGuestTouchIds;
     QTimer m_holdTimer;
     QTimer m_edgePageTimer;
     QTimer m_stackTargetTimer;
@@ -133,6 +138,7 @@ private:
     qint32 m_touchId = -1;
     bool m_pointerPressed = false;
     bool m_pointerPassthrough = false;
+    bool m_launcherGuestPointerPassthrough = false;
     bool m_touchCommitted = false;
     int m_pointerActiveSide = 0;
     int m_edgePageDirection = 0;

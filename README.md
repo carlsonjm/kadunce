@@ -16,7 +16,8 @@ and recovery under KWin's authority.
 - A persistent tray switch that safely enables or disables the workspace.
 - Direct four-edge input when a supported posture helper is available.
 - Native top and bottom touchscreen edges on other hardware.
-- A versioned, read-only context contract for companion launchers.
+- A versioned context contract and opt-in guest-card handoff for companion
+  launchers.
 
 ## Requirements
 
@@ -69,10 +70,10 @@ removing the native plugin.
 
 ## Companion context
 
-Kadunce publishes normalized workspace state through the versioned, read-only
-[`workspaceContext`](docs/TETTEGOUCHE-CONTEXT.md) contract. Companion software
-can rank an existing card without duplicating KWin discovery or mutating the
-card model.
+Kadunce publishes normalized workspace state through the versioned
+[`workspaceContext`](docs/TETTEGOUCHE-CONTEXT.md) contract. Compatible companion
+launchers may also negotiate a separate guest-card session; unsupported clients
+and older Kadunce builds retain standalone behavior.
 
 ## Project layout
 

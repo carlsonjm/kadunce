@@ -56,6 +56,21 @@ rg -q 'ExportScriptableSlots' "${effect_cpp}" "${card_cpp}"
 rg -q 'Q_SCRIPTABLE QString workspaceContext\(\) const' "${effect_header}"
 rg -q 'Q_SCRIPTABLE bool activateApplicationWindow' "${effect_header}"
 rg -q 'bool Effect::activateApplicationWindow' "${effect_cpp}"
+rg -q 'Q_SCRIPTABLE int launcherGuestProtocolVersion' "${effect_header}"
+rg -q 'Q_SCRIPTABLE QString beginLauncherGuest' "${effect_header}"
+rg -q 'Q_SCRIPTABLE void updateLauncherGuest' "${effect_header}"
+rg -q 'Q_SCRIPTABLE bool finishLauncherGuest' "${effect_header}"
+rg -q 'Q_SCRIPTABLE void endLauncherGuest' "${effect_header}"
+rg -q 'int Effect::launcherGuestProtocolVersion.*const' "${effect_cpp}"
+rg -q 'QDBusServiceWatcher::WatchForUnregistration' "${effect_cpp}"
+rg -q 'm_cardStage->beginLauncherGuest' "${effect_cpp}"
+rg -q 'm_cardStage->endLauncherGuest' "${effect_cpp}"
+rg -q 'launcherGuestContainsForInput' "${router_cpp}" "${router_header}"
+rg -q 'm_launcherGuestTouchIds' "${router_cpp}" "${router_header}"
+if rg -q 'appendCard.*launcher|launcher.*appendCard' "${effect_cpp}" "${card_cpp}"; then
+    echo "A launcher guest must never enter the persistent card model" >&2
+    exit 1
+fi
 rg -q 'studio\.warbler\.kadunce\.workspace-context' "${effect_cpp}"
 rg -q 'QJsonDocument\(root\)\.toJson\(QJsonDocument::Compact\)' \
     "${effect_cpp}"

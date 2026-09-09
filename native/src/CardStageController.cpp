@@ -26,6 +26,7 @@ namespace
 {
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr int CardStackTransitionDuration = 350;
+constexpr double LauncherGuestCommitDistance = 58.0;
 }
 
 CardStageController::CardStageController(CardStageHost *host)
@@ -80,6 +81,17 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
         return 99;
     }
     const int cardId = index + 1;
+    if (m_launcherGuestActive
+        && m_presentation == CardPresentation::CardLine) {
+        if (m_cardLine.sameStack(cardId, m_cardLine.selectedId())) {
+            return 1;
+        }
+        if (m_cardLine.count() > 1
+            && m_cardLine.sameStack(cardId, m_cardLine.idAtOffset(-1))) {
+            return -1;
+        }
+        return 99;
+    }
     if (m_presentation == CardPresentation::Active) {
         return cardId == m_cardLine.selectedId() ? 0 : 99;
     }
@@ -193,6 +205,16 @@ bool CardStageController::animationsRunning() const
         || (m_cardStackInsertionTimer.isValid()
             && m_cardStackInsertionTimer.elapsed()
                 < CardStackTransitionDuration);
+}
+
+bool CardStageController::launcherGuestActive() const
+{
+    return m_launcherGuestActive;
+}
+
+double CardStageController::launcherGuestOffset() const
+{
+    return m_launcherGuestOffset;
 }
 
 KWin::Rect CardStageController::cardTargetForSlot(
@@ -685,6 +707,7 @@ void CardStageController::release()
         return;
     }
     finishCardGrab(false);
+    endLauncherGuest();
     if (m_presentation == CardPresentation::Active) {
         restoreActiveSnapshot();
     }
@@ -729,6 +752,72 @@ void CardStageController::pageHorizontal(int delta)
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce horizontal navigation selected"
             << m_cardLine.selectedId() << "of" << m_cardLine.count();
+}
+
+bool CardStageController::beginLauncherGuest()
+{
+    if (!m_active || m_presentation != CardPresentation::CardLine
+        || m_liveCards.isEmpty() || m_cardGrabActive) {
+        return false;
+    }
+    m_launcherGuestOffset = 0.0;
+    m_launcherGuestPendingPage = 0;
+    m_launcherGuestActive = true;
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+void CardStageController::updateLauncherGuest(double horizontalDelta)
+{
+    if (!m_launcherGuestActive) {
+        return;
+    }
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) {
+        return;
+    }
+    const KWin::RectF work = KWin::effects->clientArea(
+        KWin::MaximizeArea, tablet);
+    const CardLineLayout layout = makeCardLineLayout(
+        work.x(), work.y(), work.width(), work.height());
+    const double pitch = layout.cards[1].width + layout.gutter;
+    m_launcherGuestOffset = std::clamp(
+        horizontalDelta, -pitch, pitch);
+    KWin::effects->addRepaintFull();
+}
+
+bool CardStageController::finishLauncherGuest(double horizontalDelta)
+{
+    if (!m_launcherGuestActive) {
+        return false;
+    }
+    if (std::abs(horizontalDelta) < LauncherGuestCommitDistance) {
+        m_launcherGuestOffset = 0.0;
+        KWin::effects->addRepaintFull();
+        return false;
+    }
+
+    m_launcherGuestOffset = horizontalDelta > 0.0
+        ? LauncherGuestCommitDistance : -LauncherGuestCommitDistance;
+    m_launcherGuestPendingPage = horizontalDelta > 0.0
+        && m_cardLine.count() > 1 ? -1 : 0;
+    return true;
+}
+
+void CardStageController::endLauncherGuest()
+{
+    if (!m_launcherGuestActive && qFuzzyIsNull(m_launcherGuestOffset)) {
+        return;
+    }
+    if (m_launcherGuestPendingPage != 0) {
+        m_cardLine.page(m_launcherGuestPendingPage);
+    }
+    m_launcherGuestPendingPage = 0;
+    m_launcherGuestActive = false;
+    m_launcherGuestOffset = 0.0;
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
 }
 
 void CardStageController::pageStack(int delta)

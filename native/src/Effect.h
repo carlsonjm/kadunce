@@ -18,6 +18,7 @@
 #include <memory>
 
 class QAction;
+class QDBusServiceWatcher;
 
 namespace Kadunce
 {
@@ -90,6 +91,11 @@ public Q_SLOTS:
     Q_SCRIPTABLE QStringList outputStageState() const;
     Q_SCRIPTABLE QString workspaceContext() const;
     Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
+    Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
+    Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
+    Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE void endLauncherGuest();
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
@@ -132,6 +138,9 @@ private:
     [[nodiscard]] int stackPreviewTargetForInput() const override;
     [[nodiscard]] bool centerCardContainsForInput(
         const QPointF &position) const override;
+    [[nodiscard]] bool launcherGuestActiveForInput() const override;
+    [[nodiscard]] bool launcherGuestContainsForInput(
+        const QPointF &position) const override;
     [[nodiscard]] bool isTabletPoint(
         const QPointF &position) const override;
     [[nodiscard]] int activeSideForPoint(
@@ -139,6 +148,7 @@ private:
     [[nodiscard]] bool selectedStackContains(
         const QPointF &position) const override;
     void toggleFromInput() override;
+    void dismissLauncherGuestFromInput() override;
     void pageLeftFromInput() override;
     void pageRightFromInput() override;
     void pageStackFromInput(int delta) override;
@@ -206,6 +216,8 @@ private:
     int m_fanApertureOriginLocation = -1;
     int m_fanApertureSizeLocation = -1;
     int m_fanApertureRadiusLocation = -1;
+    QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
+    QString m_launcherGuestOwner;
 };
 
 } // namespace Kadunce

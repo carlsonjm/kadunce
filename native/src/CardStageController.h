@@ -74,6 +74,8 @@ public:
     [[nodiscard]] double stackInsertionBlend() const;
     [[nodiscard]] double stackPreviewBlend() const;
     [[nodiscard]] bool animationsRunning() const;
+    [[nodiscard]] bool launcherGuestActive() const;
+    [[nodiscard]] double launcherGuestOffset() const;
 
     [[nodiscard]] KWin::Rect cardTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
@@ -86,6 +88,10 @@ public:
     void release();
     void pageHorizontal(int delta);
     void pageStack(int delta);
+    [[nodiscard]] bool beginLauncherGuest();
+    void updateLauncherGuest(double horizontalDelta);
+    [[nodiscard]] bool finishLauncherGuest(double horizontalDelta);
+    void endLauncherGuest();
 
     void beginCardGrab();
     void updateCardGrab(double horizontalDelta);
@@ -142,6 +148,9 @@ private:
     bool m_cardGrabMoved = false;
     bool m_cardStackPreviewArmed = false;
     bool m_cardGrabActive = false;
+    double m_launcherGuestOffset = 0.0;
+    int m_launcherGuestPendingPage = 0;
+    bool m_launcherGuestActive = false;
     bool m_active = false;
 };
 

@@ -96,6 +96,13 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 {
+    if (m_launcherGuestPointerPassthrough) {
+        return false;
+    }
+    if (m_target->launcherGuestActiveForInput()
+        && m_target->launcherGuestContainsForInput(event->position)) {
+        return false;
+    }
     // A lifted card keeps this one pointer transaction after it crosses the
     // tablet boundary. Ordinary monitor input remains untouched.
     if (m_pointerPressed
@@ -147,6 +154,20 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    if (m_launcherGuestPointerPassthrough) {
+        if (event->state == KWin::PointerButtonState::Released) {
+            m_launcherGuestPointerPassthrough = false;
+        }
+        return false;
+    }
+    if (m_target->launcherGuestActiveForInput()
+        && event->state == KWin::PointerButtonState::Pressed) {
+        if (m_target->launcherGuestContainsForInput(event->position)) {
+            m_launcherGuestPointerPassthrough = true;
+            return false;
+        }
+        m_target->dismissLauncherGuestFromInput();
+    }
     const bool finishingCrossOutputGrab = m_pointerPressed
         && m_holdSource == HoldSource::Pointer
         && m_target->cardGrabActiveForInput()
@@ -219,6 +240,10 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 
 bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 {
+    if (m_target->launcherGuestActiveForInput()
+        && m_target->launcherGuestContainsForInput(event->position)) {
+        return false;
+    }
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
     if (!m_target->isTabletPoint(event->position)
@@ -250,6 +275,13 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
     if (!m_target->isTabletPoint(event->pos)) {
         return false;
     }
+    if (m_target->launcherGuestActiveForInput()) {
+        if (m_target->launcherGuestContainsForInput(event->pos)) {
+            m_launcherGuestTouchIds.insert(event->id);
+            return false;
+        }
+        m_target->dismissLauncherGuestFromInput();
+    }
     const TouchMode mode = touchModeAt(event->pos);
     if (mode == TouchMode::None) {
         return false;
@@ -270,6 +302,9 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    if (m_launcherGuestTouchIds.contains(event->id)) {
+        return false;
+    }
     if (!m_ownedTouchIds.contains(event->id)) {
         return false;
     }
@@ -293,6 +328,9 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
+    if (m_launcherGuestTouchIds.remove(event->id)) {
+        return false;
+    }
     if (!m_ownedTouchIds.remove(event->id)) {
         return false;
     }
@@ -317,6 +355,7 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 bool WorkspaceInputRouter::touchCancel()
 {
     const bool owned = m_touchId >= 0;
+    m_launcherGuestTouchIds.clear();
     if (m_holdSource == HoldSource::Touch
         && m_target->cardGrabActiveForInput()) {
         stopEdgePaging();
