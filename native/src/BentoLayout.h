@@ -1,0 +1,56 @@
+/*
+    SPDX-FileCopyrightText: 2026 Warbler Studio contributors
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#pragma once
+
+#include <vector>
+
+namespace Kadunce
+{
+
+struct BentoRect
+{
+    double x = 0.0;
+    double y = 0.0;
+    double width = 0.0;
+    double height = 0.0;
+};
+
+struct BentoPixelRect
+{
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+};
+
+struct BentoCandidate
+{
+    double minimumWidth = 0.0;
+    double minimumHeight = 0.0;
+    double width = 1.0;
+    double height = 1.0;
+    bool preferred = false;
+};
+
+struct BentoAdmission
+{
+    std::vector<int> candidateIndices;
+    std::vector<BentoRect> rects;
+};
+
+[[nodiscard]] std::vector<BentoRect> makeBentoLayout(
+    int count, bool landscape);
+[[nodiscard]] std::vector<BentoRect> makeAlternateTwoPaneBentoLayout(
+    bool landscape);
+[[nodiscard]] std::vector<BentoPixelRect> makePixelBentoLayout(
+    const std::vector<BentoRect> &rects,
+    int areaX, int areaY, int areaWidth, int areaHeight,
+    int gap = 14);
+[[nodiscard]] BentoAdmission chooseBentoAdmission(
+    const std::vector<BentoCandidate> &candidates,
+    int areaWidth, int areaHeight, int maximumVisible = 8);
+
+} // namespace Kadunce

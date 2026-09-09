@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kadunce Control
+Comment=Controls the Kadunce workspace effect
+Exec=kadunce-control
+Icon=preferences-system-windows
+Terminal=false
+NoDisplay=true
+Categories=System;Settings;
+X-KDE-StartupNotify=false
