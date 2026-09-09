@@ -120,3 +120,9 @@ service is not used for lease ownership or completion.
 For direct neighbor navigation it calls `completeGuestNavigation(slot)` on the
 same owner. Slot `-1` selects the visible left neighbor and slot `1` selects the
 visible right neighbor.
+
+The arriving card uses a 220-millisecond settle without changing any final
+geometry. Drag motion previews only the first eighteen percent of its travel;
+the shoulder lifts sixteen pixels and leans by less than one degree, then falls
+flat into Kadunce's canonical center rectangle while Tettegouche clears it. The
+opposite neighbor remains fixed throughout.

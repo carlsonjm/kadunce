@@ -72,6 +72,12 @@ rg -q 'launcherGuestTargetForSlot' "${effect_cpp}" "${card_cpp}" "${card_header}
 rg -q 'work\.width\(\) \* 0\.03' "${card_cpp}"
 rg -q 'm_launcherGuestLaunchPending' "${effect_cpp}" "${effect_header}"
 rg -q 'QStringLiteral\("completeGuestLaunch"\)' "${effect_cpp}"
+rg -q 'launcherGuestTransitionProgress' "${effect_cpp}" "${card_cpp}" \
+    "${card_header}"
+rg -q 'LauncherGuestTransitionDuration = 220' "${card_cpp}"
+rg -q 'LauncherGuestDragPreview = 0\.18' "${card_cpp}"
+rg -q -- '-16\.0 \* liftBlend' "${effect_cpp}"
+rg -q 'slot < 0 \? -0\.8 : 0\.8' "${effect_cpp}"
 rg -q 'm_cardStage->endLauncherGuest' "${effect_cpp}"
 rg -q 'launcherGuestContainsForInput' "${router_cpp}" "${router_header}"
 rg -q 'navigateLauncherGuestFromInput' "${router_cpp}" "${router_header}" \

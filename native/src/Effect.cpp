@@ -1388,20 +1388,35 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
 
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
     KWin::Rect target = cardTargetForSlot(tablet, slot);
+    double launcherGuestRotation = 0.0;
     if (m_cardStage->launcherGuestActive()) {
-        const KWin::Rect guestCenter =
-            m_cardStage->launcherGuestTarget(tablet);
         target = m_cardStage->launcherGuestTargetForSlot(tablet, slot);
         const double offset = m_cardStage->launcherGuestOffset();
-        const double progress = QEasingCurve(QEasingCurve::OutCubic)
-            .valueForProgress(std::clamp(
-                std::abs(offset) / LauncherGuestCommitDistance,
-                0.0, 1.0));
-        const KWin::Rect center = guestCenter;
-        if ((offset < 0.0 && slot == 1)
-            || (offset > 0.0 && slot == -1)) {
-            target.moveLeft(qRound(
-                target.x() + (center.x() - target.x()) * progress));
+        const double progress =
+            m_cardStage->launcherGuestTransitionProgress();
+        const bool incoming = (offset < 0.0 && slot == 1)
+            || (offset > 0.0 && slot == -1);
+        if (incoming) {
+            const KWin::Rect center = cardTargetForSlot(tablet, 0);
+            const auto blend = [progress](int from, int to) {
+                return qRound(from + (to - from) * progress);
+            };
+            target = KWin::Rect(blend(target.x(), center.x()),
+                                blend(target.y(), center.y()),
+                                blend(target.width(), center.width()),
+                                blend(target.height(), center.height()));
+
+            // Anticipate the handoff without changing either endpoint: the
+            // incoming shoulder rises and leans during the user's drag, then
+            // settles flat as it falls into the canonical center rectangle.
+            constexpr double PreviewLimit = 0.18;
+            const double settleSpan = 1.0 - PreviewLimit;
+            const double liftBlend = progress <= PreviewLimit
+                ? progress / PreviewLimit
+                : (1.0 - progress) / settleSpan;
+            target.translate(0, qRound(-16.0 * liftBlend));
+            launcherGuestRotation = (slot < 0 ? -0.8 : 0.8)
+                * liftBlend;
         }
     }
     const CardLineModel &cardLine = m_cardStage->model();
@@ -1497,6 +1512,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target.translate(qRound(pose.x), qRound(pose.y));
         paintPose = pose;
     }
+    paintPose.rotation += launcherGuestRotation;
     if (!paintPose.visible) {
         return;
     }

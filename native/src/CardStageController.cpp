@@ -27,6 +27,8 @@ namespace
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr int CardStackTransitionDuration = 350;
 constexpr double LauncherGuestCommitDistance = 58.0;
+constexpr int LauncherGuestTransitionDuration = 220;
+constexpr double LauncherGuestDragPreview = 0.18;
 }
 
 CardStageController::CardStageController(CardStageHost *host)
@@ -204,7 +206,10 @@ bool CardStageController::animationsRunning() const
                 < CardStackTransitionDuration)
         || (m_cardStackInsertionTimer.isValid()
             && m_cardStackInsertionTimer.elapsed()
-                < CardStackTransitionDuration);
+                < CardStackTransitionDuration)
+        || (m_launcherGuestTransitionTimer.isValid()
+            && m_launcherGuestTransitionTimer.elapsed()
+                < LauncherGuestTransitionDuration);
 }
 
 bool CardStageController::launcherGuestActive() const
@@ -215,6 +220,24 @@ bool CardStageController::launcherGuestActive() const
 double CardStageController::launcherGuestOffset() const
 {
     return m_launcherGuestOffset;
+}
+
+double CardStageController::launcherGuestTransitionProgress() const
+{
+    const double dragProgress = std::clamp(
+        std::abs(m_launcherGuestOffset) / LauncherGuestCommitDistance,
+        0.0, 1.0) * LauncherGuestDragPreview;
+    if (!m_launcherGuestTransitionTimer.isValid()) {
+        return dragProgress;
+    }
+    const double elapsed = std::clamp(
+        static_cast<double>(m_launcherGuestTransitionTimer.elapsed())
+            / LauncherGuestTransitionDuration,
+        0.0, 1.0);
+    const double eased = QEasingCurve(QEasingCurve::OutCubic)
+        .valueForProgress(elapsed);
+    return m_launcherGuestTransitionFrom
+        + (1.0 - m_launcherGuestTransitionFrom) * eased;
 }
 
 KWin::Rect CardStageController::cardTargetForSlot(
@@ -790,6 +813,8 @@ bool CardStageController::beginLauncherGuest()
         return false;
     }
     m_launcherGuestOffset = 0.0;
+    m_launcherGuestTransitionFrom = 0.0;
+    m_launcherGuestTransitionTimer.invalidate();
     m_launcherGuestPendingPage = 0;
     m_launcherGuestActive = true;
     syncSelectedElevation();
@@ -823,14 +848,22 @@ bool CardStageController::finishLauncherGuest(double horizontalDelta)
     }
     if (std::abs(horizontalDelta) < LauncherGuestCommitDistance) {
         m_launcherGuestOffset = 0.0;
+        m_launcherGuestTransitionFrom = 0.0;
+        m_launcherGuestTransitionTimer.invalidate();
         KWin::effects->addRepaintFull();
         return false;
     }
 
+    const double previewFrom = std::clamp(
+        std::abs(m_launcherGuestOffset) / LauncherGuestCommitDistance,
+        0.0, 1.0) * LauncherGuestDragPreview;
     m_launcherGuestOffset = horizontalDelta > 0.0
         ? LauncherGuestCommitDistance : -LauncherGuestCommitDistance;
+    m_launcherGuestTransitionFrom = previewFrom;
+    m_launcherGuestTransitionTimer.restart();
     m_launcherGuestPendingPage = horizontalDelta > 0.0
         && m_cardLine.count() > 1 ? -1 : 0;
+    KWin::effects->addRepaintFull();
     return true;
 }
 
@@ -845,6 +878,8 @@ void CardStageController::endLauncherGuest()
     m_launcherGuestPendingPage = 0;
     m_launcherGuestActive = false;
     m_launcherGuestOffset = 0.0;
+    m_launcherGuestTransitionFrom = 0.0;
+    m_launcherGuestTransitionTimer.invalidate();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
 }

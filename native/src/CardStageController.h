@@ -76,6 +76,7 @@ public:
     [[nodiscard]] bool animationsRunning() const;
     [[nodiscard]] bool launcherGuestActive() const;
     [[nodiscard]] double launcherGuestOffset() const;
+    [[nodiscard]] double launcherGuestTransitionProgress() const;
 
     [[nodiscard]] KWin::Rect cardTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
@@ -153,6 +154,8 @@ private:
     bool m_cardStackPreviewArmed = false;
     bool m_cardGrabActive = false;
     double m_launcherGuestOffset = 0.0;
+    double m_launcherGuestTransitionFrom = 0.0;
+    QElapsedTimer m_launcherGuestTransitionTimer;
     int m_launcherGuestPendingPage = 0;
     bool m_launcherGuestActive = false;
     bool m_active = false;
