@@ -567,8 +567,10 @@ bool Effect::launcherGuestActiveForInput() const
 
 bool Effect::launcherGuestContainsForInput(const QPointF &position) const
 {
-    return m_cardStage->launcherGuestActive()
-        && centerCardContainsForInput(position);
+    KWin::LogicalOutput *tablet = tabletOutput();
+    return m_cardStage->launcherGuestActive() && tablet
+        && m_cardStage->launcherGuestTarget(tablet)
+               .contains(position.toPoint());
 }
 
 void Effect::toggleFromInput()
@@ -827,7 +829,7 @@ bool Effect::activateApplicationWindow(const QString &windowId)
 
 int Effect::launcherGuestProtocolVersion() const
 {
-    return 1;
+    return 2;
 }
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
@@ -868,7 +870,7 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
 
     reply.insert(QStringLiteral("accepted"), true);
     reply.insert(QStringLiteral("card"),
-                 geometryContext(cardTargetForSlot(tablet, 0)));
+                 geometryContext(m_cardStage->launcherGuestTarget(tablet)));
     reply.insert(QStringLiteral("active"),
                  geometryContext(activeTarget(tablet)));
     reply.insert(QStringLiteral("output"), tablet->name());
@@ -895,8 +897,24 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
     return committed;
 }
 
+bool Effect::prepareLauncherGuestLaunch()
+{
+    if (!m_cardStage->launcherGuestActive()
+        || m_launcherGuestOwner.isEmpty()) {
+        return false;
+    }
+    m_launcherGuestLaunchPending = true;
+    return true;
+}
+
+void Effect::cancelLauncherGuestLaunch()
+{
+    m_launcherGuestLaunchPending = false;
+}
+
 void Effect::endLauncherGuest()
 {
+    m_launcherGuestLaunchPending = false;
     m_cardStage->endLauncherGuest();
     m_launcherGuestOwner.clear();
     if (m_launcherGuestWatcher) {
@@ -1180,6 +1198,25 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
     if (m_cardStage->launcherGuestActive()
         && isApplicationWindow(window)) {
+        if (m_launcherGuestLaunchPending) {
+            m_launcherGuestLaunchPending = false;
+            const QPointer<KWin::EffectWindow> launched(window);
+            if (!m_launcherGuestOwner.isEmpty()) {
+                QDBusMessage ready = QDBusMessage::createMethodCall(
+                    m_launcherGuestOwner,
+                    QStringLiteral("/Launcher"),
+                    QStringLiteral("io.github.carlsonjm.Tettegouche"),
+                    QStringLiteral("completeGuestLaunch"));
+                QDBusConnection::sessionBus().asyncCall(ready);
+            }
+            QTimer::singleShot(220, this, [this, launched]() {
+                endLauncherGuest();
+                if (launched && !launched->isDeleted()) {
+                    m_cardStage->handleWindowActivated(launched);
+                }
+            });
+            return;
+        }
         dismissLauncherGuestFromInput();
     }
     m_cardStage->handleWindowActivated(window);
@@ -1319,12 +1356,15 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
     KWin::Rect target = cardTargetForSlot(tablet, slot);
     if (m_cardStage->launcherGuestActive()) {
+        const KWin::Rect guestCenter =
+            m_cardStage->launcherGuestTarget(tablet);
+        target = m_cardStage->launcherGuestTargetForSlot(tablet, slot);
         const double offset = m_cardStage->launcherGuestOffset();
         const double progress = QEasingCurve(QEasingCurve::OutCubic)
             .valueForProgress(std::clamp(
                 std::abs(offset) / LauncherGuestCommitDistance,
                 0.0, 1.0));
-        const KWin::Rect center = cardTargetForSlot(tablet, 0);
+        const KWin::Rect center = guestCenter;
         if ((offset < 0.0 && slot == 1)
             || (offset > 0.0 && slot == -1)) {
             target.moveLeft(qRound(

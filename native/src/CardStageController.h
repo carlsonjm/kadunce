@@ -79,6 +79,10 @@ public:
 
     [[nodiscard]] KWin::Rect cardTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
+    [[nodiscard]] KWin::Rect launcherGuestTarget(
+        KWin::LogicalOutput *output) const;
+    [[nodiscard]] KWin::Rect launcherGuestTargetForSlot(
+        KWin::LogicalOutput *output, int slot) const;
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;

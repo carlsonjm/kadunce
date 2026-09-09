@@ -256,6 +256,35 @@ KWin::Rect CardStageController::cardTargetForSlot(
                       qRound(target.width), qRound(target.height));
 }
 
+KWin::Rect CardStageController::launcherGuestTarget(
+    KWin::LogicalOutput *output) const
+{
+    return launcherGuestTargetForSlot(output, 0);
+}
+
+KWin::Rect CardStageController::launcherGuestTargetForSlot(
+    KWin::LogicalOutput *output, int slot) const
+{
+    if (!output) {
+        return {};
+    }
+    const KWin::RectF work = KWin::effects->clientArea(
+        KWin::MaximizeArea, output);
+    const CardLineLayout layout = makeCardLineLayout(
+        work.x(), work.y(), work.width(), work.height());
+    const int horizontalInset = qRound(work.width() * 0.03);
+    if (slot == 0) {
+        const CardRect center = layout.cards[1];
+        return KWin::Rect(qRound(center.x) + horizontalInset,
+                          qRound(center.y),
+                          qRound(center.width) - horizontalInset * 2,
+                          qRound(center.height));
+    }
+    KWin::Rect target = cardTargetForSlot(output, slot);
+    target.translate(slot < 0 ? horizontalInset : -horizontalInset, 0);
+    return target;
+}
+
 KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 {
     const KWin::RectF work = KWin::effects->clientArea(

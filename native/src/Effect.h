@@ -95,6 +95,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
     Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE bool prepareLauncherGuestLaunch();
+    Q_SCRIPTABLE void cancelLauncherGuestLaunch();
     Q_SCRIPTABLE void endLauncherGuest();
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
@@ -218,6 +220,7 @@ private:
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
     QString m_launcherGuestOwner;
+    bool m_launcherGuestLaunchPending = false;
 };
 
 } // namespace Kadunce

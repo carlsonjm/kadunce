@@ -72,10 +72,10 @@ an open result from the snapshot and activate that exact window through the
 separate command above; unmatched results still use Plasma's normal application
 launch action.
 
-## Launcher guest protocol 1
+## Launcher guest protocol 2
 
 Tettegouche must first call `launcherGuestProtocolVersion`. It may request guest
-mode only when the result is exactly `1`; a missing or different result means it
+mode only when the result is exactly `2`; a missing or different result means it
 must retain its standalone surface. This prevents an older Kadunce build from
 receiving a guest it cannot present.
 
@@ -84,17 +84,32 @@ launcherGuestProtocolVersion() -> integer
 beginLauncherGuest(uniqueOwner) -> compact JSON reply
 updateLauncherGuest(horizontalDelta)
 finishLauncherGuest(horizontalDelta) -> committed boolean
+prepareLauncherGuestLaunch() -> accepted boolean
+cancelLauncherGuestLaunch()
 endLauncherGuest()
 ```
 
-An accepted begin reply contains `protocol: 1`, `accepted: true`, the target
-`output`, and `card` and `active` geometries. Kadunce reserves the center but
-does not insert the launcher into `CardLineModel`; real cards remain its sole
-mutable model state. Tettegouche owns and renders the interactive center card,
-while Kadunce mirrors its horizontal drag onto the adjacent real cards.
+An accepted begin reply contains `protocol: 2`, `accepted: true`, the target
+`output`, and `card` and `active` geometries. Kadunce reserves a centered guest
+footprint that is six percent of the work area narrower than a normal card, and
+moves both real neighbors inward by the matching three-percent inset. It does
+not insert the launcher into `CardLineModel`; real cards remain its sole mutable
+model state. Tettegouche owns and renders the interactive center card, while
+Kadunce mirrors its horizontal drag onto the adjacent real cards.
 
 Kadunce watches the launcher's unique session-bus owner and restores Card Line
 if that process disappears. A committed handoff selects the incoming real card,
 and input directed at another application dismisses the guest before normal
 Card Line interaction continues. Any rejected begin request leaves both
 applications in their existing standalone behavior.
+
+Before launching an application that does not yet have a live window,
+Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
+while the application loads. The first activated application completes the
+handoff: Kadunce asks Tettegouche to animate out, then promotes the arriving
+window to Active. Tettegouche cancels the pending state after its bounded
+timeout if no application window appears.
+
+Kadunce completes that transition by calling `completeGuestLaunch()` on the
+unique `/Launcher` owner supplied at begin time. The well-known Tettegouche
+service is not used for lease ownership or completion.
