@@ -591,6 +591,39 @@ void Effect::dismissLauncherGuestFromInput()
     endLauncherGuest();
 }
 
+void Effect::navigateLauncherGuestFromInput(const QPointF &position)
+{
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (!tablet || !m_cardStage->launcherGuestActive()) {
+        return;
+    }
+    const KWin::Rect left =
+        m_cardStage->launcherGuestTargetForSlot(tablet, -1);
+    const KWin::Rect right =
+        m_cardStage->launcherGuestTargetForSlot(tablet, 1);
+    const int slot = left.contains(position.toPoint()) ? -1
+        : (right.contains(position.toPoint()) ? 1 : 0);
+    if (slot == 0) {
+        dismissLauncherGuestFromInput();
+        return;
+    }
+
+    if (!m_launcherGuestOwner.isEmpty()) {
+        QDBusMessage navigate = QDBusMessage::createMethodCall(
+            m_launcherGuestOwner,
+            QStringLiteral("/Launcher"),
+            QStringLiteral("io.github.carlsonjm.Tettegouche"),
+            QStringLiteral("completeGuestNavigation"));
+        navigate.setArguments({slot});
+        QDBusConnection::sessionBus().asyncCall(navigate);
+    }
+    // Moving the guest right reveals the left neighbor; moving it left reveals
+    // the right neighbor. CardStage applies the matching selection only when
+    // the transition completes.
+    finishLauncherGuest(slot < 0
+        ? LauncherGuestCommitDistance : -LauncherGuestCommitDistance);
+}
+
 void Effect::pageLeftFromInput()
 {
     pageLeft();
@@ -1369,10 +1402,6 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             || (offset > 0.0 && slot == -1)) {
             target.moveLeft(qRound(
                 target.x() + (center.x() - target.x()) * progress));
-        } else {
-            const double retreat = tablet->geometry().width() * 0.035;
-            target.translate(qRound((slot < 0 ? -1.0 : 1.0)
-                                    * retreat * progress), 0);
         }
     }
     const CardLineModel &cardLine = m_cardStage->model();

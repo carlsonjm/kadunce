@@ -74,7 +74,10 @@ rg -q 'm_launcherGuestLaunchPending' "${effect_cpp}" "${effect_header}"
 rg -q 'QStringLiteral\("completeGuestLaunch"\)' "${effect_cpp}"
 rg -q 'm_cardStage->endLauncherGuest' "${effect_cpp}"
 rg -q 'launcherGuestContainsForInput' "${router_cpp}" "${router_header}"
+rg -q 'navigateLauncherGuestFromInput' "${router_cpp}" "${router_header}" \
+    "${effect_cpp}" "${effect_header}"
 rg -q 'm_launcherGuestTouchIds' "${router_cpp}" "${router_header}"
+rg -q 'm_launcherGuestNavigationTouchIds' "${router_cpp}" "${router_header}"
 if rg -q 'appendCard.*launcher|launcher.*appendCard' "${effect_cpp}" "${card_cpp}"; then
     echo "A launcher guest must never enter the persistent card model" >&2
     exit 1

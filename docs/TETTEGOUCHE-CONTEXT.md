@@ -99,9 +99,12 @@ Kadunce mirrors its horizontal drag onto the adjacent real cards.
 
 Kadunce watches the launcher's unique session-bus owner and restores Card Line
 if that process disappears. A committed handoff selects the incoming real card,
-and input directed at another application dismisses the guest before normal
-Card Line interaction continues. Any rejected begin request leaves both
-applications in their existing standalone behavior.
+and a press on either visible neighbor is consumed as Card Line navigation:
+Kadunce asks Tettegouche to animate toward the opposite edge, moves that
+neighbor into center, and remains in Card Line. The original press and release
+never reach the underlying application, so they cannot accidentally promote it
+to Active. Any rejected begin request leaves both applications in their
+existing standalone behavior.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
@@ -113,3 +116,7 @@ timeout if no application window appears.
 Kadunce completes that transition by calling `completeGuestLaunch()` on the
 unique `/Launcher` owner supplied at begin time. The well-known Tettegouche
 service is not used for lease ownership or completion.
+
+For direct neighbor navigation it calls `completeGuestNavigation(slot)` on the
+same owner. Slot `-1` selects the visible left neighbor and slot `1` selects the
+visible right neighbor.

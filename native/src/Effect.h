@@ -151,6 +151,8 @@ private:
         const QPointF &position) const override;
     void toggleFromInput() override;
     void dismissLauncherGuestFromInput() override;
+    void navigateLauncherGuestFromInput(
+        const QPointF &position) override;
     void pageLeftFromInput() override;
     void pageRightFromInput() override;
     void pageStackFromInput(int delta) override;

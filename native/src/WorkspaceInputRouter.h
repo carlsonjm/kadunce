@@ -59,6 +59,8 @@ public:
 
     virtual void toggleFromInput() = 0;
     virtual void dismissLauncherGuestFromInput() = 0;
+    virtual void navigateLauncherGuestFromInput(
+        const QPointF &position) = 0;
     virtual void pageLeftFromInput() = 0;
     virtual void pageRightFromInput() = 0;
     virtual void pageStackFromInput(int delta) = 0;
@@ -131,6 +133,7 @@ private:
     QPointF m_touchCurrent;
     QSet<qint32> m_ownedTouchIds;
     QSet<qint32> m_launcherGuestTouchIds;
+    QSet<qint32> m_launcherGuestNavigationTouchIds;
     QTimer m_holdTimer;
     QTimer m_edgePageTimer;
     QTimer m_stackTargetTimer;
@@ -139,6 +142,7 @@ private:
     bool m_pointerPressed = false;
     bool m_pointerPassthrough = false;
     bool m_launcherGuestPointerPassthrough = false;
+    bool m_launcherGuestNavigationPointer = false;
     bool m_touchCommitted = false;
     int m_pointerActiveSide = 0;
     int m_edgePageDirection = 0;
