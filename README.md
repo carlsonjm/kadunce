@@ -1,8 +1,8 @@
 # Kadunce
 
-Kadunce is a touch-first card workspace for KDE Plasma by Warbler Studio.
-It presents real desktop applications as cards while leaving window lifecycle,
-focus, outputs, and recovery under KWin's authority.
+Kadunce is a touch-first card workspace for KDE Plasma. It presents real
+desktop applications as cards while leaving window lifecycle, focus, outputs,
+and recovery under KWin's authority.
 
 > The tablet optimizes choosing and focusing. The desktop stage optimizes
 > seeing and composing. Neither display should imitate the other.

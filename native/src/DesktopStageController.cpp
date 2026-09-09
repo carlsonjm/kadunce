@@ -1,5 +1,5 @@
 /*
-    SPDX-FileCopyrightText: 2026 Warbler Studio contributors
+    SPDX-FileCopyrightText: 2026 Jared Carlson
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 

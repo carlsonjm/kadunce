@@ -275,13 +275,13 @@ rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
-    "aa943f7a0410053467e7691c682d1565c7f3cc80b079e621b365c926be35e9c0"
+    "8bce37048d28e7d79d03732ec774a190a46fd7f7e248aeb443a3da1cb360a461"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
-    "82c5620fdd03dd66d873c0cb3f7e0dfabe5ec197edfd2405c2009fde34a9f35a"
+    "66bb94d8c1c671672d5cc5cf839e6f5e36bf8bb85ca96df8c228ba114b828452"
 test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
-    "785169d8c4c8b8afc81a5f4af761accfef607dcc6ea5e2fc0317fec551a93199"
+    "de45d07717b0185013a22ecc6cc29878aa24c00feea86170751ccb907cac233e"
 test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
-    "5d31fd4d8045727e23dae08469054b4f00c0999d413a429c8ebaa32b0a474b2c"
+    "60bb357e1e3a3f5823a117176802a5176c228097e8094f662f9d01bae971a43a"
 if rg -q 'm_cardGrabDirection|finalSlot - slot|travel \* 0\.78' \
     "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Ordinary carried-card travel must not move the destination row" >&2

@@ -1,5 +1,5 @@
 /*
-    SPDX-FileCopyrightText: 2026 Warbler Studio contributors
+    SPDX-FileCopyrightText: 2026 Jared Carlson
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
@@ -295,7 +295,7 @@ int main(int argc, char **argv)
 
     QApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("kadunce-control"));
-    application.setOrganizationName(QStringLiteral("Warbler Studio"));
+    application.setOrganizationName(QStringLiteral("Jared Carlson"));
     application.setOrganizationDomain(QStringLiteral("studio.warbler"));
     application.setDesktopFileName(
         QStringLiteral("studio.warbler.Kadunce.Control"));
