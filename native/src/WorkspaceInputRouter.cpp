@@ -300,6 +300,8 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
+    m_observedTouchIds.insert(event->id);
+    if (m_observedTouchIds.size() > 1) m_bottomCandidateId = -1;
     // Preserve the native bottom-edge swipe in Active/Inactive; only the
     // overview's blanket touch capture needs a panel exclusion. Unowned IDs
     // already pass through motion/up, even after they leave the panel.
@@ -319,6 +321,17 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
         return true;
     }
     const TouchMode mode = touchModeAt(event->pos);
+    if (mode == TouchMode::BottomEdge
+        && m_target->presentationForInput() != WorkspacePresentation::CardLine
+        && m_touchId < 0) {
+        if (m_observedTouchIds.size() == 1) {
+            m_bottomCandidateId = event->id;
+            m_bottomCandidateStart = event->pos;
+        }
+        // A bottom-edge contact is not yet a gesture. Let the client receive
+        // taps and small movements; claim only a deliberate single-finger swipe.
+        return false;
+    }
     if (mode == TouchMode::None) {
         return false;
     }
@@ -338,6 +351,29 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    if (event->id == m_bottomCandidateId) {
+        const QPointF delta = event->pos - m_bottomCandidateStart;
+        if (delta.y() > 40.0 || (std::abs(delta.x()) > 40.0
+            && std::abs(delta.x()) > std::abs(delta.y()) * 1.2)) {
+            m_bottomCandidateId = -1;
+            return false;
+        }
+        if (m_observedTouchIds.size() == 1 && delta.y() < -40.0
+            && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
+            m_bottomCandidateId = -1;
+            if (!m_target->cancelForwardedTouchForInput()) return false;
+            m_touchId = event->id;
+            m_touchStart = m_bottomCandidateStart;
+            m_touchCurrent = event->pos;
+            m_touchMode = TouchMode::BottomEdge;
+            m_touchCommitted = true;
+            m_ownedTouchIds.insert(event->id);
+            if (m_target->presentationForInput() != WorkspacePresentation::CardLine)
+                m_target->toggleFromInput();
+            return true;
+        }
+        return false;
+    }
     if (m_launcherGuestNavigationTouchIds.contains(event->id)) {
         return true;
     }
@@ -367,6 +403,8 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
+    m_observedTouchIds.remove(event->id);
+    if (m_bottomCandidateId == event->id) m_bottomCandidateId = -1;
     if (m_launcherGuestNavigationTouchIds.remove(event->id)) {
         return true;
     }
@@ -396,6 +434,8 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 
 bool WorkspaceInputRouter::touchCancel()
 {
+    m_observedTouchIds.clear();
+    m_bottomCandidateId = -1;
     const bool owned = m_touchId >= 0;
     m_launcherGuestTouchIds.clear();
     m_launcherGuestNavigationTouchIds.clear();

@@ -8,8 +8,13 @@
 using namespace Kadunce;
 struct Target final : WorkspaceInputTarget {
     bool guest = false;
+    WorkspacePresentation presentation = WorkspacePresentation::CardLine;
+    int cancellations = 0;
+    bool canCancel = true;
     int actions = 0;
-    WorkspacePresentation presentationForInput() const override { return WorkspacePresentation::CardLine; }
+    int toggles = 0;
+    WorkspacePresentation presentationForInput() const override { return presentation; }
+    bool cancelForwardedTouchForInput() override { ++cancellations; return canCancel; }
     WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799}; }
     bool cardGrabActiveForInput() const override { return false; }
     bool stackPreviewArmedForInput() const override { return false; }
@@ -22,7 +27,7 @@ struct Target final : WorkspaceInputTarget {
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     int cardStackCandidate() const override { return 0; }
-    void toggleFromInput() override { ++actions; }
+    void toggleFromInput() override { ++actions; ++toggles; }
     void dismissLauncherGuestFromInput() override { ++actions; }
     void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; }
     void pageLeftFromInput() override { ++actions; }
@@ -44,6 +49,43 @@ void require(bool value, const char *message) {
 }
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
+    for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Inactive}) {
+        Target target; target.presentation = presentation;
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent down{10,{500,770},{}};
+        KWin::TouchMotionEvent move{10,{502,762},{}};
+        KWin::TouchUpEvent up{10,{}};
+        require(!router.touchDown(&down) && !router.touchMotion(&move)
+                    && !router.touchUp(&up), "Bottom tap did not reach the panel");
+        require(target.actions == 0 && target.cancellations == 0, "Tap triggered or canceled a gesture");
+        require(!router.touchDown(&down), "Swipe's initial contact was stolen");
+        move.pos = {501,720};
+        require(router.touchMotion(&move) && target.toggles == 1 && target.cancellations == 1,
+                "Deliberate upward swipe failed to cancel client delivery before takeover");
+        require(router.touchMotion(&move) && router.touchUp(&up) && target.toggles == 1,
+                "Claimed swipe leaked release or triggered twice");
+        require(!router.touchDown(&down), "Multitouch first contact stolen");
+        KWin::TouchDownEvent second{11,{520,772},{}};
+        KWin::TouchUpEvent secondUp{11,{}};
+        require(!router.touchDown(&second) && !router.touchMotion(&move)
+                    && !router.touchUp(&secondUp) && !router.touchUp(&up),
+                "Multiple client touches were stolen by bottom-edge candidate");
+        require(target.cancellations == 1, "Multitouch canceled the client sequence");
+        require(!router.touchDown(&down), "Horizontal gesture contact stolen");
+        move.pos = {560,770};
+        require(!router.touchMotion(&move), "Horizontal panel drag stolen");
+        move.pos = {501,720};
+        require(!router.touchMotion(&move) && !router.touchUp(&up),
+                "Disqualified horizontal drag became an upward swipe");
+        require(target.cancellations == 1, "Disqualified drag canceled client delivery");
+        target.canCancel = false;
+        require(!router.touchDown(&down) && !router.touchMotion(&move) && !router.touchUp(&up),
+                "Failed client cancellation still stole touch ownership");
+        require(target.toggles == 1, "Failed client cancellation still opened Card Line");
+        require(!router.touchDown(&down), "Cancel test contact stolen");
+        router.touchCancel();
+        require(!router.touchMotion(&move) && !router.touchUp(&up), "Canceled candidate remained armed");
+    }
     for (bool guest : {false, true}) {
         Target target;
         target.guest = guest;

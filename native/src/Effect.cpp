@@ -17,6 +17,8 @@
 #include <opengl/glutils.h>
 #include <window.h>
 #include <workspace.h>
+#include <wayland_server.h>
+#include <wayland/seat.h>
 
 #include <KGlobalAccel>
 
@@ -727,6 +729,16 @@ void Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window)
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     m_desktopStage->handleScreenRemoved(output);
+}
+
+bool Effect::cancelForwardedTouchForInput()
+{
+    auto *server = KWin::waylandServer();
+    if (!server || !server->seat() || !server->seat()->isTouchSequence()) return false;
+    // Cancel only the client delivery, not the physical input stream that
+    // our router now owns until release. This prevents a swipe becoming a tap.
+    server->seat()->notifyTouchCancel();
+    return true;
 }
 
 bool Effect::isPanelPoint(const QPointF &position) const

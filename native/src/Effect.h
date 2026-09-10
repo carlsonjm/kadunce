@@ -150,6 +150,7 @@ private:
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] bool cancelForwardedTouchForInput() override;
     [[nodiscard]] bool isTabletPoint(
         const QPointF &position) const override;
     [[nodiscard]] int activeSideForPoint(
