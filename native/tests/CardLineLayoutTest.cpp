@@ -4,6 +4,7 @@
 */
 
 #include "CardLineLayout.h"
+#include "FocusedPairLayout.h"
 
 #include <algorithm>
 #include <cmath>
@@ -28,6 +29,59 @@ bool close(double a, double b)
 
 int main()
 {
+    for (const auto dimensions : {std::array<double, 4>{0, 0, 2560, 1500},
+                                  std::array<double, 4>{-1280, 40, 1280, 1920}}) {
+        const auto [x, y, w, h] = dimensions;
+        const auto pair = Kadunce::makeFocusedPairLayout(x, y, w, h);
+        const auto ordinary = Kadunce::makeCardLineLayout(x, y, w, h);
+        for (int neighbors : {0, 1, 2, 3}) {
+            const auto guest = Kadunce::makeLauncherGuestLayout(x, y, w, h, neighbors);
+            const double scale = neighbors <= 1 ? 0.64 : 0.54;
+            require(close(guest.cards[1].width, w * scale)
+                        && close(guest.cards[1].height, h * scale)
+                        && close(guest.cards[0].width, w * 0.54)
+                        && close(guest.cards[2].height, h * 0.54),
+                    "Launcher guest and shoulder sizes disagree with neighbor count");
+        }
+        require(pair.cards[1].width > ordinary.cards[1].width,
+                "Focused pair did not gain an intermediate size");
+        require(close(pair.cards[1].width, w * 0.64)
+                    && close(pair.cards[1].height, h * 0.64),
+                "Focused pair center did not use the accepted 64% size");
+        for (int shoulder : {0, 2}) {
+            require(close(pair.cards[shoulder].width, ordinary.cards[shoulder].width)
+                        && close(pair.cards[shoulder].height, ordinary.cards[shoulder].height)
+                        && close(pair.cards[shoulder].y, ordinary.cards[shoulder].y),
+                    "Pair shoulder changed standard three-card dimensions or vertical alignment");
+        }
+        require(close(pair.cards[1].x - pair.cards[0].right(), pair.gutter)
+                    && close(pair.cards[2].x - pair.cards[1].right(), pair.gutter),
+                "Mixed-size pair did not preserve shoulder spacing");
+        for (const auto envelope : {Kadunce::CardStackEnvelope{0, 0},
+                                     Kadunce::CardStackEnvelope{-90, 20}}) {
+            const auto reservedCenter = Kadunce::makeReservedFocusedPairTarget(pair, 0, envelope);
+            const auto reservedLeft = Kadunce::makeReservedFocusedPairTarget(pair, -1, envelope);
+            const auto reservedRight = Kadunce::makeReservedFocusedPairTarget(pair, 1, envelope);
+            require(close(reservedLeft.width, w * 0.54)
+                        && close(reservedRight.height, h * 0.54)
+                        && close(reservedCenter.width, w * 0.64),
+                    "Stack reservation replaced mixed-size pair dimensions");
+            require(close(reservedCenter.x + envelope.left - reservedLeft.right(), pair.gutter)
+                        && close(reservedRight.x - reservedCenter.right() - envelope.right, pair.gutter),
+                    "Mixed-size shoulders do not clear the selected stack envelope");
+        }
+        require(close(pair.cards[1].x + pair.cards[1].width / 2, x + w / 2)
+                    && close(pair.cards[1].y + pair.cards[1].height / 2, y + h / 2),
+                "Focused pair is not centered on its own output");
+        require(pair.cards[1].x > x && pair.cards[1].right() < x + w
+                    && pair.cards[1].y > y && pair.cards[1].bottom() < y + h,
+                "Focused pair center is not fully visible");
+        require(pair.cards[0].x < x && pair.cards[0].right() > x
+                    && pair.cards[2].x < x + w && pair.cards[2].right() > x + w,
+                "Focused pair shoulders are not exposed at both possible edges");
+        require(close(pair.cards[1].width / pair.cards[1].height, w / h),
+                "Focused pair stretches the accepted aperture aspect ratio");
+    }
     constexpr double width = 1024.0;
     constexpr double height = 640.0;
     const Kadunce::CardLineLayout layout =
@@ -255,6 +309,21 @@ int main()
                 && close(height - active.bottom(), 10.0),
             "Active target does not retain an exact 10 px gutter");
 
+    const auto edge = Kadunce::makeActiveTarget(20, 30, width, height, 0);
+    require(close(edge.x, 26) && close(edge.y, 36) && close(edge.width, width - 12)
+                && close(edge.height, height - 12), "Saved zero gutter must clamp to 6 px");
+    const auto maximum = Kadunce::makeActiveTarget(0, 0, width, height, 200);
+    require(close(maximum.x, 48) && close(maximum.width, width - 96),
+            "Oversized gutter must clamp to 48 px");
+    const auto minimum = Kadunce::makeActiveTarget(0, 0, width, height, 6);
+    require(close(minimum.x, 6), "Minimum gutter must remain 6 px");
+    const auto custom = Kadunce::makeActiveTarget(20, 30, width, height, 36);
+    require(close(custom.x, 56) && close(custom.y, 66)
+                && close(custom.width, width - 72), "Custom gutter was not applied");
+    const auto tiny = Kadunce::makeActiveTarget(0, 0, 100, 80, 200);
+    require(tiny.width > 0 && tiny.height >= 1, "Gutter produced invalid small-screen bounds");
+    const auto negative = Kadunce::makeActiveTarget(0, 0, width, height, -5);
+    require(close(negative.x, 6), "Negative gutter must clamp to 6 px");
     std::cout << "Card Line anchors and Active bounds are deterministic\n";
     return EXIT_SUCCESS;
 }

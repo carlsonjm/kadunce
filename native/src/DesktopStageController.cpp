@@ -4,6 +4,7 @@
 */
 
 #include "DesktopStageController.h"
+#include "WindowStateRestore.h"
 
 #include <core/output.h>
 #include <effect/effecthandler.h>
@@ -239,6 +240,8 @@ DesktopStageController::RestoreSnapshot DesktopStageController::makeSnapshot(
     return {
         .window = window,
         .geometry = window->frameGeometry(),
+        .floatingGeometry = client->geometryRestore(),
+        .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
         .outputName = outputKey(window->screen()),
         .quickTileMode = client->quickTileMode(),
         .maximizeMode = client->maximizeMode(),
@@ -504,28 +507,8 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         } else if (!outputRemoving && fallbackOutput) {
             client->sendToOutput(fallbackOutput);
         }
-        if (client->isFullScreen()) {
-            client->setFullScreen(false);
-        }
-        if (client->maximizeMode() != KWin::MaximizeRestore) {
-            client->maximize(KWin::MaximizeRestore);
-        }
-        if (client->quickTileMode() != KWin::QuickTileMode{}) {
-            client->setQuickTileMode(KWin::QuickTileMode{},
-                                     client->frameGeometry().center());
-        }
-        client->setMinimized(false);
-        client->moveResize(restoreGeometry);
-        if (snapshot.quickTileMode != KWin::QuickTileMode{}) {
-            client->setQuickTileMode(snapshot.quickTileMode,
-                                     restoreGeometry.center());
-        } else if (snapshot.maximizeMode != KWin::MaximizeRestore) {
-            client->maximize(snapshot.maximizeMode, restoreGeometry);
-        }
-        if (snapshot.fullScreen) {
-            client->setFullScreen(true);
-        }
-        client->setMinimized(snapshot.minimized);
+        restoreWindowState(client, snapshot, restoreGeometry,
+                           !outputRemoving, true, snapshot.minimized);
     }
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "restored output-local Bento on"

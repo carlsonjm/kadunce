@@ -310,9 +310,10 @@ CardRect makeReservedCardTarget(const CardLineLayout &layout, int slot,
 }
 
 CardRect makeActiveTarget(double workX, double workY,
-                          double workWidth, double workHeight)
+                          double workWidth, double workHeight, double requestedGutter)
 {
-    constexpr double gutter = 10.0;
+    const double limit = std::max(0.0, (std::min(workWidth, workHeight) - 1.0) / 2.0);
+    const double gutter = std::min(std::clamp(requestedGutter, 6.0, 48.0), limit);
     return CardRect{workX + gutter, workY + gutter,
                     workWidth - (2.0 * gutter),
                     workHeight - (2.0 * gutter)};

@@ -96,6 +96,9 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 {
+    if (!m_panelPointerButtons.isEmpty()
+        || (!m_pointerPressed && !m_launcherGuestNavigationPointer
+            && m_target->isPanelPoint(event->position))) return false;
     if (m_launcherGuestNavigationPointer) {
         return true;
     }
@@ -157,6 +160,19 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    // A transaction that begins on Plasma's panel stays with Plasma even
+    // when it releases over a card. Never steal an already-owned card drag.
+    if (!m_panelPointerButtons.isEmpty()
+        || (!m_pointerPressed && !m_launcherGuestNavigationPointer
+            && !m_launcherGuestPointerPassthrough && !m_pointerPassthrough
+            && event->state == KWin::PointerButtonState::Pressed
+            && m_target->isPanelPoint(event->position))) {
+        if (event->state == KWin::PointerButtonState::Pressed)
+            m_panelPointerButtons.insert(event->button);
+        else
+            m_panelPointerButtons.remove(event->button);
+        return false;
+    }
     if (m_launcherGuestNavigationPointer) {
         if (event->state == KWin::PointerButtonState::Released) {
             m_launcherGuestNavigationPointer = false;
@@ -251,6 +267,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 
 bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 {
+    if (!m_pointerPressed && m_target->isPanelPoint(event->position)) return false;
     if (m_target->launcherGuestActiveForInput()
         && m_target->launcherGuestContainsForInput(event->position)) {
         return false;
@@ -283,6 +300,12 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
+    // Preserve the native bottom-edge swipe in Active/Inactive; only the
+    // overview's blanket touch capture needs a panel exclusion. Unowned IDs
+    // already pass through motion/up, even after they leave the panel.
+    if (m_touchId < 0
+        && m_target->presentationForInput() == WorkspacePresentation::CardLine
+        && m_target->isPanelPoint(event->pos)) return false;
     if (!m_target->isTabletPoint(event->pos)) {
         return false;
     }

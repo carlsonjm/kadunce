@@ -52,6 +52,7 @@ public:
         const QPointF &position) const = 0;
 
     [[nodiscard]] virtual bool isTabletPoint(const QPointF &position) const = 0;
+    [[nodiscard]] virtual bool isPanelPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool selectedStackContains(
         const QPointF &position) const = 0;
@@ -132,6 +133,7 @@ private:
     QPointF m_touchStart;
     QPointF m_touchCurrent;
     QSet<qint32> m_ownedTouchIds;
+    QSet<Qt::MouseButton> m_panelPointerButtons;
     QSet<qint32> m_launcherGuestTouchIds;
     QSet<qint32> m_launcherGuestNavigationTouchIds;
     QTimer m_holdTimer;

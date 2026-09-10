@@ -27,7 +27,9 @@ PY
 
 rg -q 'KStatusNotifierItem::SystemServices' "${source_file}"
 rg -q 'KStatusNotifierItem::Active' "${source_file}"
-rg -q 'setIsMenu\(true\)' "${source_file}"
+rg -q 'setIsMenu\(false\)' "${source_file}"
+rg -q 'KStatusNotifierItem::activateRequested' "${source_file}"
+rg -q 'ActiveCardGutter' "${source_file}"
 rg -q 'Kadunce enabled' "${source_file}"
 rg -q 'm_toggle->setCheckable\(true\)' "${source_file}"
 rg -q 'm_toggle->setChecked\(enabled\)' "${source_file}"
@@ -39,12 +41,19 @@ rg -q 'unloadEffect' "${source_file}"
 rg -q 'loadEffect' "${source_file}"
 rg -q 'writeEffectEnabled\(true\)' "${source_file}"
 rg -q 'writeEffectEnabled\(false\)' "${source_file}"
-rg -q 'Restart=on-failure' "${service_file}"
-rg -q 'WantedBy=default\.target' "${service_file}"
+rg -q '^Restart=always$' "${service_file}"
+rg -q '^StartLimitIntervalSec=0$' "${service_file}"
+rg -q '^PartOf=graphical-session.target$' "${service_file}"
+rg -q '^WantedBy=graphical-session.target$' "${service_file}"
+rg -q 'reenable kadunce-control.service' "${project_dir}/install.sh"
+rg -q 'is-active --quiet kadunce-control.service' "${project_dir}/install.sh"
 
 cmake -S "${control_dir}" -B "${build_dir}" \
     -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "${build_dir}" -j2 >/dev/null
+ctest --test-dir "${build_dir}" --output-on-failure
+bash -n "${control_dir}/repair.sh"
+bash -n "${control_dir}/prepare-repair.sh"
 test -x "${build_dir}/bin/kadunce-control"
 
 status=0

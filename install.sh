@@ -62,6 +62,7 @@ cmake -S "${project_dir}/native" -B "${native_build_dir}" \
 cmake --build "${native_build_dir}" -j2
 
 echo "[4/6] Updating the per-user workspace control..."
+bash "${project_dir}/control/prepare-repair.sh"
 systemctl --user stop kadunce-control.service \
     >/dev/null 2>&1 || true
 /usr/bin/install -Dm755 "${control_binary_source}" "${control_binary_target}"
@@ -72,7 +73,9 @@ systemctl --user stop kadunce-control.service \
     "${project_dir}/control/studio.warbler.Kadunce.Control.desktop" \
     "${control_desktop_target}"
 systemctl --user daemon-reload
-systemctl --user enable kadunce-control.service >/dev/null
+systemctl --user reenable kadunce-control.service >/dev/null
+systemctl --user start kadunce-control.service
+systemctl --user is-active --quiet kadunce-control.service
 
 # KWin's native plugin search path on this Plasma installation is the system
 # Qt directory. User-local installation succeeds as a file copy but is not
@@ -111,9 +114,10 @@ rm -f "${install_state_dir}/disabled"
         "$(kreadconfig6 --file kwinrc --group Plugins \
             --key "${native_effect_id}Enabled")"
 } >"${install_receipt}"
+systemctl --user start kadunce-control.service
+systemctl --user is-active --quiet kadunce-control.service
+bash "${project_dir}/tests/verify-live-control.sh"
 install_succeeded=true
-systemctl --user start kadunce-control.service \
-    >/dev/null 2>&1 || true
 
 # A file-manager launch normally inherits the graphical session bus. Repair
 # it from the standard user bus path if necessary, then make KWin discover the

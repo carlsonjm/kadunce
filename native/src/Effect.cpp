@@ -4,6 +4,7 @@
 */
 
 #include "Effect.h"
+#include "LaunchIdentity.h"
 #include "CardLineLayout.h"
 
 #include <core/output.h>
@@ -315,7 +316,7 @@ Effect::Effect()
     if (!QDBusConnection::sessionBus().registerObject(
             QStringLiteral("/Kadunce"),
             QStringLiteral("studio.warbler.Kadunce"), this,
-            QDBusConnection::ExportScriptableSlots)) {
+            QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals)) {
         qWarning() << "Kadunce" << Revision
                    << "could not publish the workspace context interface";
     }
@@ -337,6 +338,8 @@ Effect::Effect()
 
 Effect::~Effect()
 {
+    Q_EMIT bridgeUnavailable();
+    endLauncherGuest();
     if (m_showCardLineAction) {
         KWin::effects->unregisterTouchBorder(
             KWin::ElectricBottom, m_showCardLineAction);
@@ -529,7 +532,10 @@ WorkspaceInputGeometry Effect::geometryForInput() const
         return {};
     }
     const KWin::Rect tabletRect = tablet->geometry();
-    const KWin::Rect centerCard = cardTargetForSlot(tablet, 0);
+    const auto *selected = m_cardStage->selectedWindow();
+    const KWin::Rect centerCard = selected && !m_cardStage->launcherGuestActive()
+        ? m_cardStage->previewTargetForWindow(tablet, selected)
+        : cardTargetForSlot(tablet, 0);
     return {
         QRectF(tabletRect),
         QRectF(centerCard),
@@ -556,8 +562,12 @@ int Effect::stackPreviewTargetForInput() const
 bool Effect::centerCardContainsForInput(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
-    return tablet
-        && cardTargetForSlot(tablet, 0).contains(position.toPoint());
+    if (!tablet) return false;
+    const auto *selected = m_cardStage->selectedWindow();
+    const auto target = selected && !m_cardStage->launcherGuestActive()
+        ? m_cardStage->previewTargetForWindow(tablet, selected)
+        : cardTargetForSlot(tablet, 0);
+    return target.contains(position.toPoint());
 }
 
 bool Effect::launcherGuestActiveForInput() const
@@ -654,6 +664,20 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     if (!window) {
         return;
     }
+    if (window->window()) {
+        connect(window->window(), &KWin::Window::readyForPaintingChanged,
+                this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::desktopFileNameChanged,
+                this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::windowClassChanged,
+                this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::fullScreenChanged,
+                this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::maximizedChanged,
+                this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::quickTileModeChanged,
+                this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
+    }
     connect(window, &KWin::EffectWindow::windowFrameGeometryChanged,
             this, &Effect::handleActiveGeometryChanged,
             Qt::UniqueConnection);
@@ -670,7 +694,18 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    m_cardStage->handleManualWindowChange(window);
     m_desktopStage->handleWindowMoveResizeStarted(window);
+}
+
+void Effect::handleManagedStateChanged()
+{
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (window->window() == sender()) {
+            m_cardStage->handleActiveGeometryChanged(window);
+            return;
+        }
+    }
 }
 
 void Effect::handleWindowMoveResizeStepped(
@@ -692,6 +727,18 @@ void Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window)
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     m_desktopStage->handleScreenRemoved(output);
+}
+
+bool Effect::isPanelPoint(const QPointF &position) const
+{
+    // Use Plasma's actual input surface, not a fixed bottom strip: floating,
+    // vertical and hidden panels must keep their own geometry and visibility.
+    for (auto *window : KWin::effects->stackingOrder()) {
+        if (window && !window->isDeleted() && window->isDock()
+            && window->window() && window->window()->isShown()
+            && window->window()->hitTest(position)) return true;
+    }
+    return false;
 }
 
 bool Effect::isTabletPoint(const QPointF &position) const
@@ -732,6 +779,7 @@ QString Effect::workspaceContext() const
             {QStringLiteral("output"),
              window->screen() ? window->screen()->name() : QString()},
             {QStringLiteral("focused"), window == focused},
+            {QStringLiteral("lastActivated"), static_cast<qint64>(m_activationOrder.value(windowIdentity(window)))},
             {QStringLiteral("minimized"), window->isMinimized()},
             {QStringLiteral("hasCard"), cardIndex >= 0},
         };
@@ -862,7 +910,7 @@ bool Effect::activateApplicationWindow(const QString &windowId)
 
 int Effect::launcherGuestProtocolVersion() const
 {
-    return 2;
+    return 3;
 }
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
@@ -872,7 +920,7 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
         {QStringLiteral("accepted"), false},
     };
     const QString owner = ownerService.trimmed();
-    if (owner.isEmpty()) {
+    if (!owner.startsWith(QLatin1Char(':'))) {
         return QString::fromUtf8(
             QJsonDocument(reply).toJson(QJsonDocument::Compact));
     }
@@ -894,9 +942,12 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
         QDBusServiceWatcher::WatchForUnregistration, this);
     m_launcherGuestWatcher = watcher;
     m_launcherGuestOwner = owner;
+    ++m_guestGeneration;
+    m_launcherGuestLaunchPending = false;
+    m_launcherGuestLaunchApps.clear();
     connect(watcher, &QDBusServiceWatcher::serviceUnregistered,
             this, [this, owner](const QString &service) {
-        if (service == owner) {
+        if (service == owner && m_launcherGuestOwner == owner) {
             endLauncherGuest();
         }
     });
@@ -921,8 +972,9 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
     const bool committed =
         m_cardStage->finishLauncherGuest(horizontalDelta);
     if (committed) {
-        QTimer::singleShot(220, this, [this]() {
-            if (m_cardStage->launcherGuestActive()) {
+        const auto generation = m_guestGeneration;
+        QTimer::singleShot(220, this, [this, generation]() {
+            if (generation == m_guestGeneration && m_cardStage->launcherGuestActive()) {
                 endLauncherGuest();
             }
         });
@@ -930,24 +982,39 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
     return committed;
 }
 
-bool Effect::prepareLauncherGuestLaunch()
+bool Effect::prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken)
 {
+    QStringList identities;
+    for (const auto &id : applicationIds) {
+        const auto normalized = LaunchIdentity::normalized(id);
+        if (!normalized.isEmpty()) identities.append(normalized);
+    }
     if (!m_cardStage->launcherGuestActive()
-        || m_launcherGuestOwner.isEmpty()) {
+        || m_launcherGuestOwner.isEmpty()
+        || identities.isEmpty() || identities.size() > 8 || requestToken.isEmpty()) {
         return false;
     }
     m_launcherGuestLaunchPending = true;
+    m_launcherGuestLaunchApps = identities;
+    m_launcherGuestLaunchToken = requestToken;
+    const auto generation = ++m_guestGeneration;
+    QTimer::singleShot(10000, this, [this, generation]() {
+        if (generation == m_guestGeneration) cancelLauncherGuestLaunch();
+    });
     return true;
 }
 
 void Effect::cancelLauncherGuestLaunch()
 {
+    ++m_guestGeneration;
     m_launcherGuestLaunchPending = false;
+    m_launcherGuestLaunchApps.clear();
+    m_launcherGuestLaunchToken.clear();
 }
 
 void Effect::endLauncherGuest()
 {
-    m_launcherGuestLaunchPending = false;
+    cancelLauncherGuestLaunch();
     m_cardStage->endLauncherGuest();
     m_launcherGuestOwner.clear();
     if (m_launcherGuestWatcher) {
@@ -1208,6 +1275,7 @@ KWin::EffectWindow *Effect::selectedWindow() const
 
 void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
+    Q_EMIT workspaceContextChanged();
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     QTimer::singleShot(0, this, [this, candidate]() {
@@ -1218,41 +1286,68 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             return;
         }
         (void)m_cardStage->handleWindowAdded(candidate);
+        completeLauncherGuestForWindow(candidate);
     });
 }
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    m_activationOrder.remove(windowIdentity(window));
     m_desktopStage->handleWindowClosed(window);
     m_cardStage->handleWindowClosed(window);
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    if (isApplicationWindow(window)) {
+        m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
+        Q_EMIT workspaceContextChanged();
+    }
     if (m_cardStage->launcherGuestActive()
         && isApplicationWindow(window)) {
         if (m_launcherGuestLaunchPending) {
-            m_launcherGuestLaunchPending = false;
-            const QPointer<KWin::EffectWindow> launched(window);
-            if (!m_launcherGuestOwner.isEmpty()) {
-                QDBusMessage ready = QDBusMessage::createMethodCall(
-                    m_launcherGuestOwner,
-                    QStringLiteral("/Launcher"),
-                    QStringLiteral("io.github.carlsonjm.Tettegouche"),
-                    QStringLiteral("completeGuestLaunch"));
-                QDBusConnection::sessionBus().asyncCall(ready);
-            }
-            QTimer::singleShot(220, this, [this, launched]() {
-                endLauncherGuest();
-                if (launched && !launched->isDeleted()) {
-                    m_cardStage->handleWindowActivated(launched);
-                }
-            });
+            completeLauncherGuestForWindow(window);
             return;
         }
+        if (!m_launcherGuestLaunchApps.isEmpty()) return; // Completion is already settling.
         dismissLauncherGuestFromInput();
     }
     m_cardStage->handleWindowActivated(window);
+}
+
+void Effect::handleLaunchWindowChanged()
+{
+    if (!m_launcherGuestLaunchPending) return;
+    for (auto *window : KWin::effects->stackingOrder()) {
+        if (window->window() == sender() && completeLauncherGuestForWindow(window)) return;
+    }
+}
+
+bool Effect::completeLauncherGuestForWindow(KWin::EffectWindow *window)
+{
+    if (!m_launcherGuestLaunchPending || !m_cardStage->launcherGuestActive()
+        || !isApplicationWindow(window) || !window->window()
+        || !window->window()->readyForPainting() || !window->window()->isShown()) return false;
+    bool matches = false;
+    for (const auto &identity : m_launcherGuestLaunchApps) {
+        matches |= LaunchIdentity::matches(identity, applicationIdentity(window));
+    }
+    if (!matches) return false;
+    (void)m_cardStage->handleWindowAdded(window);
+    m_launcherGuestLaunchPending = false;
+    const auto generation = ++m_guestGeneration;
+    m_cardStage->stageWindowArrival(window);
+    QDBusMessage ready = QDBusMessage::createMethodCall(m_launcherGuestOwner,
+        QStringLiteral("/Launcher"), QStringLiteral("io.github.carlsonjm.Tettegouche"),
+        QStringLiteral("completeGuestLaunch"));
+    ready.setArguments({m_launcherGuestLaunchToken});
+    QDBusConnection::sessionBus().asyncCall(ready);
+    QTimer::singleShot(220, this, [this, generation]() {
+        if (generation != m_guestGeneration) return;
+        endLauncherGuest();
+    });
+    return true;
 }
 
 void Effect::handleActiveGeometryChanged(KWin::EffectWindow *window,
@@ -1309,8 +1404,8 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         && m_fanApertureRadiusLocation >= 0;
 
     if (!useFanAperture) {
-        // Redirection is intentionally ephemeral. Active, Release, ordinary
-        // Card Line faces, hidden deck members, and shader failure all return
+        // Redirection is intentionally ephemeral. Active, Release,
+        // hidden deck members, and shader failure all return
         // to KWin's exact r20 direct path.
         unredirect(window);
         KWin::OffscreenEffect::drawWindow(
@@ -1387,10 +1482,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
 
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
-    KWin::Rect target = cardTargetForSlot(tablet, slot);
+    KWin::Rect target = m_cardStage->previewTargetForWindow(tablet, window);
     double launcherGuestRotation = 0.0;
     if (m_cardStage->launcherGuestActive()) {
-        target = m_cardStage->launcherGuestTargetForSlot(tablet, slot);
+        // previewTargetForWindow already blends the guest's incoming shoulders.
         const double offset = m_cardStage->launcherGuestOffset();
         const double progress =
             m_cardStage->launcherGuestTransitionProgress();
@@ -1557,21 +1652,23 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         viewport.mapToDeviceCoordinatesAligned(target);
     const KWin::Rect devicePaint =
         viewport.mapToDeviceCoordinatesAligned(paintRegion);
-    // QRegion remains only the hard output fence. A rotated fan member uses
-    // the r21 offscreen aperture for one physical pixel of fractional edge
+    // QRegion remains only the hard output fence. Each visible preview uses
+    // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
     // solid Spotify surface exactly like a translucent decoration.
     KWin::Rect fanBaseline =
         viewport.mapToDeviceCoordinatesAligned(tablet->geometry());
     fanBaseline.setBottom(std::min(fanBaseline.bottom(), deviceTarget.bottom()));
-    const KWin::Region cardClip = !rotatedFanCard
-        ? deviceRegion & roundedClip(
-              deviceTarget, CardCornerRadius * viewport.scale())
-        : deviceRegion & KWin::Region(fanBaseline);
-    const bool useFanAperture = rotatedFanCard
-        && m_fanApertureShader
+    // Straight and tilted previews share the same antialiased aperture.
+    // Keep the old hard-rounded path solely as the shader-unavailable fallback.
+    // Active has already returned above and remains on the system paint path.
+    const bool useFanAperture = m_fanApertureShader
         && !devicePaint.isEmpty()
         && !deviceTarget.isEmpty();
+    const KWin::Region cardClip = rotatedFanCard
+        ? deviceRegion & KWin::Region(fanBaseline)
+        : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
+            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(devicePaint.size()) : QSizeF();

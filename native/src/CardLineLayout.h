@@ -97,6 +97,7 @@ enum class CardLineAction {
     const CardStackEnvelope &centerEnvelope);
 
 [[nodiscard]] CardRect makeActiveTarget(
-    double workX, double workY, double workWidth, double workHeight);
+    double workX, double workY, double workWidth, double workHeight,
+    double requestedGutter = 10.0);
 
 } // namespace Kadunce

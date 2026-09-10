@@ -16,6 +16,22 @@ used by the tested system. Distributions using another library directory must
 adapt that destination before installation. The plugin must be rebuilt against
 the installed KWin version after an ABI-changing system update.
 
+## Guided compatibility repair
+
+The tray compares the installed plugin factory version with the installed KWin
+executable. This on-disk check does not prove a running pre-update compositor can
+load it. Explicit repair builds the source snapshot saved at installation, as the
+normal user, runs tests, and requests administrator approval for one plugin file.
+A backup stays in /var/tmp. No downloads, effect toggles, or session restarts occur.
+The emergency switch remains available during the build. Cached plugins may need
+a normal logout/login; in-session hot reload is not promised.
+
+Build dependencies and the retained snapshot are required. Future source API
+changes may need a maintained Kadunce update, not just a rebuild. No package hooks
+or automatic repair are included. Logs: $XDG_STATE_HOME/kadunce/repair.log (default
+~/.local/state/kadunce/repair.log). Snapshot checksums detect accidental edits, not
+malicious changes by someone controlling the user account.
+
 ## Hardware-specific edge input
 
 Kadunce uses native compositor touch edges on ordinary hardware. A supported

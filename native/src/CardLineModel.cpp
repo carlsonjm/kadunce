@@ -51,6 +51,11 @@ int CardLineModel::idAtOffset(int offset) const
 
 std::array<int, 3> CardLineModel::visibleNeighborhood() const
 {
+    if (count() == 2) {
+        return m_pairNeighborSide < 0
+            ? std::array<int, 3>{idAtOffset(-1), selectedId(), 0}
+            : std::array<int, 3>{0, selectedId(), idAtOffset(1)};
+    }
     return {idAtOffset(-1), idAtOffset(0), idAtOffset(1)};
 }
 
@@ -202,6 +207,7 @@ void CardLineModel::page(int delta)
     const int direction = delta < 0 ? -1 : 1;
     for (int step = 0; step < std::abs(delta); ++step) {
         m_selectedIndex = wrappedIndex(m_selectedIndex + direction);
+        if (count() == 2) m_pairNeighborSide = -m_pairNeighborSide;
     }
 }
 
@@ -222,12 +228,35 @@ void CardLineModel::pageStack(int delta)
 
 void CardLineModel::selectIndex(int index)
 {
+    if (count() == 2 && wrappedIndex(index) != m_selectedIndex)
+        m_pairNeighborSide = -m_pairNeighborSide;
     m_selectedIndex = wrappedIndex(index);
 }
 
-int CardLineModel::appendCard()
+int CardLineModel::appendCenteredCard()
 {
     const int cardId = ++m_cardCount;
+    // Keep the existing shoulder on its side; move the old center to the
+    // opposite side of the newcomer. With one old group it moves left.
+    const int insertion = m_selectedIndex + (count() == 2 && m_pairNeighborSide < 0 ? 0 : 1);
+    m_stacks.insert(m_stacks.begin() + insertion, CardStack{{cardId}, 0});
+    m_selectedIndex = insertion;
+    if (count() == 2) m_pairNeighborSide = -1;
+    return cardId;
+}
+
+int CardLineModel::appendCard(bool preserveSelection)
+{
+    const int cardId = ++m_cardCount;
+    if (preserveSelection) {
+        // With a pair, introduce the third group on the empty shoulder.
+        const int insertion = count() == 2
+            ? m_selectedIndex + (m_pairNeighborSide < 0 ? 1 : 0)
+            : count();
+        m_stacks.insert(m_stacks.begin() + insertion, CardStack{{cardId}, 0});
+        if (insertion <= m_selectedIndex) ++m_selectedIndex;
+        return cardId;
+    }
     m_stacks.push_back(CardStack{{cardId}, 0});
     m_selectedIndex = count() - 1;
     return cardId;
@@ -241,6 +270,12 @@ bool CardLineModel::removeCard(int cardId)
     const int stackIndex = stackIndexForId(cardId);
     if (stackIndex < 0) {
         return false;
+    }
+
+    if (count() == 3 && stackSizeForId(cardId) == 1) {
+        // Removing a shoulder must not teleport the surviving shoulder.
+        m_pairNeighborSide = stackIndex == wrappedIndex(m_selectedIndex + 1)
+            ? -1 : 1;
     }
 
     CardStack &stack = m_stacks.at(static_cast<std::size_t>(stackIndex));

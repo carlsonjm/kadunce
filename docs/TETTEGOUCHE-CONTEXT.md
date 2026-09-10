@@ -6,7 +6,8 @@ querying, ranking, and the choice to focus an existing application or launch a
 new one.
 
 The workspace snapshot is deliberately read-only. Tettegouche requests it when
-its launcher opens; it does not poll raw KWin state or mutate Kadunce's models.
+its launcher opens, on workspaceContextChanged signals, and before selection;
+it does not poll raw KWin state or mutate Kadunce's models.
 An independent, explicitly versioned guest-session protocol lets a compatible
 launcher temporarily occupy Card Line's center without becoming a real card.
 
@@ -72,10 +73,10 @@ an open result from the snapshot and activate that exact window through the
 separate command above; unmatched results still use Plasma's normal application
 launch action.
 
-## Launcher guest protocol 2
+## Launcher guest protocol 3
 
 Tettegouche must first call `launcherGuestProtocolVersion`. It may request guest
-mode only when the result is exactly `2`; a missing or different result means it
+mode only when the result is exactly `3`; a missing or different result means it
 must retain its standalone surface. This prevents an older Kadunce build from
 receiving a guest it cannot present.
 
@@ -84,12 +85,12 @@ launcherGuestProtocolVersion() -> integer
 beginLauncherGuest(uniqueOwner) -> compact JSON reply
 updateLauncherGuest(horizontalDelta)
 finishLauncherGuest(horizontalDelta) -> committed boolean
-prepareLauncherGuestLaunch() -> accepted boolean
+prepareLauncherGuestLaunch(applicationIds, requestToken) -> accepted boolean
 cancelLauncherGuestLaunch()
 endLauncherGuest()
 ```
 
-An accepted begin reply contains `protocol: 2`, `accepted: true`, the target
+An accepted begin reply contains `protocol: 3`, `accepted: true`, the target
 `output`, and `card` and `active` geometries. Kadunce reserves a centered guest
 footprint that is six percent of the work area narrower than a normal card, and
 moves both real neighbors inward by the matching three-percent inset. It does
@@ -108,14 +109,33 @@ existing standalone behavior.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
-while the application loads. The first activated application completes the
+while the application creates a window. A shown, ready-for-painting window matching an exact
+normalized desktop identity or declared StartupWMClass completes the
 handoff: Kadunce asks Tettegouche to animate out, then promotes the arriving
 window to Active. Tettegouche cancels the pending state after its bounded
 timeout if no application window appears.
 
-Kadunce completes that transition by calling `completeGuestLaunch()` on the
+New-card admission preserves the guest and previous card selection instead of
+promoting a window immediately. Window addition, painting readiness, identity
+changes, and activation all feed the same one-shot completion gate. Web content
+or full application loading is not a readiness requirement.
+
+Kadunce completes that transition by calling `completeGuestLaunch(requestToken)` on the
 unique `/Launcher` owner supplied at begin time. The well-known Tettegouche
 service is not used for lease ownership or completion.
+
+Tokens identify individual requests. Generation guards prevent delayed settles
+from ending newer leases. Both sides bound launch waiting to ten seconds. Unknown
+application identities time out rather than accept unrelated activations.
+The version-1 snapshot adds optional `lastActivated`: an in-memory monotonic
+sequence for this effect lifetime, not persisted activity history. Legacy
+snapshots retain focused/selected/frontmost selection ordering.
+
+`workspaceContextChanged` signals added, closed, and activated windows. Tette
+ignores out-of-order snapshot replies. `bridgeUnavailable` is emitted before
+effect unload; service-owner loss is watched separately. Either clears guest
+input masking and pending launch/exit motion, returning Tette to standalone search.
+Neither side restarts the compositor or automatically renegotiates a lost lease.
 
 For direct neighbor navigation it calls `completeGuestNavigation(slot)` on the
 same owner. Slot `-1` selects the visible left neighbor and slot `1` selects the

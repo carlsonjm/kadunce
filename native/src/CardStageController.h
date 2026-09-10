@@ -6,6 +6,7 @@
 #pragma once
 
 #include "CardLineModel.h"
+#include "ActiveSettings.h"
 
 #include <effect/effectwindow.h>
 
@@ -13,6 +14,7 @@
 #include <QList>
 #include <QPointer>
 #include <QStringList>
+#include <QTimer>
 
 namespace KWin
 {
@@ -80,6 +82,8 @@ public:
 
     [[nodiscard]] KWin::Rect cardTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
+    [[nodiscard]] KWin::Rect previewTargetForWindow(
+        KWin::LogicalOutput *output, const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::Rect launcherGuestTarget(
         KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::Rect launcherGuestTargetForSlot(
@@ -113,13 +117,17 @@ public:
     void handleWindowActivated(KWin::EffectWindow *window);
     void admitTransferredWindowToTablet(KWin::EffectWindow *window);
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
+    void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
+    void handleManualWindowChange(KWin::EffectWindow *window);
 
 private:
     struct ActiveRestoreSnapshot {
         QPointer<KWin::EffectWindow> window;
         KWin::RectF geometry;
+        KWin::RectF floatingGeometry;
+        KWin::RectF fullscreenRestoreGeometry;
         KWin::QuickTileMode quickTileMode;
         KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
         bool fullScreen = false;
@@ -127,6 +135,9 @@ private:
     };
 
     void rebuildLiveCards();
+    void captureCardTransition(bool includeGuest = false);
+    void clearCardTransition();
+    void startArrivalTimer(KWin::EffectWindow *window);
     bool enterActive();
     void restoreActiveSnapshot();
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
@@ -134,10 +145,24 @@ private:
     void restoreOriginalStackingOrder();
 
     CardStageHost *m_host;
+    ActiveSettings m_settings;
     CardLineModel m_cardLine{1};
+    struct PreviewOrigin {
+        QPointer<KWin::EffectWindow> window;
+        QRectF normalized;
+    };
+    QList<PreviewOrigin> m_previewOrigins;
+    QElapsedTimer m_previewTransition;
+    QTimer m_arrivalTimer;
+    QElapsedTimer m_arrivalWait;
+    QPointer<KWin::EffectWindow> m_arrivalWindow;
+    bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_liveCards;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
     ActiveRestoreSnapshot m_activeRestore;
+    bool m_applyingWindowState = false;
+    QTimer m_activeSettleTimer;
+    int m_activeSettleRemaining = 0;
     CardPresentation m_presentation = CardPresentation::CardLine;
     double m_cardGrabOffset = 0.0;
     int m_cardGrabPageOffset = 0;
@@ -158,6 +183,11 @@ private:
     QElapsedTimer m_launcherGuestTransitionTimer;
     int m_launcherGuestPendingPage = 0;
     bool m_launcherGuestActive = false;
+    bool m_launcherGuestArrival = false;
+    int m_launcherGuestGroupCount = 0;
+    int m_launcherGuestPrimarySide = 1;
+    QPointer<KWin::EffectWindow> m_launcherGuestPrimaryWindow;
+    QPointer<KWin::EffectWindow> m_launcherGuestSecondaryWindow;
     bool m_active = false;
 };
 

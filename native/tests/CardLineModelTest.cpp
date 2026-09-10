@@ -30,6 +30,50 @@ int main()
             "One-card line did not remain stable");
 
     Kadunce::CardLineModel twoCards(2);
+    for (int side : {-1, 1}) {
+        for (int selected : {0, 1}) {
+            Kadunce::CardLineModel incoming(2);
+            incoming.selectIndex(selected);
+            incoming.setPairNeighborSide(side);
+            const int primary = incoming.selectedId();
+            const int partner = incoming.idAtOffset(side);
+            const int added = incoming.appendCenteredCard();
+            require(incoming.selectedId() == added && incoming.invariantHolds()
+                        && incoming.idAtOffset(side) == partner
+                        && incoming.idAtOffset(-side) == primary,
+                    "Centered arrival displaced the old shoulder or failed to move old primary aside");
+        }
+    }
+    Kadunce::CardLineModel firstPair(1);
+    firstPair.appendCenteredCard();
+    require(firstPair.selectedId() == 2 && firstPair.visibleNeighborhood() == std::array<int,3>{1,2,0},
+            "Second app did not become primary with the old app to its left");
+    require(twoCards.visibleNeighborhood() == std::array<int, 3>{0, 1, 2},
+            "Pair must show its partner only once");
+    for (int i = 0; i < 10000; ++i) {
+        twoCards.page(1);
+        require(twoCards.visibleNeighborhood() == std::array<int, 3>{1, 2, 0},
+                "Outgoing pair card did not stay on the left");
+        twoCards.page(-1);
+        require(twoCards.visibleNeighborhood() == std::array<int, 3>{0, 1, 2},
+                "Reverse pair swipe did not return its partner to the right");
+    }
+    for (int side : {-1, 1}) {
+        Kadunce::CardLineModel pair(2);
+        pair.setPairNeighborSide(side);
+        pair.appendCard(true);
+        require(pair.selectedId() == 1 && pair.count() == 3 && pair.invariantHolds(),
+                "Third arrival stole selection or corrupted the pair");
+        require(pair.idAtOffset(side) == 2 && pair.idAtOffset(-side) == 3,
+                "Third arrival crossed the existing neighbor");
+        require(pair.removeCard(3) && pair.pairNeighborSide() == side
+                    && pair.selectedId() == 1 && pair.invariantHolds(),
+                "Third departure moved the surviving shoulder");
+    }
+    Kadunce::CardLineModel groupedPair(3);
+    require(groupedPair.stackSelectedWith(2) && groupedPair.count() == 2
+                && groupedPair.cardCount() == 3,
+            "Pair handling must count groups, not member windows");
     require(twoCards.count() == 2, "Two-card line was padded with fake cards");
     twoCards.selectIndex(1);
     require(twoCards.selectedId() == 2, "Explicit selection chose the wrong card");
@@ -240,6 +284,13 @@ int main()
     require(std::all_of(visited.cbegin() + 1, visited.cend(),
                         [](bool seen) { return seen; }),
             "A large stack hid cards from vertical member paging");
+
+    const int beforeAdmission = largeStack.selectedId();
+    const int selectionBeforeAdmission = largeStack.selectedIndex();
+    largeStack.appendCard();
+    largeStack.selectIndex(selectionBeforeAdmission);
+    require(largeStack.selectedId() == beforeAdmission,
+            "Guest-time admission must preserve the selected stack member");
 
     std::cout << "Card Line group and vertical stack paging are deterministic\n";
     return EXIT_SUCCESS;

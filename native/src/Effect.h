@@ -95,14 +95,20 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
     Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
-    Q_SCRIPTABLE bool prepareLauncherGuestLaunch();
+    Q_SCRIPTABLE bool prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken);
     Q_SCRIPTABLE void cancelLauncherGuestLaunch();
     Q_SCRIPTABLE void endLauncherGuest();
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
 
+Q_SIGNALS:
+    Q_SCRIPTABLE void workspaceContextChanged();
+    Q_SCRIPTABLE void bridgeUnavailable();
+
 private:
+    bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
+    void handleLaunchWindowChanged();
     static bool isTabletOutput(const KWin::LogicalOutput *output);
     static bool isCardWindow(const KWin::EffectWindow *window);
     static bool isApplicationWindow(const KWin::EffectWindow *window);
@@ -143,6 +149,7 @@ private:
     [[nodiscard]] bool launcherGuestActiveForInput() const override;
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
+    [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
     [[nodiscard]] bool isTabletPoint(
         const QPointF &position) const override;
     [[nodiscard]] int activeSideForPoint(
@@ -181,6 +188,7 @@ private:
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
+    void handleManagedStateChanged();
     void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
                                        const KWin::RectF &geometry);
     void handleWindowMoveResizeFinished(KWin::EffectWindow *window);
@@ -223,6 +231,11 @@ private:
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
     QString m_launcherGuestOwner;
     bool m_launcherGuestLaunchPending = false;
+    QStringList m_launcherGuestLaunchApps;
+    QString m_launcherGuestLaunchToken;
+    quint64 m_guestGeneration = 0;
+    QHash<QString, quint64> m_activationOrder;
+    quint64 m_activationSequence = 0;
 };
 
 } // namespace Kadunce

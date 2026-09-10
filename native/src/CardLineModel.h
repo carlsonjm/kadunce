@@ -20,6 +20,8 @@ public:
     [[nodiscard]] int cardCount() const;
     [[nodiscard]] int selectedIndex() const;
     [[nodiscard]] int selectedId() const;
+    [[nodiscard]] int pairNeighborSide() const { return m_pairNeighborSide; }
+    void setPairNeighborSide(int side) { m_pairNeighborSide = side < 0 ? -1 : 1; }
     [[nodiscard]] int idAtOffset(int offset) const;
     [[nodiscard]] std::array<int, 3> visibleNeighborhood() const;
     [[nodiscard]] std::array<int, 3> detachedNeighborhood(int pageOffset) const;
@@ -35,7 +37,8 @@ public:
     void page(int delta);
     void pageStack(int delta);
     void selectIndex(int index);
-    int appendCard();
+    int appendCard(bool preserveSelection = false);
+    int appendCenteredCard();
     bool removeCard(int cardId);
     void moveSelected(int delta);
     bool stackSelectedWith(int destinationId, int insertionIndex = -1);
@@ -65,6 +68,7 @@ private:
     DetachedMember m_detachedMember;
     int m_cardCount = 1;
     int m_selectedIndex = 0;
+    int m_pairNeighborSide = 1;
 };
 
 } // namespace Kadunce

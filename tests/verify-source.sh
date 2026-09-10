@@ -40,7 +40,7 @@ rg -q 'registration_started=true' "${install_script}"
 rg -q 'All six installation steps completed' "${install_script}"
 rg -q 'tests/verify-control\.sh' "${install_script}"
 rg -q 'kadunce-control\.service' "${install_script}"
-rg -q 'systemctl --user enable kadunce-control\.service' \
+rg -q 'systemctl --user reenable kadunce-control\.service' \
     "${install_script}"
 rg -q 'systemctl --user start kadunce-control\.service' \
     "${install_script}"
@@ -64,12 +64,21 @@ rg -q 'Q_SCRIPTABLE bool prepareLauncherGuestLaunch' "${effect_header}"
 rg -q 'Q_SCRIPTABLE void cancelLauncherGuestLaunch' "${effect_header}"
 rg -q 'Q_SCRIPTABLE void endLauncherGuest' "${effect_header}"
 rg -q 'int Effect::launcherGuestProtocolVersion.*const' "${effect_cpp}"
-rg -q 'return 2;' "${effect_cpp}"
+rg -q 'return 3;' "${effect_cpp}"
+rg -q 'readyForPaintingChanged' "${effect_cpp}"
+rg -q 'desktopFileNameChanged' "${effect_cpp}"
+rg -q 'completeLauncherGuestForWindow\(candidate\)' "${effect_cpp}"
+admission=$(sed -n '/^bool CardStageController::handleWindowAdded(/,/^}/p' "${card_cpp}")
+guest_guard=$(printf '%s\n' "$admission" | rg -n 'if \(m_launcherGuestActive\)' | cut -d: -f1)
+promote=$(printf '%s\n' "$admission" | rg -n 'if \(!enterActive\(\)\)' | cut -d: -f1)
+test -n "$guest_guard" && test "$guest_guard" -lt "$promote"
+printf '%s\n' "$admission" | rg -q 'm_cardLine.selectIndex\(previousSelection\)'
 rg -q 'QDBusServiceWatcher::WatchForUnregistration' "${effect_cpp}"
 rg -q 'm_cardStage->beginLauncherGuest' "${effect_cpp}"
 rg -q 'm_cardStage->launcherGuestTarget' "${effect_cpp}" "${card_cpp}"
 rg -q 'launcherGuestTargetForSlot' "${effect_cpp}" "${card_cpp}" "${card_header}"
-rg -q 'work\.width\(\) \* 0\.03' "${card_cpp}"
+rg -q 'makeLauncherGuestLayout' "${card_cpp}"
+rg -q 'm_launcherGuestGroupCount' "${card_cpp}"
 rg -q 'm_launcherGuestLaunchPending' "${effect_cpp}" "${effect_header}"
 rg -q 'QStringLiteral\("completeGuestLaunch"\)' "${effect_cpp}"
 rg -q 'launcherGuestTransitionProgress' "${effect_cpp}" "${card_cpp}" \
@@ -135,7 +144,9 @@ rg -q 'A large fan did not expose a deterministic back-to-front deck' \
     "${native_dir}/tests/CardLineModelTest.cpp"
 rg -q 'restoreOriginalStackingOrder' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'mapToDeviceCoordinatesAligned\(target\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'deviceRegion & roundedClip' "${effect_cpp}" "${card_cpp}"
+rg -q 'roundedClip(deviceTarget, CardCornerRadius' -F "${effect_cpp}"
+rg -q 'const bool useFanAperture = m_fanApertureShader' -F "${effect_cpp}"
+rg -q 'useFanAperture ? KWin::Region(deviceTarget)' -F "${effect_cpp}"
 rg -q 'constexpr double CardCornerRadius = 10\.0' "${effect_cpp}" "${card_cpp}"
 rg -q 'path\.addRoundedRect' "${effect_cpp}" "${card_cpp}"
 rg -q 'CardCornerRadius \* viewport\.scale\(\)' "${effect_cpp}" "${card_cpp}"
@@ -201,7 +212,25 @@ if rg -q 'activeResizeGuardContains|ResizeGuardWidth|ActiveGuard' \
     echo "Active must not reserve an input strip inside the application" >&2
     exit 1
 fi
-rg -q 'cancelInteractiveMoveResize' "${effect_cpp}" "${card_cpp}"
+if rg -q 'cancelInteractiveMoveResize' "${card_cpp}"; then
+    echo "Active must release manual window changes, not cancel them" >&2
+    exit 1
+fi
+rg -q 'QScopedValueRollback<bool> applying' "${card_cpp}"
+rg -q 'setGeometryRestore\(snapshot.floatingGeometry\)' "${native_dir}/src/WindowStateRestore.h"
+rg -q 'setFullscreenGeometryRestore' "${native_dir}/src/WindowStateRestore.h"
+rg -q 'restoreWindowState' "${card_cpp}"
+rg -q 'handleManualWindowChange' "${effect_cpp}"
+rg -q 'm_activeSettleRemaining = 2' "${card_cpp}"
+rg -q '\-\-m_activeSettleRemaining' "${card_cpp}"
+rg -q 'm_activeSettleTimer.stop' "${card_cpp}"
+release_body=$(sed -n '/^void CardStageController::release()/,/^}/p' "${card_cpp}")
+release_inactive=$(printf '%s\n' "$release_body" | rg -n 'm_active = false' | cut -d: -f1)
+release_unredirect=$(printf '%s\n' "$release_body" | rg -n 'unredirectForCardStage' | cut -d: -f1)
+release_restore=$(printf '%s\n' "$release_body" | rg -n 'restoreActiveSnapshot' | cut -d: -f1)
+test "$release_inactive" -lt "$release_unredirect"
+test "$release_unredirect" -lt "$release_restore"
+rg -q 'Kadunce fullscreen release: direct scene, restored focus' "${card_cpp}"
 rg -q 'constexpr double CardHoldMotion = 12\.0' "${router_cpp}"
 rg -q 'constexpr int CardHoldDelay = 300' "${router_cpp}"
 rg -q 'm_holdTimer\.setSingleShot\(true\)' "${router_cpp}"
@@ -312,13 +341,33 @@ rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
-    "8bce37048d28e7d79d03732ec774a190a46fd7f7e248aeb443a3da1cb360a461"
+    "536b036fd36c659afbccb08ee7cf4571280b8c35e7a52cec0a02e2551662abef"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
-    "66bb94d8c1c671672d5cc5cf839e6f5e36bf8bb85ca96df8c228ba114b828452"
+    "8f50b02d02f47cb01bbf8a31faf4fb79c0b47e5aca61c09f9963cab5455d8957"
 test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
-    "de45d07717b0185013a22ecc6cc29878aa24c00feea86170751ccb907cac233e"
+    "99df423c64d52be42731c96f67bfcf6d39af9574e4789c814c3a28de45a88052"
 test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
-    "60bb357e1e3a3f5823a117176802a5176c228097e8094f662f9d01bae971a43a"
+    "c7af8f9933750db7b545f4d75cc06a8e49a3b4eac05e835a77f85f7082b14599"
+rg -q 'appendCenteredCard' "${card_cpp}"
+rg -q 'window == m_arrivalWindow' "${card_cpp}"
+rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"
+rg -q 'm_arrivalTimer.stop\(\)' "${card_cpp}"
+rg -q 'm_launcherGuestPrimaryWindow' "${card_cpp}"
+rg -q 'm_launcherGuestSecondaryWindow' "${card_cpp}"
+rg -q 'captureCardTransition\(replacesGuest\)' "${card_cpp}"
+rg -q 'setPairNeighborSide\(m_launcherGuestPrimarySide\)' "${card_cpp}"
+completion=$(sed -n '/^bool Effect::completeLauncherGuestForWindow(/,/^}/p' "${effect_cpp}")
+arrival_line=$(printf '%s\n' "$completion" | rg -n 'stageWindowArrival\(window\)' | cut -d: -f1)
+ready_line=$(printf '%s\n' "$completion" | rg -n 'QDBusMessage ready' | cut -d: -f1)
+test -n "$arrival_line" && test "$arrival_line" -lt "$ready_line"
+rg -q 'makeFocusedPairLayout' "${card_cpp}"
+rg -q 'm_cardLine.count\(\) == 2' "${card_cpp}"
+rg -q 'm_cardStage->previewTargetForWindow' "${effect_cpp}"
+rg -q 'PreviewTransitionDuration = 280' "${card_cpp}"
+rg -q 'isPanelPoint' "${router_cpp}" "${effect_cpp}"
+rg -q 'window->window\(\)->hitTest\(position\)' "${effect_cpp}"
+rg -q 'm_panelPointerButtons' "${router_cpp}"
+rg -q 'add_test\(NAME panel-input' "${native_dir}/CMakeLists.txt"
 if rg -q 'm_cardGrabDirection|finalSlot - slot|travel \* 0\.78' \
     "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Ordinary carried-card travel must not move the destination row" >&2
@@ -348,7 +397,7 @@ rg -q 'EffectsHandler::windowActivated' "${effect_cpp}"
 rg -q 'handleWindowActivated' "${effect_cpp}" "${effect_header}" \
     "${card_cpp}" "${card_header}"
 rg -q 'promoted externally activated card' "${card_cpp}"
-rg -q 'constexpr double gutter = 10\.0' \
+rg -Fq 'std::clamp(requestedGutter, 6.0, 48.0)' \
     "${native_dir}/src/CardLineLayout.cpp"
 if rg -q 'renderSyntheticLine|SYNTHETIC CARD LINE|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Synthetic cards must never appear in the live effect" >&2
@@ -405,4 +454,4 @@ if rg -q '\bmoveWindow\(|windowToScreen\(|frameGeometry\s*=' "${native_dir}"; th
     exit 1
 fi
 
-echo "Kadunce source checks passed; controller boundaries and frozen r21 card core are intact"
+echo "Kadunce source checks passed; controller boundaries, standard layout and focused-pair guards are intact"

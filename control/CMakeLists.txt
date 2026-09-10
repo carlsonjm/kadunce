@@ -36,3 +36,11 @@ target_link_libraries(kadunce-control PRIVATE
 )
 
 install(TARGETS kadunce-control RUNTIME DESTINATION ${KDE_INSTALL_BINDIR})
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(kadunce-compatibility-test tests/CompatibilityTest.cpp)
+    target_include_directories(kadunce-compatibility-test PRIVATE src)
+    target_link_libraries(kadunce-compatibility-test PRIVATE Qt6::Core)
+    add_test(NAME compatibility COMMAND kadunce-compatibility-test)
+endif()

@@ -83,6 +83,8 @@ private:
     struct RestoreSnapshot {
         QPointer<KWin::EffectWindow> window;
         KWin::RectF geometry;
+        KWin::RectF floatingGeometry;
+        KWin::RectF fullscreenRestoreGeometry;
         QString outputName;
         KWin::QuickTileMode quickTileMode;
         KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
