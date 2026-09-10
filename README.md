@@ -1,8 +1,14 @@
+<p align="center">
+  <img src="assets/studio.warbler.kadunce-logo.png" width="180" alt="Kadunce package icon">
+</p>
+
 # Kadunce
 
-Kadunce is a touch-first card workspace for KDE Plasma. It presents real
-desktop applications as cards while leaving window lifecycle, focus, outputs,
-and recovery under KWin's authority.
+Bring your windows within reach. Kadunce turns real desktop applications into
+a fluid, touch-first card workspace for KDE Plasma. Move through Card Line,
+focus on one app, or arrange windows in Bento layouts. A persistent tray switch
+keeps you in control, while KWin remains responsible for window lifecycle,
+focus, outputs, and recovery.
 
 > The tablet optimizes choosing and focusing. The desktop stage optimizes
 > seeing and composing. Neither display should imitate the other.

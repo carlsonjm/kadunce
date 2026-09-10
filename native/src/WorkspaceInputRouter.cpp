@@ -100,6 +100,9 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
         || (!m_pointerPressed && !m_launcherGuestNavigationPointer
             && m_target->isPanelPoint(event->position))) return false;
     if (m_launcherGuestNavigationPointer) {
+        const auto delta = event->position - m_guestOutsidePointerStart;
+        if (std::hypot(delta.x(), delta.y()) > CardHoldMotion)
+            m_guestOutsidePointerMoved = true;
         return true;
     }
     if (m_launcherGuestPointerPassthrough) {
@@ -176,6 +179,9 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
     if (m_launcherGuestNavigationPointer) {
         if (event->state == KWin::PointerButtonState::Released) {
             m_launcherGuestNavigationPointer = false;
+            const auto delta = event->position - m_guestOutsidePointerStart;
+            if (!m_guestOutsidePointerMoved && std::hypot(delta.x(), delta.y()) <= CardHoldMotion)
+                m_target->dismissLauncherGuestFromInput();
         }
         return true;
     }
@@ -192,7 +198,8 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
             return false;
         }
         m_launcherGuestNavigationPointer = true;
-        m_target->navigateLauncherGuestFromInput(event->position);
+        m_guestOutsidePointerStart = event->position;
+        m_guestOutsidePointerMoved = false;
         return true;
     }
     const bool finishingCrossOutputGrab = m_pointerPressed
@@ -317,7 +324,9 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
             return false;
         }
         m_launcherGuestNavigationTouchIds.insert(event->id);
-        m_target->navigateLauncherGuestFromInput(event->pos);
+        m_guestOutsideTouchStarts.insert(event->id, event->pos);
+        if (m_launcherGuestNavigationTouchIds.size() > 1)
+            m_guestOutsideMovedTouches.unite(m_launcherGuestNavigationTouchIds);
         return true;
     }
     const TouchMode mode = touchModeAt(event->pos);
@@ -375,6 +384,9 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
         return false;
     }
     if (m_launcherGuestNavigationTouchIds.contains(event->id)) {
+        const auto delta = event->pos - m_guestOutsideTouchStarts.value(event->id);
+        if (std::hypot(delta.x(), delta.y()) > CardHoldMotion)
+            m_guestOutsideMovedTouches.insert(event->id);
         return true;
     }
     if (m_launcherGuestTouchIds.contains(event->id)) {
@@ -406,6 +418,9 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
     m_observedTouchIds.remove(event->id);
     if (m_bottomCandidateId == event->id) m_bottomCandidateId = -1;
     if (m_launcherGuestNavigationTouchIds.remove(event->id)) {
+        m_guestOutsideTouchStarts.remove(event->id);
+        if (!m_guestOutsideMovedTouches.remove(event->id))
+            m_target->dismissLauncherGuestFromInput();
         return true;
     }
     if (m_launcherGuestTouchIds.remove(event->id)) {
@@ -439,6 +454,8 @@ bool WorkspaceInputRouter::touchCancel()
     const bool owned = m_touchId >= 0;
     m_launcherGuestTouchIds.clear();
     m_launcherGuestNavigationTouchIds.clear();
+    m_guestOutsideTouchStarts.clear();
+    m_guestOutsideMovedTouches.clear();
     m_launcherGuestNavigationPointer = false;
     if (m_holdSource == HoldSource::Touch
         && m_target->cardGrabActiveForInput()) {

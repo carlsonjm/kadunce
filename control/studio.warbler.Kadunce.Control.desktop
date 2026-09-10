@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Kadunce Control
-Comment=Controls the Kadunce workspace effect
+Comment=Enable, pause, repair, and configure your card workspace
 Exec=kadunce-control
-Icon=preferences-system-windows
+Icon=studio.warbler.kadunce-logo
 Terminal=false
 NoDisplay=true
 Categories=System;Settings;

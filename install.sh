@@ -62,6 +62,8 @@ cmake -S "${project_dir}/native" -B "${native_build_dir}" \
 cmake --build "${native_build_dir}" -j2
 
 echo "[4/6] Updating the per-user workspace control..."
+/usr/bin/install -Dm644 "${project_dir}/assets/studio.warbler.kadunce-logo.png" \
+    "${HOME}/.local/share/icons/hicolor/512x512/apps/studio.warbler.kadunce-logo.png"
 bash "${project_dir}/control/prepare-repair.sh"
 systemctl --user stop kadunce-control.service \
     >/dev/null 2>&1 || true

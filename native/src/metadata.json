@@ -6,9 +6,10 @@
             }
         ],
         "Category": "Window Management",
-        "Description": "A touch-first card workspace for KDE Plasma.",
+        "Description": "Bring your windows within reach with fluid, touch-first cards",
         "EnabledByDefault": false,
         "Id": "kwin4_effect_kadunce",
+        "Icon": "studio.warbler.kadunce-logo",
         "License": "GPL-2.0-or-later",
         "Name": "Kadunce",
         "ServiceTypes": [

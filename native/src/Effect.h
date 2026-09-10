@@ -231,6 +231,7 @@ private:
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
     QString m_launcherGuestOwner;
+    QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;
     QString m_launcherGuestLaunchToken;

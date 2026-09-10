@@ -111,9 +111,27 @@ bool z13TabletKitAvailable()
             + QStringLiteral("/z13-tablet-kit/posture"));
 }
 
+constexpr auto FanApertureVertexShader = R"GLSL(#version 140
+in vec4 position;
+in vec4 texcoord;
+uniform mat4 modelViewProjectionMatrix;
+uniform vec2 paintSize;
+uniform vec2 apertureOrigin;
+out vec2 texcoord0;
+out vec2 cardPoint;
+void main(void)
+{
+    gl_Position = modelViewProjectionMatrix * position;
+    texcoord0 = texcoord.st;
+    // Geometry coordinates are independent of texture flips and shadow UVs.
+    cardPoint = position.xy * paintSize - apertureOrigin;
+}
+)GLSL";
+
 constexpr auto FanApertureFragmentShader = R"GLSL(#version 140
 
 in vec2 texcoord0;
+in vec2 cardPoint;
 out vec4 fragColor;
 
 #include "colormanagement.glsl"
@@ -121,8 +139,6 @@ out vec4 fragColor;
 
 uniform sampler2D sampler;
 uniform vec4 modulation;
-uniform vec2 paintSize;
-uniform vec2 apertureOrigin;
 uniform vec2 apertureSize;
 uniform float apertureRadius;
 
@@ -137,7 +153,7 @@ float roundedRectangleDistance(vec2 point, vec2 size, float radius)
 
 void main(void)
 {
-    vec2 point = texcoord0 * paintSize - apertureOrigin;
+    vec2 point = cardPoint;
     vec4 tex = texture(sampler, texcoord0);
 
     float radius = min(
@@ -184,7 +200,7 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
-                KWin::ShaderTrait::MapTexture, QByteArray(),
+                KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
                 QByteArray(FanApertureFragmentShader));
         if (m_fanApertureShader) {
             m_fanPaintSizeLocation =
@@ -984,7 +1000,16 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
     const bool committed =
         m_cardStage->finishLauncherGuest(horizontalDelta);
     if (committed) {
+        // The layer-shell guest relinquishes keyboard focus when it hides.
+        // That restoration is not a request to expand a card.
+        auto *focusReturn = KWin::effects->activeWindow();
+        m_guestSwipeFocusReturn = isApplicationWindow(focusReturn)
+            ? focusReturn : m_cardStage->selectedWindow();
         const auto generation = m_guestGeneration;
+        QTimer::singleShot(1000, this, [this, generation]() {
+            if (generation == m_guestGeneration || !m_cardStage->launcherGuestActive())
+                m_guestSwipeFocusReturn.clear();
+        });
         QTimer::singleShot(220, this, [this, generation]() {
             if (generation == m_guestGeneration && m_cardStage->launcherGuestActive()) {
                 endLauncherGuest();
@@ -1312,6 +1337,11 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    if (isApplicationWindow(window) && m_guestSwipeFocusReturn) {
+        const bool restored = window == m_guestSwipeFocusReturn;
+        m_guestSwipeFocusReturn.clear();
+        if (restored) return;
+    }
     if (isApplicationWindow(window)) {
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
         Q_EMIT workspaceContextChanged();
@@ -1644,26 +1674,12 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         data.setRotationOrigin(QVector3D(originX, originY, 0.0));
     }
 
-    // OffscreenEffect snapshots expandedGeometry(), including decoration
-    // shadows, while setPositionTransformations() maps the window frame. Map
-    // that expanded texture through the same proportional scale so the shader
-    // aperture origin is measured against the pixels it actually samples.
-    const KWin::RectF expanded = window->expandedGeometry();
-    const KWin::RectF frame = window->frameGeometry();
-    const KWin::RectF paintRegion(
-        logicalRegion.x() + (expanded.x() - frame.x()) * data.xScale(),
-        logicalRegion.y() + (expanded.y() - frame.y()) * data.yScale(),
-        expanded.width() * data.xScale(),
-        expanded.height() * data.yScale());
-
     // deviceRegion is KWin's actual renderer clip. Intersecting it with the
     // fixed slot produces a native per-card aperture: every live surface
     // covers the same rectangle, while excess pixels remain compositor-only
     // and can never alter the Card Line pitch or cross an output boundary.
     const KWin::Rect deviceTarget =
         viewport.mapToDeviceCoordinatesAligned(target);
-    const KWin::Rect devicePaint =
-        viewport.mapToDeviceCoordinatesAligned(paintRegion);
     // QRegion remains only the hard output fence. Each visible preview uses
     // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
@@ -1675,7 +1691,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // Keep the old hard-rounded path solely as the shader-unavailable fallback.
     // Active has already returned above and remains on the system paint path.
     const bool useFanAperture = m_fanApertureShader
-        && !devicePaint.isEmpty()
+        && data.xScale() > 0 && data.yScale() > 0
         && !deviceTarget.isEmpty();
     const KWin::Region cardClip = rotatedFanCard
         ? deviceRegion & KWin::Region(fanBaseline)
@@ -1683,10 +1699,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
-        ? QSizeF(devicePaint.size()) : QSizeF();
+        ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
     m_fanApertureOrigin = useFanAperture
-        ? QPointF(deviceTarget.x() - devicePaint.x(),
-                  deviceTarget.y() - devicePaint.y())
+        ? QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
+                  (target.y() - logicalRegion.y()) * viewport.scale())
         : QPointF();
     m_fanApertureSize = useFanAperture
         ? QSizeF(deviceTarget.size()) : QSizeF();

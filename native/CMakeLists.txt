@@ -10,6 +10,8 @@ find_package(ECM 6.26 REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
 include(KDEInstallDirs)
+install(FILES ../assets/studio.warbler.kadunce-logo.png
+    DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/512x512/apps)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 

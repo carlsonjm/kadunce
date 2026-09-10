@@ -8,6 +8,7 @@
 #include <input.h>
 
 #include <QPointF>
+#include <QHash>
 #include <QRectF>
 #include <QSet>
 #include <QTimer>
@@ -140,6 +141,8 @@ private:
     QSet<Qt::MouseButton> m_panelPointerButtons;
     QSet<qint32> m_launcherGuestTouchIds;
     QSet<qint32> m_launcherGuestNavigationTouchIds;
+    QHash<qint32, QPointF> m_guestOutsideTouchStarts;
+    QSet<qint32> m_guestOutsideMovedTouches;
     QTimer m_holdTimer;
     QTimer m_edgePageTimer;
     QTimer m_stackTargetTimer;
@@ -149,6 +152,8 @@ private:
     bool m_pointerPassthrough = false;
     bool m_launcherGuestPointerPassthrough = false;
     bool m_launcherGuestNavigationPointer = false;
+    QPointF m_guestOutsidePointerStart;
+    bool m_guestOutsidePointerMoved = false;
     bool m_touchCommitted = false;
     int m_pointerActiveSide = 0;
     int m_edgePageDirection = 0;

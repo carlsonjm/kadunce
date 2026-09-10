@@ -13,6 +13,8 @@ struct Target final : WorkspaceInputTarget {
     bool canCancel = true;
     int actions = 0;
     int toggles = 0;
+    int dismissals = 0;
+    int guestNavigations = 0;
     WorkspacePresentation presentationForInput() const override { return presentation; }
     bool cancelForwardedTouchForInput() override { ++cancellations; return canCancel; }
     WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799}; }
@@ -28,8 +30,8 @@ struct Target final : WorkspaceInputTarget {
     bool selectedStackContains(const QPointF &) const override { return false; }
     int cardStackCandidate() const override { return 0; }
     void toggleFromInput() override { ++actions; ++toggles; }
-    void dismissLauncherGuestFromInput() override { ++actions; }
-    void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; }
+    void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
+    void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }
     void pageLeftFromInput() override { ++actions; }
     void pageRightFromInput() override { ++actions; }
     void pageStackFromInput(int) override { ++actions; }
@@ -114,6 +116,28 @@ int main(int argc, char **argv) {
         require(target.actions == 0, "Panel input activated a card or dismissed Tette");
     }
     Target target;
+    {
+        Target guest; guest.guest = true;
+        WorkspaceInputRouter input(&guest);
+        KWin::TouchDownEvent down{42,{50,300},{}};
+        KWin::TouchMotionEvent motion{42,{50,350},{}};
+        KWin::TouchUpEvent up{42,{}};
+        require(input.touchDown(&down) && guest.actions == 0, "Outside touch acted before release");
+        require(input.touchMotion(&motion) && input.touchUp(&up) && guest.actions == 0,
+                "Outside swipe became a tap");
+        require(input.touchDown(&down) && input.touchUp(&up) && guest.dismissals == 1
+                    && guest.guestNavigations == 0, "Outside tap navigated instead of dismissing");
+        require(input.touchDown(&down), "Cancel contact missing");
+        input.touchCancel();
+        require(!input.touchUp(&up) && guest.dismissals == 1, "Canceled touch dismissed guest");
+        KWin::PointerButtonEvent pointer{};
+        pointer.position = {50,300}; pointer.button = Qt::LeftButton;
+        pointer.state = KWin::PointerButtonState::Pressed;
+        require(input.pointerButton(&pointer) && guest.dismissals == 1, "Outside mouse press acted early");
+        pointer.state = KWin::PointerButtonState::Released;
+        require(input.pointerButton(&pointer) && guest.dismissals == 2 && guest.guestNavigations == 0,
+                "Outside mouse click navigated instead of dismissing");
+    }
     WorkspaceInputRouter router(&target);
     KWin::PointerButtonEvent button{};
     button.position = {500,300}; button.button = Qt::LeftButton;

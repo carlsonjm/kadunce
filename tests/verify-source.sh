@@ -134,10 +134,10 @@ if rg -q 'Qt::IgnoreAspectRatio|const Qt::AspectRatioMode aspectMode' \
     echo "Rotated fan snapshots must never be stretched into their slots" >&2
     exit 1
 fi
-rg -q 'texcoord0 \* paintSize - apertureOrigin' "${effect_cpp}" "${card_cpp}"
-rg -q 'OffscreenEffect snapshots expandedGeometry' "${effect_cpp}" "${card_cpp}"
-rg -q 'mapToDeviceCoordinatesAligned\(paintRegion\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'deviceTarget\.x\(\) - devicePaint\.x\(\)' "${effect_cpp}" "${card_cpp}"
+rg -q 'position.xy \* paintSize - apertureOrigin' "${effect_cpp}"
+rg -q 'Geometry coordinates are independent of texture flips' "${effect_cpp}"
+rg -q 'in vec2 cardPoint' "${effect_cpp}"
+rg -q 'target.x\(\) - logicalRegion.x\(\)' "${effect_cpp}"
 rg -q 'stackPaintOrderForId' "${native_dir}/src/CardLineModel.cpp" \
     "${effect_cpp}" "${card_cpp}"
 rg -q 'A large fan did not expose a deterministic back-to-front deck' \
