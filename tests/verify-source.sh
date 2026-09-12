@@ -50,8 +50,9 @@ rg -q 'kwin4_effect_kadunce' "${native_dir}/CMakeLists.txt"
 rg -q '0\.1\.0-kadunce-baseline' "${effect_cpp}" "${card_cpp}"
 rg -q 'windowStepUserMovedResized' "${effect_cpp}" "${card_cpp}"
 rg -q 'armed Bento drop across output seam' "${desktop_cpp}"
-rg -q '!m_pointerPressed && !m_pointerPassthrough' "${router_cpp}"
-rg -q 'm_cardLine\.stackSizeForId\(selectedId\) > 1' "${effect_cpp}" "${card_cpp}"
+rg -q 'm_forwardedPointerButtons.remove\(event->button\)' "${router_cpp}"
+rg -q 'Foreign desktop release activated a tablet card' "${native_dir}/tests/PanelInputTest.cpp"
+rg -q 'm_workspace\.stackSizeForId\(selectedId\) > 1' "${effect_cpp}" "${card_cpp}"
 rg -q 'ExportScriptableSlots' "${effect_cpp}" "${card_cpp}"
 rg -q 'Q_SCRIPTABLE QString workspaceContext\(\) const' "${effect_header}"
 rg -q 'Q_SCRIPTABLE bool activateApplicationWindow' "${effect_header}"
@@ -68,11 +69,12 @@ rg -q 'return 3;' "${effect_cpp}"
 rg -q 'readyForPaintingChanged' "${effect_cpp}"
 rg -q 'desktopFileNameChanged' "${effect_cpp}"
 rg -q 'completeLauncherGuestForWindow\(candidate\)' "${effect_cpp}"
-admission=$(sed -n '/^bool CardStageController::handleWindowAdded(/,/^}/p' "${card_cpp}")
+rg -Fq 'finishNewArrival(window, animateArrival, previousSelection)' "${card_cpp}"
+admission=$(sed -n '/^void CardStageController::finishNewArrival(/,/^}/p' "${card_cpp}")
 guest_guard=$(printf '%s\n' "$admission" | rg -n 'if \(m_launcherGuestActive\)' | cut -d: -f1)
 promote=$(printf '%s\n' "$admission" | rg -n 'if \(!enterActive\(\)\)' | cut -d: -f1)
 test -n "$guest_guard" && test "$guest_guard" -lt "$promote"
-printf '%s\n' "$admission" | rg -q 'm_cardLine.selectIndex\(previousSelection\)'
+printf '%s\n' "$admission" | rg -q 'm_workspace.selectIndex\(previousSelection\)'
 rg -q 'QDBusServiceWatcher::WatchForUnregistration' "${effect_cpp}"
 rg -q 'm_cardStage->beginLauncherGuest' "${effect_cpp}"
 rg -q 'm_cardStage->launcherGuestTarget' "${effect_cpp}" "${card_cpp}"
@@ -111,7 +113,7 @@ rg -q 'resourceName\(\).*trimmed\(\)\.toLower\(\)' "${effect_cpp}"
 rg -q 'm_desktopStage->hasSessionOnOutput' "${effect_cpp}"
 rg -q 'TETTEGOUCHE-CONTEXT\.md' "${native_dir}/../docs/ARCHITECTURE.md"
 rg -q 'EffectsHandler::windowAdded' "${effect_cpp}" "${card_cpp}"
-rg -q 'm_cardLine\.appendCard' "${effect_cpp}" "${card_cpp}"
+rg -q 'm_workspace\.append\(' "${card_cpp}"
 rg -q 'const double originX' "${effect_cpp}" "${card_cpp}"
 rg -q 'const double originY' "${effect_cpp}" "${card_cpp}"
 rg -q 'QRegion remains only the hard output fence' "${effect_cpp}" "${card_cpp}"
@@ -120,10 +122,12 @@ rg -q 'Ctrl\+Esc' "${effect_cpp}" "${card_cpp}"
 rg -q 'Ctrl\+Left' "${effect_cpp}" "${card_cpp}"
 rg -q 'Ctrl\+Right' "${effect_cpp}" "${card_cpp}"
 rg -q 'paintScreen' "${effect_cpp}" "${card_cpp}"
-rg -q 'm_paintingOutput != tablet' "${effect_cpp}" "${card_cpp}"
+rg -q 'cardPaintRoute\(m_paintingOutput == tablet' "${effect_cpp}"
+rg -q 'CardPaintRoute::Hidden' "${effect_cpp}"
+rg -q 'deviceRegion & KWin::Region\(outputClip\)' "${effect_cpp}"
 rg -q 'window->screen\(\) != tablet' "${effect_cpp}" "${card_cpp}"
 rg -q 'blocksDirectScanout' "${effect_header}" "${card_header}"
-rg -q 'QList<QPointer<KWin::EffectWindow>> m_liveCards' "${effect_header}" "${card_header}"
+rg -q 'CardWorkspaceState<QPointer<KWin::EffectWindow>> m_workspace' "${effect_header}" "${card_header}"
 rg -q 'rebuildLiveCards' "${effect_cpp}" "${card_cpp}"
 rg -q 'setPositionTransformations' "${effect_cpp}" "${card_cpp}"
 rg -q 'Presentation::Active' "${effect_cpp}" "${card_cpp}"
@@ -183,10 +187,11 @@ fi
 rg -q 'class CardStageController final' "${card_header}"
 rg -q 'class CardStageHost' "${card_header}"
 rg -q 'std::make_unique<CardStageController>' "${effect_cpp}"
-rg -q 'const CardLineModel &cardLine = m_cardStage->model\(\)' "${effect_cpp}"
+rg -q 'm_cardStage->stackPoseForWindow' "${effect_cpp}"
+rg -q 'const auto &cardLine = m_workspace.model\(\)' "${card_cpp}"
 rg -q 'm_host->admitCardToDesktopStage' "${card_cpp}"
 rg -q 'm_cardStage->handleWindowAdded' "${effect_cpp}"
-if rg -q '\bm_cardLine\b|\bm_liveCards\b|\bm_originalCardStackingOrder\b|\bm_activeRestore\b|\bm_presentation\b|\bm_cardGrabOffset\b|\bm_cardStackPreviewTarget\b|\bm_cardStackInsertionIndex\b' \
+if rg -q '\bm_workspace\b|\bm_liveCards\b|\bm_originalCardStackingOrder\b|\bm_activeRestore\b|\bm_presentation\b|\bm_cardGrabOffset\b|\bm_cardStackPreviewTarget\b|\bm_cardStackInsertionIndex\b' \
         "${effect_cpp}" "${effect_header}"; then
     echo "Mutable Card Stage state must not leak back into Effect" >&2
     exit 1
@@ -239,13 +244,15 @@ rg -q 'updateCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_
 rg -q 'finishCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'setElevatedWindow\(selectedWindow\(\), true\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_cardStage->cardGrabOffset\(\)' "${effect_cpp}"
-rg -q 'target\.adjust\(insetX, insetY, -insetX, -insetY\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'm_cardLine\.moveSelected\(movement\)' "${effect_cpp}" "${card_cpp}"
+rg -q 'target = m_cardStage->cardGrabTarget\(\)' "${effect_cpp}"
+rg -q 'm_cardGrabOffset = position - m_cardGrabStart' "${card_cpp}"
+rg -q 'beginCardGrab\(holdCurrent\(\)\)' "${router_cpp}"
+rg -q 'm_workspace\.moveSelected\(movement\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'void CardLineModel::moveSelected' \
     "${native_dir}/src/CardLineModel.cpp"
 rg -q 'CardLineModel::detachedNeighborhood' \
     "${native_dir}/src/CardLineModel.cpp"
-rg -q 'm_cardLine\.detachedNeighborhood\(m_cardGrabPageOffset\)' \
+rg -q 'm_workspace\.detachedNeighborhood\(m_cardGrabPageOffset\)' \
     "${effect_cpp}" "${card_cpp}"
 rg -q 'Three-card edge page did not remain deterministic' \
     "${native_dir}/tests/CardLineModelTest.cpp"
@@ -306,7 +313,7 @@ rg -q 'Cycling a two-card stack moved its fixed reference layout fan' \
 rg -q 'Vertical stack cycling changed the horizontal group envelope' \
     "${native_dir}/tests/CardLineLayoutTest.cpp"
 rg -q 'const bool activeStack = wasActive' "${effect_cpp}" "${card_cpp}"
-rg -q 'm_cardLine\.pageStack\(delta\)' "${effect_cpp}" "${card_cpp}"
+rg -q 'm_workspace\.pageStack\(delta\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'CardLineModel::detachSelectedMember' \
     "${native_dir}/src/CardLineModel.cpp"
 rg -q 'CardLineModel::restoreDetachedMember' \
@@ -331,7 +338,7 @@ rg -q 'A destination-card hover incorrectly requested paging' \
 rg -q 'one extra outward dwell at the deck.s first or last seam' \
     "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(CardEdgeRepeatDelay\)' "${router_cpp}"
-rg -q 'm_cardLine\.removeCard' "${effect_cpp}" "${card_cpp}"
+rg -q 'm_workspace\.removeAt' "${card_cpp}"
 rg -q 'deviceRegion & KWin::Region\(fanBaseline\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'class Effect final : public KWin::OffscreenEffect' "${effect_header}" "${card_header}"
 rg -q 'generateCustomShader' "${effect_cpp}" "${card_cpp}"
@@ -348,7 +355,7 @@ test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
     "99df423c64d52be42731c96f67bfcf6d39af9574e4789c814c3a28de45a88052"
 test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
     "c7af8f9933750db7b545f4d75cc06a8e49a3b4eac05e835a77f85f7082b14599"
-rg -q 'appendCenteredCard' "${card_cpp}"
+rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"
 rg -q 'window == m_arrivalWindow' "${card_cpp}"
 rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"
 rg -q 'm_arrivalTimer.stop\(\)' "${card_cpp}"
@@ -361,10 +368,12 @@ arrival_line=$(printf '%s\n' "$completion" | rg -n 'stageWindowArrival\(window\)
 ready_line=$(printf '%s\n' "$completion" | rg -n 'QDBusMessage ready' | cut -d: -f1)
 test -n "$arrival_line" && test "$arrival_line" -lt "$ready_line"
 rg -q 'makeFocusedPairLayout' "${card_cpp}"
-rg -q 'm_cardLine.count\(\) == 2' "${card_cpp}"
+rg -q 'm_workspace.count\(\) == 2' "${card_cpp}"
 rg -q 'm_cardStage->previewTargetForWindow' "${effect_cpp}"
 rg -q 'PreviewTransitionDuration = 280' "${card_cpp}"
 rg -q 'isPanelPoint' "${router_cpp}" "${effect_cpp}"
+sed -n '/^bool Effect::isPanelPoint(/,/^}/p' "${effect_cpp}" | rg -q 'window->isDock\(\) \|\| window->isAppletPopup\(\)'
+rg -q 'Held touch blocked tray popup release' "${native_dir}/tests/PanelInputTest.cpp"
 rg -q 'window->window\(\)->hitTest\(position\)' "${effect_cpp}"
 rg -q 'm_panelPointerButtons' "${router_cpp}"
 rg -q 'add_test\(NAME panel-input' "${native_dir}/CMakeLists.txt"
@@ -431,7 +440,7 @@ rg -q 'handoffBentoLeadToOutput' "${effect_cpp}" "${card_cpp}" "${effect_header}
 rg -q 'std::make_unique<DesktopStageController>' "${effect_cpp}" "${card_cpp}"
 rg -q 'allowsDesktopStageOnOutput' \
     "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}" "${desktop_cpp}" "${desktop_header}"
-rg -q 'std::none_of' "${effect_cpp}" "${card_cpp}"
+rg -q 'activatePreparedTabletDrop' "${effect_cpp}" "${desktop_cpp}"
 rg -q 'prepareOutputForDesktopStage' \
     "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}" "${desktop_cpp}" "${desktop_header}"
 rg -q 'hasSessionOnOutput\(tablet->name\(\)\)' "${effect_cpp}" "${card_cpp}"
@@ -444,9 +453,13 @@ if rg -q 'BentoSession|BentoRestoreSnapshot|m_bentoSessions|m_bentoSettle' \
     echo "Desktop Stage session state must not leak back into Effect" >&2
     exit 1
 fi
-if rg -q 'Effect \*|m_effect|friend class DesktopStageController' \
+if rg -q 'Effect \*|m_effect' \
         "${desktop_cpp}" "${desktop_header}" "${effect_header}" "${card_header}"; then
     echo "DesktopStageController must depend only on its typed host" >&2
+    exit 1
+fi
+if rg -q 'friend class DesktopStageController' "${effect_header}" "${card_header}"; then
+    echo "DesktopStageController must not access another owner's internals" >&2
     exit 1
 fi
 if rg -q '\bmoveWindow\(|windowToScreen\(|frameGeometry\s*=' "${native_dir}"; then

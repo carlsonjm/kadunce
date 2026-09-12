@@ -4,6 +4,7 @@
 */
 
 #include "BentoLayout.h"
+#include <algorithm>
 
 #include <cmath>
 #include <cstdlib>
@@ -99,6 +100,32 @@ int main()
             == std::set<int>({1, 2}),
             "Admission parked the wrong constrained window");
 
+    require(!chooseBentoTransferAdmission(constrained, 0, 1200, 800, 3),
+            "Oversized arrival was silently parked");
+    const auto arrival = chooseBentoTransferAdmission(ordinary, 0, 2540, 1410);
+    require(arrival && std::find(arrival->candidateIndices.begin(),
+        arrival->candidateIndices.end(), 0) != arrival->candidateIndices.end(),
+        "Feasible arrival has no visible pane");
+    // Existing apps could fill two slots, but the arrival only fits alone.
+    // Search a smaller valid arrangement instead of accepting its omission.
+    const std::vector<BentoCandidate> singleArrival{
+        {1100, 700, 1100, 700, true},
+        {100, 100, 400, 400, false},
+        {100, 100, 400, 400, false},
+    };
+    const auto single = chooseBentoTransferAdmission(singleArrival, 0, 1200, 800, 3);
+    require(single && single->candidateIndices == std::vector<int>{0},
+        "Arrival was omitted instead of selecting a feasible smaller layout");
+    require(!chooseBentoTransferAdmission(ordinary, -1, 1200, 800)
+        && !chooseBentoTransferAdmission(ordinary, 4, 1200, 800)
+        && !chooseBentoTransferAdmission(ordinary, 0, 0, 800)
+        && !chooseBentoTransferAdmission(ordinary, 0, 1200, 800, 0),
+        "Invalid transfer destination admitted");
+    for (int incoming = 0; incoming < 4; ++incoming) {
+        const auto plan = chooseBentoTransferAdmission(ordinary, incoming, 2540, 1410);
+        require(plan && std::find(plan->candidateIndices.begin(), plan->candidateIndices.end(), incoming)
+            != plan->candidateIndices.end(), "Required non-leading candidate missing");
+    }
     std::cout << "Bento layout/admission checks passed\n";
     return 0;
 }

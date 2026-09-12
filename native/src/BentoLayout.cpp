@@ -103,12 +103,14 @@ bool assignCandidates(const std::vector<BentoCandidate> &candidates,
 bool findSubsetAssignment(const std::vector<BentoCandidate> &candidates,
                           int count, const std::vector<BentoRect> &rects,
                           int areaWidth, int areaHeight,
-                          std::vector<int> &assignment)
+                          std::vector<int> &assignment, int required = -1)
 {
     std::vector<int> subset;
     subset.reserve(count);
     const auto search = [&](const auto &self, int next) -> bool {
         if (static_cast<int>(subset.size()) == count) {
+            if (required >= 0 && std::find(subset.begin(), subset.end(), required) == subset.end())
+                return false;
             return assignCandidates(candidates, subset, rects,
                                     areaWidth, areaHeight, assignment);
         }
@@ -261,6 +263,33 @@ BentoAdmission chooseBentoAdmission(
         }
     }
     return {};
+}
+
+std::optional<BentoAdmission> chooseBentoTransferAdmission(
+    const std::vector<BentoCandidate> &candidates, int arrivingIndex,
+    int areaWidth, int areaHeight, int maximumVisible)
+{
+    if (arrivingIndex < 0 || arrivingIndex >= static_cast<int>(candidates.size())
+        || areaWidth <= 0 || areaHeight <= 0 || maximumVisible <= 0)
+        return std::nullopt;
+    for (const auto &candidate : candidates) {
+        if (!std::isfinite(candidate.minimumWidth) || !std::isfinite(candidate.minimumHeight)
+            || !std::isfinite(candidate.width) || !std::isfinite(candidate.height)
+            || candidate.minimumWidth < 0 || candidate.minimumHeight < 0
+            || candidate.width <= 0 || candidate.height <= 0) return std::nullopt;
+    }
+    const bool landscape = areaWidth >= areaHeight;
+    for (int count = std::min({maximumVisible, 8, static_cast<int>(candidates.size())}); count >= 1; --count) {
+        std::vector<std::vector<BentoRect>> layouts{makeBentoLayout(count, landscape)};
+        if (count == 2) layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
+        for (const auto &layout : layouts) {
+            std::vector<int> assignment;
+            if (findSubsetAssignment(candidates, count, layout, areaWidth, areaHeight,
+                                     assignment, arrivingIndex))
+                return BentoAdmission{std::move(assignment), layout};
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace Kadunce

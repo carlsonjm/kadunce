@@ -83,6 +83,19 @@ int main()
                 "Focused pair stretches the accepted aperture aspect ratio");
     }
     constexpr double width = 1024.0;
+    // Contract coverage across output origins and every supported preference,
+    // not just the current tablet's geometry or a few sample gutter values.
+    for (const auto origin : {std::array<double, 2>{0, 0},
+                              std::array<double, 2>{-1920, 240}}) {
+        for (int gutter = 6; gutter <= 48; ++gutter) {
+            const auto bounds = Kadunce::makeActiveTarget(origin[0], origin[1], 1280, 800, gutter);
+            require(close(bounds.x - origin[0], gutter)
+                        && close(bounds.y - origin[1], gutter)
+                        && close(origin[0] + 1280 - bounds.right(), gutter)
+                        && close(origin[1] + 800 - bounds.bottom(), gutter),
+                    "Active gutter differs between edges or depends on output origin");
+        }
+    }
     constexpr double height = 640.0;
     const Kadunce::CardLineLayout layout =
         Kadunce::makeCardLineLayout(0.0, 0.0, width, height);

@@ -1,5 +1,9 @@
 #include "ActiveSettings.h"
+#include "DisplayHandoffPolicy.h"
 #include "WindowStateRestore.h"
+#include "NativePlacement.h"
+#include "DeferredCommandGuard.h"
+#include "RestoreOutputPlan.h"
 #include <QCoreApplication>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -36,9 +40,101 @@ struct Client {
     void setFullscreenGeometryRestore(const KWin::RectF &) { calls << u"fullscreen-restore"_s; }
     void setMinimized(bool value) { calls << (value ? u"minimize"_s : u"unminimize"_s); }
 };
+struct PlacementClient : Client {
+    int steps = 0;
+    int invalidateAt = 0;
+    Kadunce::DeferredCommandGuard *guard;
+    void hit() { if (++steps == invalidateAt) guard->invalidate(); }
+    void sendToOutput(int *) { hit(); }
+    void setMinimized(bool) { hit(); }
+    void setFullScreen(bool) { hit(); }
+    void maximize(KWin::MaximizeMode) { hit(); }
+    KWin::QuickTileMode quickTileMode() const { return KWin::QuickTileFlag::Left; }
+    void setQuickTileMode(KWin::QuickTileMode, const QPointF &) { hit(); }
+    void moveResize(const KWin::RectF &) { hit(); }
+};
+struct RestoreClient : Client {
+    int steps = 0, invalidateAt = 0;
+    bool alive = true;
+    void hit() { if (++steps == invalidateAt) alive = false; }
+    void setFullScreen(bool) { hit(); }
+    void maximize(KWin::MaximizeMode, const KWin::RectF & = {}) { hit(); }
+    void setMinimized(bool) { hit(); }
+    void moveResize(const KWin::RectF &) { hit(); }
+    void setGeometryRestore(const KWin::RectF &) { hit(); }
+    void setFullscreenGeometryRestore(const KWin::RectF &) { hit(); }
+};
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    using Kadunce::RestoreResult;
+    const QList<int> outputs{1,2,3};
+    QList<int> attempted;
+    require(Kadunce::restoreOnSurvivingOutput(outputs, [](int id) { return id != 2; },
+        [&](int id) { attempted.append(id); return id == 1 ? RestoreResult::OutputLost : RestoreResult::Completed; })
+        == RestoreResult::Completed);
+    require(attempted == QList<int>{1,3});
+    attempted.clear();
+    require(Kadunce::restoreOnSurvivingOutput(outputs, [](int) { return true; },
+        [&](int id) { attempted.append(id); return RestoreResult::Aborted; }) == RestoreResult::Aborted);
+    require(attempted == QList<int>{1});
+    attempted.clear();
+    require(Kadunce::restoreOnSurvivingOutput(outputs, [](int) { return true; },
+        [&](int id) { attempted.append(id); return RestoreResult::OutputLost; }) == RestoreResult::OutputLost);
+    require(attempted == outputs);
+    require(Kadunce::restoreOnSurvivingOutput(outputs, [](int) { return false; },
+        [&](int) { require(false); return RestoreResult::Completed; }) == RestoreResult::OutputLost);
+    for (int stop = 1; stop <= 9; ++stop) {
+        RestoreClient client; client.invalidateAt = stop;
+        require(!Kadunce::restoreWindowStateChecked(&client, Snapshot{}, {0,0,500,400},
+            true, true, true, [&] { return client.alive; }));
+        require(client.steps == stop);
+    }
+    RestoreClient complete;
+    require(Kadunce::restoreWindowStateChecked(&complete, Snapshot{}, {0,0,500,400},
+        true, true, true, [&] { return complete.alive; }));
+    require(complete.steps == 9);
+    // Inject cancellation at each real placement boundary. No later setter
+    // may run; a fresh generation must still complete normally afterward.
+    for (int stop = 1; stop <= 6; ++stop) {
+        Kadunce::DeferredCommandGuard guard;
+        const auto token = guard.issue();
+        PlacementClient client;
+        client.guard = &guard; client.invalidateAt = stop;
+        int output = 0;
+        require(!Kadunce::applyNativePlacement(&client, &output, {0,0,500,400},
+            [&] { return guard.accepts(token); }));
+        require(client.steps == stop);
+        const auto fresh = guard.issue();
+        client.steps = 0; client.invalidateAt = 0;
+        require(Kadunce::applyNativePlacement(&client, &output, {0,0,500,400},
+            [&] { return guard.accepts(fresh); }));
+        require(client.steps == 6);
+        client.steps = 0;
+        require(!Kadunce::applyNativePlacement(&client, &output, {0,0,500,400}, [] { return false; }));
+        require(client.steps == 0);
+    }
+    using Kadunce::CardPaintRoute;
+    using Kadunce::cardPaintRoute;
+    for (bool admitted : {false, true}) {
+        require(cardPaintRoute(false, true, admitted, false) == CardPaintRoute::Hidden);
+        require(cardPaintRoute(true, false, admitted, false) == CardPaintRoute::Hidden);
+        require(cardPaintRoute(false, false, admitted, false) == CardPaintRoute::Native);
+        for (bool outputIsTablet : {false, true}) {
+            for (bool ownedByTablet : {false, true}) {
+                require(cardPaintRoute(outputIsTablet, ownedByTablet, admitted, true)
+                        == CardPaintRoute::Native);
+            }
+        }
+    }
+    require(cardPaintRoute(true, true, true, false) == CardPaintRoute::Card);
+    require(cardPaintRoute(true, true, false, false) == CardPaintRoute::Hidden);
+    for (bool paintingTablet : {false, true}) {
+        require(cardPaintRoute(paintingTablet, true, true, false, true)
+                == CardPaintRoute::Card);
+        require(cardPaintRoute(paintingTablet, true, false, false, true)
+                == CardPaintRoute::Hidden);
+    }
     if (app.arguments().size() == 4) {
         auto config = KSharedConfig::openConfig(app.arguments()[2], KConfig::SimpleConfig);
         KConfigGroup(config, QStringLiteral("Effect-kadunce")).writeEntry(

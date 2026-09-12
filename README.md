@@ -25,6 +25,15 @@ focus, outputs, and recovery.
 - A versioned context contract and opt-in guest-card handoff for companion
   launchers.
 
+## Development checkpoint — September 12, 2026
+
+The unified carry implementation is frozen as a tested development checkpoint,
+not a finished release. Tablet-to-monitor return, ordinary-window transit,
+and basic Bento edge entry/exit passed physical testing. Known issue: a window
+released through the bottom edge may fail to re-enter existing Bento and use
+native KDE snapping instead. See [checkpoint](docs/FREEZE-20260912.md) and
+[remaining roadmap](docs/NEXT-ROADMAP.md).
+
 ## Requirements
 
 - KDE Plasma 6.7 or newer on Wayland.
@@ -82,6 +91,11 @@ launchers may also negotiate a separate guest-card session; unsupported clients
 and older Kadunce builds retain standalone behavior.
 
 ## Project layout
+
+For development and task handoff, start with
+[current state](docs/CURRENT_STATE.md), then the relevant
+[architecture](docs/ARCHITECTURE.md) and [refactor work packet](docs/REFACTOR-PLAN.md).
+These distinguish accepted releases from local candidates and installed files.
 
 ```text
 native/                 KWin effect, controllers, models, and native tests

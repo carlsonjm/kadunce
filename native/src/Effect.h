@@ -8,8 +8,11 @@
 #include "CardStageController.h"
 #include "DesktopStageController.h"
 #include "WorkspaceInputRouter.h"
+#include "DeferredCommandGuard.h"
+#include "NativeCarryRuntime.h"
 
 #include <effect/offscreeneffect.h>
+#include "DesktopExitLabel.h"
 
 #include <QList>
 #include <QPointer>
@@ -67,13 +70,13 @@ public:
     [[nodiscard]] bool blocksDirectScanout() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage();
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow);
     }
 
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage();
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow);
     }
 
 private Q_SLOTS:
@@ -90,6 +93,8 @@ public Q_SLOTS:
     Q_SCRIPTABLE void showActive();
     Q_SCRIPTABLE QStringList outputStageState() const;
     Q_SCRIPTABLE QString workspaceContext() const;
+    Q_SCRIPTABLE QString nativeCarryState() const;
+    Q_SCRIPTABLE QStringList nativeMoveTrace() const { return m_nativeMoveTrace; }
     Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
     Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
@@ -107,6 +112,9 @@ Q_SIGNALS:
     Q_SCRIPTABLE void bridgeUnavailable();
 
 private:
+    void traceNativeMove(KWin::EffectWindow *window, const char *event);
+    QStringList m_nativeMoveTrace;
+    QString m_lastCarryDestinationTrace;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     void handleLaunchWindowChanged();
     static bool isTabletOutput(const KWin::LogicalOutput *output);
@@ -125,6 +133,8 @@ private:
         KWin::LogicalOutput *output) const override;
     void prepareOutputForDesktopStage(
         KWin::LogicalOutput *output) override;
+    [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
+        KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
     [[nodiscard]] bool isTabletOutputForCardStage(
@@ -132,16 +142,19 @@ private:
     [[nodiscard]] bool isManagedWindowForCardStage(
         const KWin::EffectWindow *window) const override;
     void setPagingShortcutsForCardStage(bool active) override;
+    void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
     [[nodiscard]] bool admitCardToDesktopStage(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
-        const KWin::RectF &geometry) override;
+        const KWin::RectF &geometry, const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource) override;
     void setPagingShortcutsActive(bool active);
     [[nodiscard]] WorkspacePresentation presentationForInput() const override;
     [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;
     [[nodiscard]] bool cardGrabActiveForInput() const override;
+    [[nodiscard]] bool nativeWindowInteractionForInput() const override;
     [[nodiscard]] bool stackPreviewArmedForInput() const override;
     [[nodiscard]] int stackPreviewTargetForInput() const override;
     [[nodiscard]] bool centerCardContainsForInput(
@@ -166,9 +179,8 @@ private:
     void pageStackFromInput(int delta) override;
     void pageHorizontal(int delta);
     void pageStack(int delta);
-    void beginCardGrab() override;
-    void updateCardGrab(double horizontalDelta) override;
-    void updateCardGrabDestination(const QPointF &position) override;
+    void beginCardGrab(const QPointF &position) override;
+    void updateCardGrab(const QPointF &position) override;
     void pageCardGrab(int direction) override;
     void finishCardGrab(bool commit) override;
     [[nodiscard]] bool finishCardGrabOnOutput(
@@ -189,6 +201,9 @@ private:
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
+    void beginLegacyNativeMove(KWin::EffectWindow *window);
+    void updateNativeCarryDestination(QPointF contact);
+    void endNativeCarryPresentation();
     void handleManagedStateChanged();
     void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
                                        const KWin::RectF &geometry);
@@ -202,8 +217,8 @@ private:
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool hasActiveDesktopStage() const;
     void connectManagedWindow(KWin::EffectWindow *window);
-    void admitTransferredWindowToTablet(
-        KWin::EffectWindow *window) override;
+    bool admitTransferredWindowToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; }) override;
 
     QAction *m_toggleAction = nullptr;
     QAction *m_releaseAction = nullptr;
@@ -216,10 +231,33 @@ private:
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
+    std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
+    QPointer<KWin::EffectWindow> m_carriedWindow;
+    QRectF m_carryPickup;
+    std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
+    std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
+    QPointer<KWin::EffectWindow> m_lineDestinationWindow;
+    QPointF m_lineDestinationContact;
+    DeferredCommandGuard m_inputActivationGuard;
     std::unique_ptr<DesktopStageController> m_desktopStage;
     std::unique_ptr<CardStageController> m_cardStage;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
+    QPointer<KWin::EffectWindow> m_nativeCarry;
+    QString m_nativeCarrySource;
+    bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
+    std::unique_ptr<KWin::GLShader> m_destinationShader;
+    std::optional<KWin::RectF> m_carryPreview;
+    DesktopExitLabel m_detachLabel;
+    std::optional<KWin::RectF> m_linePreview;
+    void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                         const QRectF &from, const QRectF &to);
+    void clearDropSettle();
+    [[nodiscard]] std::optional<QRectF> dropSettleRect() const;
+    QPointer<KWin::EffectWindow> m_settlingWindow;
+    QPointer<KWin::LogicalOutput> m_settlingOutput;
+    QRectF m_settleFrom, m_settleTo, m_settleOutputGeometry;
+    QElapsedTimer m_dropSettleTimer;
     KWin::EffectWindow *m_fanApertureWindow = nullptr;
     QSizeF m_fanPaintSize;
     QPointF m_fanApertureOrigin;

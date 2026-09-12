@@ -1,0 +1,5 @@
+--- a/native/src/Effect.cpp
++++ b/native/src/Effect.cpp
+@@ -455,1 +455,1 @@
+-    return name.startsWith(QStringLiteral("edp"))
++    return name == QStringLiteral("virtual-0") || name.startsWith(QStringLiteral("edp"))

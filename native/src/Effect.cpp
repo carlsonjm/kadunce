@@ -4,17 +4,24 @@
 */
 
 #include "Effect.h"
+#include <QScopeGuard>
 #include "LaunchIdentity.h"
 #include "CardLineLayout.h"
+#include "DisplayHandoffPolicy.h"
+#include "CarryPaintPlan.h"
+#include "NativeLanding.h"
+#include "MonitorDropIntent.h"
 
 #include <core/output.h>
 #include <core/region.h>
 #include <core/renderviewport.h>
+#include <core/rendertarget.h>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <input.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glutils.h>
+#include <opengl/glvertexbuffer.h>
 #include <window.h>
 #include <workspace.h>
 #include <wayland_server.h>
@@ -49,6 +56,33 @@ namespace
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 10.0;
 constexpr double LauncherGuestCommitDistance = 58.0;
+constexpr auto DestinationVertex = R"GLSL(#version 140
+in vec4 position;
+uniform mat4 modelViewProjectionMatrix;
+out vec2 point;
+void main() {
+    point = position.xy;
+    gl_Position = modelViewProjectionMatrix * position;
+}
+)GLSL";
+constexpr auto DestinationFragment = R"GLSL(#version 140
+in vec2 point;
+out vec4 fragColor;
+uniform vec4 destinationBox;
+#include "colormanagement.glsl"
+void main() {
+    vec2 halfSize = destinationBox.zw * 0.5;
+    float radius = min(10.0, min(halfSize.x, halfSize.y));
+    vec2 q = abs(point - destinationBox.xy - halfSize) - (halfSize - vec2(radius));
+    float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    float feather = max(fwidth(d), 0.5);
+    float inside = 1.0 - smoothstep(-feather, 0.0, d);
+    float ring = smoothstep(-2.0 - feather, -2.0, d) * inside;
+    float alpha = inside * 0.035 + ring * 0.65;
+    vec4 color = vec4(vec3(0.88) * alpha, alpha);
+    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
+}
+)GLSL";
 QString windowIdentity(const KWin::EffectWindow *window)
 {
     return window
@@ -198,6 +232,8 @@ Effect::Effect()
 
     if (KWin::effects->isOpenGLCompositing()
         && KWin::OffscreenEffect::supported()) {
+        m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -326,7 +362,63 @@ Effect::Effect()
             this, &Effect::handleSessionStateChanged);
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
             this, &Effect::handleScreenRemoved);
+    connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
+            [this](KWin::LogicalOutput *output) { m_desktopStage->handleScreenAdded(output); });
 
+    m_carryRuntime = std::make_unique<NativeCarryRuntime>();
+    m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
+        traceNativeMove(w ? w->effectWindow() : m_carriedWindow.data(), event);
+    };
+    m_carryRuntime->adopted = [this](KWin::Window *w) {
+        m_carryPickup = QRectF(m_carryRuntime->handoff.carry().snapshot().geometry);
+        if (m_nativeCarry == w->effectWindow()) {
+            m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
+        }
+        m_carriedWindow = w->effectWindow();
+        traceNativeMove(m_carriedWindow, "adopted");
+        KWin::effects->setElevatedWindow(m_carriedWindow, true);
+        KWin::effects->addRepaintFull();
+    };
+    m_carryRuntime->moved = [this](QPointF p) { updateNativeCarryDestination(p); };
+    m_carryRuntime->deferred = [this](KWin::Window *w) {
+        // Native-drag visibility exception only: no controller start, which
+        // would invalidate the saved reservation or take geometry ownership.
+        m_nativeCarry = w->effectWindow();
+        m_nativeCarrySource = w->output()->name();
+        m_nativeCarryFromBento = false;
+        KWin::effects->setElevatedWindow(m_nativeCarry, true);
+    };
+    m_carryRuntime->entryRequested = [this](const PreparedCarrySource &source, QPointF p) {
+        if (isPanelPoint(p)) return false;
+        for (auto *output : KWin::effects->screens()) {
+            if (!QRectF(output->geometry()).contains(p)) continue;
+            if (monitorCarryEdge(QRectF(output->geometry()), p)) return true;
+            return output->name() != source.origin().output
+                && (isTabletOutput(output) || m_desktopStage->hasSessionOnOutput(output->name()));
+        }
+        return false;
+    };
+    m_carryRuntime->ended = [this] { endNativeCarryPresentation(); };
+    m_carryRuntime->nativeReleased = [this](KWin::Window *window, QPointF contact) {
+        const QPointer<KWin::Window> guarded = window;
+        // Let KWin finish its native release first. Cancel/Escape/extra contact
+        // never schedules this callback; destruction cancels the one-shot.
+        QTimer::singleShot(0, this, [this, guarded, contact] {
+            if (!guarded || guarded->isDeleted() || guarded->isInteractiveMove()
+                || guarded->isInteractiveResize() || guarded->isMinimized()
+                || !guarded->output() || isTabletOutput(guarded->output())
+                || m_desktopStage->managesWindow(guarded->effectWindow())) return;
+            const QRectF output(guarded->output()->geometry());
+            if (!output.contains(contact) || contact.y() < output.bottom() - 24) return;
+            const QRectF area = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, guarded->output())).intersected(output);
+            const QRectF frame(guarded->moveResizeGeometry());
+            const auto landing = safeNativeLanding(frame, area);
+            if (landing != frame) guarded->moveResize(KWin::RectF(landing));
+        });
+    };
+    m_carryRuntime->interrupted = [this] { clearDropSettle(); };
+    connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
+            [this] { if (m_carryRuntime) m_carryRuntime->cancel(); });
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         connectManagedWindow(window);
     }
@@ -356,6 +448,13 @@ Effect::Effect()
 
 Effect::~Effect()
 {
+    if (m_nativeCarry) KWin::effects->setElevatedWindow(m_nativeCarry, false);
+    m_desktopStage->cancelRestoredMinimizations();
+    // Roll back input while its target/controllers are alive, then unregister
+    // the filter before restoration can reenter KWin or destroy those owners.
+    cancelInputForCardStage();
+    m_carryRuntime.reset();
+    m_inputRouter.reset();
     Q_EMIT bridgeUnavailable();
     endLauncherGuest();
     if (m_showCardLineAction) {
@@ -455,19 +554,7 @@ bool Effect::isTabletOutputForDesktopStage(
 bool Effect::allowsDesktopStageOnOutput(
     const KWin::LogicalOutput *output) const
 {
-    if (!output) {
-        return false;
-    }
-    if (!isTabletOutput(output)) {
-        return true;
-    }
-    const QList<KWin::LogicalOutput *> outputs = KWin::effects->screens();
-    return std::none_of(
-        outputs.cbegin(), outputs.cend(),
-        [output](const KWin::LogicalOutput *candidate) {
-            return candidate && candidate != output
-                && !isTabletOutput(candidate);
-        });
+    return output && KWin::effects->screens().contains(const_cast<KWin::LogicalOutput *>(output));
 }
 
 bool Effect::isManagedWindowForDesktopStage(
@@ -490,8 +577,14 @@ KWin::Rect Effect::activeTargetForDesktopStage(
 void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)
 {
     if (output && isTabletOutput(output) && m_cardStage->isActive()) {
-        release();
+        m_cardStage->release(); // Do not release Bento sessions on other displays.
     }
+}
+
+std::optional<NativeMoveSnapshot> Effect::activeRestoreForDesktopStage(KWin::EffectWindow *window) const
+{
+    const auto source = m_cardStage->prepareNativeCarrySource(window);
+    return source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot()) : std::nullopt;
 }
 
 KWin::LogicalOutput *Effect::tabletOutputForCardStage() const
@@ -516,6 +609,15 @@ void Effect::setPagingShortcutsForCardStage(bool active)
     setPagingShortcutsActive(active);
 }
 
+void Effect::cancelInputForCardStage()
+{
+    clearDropSettle();
+    m_lineDestination.reset(); m_lineDestinationWindow.clear();
+    if (m_carryRuntime) m_carryRuntime->cancel();
+    m_inputActivationGuard.invalidate();
+    if (m_inputRouter) m_inputRouter->cancelWorkspaceInteraction();
+}
+
 void Effect::connectManagedWindowForCardStage(KWin::EffectWindow *window)
 {
     connectManagedWindow(window);
@@ -528,9 +630,23 @@ void Effect::unredirectForCardStage(KWin::EffectWindow *window)
 
 bool Effect::admitCardToDesktopStage(
     KWin::EffectWindow *window, KWin::LogicalOutput *output,
-    const KWin::RectF &geometry)
+    const KWin::RectF &geometry, const std::function<bool()> &commitSource,
+    const std::function<void()> &releaseSource)
 {
-    return m_desktopStage->admitCardWindow(window, output, geometry);
+    if (m_carryDestination && window == m_carriedWindow)
+        return m_desktopStage->transferPreparedCard(*m_carryDestination, commitSource, releaseSource);
+    if (m_cardStage->cardGrabActive()) {
+        if (!m_lineDestination || m_lineDestinationWindow != window) return false;
+        const auto reserved = *m_lineDestination;
+        const auto target = m_linePreview;
+        const auto from = QRectF(m_cardStage->cardGrabTarget()).translated(m_cardStage->cardGrabOffset());
+        QPointer<KWin::EffectWindow> arrival = window;
+        QPointer<KWin::LogicalOutput> destination = output;
+        const bool committed = m_desktopStage->transferPreparedCard(reserved, commitSource, releaseSource);
+        if (committed && target) startDropSettle(arrival, destination, from, QRectF(*target));
+        return committed;
+    }
+    return m_desktopStage->transferCardWindow(window, output, geometry, commitSource, releaseSource);
 }
 
 WorkspacePresentation Effect::presentationForInput() const
@@ -552,7 +668,7 @@ WorkspaceInputGeometry Effect::geometryForInput() const
     const KWin::Rect tabletRect = tablet->geometry();
     const auto *selected = m_cardStage->selectedWindow();
     const KWin::Rect centerCard = selected && !m_cardStage->launcherGuestActive()
-        ? m_cardStage->previewTargetForWindow(tablet, selected)
+        ? m_cardStage->posedTargetForWindow(tablet, selected)
         : cardTargetForSlot(tablet, 0);
     return {
         QRectF(tabletRect),
@@ -565,6 +681,11 @@ WorkspaceInputGeometry Effect::geometryForInput() const
 bool Effect::cardGrabActiveForInput() const
 {
     return m_cardStage->cardGrabActive();
+}
+
+bool Effect::nativeWindowInteractionForInput() const
+{
+    return KWin::workspace()->moveResizeWindow() != nullptr;
 }
 
 bool Effect::stackPreviewArmedForInput() const
@@ -583,7 +704,7 @@ bool Effect::centerCardContainsForInput(const QPointF &position) const
     if (!tablet) return false;
     const auto *selected = m_cardStage->selectedWindow();
     const auto target = selected && !m_cardStage->launcherGuestActive()
-        ? m_cardStage->previewTargetForWindow(tablet, selected)
+        ? m_cardStage->posedTargetForWindow(tablet, selected)
         : cardTargetForSlot(tablet, 0);
     return target.contains(position.toPoint());
 }
@@ -674,6 +795,7 @@ bool Effect::hasActiveDesktopStage() const
 
 void Effect::toggleBento()
 {
+    if (m_carryRuntime) m_carryRuntime->cancel();
     m_desktopStage->toggleUnderPointer();
 }
 
@@ -708,18 +830,285 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     connect(window, &KWin::EffectWindow::windowFinishUserMovedResized,
             this, &Effect::handleWindowMoveResizeFinished,
             Qt::UniqueConnection);
+    if (m_carryRuntime && window->window()) m_carryRuntime->observer.watch(window->window());
 }
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    traceNativeMove(window, "native-start");
+    if (window == m_settlingWindow) clearDropSettle();
+    if (m_carryRuntime && m_carryRuntime->route.busy()) m_carryRuntime->cancel();
+    if (m_carryRuntime && window->window() && window->isUserMove()
+        && !m_carryRuntime->route.busy()) {
+        auto source = m_cardStage->prepareNativeCarrySource(window);
+        const bool fromBento = !source;
+        if (!source) source = m_desktopStage->prepareNativeCarrySource(window);
+        if (source) {
+            m_carryPickup = QRectF(window->frameGeometry());
+            QPointer<KWin::EffectWindow> guarded = window;
+            if (m_carryRuntime->handoff.stage(window->window(), *source,
+                [this, saved = *source, fromBento] {
+                    return fromBento ? m_desktopStage->nativeCarrySourceValid(saved)
+                                     : m_cardStage->nativeCarrySourceValid(saved);
+                }, [this, guarded] { if (guarded) beginLegacyNativeMove(guarded); })) {
+                traceNativeMove(window, source->isDesktopWindow() ? "staged-ordinary" : "staged-card");
+                return;
+            }
+        }
+    }
+    beginLegacyNativeMove(window);
+}
+
+void Effect::beginLegacyNativeMove(KWin::EffectWindow *window)
+{
+    traceNativeMove(window, "native-fallback");
+    if (isApplicationWindow(window) && window->isUserMove()) {
+        m_nativeCarry = window;
+        m_nativeCarrySource = window->screen() ? window->screen()->name() : QString();
+        m_nativeCarryFromBento = m_desktopStage->managesWindow(window);
+    }
     m_cardStage->handleManualWindowChange(window);
     m_desktopStage->handleWindowMoveResizeStarted(window);
+    if (m_nativeCarry == window) {
+        KWin::effects->setElevatedWindow(window, true);
+        KWin::effects->addRepaintFull();
+    }
+}
+
+void Effect::endNativeCarryPresentation()
+{
+    if (m_carriedWindow) traceNativeMove(m_carriedWindow, "presentation-ended");
+    m_lastCarryDestinationTrace.clear();
+    if (m_carriedWindow) {
+        KWin::effects->setElevatedWindow(m_carriedWindow, false);
+        unredirect(m_carriedWindow);
+    }
+    m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+}
+
+void Effect::traceNativeMove(KWin::EffectWindow *window, const char *event)
+{
+    // No titles, query text, coordinates or persistent journal output. Keep only
+    // the latest 48 lifecycle transitions; this read-only evidence dies on unload.
+    const auto *client = window ? window->window() : nullptr;
+    const QJsonObject entry{
+        {QStringLiteral("event"), QString::fromLatin1(event)},
+        {QStringLiteral("app"), client ? client->resourceClass() : QString()},
+        {QStringLiteral("window"), client ? client->internalId().toString() : QString()},
+        {QStringLiteral("type"), client ? QString::fromLatin1(client->metaObject()->className()) : QString()},
+        {QStringLiteral("decorated"), client && bool(client->decoration())},
+        {QStringLiteral("output"), window && window->screen() ? window->screen()->name() : QString()},
+        {QStringLiteral("bentoMember"), window && m_desktopStage->managesWindow(window)},
+        {QStringLiteral("carrying"), bool(m_carriedWindow)},
+        {QStringLiteral("rendererActive"), isActive()}
+    };
+    m_nativeMoveTrace.append(QString::fromUtf8(QJsonDocument(entry).toJson(QJsonDocument::Compact)));
+    while (m_nativeMoveTrace.size() > 48) m_nativeMoveTrace.removeFirst();
+}
+
+QString Effect::nativeCarryState() const
+{
+    const auto settling = dropSettleRect();
+    const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
+    const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
+    const bool previewValid = (m_carriedWindow || m_cardStage->cardGrabActive())
+        && reservation && preview && m_desktopStage->cardDropValid(*reservation);
+    auto *tablet = tabletOutput();
+    auto *selected = m_cardStage->selectedWindow();
+    auto lineRect = tablet && selected
+        ? m_cardStage->previewTargetForWindow(tablet, selected) : KWin::Rect();
+    auto linePose = m_cardStage->stackPoseForWindow(selected, lineRect.width());
+    if (m_cardStage->cardGrabActive()) {
+        lineRect = m_cardStage->cardGrabTarget();
+        const auto offset = m_cardStage->cardGrabOffset();
+        lineRect.translate(qRound(offset.x()), qRound(offset.y()));
+    } else {
+        lineRect.translate(qRound(linePose.x), qRound(linePose.y));
+        (void)m_cardStage->applyPoseTransition(selected, lineRect, linePose);
+    }
+    return QString::fromUtf8(QJsonDocument(QJsonObject{
+        {QStringLiteral("dropSettling"), bool(settling)},
+        {QStringLiteral("dropRect"), settling ? geometryContext(KWin::RectF(*settling).toRect()) : QJsonObject{}},
+        {QStringLiteral("destinationPreview"), previewValid},
+        {QStringLiteral("placementOutline"), previewValid && reservation->showsPlacementOutline()},
+        {QStringLiteral("detachPreview"), previewValid && reservation->detachesToDesktop()},
+        {QStringLiteral("rendererActive"), isActive()},
+        {QStringLiteral("destinationRect"), previewValid ? geometryContext(preview->toRect()) : QJsonObject{}},
+        {QStringLiteral("lineAnimating"), m_cardStage->animationsRunning()},
+        {QStringLiteral("lineRotation"), linePose.rotation},
+        {QStringLiteral("lineRect"), QJsonObject{{QStringLiteral("x"), lineRect.x()},
+            {QStringLiteral("y"), lineRect.y()}, {QStringLiteral("width"), lineRect.width()},
+            {QStringLiteral("height"), lineRect.height()}}},
+        {QStringLiteral("carrying"), bool(m_carriedWindow)},
+        {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
+        {QStringLiteral("destination"), bool(m_carryDestination)},
+        {QStringLiteral("lineCarrying"), m_cardStage->cardGrabActive()},
+        {QStringLiteral("lineDestination"), bool(m_lineDestination)},
+        {QStringLiteral("stackArmed"), m_cardStage->stackPreviewArmed()},
+        {QStringLiteral("stackInsertion"), m_cardStage->stackInsertionIndex()}
+    }).toJson(QJsonDocument::Compact));
+}
+
+void Effect::updateNativeCarryDestination(QPointF contact)
+{
+    const auto traceDestination = qScopeGuard([this] {
+        const QString state = !m_carryDestination ? QStringLiteral("destination-none")
+            : QStringLiteral("destination-%1:%2")
+                .arg(m_carryDestination->detachesToDesktop() ? "exit" : "placement",
+                     m_carryDestination->destinationOutput()->name());
+        if (state != m_lastCarryDestinationTrace) {
+            m_lastCarryDestinationTrace = state;
+            traceNativeMove(m_carriedWindow, qPrintable(state));
+        }
+    });
+    m_carryDestination.reset();
+    m_carryPreview.reset();
+    if (!m_carriedWindow || !m_carryRuntime->handoff.source()) return;
+    auto &handoff = m_carryRuntime->handoff;
+    handoff.withdrawDrop(); // Leaving an exit/edge must retire its commit callback too.
+    KWin::LogicalOutput *target = nullptr;
+    for (auto *o : KWin::effects->screens())
+        if (QRectF(o->geometry()).contains(contact)) { target = o; break; }
+    KWin::effects->addRepaintFull();
+    if (!target) return;
+    const bool bento = m_desktopStage->nativeCarrySourceValid(*handoff.source());
+    const bool desktopWindow = handoff.source()->isDesktopWindow();
+    const bool local = target->name() == handoff.source()->origin().output;
+    const bool tablet = isTabletOutput(target);
+    const auto edge = isPanelPoint(contact) ? std::nullopt
+        : monitorCarryEdge(QRectF(target->geometry()), contact);
+    // Only an already-owned Bento carry may traverse the dock to the physical
+    // bottom edge. This does not change panel hit testing for ordinary input.
+    const QRectF area = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, target))
+        .intersected(QRectF(target->geometry()));
+    // Landing clearance is separate from the physical-edge gesture target.
+    const double exitBottom = area.bottom() - 10.0;
+    if (local && bento && !desktopWindow && !tablet
+        && contact.y() >= double(target->geometry().bottom()) - 24.0) {
+        QSizeF size = QRectF(handoff.source()->restoreSnapshot().floatingGeometry).size();
+        if (!size.isValid()) size = m_carryPickup.size();
+        size.setWidth(std::clamp(size.width(), 200.0, std::max(200.0, area.width() * .8)));
+        size.setHeight(std::clamp(size.height(), 150.0, std::max(150.0, area.height() * .8)));
+        QRectF box(contact.x() - size.width() / 2, exitBottom - size.height(), size.width(), size.height());
+        box.moveLeft(std::clamp(box.left(), area.left(), area.right() - box.width()));
+        const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
+            KWin::RectF(box), DesktopStageController::CardDropIntent::NativeDesktop);
+        if (!reserved) return;
+        m_carryDestination = reserved;
+        m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+        handoff.previewDrop({CarryDestinationKind::NativeDesktop, target->name(), target->name(), 0, 0},
+            [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+            [this, reserved](const PreparedCarrySource &source) {
+                return m_desktopStage->transferNativeCarryToDesktop(source, *reserved);
+            });
+        return;
+    }
+    if (local && tablet && !bento && edge) {
+        const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
+            KWin::RectF(QRectF(handoff.carry().position(), m_carryPickup.size())),
+            DesktopStageController::CardDropIntent::ActivateBento);
+        if (!reserved) return;
+        m_carryDestination = reserved;
+        m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+        const auto intent = monitorDropIntent(target->name(), 0, std::nullopt, edge);
+        handoff.previewDrop(*intent,
+            [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+            [this, reserved](const PreparedCarrySource &source) {
+                return m_cardStage->nativeCarrySourceValid(source)
+                    && m_desktopStage->activatePreparedTabletDrop(*reserved);
+            });
+        return;
+    }
+    const bool stayNative = desktopWindow && !edge
+        && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
+    if (local && (!bento || ((!stayNative || tablet) && (isPanelPoint(contact)
+        || contact.y() >= target->geometry().bottom() - 48)))) return;
+    if (tablet && !bento) return;
+    QRectF landing(handoff.carry().position(), m_carryPickup.size());
+    if (stayNative && !tablet && contact.y() >= target->geometry().bottom() - 24)
+        landing = safeNativeLanding(landing, area);
+    const KWin::RectF geometry(landing);
+    const auto reserved = local && !desktopWindow
+        ? m_desktopStage->prepareLocalCardDrop(m_carriedWindow, target, geometry, contact)
+        : m_desktopStage->prepareCardDrop(m_carriedWindow, target, geometry,
+        stayNative ? DesktopStageController::CardDropIntent::NativeDesktop
+        : edge && (!tablet || desktopWindow) ? DesktopStageController::CardDropIntent::ActivateBento
+             : DesktopStageController::CardDropIntent::OpenSpace);
+    if (!reserved) return;
+    m_carryDestination = reserved;
+    m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+    const bool existing = m_desktopStage->hasSessionOnOutput(target->name());
+    QPointer<KWin::LogicalOutput> output = target;
+    const auto destination = stayNative
+        ? monitorDropIntent(target->name(), 0, std::nullopt)
+        : tablet && !existing
+        ? std::optional<CarryDestination>{{CarryDestinationKind::LineGap, target->name(), target->name(), 0, 0}}
+        : monitorDropIntent(target->name(), 0,
+            existing ? std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}} : std::nullopt, edge);
+    if (!destination) return;
+    handoff.previewDrop(*destination,
+        [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+        [this, reserved, bento, output, geometry, targetRect = m_carryPreview,
+         arrival = m_carriedWindow](const PreparedCarrySource &source) {
+            const bool committed = bento
+                ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
+                : m_cardStage->transferNativeCarryToDesktop(source, output, geometry);
+            if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
+            return committed;
+        });
+}
+
+void Effect::clearDropSettle()
+{
+    const bool repaint = bool(m_settlingWindow);
+    if (m_settlingWindow && !m_settlingWindow->isDeleted()) unredirect(m_settlingWindow);
+    m_settlingWindow.clear(); m_settlingOutput.clear();
+    m_dropSettleTimer.invalidate();
+    if (repaint) KWin::effects->addRepaintFull();
+}
+
+void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                            const QRectF &from, const QRectF &to)
+{
+    clearDropSettle();
+    // Logical commitment is not proof of native placement. Require KWin's
+    // accepted target, not a late client buffer/frame acknowledgement. Painting
+    // maps whichever buffer is current; never hold input or retry geometry.
+    if (!window || window->isDeleted() || !output || isTabletOutput(output)
+        || !from.isValid() || !to.isValid() || from == to
+        || !window->window() || window->window()->moveResizeOutput() != output
+        || QRectF(window->window()->moveResizeGeometry()) != to
+        || window->isUserMove() || window->isUserResize() || window->isMinimized()) return;
+    m_settlingWindow = window; m_settlingOutput = output;
+    m_settleFrom = from; m_settleTo = to;
+    m_settleOutputGeometry = QRectF(output->geometry());
+    m_dropSettleTimer.start();
+    KWin::effects->addRepaintFull();
+}
+
+std::optional<QRectF> Effect::dropSettleRect() const
+{
+    constexpr double Duration = 220.0;
+    if (!m_settlingWindow || m_settlingWindow->isDeleted() || !m_settlingOutput
+        || !m_dropSettleTimer.isValid() || m_dropSettleTimer.elapsed() >= Duration
+        || !m_settlingWindow->window()
+        || m_settlingWindow->window()->moveResizeOutput() != m_settlingOutput
+        || QRectF(m_settlingOutput->geometry()) != m_settleOutputGeometry
+        || QRectF(m_settlingWindow->window()->moveResizeGeometry()) != m_settleTo
+        || m_settlingWindow->isUserMove() || m_settlingWindow->isUserResize()
+        || m_settlingWindow->isMinimized()) return std::nullopt;
+    const auto t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m_dropSettleTimer.elapsed() / Duration);
+    return QRectF(m_settleFrom.topLeft() + (m_settleTo.topLeft() - m_settleFrom.topLeft()) * t,
+                  m_settleFrom.size() + (m_settleTo.size() - m_settleFrom.size()) * t);
 }
 
 void Effect::handleManagedStateChanged()
 {
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         if (window->window() == sender()) {
+            if (window == m_settlingWindow) clearDropSettle();
             m_cardStage->handleActiveGeometryChanged(window);
             return;
         }
@@ -734,16 +1123,49 @@ void Effect::handleWindowMoveResizeStepped(
 
 void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
 {
+    if (m_carryRuntime && m_carryRuntime->handoff.ownsNativeFinish(window->window())) return;
+    if (m_carryRuntime && m_carryRuntime->deferredFor(window->window())) m_carryRuntime->clearDeferred();
+    traceNativeMove(window, "native-finished");
+    const bool carried = m_nativeCarry == window;
+    const QString source = m_nativeCarrySource;
+    const bool fromBento = m_nativeCarryFromBento;
+    if (carried) {
+        m_nativeCarry = nullptr;
+        m_nativeCarrySource.clear();
+        m_nativeCarryFromBento = false;
+        KWin::effects->setElevatedWindow(window, false);
+    }
     m_desktopStage->handleWindowMoveResizeFinished(window);
+    // Use KWin's completed output assignment, not the cursor: Escape restores
+    // the source output even if the pointer remains over the destination.
+    if (carried && !fromBento && window->screen()
+        && window->screen()->name() != source) {
+        if (isTabletOutput(window->screen())) {
+            admitTransferredWindowToTablet(window);
+        } else {
+            (void)m_desktopStage->admitCardWindow(window, window->screen(), window->frameGeometry());
+        }
+    }
+    if (carried) {
+        syncSelectedElevation();
+        KWin::effects->addRepaintFull();
+    }
 }
 
-void Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window)
+bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window,
+    const std::function<bool()> &commitSource)
 {
-    m_cardStage->admitTransferredWindowToTablet(window);
+    // Copy before guest/source cleanup can retire NativeCarryRuntime's pose.
+    const QRectF carriedOrigin = window == m_carriedWindow && m_carryRuntime
+        ? QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size())
+        : QRectF();
+    if (m_cardStage->launcherGuestActive()) endLauncherGuest();
+    return m_cardStage->admitTransferredWindowToTablet(window, commitSource, carriedOrigin);
 }
 
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
+    cancelInputForCardStage();
     m_desktopStage->handleScreenRemoved(output);
 }
 
@@ -761,8 +1183,13 @@ bool Effect::isPanelPoint(const QPointF &position) const
 {
     // Use Plasma's actual input surface, not a fixed bottom strip: floating,
     // vertical and hidden panels must keep their own geometry and visibility.
+    // The tray opens a separate AppletPopup surface. Its controls (especially
+    // Disable) must remain reachable while the other device owns a card hold.
+    // Do not exempt arbitrary app dialogs or the desktop behind the cards.
     for (auto *window : KWin::effects->stackingOrder()) {
-        if (window && !window->isDeleted() && window->isDock()
+        if (window && !window->isDeleted()
+            && (window->isDock() || window->isAppletPopup())
+            && window->isOnCurrentDesktop() && window->isOnCurrentActivity()
             && window->window() && window->window()->isShown()
             && window->window()->hitTest(position)) return true;
     }
@@ -782,24 +1209,15 @@ QStringList Effect::outputStageState() const
 
 QString Effect::workspaceContext() const
 {
-    const CardLineModel &model = m_cardStage->model();
-    const QList<QPointer<KWin::EffectWindow>> &cards =
-        m_cardStage->liveCards();
+    const auto workspace = m_cardStage->workspaceSnapshot();
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
-
-    const auto cardIdentity = [&cards](int cardId) {
-        const int index = cardId - 1;
-        return index >= 0 && index < cards.size()
-            ? windowIdentity(cards.at(index).data()) : QString();
-    };
 
     QJsonArray applications;
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         if (!isApplicationWindow(window)) {
             continue;
         }
-        const int cardIndex = m_cardStage->liveCardIndex(window);
-        const int cardId = cardIndex + 1;
+        const auto *card = workspace.find(windowIdentity(window));
         QJsonObject application{
             {QStringLiteral("windowId"), windowIdentity(window)},
             {QStringLiteral("appId"), applicationIdentity(window)},
@@ -809,50 +1227,42 @@ QString Effect::workspaceContext() const
             {QStringLiteral("focused"), window == focused},
             {QStringLiteral("lastActivated"), static_cast<qint64>(m_activationOrder.value(windowIdentity(window)))},
             {QStringLiteral("minimized"), window->isMinimized()},
-            {QStringLiteral("hasCard"), cardIndex >= 0},
+            {QStringLiteral("hasCard"), card != nullptr},
         };
-        if (cardIndex >= 0) {
-            const std::vector<int> members = model.stackMembersForId(cardId);
+        if (card) {
             application.insert(QStringLiteral("cardId"),
                                windowIdentity(window));
-            application.insert(QStringLiteral("cardIndex"), cardIndex + 1);
+            application.insert(QStringLiteral("cardIndex"), card->cardIndex);
             application.insert(QStringLiteral("stackId"),
-                               members.empty()
-                                   ? QString()
-                                   : cardIdentity(members.front()));
+                               card->stackId);
             application.insert(QStringLiteral("stackPosition"),
-                               model.stackPositionForId(cardId) + 1);
+                               card->stackPosition);
             application.insert(QStringLiteral("stackSize"),
-                               model.stackSizeForId(cardId));
+                               card->stackSize);
             application.insert(QStringLiteral("selected"),
-                               model.selectedId() == cardId);
+                               card->selected);
         }
         applications.append(application);
     }
 
     QJsonObject focus;
     if (focused && isApplicationWindow(focused)) {
-        const int focusedCardIndex = m_cardStage->liveCardIndex(focused);
+        const bool focusedHasCard = workspace.find(windowIdentity(focused)) != nullptr;
         focus = {
             {QStringLiteral("windowId"), windowIdentity(focused)},
             {QStringLiteral("appId"), applicationIdentity(focused)},
             {QStringLiteral("title"), focused->caption()},
-            {QStringLiteral("hasCard"), focusedCardIndex >= 0},
+            {QStringLiteral("hasCard"), focusedHasCard},
         };
-        if (focusedCardIndex >= 0) {
+        if (focusedHasCard) {
             focus.insert(QStringLiteral("cardId"),
                          windowIdentity(focused));
         }
     }
 
     QJsonArray selectedStack;
-    QString selectedCardId;
-    if (m_cardStage->isActive() && !cards.isEmpty()) {
-        selectedCardId = cardIdentity(model.selectedId());
-        for (const int member : model.stackMembersForId(model.selectedId())) {
-            selectedStack.append(cardIdentity(member));
-        }
-    }
+    const QString selectedCardId = workspace.selectedCardId;
+    for (const auto &member : workspace.selectedStack) selectedStack.append(member);
 
     const QString presentation = !m_cardStage->isActive()
         ? QStringLiteral("inactive")
@@ -1082,19 +1492,35 @@ bool Effect::selectedStackContains(const QPointF &position) const
     return m_cardStage->selectedStackContains(position);
 }
 
-void Effect::beginCardGrab()
+void Effect::beginCardGrab(const QPointF &position)
 {
-    m_cardStage->beginCardGrab();
+    m_lineDestination.reset(); m_lineDestinationWindow.clear();
+    m_cardStage->beginCardGrab(position);
 }
 
-void Effect::updateCardGrab(double horizontalDelta)
+void Effect::updateCardGrab(const QPointF &position)
 {
-    m_cardStage->updateCardGrab(horizontalDelta);
-}
-
-void Effect::updateCardGrabDestination(const QPointF &position)
-{
-    m_cardStage->updateCardGrabDestination(position);
+    m_linePreview.reset();
+    m_lineDestination.reset(); m_lineDestinationWindow.clear();
+    m_cardStage->updateCardGrab(position);
+    if (!m_cardStage->cardGrabActive()) return;
+    for (auto *output : KWin::effects->screens()) {
+        if (!QRectF(output->geometry()).contains(position)) continue;
+        const auto edge = isPanelPoint(position) ? std::nullopt
+            : monitorCarryEdge(QRectF(output->geometry()), position);
+        if (isTabletOutput(output) && !edge) continue;
+        const KWin::RectF geometry(QRectF(m_cardStage->cardGrabTarget())
+            .translated(m_cardStage->cardGrabOffset()));
+        m_lineDestination = m_desktopStage->prepareCardDrop(selectedWindow(), output, geometry,
+            edge ? DesktopStageController::CardDropIntent::ActivateBento
+                 : DesktopStageController::CardDropIntent::OpenSpace);
+        if (m_lineDestination) {
+            m_linePreview = m_desktopStage->cardDropPreview(*m_lineDestination);
+            m_lineDestinationWindow = selectedWindow();
+            m_lineDestinationContact = position;
+        }
+        break;
+    }
 }
 
 void Effect::pageCardGrab(int direction)
@@ -1105,11 +1531,22 @@ void Effect::pageCardGrab(int direction)
 void Effect::finishCardGrab(bool commit)
 {
     m_cardStage->finishCardGrab(commit);
+    m_lineDestination.reset(); m_lineDestinationWindow.clear();
 }
 
 bool Effect::finishCardGrabOnOutput(const QPointF &position)
 {
-    return m_cardStage->finishCardGrabOnOutput(position);
+    // A release cannot invent a destination that was never evaluated in motion.
+    if (m_lineDestination && position != m_lineDestinationContact) m_lineDestination.reset();
+    if (m_lineDestination && isTabletOutput(m_lineDestination->destinationOutput())) {
+        const auto reserved = *m_lineDestination;
+        if (!m_desktopStage->activatePreparedTabletDrop(reserved)) m_cardStage->finishCardGrab(false);
+        m_lineDestination.reset(); m_lineDestinationWindow.clear();
+        return true;
+    }
+    const bool result = m_cardStage->finishCardGrabOnOutput(position);
+    m_lineDestination.reset(); m_lineDestinationWindow.clear();
+    return result;
 }
 
 int Effect::cardStackCandidate() const
@@ -1194,8 +1631,13 @@ void Effect::activateSelectedFromInput()
 {
     // Defer the state change so the input filter is never destroyed from
     // inside one of its own callbacks.
-    QTimer::singleShot(0, this, [this]() {
-        if (m_cardStage->isActive()
+    const auto ticket = m_inputActivationGuard.issue();
+    const QPointer<KWin::EffectWindow> requested = selectedWindow();
+    QTimer::singleShot(0, this, [this, ticket, requested]() {
+        if (m_inputActivationGuard.accepts(ticket)
+            && requested && !requested->isDeleted() && selectedWindow() == requested
+            && !nativeWindowInteractionForInput() && !m_cardStage->cardGrabActive()
+            && !m_cardStage->launcherGuestActive() && m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::CardLine) {
             toggle();
         }
@@ -1218,6 +1660,7 @@ void Effect::toggle()
 
 void Effect::release()
 {
+    if (m_carryRuntime) m_carryRuntime->cancel();
     const bool hadBento = hasActiveDesktopStage();
     if (hadBento) {
         m_desktopStage->stopPendingSettle();
@@ -1270,7 +1713,13 @@ void Effect::pageStack(int delta)
 
 void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
-    if (m_cardStage->isActive() && isTabletOutput(data.screen)) {
+    if (m_settlingWindow) {
+        if (!dropSettleRect()) clearDropSettle();
+        else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; KWin::effects->addRepaintFull(); }
+    }
+    if (m_carriedWindow) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+    if (m_cardStage->isActive()
+        && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
         if (m_cardStage->animationsRunning()) {
             KWin::effects->addRepaintFull();
@@ -1283,7 +1732,11 @@ void Effect::prePaintWindow(KWin::RenderView *view,
                             KWin::EffectWindow *window,
                             KWin::WindowPrePaintData &data)
 {
+    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect())) {
+        data.setTransformed(); data.setTranslucent();
+    }
     if (m_cardStage->isActive()
+        && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::CardLine
         && visibleSlot(window) != 99) {
         data.setTransformed();
@@ -1302,6 +1755,48 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
 {
     m_paintingOutput = screen;
     KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+    // Draw only from a still-owned reservation. No layout solve, timers, native
+    // outline window, or input grab belongs in the paint pass.
+    const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
+    const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
+    if (m_destinationShader && screen && preview && reservation
+        && reservation->showsPlacementOutline()
+        && (m_carriedWindow || m_cardStage->cardGrabActive())
+        && reservation->destinationOutput() == screen
+        && m_desktopStage->cardDropValid(*reservation)) {
+        const QRectF box(*preview);
+        QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
+            .intersected(QRectF(screen->geometry()));
+        clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
+        QList<QVector2D> vertices;
+        for (const auto &dirty : deviceRegion.rects()) {
+            const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
+                .intersected(clip).intersected(box);
+            if (part.isEmpty()) continue;
+            vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                     << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+        }
+        if (!vertices.isEmpty()) {
+            KWin::ShaderBinder binder(m_destinationShader.get());
+            auto matrix = viewport.projectionMatrix();
+            matrix.scale(viewport.scale(), viewport.scale());
+            m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+            m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+            m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+                renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+            const bool blended = glIsEnabled(GL_BLEND);
+            GLint srcRgb, dstRgb, srcAlpha, dstAlpha;
+            glGetIntegerv(GL_BLEND_SRC_RGB, &srcRgb); glGetIntegerv(GL_BLEND_DST_RGB, &dstRgb);
+            glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha); glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+            buffer->reset(); buffer->setVertices(vertices); buffer->render(GL_TRIANGLES);
+            glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+            if (!blended) glDisable(GL_BLEND);
+        }
+        if (reservation->detachesToDesktop()) m_detachLabel.render(renderTarget, viewport, box);
+    }
     m_paintingOutput = nullptr;
 }
 
@@ -1312,11 +1807,12 @@ KWin::EffectWindow *Effect::selectedWindow() const
 
 void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
+    if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     Q_EMIT workspaceContextChanged();
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     QTimer::singleShot(0, this, [this, candidate]() {
-        if (!candidate || !isCardWindow(candidate)) {
+        if (!candidate || candidate->isDeleted() || !isCardWindow(candidate)) {
             return;
         }
         if (m_desktopStage->handleWindowAdded(candidate)) {
@@ -1329,6 +1825,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    if (window == m_settlingWindow) clearDropSettle();
+    if (window == m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     m_activationOrder.remove(windowIdentity(window));
     m_desktopStage->handleWindowClosed(window);
     m_cardStage->handleWindowClosed(window);
@@ -1337,6 +1835,8 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    if (m_settlingWindow && window != m_settlingWindow) clearDropSettle();
+    if (m_carriedWindow && window != m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     if (isApplicationWindow(window) && m_guestSwipeFocusReturn) {
         const bool restored = window == m_guestSwipeFocusReturn;
         m_guestSwipeFocusReturn.clear();
@@ -1487,6 +1987,32 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    const auto settle = window == m_settlingWindow ? dropSettleRect() : std::nullopt;
+    if (((window == m_carriedWindow && m_carryRuntime) || settle) && m_paintingOutput) {
+        const auto plan = settle
+            ? carryPaintPlan(*settle, settle->topLeft(), QRectF(m_paintingOutput->geometry()))
+            : carryPaintPlan(m_carryPickup, m_carryRuntime->handoff.carry().position(),
+                             QRectF(m_paintingOutput->geometry()));
+        if (!plan || plan->clip.isEmpty()) return;
+        KWin::Rect logicalRegion = window->expandedGeometry().toRect();
+        const KWin::Rect target = KWin::RectF(plan->target).toRect();
+        setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
+        const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
+        const bool rounded = m_fanApertureShader && data.xScale() > 0 && data.yScale() > 0;
+        m_fanApertureWindow = rounded ? window : nullptr;
+        m_fanPaintSize = QSizeF(data.xScale(), data.yScale());
+        m_fanApertureOrigin = QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
+                                      (target.y() - logicalRegion.y()) * viewport.scale());
+        m_fanApertureSize = QSizeF(deviceTarget.size());
+        m_fanApertureRadius = CardCornerRadius * viewport.scale();
+        const auto clip = deviceRegion
+            & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan->clip)))
+            & (rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
+        KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data);
+        m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
+        m_fanApertureSize = {}; m_fanApertureRadius = 0;
+        return;
+    }
     if (!m_cardStage->isActive() || !m_paintingOutput
         || !isCardWindow(window)) {
         KWin::effects->paintWindow(
@@ -1501,19 +2027,19 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
 
-    if (m_paintingOutput != tablet) {
-        // A tablet-owned surface never paints into an external output while
-        // the gate is active. Every external-owned surface follows KWin's
-        // ordinary paint chain with no replacement scene or input surface.
-        if (window->screen() != tablet) {
-            KWin::effects->paintWindow(
-                renderTarget, viewport, window, mask, deviceRegion, data);
-        }
-        return;
-    }
-
     const int slot = visibleSlot(window);
-    if (window->screen() != tablet || slot == 99) {
+    const bool grabbedWindow = m_cardStage->cardGrabActive()
+        && window == m_cardStage->selectedWindow();
+    const auto route = cardPaintRoute(m_paintingOutput == tablet,
+        window->screen() == tablet, slot != 99, window == m_nativeCarry,
+        grabbedWindow);
+    if (route == CardPaintRoute::Hidden) return;
+    if (route == CardPaintRoute::Native) {
+        // Only the carried item may cross the fence. Passive tablet neighbors
+        // remain hidden externally; the carrier is clipped per output.
+        const auto outputClip = viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry());
+        KWin::effects->paintWindow(renderTarget, viewport, window, mask,
+            window == m_nativeCarry ? deviceRegion & KWin::Region(outputClip) : deviceRegion, data);
         return;
     }
 
@@ -1556,99 +2082,16 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                 * liftBlend;
         }
     }
-    const CardLineModel &cardLine = m_cardStage->model();
-    const int cardId = liveCardIndex(window) + 1;
-    const bool grabbedWindow = m_cardStage->cardGrabActive()
-        && cardId == cardLine.selectedId();
-    const double previewBlend = cardStackPreviewBlend();
-    CardStackPose paintPose{0.0, 0.0, 0.0, true};
+    CardStackPose paintPose = m_cardStage->stackPoseForWindow(window, target.width());
     if (grabbedWindow) {
-        CardStackPose previewPose{0.0, 0.0, 0.0, true};
-        if (m_cardStage->stackPreviewTarget() != 0) {
-            const int destinationSize =
-                cardLine.stackSizeForId(m_cardStage->stackPreviewTarget());
-            previewPose = makeInsertionStackPose(
-                m_cardStage->stackInsertionIndex(), destinationSize + 1,
-                m_cardStage->stackInsertionIndex(), target.width());
-        }
-        const double heldScaleInset = 0.05 * (1.0 - previewBlend);
-        const int insetX = qRound(target.width() * heldScaleInset);
-        const int insetY = qRound(target.height() * heldScaleInset);
-        target.adjust(insetX, insetY, -insetX, -insetY);
-        const double x = m_cardStage->cardGrabOffset()
-                * (1.0 - previewBlend)
-            + previewPose.x * previewBlend;
-        const double y = -24.0 * (1.0 - previewBlend)
-            + previewPose.y * previewBlend;
-        target.translate(qRound(x), qRound(y));
-        paintPose.rotation = previewPose.rotation * previewBlend;
+        target = m_cardStage->cardGrabTarget();
+        const auto offset = m_cardStage->cardGrabOffset();
+        target.translate(qRound(offset.x()), qRound(offset.y()));
     } else {
-        const int memberCount = cardLine.stackSizeForId(cardId);
-        const int memberIndex = cardLine.stackPositionForId(cardId);
-        const int activeIndex = cardLine.stackActivePositionForId(cardId);
-        CardStackPose pose{0.0, 0.0, 0.0, true};
-        const bool previewDestination = m_cardStage->cardGrabActive()
-            && m_cardStage->stackPreviewTarget() != 0
-            && cardLine.sameStack(
-                cardId, m_cardStage->stackPreviewTarget());
-        const int browseTarget = cardStackBrowseTarget();
-        const bool browseDestination = m_cardStage->cardGrabActive()
-            && browseTarget != 0
-            && cardLine.sameStack(cardId, browseTarget);
-        if (memberCount > 1 || previewDestination || browseDestination) {
-            const CardStackPose closed = makeClosedStackPose(
-                memberIndex, memberCount,
-                tablet->geometry().width());
-            if (previewDestination) {
-                const int insertion = std::clamp(
-                    m_cardStage->stackInsertionIndex(), 0, memberCount);
-                const int previousInsertion = std::clamp(
-                    m_cardStage->previousStackInsertionIndex(),
-                    0, memberCount);
-                const int previewMemberIndex = memberIndex >= insertion
-                    ? memberIndex + 1 : memberIndex;
-                const int previousMemberIndex =
-                    memberIndex >= previousInsertion
-                    ? memberIndex + 1 : memberIndex;
-                const CardStackPose previous = makeInsertionStackPose(
-                    previousMemberIndex, memberCount + 1,
-                    previousInsertion, target.width());
-                const CardStackPose next = makeInsertionStackPose(
-                    previewMemberIndex, memberCount + 1,
-                    insertion, target.width());
-                const double insertionBlend = cardStackInsertionBlend();
-                const CardStackPose opened{
-                    previous.x + (next.x - previous.x) * insertionBlend,
-                    previous.y + (next.y - previous.y) * insertionBlend,
-                    previous.rotation
-                        + (next.rotation - previous.rotation)
-                            * insertionBlend,
-                    previous.visible || next.visible,
-                };
-                pose = {
-                    closed.x + (opened.x - closed.x) * previewBlend,
-                    closed.y + (opened.y - closed.y) * previewBlend,
-                    closed.rotation
-                        + (opened.rotation - closed.rotation) * previewBlend,
-                    opened.visible,
-                };
-            } else if (browseDestination) {
-                pose = makeOpenStackPose(
-                    memberIndex, memberCount,
-                    activeIndex, target.width());
-            } else if (!m_cardStage->cardGrabActive()
-                       && cardLine.sameStack(
-                           cardId, cardLine.selectedId())) {
-                pose = makeOpenStackPose(
-                    memberIndex, memberCount,
-                    activeIndex, target.width());
-            } else {
-                pose = closed;
-            }
-        }
-        target.translate(qRound(pose.x), qRound(pose.y));
-        paintPose = pose;
+        target.translate(qRound(paintPose.x), qRound(paintPose.y));
     }
+    const double poseOpacity = m_cardStage->applyPoseTransition(window, target, paintPose);
+    data.multiplyOpacity(poseOpacity);
     paintPose.rotation += launcherGuestRotation;
     if (!paintPose.visible) {
         return;
@@ -1693,10 +2136,12 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const bool useFanAperture = m_fanApertureShader
         && data.xScale() > 0 && data.yScale() > 0
         && !deviceTarget.isEmpty();
-    const KWin::Region cardClip = rotatedFanCard
+    const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
+        m_paintingOutput->geometry()));
+    const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion & KWin::Region(fanBaseline)
         : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
-            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
+            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()))) & outputFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();

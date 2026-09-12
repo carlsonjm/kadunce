@@ -6,6 +6,9 @@
 #pragma once
 
 #include "BentoLayout.h"
+#include "DeferredCommandGuard.h"
+#include "PreparedCarrySource.h"
+#include "RestoredMinimization.h"
 
 #include <effect/effectwindow.h>
 
@@ -16,6 +19,7 @@
 #include <QTimer>
 
 #include <vector>
+#include <functional>
 
 namespace KWin
 {
@@ -44,20 +48,26 @@ public:
         KWin::LogicalOutput *output) const = 0;
     virtual void prepareOutputForDesktopStage(
         KWin::LogicalOutput *output) = 0;
-    virtual void admitTransferredWindowToTablet(
-        KWin::EffectWindow *window) = 0;
+    [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
+        KWin::EffectWindow *) const { return std::nullopt; }
+    virtual bool admitTransferredWindowToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource) = 0;
 };
 
 class DesktopStageController final
 {
 public:
     explicit DesktopStageController(DesktopStageHost *host);
+    [[nodiscard]] std::optional<PreparedCarrySource> prepareNativeCarrySource(KWin::EffectWindow *window) const;
+    [[nodiscard]] bool nativeCarrySourceValid(const PreparedCarrySource &source) const;
 
     [[nodiscard]] bool hasActiveSession() const;
+    [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
     void toggleUnderPointer();
     void restoreAllSessions();
     void stopPendingSettle();
+    void cancelRestoredMinimizations();
 
     [[nodiscard]] QStringList outputStageState() const;
     bool toggleOnOutput(const QString &outputName);
@@ -68,6 +78,7 @@ public:
     bool handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleScreenRemoved(KWin::LogicalOutput *output);
+    void handleScreenAdded(KWin::LogicalOutput *output) { m_retiredOutputs.removeAll(output); }
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
     void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
                                        const KWin::RectF &geometry);
@@ -78,6 +89,57 @@ public:
     [[nodiscard]] bool admitCardWindow(KWin::EffectWindow *window,
                                        KWin::LogicalOutput *output,
                                        const KWin::RectF &geometry);
+
+    enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
+    // Opaque receiver reservation. Copies share consumption: a preview cannot
+    // be replayed, including when source commitment is rejected.
+    class PreparedDrop {
+    public:
+        KWin::LogicalOutput *destinationOutput() const { return output.data(); }
+        bool detachesToDesktop() const { return intent == CardDropIntent::NativeDesktop && leavingBento; }
+        bool showsPlacementOutline() const { return intent != CardDropIntent::NativeDesktop || leavingBento; }
+    private:
+        friend class DesktopStageController;
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::LogicalOutput> output;
+        KWin::RectF geometry;
+        KWin::Rect outputGeometry;
+        KWin::Rect area;
+        quint64 generation = 0;
+        std::weak_ptr<const int> owner;
+        std::shared_ptr<bool> consumed = std::make_shared<bool>(false);
+        CardDropIntent intent = CardDropIntent::OpenSpace;
+        bool hadSession = false;
+        bool leavingBento = false;
+        QPointer<KWin::EffectWindow> localTarget;
+        QList<QPointer<KWin::EffectWindow>> residents;
+        QList<QSizeF> minimumSizes;
+        QList<KWin::RectF> sourceGeometries;
+    };
+    [[nodiscard]] std::optional<PreparedDrop> prepareCardDrop(
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const KWin::RectF &geometry, CardDropIntent intent = CardDropIntent::OpenSpace) const;
+    [[nodiscard]] bool cardDropValid(const PreparedDrop &drop) const;
+    [[nodiscard]] std::optional<PreparedDrop> prepareLocalCardDrop(
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const KWin::RectF &geometry, QPointF contact) const;
+    // Read-only layout solve: no placement, source removal or application token.
+    [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop);
+    bool activatePreparedTabletDrop(const PreparedDrop &drop);
+    bool transferNativeCarryToDesktop(const PreparedCarrySource &source,
+                                     const PreparedDrop &drop);
+    bool transferPreparedCard(const PreparedDrop &drop,
+        const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource);
+    // ActivateBento is an explicit, already-validated placement request, not
+    // inferred from coordinates. Input/preview adoption is a separate boundary.
+    // Synchronous callbacks only: commitSource mutates only source model state;
+    // releaseSource runs native/visual cleanup after both owners are published.
+    bool transferCardWindow(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                           const KWin::RectF &geometry, const std::function<bool()> &commitSource,
+                           const std::function<void()> &releaseSource,
+                           CardDropIntent intent = CardDropIntent::OpenSpace,
+                           const NativeMoveSnapshot *restore = nullptr);
 
 private:
     struct RestoreSnapshot {
@@ -100,7 +162,13 @@ private:
         QList<RestoreSnapshot> snapshots;
         std::vector<BentoRect> rects;
         bool applying = false;
+        quint64 applicationToken = 0;
     };
+
+    [[nodiscard]] std::optional<Session> prepareCardAdmission(
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr);
+    [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;
@@ -115,22 +183,30 @@ private:
     bool activate(KWin::LogicalOutput *output,
                   KWin::EffectWindow *preferred = nullptr);
     void restoreSession(const QString &key, bool outputRemoving = false);
-    void applySession(Session &session, bool activateLead);
+    bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
     void settleSessions();
+    bool sessionGeometryMatches(const Session &session) const;
     void removeWindow(KWin::EffectWindow *window, bool restoreSnapshot);
     void addWindow(KWin::EffectWindow *window,
                    KWin::LogicalOutput *output,
                    const RestoreSnapshot &snapshot);
     bool handoffWindowToOutput(KWin::EffectWindow *window,
                                KWin::LogicalOutput *destination,
-                               const KWin::RectF &destinationGeometry);
-    void reflowSession(Session &session,
-                       KWin::EffectWindow *preferred = nullptr);
+                               const KWin::RectF &destinationGeometry,
+                               CardDropIntent intent = CardDropIntent::OpenSpace);
+    bool reflowSession(Session &session,
+                       KWin::EffectWindow *preferred = nullptr, bool requirePreferred = false,
+                       bool invalidateApplication = true);
     void adjustRail(Session &session, KWin::EffectWindow *window,
                     const KWin::RectF &start, const KWin::RectF &finish);
 
     DesktopStageHost *m_host;
+    std::shared_ptr<const int> m_carrySourceIdentity = std::make_shared<const int>(0);
+    DeferredCommandGuard m_applicationGuard;
+    bool m_restoring = false;
+    std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
+    QList<QPointer<KWin::LogicalOutput>> m_retiredOutputs;
     QTimer m_settleTimer;
     QHash<QString, Session> m_sessions;
     QPointer<KWin::EffectWindow> m_interactionWindow;
@@ -138,7 +214,6 @@ private:
     QString m_interactionOutput;
     QString m_pendingDropOutput;
     bool m_interactionResize = false;
-    int m_settleAttempts = 0;
 };
 
 } // namespace Kadunce

@@ -4,6 +4,8 @@ set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 native_build_dir="${KADUNCE_NATIVE_BUILD:?missing native build path}"
+[[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-*/runtime ]]
+tr '\0' '\n' < "/proc/${PPID}/cmdline" | rg -q '^--virtual$'
 
 for attempt in $(seq 1 30); do
     if qdbus6 org.kde.KWin /Effects \
@@ -46,6 +48,7 @@ printf '%s\n' "${active_stages[@]}" | rg -q '^Virtual-0\|external\|.*\|2\|0$'
 test "$(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.handoffBentoLeadToOutput \
     "${first_output}" "${second_output}")" = "true"
+sleep .7 # Source reflow must survive the reconcile-once observation.
 mapfile -t first_handoff < <(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.outputStageState)
 printf '%s\n' "${first_handoff[@]}" | rg -q '^Virtual-0\|external\|.*\|1\|0$'

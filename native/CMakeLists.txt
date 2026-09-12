@@ -18,6 +18,8 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui Widgets)
 find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config)
 find_package(KWin 6.7 REQUIRED COMPONENTS kwineffects)
+find_package(KDecoration3 REQUIRED)
+find_package(XCB REQUIRED COMPONENTS XCB)
 
 kcoreaddons_add_plugin(kwin4_effect_kadunce
     SOURCES
@@ -40,6 +42,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
 )
 
 target_link_libraries(kwin4_effect_kadunce
+    PRIVATE KDecoration3::KDecoration
+    XCB::XCB
     Qt6::Core
     Qt6::DBus
     Qt6::Gui
@@ -51,6 +55,37 @@ target_link_libraries(kwin4_effect_kadunce
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(kadunce-carry-paint-test tests/CarryPaintPlanTest.cpp)
+    target_include_directories(kadunce-carry-paint-test PRIVATE src)
+    target_link_libraries(kadunce-carry-paint-test PRIVATE Qt6::Core)
+    target_compile_options(kadunce-carry-paint-test PRIVATE -UNDEBUG)
+    add_test(NAME carry-paint COMMAND kadunce-carry-paint-test)
+    add_executable(kadunce-carry-input-route-test tests/CarryInputRouteTest.cpp)
+    target_include_directories(kadunce-carry-input-route-test PRIVATE src)
+    target_link_libraries(kadunce-carry-input-route-test PRIVATE Qt6::Core)
+    add_test(NAME carry-input-route COMMAND kadunce-carry-input-route-test)
+    add_executable(kadunce-carry-contacts-test tests/CarryContactsTest.cpp)
+    target_include_directories(kadunce-carry-contacts-test PRIVATE src)
+    target_link_libraries(kadunce-carry-contacts-test PRIVATE Qt6::Core)
+    add_test(NAME carry-contacts COMMAND kadunce-carry-contacts-test)
+    add_executable(kadunce-bento-transfer-test tests/BentoSessionTransferTest.cpp src/BentoLayout.cpp)
+    target_include_directories(kadunce-bento-transfer-test PRIVATE src)
+    target_link_libraries(kadunce-bento-transfer-test PRIVATE Qt6::Core)
+    add_test(NAME bento-transfer COMMAND kadunce-bento-transfer-test)
+    add_executable(kadunce-carry-session-test tests/CarrySessionTest.cpp)
+    target_include_directories(kadunce-carry-session-test PRIVATE src)
+    target_link_libraries(kadunce-carry-session-test PRIVATE Qt6::Core)
+    add_test(NAME carry-session COMMAND kadunce-carry-session-test)
+    add_executable(kadunce-workspace-state-test
+        tests/WorkspaceStateTest.cpp src/CardLineModel.cpp)
+    target_include_directories(kadunce-workspace-state-test PRIVATE src)
+    target_link_libraries(kadunce-workspace-state-test PRIVATE Qt6::Core)
+    add_test(NAME workspace-state COMMAND kadunce-workspace-state-test)
+    add_executable(kadunce-workspace-snapshot-test
+        tests/WorkspaceSnapshotTest.cpp src/CardLineModel.cpp)
+    target_include_directories(kadunce-workspace-snapshot-test PRIVATE src)
+    target_link_libraries(kadunce-workspace-snapshot-test PRIVATE Qt6::Core)
+    add_test(NAME workspace-snapshot COMMAND kadunce-workspace-snapshot-test)
     add_executable(kadunce-panel-input-test tests/PanelInputTest.cpp
         src/WorkspaceInputRouter.cpp src/CardLineLayout.cpp)
     target_include_directories(kadunce-panel-input-test PRIVATE src)

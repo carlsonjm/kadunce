@@ -6,6 +6,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 namespace Kadunce
 {
@@ -51,6 +52,12 @@ struct BentoAdmission
     int gap = 14);
 [[nodiscard]] BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
+    int areaWidth, int areaHeight, int maximumVisible = 8);
+
+// A transfer is accepted only if the arriving candidate has a visible pane.
+// Unlike ordinary reflow, silently parking this candidate is rejection.
+[[nodiscard]] std::optional<BentoAdmission> chooseBentoTransferAdmission(
+    const std::vector<BentoCandidate> &candidates, int arrivingIndex,
     int areaWidth, int areaHeight, int maximumVisible = 8);
 
 } // namespace Kadunce

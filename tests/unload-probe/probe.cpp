@@ -1,0 +1,551 @@
+#include "WorkspaceInputRouter.h"
+#include "BentoProbe.h"
+#include "SnapProbe.h"
+#include "ContactProbe.h"
+#include "NativeCarryHandoff.h"
+#include "CarryWindowPaint.h"
+#include <keyboard_input.h>
+#include <effect/effect.h>
+#include <input.h>
+#include <touch_input.h>
+#include <pointer_input.h>
+#include <input_event.h>
+#include <QDBusConnection>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <functional>
+#include <memory>
+#include <core/inputdevice.h>
+using namespace Kadunce;
+class Device final : public KWin::InputDevice {
+public:
+ QString name() const override { return "Isolated test input"; }
+ bool isEnabled() const override { return true; }
+ void setEnabled(bool) override {}
+ bool isKeyboard() const override { return false; }
+ bool isPointer() const override { return true; }
+ bool isTouchpad() const override { return false; }
+ bool isTouch() const override { return true; }
+ bool isTabletTool() const override { return false; }
+ bool isTabletPad() const override { return false; }
+ bool isTabletModeSwitch() const override { return false; }
+ bool isLidSwitch() const override { return false; }
+};
+struct Target final : WorkspaceInputTarget {
+    bool guest = false;
+    bool nativeInteraction = false;
+    WorkspacePresentation presentation = WorkspacePresentation::CardLine;
+    int cancellations = 0;
+    bool canCancel = true;
+    int actions = 0;
+    int toggles = 0;
+    int dismissals = 0;
+    int guestNavigations = 0;
+    bool grabbed = false;
+    int grabStarts = 0;
+    int grabCancels = 0;
+    std::function<void()> onActivate;
+    std::function<void()> onToggle;
+    std::function<void()> onPage;
+    WorkspacePresentation presentationForInput() const override { return presentation; }
+    bool nativeWindowInteractionForInput() const override { return nativeInteraction; }
+    bool cancelForwardedTouchForInput() override { ++cancellations; return canCancel; }
+    WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799}; }
+    bool cardGrabActiveForInput() const override { return grabbed; }
+    bool stackPreviewArmedForInput() const override { return false; }
+    int stackPreviewTargetForInput() const override { return 0; }
+    bool centerCardContainsForInput(const QPointF &p) const override { return geometryForInput().centerCard.contains(p); }
+    bool launcherGuestActiveForInput() const override { return guest; }
+    bool launcherGuestContainsForInput(const QPointF &p) const override { return guest && centerCardContainsForInput(p); }
+    bool isTabletPoint(const QPointF &p) const override { return geometryForInput().tablet.contains(p); }
+    bool isPanelPoint(const QPointF &p) const override { return QRectF(100,740,800,60).contains(p); }
+    int activeSideForPoint(const QPointF &) const override { return 0; }
+    bool selectedStackContains(const QPointF &) const override { return false; }
+    int cardStackCandidate() const override { return 0; }
+    void toggleFromInput() override { ++actions; ++toggles; if (onToggle) onToggle(); }
+    void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
+    void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }
+    void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
+    void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
+    void pageStackFromInput(int) override { ++actions; }
+    void activateSelectedFromInput() override { ++actions; if (onActivate) onActivate(); }
+    void beginCardGrab(const QPointF &) override { ++actions; ++grabStarts; grabbed = true; }
+    void updateCardGrab(const QPointF &) override { ++actions; }
+    void pageCardGrab(int) override { ++actions; }
+    void finishCardGrab(bool commit) override { ++actions; grabbed = false; if (!commit) ++grabCancels; }
+    bool finishCardGrabOnOutput(const QPointF &) override { ++actions; return false; }
+    void setCardStackPreview(int) override { ++actions; }
+    void clearCardStackPreview() override { ++actions; }
+    bool pageCardStackInsertion(int) override { ++actions; return false; }
+};
+class UnloadProbe final : public KWin::Effect {
+    Q_OBJECT
+public:
+    bool isActive() const override { return handoff && handoff->carry().busy(); }
+    void prePaintScreen(KWin::ScreenPrePaintData &data) override {
+        if (isActive()) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+        KWin::effects->prePaintScreen(data);
+    }
+    void prePaintWindow(KWin::RenderView *view, KWin::EffectWindow *window,
+                        KWin::WindowPrePaintData &data) override {
+        if (isActive() && handoff->carry().snapshot().window == window->window()) {
+            data.setTransformed(); data.setTranslucent();
+        }
+        KWin::effects->prePaintWindow(view, window, data);
+    }
+    void paintScreen(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
+                     int mask, const KWin::Region &region, KWin::LogicalOutput *screen) override {
+        paintingOutput = screen;
+        KWin::effects->paintScreen(target, viewport, mask, region, screen);
+        paintingOutput = nullptr;
+    }
+    void paintWindow(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
+                     KWin::EffectWindow *window, int mask, const KWin::Region &region,
+                     KWin::WindowPaintData &data) override {
+        if (isActive() && paintingOutput && handoff->carry().snapshot().window == window->window()) {
+            const auto plan = Kadunce::carryPaintPlan(handoff->carry().snapshot().geometry,
+                handoff->carry().position(), KWin::RectF(paintingOutput->geometry()));
+            const auto before = window->frameGeometry();
+            if (plan && Kadunce::paintCarryWindow(target, viewport, window, mask, region, data, *plan)) {
+                ++carryPaints;
+                carryPaintOutputs.insert(paintingOutput->name());
+            }
+            if (window->frameGeometry() != before) ++paintGeometryChanges;
+            return;
+        }
+        KWin::effects->paintWindow(target, viewport, window, mask, region, data);
+    }
+    UnloadProbe() {
+        KWin::input()->addInputDevice(&device);
+        QDBusConnection::sessionBus().registerObject("/UnloadProbe", this, QDBusConnection::ExportAllSlots);
+    }
+    ~UnloadProbe() override { drop(); KWin::input()->removeInputDevice(&device); QDBusConnection::sessionBus().unregisterObject("/UnloadProbe"); }
+public Q_SLOTS:
+    bool handoffArm(bool bentoSource, bool reject, bool interrupt) {
+        if (!contact || !contact->client) return false;
+        bento.client = contact->client->effectWindow();
+        if (!bento.sourcePrepare(bentoSource)) return false;
+        handoff = std::make_unique<Kadunce::NativeCarryHandoff>();
+        dropResult.reset(); dropEnabled = false; dropCommits = 0;
+        handoffFallbacks = handoffFinishes = 0; handoffResult = -1;
+        carryPaints = 0;
+        carryPaintOutputs.clear(); paintGeometryChanges = 0;
+        contact->moves = contact->releases = contact->routeCancels = 0;
+        contact->onRoute = [this](Kadunce::CarryInputRoute::Action action, Kadunce::CarryOwner owner, QPointF pos) {
+            using A = Kadunce::CarryInputRoute::Action;
+            if (action == A::Move) (void)handoff->carry().move(owner, pos);
+            else if (action == A::Release) {
+                if (dropEnabled) dropResult = handoff->releaseDrop(owner);
+                else (void)handoff->carry().release(owner);
+            }
+            else if (action == A::Cancel) handoff->cancel();
+            KWin::effects->addRepaintFull();
+        };
+        contact->onNativeStart = [this] {
+            if (!bento.reservation || !handoff->stage(contact->client, *bento.reservation,
+                    [this] { return bento.sourceValid(); }, [this] { ++handoffFallbacks; }))
+                ++handoffFallbacks;
+        };
+        contact->onIdentified = [this, reject](Kadunce::CarryOwner owner, QPointF position) {
+            const auto ticket = contact->contacts.soleCandidate();
+            handoffResult = int(handoff->identify(contact->client, owner, position,
+                [this, ticket, reject] { return !reject && ticket && bool(contact->contacts.resolve(*ticket)); }));
+            if (handoffResult > 0) {
+                if (!ticket || !contact->contacts.resolve(*ticket)) {
+                    handoff->cancel();
+                    return; // released during synchronous cancellation: nothing to drain
+                }
+                if (!contact->route.acquire(owner, handoffResult == 1)) qFatal("route already owned");
+                if (owner.kind == Kadunce::CarryDevice::Touch)
+                    KWin::waylandServer()->seat()->notifyTouchCancel();
+                KWin::effects->addRepaintFull();
+            }
+        };
+        QObject::disconnect(handoffFinishConnection);
+        handoffFinishConnection = QObject::connect(contact->client, &KWin::Window::interactiveMoveResizeFinished,
+            this, [this, interrupt] {
+                if (handoff->ownsNativeFinish(contact->client)) {
+                    ++handoffFinishes;
+                    if (interrupt) handoff->cancel();
+                } else handoff->flushPending();
+            });
+        return true;
+    }
+    QString handoffState() {
+        return QString::fromUtf8(QJsonDocument(QJsonObject{
+            {"fallbacks",handoffFallbacks},{"finishes",handoffFinishes},{"result",handoffResult},
+            {"sourceValid",bento.sourceValid()},{"busy",handoff && handoff->carry().busy()},
+            {"retained",handoff && bool(handoff->source())},
+            {"paintCalls",carryPaints},
+            {"paintOutputs",carryPaintOutputs.size()},
+            {"paintGeometryChanges",paintGeometryChanges},
+            {"inputBusy",contact && contact->route.busy()},
+            {"moves",contact ? contact->moves : -1},
+            {"releases",contact ? contact->releases : -1},
+            {"routeCancels",contact ? contact->routeCancels : -1},
+            {"moving",contact && contact->client && contact->client->isInteractiveMove()}
+        }).toJson(QJsonDocument::Compact));
+    }
+    void handoffUnidentified(bool cancelPending) {
+        if (!handoff || !contact || !contact->client) return;
+        KWin::workspace()->performWindowOperation(contact->client, KWin::Options::MoveOp);
+        if (cancelPending) handoff->cancel();
+    }
+    void handoffCancelInput() {
+        if (contact) contact->dispatch(contact->route.cancel(), contact->route.owner());
+    }
+    void bentoRestore() { bento.controller.restoreAllSessions(); }
+    void handoffPress(bool touch) {
+        const auto center = contact->client->frameGeometry().center();
+        pointer(qRound(center.x()), qRound(center.y()));
+        if (touch) down(47, qRound(center.x()), qRound(center.y()));
+        else contactButton(true);
+    }
+    void handoffMove(bool touch) {
+        const auto center = contact->client->frameGeometry().center();
+        if (touch) motion(47, qRound(center.x()) + 10, qRound(center.y()));
+        else contactMotion(qRound(center.x()) + 10, qRound(center.y()));
+    }
+    bool handoffPreviewDrop(const QString &mode) {
+        if (!handoff || !handoff->source() || !contact || !contact->client) return false;
+        auto *w = contact->client->effectWindow();
+        KWin::LogicalOutput *target = nullptr;
+        for (auto *o : KWin::effects->screens()) if (o != w->screen()) { target = o; break; }
+        if (!target || bento.controller.hasSessionOnOutput(target->name())) return false;
+        destinationUnderTest = target;
+        const KWin::RectF geometry(target->geometry());
+        const auto reserved = bento.controller.prepareCardDrop(w, target, geometry);
+        if (!reserved) return false;
+        QPointer<KWin::LogicalOutput> output = target;
+        dropEnabled = true;
+        const bool previewed = handoff->previewDrop(
+            {Kadunce::CarryDestinationKind::NativeDesktop, target->name(), target->name(), 0, 0},
+            [this, reserved, mode] {
+                if (mode == QStringLiteral("cancel")) handoff->cancel();
+                return bento.controller.cardDropValid(*reserved);
+            },
+            [this, reserved, output, geometry, mode](const Kadunce::PreparedCarrySource &source) {
+                ++dropCommits;
+                if (mode == QStringLiteral("reject")) return false;
+                if (bento.reservationIsBento) {
+                    const bool committed = bento.controller.transferNativeCarryToDesktop(source, *reserved);
+                    if (bento.controller.transferNativeCarryToDesktop(source, *reserved)) qFatal("Bento drop replayed");
+                    return committed;
+                }
+                bento.reservationHost.desktopAdmission = [this, reserved](auto *, auto *, const auto &,
+                    const auto &commit, const auto &cleanup) {
+                    return bento.controller.transferPreparedCard(*reserved, commit, cleanup);
+                };
+                const bool committed = bento.reservationCards->transferNativeCarryToDesktop(source, output, geometry);
+                bento.reservationHost.desktopAdmission = {};
+                return committed;
+            });
+        if (mode == QStringLiteral("stale")) {
+            if (bento.reservationIsBento) {
+                // Retire only the receiver reservation, not the shared source
+                // generation: a rejected solve must preserve Bento's source.
+                if (bento.controller.transferPreparedCard(*reserved, [] { return false; }, [] {}))
+                    qFatal("rejected receiver committed");
+            } else bento.controller.stopPendingSettle();
+        }
+        // A foreign physical release must not consume the reservation.
+        auto foreign = contact->route.owner(); ++foreign.contact;
+        return previewed && !handoff->releaseDrop(foreign) && handoff->carry().busy();
+    }
+    bool handoffDropPassed(bool accepted, int attempts) {
+        return dropResult && dropResult->committed == accepted && dropCommits == attempts
+            && dropResult->outcome.resolution == (accepted ? Kadunce::CarryResolution::ReadyToCommit
+                                                         : Kadunce::CarryResolution::ReturnToOrigin)
+            && !handoff->releaseDrop(contact->route.owner()) && !handoff->takeOutcome()
+            && bento.sourceValid() == !accepted;
+    }
+    bool bentoPositionCompanion() {
+        if (!contact || !contact->client) return false;
+        bento.controller.restoreAllSessions();
+        if (bento.reservationCards) bento.reservationCards->release();
+        KWin::LogicalOutput *target = nullptr;
+        for (auto *o : KWin::effects->screens()) if (o != contact->client->output()) { target = o; break; }
+        if (!target) return false;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (!bento.host.isManagedWindowForDesktopStage(w) || w->window() == contact->client) continue;
+            w->window()->setMinimized(false);
+            w->window()->sendToOutput(target);
+            w->window()->moveResize(KWin::RectF(target->geometry()).adjusted(100, 100, -100, -100));
+            return true;
+        }
+        return false;
+    }
+    bool bentoReservedDestination() {
+        destinationEvidence = QStringLiteral("Bento source preparation");
+        if (!contact || !contact->client) return false;
+        bento.client = contact->client->effectWindow();
+        if (!bento.sourcePrepare(true)) return false;
+        KWin::LogicalOutput *target = nullptr;
+        for (auto *o : KWin::effects->screens()) if (o != bento.client->screen()) { target = o; break; }
+        destinationEvidence = QStringLiteral("Bento target preparation");
+        if (!target || !bento.controller.toggleOnOutput(target->name())) return false;
+        // A different layout was published before pickup. Reserve the current
+        // source, not the superseded generation from fixture preparation.
+        bento.reservation = bento.controller.prepareNativeCarrySource(bento.client);
+        const auto reserved = bento.controller.prepareCardDrop(bento.client, target, KWin::RectF(target->geometry()));
+        destinationEvidence = QStringLiteral("Bento reservations");
+        if (!bento.reservation || !reserved) return false;
+        const auto original = bento.reservation->origin().output;
+        destinationUnderTest = target;
+        const bool committed = bento.controller.transferNativeCarryToDesktop(*bento.reservation, *reserved);
+        QDebug(&destinationEvidence) << committed << bento.sourceValid()
+            << bento.controller.outputStageState() << original << target->name();
+        return committed && !bento.controller.transferNativeCarryToDesktop(*bento.reservation, *reserved)
+            && bento.controller.hasSessionOnOutput(target->name())
+            && bento.controller.managesWindow(bento.client)
+            && !bento.controller.hasSessionOnOutput(original);
+    }
+    bool handoffDisarm() {
+        if (!handoff || !contact) return false;
+        contact->onNativeStart = {}; contact->onIdentified = {};
+        contact->onRoute = {};
+        QObject::disconnect(handoffFinishConnection);
+        handoff->cancel();
+        const auto outcome = handoff->takeOutcome();
+        const bool oneShot = !handoff->takeOutcome();
+        const bool correctOutcome = dropResult ? !outcome : (handoffResult < 1) ? !outcome
+            : outcome && bento.reservation && outcome->origin == bento.reservation->origin()
+                && outcome->resolution == Kadunce::CarryResolution::ReturnToOrigin;
+        if (auto *w = KWin::workspace()->moveResizeWindow()) w->cancelInteractiveMoveResize();
+        const bool preserved = bento.sourceValid();
+        if (preserved) bento.sourceRestoreWithoutMove();
+        bento.controller.cancelRestoredMinimizations();
+        if (contact->client) contact->client->setMinimized(false);
+        handoff.reset();
+        return (preserved || (dropResult && dropResult->committed))
+            && oneShot && correctOutcome && !contact->route.busy();
+    }
+    void contactObserve() { contact = std::make_unique<ContactProbe>(); }
+    bool contactStart() {
+        if (!contact) return false;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (w->isNormalWindow() && !w->isDeleted() && w->window())
+                return contact->watch(w->window());
+        }
+        return false;
+    }
+    QString contactState() { return contact ? contact->state() : QString(); }
+    bool contactFocus() {
+        if (!contact || !contact->client) return false;
+        KWin::workspace()->activateWindow(contact->client, true);
+        return true;
+    }
+    bool releaseRuntime() {
+        auto *effect = QDBusConnection::sessionBus().objectRegisteredAt(QStringLiteral("/Kadunce"));
+        return effect && QMetaObject::invokeMethod(effect, "release", Qt::DirectConnection);
+    }
+    bool entryClientsOnTablet() {
+        KWin::LogicalOutput *target = nullptr;
+        for (auto *o : KWin::effects->screens())
+            if (o->name() == QStringLiteral("Virtual-0")) target = o;
+        if (!target) return false;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (!w->isNormalWindow() || w->isDeleted() || !w->window()) continue;
+            w->window()->sendToOutput(target);
+        }
+        return true;
+    }
+    bool contactPrepareDecoration() { return contact && contact->prepareDecoration(); }
+    bool contactLookupAll() {
+        QSet<KWin::XdgToplevelInterface *> found;
+        int count = 0;
+        if (Kadunce::nativeMoveProtocol(nullptr)) return false;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (!w->isNormalWindow() || w->isDeleted() || !w->window()) continue;
+            const auto surface = w->window()->surface();
+            const auto protocol = Kadunce::nativeMoveProtocol(surface);
+            if (!protocol || protocol->surface() != surface || found.contains(protocol)) return false;
+            if (!contact || !contact->observer.watch(w->window())
+                || !contact->observer.watch(w->window())
+                || contact->observer.protocolFor(w->window()) != protocol) return false;
+            found.insert(protocol); ++count;
+        }
+        return count >= 2;
+    }
+    void contactDrop() { contact.reset(); }
+    bool activeDestinationTest(bool reject, bool existingBento) {
+        destinationEvidence = QStringLiteral("starting");
+        if (!contact || !contact->client) return false;
+        bento.client = contact->client->effectWindow();
+        if (!bento.sourcePrepare(false)) { destinationEvidence = QStringLiteral("source preparation failed"); return false; }
+        KWin::LogicalOutput *destination = nullptr;
+        for (auto *output : KWin::effects->screens())
+            if (output != bento.client->screen()) { destination = output; break; }
+        if (!destination) return false;
+        destinationUnderTest = destination;
+        if (existingBento && !bento.controller.toggleOnOutput(destination->name())) {
+            destinationEvidence = QStringLiteral("layout preparation failed"); return false;
+        }
+        const auto source = *bento.reservation;
+        int commits = 0, cleanups = 0;
+        bool publishedBeforeCleanup = false;
+        bento.reservationHost.desktopAdmission = [&](auto *w, auto *o, const auto &geometry,
+                                                    const auto &commit, const auto &release) {
+            const auto drop = bento.controller.prepareCardDrop(w, o, geometry);
+            if (!drop || !bento.controller.cardDropValid(*drop)) return false;
+            if (reject) bento.controller.stopPendingSettle();
+            const bool accepted = bento.controller.transferPreparedCard(*drop,
+                [&] { ++commits; return commit(); },
+                [&] {
+                    ++cleanups;
+                    publishedBeforeCleanup = !bento.reservationCards->nativeCarrySourceValid(source)
+                        && (!existingBento || bento.controller.managesWindow(w));
+                    release();
+                });
+            const bool replay = bento.controller.transferPreparedCard(*drop,
+                [&] { ++commits; return false; }, [&] { ++cleanups; });
+            if (replay) return false;
+            return accepted;
+        };
+        const bool result = bento.reservationCards->transferNativeCarryToDesktop(
+            source, destination, KWin::RectF(destination->geometry()));
+        bento.reservationHost.desktopAdmission = {};
+        if (reject) return !result && commits == 0 && cleanups == 0 && bento.sourceValid();
+        const bool duplicateRejected = !bento.reservationCards->transferNativeCarryToDesktop(
+            source,destination,KWin::RectF(destination->geometry()));
+        const bool sourceStayedOrganized = !bento.reservationCards->isActive()
+            || bento.reservationCards->presentation() == Kadunce::CardPresentation::CardLine;
+        bento.reservationCards->release();
+        QDebug(&destinationEvidence) << "Destination test" << existingBento << result << commits << cleanups
+            << publishedBeforeCleanup << duplicateRejected << sourceStayedOrganized
+            << (bento.client->screen() == destination);
+        return result && commits == 1 && cleanups == 1 && publishedBeforeCleanup
+            && duplicateRejected && sourceStayedOrganized;
+    }
+    QString activeDestinationEvidence() { return destinationEvidence; }
+    bool activeDestinationPlaced() {
+        return bento.client && destinationUnderTest && bento.client->screen() == destinationUnderTest;
+    }
+    void contactButton(bool pressed) {
+        KWin::input()->pointer()->processButton(272, pressed ? KWin::PointerButtonState::Pressed
+            : KWin::PointerButtonState::Released, now(), &device);
+        KWin::input()->pointer()->processFrame();
+    }
+    void contactMotion(int x, int y) {
+        KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now(), &device);
+        KWin::input()->pointer()->processFrame();
+    }
+    void contactCancel() { KWin::input()->touch()->cancel(); }
+    void contactKeyboardMove() {
+        if (contact && contact->client)
+            KWin::workspace()->performWindowOperation(contact->client, KWin::Options::MoveOp);
+    }
+    void contactEndMove() {
+        if (auto *w = KWin::workspace()->moveResizeWindow()) w->cancelInteractiveMoveResize();
+    }
+    void contactRemoveDevice() { KWin::input()->removeInputDevice(&device); }
+    void contactAddDevice() { KWin::input()->addInputDevice(&device); }
+    bool snapStart(bool intercept, bool touch) {
+        if (!snap) {
+            snap = std::make_unique<SnapProbe>();
+            KWin::input()->installInputEventFilter(snap.get());
+        }
+        return snap->start(intercept, touch);
+    }
+    bool snapCapture() { return snap && snap->capture(); }
+    bool snapBeginMove() { return snap && snap->beginMove(); }
+    void snapInterrupt(const QString &mode) { if (snap) snap->interruptMode = mode; }
+    bool snapForeignOwnerRejected() { return snap && snap->foreignOwnerRejected(); }
+    QString snapOutcome() { return snap ? snap->outcome() : QString(); }
+    QString snapState() { return snap ? snap->state() : QString(); }
+    void snapDrop() { snap.reset(); }
+    void shift(bool pressed) { KWin::input()->keyboard()->processKey(42,
+        pressed ? KWin::KeyboardKeyState::Pressed : KWin::KeyboardKeyState::Released, now()); }
+    void motion(int id, int x, int y) { KWin::input()->touch()->processMotion(id, {double(x), double(y)}, now()); KWin::input()->touch()->frame(); }
+    bool bentoInterrupt() { return bento.interrupt(); }
+    bool sourcePrepare(bool bentoSource) { return bento.sourcePrepare(bentoSource); }
+    bool nativeRestoreControlPrepare() { return bento.nativeRestoreControlPrepare(); }
+    bool nativeRestoreControlApply(bool together) { return bento.nativeRestoreControlApply(together); }
+    bool nativeRestoreControlMinimize() { return bento.nativeRestoreControlMinimize(); }
+    bool nativeRestoreControlShow() { return bento.nativeRestoreControlShow(); }
+    bool sourceRestoreWithoutMove() { return bento.sourceRestoreWithoutMove(); }
+    bool sourceCancelPendingRestore(int reason) { return bento.sourceCancelPendingRestore(reason); }
+    bool sourceCanceledRestoreVisible() { return bento.sourceCanceledRestoreVisible(); }
+    bool beginOwnedRestore() { return bento.beginOwnedRestore(); }
+    bool destroyOwnedRestore() { return bento.destroyOwnedRestore(); }
+    bool setSourceFullScreen(bool full) { return bento.setSourceFullScreen(full); }
+    bool sourceBeginMove() { return bento.sourceBeginMove(); }
+    bool sourceAdopt(bool interrupt) { return bento.sourceAdopt(interrupt); }
+    bool sourceRestored() { return bento.sourceRestored(); }
+    bool sourceVisibleRestored() { return bento.sourceVisibleRestored(); }
+    QString sourceEvidence() {
+        QString evidence = bento.reservationEvidence;
+        QDebug(&evidence) << "native" << (bento.client ? bento.client->frameGeometry() : KWin::RectF{})
+            << "original" << bento.reservationOriginal
+            << "requested" << (bento.client ? bento.client->window()->moveResizeGeometry() : KWin::RectF{})
+            << "saved-max" << (bento.reservation ? int(bento.reservation->restoreSnapshot().maximizeMode) : -1)
+            << "saved-full" << (bento.reservation && bento.reservation->restoreSnapshot().fullScreen)
+            << "minimized" << (bento.client && bento.client->isMinimized())
+            << "expected" << bento.reservationIsBento;
+        return evidence;
+    }
+    bool bentoRestored() { return bento.restored(); }
+    bool bentoFresh() { return bento.fresh(); }
+    bool bentoRestoreReentry() { return bento.restoreReentry(); }
+    bool bentoOutputLostDuringRestore() { return bento.outputLostDuringRestore(); }
+    bool cardAdmissionOrdering() { return bento.cardAdmissionOrdering(); }
+    bool edgeBatchAdmission() { return bento.edgeBatchAdmission(); }
+    bool tabletAdmissionOrdering() { return bento.tabletAdmissionOrdering(); }
+    bool productionTabletAdmission() { return bento.productionTabletAdmission(); }
+    bool prepareProductionTablet() { return bento.prepareProductionTablet(); }
+    bool productionTabletPlaced() { return bento.productionTabletPlaced(); }
+    QString tabletAdmissionEvidence() { return bento.tabletEvidence; }
+    bool bentoBeginContestedGeometry() { return bento.beginGeometryTest(true); }
+    bool bentoGeometryRecovered() { return bento.geometryRecovered(); }
+    bool bentoBeginStableGeometry() { return bento.beginGeometryTest(false); }
+    bool bentoStableGeometry() {
+        const bool active = bento.controller.hasActiveSession();
+        bento.controller.restoreAllSessions();
+        return active;
+    }
+    QString bentoGeometryEvidence() {
+        QString value;
+        QDebug(&value) << bento.controller.hasActiveSession() << bool(bento.client)
+            << (bento.client ? bento.client->frameGeometry() : KWin::RectF{}) << bento.original;
+        return value;
+    }
+    void arm() { drop(); target = Target{}; router = std::make_unique<WorkspaceInputRouter>(&target); KWin::input()->installInputEventFilter(router.get()); }
+    void drop() { if(router) router->cancelWorkspaceInteraction(); router.reset(); }
+    void guest(bool value) { target.guest = value; }
+    void down(int id, int x, int y) { KWin::input()->touch()->processDown(id, {double(x), double(y)}, now()); KWin::input()->touch()->frame(); }
+    void up(int id) { KWin::input()->touch()->processUp(id, now()); KWin::input()->touch()->frame(); }
+    void pointer(int x, int y) { KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now()); KWin::input()->pointer()->processFrame(); }
+    void button(bool pressed) { KWin::input()->pointer()->processButton(272, pressed ? KWin::PointerButtonState::Pressed : KWin::PointerButtonState::Released,now()); KWin::input()->pointer()->processFrame(); }
+    QString state() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"starts",target.grabStarts},{"cancels",target.grabCancels},{"grabbed",target.grabbed}}).toJson(QJsonDocument::Compact)); }
+    QString windowGeometry(const QString &id) {
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (window->internalId().toString(QUuid::WithoutBraces) != id) continue;
+            const auto r = window->frameGeometry();
+            return QString::fromUtf8(QJsonDocument(QJsonObject{{"x",r.x()},{"y",r.y()},
+                {"width",r.width()},{"height",r.height()}}).toJson(QJsonDocument::Compact));
+        }
+        return QStringLiteral("{}");
+    }
+private:
+    KWin::LogicalOutput *paintingOutput = nullptr;
+    int carryPaints = 0;
+    QString destinationEvidence;
+    bool dropEnabled = false;
+    int dropCommits = 0;
+    std::optional<Kadunce::NativeCarryHandoff::DropResult> dropResult;
+    QPointer<KWin::LogicalOutput> destinationUnderTest;
+    int paintGeometryChanges = 0;
+    QSet<QString> carryPaintOutputs;
+    std::chrono::microseconds now() { return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()); }
+    Target target;
+    std::unique_ptr<SnapProbe> snap;
+    std::unique_ptr<ContactProbe> contact;
+    std::unique_ptr<Kadunce::NativeCarryHandoff> handoff;
+    QMetaObject::Connection handoffFinishConnection;
+    int handoffFallbacks = 0, handoffFinishes = 0, handoffResult = -1;
+    BentoProbe bento;
+    Device device;
+    std::unique_ptr<WorkspaceInputRouter> router;
+};
+KWIN_EFFECT_FACTORY_SUPPORTED(UnloadProbe, "metadata.json", return true;)
+#include "probe.moc"

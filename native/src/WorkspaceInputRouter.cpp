@@ -38,18 +38,20 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     m_holdTimer.setSingleShot(true);
     m_holdTimer.setInterval(CardHoldDelay);
     QObject::connect(&m_holdTimer, &QTimer::timeout, [this]() {
+        if (reconcileNativeInteraction()) return;
         const QPointF delta = holdCurrent() - holdStart();
         if (m_holdSource != HoldSource::None
             && m_target->presentationForInput()
                 == WorkspacePresentation::CardLine
             && std::hypot(delta.x(), delta.y()) <= CardHoldMotion) {
             stopEdgePaging();
-            m_target->beginCardGrab();
+            m_target->beginCardGrab(holdCurrent());
         }
     });
 
     m_edgePageTimer.setSingleShot(true);
     QObject::connect(&m_edgePageTimer, &QTimer::timeout, [this]() {
+        if (reconcileNativeInteraction()) return;
         if (m_edgePageDirection == 0
             || !m_target->cardGrabActiveForInput()) {
             return;
@@ -61,6 +63,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     m_stackTargetTimer.setSingleShot(true);
     m_stackTargetTimer.setInterval(CardStackDwellDelay);
     QObject::connect(&m_stackTargetTimer, &QTimer::timeout, [this]() {
+        if (reconcileNativeInteraction()) return;
         if (m_stackTargetId != 0
             && m_target->cardGrabActiveForInput()
             && m_target->cardStackCandidate() == m_stackTargetId) {
@@ -71,6 +74,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 
     m_stackInsertionTimer.setSingleShot(true);
     QObject::connect(&m_stackInsertionTimer, &QTimer::timeout, [this]() {
+        if (reconcileNativeInteraction()) return;
         if (m_stackInsertionDirection == 0
             || !m_target->stackPreviewArmedForInput()) {
             return;
@@ -96,6 +100,10 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 {
+    if (reconcileNativeInteraction()) return false;
+    if (!m_forwardedPointerButtons.isEmpty()) return false;
+    if (!m_pointerPressed && !m_launcherGuestNavigationPointer
+        && !m_drainingPointerButtons.isEmpty()) return true;
     if (!m_panelPointerButtons.isEmpty()
         || (!m_pointerPressed && !m_launcherGuestNavigationPointer
             && m_target->isPanelPoint(event->position))) return false;
@@ -104,9 +112,6 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
         if (std::hypot(delta.x(), delta.y()) > CardHoldMotion)
             m_guestOutsidePointerMoved = true;
         return true;
-    }
-    if (m_launcherGuestPointerPassthrough) {
-        return false;
     }
     if (m_target->launcherGuestActiveForInput()
         && m_target->launcherGuestContainsForInput(event->position)) {
@@ -118,10 +123,8 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
         && m_holdSource == HoldSource::Pointer
         && m_target->cardGrabActiveForInput()) {
         m_pointerCurrent = event->position;
-        m_target->updateCardGrabDestination(m_pointerCurrent);
+        m_target->updateCardGrab(m_pointerCurrent);
         if (m_target->isTabletPoint(m_pointerCurrent)) {
-            m_target->updateCardGrab(
-                m_pointerCurrent.x() - m_pointerStart.x());
             updateEdgePaging(m_pointerCurrent);
             updateStackTarget();
         } else {
@@ -135,20 +138,9 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
     }
     if (m_pointerPressed) {
         m_pointerCurrent = event->position;
-        if (m_holdSource == HoldSource::Pointer
-            && m_target->cardGrabActiveForInput()) {
-            m_target->updateCardGrab(
-                m_pointerCurrent.x() - m_pointerStart.x());
-            updateEdgePaging(m_pointerCurrent);
-            updateStackTarget();
-        } else {
-            cancelMovedHold(m_pointerStart, m_pointerCurrent,
-                            HoldSource::Pointer);
-        }
+        cancelMovedHold(m_pointerStart, m_pointerCurrent,
+                        HoldSource::Pointer);
         return true;
-    }
-    if (m_pointerPassthrough) {
-        return false;
     }
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
@@ -163,11 +155,29 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    if (reconcileNativeInteraction()) {
+        if (event->state == KWin::PointerButtonState::Released) {
+            m_forwardedPointerButtons.remove(event->button);
+            m_panelPointerButtons.remove(event->button);
+        }
+        return false;
+    }
+    if (m_drainingPointerButtons.contains(event->button)) {
+        if (event->state == KWin::PointerButtonState::Released)
+            m_drainingPointerButtons.remove(event->button);
+        return true;
+    }
+    if (!m_forwardedPointerButtons.isEmpty()) {
+        if (event->state == KWin::PointerButtonState::Pressed)
+            m_forwardedPointerButtons.insert(event->button);
+        else
+            m_forwardedPointerButtons.remove(event->button);
+        return false;
+    }
     // A transaction that begins on Plasma's panel stays with Plasma even
     // when it releases over a card. Never steal an already-owned card drag.
     if (!m_panelPointerButtons.isEmpty()
         || (!m_pointerPressed && !m_launcherGuestNavigationPointer
-            && !m_launcherGuestPointerPassthrough && !m_pointerPassthrough
             && event->state == KWin::PointerButtonState::Pressed
             && m_target->isPanelPoint(event->position))) {
         if (event->state == KWin::PointerButtonState::Pressed)
@@ -177,6 +187,13 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         return false;
     }
     if (m_launcherGuestNavigationPointer) {
+        if (event->button != m_guestPointerButton) {
+            if (event->state == KWin::PointerButtonState::Pressed) {
+                m_drainingPointerButtons.insert(event->button);
+                return true;
+            }
+            return false;
+        }
         if (event->state == KWin::PointerButtonState::Released) {
             m_launcherGuestNavigationPointer = false;
             const auto delta = event->position - m_guestOutsidePointerStart;
@@ -185,19 +202,25 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         }
         return true;
     }
-    if (m_launcherGuestPointerPassthrough) {
-        if (event->state == KWin::PointerButtonState::Released) {
-            m_launcherGuestPointerPassthrough = false;
-        }
-        return false;
+    if ((m_touchId >= 0 || !m_launcherGuestNavigationTouchIds.isEmpty()
+         || !m_ownedTouchIds.isEmpty())
+        && event->state == KWin::PointerButtonState::Pressed
+        && m_target->isTabletPoint(event->position)
+        && (m_target->presentationForInput() == WorkspacePresentation::CardLine
+            || m_target->activeSideForPoint(event->position) != 0)
+        && !m_target->launcherGuestContainsForInput(event->position)) {
+        m_drainingPointerButtons.insert(event->button);
+        return true;
     }
     if (m_target->launcherGuestActiveForInput()
-        && event->state == KWin::PointerButtonState::Pressed) {
+        && event->state == KWin::PointerButtonState::Pressed
+        && m_target->isTabletPoint(event->position)) {
         if (m_target->launcherGuestContainsForInput(event->position)) {
-            m_launcherGuestPointerPassthrough = true;
+            m_forwardedPointerButtons.insert(event->button);
             return false;
         }
         m_launcherGuestNavigationPointer = true;
+        m_guestPointerButton = event->button;
         m_guestOutsidePointerStart = event->position;
         m_guestOutsidePointerMoved = false;
         return true;
@@ -219,7 +242,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
     // Card Line must not consume that foreign release: KWin owns the matching
     // press and needs the release to end its pointer grab.
     if (event->state == KWin::PointerButtonState::Released
-        && !m_pointerPressed && !m_pointerPassthrough) {
+        && !m_pointerPressed) {
         return false;
     }
     const bool cardLine = presentation == WorkspacePresentation::CardLine;
@@ -227,17 +250,15 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         ? 0 : m_target->activeSideForPoint(event->position);
     if (event->state == KWin::PointerButtonState::Pressed
         && (!cardLine && activeSide == 0)) {
-        m_pointerPassthrough = true;
-        return false;
-    }
-    if (m_pointerPassthrough) {
-        if (event->state == KWin::PointerButtonState::Released) {
-            m_pointerPassthrough = false;
-        }
+        m_forwardedPointerButtons.insert(event->button);
         return false;
     }
     if (event->button != Qt::LeftButton) {
-        return cardLine || activeSide != 0;
+        if (event->state == KWin::PointerButtonState::Pressed) {
+            m_drainingPointerButtons.insert(event->button);
+            return true;
+        }
+        return false;
     }
     if (event->state == KWin::PointerButtonState::Pressed) {
         m_pointerPressed = true;
@@ -248,12 +269,14 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
             startCardHold(HoldSource::Pointer, event->position);
         }
     } else if (m_pointerPressed) {
+        m_pointerPressed = false; // This release is already being consumed.
         m_pointerCurrent = event->position;
         if (m_holdSource == HoldSource::Pointer
             && m_target->cardGrabActiveForInput()) {
             stopEdgePaging();
             m_stackTargetTimer.stop();
             stopStackInsertion();
+            stopCardHold(HoldSource::Pointer);
             if (!m_target->finishCardGrabOnOutput(m_pointerCurrent)) {
                 m_target->finishCardGrab(true);
             }
@@ -274,11 +297,15 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 
 bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 {
+    if (reconcileNativeInteraction()) return false;
     if (!m_pointerPressed && m_target->isPanelPoint(event->position)) return false;
     if (m_target->launcherGuestActiveForInput()
         && m_target->launcherGuestContainsForInput(event->position)) {
         return false;
     }
+    if (m_target->isTabletPoint(event->position)
+        && (m_touchId >= 0 || m_pointerPressed
+            || !m_launcherGuestNavigationTouchIds.isEmpty())) return true;
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
     if (!m_target->isTabletPoint(event->position)
@@ -308,6 +335,7 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
     m_observedTouchIds.insert(event->id);
+    if (reconcileNativeInteraction()) return false;
     if (m_observedTouchIds.size() > 1) m_bottomCandidateId = -1;
     // Preserve the native bottom-edge swipe in Active/Inactive; only the
     // overview's blanket touch capture needs a panel exclusion. Unowned IDs
@@ -317,6 +345,13 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
         && m_target->isPanelPoint(event->pos)) return false;
     if (!m_target->isTabletPoint(event->pos)) {
         return false;
+    }
+    if (!m_target->launcherGuestContainsForInput(event->pos)
+        && touchModeAt(event->pos) != TouchMode::None
+        && (m_pointerPressed || m_launcherGuestNavigationPointer
+            || (m_touchId < 0 && !m_ownedTouchIds.isEmpty()))) {
+        m_drainingTouchIds.insert(event->id);
+        return true;
     }
     if (m_target->launcherGuestActiveForInput()) {
         if (m_target->launcherGuestContainsForInput(event->pos)) {
@@ -360,6 +395,9 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    const bool native = reconcileNativeInteraction();
+    if (m_drainingTouchIds.contains(event->id)) return true;
+    if (native) return false;
     if (event->id == m_bottomCandidateId) {
         const QPointF delta = event->pos - m_bottomCandidateStart;
         if (delta.y() > 40.0 || (std::abs(delta.x()) > 40.0
@@ -401,9 +439,14 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
     m_touchCurrent = event->pos;
     if (m_holdSource == HoldSource::Touch
         && m_target->cardGrabActiveForInput()) {
-        m_target->updateCardGrab(m_touchCurrent.x() - m_touchStart.x());
-        updateEdgePaging(m_touchCurrent);
-        updateStackTarget();
+        m_target->updateCardGrab(m_touchCurrent);
+        if (m_target->isTabletPoint(m_touchCurrent)) {
+            updateEdgePaging(m_touchCurrent);
+            updateStackTarget();
+        } else {
+            stopEdgePaging();
+            stopStackTarget();
+        }
     } else {
         cancelMovedHold(m_touchStart, m_touchCurrent, HoldSource::Touch);
     }
@@ -415,7 +458,9 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
+    reconcileNativeInteraction();
     m_observedTouchIds.remove(event->id);
+    if (m_drainingTouchIds.remove(event->id)) return true;
     if (m_bottomCandidateId == event->id) m_bottomCandidateId = -1;
     if (m_launcherGuestNavigationTouchIds.remove(event->id)) {
         m_guestOutsideTouchStarts.remove(event->id);
@@ -437,7 +482,10 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
         stopEdgePaging();
         m_stackTargetTimer.stop();
         stopStackInsertion();
-        m_target->finishCardGrab(true);
+        stopCardHold(HoldSource::Touch);
+        if (!m_target->finishCardGrabOnOutput(m_touchCurrent)) {
+            m_target->finishCardGrab(true);
+        }
         m_stackTargetId = 0;
         m_touchCommitted = true;
     } else if (!m_touchCommitted) {
@@ -449,14 +497,21 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 
 bool WorkspaceInputRouter::touchCancel()
 {
+    // Cancellation belongs to the touch stream, not the pointer stream.
+    // Let it continue to clients if any contact was forwarded to them.
+    QSet<qint32> forwarded = m_observedTouchIds;
+    forwarded.subtract(m_ownedTouchIds);
+    forwarded.subtract(m_launcherGuestNavigationTouchIds);
+    forwarded.subtract(m_drainingTouchIds);
+    const bool owned = !m_ownedTouchIds.isEmpty()
+        || !m_launcherGuestNavigationTouchIds.isEmpty() || !m_drainingTouchIds.isEmpty();
+    m_drainingTouchIds.clear();
     m_observedTouchIds.clear();
     m_bottomCandidateId = -1;
-    const bool owned = m_touchId >= 0;
     m_launcherGuestTouchIds.clear();
     m_launcherGuestNavigationTouchIds.clear();
     m_guestOutsideTouchStarts.clear();
     m_guestOutsideMovedTouches.clear();
-    m_launcherGuestNavigationPointer = false;
     if (m_holdSource == HoldSource::Touch
         && m_target->cardGrabActiveForInput()) {
         stopEdgePaging();
@@ -465,7 +520,49 @@ bool WorkspaceInputRouter::touchCancel()
     }
     m_ownedTouchIds.clear();
     resetTouch();
-    return owned;
+    return owned && forwarded.isEmpty();
+}
+
+bool WorkspaceInputRouter::reconcileNativeInteraction()
+{
+    if (!m_target->nativeWindowInteractionForInput()) return false;
+    m_bottomCandidateId = -1;
+    if (m_pointerPressed || m_touchId >= 0 || m_launcherGuestNavigationPointer
+        || !m_launcherGuestNavigationTouchIds.isEmpty()
+        || m_holdSource != HoldSource::None) {
+        cancelWorkspaceInteraction();
+    }
+    // KWin's native pointer transaction takes priority over a stale card drain.
+    // Touch contacts already consumed by us still need their own inert release.
+    m_drainingPointerButtons.clear();
+    return true;
+}
+
+void WorkspaceInputRouter::cancelWorkspaceInteraction()
+{
+    const bool rollback = m_holdSource != HoldSource::None
+        && m_target->cardGrabActiveForInput();
+    m_drainingTouchIds.unite(m_ownedTouchIds);
+    m_drainingTouchIds.unite(m_launcherGuestNavigationTouchIds);
+    if (m_pointerPressed) m_drainingPointerButtons.insert(Qt::LeftButton);
+    if (m_launcherGuestNavigationPointer)
+        m_drainingPointerButtons.insert(m_guestPointerButton);
+    m_pointerPressed = false;
+    m_pointerActiveSide = 0;
+    m_launcherGuestNavigationPointer = false;
+    m_ownedTouchIds.clear();
+    m_launcherGuestNavigationTouchIds.clear();
+    m_guestOutsideTouchStarts.clear();
+    m_guestOutsideMovedTouches.clear();
+    m_bottomCandidateId = -1;
+    // Clear ownership before calling the target, which may reenter lifecycle hooks.
+    m_holdTimer.stop();
+    m_holdSource = HoldSource::None;
+    stopEdgePaging();
+    stopStackTarget();
+    resetTouch();
+    if (rollback) m_target->finishCardGrab(false);
+    // Forwarded panel, client and Tette contacts retain their original owner.
 }
 
 QPointF WorkspaceInputRouter::holdStart() const
@@ -483,6 +580,10 @@ QPointF WorkspaceInputRouter::holdCurrent() const
 void WorkspaceInputRouter::startCardHold(HoldSource source,
                                          const QPointF &position)
 {
+    // A second device cannot take over an existing hold/grab transaction.
+    if (m_holdSource != HoldSource::None && m_holdSource != source) {
+        return;
+    }
     const WorkspaceInputGeometry geometry = m_target->geometryForInput();
     if (!geometry.isValid()
         || !m_target->centerCardContainsForInput(position)) {
@@ -530,6 +631,10 @@ void WorkspaceInputRouter::updateEdgePaging(const QPointF &position)
     const double edgeZone = std::max(
         CardEdgeZoneMinimum,
         geometry.tablet.width() * CardEdgeZoneFraction);
+    if (!geometry.tablet.contains(position)) {
+        stopEdgePaging();
+        return;
+    }
     const int direction = classifyCardEdge(
         position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone);
     if (direction == m_edgePageDirection) {
@@ -545,7 +650,8 @@ void WorkspaceInputRouter::updateEdgePaging(const QPointF &position)
 void WorkspaceInputRouter::updateStackTarget()
 {
     if (m_target->stackPreviewArmedForInput()
-        && m_stackTargetId == m_target->stackPreviewTargetForInput()) {
+        && m_stackTargetId == m_target->stackPreviewTargetForInput()
+        && m_stackTargetId == m_target->cardStackCandidate()) {
         updateStackInsertion(holdCurrent());
         return;
     }
@@ -731,8 +837,10 @@ void WorkspaceInputRouter::finishTouchGesture()
 
 void WorkspaceInputRouter::resetTouch()
 {
-    stopEdgePaging();
-    stopStackTarget();
+    if (m_holdSource == HoldSource::Touch) {
+        stopEdgePaging();
+        stopStackTarget();
+    }
     stopCardHold(HoldSource::Touch);
     m_touchId = -1;
     m_touchCommitted = false;

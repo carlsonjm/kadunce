@@ -42,6 +42,8 @@ public:
     virtual ~WorkspaceInputTarget() = default;
 
     [[nodiscard]] virtual WorkspacePresentation presentationForInput() const = 0;
+    // KWin owns the complete transaction for an ordinary window move/resize.
+    [[nodiscard]] virtual bool nativeWindowInteractionForInput() const = 0;
     [[nodiscard]] virtual WorkspaceInputGeometry geometryForInput() const = 0;
     [[nodiscard]] virtual bool cardGrabActiveForInput() const = 0;
     [[nodiscard]] virtual bool stackPreviewArmedForInput() const = 0;
@@ -68,9 +70,8 @@ public:
     virtual void pageRightFromInput() = 0;
     virtual void pageStackFromInput(int delta) = 0;
     virtual void activateSelectedFromInput() = 0;
-    virtual void beginCardGrab() = 0;
-    virtual void updateCardGrab(double horizontalDelta) = 0;
-    virtual void updateCardGrabDestination(const QPointF &position) = 0;
+    virtual void beginCardGrab(const QPointF &position) = 0;
+    virtual void updateCardGrab(const QPointF &position) = 0;
     virtual void pageCardGrab(int direction) = 0;
     virtual void finishCardGrab(bool commit) = 0;
     [[nodiscard]] virtual bool finishCardGrabOnOutput(
@@ -93,8 +94,11 @@ public:
     bool touchMotion(KWin::TouchMotionEvent *event) override;
     bool touchUp(KWin::TouchUpEvent *event) override;
     bool touchCancel() override;
+    // Invalidate actions, but retain consumed contacts until their release.
+    void cancelWorkspaceInteraction();
 
 private:
+    bool reconcileNativeInteraction();
     enum class TouchMode {
         None,
         CardLine,
@@ -135,6 +139,9 @@ private:
     QPointF m_touchStart;
     QPointF m_touchCurrent;
     QSet<qint32> m_ownedTouchIds;
+    QSet<qint32> m_drainingTouchIds;
+    QSet<Qt::MouseButton> m_drainingPointerButtons;
+    Qt::MouseButton m_guestPointerButton = Qt::NoButton;
     QSet<qint32> m_observedTouchIds;
     qint32 m_bottomCandidateId = -1;
     QPointF m_bottomCandidateStart;
@@ -149,8 +156,7 @@ private:
     QTimer m_stackInsertionTimer;
     qint32 m_touchId = -1;
     bool m_pointerPressed = false;
-    bool m_pointerPassthrough = false;
-    bool m_launcherGuestPointerPassthrough = false;
+    QSet<Qt::MouseButton> m_forwardedPointerButtons;
     bool m_launcherGuestNavigationPointer = false;
     QPointF m_guestOutsidePointerStart;
     bool m_guestOutsidePointerMoved = false;
