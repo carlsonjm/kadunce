@@ -10,8 +10,6 @@ focus on one app, or arrange windows in Bento layouts. A persistent tray switch
 keeps you in control, while KWin remains responsible for window lifecycle,
 focus, outputs, and recovery.
 
-> The tablet optimizes choosing and focusing. The desktop stage optimizes
-> seeing and composing. Neither display should imitate the other.
 
 ## Features
 

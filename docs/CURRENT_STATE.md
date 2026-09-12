@@ -7,8 +7,9 @@ blockers and queued Tette/Temperance/package work.
 
 ## Provenance and recovery
 
-Local main HEAD a74991fccaa5e4070f62a7ec87642406d9eecf56, with extensive intentional
-overhaul now approved for a checkpoint commit/push. Preserve all in-scope work.
+Checkpoint commit 14c6f89 captures the accumulated overhaul from base a74991f.
+Remote README revision 40e2f37 is preserved in the checkpoint merge.
+User approved publishing this development freeze, including its open-issue list.
 Installed binary verified this turn:
 f30825c0514f7f72129ededa48f2b5e54a2d31cb764ae971724419d5c01aa57b.
 User passed ordinary monitor→tablet→monitor appearance, bottom safety, and edge
