@@ -1775,6 +1775,16 @@ void Effect::pageStack(int delta)
 
 void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
+    const auto neighbors = m_cardStage->preparationNeighbors();
+    for (const auto &window : std::as_const(m_preparationNeighbors)) {
+        if (window && !neighbors.contains(window)
+            && (!m_cardStage->isActive()
+                || m_cardStage->presentation() != CardPresentation::CardLine
+                || m_cardStage->paintSlot(window) == 99)) unredirect(window);
+    }
+    if (neighbors != m_preparationNeighbors) m_neighborPreparationFrames = neighbors.size();
+    m_preparationNeighbors = neighbors;
+    if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
     if (m_settlingWindow) {
         if (!dropSettleRect()) clearDropSettle();
@@ -1814,7 +1824,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::CardLine
-        && visibleSlot(window) != 99) {
+        && m_cardStage->paintSlot(window) != 99) {
         data.setTransformed();
         // A rotated opaque client needs compositor blending for the
         // fractional coverage emitted by the r21 fan aperture.
@@ -2072,6 +2082,32 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
     KWin::OffscreenEffect::drawWindow(
         renderTarget, viewport, window, mask, deviceRegion, data);
     KWin::ShaderManager::instance()->popShader();
+    // Remain inside the draw-chain callback: OffscreenEffect's internal render
+    // must continue AFTER this effect, not re-enter our drawWindow from paintScreen.
+    // An empty final clip populates the live texture without painting on any output.
+    if (!m_neighborPreparedThisFrame && m_paintingOutput
+        && isTabletOutput(m_paintingOutput) && !m_preparationNeighbors.isEmpty()) {
+        m_neighborPreparedThisFrame = true;
+        if (m_neighborPreparationFrames > 0 && --m_neighborPreparationFrames > 0)
+            m_continueRepaint = true; // only enough frames to visit both neighbors
+        const auto neighbor = m_preparationNeighbors.at(
+            m_neighborPreparationCursor++ % m_preparationNeighbors.size());
+        if (neighbor && !neighbor->isDeleted() && neighbor != m_nativeCarry
+            && m_cardStage->visibleSlot(neighbor) == 99 && neighbor->screen()) {
+            const auto size = neighbor->expandedGeometry().size();
+            const double scale = neighbor->screen()->scale();
+            // At most two extra full-window surfaces, each bounded to32MiB.
+            if (size.width() > 0 && size.height() > 0
+                && size.width()*size.height()*scale*scale*4 <= 32*1024*1024) {
+                redirect(neighbor);
+                setShader(neighbor, nullptr);
+                KWin::WindowPaintData preparation;
+                KWin::OffscreenEffect::drawWindow(renderTarget, viewport, neighbor,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT,
+                    KWin::Region(), preparation);
+            }
+        }
+    }
 }
 
 void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
@@ -2121,7 +2157,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
 
-    const int slot = visibleSlot(window);
+    const int slot = m_cardStage->paintSlot(window);
     const bool grabbedWindow = m_cardStage->cardGrabActive()
         && window == m_cardStage->selectedWindow();
     const auto route = cardPaintRoute(m_paintingOutput == tablet,

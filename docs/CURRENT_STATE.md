@@ -1,5 +1,34 @@
 # Current state
 
+## Card Line motion batch — September 13
+
+J reports the installed unified-row build passed and authorizes freeze/push.
+Installed plugin verified:
+a422853a94c2b0668e8f96c12aaa3940e0a128e24b680a774385863dcedfe36b.
+See FREEZE-20260913-ROW-MOTION.md for provenance and exact rollback.
+
+Ordinary and held row paging use interruptible220ms presentation, immediate
+selection, captured reversal and shared center/neighbor displacement. Wrapping
+uses the same progress rather than a separate half-clock; single-card gutters
+remain stable. Existing fan endpoints and contact-anchored44% held geometry stay.
+Departing cards are paint-only, not input/model-visible; release retires the old
+detached-row transition. Stack timing/order and native ownership are unchanged.
+
+At most two next-hidden selected faces are prepared with KWin OffscreenEffect,
+one per frame and32MiB per extra surface. Empty final clip prevents screen output.
+Neighborhood/Active/release cleanup retires hidden preparation; finite frames
+prepare both sides. No new retained snapshots, background timer, input readiness
+gate or native geometry. Paging can outrun preparation and never waits for it.
+Entry is opaque; clipping replaces the superseded16px/fade experiments.
+
+Previous main38753bf is the QoL baseline below. Exact immediate rollback8b766377
+(preparation pass J called V GOOD) is preserved by
+../install-kadunce-row-unison-20260913.sh --rollback.
+Source/runtime checks and J's physical pass cover this scoped freeze, not all
+hardware. Zen sampling remains open; do not restart caching experiments.
+Next bounded motion scope, only on request: stack cycling and pickup/release.
+Preserve unrelated NEXT-ROADMAP edits.
+
 ## Accepted QoL freeze
 
 September13: shared enterActive now clears temporary Card Line elevation after
@@ -10,7 +39,7 @@ checks the shared boundary; build, control and live-control checks pass.
 Local ../install-qol-20260913.sh bundles this with Tette Meta toggle/panel focus;
 --rollback restores the accepted ae40 plugin and both prior Tette binaries.
 J reports a full physical pass and authorizes freeze/publication to main.
-Installed plugin hash verified:
+Accepted QoL plugin hash (now rollback):
 6c981b08cb951f26e954bc6007d66998b7b8887f701881eb0bebd7b9dae47368.
 All14 native tests pass; independent control2/2 and live safety checks pass.
 No Temperance source edit is needed for this specific elevation leak.

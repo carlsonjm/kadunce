@@ -79,6 +79,7 @@ public:
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
+    [[nodiscard]] QList<QPointer<KWin::EffectWindow>> preparationNeighbors() const;
 
     [[nodiscard]] bool cardGrabActive() const;
     [[nodiscard]] QPointF cardGrabOffset() const;
@@ -102,6 +103,8 @@ public:
         KWin::LogicalOutput *output, int slot) const;
     [[nodiscard]] KWin::Rect previewTargetForWindow(
         KWin::LogicalOutput *output, const KWin::EffectWindow *window) const;
+    [[nodiscard]] int paintSlot(const KWin::EffectWindow *window) const;
+    void anchorRowTransition();
     [[nodiscard]] CardStackPose stackPoseForWindow(const KWin::EffectWindow *window, double width) const;
     [[nodiscard]] KWin::Rect posedTargetForWindow(KWin::LogicalOutput *output, const KWin::EffectWindow *window) const;
     [[nodiscard]] double applyPoseTransition(const KWin::EffectWindow *window, KWin::Rect &rect, CardStackPose &pose) const;
@@ -180,10 +183,13 @@ private:
         double rotation = 0.0;
         bool visible = true;
         double opacity = 1.0;
+        int slot = 99;
     };
     QList<PreviewOrigin> m_previewOrigins;
     QElapsedTimer m_previewTransition;
     bool m_poseTransition = false;
+    bool m_rowPageTransition = false;
+    double m_rowDisplacement = 0; // normalized shared horizontal travel
     QTimer m_arrivalTimer;
     QElapsedTimer m_arrivalWait;
     QPointer<KWin::EffectWindow> m_arrivalWindow;

@@ -55,6 +55,10 @@ target_link_libraries(kwin4_effect_kadunce
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(kadunce-row-page-motion-test tests/RowPageMotionTest.cpp)
+    target_include_directories(kadunce-row-page-motion-test PRIVATE src)
+    target_link_libraries(kadunce-row-page-motion-test PRIVATE Qt6::Core)
+    add_test(NAME row-page-motion COMMAND kadunce-row-page-motion-test)
     add_executable(kadunce-carry-paint-test tests/CarryPaintPlanTest.cpp)
     target_include_directories(kadunce-carry-paint-test PRIVATE src)
     target_link_libraries(kadunce-carry-paint-test PRIVATE Qt6::Core)

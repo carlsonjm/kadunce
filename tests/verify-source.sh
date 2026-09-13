@@ -20,6 +20,23 @@ install_script="${project_dir}/install.sh"
 active_entry=$(sed -n '/^bool CardStageController::enterActive()/,/^void CardStageController::restoreActiveSnapshot()/p' "$card_cpp")
 printf '%s\n' "$active_entry" | perl -0777 -ne 'exit(!/m_presentation = CardPresentation::Active;.*?syncSelectedElevation\(\);.*?activateWindow/s)'
 
+# Paging captures presentation before changing selection, with no animation gate.
+row_entry=$(sed -n '/^void CardStageController::pageHorizontal(/,/^bool CardStageController::beginLauncherGuest()/p' "$card_cpp")
+printf '%s\n' "$row_entry" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_rowPageTransition = true;.*?m_workspace.page\(delta\)/s)'
+held_page=$(sed -n '/^void CardStageController::pageCardGrab(/,/^void CardStageController::finishCardGrab(/p' "$card_cpp")
+printf '%s\n' "$held_page" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_cardGrabPageOffset =/s)'
+rg -Fq '(!m_rowPageTransition || window == selectedWindow())' "$card_cpp"
+rg -Fq 'if (m_rowPageTransition) clearCardTransition();' "$card_cpp"
+rg -Fq 'm_cardStage->paintSlot(window)' "$effect_cpp"
+rg -Fq 'm_workspace.idAtOffset(side * 2)' "$card_cpp"
+rg -Fq 'm_workspace.count() == 0' "$card_cpp"
+rg -Fq 'm_preparationNeighbors.at(' "$effect_cpp"
+rg -Fq 'KWin::Region(), preparation' "$effect_cpp"
+rg -Fq 'size.width()*size.height()*scale*scale*4 <= 32*1024*1024' "$effect_cpp"
+if rg -q 'paintSlot\(' "$router_cpp"; then
+    echo 'Paint-only departing cards must not become input targets' >&2; exit 1
+fi
+
 python3 -m json.tool "${metadata_file}" >/dev/null
 bash -n "${install_script}"
 

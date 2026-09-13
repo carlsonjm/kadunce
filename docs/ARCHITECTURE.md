@@ -28,6 +28,16 @@ not released. Open-space tablet drops still follow Card Line behavior.
 
 ## Current implementation
 
+Accepted September13 row-motion freeze: CardStageController captures presented
+poses and anchors incoming/departing travel to the new center's displacement.
+Circular representations share the220ms progress; input never waits. paintSlot
+retains departing faces only for drawing, leaving input/model visibility intact.
+Effect prepares at most two next-hidden selected faces through OffscreenEffect
+inside the draw chain, with empty final clipping and bounded surface sizes.
+This is live redirection, not a second snapshot store. Existing input thresholds,
+stack endpoint geometry, native restoration and output fences remain unchanged.
+See FREEZE-20260913-ROW-MOTION.md; earlier motion candidates are historical.
+
 September13 post-paint candidate: prePaintScreen retains transform masks and
 latches animation/drop-settle continuation. postPaintScreen schedules the next
 frame after KWin consumes current output damage. The latch preserves a final

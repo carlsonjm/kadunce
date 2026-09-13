@@ -248,6 +248,10 @@ private:
     std::unique_ptr<CardStageController> m_cardStage;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
     bool m_continueRepaint = false;
+    QList<QPointer<KWin::EffectWindow>> m_preparationNeighbors;
+    bool m_neighborPreparedThisFrame = false;
+    unsigned int m_neighborPreparationCursor = 0;
+    int m_neighborPreparationFrames = 0;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
     bool m_nativeCarryFromBento = false;

@@ -1161,3 +1161,45 @@ stack members must become ordinary native-layer windows so Plasma applet popups
 remain above them. Do not compensate by misclassifying Temperance as an OSD or
 making every window keep-above. Focused source/build and safety checks pass.
 J accepted the installed QoL batch with a full pass and authorized publication.
+
+## September 13 — Row paging motion is presentation, not navigation ownership
+
+Connect ordinary and held Card Line paging to one220ms retargetable full-pose
+transition. Model selection changes immediately, never waits for animation.
+Departing members may paint until completion but retain model/input invisibility.
+Wrapped shoulders leave and enter at opposite edges, not through the center.
+Capture current rendered poses on interruption; do not queue navigation. The
+held card stays contact-anchored and release clears detached-row interpolation.
+Reuse live redirected surfaces and the accepted post-paint continuation latch;
+do not introduce snapshots, preparation gates or native geometry mutations.
+This candidate is deliberately separate from stack timing and later animation
+polish. Physical acceptance is pending; accepted main/installed binary unchanged.
+
+## September 13 — Bounded live neighbor preparation experiment
+
+J requests opaque full-window arrival instead of additional fading. Reuse KWin
+OffscreenEffect, not retained snapshots: its maybeRender runs before final clip,
+so a qualified base draw with empty Region populates the live texture without
+screen output. Invoke only inside our draw callback, where downstream draw-chain
+iteration is valid. Prepare next hidden selected face on either side, at most
+one per frame,32MiB each. Preserve output fences and input/model visibility.
+Retire hidden preparations outside the neighborhood or Card Line lifetime.
+No timer, native move, all-app sweep or readiness wait; two finite continuation
+frames serve an idle neighborhood. Fast input may outrun this best effort.
+Normal live dirty updates remain KWin-owned. Preparation has GPU cost and is
+not claimed hitch-free before J's test. Rollback is the passable59f0 motion build.
+
+## September 13 — Coordinate row travel after preparation pass
+
+J accepts8b766377 preparation as V GOOD; requests removal of neighbors apparently
+touching the center during motion. Anchor travel to the arriving center's current
+captured position. Incoming origins/departing destinations reuse that displacement.
+Circular outgoing/incoming representations share the same220ms easing progress,
+switching when the outgoing rectangle clears the output, not on an independent
+half-clock. Preserve captured interruptions and existing fan endpoint geometry;
+no dwell, ordering, offscreen preparation or native ownership changes. Plain-card
+gutter and shared-wrap displacement tests pass both directions; real mixed-stack
+geometry and rapid reversals remain J's physical gate. Rollback preserves8b766377.
+
+J subsequently reports “passed, freeze and push.” The installed a422853a binary
+is the accepted row-motion freeze; see FREEZE-20260913-ROW-MOTION.md.

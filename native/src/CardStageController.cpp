@@ -5,6 +5,7 @@
 
 #include "CardStageController.h"
 #include "HeldCardGeometry.h"
+#include "RowPageMotion.h"
 #include "CardLineLayout.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
@@ -138,6 +139,22 @@ int CardStageController::liveCardIndex(const KWin::EffectWindow *window) const
         }
     }
     return -1;
+}
+
+QList<QPointer<KWin::EffectWindow>> CardStageController::preparationNeighbors() const
+{
+    QList<QPointer<KWin::EffectWindow>> result;
+    if (!m_active || m_workspace.count() == 0
+        || m_presentation != CardPresentation::CardLine || m_launcherGuestActive) return result;
+    for (int side : {-1, 1}) {
+        const int id = m_cardGrabActive
+            ? m_workspace.detachedNeighborhood(m_cardGrabPageOffset + side)[side < 0 ? 0 : 2]
+            : m_workspace.idAtOffset(side * 2);
+        const auto window = m_workspace.windows().value(id - 1);
+        if (window && !window->isDeleted() && visibleSlot(window) == 99 && !result.contains(window))
+            result.append(window);
+    }
+    return result;
 }
 
 int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
@@ -301,7 +318,7 @@ bool CardStageController::animationsRunning() const
     return (m_cardGrabActive && m_cardGrabScaleTimer.isValid()
             && m_cardGrabScaleTimer.elapsed() < PreviewTransitionDuration)
         || (m_previewTransition.isValid()
-            && m_previewTransition.elapsed() < PreviewTransitionDuration)
+            && m_previewTransition.elapsed() < (m_rowPageTransition ? RowPageDuration : PreviewTransitionDuration))
         || (m_cardStackPreviewTimer.isValid()
             && m_cardStackPreviewTimer.elapsed()
                 < CardStackTransitionDuration)
@@ -399,6 +416,38 @@ void CardStageController::clearCardTransition()
     m_previewTransition.invalidate();
     m_previewOrigins.clear();
     m_poseTransition = false;
+    m_rowPageTransition = false;
+}
+
+void CardStageController::anchorRowTransition()
+{
+    auto *output = m_host->tabletOutputForCardStage();
+    if (!m_rowPageTransition || !output) return;
+    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    if (work.width() <= 0) return;
+    const int centerId = m_cardGrabActive
+        ? m_workspace.detachedNeighborhood(m_cardGrabPageOffset)[1] : m_workspace.selectedId();
+    const auto center = m_workspace.windows().value(centerId - 1);
+    const auto target = cardTargetForSlot(output, 0);
+    const auto pose = stackPoseForWindow(center, target.width());
+    m_rowDisplacement = 0;
+    for (const auto &origin : m_previewOrigins) {
+        if (origin.window == center) {
+            m_rowDisplacement = origin.normalized.x()
+                - (target.x() + pose.x - work.x()) / work.width();
+            break;
+        }
+    }
+}
+
+int CardStageController::paintSlot(const KWin::EffectWindow *window) const
+{
+    const int slot = visibleSlot(window);
+    if (slot != 99 || !m_rowPageTransition || !m_previewTransition.isValid()
+        || m_previewTransition.elapsed() >= RowPageDuration) return slot;
+    for (const auto &origin : m_previewOrigins)
+        if (origin.window == window && origin.visible) return origin.slot;
+    return 99;
 }
 
 void CardStageController::captureCardTransition(bool includeGuest, bool includeGrab)
@@ -414,7 +463,7 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
     const bool fullPose = includeGrab || (m_poseTransition && !m_launcherGuestActive);
     QList<PreviewOrigin> origins;
     for (const auto &window : std::as_const(m_workspace.windows())) {
-        if (!window || window->isDeleted() || visibleSlot(window) == 99) continue;
+        if (!window || window->isDeleted() || paintSlot(window) == 99) continue;
         auto rect = previewTargetForWindow(output, window);
         auto pose = stackPoseForWindow(window, rect.width());
         double opacity = 1.0;
@@ -427,20 +476,26 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
         }
         origins.append({window, QRectF((rect.x() - work.x()) / work.width(),
             (rect.y() - work.y()) / work.height(), rect.width() / work.width(),
-            rect.height() / work.height()), pose.rotation, pose.visible, opacity});
+            rect.height() / work.height()), pose.rotation, pose.visible, opacity, paintSlot(window)});
     }
     m_previewOrigins = origins;
     m_poseTransition = fullPose;
+    m_rowPageTransition = false;
     m_previewTransition.start();
 }
 
 KWin::Rect CardStageController::previewTargetForWindow(
     KWin::LogicalOutput *output, const KWin::EffectWindow *window) const
 {
-    const int slot = visibleSlot(window);
+    const int slot = paintSlot(window);
     if (!output || slot == 99) return {};
     auto target = m_launcherGuestActive && !m_launcherGuestArrival ? launcherGuestTargetForSlot(output, slot)
                                        : cardTargetForSlot(output, slot);
+    if (m_rowPageTransition && visibleSlot(window) == 99) {
+        const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+        target.translate(slot < 0 ? work.x() - target.right() - 32
+                                 : work.right() - target.x() + 32, 0);
+    }
     if (m_arrivalExpanding) {
         if (window == m_arrivalWindow) target = activeTarget(output);
         else target.translate(slot * output->geometry().width() / 2, 0);
@@ -481,11 +536,47 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
                                              KWin::Rect &rect, CardStackPose &pose) const
 {
     auto *output = m_host->tabletOutputForCardStage();
-    const int duration = m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
-    if (!output || !m_poseTransition || m_cardGrabActive || !m_previewTransition.isValid()
+    const int duration = m_rowPageTransition ? RowPageDuration
+        : m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
+    if (!output || !m_poseTransition
+        || (m_cardGrabActive && (!m_rowPageTransition || window == selectedWindow()))
+        || !m_previewTransition.isValid()
         || m_presentation != CardPresentation::CardLine
         || m_previewTransition.elapsed() >= duration) return 1.0;
     const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    if (m_rowPageTransition) {
+        const QRectF area(work.x(), work.y(), work.width(), work.height());
+        RowPageFrame to{QRectF(rect.x(), rect.y(), rect.width(), rect.height()),
+            pose.rotation, visibleSlot(window) != 99 && pose.visible ? 1.0 : 0.0};
+        RowPageFrame from = rowNeighborOrigin(to, area, paintSlot(window));
+        int oldSlot = 99;
+        for (const auto &origin : m_previewOrigins) {
+            if (origin.window != window) continue;
+            from = {{area.x() + origin.normalized.x()*area.width(),
+                     area.y() + origin.normalized.y()*area.height(),
+                     origin.normalized.width()*area.width(), origin.normalized.height()*area.height()},
+                    origin.rotation, origin.visible ? origin.opacity : 0.0};
+            oldSlot = origin.slot;
+            break;
+        }
+        const int newSlot = visibleSlot(window);
+        if (newSlot == 99) to.opacity = from.opacity; // leave through clipping, not a fade
+        const bool wraps = oldSlot != 99 && newSlot != 99 && oldSlot * newSlot < 0
+            && (from.rect.center().x()-area.center().x()) * (to.rect.center().x()-area.center().x()) < 0;
+        const double displacement = m_rowDisplacement * area.width();
+        if (oldSlot == 99) {
+            from = to;
+            from.rect.translate(displacement, 0);
+        }
+        if (newSlot == 99) to.rect.moveLeft(from.rect.x() - displacement);
+        const auto frame = sharedRowPageFrame(from, to, area, wraps, displacement,
+            double(m_previewTransition.elapsed()) / duration);
+        rect = KWin::Rect(qRound(frame.rect.x()), qRound(frame.rect.y()),
+                          qRound(frame.rect.width()), qRound(frame.rect.height()));
+        pose.rotation = frame.rotation;
+        pose.visible = frame.opacity > 0;
+        return frame.opacity;
+    }
     const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
         std::clamp(double(m_previewTransition.elapsed()) / duration, 0.0, 1.0));
     for (const auto &origin : m_previewOrigins) {
@@ -842,9 +933,12 @@ void CardStageController::pageCardGrab(int direction)
         return;
     }
     const int destinations = m_workspace.count() - 1;
+    captureCardTransition(false, true);
+    m_rowPageTransition = true;
     const int next = m_cardGrabPageOffset + (direction < 0 ? -1 : 1);
     const int remainder = next % destinations;
     m_cardGrabPageOffset = remainder < 0 ? remainder + destinations : remainder;
+    anchorRowTransition();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision
             << "edge-dwell paged detached row"
@@ -904,6 +998,9 @@ void CardStageController::finishCardGrab(bool commit)
 void CardStageController::resetCardGrabState(
     KWin::EffectWindow *grabbed, bool stacked)
 {
+    // A release changes the detached neighborhood. Do not replay a row page
+    // captured against its old membership over the committed stack/drop.
+    if (m_rowPageTransition) clearCardTransition();
     if (grabbed && !grabbed->isDeleted() && !stacked) {
         KWin::effects->setElevatedWindow(grabbed, false);
     }
@@ -1214,7 +1311,11 @@ void CardStageController::pageHorizontal(int delta)
     const bool wasActive = m_presentation == CardPresentation::Active;
     if (!wasActive && m_workspace.count() == 2 && !m_launcherGuestActive) {
         if (delta == 0 || (delta < 0 ? -1 : 1) != m_workspace.pairNeighborSide()) return;
-        captureCardTransition();
+    }
+    if (delta == 0) return;
+    if (!wasActive && !m_launcherGuestActive) {
+        captureCardTransition(false, true);
+        m_rowPageTransition = true;
     }
     const bool activeStack = wasActive
         && m_workspace.stackSizeForId(m_workspace.selectedId()) > 1;
@@ -1229,6 +1330,7 @@ void CardStageController::pageHorizontal(int delta)
     if (wasActive && !enterActive()) {
         m_presentation = CardPresentation::CardLine;
     }
+    if (!wasActive) anchorRowTransition();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce horizontal navigation selected"
