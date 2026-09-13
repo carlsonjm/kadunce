@@ -87,7 +87,7 @@ if(BUILD_TESTING)
     target_link_libraries(kadunce-workspace-snapshot-test PRIVATE Qt6::Core)
     add_test(NAME workspace-snapshot COMMAND kadunce-workspace-snapshot-test)
     add_executable(kadunce-panel-input-test tests/PanelInputTest.cpp
-        src/WorkspaceInputRouter.cpp src/CardLineLayout.cpp)
+        src/WorkspaceInputRouter.cpp src/CardLineLayout.cpp src/CardLineModel.cpp)
     target_include_directories(kadunce-panel-input-test PRIVATE src)
     target_link_libraries(kadunce-panel-input-test PRIVATE KWin::kwin Qt6::Core)
     add_test(NAME panel-input COMMAND kadunce-panel-input-test)

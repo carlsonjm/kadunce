@@ -127,6 +127,7 @@ private:
     void updateStackTarget();
     void stopStackTarget();
     void updateStackInsertion(const QPointF &position);
+    [[nodiscard]] int heldEdgeDirection(const QPointF &position) const;
     void stopStackInsertion();
     void stopEdgePaging();
     [[nodiscard]] TouchMode touchModeAt(const QPointF &position) const;
@@ -168,6 +169,7 @@ private:
     int m_edgePageDirection = 0;
     int m_stackTargetId = 0;
     int m_stackInsertionDirection = 0;
+    QPointF m_stackInsertionAnchor;
     TouchMode m_touchMode = TouchMode::None;
     HoldSource m_holdSource = HoldSource::None;
 };

@@ -24,6 +24,11 @@ speculatively. The completed batch below does not authorize a new feature packet
 
 ## Remaining correctness questions, not automatic refactors
 
+Post-freeze J update: occupied-tablet arrival is considered solved. Affinity's
+awkward splash is explicitly deferred compatibility polish; the main application
+opens and accepts card state. Neither is active MVP work. J assigned stack
+placement and related motion next; the numbered notes below retain history.
+
 1. Occupied-tablet arrival: an earlier failure exists alongside later transfer
    passes. Reproduce that exact occupied-target case on current code when hardware
    is available before authorizing K2's transaction changes. Current failure is

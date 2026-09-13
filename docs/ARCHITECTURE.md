@@ -28,6 +28,14 @@ not released. Open-space tablet drops still follow Card Line behavior.
 
 ## Current implementation
 
+Accepted September13 interaction freeze: stack entry establishes an insertion
+anchor; fresh horizontal contact movement requests one slot after existing dwell.
+End seams do not become row paging. Held row paging requires physical screen-edge
+contact and validates each repeat. Approach side initializes first/last insertion.
+WorkspaceInputRouter owns this intent; CardWorkspaceState owns ordered insertion
+plans; CardStageController owns presentation. Failed44%/pose work is archived
+outside main. Placement-selection continuity is the next separate pass.
+
 Automatic native edge placement is suppressed for the lifetime of the effect,
 including ordinary windows. NativeEdgePolicy saves electric-border tiling and
 maximize preferences in memory, suppresses them after configuration reload, and

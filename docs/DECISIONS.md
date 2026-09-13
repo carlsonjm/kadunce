@@ -1,5 +1,16 @@
 # Decisions
 
+## September 13: held navigation requires contact intent
+
+Interaction-only candidate: stack entry establishes an insertion anchor without
+requesting navigation. A fresh horizontal contact displacement requests one slot
+after dwell; reaching an end slot cannot start row paging. Only physical screen
+edge contact permits held-row paging, and each repeat revalidates that condition.
+Insertion and row paging cancel one another's timers. Size/moving card geometry
+must not manufacture navigation intent. Entry-side placement and selected member
+remain separate from persistent committed membership order. Geometry/animation
+experiments stay out of this candidate until J accepts basic interactions.
+
 ## September 12: cross-output native landing
 
 NativeDesktop intent is not restricted to the source output for an ordinary

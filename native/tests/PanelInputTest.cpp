@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
+#include "CardWorkspaceState.h"
 #include <input_event.h>
 #include <QCoreApplication>
 #include <QEventLoop>
@@ -9,7 +10,7 @@
 #include <functional>
 
 using namespace Kadunce;
-struct Target final : WorkspaceInputTarget {
+struct Target : WorkspaceInputTarget {
     bool guest = false;
     bool nativeInteraction = false;
     QRectF appletPopup;
@@ -65,6 +66,42 @@ struct Target final : WorkspaceInputTarget {
     void clearCardStackPreview() override { ++actions; }
     bool pageCardStackInsertion(int) override { ++actions; return false; }
 };
+struct StackTarget final : Target {
+    CardWorkspaceState<QString> workspace;
+    std::optional<CardWorkspaceState<QString>::PreparedStackInsertion> insertion;
+    int slot = 0, pages = 0, steps = 0;
+    bool armed = false, valid = true, geometryValid = true;
+    WorkspaceInputGeometry geometryForInput() const override {
+        return geometryValid ? Target::geometryForInput() : WorkspaceInputGeometry{};
+    }
+    StackTarget() {
+        workspace.reset({QStringLiteral("A"),QStringLiteral("B"),QStringLiteral("C")}, 0);
+        workspace.stackSelectedWith(2, 0); // A,B
+        workspace.page(1); // carry C
+    }
+    bool stackPreviewArmedForInput() const override { return armed; }
+    int stackPreviewTargetForInput() const override { return armed ? 1 : 0; }
+    int cardStackCandidate() const override { return grabbed && valid ? 1 : 0; }
+    void setCardStackPreview(int) override {
+        armed = true;
+        insertion = workspace.prepareStackInsertion(QStringLiteral("A"), slot);
+    }
+    void clearCardStackPreview() override { armed = false; insertion.reset(); }
+    bool pageCardStackInsertion(int direction) override {
+        ++steps;
+        const int next = std::clamp(slot + direction, 0, 2);
+        if (next == slot || !valid) return false;
+        slot = next;
+        insertion = workspace.prepareStackInsertion(QStringLiteral("A"), slot);
+        return bool(insertion);
+    }
+    void pageCardGrab(int) override { ++pages; }
+    void finishCardGrab(bool commit) override {
+        if (commit && valid && insertion) workspace.commitStackInsertion(*insertion);
+        Target::finishCardGrab(commit);
+        clearCardStackPreview();
+    }
+};
 void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
@@ -92,6 +129,83 @@ int main(int argc, char **argv) {
         QTimer::singleShot(400, &loop, &QEventLoop::quit);
         loop.exec();
     };
+    // Real router timers + actual immutable workspace insertion/order model.
+    // The adapter substitutes only compositor-facing target geometry/selection.
+    for (bool touch : {false, true}) {
+        for (int side : {-1, 1}) {
+            StackTarget target;
+            target.slot = side < 0 ? 0 : 2;
+            WorkspaceInputRouter input(&target);
+            QPointF contact(side < 0 ? 350 : 650, 300);
+            KWin::PointerButtonEvent button{};
+            button.position = contact; button.button = Qt::LeftButton;
+            button.state = KWin::PointerButtonState::Pressed;
+            KWin::TouchDownEvent down{601,contact,{}};
+            require(touch ? input.touchDown(&down) : input.pointerButton(&button), "Stack pickup escaped");
+            waitForHold();
+            auto move = [&](QPointF p) {
+                contact = p;
+                KWin::TouchMotionEvent tm{601,p,{}};
+                KWin::PointerMotionEvent pm{}; pm.position = p;
+                require(touch ? input.touchMotion(&tm) : input.pointerMotion(&pm), "Stack carry escaped");
+            };
+            move(contact);
+            waitForHold(); // arm insertion at an outer seam
+            require(target.armed, "Stack preview did not arm");
+            waitForHold(); waitForHold();
+            require(target.pages == 0 && target.steps == 0, "Stationary stack entry caused slot/row paging");
+            move(contact + QPointF(side * 45,0)); // outward at an end seam
+            waitForHold(); waitForHold();
+            require(target.pages == 0 && target.slot == (side < 0 ? 0 : 2)
+                        && target.steps == 1, "End seam escaped into row paging");
+            move(contact + QPointF(-side * 70,0)); // explicit inward slot request
+            waitForHold();
+            require(target.slot == 1 && target.steps == 2, "Fresh inward movement did not select middle slot");
+            waitForHold();
+            require(target.steps == 2 && target.pages == 0, "One slot request kept repeating while stationary");
+            button.position = contact; button.state = KWin::PointerButtonState::Released;
+            KWin::TouchUpEvent up{601,{}};
+            require(touch ? input.touchUp(&up) : input.pointerButton(&button), "Stack release escaped");
+            require(target.workspace.stackMembersForId(3) == std::vector<int>({1,3,2}),
+                    "Preview/commit lost user-placed A,C,B order");
+            target.workspace.pageStack(1);
+            require(target.workspace.selectedWindow() == QStringLiteral("B"), "Stack browsing ignored placement");
+            target.workspace.pageStack(-1);
+            require(target.workspace.selectedWindow() == QStringLiteral("C")
+                        && target.workspace.stackMembersForId(3) == std::vector<int>({1,3,2}),
+                    "Reverse browsing reordered members");
+        }
+    }
+    for (bool touch : {false, true}) {
+        StackTarget target;
+        WorkspaceInputRouter input(&target);
+        KWin::PointerButtonEvent button{};
+        button.position = {500,300}; button.button = Qt::LeftButton;
+        button.state = KWin::PointerButtonState::Pressed;
+        KWin::TouchDownEvent down{602,{500,300},{}};
+        require(touch ? input.touchDown(&down) : input.pointerButton(&button), "Edge test pickup escaped");
+        waitForHold();
+        auto move = [&](QPointF p) {
+            KWin::TouchMotionEvent tm{602,p,{}};
+            KWin::PointerMotionEvent pm{}; pm.position = p;
+            require(touch ? input.touchMotion(&tm) : input.pointerMotion(&pm), "Edge carry escaped");
+        };
+        move({500,300}); waitForHold();
+        move({980,300}); waitForHold();
+        require(target.pages > 0 && !target.armed, "Explicit screen edge did not leave stack and page");
+        const int before = target.pages;
+        target.geometryValid = false; // no motion event: timer must revalidate
+        waitForHold();
+        require(target.pages == before, "Edge repeat ignored invalid geometry");
+        target.geometryValid = true;
+        move({500,300}); waitForHold(); waitForHold();
+        require(target.pages == before && target.armed, "Leaving edge failed to stop and return to insertion");
+        move({570,300}); target.valid = false; waitForHold();
+        require(target.steps == 0, "Stale destination consumed pending slot request");
+        input.cancelWorkspaceInteraction();
+        waitForHold();
+        require(target.pages == before && !target.grabbed, "Cancellation retained held-row paging");
+    }
     for (bool touch : {false, true}) {
         Target target;
         target.acceptDrop = true;

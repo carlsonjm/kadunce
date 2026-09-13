@@ -950,7 +950,11 @@ void CardStageController::setCardStackPreview(int destinationId)
     if (destinationId == 0 || destinationId != cardStackCandidate()) {
         return;
     }
-    const int slot = m_workspace.stackSizeForId(destinationId);
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) return;
+    const int slot = m_cardGrabTarget.center().x() + m_cardGrabOffset.x()
+            < cardTargetForSlot(tablet, 0).center().x()
+        ? 0 : m_workspace.stackSizeForId(destinationId);
     const auto insertion = m_workspace.prepareStackInsertion(
         m_workspace.windows().value(destinationId - 1), slot);
     if (!insertion) return;

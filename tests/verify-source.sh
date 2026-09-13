@@ -335,7 +335,7 @@ rg -q 'classifyCardEdge' "${native_dir}/src/CardLineLayout.cpp" \
     "${router_cpp}"
 rg -q 'A destination-card hover incorrectly requested paging' \
     "${native_dir}/tests/CardLineLayoutTest.cpp"
-rg -q 'one extra outward dwell at the deck.s first or last seam' \
+rg -q 'An end seam is not a' \
     "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(CardEdgeRepeatDelay\)' "${router_cpp}"
 rg -q 'm_workspace\.removeAt' "${card_cpp}"

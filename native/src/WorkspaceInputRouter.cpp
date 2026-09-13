@@ -26,7 +26,7 @@ constexpr int CardEdgeDwellDelay = 300;
 constexpr int CardEdgeRepeatDelay = 350;
 constexpr int CardStackDwellDelay = 350;
 constexpr int CardStackInsertionDwellDelay = 300;
-constexpr int CardStackInsertionRepeatDelay = 350;
+constexpr double CardStackIntentDistance = 36.0;
 }
 
 WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
@@ -53,7 +53,10 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     QObject::connect(&m_edgePageTimer, &QTimer::timeout, [this]() {
         if (reconcileNativeInteraction()) return;
         if (m_edgePageDirection == 0
-            || !m_target->cardGrabActiveForInput()) {
+            || !m_target->cardGrabActiveForInput()
+            || m_target->stackPreviewArmedForInput()
+            || heldEdgeDirection(holdCurrent()) != m_edgePageDirection) {
+            stopEdgePaging();
             return;
         }
         m_target->pageCardGrab(m_edgePageDirection);
@@ -68,7 +71,9 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
             && m_target->cardGrabActiveForInput()
             && m_target->cardStackCandidate() == m_stackTargetId) {
             m_target->setCardStackPreview(m_stackTargetId);
-            updateStackInsertion(holdCurrent());
+            stopEdgePaging();
+            stopStackInsertion();
+            m_stackInsertionAnchor = holdCurrent();
         }
     });
 
@@ -76,25 +81,19 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     QObject::connect(&m_stackInsertionTimer, &QTimer::timeout, [this]() {
         if (reconcileNativeInteraction()) return;
         if (m_stackInsertionDirection == 0
-            || !m_target->stackPreviewArmedForInput()) {
+            || !m_target->cardGrabActiveForInput()
+            || !m_target->stackPreviewArmedForInput()
+            || m_target->stackPreviewTargetForInput() != m_stackTargetId
+            || m_target->cardStackCandidate() != m_stackTargetId) {
+            stopStackInsertion();
             return;
         }
         const int direction = m_stackInsertionDirection;
-        if (m_target->pageCardStackInsertion(direction)) {
-            m_stackInsertionTimer.start(CardStackInsertionRepeatDelay);
-            return;
-        }
-
-        // One extra outward dwell at the first or last seam releases the
-        // destination deck without releasing the carried card. Continue the
-        // same transaction through the detached Card Line row.
-        m_stackTargetTimer.stop();
-        m_stackTargetId = 0;
+        (void)m_target->pageCardStackInsertion(direction);
+        // One movement requests one slot. An end seam is not a request
+        // to leave the stack or repeat Card Line navigation.
+        m_stackInsertionAnchor = holdCurrent();
         stopStackInsertion();
-        m_target->clearCardStackPreview();
-        m_target->pageCardGrab(direction);
-        m_edgePageDirection = direction;
-        m_edgePageTimer.start(CardEdgeRepeatDelay);
     });
 }
 
@@ -614,29 +613,19 @@ void WorkspaceInputRouter::stopCardHold(HoldSource source)
     }
 }
 
+int WorkspaceInputRouter::heldEdgeDirection(const QPointF &position) const
+{
+    const auto geometry = m_target->geometryForInput();
+    if (!geometry.isValid() || !geometry.tablet.contains(position)) return 0;
+    const double edgeZone = std::max(CardEdgeZoneMinimum,
+        geometry.tablet.width() * CardEdgeZoneFraction);
+    return classifyCardEdge(position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone);
+}
+
 void WorkspaceInputRouter::updateEdgePaging(const QPointF &position)
 {
-    // Insertion owns ordinary horizontal travel. The insertion timer
-    // explicitly hands the still-grabbed card back to the Card Line after
-    // one extra outward dwell at the deck's first or last seam.
-    if (m_target->stackPreviewArmedForInput()) {
-        stopEdgePaging();
-        return;
-    }
-    const WorkspaceInputGeometry geometry = m_target->geometryForInput();
-    if (!geometry.isValid()) {
-        stopEdgePaging();
-        return;
-    }
-    const double edgeZone = std::max(
-        CardEdgeZoneMinimum,
-        geometry.tablet.width() * CardEdgeZoneFraction);
-    if (!geometry.tablet.contains(position)) {
-        stopEdgePaging();
-        return;
-    }
-    const int direction = classifyCardEdge(
-        position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone);
+    const int direction = heldEdgeDirection(position);
+    if (direction != 0 && m_target->stackPreviewArmedForInput()) stopStackTarget();
     if (direction == m_edgePageDirection) {
         return;
     }
@@ -684,17 +673,9 @@ void WorkspaceInputRouter::updateStackInsertion(const QPointF &position)
         stopStackInsertion();
         return;
     }
-    const WorkspaceInputGeometry geometry = m_target->geometryForInput();
-    if (!geometry.isValid()) {
-        stopStackInsertion();
-        return;
-    }
-    const double leftBoundary =
-        geometry.centerCard.x() + geometry.centerCard.width() * 0.34;
-    const double rightBoundary =
-        geometry.centerCard.x() + geometry.centerCard.width() * 0.66;
-    const int direction = position.x() < leftBoundary ? -1
-        : position.x() > rightBoundary ? 1 : 0;
+    const auto delta = position - m_stackInsertionAnchor;
+    const int direction = std::abs(delta.x()) >= CardStackIntentDistance
+        && std::abs(delta.x()) > std::abs(delta.y()) ? (delta.x() < 0 ? -1 : 1) : 0;
     if (direction == m_stackInsertionDirection) {
         return;
     }

@@ -1,71 +1,67 @@
 # Current state
 
-Updated September 12, 2026: J confirmed the edge-stabilization installation
-passed and explicitly requested freezing it as the new main checkpoint and
-pushing. This supersedes the earlier candidate/failure status. See
-FREEZE-20260912-EDGE-STABILIZATION.md for the accepted scope and evidence.
+Updated September 13, 2026. J accepted the interaction-only candidate and requested
+a micro freeze on main, then the placement-continuity pass. Read ARCHITECTURE.md
+for owners, DECISIONS.md for behavior, MVP-RELEASE-SCOPE.md for scope discipline.
 
-## Accepted installation and source
+## Accepted main freeze
 
-Installed Kadunce SHA256:
-`38a2fbb57e8bc93990ca46c6a6619b66e779c8f7e964f8cc36cb9f55d6beebac`.
-The persistent candidate has identical bytes. Repository native source matches
-the candidate's captured source archive; no new runtime edits during the freeze.
-Previous main was faee199 (implementation checkpoint14c6f89).
+Interaction candidate built from5ba19e6 is now the accepted source baseline.
+Installed plugin SHA verified after J's physical pass:
+`71e5bf843ce357150ce31865597bb74f901be983a87e00e0b2fff1623762e24f`.
+Bundle: ../work/kadunce-interaction-20260913. Installer:
+../install-kadunce-interaction.sh; its --rollback returns to previous38a2 baseline.
+No compositor restart or installation was performed by the freeze operation.
+Publication and trusted-repair promotion remain separate from this local freeze.
 
-Included: dock-safe ordinary release and tablet/monitor Bento bottom departure;
-visible new-app admission into existing Bento; automatic native edge-tiling and
-edge-maximize suppression while Kadunce is enabled; expanded direct idle swipe
-reach across dock depth plus36 logical pixels above it. Preserve the accepted
-cross-display ownership fixes. No timing rewrite or input-priority change.
+J passed separation of stack insertion from held row paging, improved placement,
+and held Card Line paging. Geometry, selection continuity and animation remain
+experience work, not reasons to roll back the accepted gesture behavior.
 
-NativeEdgePolicy changes only in-memory automatic edge options, honors config
-reload, and restores preferences on unload. Explicit Shift-drag custom tiling,
-keyboard/manual maximize and ordinary window magnetism remain separate paths.
-Held-card departure still targets the physical bottom24px. Idle swipe still
-passes taps through and requires deliberate single-finger upward motion.
+The router requires fresh horizontal contact movement for one insertion-slot
+request after dwell. Entry alone does not page. An end slot does not start row
+paging. Physical screen-edge contact permits row paging; each repeat revalidates
+contact and geometry. Approach side initializes insertion end. Timing, resting
+size and ownership are unchanged. No44% scale/pose experiment is included.
 
-J reported the update installed and passed, then requested this freeze. Earlier
-Konsole misalignment and restricted swipe reach prompted the candidate; no
-Konsole-specific cause or patch was established. Acceptance is J's physical
-report, not a claim of exhaustive hardware/application coverage.
+Focused panel-input/workspace-state/card-line-model3/3, source guards and control
+package2/2 passed. Router tests use real membership state with simulated compositor
+adapter. The stationary-entry regression failed on frozen source before the fix.
+J supplies physical acceptance; tests do not prove all geometry sequences.
 
-## Evidence and safety
+Accepted earlier behavior remains: cross-display ownership, dock-safe release,
+tablet/monitor Bento bottom departure, visible new-app Bento admission, automatic
+native edge-tiling/maximize suppression, idle bottom swipe reach. Do not rework
+these for stack polish. Shift-custom-tiling and explicit keyboard states are distinct.
 
-Focused panel-input/window-handling/carry-paint tests3/3 pass. Private KWin
-Xwayland local entry/held disable passes (rchf2D), including automatic edge
-suppression through config reload and restoration on unload. Tablet-only
-Wayland local entry/bottom release/cancel pointer+touch passes (om9o6A).
-Earlier combined-batch tests cover visible new-app1→2 admission and restoration,
-tablet/monitor bottom recovery and Bento departure/re-entry; details in the freeze.
+## Next bounded pass: placement continuity
 
-Freeze-time control tests2/2, source guards, diff check and read-only live safety
-pass. Control startup is wanted by graphical-session.target. No restart, input
-injection, installation or repair promotion is part of this publication step.
+J observes correct-looking cyclic order but newcomer jumps forward visually:
+intended A,D,B,C appears D,B,C,A. Existing insertion explicitly selects the
+new member; distinguish stored order from active member and paint elevation.
 
-## Recovery / separate engine prerequisite
+Approved next pass:
+- Keep destination selection on insertion unless user explicitly selects a card.
+- Align stack preview and released geometry; no changes to accepted paging.
+- Make insertion readable among similarly dark windows through a slot cue/gap.
+- Then timing and animation polish, not a new motion engine or sizing experiment.
 
-Persistent bundle: ../work/kadunce-edge-stabilization-20260912.
-Opt-in installer: ../install-kadunce-edge-stabilization.sh.
-It preserves previous6475 and pre-K0 accepted f308 binaries. Machine-local
-binaries, logs and recovery files are not published in the repository.
+Verify value-model insertion selection, controller elevation cleanup and preview
+rendering together. J tests placed card staying in its slot, browsing order and
+readable preview. No automatic install/push. Occupied-tablet arrival is considered
+solved; Affinity splash is deferred. B owns assigned Temperance work.
 
-KWin6.7.5-1.2 was separately approved and installed. Installed lib SHA256:
-`04e3dcb7252fcede1b01e64a435d1446eef26200707c6ba4655243d4d252872c`.
-The source patch and package recipe/provenance are under patches/kwin; the
-Kadunce installer does not install this engine patch. The signed original1.1
-package remains in ../work/kwin-touch-repair-20260912/rollback.
+## Preserved rejected work / recovery
 
-Trusted repair source.tar remains unchanged:
-`27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9`.
-Publishing main does not silently promote repair. Never restore the rejected
-rough-swipe build ba47bf822343fcf06140a1dbd24f209052fc29d01e7d6fadef2ab6e8be0e6859.
+Failed44%/pose experiment is removed from main source, preserved recoverably in
+../work/kadunce-pre-interaction-freeze-20260913/local-source-docs.tar.gz
+SHA b63982c8fc21bff444d8c3114e78d0bda08912fac83299c1c55dfb7e7593153a.
+Original candidate bundles ../work/kadunce-stack-scale-20260912 and
+../work/kadunce-stack-approach-20260912 remain. Failed scale installer blocks install.
+No rejected source was pushed or promoted to trusted repair.
 
-## Next work, not automatic continuation
-
-MVP-RELEASE-SCOPE.md is assignment policy; old K0–K6 and historical roadmap
-lists are not mandatory refactors. Reproduce occupied-tablet contention or
-slow/helper launch failures before changing their architecture. Stack insertion
-and motion polish are separate experience packets. Any lost window, stuck input
-or broken disable is a blocker when observed. B remains assigned Temperance.
-Companion-app work and Codex profile recovery are outside this Kadunce freeze.
+KWin6.7.5-1.2 engine patch is separate; do not rebuild it. Provenance under
+patches/kwin. Original engine rollback package remains under
+../work/kwin-touch-repair-20260912/rollback. Trusted repair archive remains
+unpromoted SHA27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9.
+Never restore rejected rough-swipeba47bf.
