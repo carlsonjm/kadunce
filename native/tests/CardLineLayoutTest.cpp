@@ -5,6 +5,7 @@
 
 #include "CardLineLayout.h"
 #include "FocusedPairLayout.h"
+#include "HeldCardGeometry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,6 +30,22 @@ bool close(double a, double b)
 
 int main()
 {
+    for (double fraction : {0.54, 0.64}) {
+        const Kadunce::CardRect pickup{200, 100, 1200 * fraction, 800 * fraction};
+        for (double anchor : {0.0, 0.2, 0.5, 1.0}) {
+            const double x = pickup.x + pickup.width * anchor;
+            const double y = pickup.y + pickup.height * anchor;
+            for (double t : {0.0, 0.25, 0.7, 1.0}) {
+                const auto held = Kadunce::anchoredStackCarry(pickup, x, y,
+                    1200 * Kadunce::HeldCardFraction, 800 * Kadunce::HeldCardFraction, t);
+                require(close(held.x + held.width * anchor, x)
+                    && close(held.y + held.height * anchor, y), "Held scaling moved contact anchor");
+                require(close(held.width / held.height, 1.5), "Held scaling distorted aspect");
+                if (t == 1.0) require(close(held.width, 528) && close(held.height, 352),
+                    "Held card did not reach44% work-area dimensions");
+            }
+        }
+    }
     for (const auto dimensions : {std::array<double, 4>{0, 0, 2560, 1500},
                                   std::array<double, 4>{-1280, 40, 1280, 1920}}) {
         const auto [x, y, w, h] = dimensions;
@@ -302,11 +319,23 @@ int main()
     require(close(insertionLeft.x, -deckStep)
                 && close(insertionFace.x, 0.0)
                 && close(insertionRight.x, deckStep)
-                && insertionRight.y > 0.0,
+                && close(insertionRight.y, 0.0),
             "Luna insertion geometry did not open around its selected seam");
     const auto insertionEnvelope =
         Kadunce::makeInsertionStackEnvelope(
             20, center.width, center.height);
+    for (int depth = 0; depth < 4; ++depth) {
+        const auto browse = Kadunce::makeOpenStackPose(3-depth, 4, 3, center.width);
+        const auto insert = Kadunce::makeInsertionStackPose(3-depth, 4, 3, center.width);
+        require(close(browse.x, insert.x) && close(browse.y, insert.y)
+                    && close(browse.rotation, insert.rotation),
+                "Browse and insertion must share rigid fan poses");
+    }
+    for (int count : {5,20,100}) {
+        const auto env = Kadunce::makeInsertionStackEnvelope(count, center.width, center.height);
+        require(close(env.left, insertionEnvelope.left) && close(env.right, insertionEnvelope.right),
+                "Insertion envelope grew beyond visible deck");
+    }
     require(insertionEnvelope.left < 0.0
                 && insertionEnvelope.right > 0.0,
             "The insertion envelope did not reserve both browsable seams");

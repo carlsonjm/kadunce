@@ -82,10 +82,12 @@ public:
 
     [[nodiscard]] bool cardGrabActive() const;
     [[nodiscard]] QPointF cardGrabOffset() const;
-    [[nodiscard]] KWin::Rect cardGrabTarget() const { return m_cardGrabTarget; }
+    [[nodiscard]] KWin::Rect cardGrabTarget() const;
     [[nodiscard]] int cardGrabPageOffset() const;
     [[nodiscard]] int stackPreviewTarget() const;
     [[nodiscard]] bool stackPreviewArmed() const;
+    [[nodiscard]] bool stackInsertionPreviewValid() const;
+    [[nodiscard]] KWin::Rect stackPlaceholderTarget() const;
     [[nodiscard]] int stackInsertionIndex() const;
     [[nodiscard]] int previousStackInsertionIndex() const;
     [[nodiscard]] int stackBrowseTarget() const;
@@ -195,6 +197,8 @@ private:
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
     KWin::Rect m_cardGrabTarget;
+    QSizeF m_cardGrabDestinationSize;
+    QElapsedTimer m_cardGrabScaleTimer;
     int m_cardGrabPageOffset = 0;
     int m_cardStackPreviewTarget = 0;
     int m_cardStackInsertionIndex = -1;

@@ -23,6 +23,35 @@ void require(bool condition, const char *message)
 
 int main()
 {
+    // Every insertion slot preserves the destination's active identity; users
+    // can then browse to the newly placed member without rewriting order.
+    for (int active = 0; active < 3; ++active) {
+        for (int slot = 0; slot <= 3; ++slot) {
+            Kadunce::CardLineModel placed(4);
+            require(placed.stackSelectedWith(2, 0), "Placement setup A,B failed");
+            placed.page(1);
+            require(placed.stackSelectedWith(1), "Placement setup A,B,C failed");
+            placed.pageStack(active - 2);
+            const int face = placed.selectedId();
+            placed.page(1); // D
+            require(placed.stackSelectedWith(1, slot,
+                Kadunce::CardLineModel::InsertionSelection::DestinationCard), "Placement commit failed");
+            std::vector<int> expected{1,2,3};
+            expected.insert(expected.begin() + slot, 4);
+            require(placed.stackMembersForId(4) == expected && placed.selectedId() == face,
+                "Inserted member replaced face or lost explicit slot");
+            require(placed.stackPaintOrderForId(face).back() == face,
+                "Paint order disagrees with preserved face");
+            for (int step = 0; step < 4; ++step) placed.pageStack(1);
+            require(placed.selectedId() == face && placed.stackMembersForId(4) == expected,
+                "Full browse cycle rewrote placement");
+            placed.pageStack(slot - placed.stackActivePositionForId(4));
+            require(placed.selectedId() == 4 && placed.detachSelectedMember(),
+                "Placed member could not be selected and detached");
+            require(placed.restoreDetachedMember() && placed.stackMembersForId(4) == expected,
+                "Canceled regrab lost placed order");
+        }
+    }
     Kadunce::CardLineModel oneCard(1);
     require(oneCard.count() == 1, "One-card line was padded with fake cards");
     oneCard.page(99);

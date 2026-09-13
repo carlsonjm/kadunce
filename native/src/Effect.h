@@ -43,6 +43,7 @@ public:
     static bool supported();
 
     void prePaintScreen(KWin::ScreenPrePaintData &data) override;
+    void postPaintScreen() override;
     void prePaintWindow(KWin::RenderView *view,
                         KWin::EffectWindow *window,
                         KWin::WindowPrePaintData &data) override;
@@ -246,6 +247,7 @@ private:
     std::unique_ptr<DesktopStageController> m_desktopStage;
     std::unique_ptr<CardStageController> m_cardStage;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
+    bool m_continueRepaint = false;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
     bool m_nativeCarryFromBento = false;
@@ -253,6 +255,7 @@ private:
     std::unique_ptr<KWin::GLShader> m_destinationShader;
     std::optional<KWin::RectF> m_carryPreview;
     DesktopExitLabel m_detachLabel;
+    DesktopExitLabel m_stackSlotLabel;
     std::optional<KWin::RectF> m_linePreview;
     void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                          const QRectF &from, const QRectF &to);

@@ -31,8 +31,29 @@ public:
         result.owner = m_identity;
         result.revision = m_revision;
         result.model = m_model;
-        if (!result.model.stackSelectedWith(target, slot)) return std::nullopt;
+        if (!result.model.stackSelectedWith(target, slot,
+                CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
         return result;
+    }
+    // Visual depth is front-first (0 = front), unlike the cyclic storage vector.
+    // Choosing the front explicitly selects the newcomer; deeper slots retain
+    // the old face. Preview and commit must use this same conversion.
+    std::optional<PreparedStackInsertion> prepareStackInsertionAtDepth(
+        const Handle &destination, int depth) const {
+        const int target = indexOf(destination) + 1;
+        const int count = stackSizeForId(target);
+        if (target <= 0 || count <= 0 || depth < 0 || depth > count)
+            return std::nullopt;
+        const int active = m_model.stackActivePositionForId(target);
+        const int slot = depth == 0 ? active + 1
+            : (active - depth + 1 + count) % count;
+        auto prepared = prepareStackInsertion(destination, slot);
+        if (prepared && depth == 0) {
+            prepared->model = m_model;
+            if (!prepared->model.stackSelectedWith(target, slot,
+                    CardLineModel::InsertionSelection::InsertedCard)) return std::nullopt;
+        }
+        return prepared;
     }
     bool commitStackInsertion(const PreparedStackInsertion &prepared) {
         if (prepared.owner.lock() != m_identity || prepared.revision != m_revision)

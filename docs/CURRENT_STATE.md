@@ -1,67 +1,75 @@
 # Current state
 
-Updated September 13, 2026. J accepted the interaction-only candidate and requested
-a micro freeze on main, then the placement-continuity pass. Read ARCHITECTURE.md
-for owners, DECISIONS.md for behavior, MVP-RELEASE-SCOPE.md for scope discipline.
+Updated September13. Accepted post-paint stack baseline frozen for main;
+supersedes the earlier contact-driven freeze20f2007. See
+FREEZE-20260913-STACK-BASELINE.md. Trusted repair is not promoted.
 
-## Accepted main freeze
+## Installed versus candidate
 
-Interaction candidate built from5ba19e6 is now the accepted source baseline.
-Installed plugin SHA verified after J's physical pass:
-`71e5bf843ce357150ce31865597bb74f901be983a87e00e0b2fff1623762e24f`.
-Bundle: ../work/kadunce-interaction-20260913. Installer:
-../install-kadunce-interaction.sh; its --rollback returns to previous38a2 baseline.
-No compositor restart or installation was performed by the freeze operation.
-Publication and trusted-repair promotion remain separate from this local freeze.
+Previous baseline c063a199850224fbc7ed364fadc9be6fd4f53bb5fadef14a8eb88ff323022906
+is the exact rigid-fan artifact J called “firm, passed with flying colors.”
+Later retained-previewad870751 received the qualified pass with initial lag.
+Backing-removal587591 was ineffective and is rejected; its source change reversed.
 
-J passed separation of stack insertion from held row paging, improved placement,
-and held Card Line paging. Geometry, selection continuity and animation remain
-experience work, not reasons to roll back the accepted gesture behavior.
+Installed post-paint baseline, disk hash verified and J reports smooth after install:
+ae40b6e43919f944b4f4664735d488f7fc3ccd280457c461f1a55a933d905d6d
+../work/kadunce-postpaint-20260913
+../install-kadunce-postpaint.sh
+--rollback restores exact c063. Nothing rebuilt in KWin itself.
 
-The router requires fresh horizontal contact movement for one insertion-slot
-request after dwell. Entry alone does not page. An end slot does not start row
-paging. Physical screen-edge contact permits row paging; each repeat revalidates
-contact and geometry. Approach side initializes insertion end. Timing, resting
-size and ownership are unchanged. No44% scale/pose experiment is included.
+Relative to the preceding rigid-fan baseline, only runtime changes are
+Effect.cpp/.h: prePaintScreen records whether animation
+or drop settling needs continuation; postPaintScreen requests the next repaint
+after KWin consumes current layer damage. Pre-paint masks remain unchanged.
+The pre-paint latch ensures a final endpoint frame if the animation expires
+during painting; the next inactive pre-paint clears it. No idle repaint loop,
+new timer, cache, timing/geometry/ownership/input changes.
 
-Focused panel-input/workspace-state/card-line-model3/3, source guards and control
-package2/2 passed. Router tests use real membership state with simulated compositor
-adapter. The stationary-entry regression failed on frozen source before the fix.
-J supplies physical acceptance; tests do not prove all geometry sequences.
+## Preserved accepted behavior
 
-Accepted earlier behavior remains: cross-display ownership, dock-safe release,
-tablet/monitor Bento bottom departure, visible new-app Bento admission, automatic
-native edge-tiling/maximize suppression, idle bottom swipe reach. Do not rework
-these for stack polish. Shift-custom-tiling and explicit keyboard states are distinct.
+Contact-anchored44% held size;500ms shoulder paging;300/350ms physical-edge paging;
+inward cancellation; canonical insertion depth/selected-face continuity;
+rigid browse/insertion fan; outline-only seam; native ownership and dock safety.
+Live proportional previews with the firm-pass backing and rounded aperture.
+No retained Active image cache, readiness gates, startup shader preparation,
+extra full-output damage repair or diagnostic timing hooks.
 
-## Next bounded pass: placement continuity
+## Evidence and uncertainty
 
-J observes correct-looking cyclic order but newcomer jumps forward visually:
-intended A,D,B,C appears D,B,C,A. Existing insertion explicitly selects the
-new member; distinguish stored order from active member and paint elevation.
+Read LIVE-LAG-EVIDENCE-20260913.md. Controlled touch selection coincided with
+crossing38px (~71ms into the scripted swipe). Six shortcut selections took7–9ms.
+Without recording,124 KWin D-Bus samples median5.87ms/max11.62ms while transition
+coordinates advanced. Recorded frame gaps are confounded by screencast overhead;
+not proof of GPU stalls.
 
-Approved next pass:
-- Keep destination selection on insertion unless user explicitly selects a card.
-- Align stack preview and released geometry; no changes to accepted paging.
-- Make insertion readable among similarly dark windows through a slot cue/gap.
-- Then timing and animation polish, not a new motion engine or sizing experiment.
+KWin6.7.5 calls prePaint before resetting current layer repaint state.
+Its own SlideEffect requests continuation in postPaintScreen.
+Source regression guard fails before correction and passes after it.
+Plugin build, source guards, control2/2, live tray and diff checks pass.
+J's post-install physical feedback: still smooth; accepts this as working baseline.
+Zen's rendering artifact remains open. Live safety switch verified after install.
+This is user acceptance, not an instrumented frame-time or root-cause proof.
 
-Verify value-model insertion selection, controller elevation cleanup and preview
-rendering together. J tests placed card staying in its slot, browsing order and
-readable preview. No automatic install/push. Occupied-tablet arrival is considered
-solved; Affinity splash is deferred. B owns assigned Temperance work.
+J reports major lag upstairs on battery; plugging in downstairs became smooth,
+and remained smooth after unplugging. Power/refresh/runtime state is a plausible
+factor, not diagnosed. Do not claim this patch conclusively explains that change.
 
-## Preserved rejected work / recovery
+## Safety and next bounded action
 
-Failed44%/pose experiment is removed from main source, preserved recoverably in
-../work/kadunce-pre-interaction-freeze-20260913/local-source-docs.tar.gz
-SHA b63982c8fc21bff444d8c3114e78d0bda08912fac83299c1c55dfb7e7593153a.
-Original candidate bundles ../work/kadunce-stack-scale-20260912 and
-../work/kadunce-stack-approach-20260912 remain. Failed scale installer blocks install.
-No rejected source was pushed or promoted to trusted repair.
+A showfps + Spectacle diagnostic crashed KWin at16:14:01 (screencast framebuffer
+trace), then Zen. Witness result INVALID. No intentional restart/app close.
+Recovered session, ChatGPT focused, showfps absent, tray kill switch verified.
+Do not repeat overlay+recording on the live desktop.
 
-KWin6.7.5-1.2 engine patch is separate; do not rebuild it. Provenance under
-patches/kwin. Original engine rollback package remains under
-../work/kwin-touch-repair-20260912/rollback. Trusted repair archive remains
-unpromoted SHA27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9.
-Never restore rejected rough-swipeba47bf.
+Next: preserve this accepted working baseline; no further speculative caching or
+power tuning. Animation polish can be scoped separately. Zen sampling waves
+remain separate/unproven. This freeze does not promote trusted repair.
+
+## Recovery and other scope
+
+Local candidate binaries/source archives are retained under ../work; these are
+not shipped in Git. Fresh clones use the repository's standard install.sh.
+Trusted repair stays27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9.
+KWin6.7.5-1.2 engine patch unchanged. Never reinstate rejected rough-swipeba47bf.
+Occupied-tablet arrival considered solved; Affinity splash deferred.
+B owns Temperance. Preserve unrelated NEXT-ROADMAP edits.

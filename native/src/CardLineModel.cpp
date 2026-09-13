@@ -324,7 +324,8 @@ void CardLineModel::moveSelected(int delta)
     }
 }
 
-bool CardLineModel::stackSelectedWith(int destinationId, int insertionIndex)
+bool CardLineModel::stackSelectedWith(int destinationId, int insertionIndex,
+                                    InsertionSelection selection)
 {
     if (!selectedIsStandalone()) {
         return false;
@@ -347,7 +348,11 @@ bool CardLineModel::stackSelectedWith(int destinationId, int insertionIndex)
         : std::clamp(insertionIndex, 0,
                      static_cast<int>(destination.cards.size()));
     destination.cards.insert(destination.cards.begin() + insertion, sourceId);
-    destination.activeIndex = insertion;
+    // Placement and selection are separate: inserting before the destination's
+    // face moves its index, not its identity. Legacy direct commands may still
+    // explicitly select the newcomer; prepared drag placement preserves the face.
+    destination.activeIndex = selection == InsertionSelection::InsertedCard
+        ? insertion : destination.activeIndex + (insertion <= destination.activeIndex ? 1 : 0);
     m_selectedIndex = destinationIndex;
     return invariantHolds();
 }

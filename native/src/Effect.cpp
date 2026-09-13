@@ -69,20 +69,62 @@ constexpr auto DestinationFragment = R"GLSL(#version 140
 in vec2 point;
 out vec4 fragColor;
 uniform vec4 destinationBox;
+uniform float outlineRadius;
+uniform vec4 surfaceFill;
+uniform float outlineOpacity;
 #include "colormanagement.glsl"
 void main() {
     vec2 halfSize = destinationBox.zw * 0.5;
-    float radius = min(10.0, min(halfSize.x, halfSize.y));
+    float radius = min(outlineRadius, min(halfSize.x, halfSize.y));
     vec2 q = abs(point - destinationBox.xy - halfSize) - (halfSize - vec2(radius));
     float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
     float feather = max(fwidth(d), 0.5);
     float inside = 1.0 - smoothstep(-feather, 0.0, d);
     float ring = smoothstep(-2.0 - feather, -2.0, d) * inside;
-    float alpha = inside * 0.035 + ring * 0.65;
-    vec4 color = vec4(vec3(0.88) * alpha, alpha);
+    float edgeAlpha = ring * outlineOpacity;
+    vec4 fill = vec4(surfaceFill.rgb * surfaceFill.a, surfaceFill.a) * inside;
+    vec4 color = vec4(vec3(0.88) * edgeAlpha, edgeAlpha) + fill * (1.0 - edgeAlpha);
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
+// Card backing and vacant seam share one rigid transform and neutral material.
+void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
+    const KWin::RenderViewport &viewport, const KWin::Region &clip,
+    const QRectF &box, double angle, float opacity, float outline)
+{
+    if (!shader || box.isEmpty()) return;
+    QList<QVector2D> vertices;
+    vertices << QVector2D(box.topLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomLeft())
+             << QVector2D(box.bottomLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomRight());
+    KWin::ShaderBinder binder(shader);
+    auto matrix = viewport.projectionMatrix();
+    matrix.scale(viewport.scale(), viewport.scale());
+    matrix.translate(box.right(), box.bottom());
+    matrix.rotate(float(angle), 0, 0, 1);
+    matrix.translate(-box.right(), -box.bottom());
+    shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+    shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+    shader->setUniform("outlineRadius", float(CardCornerRadius));
+    shader->setUniform("surfaceFill", QVector4D(0.075f, 0.075f, 0.075f, opacity));
+    shader->setUniform("outlineOpacity", outline);
+    shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+        renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+    const bool blended = glIsEnabled(GL_BLEND);
+    const bool scissored = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissor[4];
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    GLint sr, dr, sa, da;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &sr); glGetIntegerv(GL_BLEND_DST_RGB, &dr);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &sa); glGetIntegerv(GL_BLEND_DST_ALPHA, &da);
+    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+    glEnable(GL_SCISSOR_TEST);
+    buffer->reset(); buffer->setVertices(vertices); buffer->render(clip, GL_TRIANGLES, true);
+    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
+    if (!scissored) glDisable(GL_SCISSOR_TEST);
+    glBlendFuncSeparate(sr, dr, sa, da);
+    if (!blended) glDisable(GL_BLEND);
+}
 QString windowIdentity(const KWin::EffectWindow *window)
 {
     return window
@@ -673,7 +715,8 @@ WorkspaceInputGeometry Effect::geometryForInput() const
     }
     const KWin::Rect tabletRect = tablet->geometry();
     const auto *selected = m_cardStage->selectedWindow();
-    const KWin::Rect centerCard = selected && !m_cardStage->launcherGuestActive()
+    const KWin::Rect centerCard = selected && !m_cardStage->cardGrabActive()
+        && !m_cardStage->launcherGuestActive()
         ? m_cardStage->posedTargetForWindow(tablet, selected)
         : cardTargetForSlot(tablet, 0);
     return {
@@ -1732,19 +1775,33 @@ void Effect::pageStack(int delta)
 
 void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
+    m_continueRepaint = false;
     if (m_settlingWindow) {
         if (!dropSettleRect()) clearDropSettle();
-        else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; KWin::effects->addRepaintFull(); }
+        else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true; }
     }
     if (m_carriedWindow) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
     if (m_cardStage->isActive()
         && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
         if (m_cardStage->animationsRunning()) {
-            KWin::effects->addRepaintFull();
+            m_continueRepaint = true;
         }
     }
     KWin::effects->prePaintScreen(data);
+}
+
+void Effect::postPaintScreen()
+{
+    // KWin consumes current layer damage after prePaintScreen. Request the
+    // NEXT frame only after paint. Latch pre-paint activity so an animation
+    // expiring during this frame still gets one exact final-state frame.
+    const bool continueRepaint = m_continueRepaint;
+    m_continueRepaint = false;
+    KWin::effects->postPaintScreen();
+    if (continueRepaint) {
+        KWin::effects->addRepaintFull();
+    }
 }
 
 void Effect::prePaintWindow(KWin::RenderView *view,
@@ -1801,6 +1858,9 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             matrix.scale(viewport.scale(), viewport.scale());
             m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
             m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+            m_destinationShader->setUniform("outlineRadius", 10.0f);
+            m_destinationShader->setUniform("surfaceFill", QVector4D(0.88f, 0.88f, 0.88f, 0.035f));
+            m_destinationShader->setUniform("outlineOpacity", 0.65f);
             m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
                 renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
             const bool blended = glIsEnabled(GL_BLEND);
@@ -1815,6 +1875,16 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             if (!blended) glDisable(GL_BLEND);
         }
         if (reservation->detachesToDesktop()) m_detachLabel.render(renderTarget, viewport, box);
+    }
+    // Text-only feedback uses the same validated slot as release. It owns no
+    // input or geometry and vanishes as soon as insertion is no longer valid.
+    if (screen && screen == tabletOutput()
+        && m_cardStage->stackInsertionPreviewValid()) {
+        const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, screen));
+        m_stackSlotLabel.render(renderTarget, viewport, work,
+            tr("Place in slot %1 of %2")
+                .arg(m_cardStage->stackInsertionIndex() + 1)
+                .arg(m_cardStage->model().stackSizeForId(m_cardStage->stackPreviewTarget()) + 1));
     }
     m_paintingOutput = nullptr;
 }
@@ -2073,6 +2143,15 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
 
+    // Render the virtual seam immediately below the elevated held card. This
+    // reuses our card radius/destination outline, never copies a client surface
+    // or changes the real held card's contact transform.
+    if (grabbedWindow && m_paintingOutput == tablet && m_destinationShader
+        && m_cardStage->stackInsertionPreviewValid()) {
+        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+            deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(tablet->geometry())),
+            QRectF(m_cardStage->stackPlaceholderTarget()), 0.6, 0.0f, 0.65f);
+    }
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
     KWin::Rect target = m_cardStage->previewTargetForWindow(tablet, window);
     double launcherGuestRotation = 0.0;
@@ -2121,13 +2200,15 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    // Every card uses the same proportional cover transform. Rotated fan
-    // members are cropped by the GPU aperture below instead of being stretched
-    // into the slot, so Discord, Spotify, and every other aspect ratio retain
-    // their native proportions without escaping the fixed card envelope.
+    paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+        deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry())),
+        QRectF(target), paintPose.rotation, float(data.opacity()), 0.0f);
+    // Keep the full source inside the fixed card instead of zooming/cropping.
+    // Every card uses a proportional contain transform over the fixed backing.
+    // The GPU aperture rounds the complete card without stretching its content.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, target,
-        Qt::KeepAspectRatioByExpanding);
+        Qt::KeepAspectRatio);
     if (rotatedFanCard) {
         // Keep the already-approved reference layout pose anchored to the card's bottom
         // right, not the larger proportional cover rectangle's bottom right.
@@ -2151,9 +2232,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
     // solid Spotify surface exactly like a translucent decoration.
-    KWin::Rect fanBaseline =
-        viewport.mapToDeviceCoordinatesAligned(tablet->geometry());
-    fanBaseline.setBottom(std::min(fanBaseline.bottom(), deviceTarget.bottom()));
+    // A tilted aperture must not be cut by an unrotated bottom boundary.
     // Straight and tilted previews share the same antialiased aperture.
     // Keep the old hard-rounded path solely as the shader-unavailable fallback.
     // Active has already returned above and remains on the system paint path.
@@ -2163,7 +2242,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
     const KWin::Region cardClip = (rotatedFanCard
-        ? deviceRegion & KWin::Region(fanBaseline)
+        ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
             : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()))) & outputFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;

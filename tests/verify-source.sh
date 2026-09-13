@@ -260,8 +260,8 @@ rg -q 'constexpr double CardEdgeZoneFraction = 0\.08' "${router_cpp}"
 rg -q 'constexpr double CardEdgeZoneMinimum = 72\.0' "${router_cpp}"
 rg -q 'constexpr int CardEdgeDwellDelay = 300' "${router_cpp}"
 rg -q 'constexpr int CardEdgeRepeatDelay = 350' "${router_cpp}"
-rg -q 'm_edgePageTimer\.start\(CardEdgeDwellDelay\)' "${router_cpp}"
-rg -q 'm_edgePageTimer\.start\(CardEdgeRepeatDelay\)' "${router_cpp}"
+rg -q 'm_edgePageTimer\.start\(fast \? CardEdgeDwellDelay : delay\)' "${router_cpp}"
+rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"
@@ -270,15 +270,15 @@ rg -q 'CardLineModel::stackSelectedWith' \
     "${native_dir}/src/CardLineModel.cpp"
 rg -q 'makeOpenStackPose' "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
 rg -q 'makeClosedStackPose' "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
-rg -q 'StackGroupingDistance = 0\.24' \
+rg -q 'slot \* width \* 0\.24 / 3\.0' \
     "${native_dir}/src/CardLineLayout.cpp"
 rg -q 'StackClosedStep = 7\.0' \
     "${native_dir}/src/CardLineLayout.cpp"
-rg -q 'StackRotationFactor = 120\.0' \
+rg -q 'return fanPose\(relative, cardWidth\)' \
     "${native_dir}/src/CardLineLayout.cpp"
 rg -q 'StackFaceRotation = 0\.6' \
     "${native_dir}/src/CardLineLayout.cpp"
-rg -q 'VisualRotations\{0\.2, -0\.2, -0\.4\}' \
+rg -q 'angles\{0\.6, 0\.2, -0\.2, -0\.4, -0\.6\}' \
     "${native_dir}/src/CardLineLayout.cpp"
 rg -q 'The bottom reference layout shoulder did not retain its slight upward tilt' \
     "${native_dir}/tests/CardLineLayoutTest.cpp"
@@ -337,9 +337,15 @@ rg -q 'A destination-card hover incorrectly requested paging' \
     "${native_dir}/tests/CardLineLayoutTest.cpp"
 rg -q 'An end seam is not a' \
     "${router_cpp}"
-rg -q 'm_edgePageTimer\.start\(CardEdgeRepeatDelay\)' "${router_cpp}"
+rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'm_workspace\.removeAt' "${card_cpp}"
-rg -q 'deviceRegion & KWin::Region\(fanBaseline\)' "${effect_cpp}" "${card_cpp}"
+# A tilted card is bounded by its rotated shader aperture plus the output
+# fence, never an unrotated per-card bottom cutoff.
+if rg -q 'fanBaseline.setBottom' "${effect_cpp}"; then
+    echo 'Tilted card has an axis-aligned bottom cutoff' >&2; exit 1
+fi
+rg -q 'Qt::KeepAspectRatio\);' "${effect_cpp}"
+rg -q 'paintCardSurface' "${effect_cpp}"
 rg -q 'class Effect final : public KWin::OffscreenEffect' "${effect_header}" "${card_header}"
 rg -q 'generateCustomShader' "${effect_cpp}" "${card_cpp}"
 rg -q 'fwidth\(distanceToEdge\)' "${effect_cpp}" "${card_cpp}"
@@ -348,13 +354,15 @@ rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
-    "536b036fd36c659afbccb08ee7cf4571280b8c35e7a52cec0a02e2551662abef"
+    "2ad30c528e776ded46c9c2407035458d88ec98273458c92b8ca3dc6b23d945fb"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
     "8f50b02d02f47cb01bbf8a31faf4fb79c0b47e5aca61c09f9963cab5455d8957"
+# Explicit insertion-selection policy is covered across all slots/active members
+# in CardLineModelTest; fixed aperture/layout hashes above remain unchanged.
 test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
-    "99df423c64d52be42731c96f67bfcf6d39af9574e4789c814c3a28de45a88052"
+    "aa74041534449bac8f888560a8ca903ebc715ec5eeea46e387d08f07a6fcdeb2"
 test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
-    "c7af8f9933750db7b545f4d75cc06a8e49a3b4eac05e835a77f85f7082b14599"
+    "4318ebca92933accaef1c1259dd17f78c7ddd701ff1dd98fc7348f91cdba9247"
 rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"
 rg -q 'window == m_arrivalWindow' "${card_cpp}"
 rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"

@@ -167,6 +167,7 @@ private:
     bool m_touchCommitted = false;
     int m_pointerActiveSide = 0;
     int m_edgePageDirection = 0;
+    int m_edgePageDelay = 500;
     int m_stackTargetId = 0;
     int m_stackInsertionDirection = 0;
     QPointF m_stackInsertionAnchor;

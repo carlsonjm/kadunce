@@ -8,6 +8,7 @@
 #include "CardLineLayout.h"
 
 #include <input_event.h>
+#include <QDebug>
 
 #include <algorithm>
 #include <cmath>
@@ -59,8 +60,11 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
             stopEdgePaging();
             return;
         }
+        qInfo() << "Kadunce edge-repeat contact" << holdCurrent()
+                << "direction" << m_edgePageDirection;
         m_target->pageCardGrab(m_edgePageDirection);
-        m_edgePageTimer.start(CardEdgeRepeatDelay);
+        // Each newly centered card receives a fresh complete dwell.
+        m_edgePageTimer.start(m_edgePageDelay);
     });
 
     m_stackTargetTimer.setSingleShot(true);
@@ -619,20 +623,34 @@ int WorkspaceInputRouter::heldEdgeDirection(const QPointF &position) const
     if (!geometry.isValid() || !geometry.tablet.contains(position)) return 0;
     const double edgeZone = std::max(CardEdgeZoneMinimum,
         geometry.tablet.width() * CardEdgeZoneFraction);
-    return classifyCardEdge(position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone);
+    const int edge = classifyCardEdge(position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone);
+    if (edge != 0) return edge;
+    // An armed insertion owns its fan until the explicit physical edge exit.
+    if (m_target->stackPreviewArmedForInput() || !geometry.centerCard.isValid()) return 0;
+    return position.x() < geometry.centerCard.left() ? -1
+        : position.x() > geometry.centerCard.right() ? 1 : 0;
 }
 
 void WorkspaceInputRouter::updateEdgePaging(const QPointF &position)
 {
     const int direction = heldEdgeDirection(position);
+    const auto geometry = m_target->geometryForInput();
+    const double edgeZone = std::max(CardEdgeZoneMinimum,
+        geometry.tablet.width() * CardEdgeZoneFraction);
+    const bool fast = geometry.isValid() && geometry.tablet.contains(position)
+        && classifyCardEdge(position.x(), geometry.tablet.x(), geometry.tablet.width(), edgeZone) != 0;
+    const int delay = fast ? CardEdgeRepeatDelay : 500;
     if (direction != 0 && m_target->stackPreviewArmedForInput()) stopStackTarget();
-    if (direction == m_edgePageDirection) {
+    if (direction == m_edgePageDirection && delay == m_edgePageDelay) {
         return;
     }
+    qInfo() << "Kadunce edge-intent contact" << position
+            << "from" << m_edgePageDirection << "to" << direction;
     m_edgePageTimer.stop();
     m_edgePageDirection = direction;
+    m_edgePageDelay = delay;
     if (direction != 0) {
-        m_edgePageTimer.start(CardEdgeDwellDelay);
+        m_edgePageTimer.start(fast ? CardEdgeDwellDelay : delay);
     }
 }
 

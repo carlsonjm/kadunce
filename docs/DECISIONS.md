@@ -1,5 +1,86 @@
 # Decisions
 
+## September13: animation continuation belongs after paint
+
+Live input/model timing was prompt; source audit found prePaintScreen requested
+continuation before KWin6.7.5 cleared the current output layer's repaint state.
+Candidate records animation/drop-settle activity in pre-paint and requests its
+next frame in postPaintScreen. Latching that activity preserves an endpoint frame
+if the interval expires during paint; inactive frames do not self-schedule.
+No timers, caches, geometry, input thresholds or native ownership changes.
+J's plug/unplug improvement means power/runtime state remains an unproven factor;
+do not equate this source correction with demonstrated end-user performance.
+Never repeat the failed live showfps+screencast diagnostic; see live evidence.
+
+## September13: live content wins over uniform filled previews
+
+After same/worse readiness performance, J explicitly accepted proportional margins
+instead of cropping, stretching or resizing native apps to fill every card.
+Remove retained snapshots/readiness/shader-warmup work and use the earlier accepted
+KWin live path. Renderer/controller source matches rigid-fan; rebuilt SHA c063 is
+identical. Preserve44%, paging, fan order, tilt and ownership. This supersedes the
+earlier readiness-before-motion plan: after one physical check, animation work.
+Experiments remain archived; no broad rollback of accepted interaction work.
+
+## September13: preview readiness before motion polish
+
+Startup shader preparation is parked: journal shows it skipped during J's better
+warm run. Readiness candidate instead fixes capture/current shadow-margin mapping,
+rejects unsettled buffer-size captures, and projects visible live damage onto the
+tablet repaint region. No waiting or restoration changes. Valid retained Active
+images remain static; failed capture falls back live and is not secretly queued
+for a native resize/capture later. J's first-visit Zen check gates acceptance;
+after that, animation smoothing, not another startup optimization block.
+
+## September13: startup preparation cannot own interaction
+
+Following the retained-preview physical pass, J prioritized natural first use
+without pre-capturing all applications. First slice exercises only shared card
+shaders with two tiny scratch draws, separately scheduled and abandoned on input.
+No application activation/resize/capture, no background app sweep, no wait for GPU
+completion and no added persistent cache. Performance benefit is not established
+until cold-start comparison; warm stability alone does not identify a GPU bottleneck.
+Native input remains immediate; already submitted GPU work is not preemptible.
+
+## September13: preview geometry first slice
+
+After J's geometry audit approval, remove the tilted preview's horizontal bottom
+cutoff, retaining the hard output fence and rotated shader aperture. Card Line
+content uses proportional contain over a fixed neutral backing; native Active
+and cross-display carry rendering remain separate. Backing and content use the
+same bottom-right pivot, angle, target and opacity. Vacant seam uses32% black fill
+plus established outline. Destination outline material stays explicitly unchanged.
+This candidate intentionally precedes44% and fan-motion changes for physical
+diagnosis. No claim of reduced texture allocations or fully solved geometry yet.
+
+## September 13: visual slot1 is front, not vector index1
+
+J clarified the touch separation works; confusion is the linear insertion UI
+against a cyclic fan. Prepared visual-depth insertion converts depth relative to
+the existing face, with depth0 selecting the newcomer as an explicit front drop.
+Other depths retain the existing face. No storage reversal or browse-direction
+rewrite. Preview depths and commit use that same ordering. Leftward slot motion
+goes deeper into the left fan; rightward returns toward the front.
+
+The placeholder is a compositor-only vacant card outline with the established
+radius, neutral translucent treatment and slight fan tilt. It is drawn beneath
+the real held card, which stays contact-bound. It owns no input/physical geometry.
+This candidate is not a new gesture/motion engine or a freeze.
+
+## September 13: placement does not imply selecting the newcomer
+
+J accepted contact-driven paging and requested a local main freeze20f2007 before
+this separate pass. Prepared drag insertion now preserves the destination's active
+member by identity, adjusting its index when insertion occurs before it. The
+stored vector still describes exact placement. Explicit browsing selects members;
+legacy direct stack commands retain their explicit newcomer selection behavior.
+Existing elevation/paint-order synchronization consumes the preserved selection.
+
+Preview entry/exit uses open browse poses and a matching interpolated envelope,
+not a closed fan as its starting point. A text-only slot number reports the live
+revision-validated plan without input ownership or native geometry changes.
+This is a bounded candidate, not physical acceptance of full geometry/motion.
+
 ## September 13: held navigation requires contact intent
 
 Interaction-only candidate: stack entry establishes an insertion anchor without
@@ -1016,6 +1097,39 @@ acceptance. Preserve the installed distro recipe/rollback, obtain installation
 approval, and test the original pointer/touch report before advancing to K2.
 The artifact and exact evidence are in patches/kwin/README.md.
 # Dock/launch batch resource boundary — September 12, 2026
+
+## September13 held-size follow-up
+
+Retained Active imagery: use a renderer-owned bounded CrossFadeEffect adapter,
+capture before explicit toggle restores native state, never retain native Active
+geometry just for thumbnail appearance. Preserve aspect and rigid rotation.
+Eviction/unsupported capture falls back to live preview. Non-GL smoke exposed
+an unguarded helper cleanup crash; prohibit capture without a valid GL context.
+J must verify actual GPU output; the available virtual backend only proves safe
+fallback and lifecycle. No promotion based on that fallback-only test.
+
+Rigid-fan follow-up: common baseline and shallow fanPose for browsing/insertion;
+remove controller extra rotation so paint and reserved envelope agree. Preserve
+ordered seam/commit logic. Envelope computation covers only visible5 positions.
+Outline-only preview replaces solid fill per J. Retained Active imagery is a
+separate renderer lifetime task, not permission to delay native restoration.
+
+Follow-up approved: travel begins beyond the resting center card shoulders,
+500ms dwell; physical edge remains300ms initial/350ms repeat. Inward contact
+stops travel. Armed insertion remains a slot interaction until explicit edge exit.
+Use resting geometry while held to avoid a feedback loop from the moving card.
+Solid black placeholder and prompt OutCubic slot settling replace translucent
+fill and delayed-start InQuart; do not change canonical stack order or ownership.
+These are product timing choices informed by platform patterns, not claimed
+universal Android/iPad constants. Frame-time improvement remains unproven.
+
+J explicitly requested the proven44% held size merged into current geometry,
+without waiting for remaining performance investigation. Extract only anchored
+size interpolation from the earlier experiment; preserve current gesture and
+ordering policy. Capture the displayed size at release and transfer. Correct the
+new backing draw's scissor-state leak and add bounded contact traces; neither is
+proof that all reported frame/input delays are resolved. Physical acceptance
+remains J's, and the installed geometry predecessor is the rollback.
 
 J requested dock safety, then explicitly added visible new-app Bento admission
 to the same batch before freeze/push. MVP-RELEASE-SCOPE.md supersedes the old

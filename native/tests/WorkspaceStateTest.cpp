@@ -9,6 +9,34 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main() {
+    for (int count = 1; count <= 8; ++count) {
+        for (int active = 0; active < count; ++active) {
+            for (int depth = 0; depth <= count; ++depth) {
+                CardWorkspaceState<QString> state;
+                QList<QString> handles;
+                for (int i = 0; i <= count; ++i) handles.append(QString::number(i));
+                state.reset(handles, 0);
+                for (int i = 1; i < count; ++i) {
+                    state.page(1);
+                    require(state.stackSelectedWith(1), "Depth setup failed");
+                }
+                state.pageStack(active - state.model().stackActivePositionForId(1));
+                const auto members = state.stackMembersForId(1);
+                std::vector<int> expected;
+                for (int d = 0; d < count; ++d)
+                    expected.push_back(members[(active - d + count) % count]);
+                state.page(1);
+                const auto plan = state.prepareStackInsertionAtDepth(handles[0], depth);
+                require(plan && state.commitStackInsertion(*plan), "Depth insertion failed");
+                expected.insert(expected.begin() + depth, count + 1);
+                const auto committed = state.stackMembersForId(1);
+                const int face = state.model().stackActivePositionForId(1);
+                for (int d = 0; d <= count; ++d)
+                    require(committed[(face - d + count + 1) % (count + 1)] == expected[d],
+                        "Front-first visual depth disagrees with committed order");
+            }
+        }
+    }
     for (int slot = 0; slot <= 2; ++slot) {
         CardWorkspaceState<QString> stack;
         stack.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
@@ -25,9 +53,11 @@ int main() {
         require(stack.commitStackInsertion(*insertion), "Prepared insertion rejected");
         auto expected = order;
         expected.insert(expected.begin() + slot, 3);
-        require(stack.stackMembersForId(3) == expected && stack.selectedWindow() == u"c"_s,
-            "Preview slot/selected identity changed at commit");
+        require(stack.stackMembersForId(3) == expected && stack.selectedWindow() == u"a"_s,
+            "Insertion changed destination selection or placement order");
         require(!stack.commitStackInsertion(*insertion), "Insertion replay accepted");
+        stack.pageStack(slot - stack.model().stackActivePositionForId(3));
+        require(stack.selectedWindow() == u"c"_s, "Placed member cannot be explicitly selected");
         require(stack.detachSelectedMember(), "Detach for rollback failed");
         const auto retry = stack.prepareStackInsertion(u"a"_s, slot);
         require(retry.has_value(), "Detached insertion not prepared");

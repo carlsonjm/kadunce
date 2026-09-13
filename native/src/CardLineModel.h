@@ -41,7 +41,9 @@ public:
     int appendCenteredCard();
     bool removeCard(int cardId);
     void moveSelected(int delta);
-    bool stackSelectedWith(int destinationId, int insertionIndex = -1);
+    enum class InsertionSelection { InsertedCard, DestinationCard };
+    bool stackSelectedWith(int destinationId, int insertionIndex = -1,
+        InsertionSelection selection = InsertionSelection::InsertedCard);
     bool detachSelectedMember();
     bool restoreDetachedMember();
     void commitDetachedMember();

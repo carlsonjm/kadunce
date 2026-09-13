@@ -14,6 +14,15 @@ namespace Kadunce
 
 namespace
 {
+// Shared rigid fan pose. Positive slots mirror the same shallow fan around
+// the face; all bottom-right pivots share a baseline.
+CardStackPose fanPose(int slot, double width)
+{
+    constexpr std::array<double, 5> angles{0.6, 0.2, -0.2, -0.4, -0.6};
+    const int depth = std::min(std::abs(slot), 4);
+    const double angle = slot > 0 ? 1.2 - angles[depth] : angles[depth];
+    return {slot * width * 0.24 / 3.0, 0.0, angle, true};
+}
 CardStackEnvelope bottomRightRotationEnvelope(
     const CardStackPose &pose, double cardWidth, double cardHeight)
 {
@@ -141,7 +150,6 @@ CardStackPose makeOpenStackPose(int cardIndex, int cardCount, int activeIndex,
         return {0.0, 0.0, 0.0, true};
     }
 
-    constexpr double StackGroupingDistance = 0.24;
     constexpr double StackFaceRotation = 0.6;
     const int currentPosition = std::clamp(activeIndex, 0, cardCount - 1);
     if (cardIndex == currentPosition) {
@@ -156,9 +164,7 @@ CardStackPose makeOpenStackPose(int cardIndex, int cardCount, int activeIndex,
     // Nearest shoulder falls slightly; the next two rise. Together with the
     // +0.6 degree face this reproduces the reference layout's shallow crossing fan instead of
     // rotating every layer progressively in one direction.
-    constexpr std::array<double, 3> VisualRotations{0.2, -0.2, -0.4};
     int visualSlot = 0;
-    double visualRotation = 0.0;
     bool found = false;
     for (std::size_t index = 0; index < RelativeMembers.size(); ++index) {
         const int relative = RelativeMembers[index];
@@ -177,7 +183,6 @@ CardStackPose makeOpenStackPose(int cardIndex, int cardCount, int activeIndex,
         }
         if (!duplicate && cardIndex == candidate) {
             visualSlot = VisualSlots[index];
-            visualRotation = VisualRotations[index];
             found = true;
             break;
         }
@@ -186,13 +191,10 @@ CardStackPose makeOpenStackPose(int cardIndex, int cardCount, int activeIndex,
         return {0.0, 0.0, 0.0, false};
     }
 
-    const double x = visualSlot
-        * cardWidth * StackGroupingDistance / 3.0;
     // The renderer rotates the deck around each card's lower-right corner.
     // A shared y therefore pins every lower-right corner to the face card's
     // baseline while the rotation itself supplies the reference layout's vertical shoulder.
-    const double y = 0.0;
-    return {x, y, visualRotation, true};
+    return fanPose(visualSlot, cardWidth);
 }
 
 CardStackPose makeClosedStackPose(int cardIndex, int cardCount,
@@ -219,9 +221,6 @@ CardStackPose makeInsertionStackPose(int memberIndex, int memberCount,
     }
 
     constexpr int VisibleDeckSize = 5;
-    constexpr double StackGroupingDistance = 0.24;
-    constexpr double TouchPadReferenceCardWidth = 1024.0;
-    constexpr double StackRotationFactor = 120.0;
     const int seam = std::clamp(insertionIndex, 0, memberCount - 1);
     const int visibleCount = std::min(memberCount, VisibleDeckSize);
     const int firstVisible = std::clamp(
@@ -232,12 +231,7 @@ CardStackPose makeInsertionStackPose(int memberIndex, int memberCount,
     }
 
     const int relative = memberIndex - seam;
-    const double x = relative
-        * cardWidth * StackGroupingDistance / 3.0;
-    const double y = x > 0.0 ? x / 15.0 : 0.0;
-    const double rotation = -(x / cardWidth)
-        * (TouchPadReferenceCardWidth / StackRotationFactor);
-    return {x, y, rotation, true};
+    return fanPose(relative, cardWidth);
 }
 
 CardStackEnvelope makeOpenStackEnvelope(int cardCount, int activeIndex,
@@ -273,11 +267,14 @@ CardStackEnvelope makeInsertionStackEnvelope(int cardCount,
 
     double left = 0.0;
     double right = 0.0;
-    for (int insertionIndex = 0; insertionIndex < cardCount;
+    // Only five poses can be visible. Their relative offsets are independent
+    // of total membership; avoid quadratic work on every target query.
+    const int visibleCount = std::min(cardCount, 5);
+    for (int insertionIndex = 0; insertionIndex < visibleCount;
          ++insertionIndex) {
-        for (int memberIndex = 0; memberIndex < cardCount; ++memberIndex) {
+        for (int memberIndex = 0; memberIndex < visibleCount; ++memberIndex) {
             const CardStackPose pose = makeInsertionStackPose(
-                memberIndex, cardCount, insertionIndex, cardWidth);
+                memberIndex, visibleCount, insertionIndex, cardWidth);
             if (!pose.visible) {
                 continue;
             }

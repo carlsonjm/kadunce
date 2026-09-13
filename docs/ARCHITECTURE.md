@@ -28,6 +28,49 @@ not released. Open-space tablet drops still follow Card Line behavior.
 
 ## Current implementation
 
+September13 post-paint candidate: prePaintScreen retains transform masks and
+latches animation/drop-settle continuation. postPaintScreen schedules the next
+frame after KWin consumes current output damage. The latch preserves a final
+endpoint frame without adding an idle loop; no motion or input policy changes.
+Installed-versus-candidate status is in CURRENT_STATE.md.
+
+September13 LIVE-PREVIEW DECISION supersedes the snapshot/readiness/startup
+candidate paragraphs below, which are historical. J accepts proportional margins.
+Production is again one KWin OffscreenEffect live-texture path, uniform contain
+scaling, existing fan rotation/aperture and black backing. Removed retained cache,
+crossfade compensation, capture-readiness gates, extra full-output damage repaint,
+shader warmup and timing hooks. Native geometry/ownership and input are unchanged.
+Rebuilt binary matches the previously accepted rigid-fan c063 artifact exactly.
+Do not reinstate snapshot machinery to eliminate now-accepted letterboxing.
+
+September13 readiness candidate supersedes startup preparation below (now parked).
+Captured shadow margins are immutable image metadata: CrossFade's current-margin
+quad gets compensated so the original frame fits the card without shadow padding.
+Capture rejects missing/unready buffers and unsettled size pairs, falling back live
+without delaying restoration. Visible live-card damage requests output repaint;
+valid retained images stay static. No capture sweep or animation/input changes.
+Focused math/readiness checks pass; J's GPU/first-visit test is pending.
+
+September13 startup-preparation candidate: Effect schedules two resource-only
+shader draws on2x2 scratch framebuffers after2500ms/250ms. A temporary passive
+input spy cancels remaining work on activity; current held touch/buttons,
+card motion/carry and unavailable GL also skip. No retries or GPU waits. Scratch
+resources die in ShaderPreparation; no app surfaces, state or snapshot capture
+participate. J's real-GPU/cold-start validation is pending. Preparation is best
+effort and cannot interrupt a GPU command already submitted; input never waits
+for a preparation-complete flag. Normal on-demand drawing remains authoritative.
+
+September13 retained Active-preview candidate: explicit Active→Card Line toggle
+asks the host to capture before native restore. Effect owns a bounded rendering
+cache via KWin CrossFadeEffect; authoritative restore records remain controller
+owned and are applied immediately as before. Captured aspect is compensated in
+paint, with shader rotation after aspect compensation to avoid nonuniform-scale
+shear.64MiB/eight-entry FIFO bounds retained pixel storage. Reentry refresh,
+closure, release, output/membership departure and teardown discard images.
+Unsupported/non-GL capture falls back live. J passed physical tests September13;
+not every automatic Active-departure path captures. Card Line images are static
+until refreshed on a later explicit Active exit. No ownership/input changes.
+
 Accepted September13 interaction freeze: stack entry establishes an insertion
 anchor; fresh horizontal contact movement requests one slot after existing dwell.
 End seams do not become row paging. Held row paging requires physical screen-edge
@@ -35,6 +78,13 @@ contact and validates each repeat. Approach side initializes first/last insertio
 WorkspaceInputRouter owns this intent; CardWorkspaceState owns ordered insertion
 plans; CardStageController owns presentation. Failed44%/pose work is archived
 outside main. Placement-selection continuity is the next separate pass.
+
+Placement-continuity candidate: prepared insertion uses DestinationCard selection
+policy, retaining the existing active identity while its numeric index shifts.
+Explicit model commands can still select the inserted member. The renderer and
+elevation continue consuming the single model selection; there is no paint-only
+selection override. Entry/exit blends open browse poses and envelope together.
+The slot label reads only a revision-validated insertion and has no hit target.
 
 Automatic native edge placement is suppressed for the lifetime of the effect,
 including ordinary windows. NativeEdgePolicy saves electric-border tiling and

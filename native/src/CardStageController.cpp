@@ -4,6 +4,7 @@
 */
 
 #include "CardStageController.h"
+#include "HeldCardGeometry.h"
 #include "CardLineLayout.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
@@ -208,6 +209,19 @@ int CardStageController::cardGrabPageOffset() const
     return m_cardGrabPageOffset;
 }
 
+KWin::Rect CardStageController::cardGrabTarget() const
+{
+    if (!m_cardGrabActive || !m_cardGrabScaleTimer.isValid()) return m_cardGrabTarget;
+    const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        std::clamp(double(m_cardGrabScaleTimer.elapsed()) / PreviewTransitionDuration, 0.0, 1.0));
+    const auto rect = anchoredStackCarry(
+        {double(m_cardGrabTarget.x()), double(m_cardGrabTarget.y()),
+         double(m_cardGrabTarget.width()), double(m_cardGrabTarget.height())},
+        m_cardGrabStart.x(), m_cardGrabStart.y(),
+        m_cardGrabDestinationSize.width(), m_cardGrabDestinationSize.height(), t);
+    return KWin::Rect(qRound(rect.x), qRound(rect.y), qRound(rect.width), qRound(rect.height));
+}
+
 int CardStageController::stackPreviewTarget() const
 {
     return m_cardStackPreviewTarget;
@@ -218,9 +232,26 @@ bool CardStageController::stackPreviewArmed() const
     return m_cardStackPreviewArmed;
 }
 
+bool CardStageController::stackInsertionPreviewValid() const
+{
+    return m_cardGrabActive && m_cardStackPreviewArmed && m_stackInsertion
+        && m_cardStackPreviewRevision == m_workspace.revision()
+        && m_cardStackPreviewTarget != 0
+        && m_cardStackPreviewTarget == cardStackCandidate();
+}
+
 int CardStageController::stackInsertionIndex() const
 {
     return m_cardStackInsertionIndex;
+}
+
+KWin::Rect CardStageController::stackPlaceholderTarget() const
+{
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet || !stackInsertionPreviewValid()) return {};
+    // The insertion seam is the zero-offset pose in the opened fan. Keep this
+    // virtual space fixed to the deck, never magnetize the real held window.
+    return cardTargetForSlot(tablet, 0);
 }
 
 int CardStageController::previousStackInsertionIndex() const
@@ -245,7 +276,9 @@ double CardStageController::stackInsertionBlend() const
         static_cast<double>(m_cardStackInsertionTimer.elapsed())
             / CardStackTransitionDuration,
         0.0, 1.0);
-    return QEasingCurve(QEasingCurve::InQuart).valueForProgress(progress);
+    // Respond immediately to an accepted slot request rather than spending
+    // half the transition almost stationary (InQuart is only6.25% at halfway).
+    return QEasingCurve(QEasingCurve::OutCubic).valueForProgress(progress);
 }
 
 double CardStageController::stackPreviewBlend() const
@@ -265,7 +298,9 @@ double CardStageController::stackPreviewBlend() const
 
 bool CardStageController::animationsRunning() const
 {
-    return (m_previewTransition.isValid()
+    return (m_cardGrabActive && m_cardGrabScaleTimer.isValid()
+            && m_cardGrabScaleTimer.elapsed() < PreviewTransitionDuration)
+        || (m_previewTransition.isValid()
             && m_previewTransition.elapsed() < PreviewTransitionDuration)
         || (m_cardStackPreviewTimer.isValid()
             && m_cardStackPreviewTimer.elapsed()
@@ -332,9 +367,15 @@ KWin::Rect CardStageController::cardTargetForSlot(
             const int destinationSize =
                 m_workspace.stackSizeForId(destinationId);
             if (m_cardStackPreviewTarget != 0) {
-                envelope = makeInsertionStackEnvelope(
+                const auto opened = makeInsertionStackEnvelope(
                     destinationSize + 1,
                     layout.cards[1].width, layout.cards[1].height);
+                const auto browsed = makeOpenStackEnvelope(destinationSize,
+                    m_workspace.stackActivePositionForId(destinationId),
+                    layout.cards[1].width, layout.cards[1].height);
+                const double blend = stackPreviewBlend();
+                envelope = {browsed.left + (opened.left - browsed.left) * blend,
+                    browsed.right + (opened.right - browsed.right) * blend};
             } else if (destinationSize > 1) {
                 envelope = makeOpenStackEnvelope(
                     destinationSize,
@@ -378,7 +419,7 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
         auto pose = stackPoseForWindow(window, rect.width());
         double opacity = 1.0;
         if (includeGrab && m_cardGrabActive && window == selectedWindow()) {
-            rect = m_cardGrabTarget;
+            rect = cardGrabTarget();
             rect.translate(qRound(m_cardGrabOffset.x()), qRound(m_cardGrabOffset.y()));
         } else if (fullPose) {
             rect.translate(qRound(pose.x), qRound(pose.y));
@@ -500,17 +541,17 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
             const int previousInsertion = std::clamp(
                 previousStackInsertionIndex(),
                 0, memberCount);
-            const int previewMemberIndex = memberIndex >= insertion
-                ? memberIndex + 1 : memberIndex;
-            const int previousMemberIndex =
-                memberIndex >= previousInsertion
-                ? memberIndex + 1 : memberIndex;
+            const int depth = (activeIndex - memberIndex + memberCount) % memberCount;
+            const int previewMemberIndex = memberCount
+                - (depth >= insertion ? depth + 1 : depth);
+            const int previousMemberIndex = memberCount
+                - (depth >= previousInsertion ? depth + 1 : depth);
             const CardStackPose previous = makeInsertionStackPose(
                 previousMemberIndex, memberCount + 1,
-                previousInsertion, width);
+                memberCount - previousInsertion, width);
             const CardStackPose next = makeInsertionStackPose(
                 previewMemberIndex, memberCount + 1,
-                insertion, width);
+                memberCount - insertion, width);
             const double insertionBlend = stackInsertionBlend();
             const CardStackPose opened{
                 previous.x + (next.x - previous.x) * insertionBlend,
@@ -520,11 +561,15 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                         * insertionBlend,
                 previous.visible || next.visible,
             };
+            // Entry/exit starts from the already visible browse fan, not a
+            // different closed deck. Keep the same blend as the base envelope.
+            const auto browsed = makeOpenStackPose(memberIndex, memberCount,
+                activeIndex, width);
             pose = {
-                closed.x + (opened.x - closed.x) * previewBlend,
-                closed.y + (opened.y - closed.y) * previewBlend,
-                closed.rotation
-                    + (opened.rotation - closed.rotation) * previewBlend,
+                browsed.x + (opened.x - browsed.x) * previewBlend,
+                browsed.y + (opened.y - browsed.y) * previewBlend,
+                browsed.rotation
+                    + (opened.rotation - browsed.rotation) * previewBlend,
                 opened.visible,
             };
         } else if (browseDestination) {
@@ -743,6 +788,10 @@ void CardStageController::beginCardGrab(const QPointF &position)
     m_cardGrabOffset = {};
     m_cardGrabStart = position;
     m_cardGrabTarget = pickup;
+    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
+    m_cardGrabDestinationSize = QSizeF(work.width() * HeldCardFraction,
+                                     work.height() * HeldCardFraction);
+    m_cardGrabScaleTimer.start();
     m_cardGrabPageOffset = 0;
     m_cardGrabMoved = false;
     m_cardStackPreviewTarget = 0;
@@ -862,6 +911,8 @@ void CardStageController::resetCardGrabState(
     m_cardGrabOffset = {};
     m_cardGrabStart = {};
     m_cardGrabTarget = {};
+    m_cardGrabDestinationSize = {};
+    m_cardGrabScaleTimer.invalidate();
     m_cardGrabPageOffset = 0;
     m_cardGrabMoved = false;
     m_cardStackPreviewTarget = 0;
@@ -954,8 +1005,8 @@ void CardStageController::setCardStackPreview(int destinationId)
     if (!tablet) return;
     const int slot = m_cardGrabTarget.center().x() + m_cardGrabOffset.x()
             < cardTargetForSlot(tablet, 0).center().x()
-        ? 0 : m_workspace.stackSizeForId(destinationId);
-    const auto insertion = m_workspace.prepareStackInsertion(
+        ? m_workspace.stackSizeForId(destinationId) : 0;
+    const auto insertion = m_workspace.prepareStackInsertionAtDepth(
         m_workspace.windows().value(destinationId - 1), slot);
     if (!insertion) return;
     m_stackInsertion = insertion;
@@ -985,12 +1036,12 @@ bool CardStageController::pageCardStackInsertion(int direction)
     const int destinationSize =
         m_workspace.stackSizeForId(m_cardStackPreviewTarget);
     const int next = std::clamp(
-        m_cardStackInsertionIndex + (direction < 0 ? -1 : 1),
+        m_cardStackInsertionIndex + (direction < 0 ? 1 : -1),
         0, destinationSize);
     if (next == m_cardStackInsertionIndex) {
         return false;
     }
-    const auto insertion = m_workspace.prepareStackInsertion(
+    const auto insertion = m_workspace.prepareStackInsertionAtDepth(
         m_workspace.windows().value(m_cardStackPreviewTarget - 1), next);
     if (!insertion) return false;
     m_stackInsertion = insertion;
