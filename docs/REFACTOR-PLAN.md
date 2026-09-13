@@ -1,5 +1,8 @@
 # Refactor plan and work lanes
 
+Current assignments and execution order: ENGINEERING-BLOCKS.md. The plan below
+is historical refactor evidence; do not restart completed extraction work.
+
 Prepared 2026-09-11. Design/review plan; no runtime migration performed.
 
 ## Current execution order

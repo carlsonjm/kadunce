@@ -727,7 +727,7 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
     const bool atBottom = position.y()
-        >= geometry.tabletBottomInclusive - SystemEdgeWidth;
+        >= geometry.tabletBottomInclusive - geometry.bottomGestureInset - SystemEdgeWidth;
     const bool atTop = position.y()
         < geometry.tablet.y() + SystemEdgeWidth;
     if (atBottom) {

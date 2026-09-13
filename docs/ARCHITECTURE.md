@@ -28,6 +28,31 @@ not released. Open-space tablet drops still follow Card Line behavior.
 
 ## Current implementation
 
+Automatic native edge placement is suppressed for the lifetime of the effect,
+including ordinary windows. NativeEdgePolicy saves electric-border tiling and
+maximize preferences in memory, suppresses them after configuration reload, and
+restores the latest preferences on unload. No persistent settings are rewritten.
+Open-space window movement still remains native until intentional admission.
+Explicit Shift-custom-tiling and keyboard/manual state changes are distinct paths.
+
+Direct idle bottom gestures start in the visible bottom dock/work-area depth plus
+the36px band above it. The router still passes initial contact to the client and
+claims only deliberate single-finger upward motion. The held-card departure
+target remains the physical bottom24px; landing clearance never narrows idle reach.
+
+Dock safety uses one output-independent landing rule for ordinary releases and
+explicit Bento bottom departures. Visible bottom dock frames supplement the
+work area when a floating dock has no strut. Ordinary release within that protected
+bottom zone is translated once with10px clearance after native finish; cancellation
+does not apply it. Bento's departure trigger remains the actual bottom24px on
+both tablet and external outputs. This changes neither ordinary dock hit testing
+nor cross-output admission policy.
+
+New eligible windows in existing Bento are admitted through a value-copy reflow
+with their real restore snapshot. Admission is idempotent; failure leaves the
+new window visible/native without mutating the session. An initially unready
+window gets a one-shot native readiness callback, not a delay/retry timer.
+
 Ordinary source proof reserves entry without canceling KWin's native drag.
 Only an intentional edge or crossing into a card workspace acquires the carry
 route. Release/extra input/cancellation retires the reservation; existing cards
@@ -51,7 +76,7 @@ outlive renderer eligibility for ordinary windows.
 
 NativeDesktop placement is explicit: same-output ordinary moves stay native even
 beside Bento, while incoming cross-output windows retain existing-layout priority.
-Uninstalled source now uses the bottom 24 logical pixels of the actual monitor
+Source now uses the bottom 24 logical pixels of the actual destination
 output for Bento departure, including panel area for an already-owned carry.
 Ordinary panel input remains untouched. Source now lands the released window
 10px above the work-area bottom; the edge trigger itself remains unchanged.

@@ -11,12 +11,20 @@ Record architectural changes in `docs/DECISIONS.md`. Keep CURRENT_STATE under
 1,000 words; replace stale state instead of appending a transcript. Documentation
 is a navigation cache, not a substitute for checking source or live state.
 
-Heavy work owns architecture, input/rendering/state boundaries and recovery.
-Lighter work takes a named task with explicit files, acceptance checks and stop
-conditions; use `docs/REFACTOR-PLAN.md`. Work on disjoint files when tasks overlap.
+J-Team owns product/design/priorities and physical acceptance. A-Team is lead
+engineer/co-architect; B-Team is senior engineer and default implementation owner.
+Use `docs/ENGINEERING-BLOCKS.md` for bounded assignments and architecture-review
+gates. Do not begin unassigned packets. Work on disjoint files when tasks overlap.
+Read `docs/MVP-RELEASE-SCOPE.md` before planning further MVP work; it overrides
+the old mandatory block sequence. A owns planning-time scope/resource decisions.
+Focused checks plus safety are the default; J owns broader physical regression.
 Do not infer permission to install or publish from a handoff document.
 
 # Mandatory safety control
+
+For sandbox, D-Bus or compositor startup failures, first follow
+`docs/TEST-ENVIRONMENT-PROCEDURE.md`. Transport denial is not proof of a missing
+kill switch. Preserve private/live bus separation and consume user-run evidence.
 
 Kadunce's persistent tray enable/disable switch is a release-blocking requirement,
 including when the workspace effect is disabled or incompatible. Never remove it

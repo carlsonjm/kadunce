@@ -16,7 +16,11 @@ for scenario in ${KADUNCE_ENTRY_SCENARIOS:-open local cross disabled bottom bott
 for kind in pointer touch; do
     probe contactPrepareDecoration
     sleep .2
+    edge_preferences=$(probe edgeOptions)
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
+    test "$(probe edgeOptions)" = '0|0'
+    probe reloadEdgeOptions
+    test "$(probe edgeOptions)" = '0|0'
     main=$(kad workspaceContext | jq -r '.applications[0].windowId')
     original=$(probe windowGeometry "$main")
     probe pointer 500 350
@@ -60,7 +64,10 @@ for kind in pointer touch; do
     fi
     if [[ $kind == pointer ]]; then probe contactButton false; else probe up 62; fi
     sleep .2
-    if [[ $scenario == disabled ]]; then continue; fi
+    if [[ $scenario == disabled ]]; then
+        test "$(probe edgeOptions)" = "$edge_preferences"
+        continue
+    fi
     if [[ $scenario == cross-open ]]; then
         kad workspaceContext | jq -e --arg main "$main" '[.applications[]|select(.windowId==$main and .output=="Virtual-1")]|length==1'
     fi
@@ -76,7 +83,8 @@ for kind in pointer touch; do
         kad workspaceContext | jq -e '[.displayContext.displays[]|select(.bentoActive)]|length==0'
     fi
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
+    test "$(probe edgeOptions)" = "$edge_preferences"
     sleep .2
 done
 done
-echo 'PASS: native free motion/release, local and crossed-output entry, and disable before entry; pointer/touch'
+echo "PASS: native entry scenarios=${KADUNCE_ENTRY_SCENARIOS:-open local cross disabled bottom bottom-cancel cross-open}; pointer/touch"

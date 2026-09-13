@@ -4,6 +4,7 @@
 #include "NativePlacement.h"
 #include "DeferredCommandGuard.h"
 #include "RestoreOutputPlan.h"
+#include "NativeEdgePolicy.h"
 #include <QCoreApplication>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -67,6 +68,28 @@ struct RestoreClient : Client {
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    struct EdgeOptions {
+        bool tiling = true, maximizing = true;
+        bool electricBorderTiling() const { return tiling; }
+        bool electricBorderMaximize() const { return maximizing; }
+        void setElectricBorderTiling(bool value) { tiling = value; }
+        void setElectricBorderMaximize(bool value) { maximizing = value; }
+    };
+    for (bool tiling : {false, true}) for (bool maximizing : {false, true}) {
+        EdgeOptions options{tiling, maximizing};
+        {
+            Kadunce::NativeEdgePolicy guard(&options);
+            require(!options.tiling && !options.maximizing);
+        }
+        require(options.tiling == tiling && options.maximizing == maximizing);
+        {
+            Kadunce::NativeEdgePolicy guard(&options);
+            options.tiling = !tiling; options.maximizing = !maximizing;
+            guard.refresh();
+            require(!options.tiling && !options.maximizing);
+        }
+        require(options.tiling == !tiling && options.maximizing == !maximizing);
+    }
     using Kadunce::RestoreResult;
     const QList<int> outputs{1,2,3};
     QList<int> attempted;

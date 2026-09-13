@@ -1,0 +1,119 @@
+--- a/src/input.cpp
++++ b/src/input.cpp
+@@ -728,6 +728,7 @@
+         if (!window) {
+             return false;
+         }
++        updateTouchMove(window);
+         if (!m_set) {
+             m_id = event->id;
+             m_set = true;
+@@ -744,6 +745,7 @@
+         if (!window) {
+             return false;
+         }
++        updateTouchMove(window);
+         if (m_id == event->id || !m_set) {
+             window->endInteractiveMoveResize();
+             m_set = false;
+@@ -802,6 +804,19 @@
+     }
+ 
+ private:
++    void updateTouchMove(Window *window)
++    {
++        // A native move can finish before the touch is released, e.g. when an
++        // effect takes over. Never reuse that contact for another move lifetime.
++        if (m_touchWindow != window || m_touchMoveCount != window->interactiveMoveResizeCount()) {
++            m_touchWindow = window;
++            m_touchMoveCount = window->interactiveMoveResizeCount();
++            m_set = false;
++        }
++    }
++
++    QPointer<Window> m_touchWindow;
++    uint32_t m_touchMoveCount = 0;
+     qint32 m_id = 0;
+     bool m_set = false;
+ };
+--- a/autotests/integration/move_resize_window_test.cpp
++++ b/autotests/integration/move_resize_window_test.cpp
+@@ -50,6 +50,8 @@
+     void testPointerMoveEnd_data();
+     void testPointerMoveEnd();
+     void testClientSideMove();
++    void testTouchMoveAfterInterruption_data();
++    void testTouchMoveAfterInterruption();
+     void testResizeForVirtualKeyboard_data();
+     void testResizeForVirtualKeyboard();
+     void testResizeForVirtualKeyboardWithMaximize();
+@@ -497,6 +499,69 @@
+     surface.reset();
+     QVERIFY(Test::waitForWindowClosed(window));
+ }
++void MoveResizeWindowTest::testTouchMoveAfterInterruption_data()
++{
++    QTest::addColumn<bool>("cancel");
++    QTest::addColumn<bool>("replaceWindow");
++    QTest::addColumn<bool>("secondMotion");
++    QTest::newRow("cancel-same-window") << true << false << true;
++    QTest::newRow("finish-same-window") << false << false << true;
++    QTest::newRow("cancel-new-window") << true << true << true;
++    QTest::newRow("finish-new-window") << false << true << true;
++    QTest::newRow("cancel-release-without-motion") << true << false << false;
++    QTest::newRow("finish-release-without-motion") << false << false << false;
++}
++
++void MoveResizeWindowTest::testTouchMoveAfterInterruption()
++{
++    QFETCH(bool, cancel);
++    QFETCH(bool, replaceWindow);
++    QFETCH(bool, secondMotion);
++    std::unique_ptr<KWayland::Client::Surface> surface(Test::createSurface());
++    std::unique_ptr<Test::XdgToplevel> shellSurface(Test::createXdgToplevelSurface(surface.get()));
++    auto window = Test::renderAndWaitForShown(surface.get(), QSize(100, 50), Qt::blue);
++    QVERIFY(window);
++    window->move(QPointF(300, 300));
++    quint32 timestamp = 1;
++    for (int id = 1; id <= 2; ++id) {
++        qInfo() << "Native touch move cycle" << id;
++        const RectF start = window->frameGeometry();
++        input()->pointer()->warp(start.center());
++        Test::touchDown(id, start.center(), timestamp++);
++        workspace()->slotWindowMove();
++        QVERIFY(window->isInteractiveMove());
++        if (id == 1 || secondMotion) {
++            Test::touchMotion(id, start.center() + QPointF(60, 40), timestamp++);
++            QCOMPARE(window->frameGeometry(), start.translated(QPointF(60, 40)));
++        }
++        if (id == 1) {
++            // A compositor effect can finish/cancel the move while the contact
++            // remains held. Its eventual up must not leak identity into a new move.
++            if (cancel) {
++                window->cancelInteractiveMoveResize();
++            } else {
++                window->endInteractiveMoveResize();
++            }
++            QVERIFY(!window->isInteractiveMove());
++        }
++        Test::touchUp(id, timestamp++);
++        QVERIFY(!window->isInteractiveMove());
++        if (id == 1 && replaceWindow) {
++            shellSurface.reset();
++            surface.reset();
++            QVERIFY(Test::waitForWindowClosed(window));
++            surface = Test::createSurface();
++            shellSurface = Test::createXdgToplevelSurface(surface.get());
++            window = Test::renderAndWaitForShown(surface.get(), QSize(100, 50), Qt::blue);
++            QVERIFY(window);
++            window->move(QPointF(300, 300));
++        }
++    }
++    shellSurface.reset();
++    surface.reset();
++    QVERIFY(Test::waitForWindowClosed(window));
++}
++
+ void MoveResizeWindowTest::testClientSideMove()
+ {
+     input()->pointer()->warp(QPointF(640, 512));

@@ -172,7 +172,6 @@ bool DesktopStageController::handoffLeadToOutput(
 bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
 {
     if (m_restoring) return false;
-    m_applicationGuard.invalidate();
     if (!window || !m_host->isManagedWindowForDesktopStage(window)) {
         return false;
     }
@@ -180,14 +179,16 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     if (!session) {
         return false;
     }
-    session->snapshots.append(makeSnapshot(window));
-    session->overflow.append(window);
-    if (window->window()) {
-        window->window()->setMinimized(true);
-    }
-    qInfo() << "Kadunce" << Revision
-            << "parked a newly opened monitor app until Bento exits"
-            << window->caption();
+    for (const auto &snapshot : std::as_const(session->snapshots))
+        if (snapshot.window == window) return true;
+    // Use the same value-planned admission as a dragged arrival. Preserve the
+    // actual pre-admission state; never hide a launch simply because Bento exists.
+    Session candidate = *session;
+    candidate.snapshots.append(makeSnapshot(window));
+    if (!reflowSession(candidate, window, true, false)) return true;
+    m_applicationGuard.invalidate();
+    *session = std::move(candidate);
+    if (applySession(*session, true)) scheduleSettle();
     return true;
 }
 
@@ -1024,8 +1025,7 @@ bool DesktopStageController::handoffWindowToOutput(
     }
     const bool detach = intent == CardDropIntent::NativeDesktop;
     if (sourceKey.isEmpty() || (outputKey(destination) == sourceKey && !detach)
-        || (detach && (outputKey(destination) != sourceKey
-            || m_host->isTabletOutputForDesktopStage(destination)))) {
+        || (detach && outputKey(destination) != sourceKey)) {
         return false;
     }
 
@@ -1081,7 +1081,7 @@ bool DesktopStageController::handoffWindowToOutput(
         scheduleSettle();
         return true;
     }
-    if (!m_host->isTabletOutputForDesktopStage(destination)) {
+    if (detach || !m_host->isTabletOutputForDesktopStage(destination)) {
         QPointer<KWin::LogicalOutput> target = destination;
         QPointer<KWin::EffectWindow> arrival = window;
         QPointer<KWin::Window> client = window->window();

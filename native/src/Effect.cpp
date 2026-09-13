@@ -406,11 +406,11 @@ Effect::Effect()
         QTimer::singleShot(0, this, [this, guarded, contact] {
             if (!guarded || guarded->isDeleted() || guarded->isInteractiveMove()
                 || guarded->isInteractiveResize() || guarded->isMinimized()
-                || !guarded->output() || isTabletOutput(guarded->output())
+                || !guarded->output()
                 || m_desktopStage->managesWindow(guarded->effectWindow())) return;
             const QRectF output(guarded->output()->geometry());
-            if (!output.contains(contact) || contact.y() < output.bottom() - 24) return;
-            const QRectF area = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, guarded->output())).intersected(output);
+            const QRectF area = nativeLandingAreaForOutput(guarded->output());
+            if (!inNativeDockReleaseZone(contact, output, area)) return;
             const QRectF frame(guarded->moveResizeGeometry());
             const auto landing = safeNativeLanding(frame, area);
             if (landing != frame) guarded->moveResize(KWin::RectF(landing));
@@ -437,6 +437,11 @@ Effect::Effect()
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
     }
+
+    m_nativeEdgePolicy = std::make_unique<NativeEdgePolicy<KWin::Options>>(KWin::options);
+    connect(KWin::options, &KWin::Options::configChanged, this, [this] {
+        if (m_nativeEdgePolicy) m_nativeEdgePolicy->refresh();
+    });
 
     qInfo() << "Kadunce" << Revision
             << (m_usesDirectSystemEdges
@@ -470,6 +475,7 @@ Effect::~Effect()
     if (m_cardStage->isActive() || hasActiveDesktopStage()) {
         release();
     }
+    m_nativeEdgePolicy.reset();
 }
 
 void Effect::showCardLine()
@@ -675,6 +681,7 @@ WorkspaceInputGeometry Effect::geometryForInput() const
         QRectF(centerCard),
         double(tabletRect.bottom()),
         double(centerCard.right()),
+        std::max(0.0, double(tabletRect.bottom()) - nativeLandingAreaForOutput(tablet).bottom()),
     };
 }
 
@@ -981,11 +988,10 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         : monitorCarryEdge(QRectF(target->geometry()), contact);
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
-    const QRectF area = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, target))
-        .intersected(QRectF(target->geometry()));
+    const QRectF area = nativeLandingAreaForOutput(target);
     // Landing clearance is separate from the physical-edge gesture target.
     const double exitBottom = area.bottom() - 10.0;
-    if (local && bento && !desktopWindow && !tablet
+    if (local && bento && !desktopWindow
         && contact.y() >= double(target->geometry().bottom()) - 24.0) {
         QSizeF size = QRectF(handoff.source()->restoreSnapshot().floatingGeometry).size();
         if (!size.isValid()) size = m_carryPickup.size();
@@ -1023,11 +1029,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     }
     const bool stayNative = desktopWindow && !edge
         && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
-    if (local && (!bento || ((!stayNative || tablet) && (isPanelPoint(contact)
+    if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
     if (tablet && !bento) return;
     QRectF landing(handoff.carry().position(), m_carryPickup.size());
-    if (stayNative && !tablet && contact.y() >= target->geometry().bottom() - 24)
+    if (stayNative && inNativeDockReleaseZone(contact, QRectF(target->geometry()), area))
         landing = safeNativeLanding(landing, area);
     const KWin::RectF geometry(landing);
     const auto reserved = local && !desktopWindow
@@ -1177,6 +1183,19 @@ bool Effect::cancelForwardedTouchForInput()
     // our router now owns until release. This prevents a swipe becoming a tap.
     server->seat()->notifyTouchCancel();
     return true;
+}
+
+QRectF Effect::nativeLandingAreaForOutput(KWin::LogicalOutput *output) const
+{
+    QList<QRectF> docks;
+    for (auto *window : KWin::effects->stackingOrder()) {
+        if (window && !window->isDeleted() && window->isDock()
+            && window->isOnCurrentDesktop() && window->isOnCurrentActivity()
+            && window->window() && window->window()->isShown())
+            docks.append(QRectF(window->frameGeometry()));
+    }
+    return nativeLandingArea(QRectF(output->geometry()),
+        QRectF(KWin::effects->clientArea(KWin::MaximizeArea, output)), docks);
 }
 
 bool Effect::isPanelPoint(const QPointF &position) const
@@ -1811,8 +1830,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     Q_EMIT workspaceContextChanged();
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
-    QTimer::singleShot(0, this, [this, candidate]() {
-        if (!candidate || candidate->isDeleted() || !isCardWindow(candidate)) {
+    const auto admitReadyWindow = [this, candidate]() {
+        if (!candidate || candidate->isDeleted() || !isCardWindow(candidate)
+            || !candidate->window() || !candidate->window()->readyForPainting()) {
             return;
         }
         if (m_desktopStage->handleWindowAdded(candidate)) {
@@ -1820,7 +1840,11 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         }
         (void)m_cardStage->handleWindowAdded(candidate);
         completeLauncherGuestForWindow(candidate);
-    });
+    };
+    QTimer::singleShot(0, this, admitReadyWindow);
+    if (window->window() && !window->window()->readyForPainting())
+        connect(window->window(), &KWin::Window::readyForPaintingChanged,
+                this, admitReadyWindow, Qt::SingleShotConnection);
 }
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)

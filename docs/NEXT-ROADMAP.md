@@ -1,5 +1,15 @@
 # Next roadmap — stopping point, September 12, 2026
 
+Latest accepted main checkpoint: FREEZE-20260912-EDGE-STABILIZATION.md.
+J passed the installed38a2fbb5 candidate and authorized freeze/push. The old
+installed hashes and unresolved-status sections below are historical evidence;
+CURRENT_STATE.md and MVP-RELEASE-SCOPE.md define present status and assignments.
+
+Execution scope is now **MVP-RELEASE-SCOPE.md**: dock safety + new-app admission,
+J acceptance, then freeze/push. ENGINEERING-BLOCKS.md retains reference packets.
+This file retains detailed backlog/design evidence, including E12.
+Historical “next” directives below do not override that queue or CURRENT_STATE.
+
 Primary restart document after CURRENT_STATE.md. This supersedes older unchecked
 Tomorrow lists as execution order, not as permission to install/publish.
 HEAVY-REMAINING.md is the concise architecture-heavy work split; current
@@ -9,7 +19,9 @@ tests (tablet Active→monitor, monitor transit round-trip, edge/exit basics).
 Deferred new failure: after bottom exit, the returned ordinary window could not
 re-enter existing Bento; KDE snapping acted over that layout. Reproduce the full
 exit→fresh drag→edge sequence, not only fresh-window entry. No cause confirmed
-and no fix attempted yet. See NATIVE-RETURN-TEST.md and CURRENT_STATE.md.
+for that physical report. K1 experiments and a separate reproducible native-touch
+lifecycle failure are recorded in K1-TAKEOVER-AUDIT.md and CURRENT_STATE.md;
+unproven production changes were withdrawn. See also NATIVE-RETURN-TEST.md.
 
 Latest checkpoint: user installed and physically passed Xwayland candidate
 7248d3fb, including landing clearance. Ordinary native-until-entry ownership is
@@ -165,7 +177,7 @@ before implementation; these findings are from September 11, not current tests.
 | --- | --- | --- |
 | E1 Meta open AND close | Tette: one semantic toggle across widget, shortcut and duplicate instance | Rapid repeats, guest cleanup, launch in flight, bridge absent |
 | E2 Fullscreen dock access | Plasma/Temperance + Tette/Kadunce coordination | Meta exposes reachable dock/search without minimizing/retiling game; dismissal restores focus; monitor selection/input grabs |
-| E3 Notifications disabled → stock presenter | Temperance: explicit notification presenter handback | No competing daemons, lost/duplicate alerts; both toggle directions, startup, DND/history/actions |
+| E3 Notifications disabled → stock presenter | Temperance: explicit applet-presenter handback; investigated implementation in `../../temperance/docs/NOTIFICATION-PRESENTER-HANDOFF.md` | Retain Plasma's shared notification server and gate the visual-owner switch on stock-applet readiness. No competing daemons, lost/duplicate alerts; both toggle directions, startup, DND/history/actions |
 | E4 Tette Active sizing | Tette UI + versioned guest contract | Same activation gesture; query/focus/scroll retained. Drawer auto-expand/conditional shrink remains a design decision |
 | E5 Desktop/Bento Tette | Tette standalone fallback + optional desktop guest design | Mouse-only use, correct display/launch destination, preserve Bento, no forced tablet Card Line |
 | E6 Slow launches | Tette launch states + Kadunce readiness | Affinity splash→main, Discord startup, Spotify, cancellation/timeouts. Correlate identity/readiness; no blind longer timeout |

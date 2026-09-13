@@ -25,12 +25,16 @@ focus, outputs, and recovery.
 
 ## Development checkpoint — September 12, 2026
 
-The unified carry implementation is frozen as a tested development checkpoint,
-not a finished release. Tablet-to-monitor return, ordinary-window transit,
-and basic Bento edge entry/exit passed physical testing. Known issue: a window
-released through the bottom edge may fail to re-enter existing Bento and use
-native KDE snapping instead. See [checkpoint](docs/FREEZE-20260912.md) and
-[remaining roadmap](docs/NEXT-ROADMAP.md).
+The accepted main checkpoint preserves cross-display carry and adds dock-safe
+bottom release, visible new-app Bento admission, and broader dock-aware swipe
+reach. Automatic KDE edge tiling is suppressed while Kadunce is enabled and
+restored on disable. Explicit Shift-drag custom tiling remains unchanged.
+See the [accepted checkpoint](docs/FREEZE-20260912-EDGE-STABILIZATION.md) and
+[remaining scope](docs/MVP-RELEASE-SCOPE.md).
+
+Native touch testing used a separately patched KWin6.7.5 build. The
+[engine patch and package notes](patches/kwin/package/README.md) document that
+prerequisite; the Kadunce installer does not install or replace KWin.
 
 ## Requirements
 

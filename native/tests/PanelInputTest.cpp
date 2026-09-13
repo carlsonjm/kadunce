@@ -16,6 +16,7 @@ struct Target final : WorkspaceInputTarget {
     WorkspacePresentation presentation = WorkspacePresentation::CardLine;
     int cancellations = 0;
     bool canCancel = true;
+    double bottomGestureInset = 0.0;
     int actions = 0;
     int toggles = 0;
     int dismissals = 0;
@@ -29,7 +30,7 @@ struct Target final : WorkspaceInputTarget {
     WorkspacePresentation presentationForInput() const override { return presentation; }
     bool nativeWindowInteractionForInput() const override { return nativeInteraction; }
     bool cancelForwardedTouchForInput() override { ++cancellations; return canCancel; }
-    WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799}; }
+    WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799,bottomGestureInset}; }
     bool cardGrabActiveForInput() const override { return grabbed; }
     bool stackPreviewArmedForInput() const override { return false; }
     int stackPreviewTargetForInput() const override { return 0; }
@@ -411,23 +412,25 @@ int main(int argc, char **argv) {
         require(!router.pointerButton(&button) && target.actions == 0,
                 "External release affected the tablet workspace");
     }
+    for (double inset : {0.0, 60.0})
     for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Inactive}) {
         Target target; target.presentation = presentation;
+        target.bottomGestureInset = inset;
         WorkspaceInputRouter router(&target);
-        KWin::TouchDownEvent down{10,{500,770},{}};
-        KWin::TouchMotionEvent move{10,{502,762},{}};
+        KWin::TouchDownEvent down{10,{500,770-inset},{}};
+        KWin::TouchMotionEvent move{10,{502,762-inset},{}};
         KWin::TouchUpEvent up{10,{}};
         require(!router.touchDown(&down) && !router.touchMotion(&move)
                     && !router.touchUp(&up), "Bottom tap did not reach the panel");
         require(target.actions == 0 && target.cancellations == 0, "Tap triggered or canceled a gesture");
         require(!router.touchDown(&down), "Swipe's initial contact was stolen");
-        move.pos = {501,720};
+        move.pos = {501,720-inset};
         require(router.touchMotion(&move) && target.toggles == 1 && target.cancellations == 1,
                 "Deliberate upward swipe failed to cancel client delivery before takeover");
         require(router.touchMotion(&move) && router.touchUp(&up) && target.toggles == 1,
                 "Claimed swipe leaked release or triggered twice");
         require(!router.touchDown(&down), "Multitouch first contact stolen");
-        KWin::TouchDownEvent second{11,{520,772},{}};
+        KWin::TouchDownEvent second{11,{520,772-inset},{}};
         KWin::TouchUpEvent secondUp{11,{}};
         require(!router.touchDown(&second) && !router.touchMotion(&move)
                     && !router.touchUp(&secondUp) && !router.touchUp(&up),

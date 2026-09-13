@@ -10,6 +10,8 @@
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
+#include "NativeEdgePolicy.h"
+#include <options.h>
 
 #include <effect/offscreeneffect.h>
 #include "DesktopExitLabel.h"
@@ -163,6 +165,7 @@ private:
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;
     [[nodiscard]] bool isTabletPoint(
         const QPointF &position) const override;
@@ -231,6 +234,7 @@ private:
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
+    std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;

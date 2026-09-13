@@ -1,5 +1,9 @@
 # Architecture-heavy work remaining
 
+Superseded as assignment policy by ENGINEERING-BLOCKS.md: B-Team is the default
+implementation owner, with A-Team contract review/escalation at named gates.
+The complexity inventory below remains background, not an A-only work queue.
+
 September 12 checkpoint. These are ownership/transaction decisions, not a claim
 that only one model can implement them. Do not expand a packet into the next one.
 

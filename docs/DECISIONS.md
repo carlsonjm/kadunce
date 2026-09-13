@@ -984,3 +984,47 @@ normal-window bounds remain inside the work area. Ordinary dock input is not
 changed. Existing tests that expected no exit at y=780 on an 800-high output were
 outdated; their non-edge dock test now uses y=760, and the explicit exit test uses
 y=799. This does not establish a physical dock/auto-hide/backend pass.
+
+## September 12: native touch selection is move-lifetime-bound
+
+A's K1 takeover reproduced a KWin defect independently of Kadunce: after native
+finish/cancel while touch is held, MoveResizeFilter's saved ID can suppress a
+subsequent differently numbered contact. Fix this at the native state owner,
+not by changing Kadunce's input priority or completing a stuck move after release.
+
+The private KWin6.7.5 patch keys touch selection by weak Window identity plus
+the existing interactiveMoveResizeCount. Motion and up validate that lifetime;
+the existing native movement/release code remains authoritative. No new timer,
+signal callback, input replay, geometry controller or Kadunce-specific KWin API.
+Kadunce production source remains the accepted checkpoint. Six new native cases
+fail before and pass after; the selected native suite has35 passes, and all16
+Kadunce runtime routes pass (see CURRENT_STATE for the interrupted/resumed gate).
+
+This validates the native correction, not system packaging or physical K1
+acceptance. Preserve the installed distro recipe/rollback, obtain installation
+approval, and test the original pointer/touch report before advancing to K2.
+The artifact and exact evidence are in patches/kwin/README.md.
+# Dock/launch batch resource boundary — September 12, 2026
+
+J requested dock safety, then explicitly added visible new-app Bento admission
+to the same batch before freeze/push. MVP-RELEASE-SCOPE.md supersedes the old
+mandatory K0–K6 progression. Cover tablet-only as a default product expectation;
+use focused checks plus safety and J's physical acceptance, not another broad gate.
+Bottom landing remains one translation through existing ownership paths. New-app
+admission reuses value-planned layout and original restore snapshots; no unconditional
+parking. Rejected minimum-size admission stays visible/native. No architecture
+rewrite, general launcher framework or unrelated feature is authorized here.
+# September12 evening: automatic edge ownership and independent idle gesture
+
+J explicitly supersedes the ordinary-window native-edge exception: while Kadunce
+is enabled, automatic top/side/corner placement belongs to Bento. Open-space moves
+remain ordinary. Use KWin's existing in-memory electric-border tiling/maximize
+options with reload-aware restoration on unload; do not rewrite user settings or
+undo native geometry after a snap. Explicit Shift-custom tiling remains separate.
+This does not establish the cause of Konsole's reported misalignment.
+
+Dock safety, held-card bottom departure, and idle swipe-to-Card-Line have distinct
+lifetimes. Idle reach includes dock depth plus the36px band above it, with existing
+intent/cancellation thresholds. No filter-priority or held-drop ownership change.
+Preserve cross-output fixes and the new-app candidate; physical acceptance gates
+freeze/push. The installed6475 candidate is not an accepted release.

@@ -1,5 +1,11 @@
 # Edge ownership audit — 2026-09-11
 
+September12 superseding direction: J explicitly approves replacing automatic KDE
+edge placement for ordinary windows too, while Kadunce is enabled. The historical
+unmanaged-window exception below is no longer policy. NativeEdgePolicy provides
+runtime-only electric-border tiling/maximize suppression; explicit Shift-custom
+tiling is separate and remains uncovered. See CURRENT_STATE for verification.
+
 Read-only runtime audit. No code, configuration, installation or repair changes.
 User explicitly requires existing bottom dock functions to remain unchanged.
 

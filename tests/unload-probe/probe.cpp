@@ -10,6 +10,7 @@
 #include <touch_input.h>
 #include <pointer_input.h>
 #include <input_event.h>
+#include <options.h>
 #include <QDBusConnection>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -78,6 +79,42 @@ struct Target final : WorkspaceInputTarget {
     void clearCardStackPreview() override { ++actions; }
     bool pageCardStackInsertion(int) override { ++actions; return false; }
 };
+
+// Passive ordering evidence only. The unload probe is loaded before Kadunce,
+// while KWin inserts a later filter of equal weight before an existing one.
+// Therefore a motion counted here was first offered to Kadunce's ScreenEdge
+// filter and explicitly passed onward. Never consume or mutate input here.
+struct EdgeOrderProbe final : KWin::InputEventFilter {
+    EdgeOrderProbe() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge)
+    {
+        KWin::input()->installInputEventFilter(this);
+    }
+    bool pointerMotion(KWin::PointerMotionEvent *event) override
+    {
+        ++pointerMotions;
+        pointerPosition = event->position;
+        return false;
+    }
+    bool touchMotion(KWin::TouchMotionEvent *event) override
+    {
+        ++touchMotions;
+        touchPosition = event->pos;
+        return false;
+    }
+    QString state() const
+    {
+        return QString::fromUtf8(QJsonDocument(QJsonObject{
+            {"pointerMotions", pointerMotions}, {"touchMotions", touchMotions},
+            {"pointerX", pointerPosition.x()}, {"pointerY", pointerPosition.y()},
+            {"touchX", touchPosition.x()}, {"touchY", touchPosition.y()}
+        }).toJson(QJsonDocument::Compact));
+    }
+    int pointerMotions = 0;
+    int touchMotions = 0;
+    QPointF pointerPosition;
+    QPointF touchPosition;
+};
+
 class UnloadProbe final : public KWin::Effect {
     Q_OBJECT
 public:
@@ -121,6 +158,11 @@ public:
     }
     ~UnloadProbe() override { drop(); KWin::input()->removeInputDevice(&device); QDBusConnection::sessionBus().unregisterObject("/UnloadProbe"); }
 public Q_SLOTS:
+    QString edgeOptions() {
+        return QString::number(KWin::options->electricBorderTiling()) + QLatin1Char('|')
+            + QString::number(KWin::options->electricBorderMaximize());
+    }
+    void reloadEdgeOptions() { KWin::options->updateSettings(); }
     bool handoffArm(bool bentoSource, bool reject, bool interrupt) {
         if (!contact || !contact->client) return false;
         bento.client = contact->client->effectWindow();
@@ -330,6 +372,7 @@ public Q_SLOTS:
         return false;
     }
     QString contactState() { return contact ? contact->state() : QString(); }
+    QString edgeOrderState() const { return edgeOrder.state(); }
     bool contactFocus() {
         if (!contact || !contact->client) return false;
         KWin::workspace()->activateWindow(contact->client, true);
@@ -545,6 +588,7 @@ private:
     int handoffFallbacks = 0, handoffFinishes = 0, handoffResult = -1;
     BentoProbe bento;
     Device device;
+    EdgeOrderProbe edgeOrder;
     std::unique_ptr<WorkspaceInputRouter> router;
 };
 KWIN_EFFECT_FACTORY_SUPPORTED(UnloadProbe, "metadata.json", return true;)

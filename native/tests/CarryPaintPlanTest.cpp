@@ -30,4 +30,20 @@ int main()
     const auto oversized = safeNativeLanding(QRectF(1500,700,1500,1000), area);
     assert(oversized.topLeft() == QPointF(1290,10));
     assert(oversized.size() == QSizeF(1500,1000));
+    // Same policy for an eDP-only desktop and an offset external output.
+    for (double x : {0.0, 1280.0}) {
+        const QRectF screen(x, 0, 1280, 800);
+        const QRectF floatingDock(x + 100, 744, 1080, 48);
+        const auto safeArea = nativeLandingArea(screen, screen, {floatingDock});
+        assert(safeArea.bottom() == 744);
+        assert(inNativeDockReleaseZone({x + 700, 750}, screen, safeArea));
+        assert(!inNativeDockReleaseZone({x + 700, 700}, screen, safeArea));
+        const auto safe = safeNativeLanding(QRectF(x + 300, 700, 700, 500), safeArea);
+        assert(safe.bottom() == 734 && safe.size() == QSizeF(700, 500));
+        assert(nativeLandingArea(screen, screen, {}).bottom() == 800);
+        assert(nativeLandingArea(screen, screen, {QRectF(x, 0, 1280, 40)}).bottom() == 800);
+        assert(nativeLandingArea(screen, screen, {QRectF(x, 0, 40, 800)}).bottom() == 800);
+        assert(nativeLandingArea(screen, screen, {floatingDock.translated(2000, 0)}).bottom() == 800);
+        assert(nativeLandingArea(screen, QRectF(x, 0, 1280, 730), {floatingDock}).bottom() == 730);
+    }
 }
