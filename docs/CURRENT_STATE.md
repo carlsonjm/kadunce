@@ -1,17 +1,32 @@
 # Current state
 
+## Accepted QoL freeze
+
+September13: shared enterActive now clears temporary Card Line elevation after
+publishing Active. Shortcut toggle already did this afterward, but timed arrival
+and external activation paths could retain elevation and cover Plasma popups.
+No geometry, ownership, timing, renderer or input policy changed. Source guard
+checks the shared boundary; build, control and live-control checks pass.
+Local ../install-qol-20260913.sh bundles this with Tette Meta toggle/panel focus;
+--rollback restores the accepted ae40 plugin and both prior Tette binaries.
+J reports a full physical pass and authorizes freeze/publication to main.
+Installed plugin hash verified:
+6c981b08cb951f26e954bc6007d66998b7b8887f701881eb0bebd7b9dae47368.
+All14 native tests pass; independent control2/2 and live safety checks pass.
+No Temperance source edit is needed for this specific elevation leak.
+
 Updated September13. Accepted post-paint stack baseline frozen for main;
 supersedes the earlier contact-driven freeze20f2007. See
 FREEZE-20260913-STACK-BASELINE.md. Trusted repair is not promoted.
 
-## Installed versus candidate
+## Previous baseline provenance
 
 Previous baseline c063a199850224fbc7ed364fadc9be6fd4f53bb5fadef14a8eb88ff323022906
 is the exact rigid-fan artifact J called “firm, passed with flying colors.”
 Later retained-previewad870751 received the qualified pass with initial lag.
 Backing-removal587591 was ineffective and is rejected; its source change reversed.
 
-Installed post-paint baseline, disk hash verified and J reports smooth after install:
+Previous accepted post-paint baseline (now the QoL rollback):
 ae40b6e43919f944b4f4664735d488f7fc3ccd280457c461f1a55a933d905d6d
 ../work/kadunce-postpaint-20260913
 ../install-kadunce-postpaint.sh

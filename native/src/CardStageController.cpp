@@ -1453,6 +1453,9 @@ bool CardStageController::enterActive()
     // windowActivated signal is synchronous on some Plasma versions and must
     // not be mistaken for a second task-manager request.
     m_presentation = CardPresentation::Active;
+    // All entry paths must retire Card Line's temporary compositor elevation.
+    // Active is a native window; panel popups must retain their normal layers.
+    syncSelectedElevation();
     m_activeSettleTimer.start();
     KWin::workspace()->raiseWindow(client);
     KWin::workspace()->activateWindow(client, true);

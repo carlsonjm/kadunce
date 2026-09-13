@@ -15,6 +15,11 @@ desktop_header="${native_dir}/src/DesktopStageController.h"
 metadata_file="${native_dir}/src/metadata.json"
 install_script="${project_dir}/install.sh"
 
+# Check the shared entry point, not just shortcut callers: arrivals and external
+# activation also enter Active directly and must not retain stack elevation.
+active_entry=$(sed -n '/^bool CardStageController::enterActive()/,/^void CardStageController::restoreActiveSnapshot()/p' "$card_cpp")
+printf '%s\n' "$active_entry" | perl -0777 -ne 'exit(!/m_presentation = CardPresentation::Active;.*?syncSelectedElevation\(\);.*?activateWindow/s)'
+
 python3 -m json.tool "${metadata_file}" >/dev/null
 bash -n "${install_script}"
 

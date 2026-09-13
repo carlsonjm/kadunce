@@ -1153,3 +1153,11 @@ lifetimes. Idle reach includes dock depth plus the36px band above it, with exist
 intent/cancellation thresholds. No filter-priority or held-drop ownership change.
 Preserve cross-output fixes and the new-app candidate; physical acceptance gates
 freeze/push. The installed6475 candidate is not an accepted release.
+## September 13 — Active retires temporary stack elevation
+
+Every successful enterActive path now synchronizes elevation after publishing
+Active, not only the shortcut caller. Timed arrivals and externally activated
+stack members must become ordinary native-layer windows so Plasma applet popups
+remain above them. Do not compensate by misclassifying Temperance as an OSD or
+making every window keep-above. Focused source/build and safety checks pass.
+J accepted the installed QoL batch with a full pass and authorized publication.
