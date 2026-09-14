@@ -1,5 +1,15 @@
 # Decisions
 
+## September 14 — Bento reflow is presentation only
+
+DesktopStageController captures visible pane poses before committing a layout
+once, then hands the accepted endpoints to Effect. Effect owns a shared220ms
+ease-out clock per batch, not native geometry or session membership. Retargeting
+starts from the current visual pose; new input and release/unload cancel motion.
+Output/target changes invalidate presentation. Reuse live rounded painting, with
+no retained snapshots, cache warming or configure loop. Candidate evidence and
+acceptance boundary: BENTO-MOTION-20260914.md.
+
 ## September14: full divider capture,90ms activation
 
 J passed column sizing but off-center holds reached Plasma edit mode. The hit

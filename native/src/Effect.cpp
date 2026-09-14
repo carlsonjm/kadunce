@@ -463,7 +463,7 @@ Effect::Effect()
             if (landing != frame) guarded->moveResize(KWin::RectF(landing));
         });
     };
-    m_carryRuntime->interrupted = [this] { clearDropSettle(); };
+    m_carryRuntime->interrupted = [this] { clearDropSettle(); clearBentoMotions(); };
     connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
             [this] { if (m_carryRuntime) m_carryRuntime->cancel(); });
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
@@ -663,6 +663,7 @@ void Effect::setPagingShortcutsForCardStage(bool active)
 
 void Effect::cancelInputForCardStage()
 {
+    clearBentoMotions();
     clearDropSettle();
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     if (m_carryRuntime) m_carryRuntime->cancel();
@@ -981,6 +982,14 @@ void Effect::traceNativeMove(KWin::EffectWindow *window, const char *event)
 
 QString Effect::nativeCarryState() const
 {
+    QJsonArray bentoMotion;
+    for (const auto &m : m_bentoMotions) {
+        const auto pose = bentoMotionRect(m.window);
+        if (pose) bentoMotion.append(QJsonObject{
+            {QStringLiteral("window"), windowIdentity(m.window)},
+            {QStringLiteral("rect"), geometryContext(KWin::RectF(*pose).toRect())},
+            {QStringLiteral("target"), geometryContext(KWin::RectF(m.to).toRect())}});
+    }
     const auto settling = dropSettleRect();
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
     const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
@@ -1001,6 +1010,7 @@ QString Effect::nativeCarryState() const
     }
     return QString::fromUtf8(QJsonDocument(QJsonObject{
         {QStringLiteral("dropSettling"), bool(settling)},
+        {QStringLiteral("bentoMotion"), bentoMotion},
         {QStringLiteral("dropRect"), settling ? geometryContext(KWin::RectF(*settling).toRect()) : QJsonObject{}},
         {QStringLiteral("destinationPreview"), previewValid},
         {QStringLiteral("placementOutline"), previewValid && reservation->showsPlacementOutline()},
@@ -1146,6 +1156,64 @@ void Effect::clearDropSettle()
     m_settlingWindow.clear(); m_settlingOutput.clear();
     m_dropSettleTimer.invalidate();
     if (repaint) KWin::effects->addRepaintFull();
+}
+
+std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
+{
+    for (const auto &m : m_bentoMotions) {
+        if (m.window != window) continue;
+        if (!window || window->isDeleted() || !window->window() || !m.output
+            || !m.timer.isValid() || m.timer.elapsed() >= 220
+            || window->isUserMove() || window->isUserResize() || window->isMinimized()
+            || QRectF(m.output->geometry()) != m.outputGeometry
+            || window->window()->moveResizeOutput() != m.output
+            || QRectF(window->window()->moveResizeGeometry()) != m.to) return std::nullopt;
+        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m.timer.elapsed()/220.0);
+        return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
+            m.from.size()+(m.to.size()-m.from.size())*t);
+    }
+    return std::nullopt;
+}
+
+QRectF Effect::bentoPresentationRect(KWin::EffectWindow *window) const
+{
+    if (!window || window->isDeleted() || window->isMinimized() || window == m_carriedWindow)
+        return {};
+    if (const auto pose = bentoMotionRect(window)) return *pose;
+    return QRectF(window->frameGeometry());
+}
+
+void Effect::clearBentoMotions()
+{
+    if (m_bentoMotions.isEmpty()) return;
+    for (const auto &m : std::as_const(m_bentoMotions))
+        if (m.window && !m.window->isDeleted()) unredirect(m.window);
+    m_bentoMotions.clear();
+    KWin::effects->addRepaintFull();
+}
+
+void Effect::animateBentoLayout(KWin::LogicalOutput *output,
+    const QList<QPointer<KWin::EffectWindow>> &windows,
+    const QList<QRectF> &from, const QList<QRectF> &to)
+{
+    // Geometry is already committed. This is bounded presentation only;
+    // each output's changed panes share one clock and retain interrupted poses.
+    for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
+        if (it->output != output) { ++it; continue; }
+        if (it->window && !it->window->isDeleted()) unredirect(it->window);
+        it = m_bentoMotions.erase(it);
+    }
+    if (!output) return;
+    QElapsedTimer clock; clock.start();
+    for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
+        auto *w = windows[i].data();
+        if (!w || w->isDeleted() || !w->window() || w->isMinimized()
+            || w == m_carriedWindow || w == m_settlingWindow || !from[i].isValid()
+            || from[i] == to[i] || w->window()->moveResizeOutput() != output
+            || QRectF(w->window()->moveResizeGeometry()) != to[i]) continue;
+        m_bentoMotions.append({w,output,from[i],to[i],QRectF(output->geometry()),clock});
+    }
+    if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }
 
 void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
@@ -1828,6 +1896,16 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     m_preparationNeighbors = neighbors;
     if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
+    for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
+        if (!bentoMotionRect(it->window)) {
+            if (it->window && !it->window->isDeleted()) unredirect(it->window);
+            it = m_bentoMotions.erase(it);
+        } else {
+            data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+            m_continueRepaint = true;
+            ++it;
+        }
+    }
     if (m_settlingWindow) {
         if (!dropSettleRect()) clearDropSettle();
         else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true; }
@@ -1860,7 +1938,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
                             KWin::EffectWindow *window,
                             KWin::WindowPrePaintData &data)
 {
-    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect())) {
+    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)) {
         data.setTransformed(); data.setTranslucent();
     }
     if (m_cardStage->isActive()
@@ -2198,7 +2276,9 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
-    const auto settle = window == m_settlingWindow ? dropSettleRect() : std::nullopt;
+    const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
+    if (settle && window != m_settlingWindow && m_paintingOutput
+        && window->window()->moveResizeOutput() != m_paintingOutput) return;
     if (((window == m_carriedWindow && m_carryRuntime) || settle) && m_paintingOutput) {
         const auto plan = settle
             ? carryPaintPlan(*settle, settle->topLeft(), QRectF(m_paintingOutput->geometry()))

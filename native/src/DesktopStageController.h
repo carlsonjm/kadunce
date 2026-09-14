@@ -49,6 +49,11 @@ public:
         KWin::LogicalOutput *output) const = 0;
     virtual void prepareOutputForDesktopStage(
         KWin::LogicalOutput *output) = 0;
+    virtual QRectF bentoPresentationRect(KWin::EffectWindow *window) const {
+        return window && !window->isMinimized() ? QRectF(window->frameGeometry()) : QRectF{};
+    }
+    virtual void animateBentoLayout(KWin::LogicalOutput *,
+        const QList<QPointer<KWin::EffectWindow>> &, const QList<QRectF> &, const QList<QRectF> &) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
     virtual bool admitTransferredWindowToTablet(

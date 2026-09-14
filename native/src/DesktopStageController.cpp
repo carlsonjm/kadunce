@@ -908,6 +908,12 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
     const KWin::Rect area = stageArea(output);
     const std::vector<BentoPixelRect> pixels = makePixelBentoLayout(
         plan.rects, area.x(), area.y(), area.width(), area.height());
+    QList<QRectF> motionFrom, motionTo;
+    for (int i = 0; i < plan.windows.size() && i < int(pixels.size()); ++i) {
+        motionFrom.append(m_host->bentoPresentationRect(plan.windows[i]));
+        const auto &p = pixels[i];
+        motionTo.append(QRectF(p.x,p.y,p.width,p.height));
+    }
     for (int index = 0;
          index < plan.windows.size()
             && index < static_cast<int>(pixels.size());
@@ -942,6 +948,7 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
         KWin::workspace()->activateWindow(lead->window(), true);
     }
     if (!current()) return false;
+    m_host->animateBentoLayout(output, plan.windows, motionFrom, motionTo);
     KWin::effects->addRepaintFull();
     return true;
 }

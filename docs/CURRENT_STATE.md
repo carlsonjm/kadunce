@@ -20,7 +20,13 @@ split/overflow and held unload. Control/live safety/hash checks pass.
 Installer ../install-kadunce-bento-fullrail-20260914.sh; rollbackcf5011.
 J passed installed302b1 and authorized freeze/push. Installed hash and live safety
 verified. See FREEZE-20260914-BENTO.md. Monitor hardware acceptance remains deferred.
-Next non-monitor slice: Bento neighbor/reflow motion; Zen sampling remains separate.
+Installed, J-accepted Bento motion eac125d adds shared220ms ease-out reflow,
+with native placement once and paint-only interpolation. Fresh input interrupts;
+no snapshot/cache or resize loop. Focused layout/transfer, control and private
+column/rail motion lifecycle checks pass (X4rEyt). Installed hash/live safety verified.
+Installer ../install-kadunce-bento-motion-20260914.sh; rollback accepted302b1.
+See BENTO-MOTION-20260914.md. J authorized freeze/push. Next: render audit;
+Zen is normal unstacked, wavy when stacked. Black bars also remain reported.
 
 ## September 14 — Accepted Active ownership lifetime freeze
 
@@ -83,16 +89,8 @@ FREEZE-20260913-STACK-BASELINE.md. Trusted repair is not promoted.
 
 ## Previous baseline provenance
 
-Previous baseline c063a199850224fbc7ed364fadc9be6fd4f53bb5fadef14a8eb88ff323022906
-is the exact rigid-fan artifact J called “firm, passed with flying colors.”
-Later retained-previewad870751 received the qualified pass with initial lag.
-Backing-removal587591 was ineffective and is rejected; its source change reversed.
-
-Previous accepted post-paint baseline (now the QoL rollback):
-ae40b6e43919f944b4f4664735d488f7fc3ccd280457c461f1a55a933d905d6d
-../work/kadunce-postpaint-20260913
-../install-kadunce-postpaint.sh
---rollback restores exact c063. Nothing rebuilt in KWin itself.
+Historical rigid-fan/caching experiment provenance and exact rollback hashes:
+FREEZE-20260913-STACK-BASELINE.md. Rejected caching experiments stay rejected.
 
 Relative to the preceding rigid-fan baseline, only runtime changes are
 Effect.cpp/.h: prePaintScreen records whether animation

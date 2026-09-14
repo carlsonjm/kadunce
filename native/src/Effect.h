@@ -73,13 +73,13 @@ public:
     [[nodiscard]] bool blocksDirectScanout() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow);
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty();
     }
 
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow);
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty();
     }
 
 private Q_SLOTS:
@@ -115,6 +115,19 @@ Q_SIGNALS:
     Q_SCRIPTABLE void bridgeUnavailable();
 
 private:
+    struct BentoMotion {
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::LogicalOutput> output;
+        QRectF from, to, outputGeometry;
+        QElapsedTimer timer;
+    };
+    QList<BentoMotion> m_bentoMotions;
+    QRectF bentoPresentationRect(KWin::EffectWindow *window) const override;
+    void animateBentoLayout(KWin::LogicalOutput *output,
+        const QList<QPointer<KWin::EffectWindow>> &windows,
+        const QList<QRectF> &from, const QList<QRectF> &to) override;
+    std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
+    void clearBentoMotions();
     bool beginRailFromInput(QPointF p) override {
         return !m_carriedWindow && !m_cardStage->cardGrabActive()
             && !(isTabletPoint(p) && m_cardStage->isActive()) && m_desktopStage->beginRail(p);

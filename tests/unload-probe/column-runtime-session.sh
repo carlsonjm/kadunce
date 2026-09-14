@@ -50,7 +50,9 @@ sleep .12
 probe motion 81 "$x" "$((y-40))"
 test "$(probe windowGeometry "$main")" = "$before"
 probe up 81
+kad nativeCarryState | jq -e '.bentoMotion | length >= 2'
 sleep .6
+kad nativeCarryState | jq -e '.bentoMotion | length == 0'
 probe windowGeometry "$main" | jq -e --argjson before "$before" '.height > $before.height+20'
 echo 'PASS: off-center horizontal divider touch resizes the split column'
 probe releaseRuntime
