@@ -106,12 +106,12 @@ int main()
     for (const auto origin : {std::array<double, 2>{0, 0},
                               std::array<double, 2>{-1920, 240}}) {
         for (int gutter = 6; gutter <= 48; ++gutter) {
-            const auto bounds = Kadunce::makeActiveTarget(origin[0], origin[1], 1280, 800, gutter);
+            const auto bounds = Kadunce::makeActiveTarget(origin[0], origin[1], 1280, 800, gutter, 10);
             require(close(bounds.x - origin[0], gutter)
                         && close(bounds.y - origin[1], gutter)
                         && close(origin[0] + 1280 - bounds.right(), gutter)
-                        && close(origin[1] + 800 - bounds.bottom(), gutter),
-                    "Active gutter differs between edges or depends on output origin");
+                        && close(origin[1] + 800 - bounds.bottom(), gutter + 10),
+                    "Active bounds lost the stable Bento dock clearance");
         }
     }
     constexpr double height = 640.0;
@@ -362,19 +362,22 @@ int main()
             "The insertion envelope did not reserve both browsable seams");
 
     const auto active = Kadunce::makeActiveTarget(
-        0.0, 0.0, width, height);
+        0.0, 0.0, width, height, 10, 10);
     require(active.x > 0.0 && active.y > 0.0,
             "Active target has no protective margin");
     require(active.right() < width && active.bottom() < height,
             "Active target exceeds the tablet work area");
     require(close(active.x, 10.0) && close(active.y, 10.0)
                 && close(width - active.right(), 10.0)
-                && close(height - active.bottom(), 10.0),
-            "Active target does not retain an exact 10 px gutter");
+                && close(height - active.bottom(), 20.0),
+            "Active target does not match Bento's 10px sides and 20px bottom");
 
-    const auto edge = Kadunce::makeActiveTarget(20, 30, width, height, 0);
+    const auto noDock = Kadunce::makeActiveTarget(0, 241, 1463, 915);
+    require(close(noDock.y - 241, 10) && close(241 + 915 - noDock.bottom(), 10),
+            "Dock-free tablet must retain symmetric margins");
+    const auto edge = Kadunce::makeActiveTarget(20, 30, width, height, 0, 10);
     require(close(edge.x, 26) && close(edge.y, 36) && close(edge.width, width - 12)
-                && close(edge.height, height - 12), "Saved zero gutter must clamp to 6 px");
+                && close(edge.height, height - 22), "Saved zero gutter must clamp to 6 px plus dock clearance");
     const auto maximum = Kadunce::makeActiveTarget(0, 0, width, height, 200);
     require(close(maximum.x, 48) && close(maximum.width, width - 96),
             "Oversized gutter must clamp to 48 px");

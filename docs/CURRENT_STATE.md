@@ -1,5 +1,15 @@
 # Current state
 
+September14 accepted freeze: output-local Active bottom clearance matches Bento's extra
+10px only when MaximizeArea reserves bottom space; dock-free output keeps symmetric
+gutters. No Card Line/native ownership or repaint changes. Production build,
+layout/carry-paint and independent control pass. J installed and passed connected
+displays and unplugged tablet-only. Installed211f7c2 and live safety verified;
+freeze/push authorized. Ghostty's reported stray1px bottom line/flat-dock trigger
+remains a separate unconfirmed-cause follow-up; no speculative rendering change.
+Evidence, installer and tablet/monitor physical checklist:
+../../tettegouche/docs/ACTIVE-DOCK-20260914.md. Preserve unrelated roadmap edits.
+
 J accepted installed Tette drawer bridgebec4d8 and authorized freeze/push.
 Dock-safe bounds,220ms neighbor departure/return and guest-lifetime suspension of
 stack elevation/raising passed. Protocol3 retained; no card geometry/order changes.

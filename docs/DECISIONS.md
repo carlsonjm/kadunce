@@ -1358,3 +1358,9 @@ model reorder, native resize or persistent cache. While any launcher guest lease
 is active, selected-stack elevation and stack raising are suspended: collapsing
 the drawer does not end Tette's center ownership. End-guest restores normal card
 stacking. A clear Close drawer pill supplements the existing downward drag.
+# September14 — Active dock clearance candidate
+
+Match Bento's extra10px below Active where the output work area reserves bottom
+space. Keep symmetric gutters on dock-free outputs. Use existing placement and
+guest bridge; no new dock-visibility resize loop, ownership change or cache.
+Physical connected-display acceptance pending; see Tette ACTIVE-DOCK-20260914.md.

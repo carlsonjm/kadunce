@@ -748,7 +748,8 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, output);
     const CardRect target = makeActiveTarget(
-        work.x(), work.y(), work.width(), work.height(), m_settings.gutter());
+        work.x(), work.y(), work.width(), work.height(), m_settings.gutter(),
+        work.bottom() < output->geometry().bottom() - 1 ? 10.0 : 0.0);
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
 }

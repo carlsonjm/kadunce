@@ -98,6 +98,6 @@ enum class CardLineAction {
 
 [[nodiscard]] CardRect makeActiveTarget(
     double workX, double workY, double workWidth, double workHeight,
-    double requestedGutter = 10.0);
+    double requestedGutter = 10.0, double bottomClearance = 0.0);
 
 } // namespace Kadunce

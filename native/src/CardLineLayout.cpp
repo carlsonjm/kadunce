@@ -307,13 +307,16 @@ CardRect makeReservedCardTarget(const CardLineLayout &layout, int slot,
 }
 
 CardRect makeActiveTarget(double workX, double workY,
-                          double workWidth, double workHeight, double requestedGutter)
+                          double workWidth, double workHeight, double requestedGutter,
+                          double bottomClearance)
 {
     const double limit = std::max(0.0, (std::min(workWidth, workHeight) - 1.0) / 2.0);
     const double gutter = std::min(std::clamp(requestedGutter, 6.0, 48.0), limit);
+    // Match Bento's stable extra bottom clearance for floating panel expansion.
+    // Reserve it at placement, not through a dock-visibility resize loop.
     return CardRect{workX + gutter, workY + gutter,
                     workWidth - (2.0 * gutter),
-                    workHeight - (2.0 * gutter)};
+                    std::max(1.0, workHeight - (2.0 * gutter) - std::max(0.0, bottomClearance))};
 }
 
 } // namespace Kadunce
