@@ -631,8 +631,7 @@ void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)
 
 std::optional<NativeMoveSnapshot> Effect::activeRestoreForDesktopStage(KWin::EffectWindow *window) const
 {
-    const auto source = m_cardStage->prepareNativeCarrySource(window);
-    return source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot()) : std::nullopt;
+    return m_cardStage->managedRestore(window);
 }
 
 KWin::LogicalOutput *Effect::tabletOutputForCardStage() const
@@ -885,6 +884,19 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    // Active-sized cards do not become ordinary windows through a resize grip.
+    // Defer cancellation until KWin has finished publishing native-start; never
+    // tear down its transaction recursively inside that signal.
+    if (window && window->window() && window->isUserResize()
+        && m_cardStage->managedRestore(window)) {
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserResize()
+                || !m_cardStage->managedRestore(guarded)) return;
+            guarded->window()->cancelInteractiveMoveResize();
+        });
+        return;
+    }
     traceNativeMove(window, "native-start");
     if (window == m_settlingWindow) clearDropSettle();
     if (m_carryRuntime && m_carryRuntime->route.busy()) m_carryRuntime->cancel();
@@ -1209,7 +1221,11 @@ bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window,
         ? QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size())
         : QRectF();
     if (m_cardStage->launcherGuestActive()) endLauncherGuest();
-    return m_cardStage->admitTransferredWindowToTablet(window, commitSource, carriedOrigin);
+    const auto source = m_desktopStage->prepareNativeCarrySource(window);
+    const auto restore = source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot())
+        : std::nullopt;
+    return m_cardStage->admitTransferredWindowToTablet(window, commitSource, carriedOrigin,
+        restore ? &*restore : nullptr);
 }
 
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)

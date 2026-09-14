@@ -22,11 +22,18 @@ Card Line and Bento are output-local presentations, not display-type restriction
 The tablet can enter Bento even with an external display attached. A local tablet
 edge drop reserves entry during motion and invokes the same stage transition as
 the shortcut on release. Card Stage releases before Bento collects restore records;
-the Active source's authoritative restore record crosses that boundary explicitly,
+all retained cards' authoritative restore records cross that boundary explicitly,
 because native frame acknowledgement may lag. Other displays' Bento sessions are
 not released. Open-space tablet drops still follow Card Line behavior.
 
 ## Current implementation
+
+September14 accepted freeze: native Active geometry belongs to card membership,
+not the currently selected presentation. CardStageController parks per-window
+restore records on Card Line/selection changes and reuses them on Active entry.
+Only explicit release/unload applies those records; committed transfers forget the
+source record after acceptance. Bento reads retained records before source release.
+See CURRENT_STATE.md for validation and installed status.
 
 Accepted September13 row-motion freeze: CardStageController captures presented
 poses and anchors incoming/departing travel to the new center's displacement.

@@ -1,33 +1,33 @@
 # Current state
 
-## Accepted pickup freeze
+## Previous accepted pickup freeze
 
 Accepted pickup:180ms contact-anchored scale with captured tilt easing
 flat; remaining cards ease from captured pre-detach poses on the same180ms clock.
 Committed stationary holds use existing release settle. Cancellation
 remains immediate. Focused tests/control and J physical acceptance pass.
-Installed a7482cc840526c86428f79bec1a70db68749a2241b94ecbca604eeeb0a8336d8 verified.
+Previous installed a7482cc840526c86428f79bec1a70db68749a2241b94ecbca604eeeb0a8336d8.
 Freeze/push authorized. New ownership/drop failures are the next investigation;
 see NEXT-ROADMAP.md. Prior cross-display passes do not invalidate this report.
 ../install-kadunce-pickup-line-20260913.sh; rollback restores acceptedfc3126e8.
 
-Previous accepted stack polish/rollback: fc3126e8.
-The accepted reverse browse
-leaves upward motion exact; downward accents the incoming face downward while
-the outgoing face only interpolates to its fan slot (no second send-away bump).
-Stack browse uses220ms rigid accents with immediate selection; J accepted.
-See FREEZE-20260913-STACK-BROWSE.md for scope and separate held-order bug.
-../install-kadunce-stack-browse-20260913.sh --rollback restores exacta422853a.
-Held-order build passed J's physical tests:
-detach now exposes the preceding visual shoulder; pickup and held paging refresh
-destination back-to-front stacking while the held card remains elevated.
-Four-stack tests cover every lift position and cancellation.
-Neighbor revision preserves the compact inward edge/gap, sharing40% of the visible
-side peek equally between shoulders (two for3 cards, three for4+). Selected-relative
-depth preserves ordering. Centered browse/insertion and timing stay unchanged.
-Headless geometry checks cover both sides/counts. J's physical acceptance passed.
-../install-kadunce-even-neighbor-20260913.sh is opt-in; rollback restores70fdce52.
-Unrelated NEXT-ROADMAP edits preserved.
+## September 14 — Accepted Active ownership lifetime freeze
+
+J passed all three tablet checks and authorized freeze/push. Active departure parks
+per-window desktop restore records instead of applying them. Reentry reuses them;
+explicit release/unload restores them. Bento collects all retained records before
+Card Stage releases. Committed departure forgets only the transferred record.
+Native resize requests on retained cards are cancelled without releasing ownership.
+No renderer, animation, paging threshold or dock hit-region changes.
+
+Production compiles; five focused model/input tests and verify-control pass.
+Private runtime lifetime and direct-edge gesture checks pass (uysp1k evidence).
+See tests/unload-probe/lifetime-runtime-session.sh; its fixture requires Virtual-0
+as tablet and direct system edges enabled. Never install that fixture binary.
+Installed production8e4c8436 verified; live safety switch passes after installation.
+Exact hashes/rollback: FREEZE-20260914-ACTIVE-LIFETIME.md.
+Next: deferred monitor handoff acceptance when hardware is available.
+Unrelated roadmap edits remain separate.
 
 ## Card Line motion batch — September 13
 

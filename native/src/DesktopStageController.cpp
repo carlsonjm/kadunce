@@ -424,6 +424,8 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     const NativeMoveSnapshot *restore)
 {
     const QString key = outputKey(output);
+    const auto managed = m_host->activeRestoreForDesktopStage(window);
+    if (!restore && managed) restore = &*managed;
     RestoreSnapshot incoming{
         .window = window, .geometry = geometry, .floatingGeometry = geometry,
         .fullscreenRestoreGeometry = {}, .outputName = key, .quickTileMode = {},
@@ -611,6 +613,14 @@ DesktopStageController::RestoreSnapshot DesktopStageController::makeSnapshot(
         return {};
     }
     KWin::Window *client = window->window();
+    if (const auto saved = m_host->activeRestoreForDesktopStage(window)) {
+        return {.window = window, .geometry = saved->geometry,
+            .floatingGeometry = saved->floatingGeometry,
+            .fullscreenRestoreGeometry = saved->fullscreenRestoreGeometry,
+            .outputName = outputKey(saved->output), .quickTileMode = saved->quickTileMode,
+            .maximizeMode = saved->maximizeMode, .fullScreen = saved->fullScreen,
+            .minimized = saved->minimized, .valid = true};
+    }
     return {
         .window = window,
         .geometry = window->frameGeometry(),
@@ -640,7 +650,13 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
         qInfo() << "Kadunce" << Revision
                 << "using the tablet Desktop Stage fallback with no external display";
     }
-    const auto activeRestore = m_host->activeRestoreForDesktopStage(preferred);
+    // Capture every retained card restore before releasing Card Stage. Native
+    // configure acknowledgement may lag behind that release.
+    QHash<KWin::EffectWindow *, NativeMoveSnapshot> cardRestores;
+    for (const auto &window : collectWindows(output, preferred)) {
+        if (const auto saved = m_host->activeRestoreForDesktopStage(window))
+            cardRestores.insert(window, *saved);
+    }
     m_host->prepareOutputForDesktopStage(output);
     const QList<QPointer<KWin::EffectWindow>> owned =
         collectWindows(output, preferred);
@@ -655,6 +671,9 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     QList<RestoreSnapshot> snapshots;
     for (const QPointer<KWin::EffectWindow> &window : owned) {
         auto saved = makeSnapshot(window);
+        const auto retained = cardRestores.constFind(window);
+        const auto activeRestore = retained == cardRestores.cend()
+            ? std::optional<NativeMoveSnapshot>() : std::optional<NativeMoveSnapshot>(*retained);
         if (activeRestore && window && window->window() == activeRestore->window
             && activeRestore->output == output) {
             // Restoration was requested, but the client may still report Active

@@ -141,12 +141,13 @@ public:
     void handleWindowActivated(KWin::EffectWindow *window);
     bool admitTransferredWindowToTablet(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
-        const QRectF &carriedOrigin = {});
+        const QRectF &carriedOrigin = {}, const NativeMoveSnapshot *restore = nullptr);
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
     void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
+    [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
 private:
     struct ActiveRestoreSnapshot {
@@ -167,6 +168,8 @@ private:
     void finishNewArrival(KWin::EffectWindow *window, bool animateArrival, int previousSelection);
     bool enterActive();
     void restoreActiveSnapshot();
+    void parkActiveSnapshot();
+    void forgetManagedRestore(KWin::EffectWindow *window);
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
     void syncSelectedStackingOrder();
     void restoreOriginalStackingOrder();
@@ -199,6 +202,7 @@ private:
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
     ActiveRestoreSnapshot m_activeRestore;
+    QList<ActiveRestoreSnapshot> m_parkedRestores;
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     int m_activeSettleRemaining = 0;

@@ -873,7 +873,7 @@ bool CardStageController::transferNativeCarryToDesktop(const PreparedCarrySource
             // This is logical state only: never replay the departed window's old
             // geometry during cleanup, release, or synchronous activation signals.
             ++m_restoreGeneration;
-            m_activeRestore = ActiveRestoreSnapshot{};
+            forgetManagedRestore(arrival);
             m_presentation = CardPresentation::CardLine;
             m_active = !m_workspace.windows().isEmpty();
             m_originalCardStackingOrder.removeAll(arrival);
@@ -1102,7 +1102,11 @@ bool CardStageController::finishCardGrabOnOutput(const QPointF &position)
     QPointer<KWin::EffectWindow> arrival = grabbed;
     const bool accepted = m_host->admitCardToDesktopStage(
         grabbed, destination, KWin::RectF(activeTarget(destination)),
-        [&] { return m_workspace.commitRemoval(*removal); },
+        [&] {
+            if (!m_workspace.commitRemoval(*removal)) return false;
+            forgetManagedRestore(arrival);
+            return true;
+        },
         [&] {
             // Both logical owners are published before native/visual cleanup.
             m_originalCardStackingOrder.removeAll(arrival);
@@ -1276,7 +1280,7 @@ void CardStageController::toggle()
                 return;
             }
         } else {
-            restoreActiveSnapshot();
+            parkActiveSnapshot();
             m_presentation = CardPresentation::CardLine;
         }
         syncSelectedElevation();
@@ -1315,7 +1319,6 @@ void CardStageController::release()
     }
     finishCardGrab(false);
     endLauncherGuest();
-    const bool wasActive = m_presentation == CardPresentation::Active;
     const QPointer<KWin::EffectWindow> releasedWindow = selectedWindow();
     // Stop filtering the scene before fullscreen restoration changes layers,
     // activation or geometry. Those operations can synchronously reenter KWin.
@@ -1328,9 +1331,7 @@ void CardStageController::release()
             KWin::effects->setElevatedWindow(window, false);
         }
     }
-    if (wasActive) {
-        restoreActiveSnapshot();
-    }
+    restoreActiveSnapshot();
     restoreOriginalStackingOrder();
     // Replaying the old stack must not leave the released fullscreen client
     // underneath another application or without active-fullscreen treatment.
@@ -1369,7 +1370,7 @@ void CardStageController::pageHorizontal(int delta)
     const bool activeStack = wasActive
         && m_workspace.stackSizeForId(m_workspace.selectedId()) > 1;
     if (wasActive) {
-        restoreActiveSnapshot();
+        parkActiveSnapshot();
     }
     if (activeStack) {
         m_workspace.pageStack(delta);
@@ -1578,7 +1579,13 @@ bool CardStageController::enterActive()
             m_host->unredirectForCardStage(window);
         }
     }
-    m_activeRestore = ActiveRestoreSnapshot{
+    parkActiveSnapshot();
+    const auto retained = std::find_if(m_parkedRestores.begin(), m_parkedRestores.end(),
+        [effectWindow](const auto &saved) { return saved.window == effectWindow; });
+    if (retained != m_parkedRestores.end()) {
+        m_activeRestore = *retained;
+        m_parkedRestores.erase(retained);
+    } else m_activeRestore = ActiveRestoreSnapshot{
         .window = effectWindow,
         .geometry = effectWindow->frameGeometry(),
         .floatingGeometry = client->geometryRestore(),
@@ -1623,22 +1630,49 @@ void CardStageController::restoreActiveSnapshot()
     m_activeSettleTimer.stop();
     m_activeSettleRemaining = 0;
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-    if (!m_activeRestore.valid || !m_activeRestore.window
-        || !m_activeRestore.window->window()) {
-        m_activeRestore = ActiveRestoreSnapshot{};
-        return;
+    parkActiveSnapshot();
+    const auto snapshots = std::exchange(m_parkedRestores, {});
+    for (const auto &snapshot : snapshots) {
+        if (!snapshot.valid || !snapshot.window || snapshot.window->isDeleted()
+            || !snapshot.window->window()) continue;
+        restoreWindowState(snapshot.window->window(), snapshot, snapshot.geometry, true);
     }
-    const ActiveRestoreSnapshot snapshot = m_activeRestore;
-    m_activeRestore = ActiveRestoreSnapshot{};
-    KWin::Window *client = snapshot.window->window();
-    restoreWindowState(client, snapshot, snapshot.geometry, true);
-    qInfo() << "Kadunce" << Revision << "restored"
-            << snapshot.window->caption() << "to" << snapshot.geometry;
+}
+
+void CardStageController::parkActiveSnapshot()
+{
+    m_activeSettleTimer.stop();
+    if (m_activeRestore.valid && m_activeRestore.window) {
+        const auto window = m_activeRestore.window;
+        m_parkedRestores.removeIf([&](const auto &s) { return !s.window || s.window == window; });
+        m_parkedRestores.append(m_activeRestore);
+    }
+    m_activeRestore = {};
+}
+
+void CardStageController::forgetManagedRestore(KWin::EffectWindow *window)
+{
+    if (m_activeRestore.window == window) m_activeRestore = {};
+    m_parkedRestores.removeIf([window](const auto &s) { return !s.window || s.window == window; });
+    ++m_restoreGeneration;
+}
+
+std::optional<NativeMoveSnapshot> CardStageController::managedRestore(KWin::EffectWindow *window) const
+{
+    if (!m_active || !window || window->isDeleted() || !window->window()) return std::nullopt;
+    const ActiveRestoreSnapshot *saved = m_activeRestore.window == window ? &m_activeRestore : nullptr;
+    if (!saved) for (const auto &s : m_parkedRestores) {
+        if (s.window == window) { saved = &s; break; }
+    }
+    if (!saved || !saved->valid) return std::nullopt;
+    return NativeMoveSnapshot{window->window(), window->screen(), saved->geometry,
+        saved->floatingGeometry, saved->fullscreenRestoreGeometry, saved->maximizeMode,
+        saved->quickTileMode, saved->fullScreen, false};
 }
 
 bool CardStageController::admitTransferredWindowToTablet(
     KWin::EffectWindow *window, const std::function<bool()> &commitSource,
-    const QRectF &carriedOrigin)
+    const QRectF &carriedOrigin, const NativeMoveSnapshot *restore)
 {
     QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
     if (!tablet || !window || window->isDeleted() || !window->window()
@@ -1648,6 +1682,16 @@ bool CardStageController::admitTransferredWindowToTablet(
     }
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
+    const ActiveRestoreSnapshot incoming{
+        .window = window,
+        .geometry = restore ? restore->geometry : window->frameGeometry(),
+        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
+        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry : client->fullscreenGeometryRestore(),
+        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
+        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
+        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
+        .valid = true,
+    };
     const KWin::RectF target(activeTarget(tablet));
     const auto ticket = m_transferGuard.issue();
     if (!target.isValid() || !KWin::effects->screens().contains(tablet.data())
@@ -1683,9 +1727,10 @@ bool CardStageController::admitTransferredWindowToTablet(
         m_host->cancelInputForCardStage();
         if (!valid()) return true;
         m_presentation = CardPresentation::CardLine;
-        restoreActiveSnapshot();
+        parkActiveSnapshot();
         if (!valid()) return true;
     }
+    if (m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
     client->sendToOutput(tablet);
     if (!valid()) return true;
     client->moveResize(target);
@@ -1785,7 +1830,7 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     if (animateArrival) captureCardTransition();
     finishCardGrab(false);
     if (m_presentation == CardPresentation::Active) {
-        restoreActiveSnapshot();
+        parkActiveSnapshot();
     }
     m_presentation = CardPresentation::CardLine;
     int previousSelection = m_workspace.selectedIndex();
@@ -1838,6 +1883,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     if (closedActive) {
         m_activeRestore = ActiveRestoreSnapshot{};
     }
+    forgetManagedRestore(window);
     const bool removed = m_workspace.removeAt(closedIndex);
     if (m_workspace.windows().isEmpty()) {
         release();
@@ -1847,7 +1893,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
         qWarning() << "Kadunce" << Revision
                    << "could not remove closed card in place; rebuilding";
         if (m_presentation == CardPresentation::Active) {
-            restoreActiveSnapshot();
+            parkActiveSnapshot();
         }
         m_presentation = CardPresentation::CardLine;
         rebuildLiveCards();
@@ -1878,7 +1924,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     m_host->cancelInputForCardStage();
     finishCardGrab(false);
     if (m_presentation == CardPresentation::Active) {
-        restoreActiveSnapshot();
+        parkActiveSnapshot();
     }
     m_presentation = CardPresentation::CardLine;
 

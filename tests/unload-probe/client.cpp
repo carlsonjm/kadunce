@@ -14,6 +14,10 @@ class Client : public QWidget {
 public:
  Client() { setAttribute(Qt::WA_AcceptTouchEvents); if (qEnvironmentVariableIsSet("KADUNCE_TEST_FRAMELESS")) setWindowFlag(Qt::FramelessWindowHint); resize(900,650); }
  bool event(QEvent *e) override {
+  if (resizeArmed && (e->type()==QEvent::TouchBegin || e->type()==QEvent::MouseButtonPress)) {
+   resizeArmed = false;
+   if (windowHandle()) windowHandle()->startSystemResize(Qt::BottomEdge);
+  }
   if (moveArmed && (e->type()==QEvent::TouchBegin || e->type()==QEvent::MouseButtonPress)) {
    moveArmed = false;
    if (e->type()==QEvent::TouchBegin && qGuiApp->platformName()=="xcb") x11Request(8,1);
@@ -30,6 +34,7 @@ public:
 public Q_SLOTS:
  void closeWindow() { QApplication::closeAllWindows(); }
  void armMove() { moveArmed = true; }
+ void armResize() { resizeArmed = true; }
  // Private test client only: exercise rejected EWMH requests through the real server.
  void x11Request(int direction, int button) {
   auto *native = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
@@ -59,7 +64,7 @@ public Q_SLOTS:
  QString targetState() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"press",targetPresses},{"release",targetReleases},{"click",targetClicks}}).toJson(QJsonDocument::Compact)); }
  QString state() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"touchDown",downs},{"touchUp",ups},{"cancel",cancels},{"press",presses},{"release",releases}}).toJson(QJsonDocument::Compact)); }
  void reset() { downs=ups=cancels=presses=releases=0; }
-private: bool moveArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
+private: bool moveArmed = false, resizeArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
  int targetPresses=0,targetReleases=0,targetClicks=0;
 };
 int main(int argc,char**argv) { QApplication a(argc,argv); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("studio.warbler.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }

@@ -1226,3 +1226,27 @@ J subsequently accepted15882014 and requested local freeze. Held-card paging
 ordering is separately reported and remains unresolved; do not conflate ordinary
 browse acceptance with insertion/held-row correctness. See the stack-browse
 freeze record for reproduction boundary. No push requested this turn.
+
+## September 14 — Active geometry lasts until explicit release
+
+J's contract: Card Line and selection changes are presentation changes, not
+permission to restore an Active card to desktop geometry. Retain each admitted
+window's original restore state until explicit release/unload, or transfer that
+state into Bento. Forget the source record only after a committed departure.
+CardStageController retains parked records alongside its selected Active record;
+there is no renderer-side geometry owner or repeated corrective resize loop.
+Bento collects all retained records before source release because native geometry
+acknowledgements can lag. Native resize requests on retained cards are cancelled
+after KWin publishes native-start; genuine moves retain existing transfer routing.
+
+Source candidate only. Production build, focused tests and tray-control checks
+pass. Private one-output direct-edge fixture evidence:
+/tmp/kadunce-unload-test.uysp1k/session.log (five PASS assertions).
+Earlier generic-backend swipe failures were fixture mismatches, not passing tests.
+Production must retain normal tablet discovery and Z13 backend detection.
+J's touch/dock acceptance and deferred monitor handoff are not replaced by this
+test. Installed accepted pickup build remains unchanged at candidate preparation.
+
+J subsequently passed the three tablet acceptance checks and authorized freeze
+and push. Installed production8e4c8436 and post-install live safety are verified.
+See FREEZE-20260914-ACTIVE-LIFETIME.md. Monitor acceptance remains deferred.
