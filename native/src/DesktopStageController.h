@@ -6,6 +6,7 @@
 #pragma once
 
 #include "BentoLayout.h"
+#include "BentoSidePlacement.h"
 #include "DeferredCommandGuard.h"
 #include "PreparedCarrySource.h"
 #include "RestoredMinimization.h"
@@ -77,6 +78,7 @@ public:
     // Returns true when a new window was parked by an existing session.
     bool handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
+    void handleWindowMinimizedChanged(KWin::EffectWindow *window);
     void handleScreenRemoved(KWin::LogicalOutput *output);
     void handleScreenAdded(KWin::LogicalOutput *output) { m_retiredOutputs.removeAll(output); }
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
@@ -95,6 +97,7 @@ public:
     // be replayed, including when source commitment is rejected.
     class PreparedDrop {
     public:
+        std::optional<BentoSidePlacement> sidePlacement() const { return side; }
         KWin::LogicalOutput *destinationOutput() const { return output.data(); }
         bool detachesToDesktop() const { return intent == CardDropIntent::NativeDesktop && leavingBento; }
         bool showsPlacementOutline() const { return intent != CardDropIntent::NativeDesktop || leavingBento; }
@@ -109,6 +112,7 @@ public:
         std::weak_ptr<const int> owner;
         std::shared_ptr<bool> consumed = std::make_shared<bool>(false);
         CardDropIntent intent = CardDropIntent::OpenSpace;
+        std::optional<BentoSidePlacement> side;
         bool hadSession = false;
         bool leavingBento = false;
         QPointer<KWin::EffectWindow> localTarget;
@@ -118,7 +122,8 @@ public:
     };
     [[nodiscard]] std::optional<PreparedDrop> prepareCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
-        const KWin::RectF &geometry, CardDropIntent intent = CardDropIntent::OpenSpace) const;
+        const KWin::RectF &geometry, CardDropIntent intent = CardDropIntent::OpenSpace,
+        std::optional<BentoSidePlacement> side = {}) const;
     [[nodiscard]] bool cardDropValid(const PreparedDrop &drop) const;
     [[nodiscard]] std::optional<PreparedDrop> prepareLocalCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
@@ -139,7 +144,8 @@ public:
                            const KWin::RectF &geometry, const std::function<bool()> &commitSource,
                            const std::function<void()> &releaseSource,
                            CardDropIntent intent = CardDropIntent::OpenSpace,
-                           const NativeMoveSnapshot *restore = nullptr);
+                           const NativeMoveSnapshot *restore = nullptr,
+                           std::optional<BentoSidePlacement> side = {});
 
 private:
     struct RestoreSnapshot {
@@ -153,21 +159,26 @@ private:
         bool fullScreen = false;
         bool minimized = false;
         bool valid = false;
+        bool userMinimized = false;
     };
 
     struct Session {
+        QPointer<KWin::EffectWindow> sideWindow;
+        std::optional<BentoSidePlacement> side;
         QString outputName;
         QList<QPointer<KWin::EffectWindow>> windows;
         QList<QPointer<KWin::EffectWindow>> overflow;
         QList<RestoreSnapshot> snapshots;
         std::vector<BentoRect> rects;
         bool applying = false;
+        bool participationDirty = false;
         quint64 applicationToken = 0;
     };
 
     [[nodiscard]] std::optional<Session> prepareCardAdmission(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
-        const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr);
+        const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr,
+        std::optional<BentoSidePlacement> side = {});
     [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
@@ -181,7 +192,8 @@ private:
     [[nodiscard]] RestoreSnapshot makeSnapshot(
         KWin::EffectWindow *window) const;
     bool activate(KWin::LogicalOutput *output,
-                  KWin::EffectWindow *preferred = nullptr);
+                  KWin::EffectWindow *preferred = nullptr,
+                  std::optional<BentoSidePlacement> side = {});
     void restoreSession(const QString &key, bool outputRemoving = false);
     bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
@@ -194,10 +206,13 @@ private:
     bool handoffWindowToOutput(KWin::EffectWindow *window,
                                KWin::LogicalOutput *destination,
                                const KWin::RectF &destinationGeometry,
-                               CardDropIntent intent = CardDropIntent::OpenSpace);
+                               CardDropIntent intent = CardDropIntent::OpenSpace,
+                               std::optional<BentoSidePlacement> side = {});
     bool reflowSession(Session &session,
                        KWin::EffectWindow *preferred = nullptr, bool requirePreferred = false,
                        bool invalidateApplication = true);
+    bool planSession(Session &session, KWin::EffectWindow *preferred,
+                     bool requirePreferred) const;
     void adjustRail(Session &session, KWin::EffectWindow *window,
                     const KWin::RectF &start, const KWin::RectF &finish);
 

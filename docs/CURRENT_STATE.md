@@ -1,15 +1,22 @@
 # Current state
 
-## Previous accepted pickup freeze
+## September 14 — Bento side/share candidate
 
-Accepted pickup:180ms contact-anchored scale with captured tilt easing
-flat; remaining cards ease from captured pre-detach poses on the same180ms clock.
-Committed stationary holds use existing release settle. Cancellation
-remains immediate. Focused tests/control and J physical acceptance pass.
-Previous installed a7482cc840526c86428f79bec1a70db68749a2241b94ecbca604eeeb0a8336d8.
-Freeze/push authorized. New ownership/drop failures are the next investigation;
-see NEXT-ROADMAP.md. Prior cross-display passes do not invalidate this report.
-../install-kadunce-pickup-line-20260913.sh; rollback restores acceptedfc3126e8.
+J accepted membership d2acb77c: minimize/restore/fill passed; retained as rollback.
+Main remains ead1fe3. New source adds upper/lower side-edge larger/smaller intent,
+minimum-aware thirds and curated remainder patterns through eight cards.
+Preview/commit share the plan; one card fills and remembers its side/share.
+Side admission now selects a fitting subset including the dragged card; other
+residents use minimized overflow. A lone pane fills Active space. Launch admission
+still requires the newcomer visible and can discard an incompatible remembered split.
+Production build, layout/transfer/control checks pass. Private zARsqi passes
+mouse/touch overflow entry and restoration; live safety/hash preflight passes.
+Monitor hardware acceptance remains deferred. No divider changes.
+See BENTO-SIDE-20260914.md for scope, tests and local installer. Installed launch
+build23baa failed snapping with Spotify present; closing it restored snapping.
+J passed installed overflowcd7df; locally frozen, not pushed. Next: divider grab rail.
+Membership retains the approved
+immediate-unload visibility exception during incomplete restoration.
 
 ## September 14 — Accepted Active ownership lifetime freeze
 
@@ -27,7 +34,6 @@ as tablet and direct system edges enabled. Never install that fixture binary.
 Installed production8e4c8436 verified; live safety switch passes after installation.
 Exact hashes/rollback: FREEZE-20260914-ACTIVE-LIFETIME.md.
 Next: deferred monitor handoff acceptance when hardware is available.
-Unrelated roadmap edits remain separate.
 
 ## Card Line motion batch — September 13
 
@@ -50,12 +56,9 @@ prepare both sides. No new retained snapshots, background timer, input readiness
 gate or native geometry. Paging can outrun preparation and never waits for it.
 Entry is opaque; clipping replaces the superseded16px/fade experiments.
 
-Previous main38753bf is the QoL baseline below. Exact immediate rollback8b766377
-(preparation pass J called V GOOD) is preserved by
-../install-kadunce-row-unison-20260913.sh --rollback.
+Historical row-motion rollback: ../install-kadunce-row-unison-20260913.sh --rollback.
 Source/runtime checks and J's physical pass cover this scoped freeze, not all
 hardware. Zen sampling remains open; do not restart caching experiments.
-Next bounded motion scope, only on request: stack cycling and pickup/release.
 Preserve unrelated NEXT-ROADMAP edits.
 
 ## Accepted QoL freeze
@@ -123,9 +126,7 @@ J's post-install physical feedback: still smooth; accepts this as working baseli
 Zen's rendering artifact remains open. Live safety switch verified after install.
 This is user acceptance, not an instrumented frame-time or root-cause proof.
 
-J reports major lag upstairs on battery; plugging in downstairs became smooth,
-and remained smooth after unplugging. Power/refresh/runtime state is a plausible
-factor, not diagnosed. Do not claim this patch conclusively explains that change.
+Power/refresh/runtime contribution to historical lag remains unproven.
 
 ## Safety and next bounded action
 
@@ -139,8 +140,7 @@ Zen sampling remains separate. Trusted repair is not promoted.
 
 ## Recovery and other scope
 
-Local candidate binaries/source archives are retained under ../work; these are
-not shipped in Git. Fresh clones use the repository's standard install.sh.
+Local candidates remain under ../work, outside Git; fresh clones use install.sh.
 Trusted repair stays27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9.
 KWin6.7.5-1.2 engine patch unchanged. Never reinstate rejected rough-swipeba47bf.
 Occupied-tablet arrival considered solved; Affinity splash deferred.

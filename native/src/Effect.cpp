@@ -854,6 +854,10 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
         return;
     }
     if (window->window()) {
+        connect(window->window(), &KWin::Window::minimizedChanged, this,
+            [this, guarded = QPointer<KWin::EffectWindow>(window)] {
+                if (guarded) m_desktopStage->handleWindowMinimizedChanged(guarded);
+            });
         connect(window->window(), &KWin::Window::readyForPaintingChanged,
                 this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::desktopFileNameChanged,
@@ -1025,6 +1029,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             traceNativeMove(m_carriedWindow, qPrintable(state));
         }
     });
+    const auto previousDestination = m_carryDestination;
     m_carryDestination.reset();
     m_carryPreview.reset();
     if (!m_carriedWindow || !m_carryRuntime->handoff.source()) return;
@@ -1041,6 +1046,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool tablet = isTabletOutput(target);
     const auto edge = isPanelPoint(contact) ? std::nullopt
         : monitorCarryEdge(QRectF(target->geometry()), contact);
+    std::optional<BentoSidePlacement> side;
+    if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
+        side = bentoSideChoice(*edge == CarryEdge::Right, contact.y(),
+            QRectF(target->geometry()).center().y(), previousDestination
+                && previousDestination->destinationOutput() == target
+                ? previousDestination->sidePlacement() : std::nullopt);
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
     const QRectF area = nativeLandingAreaForOutput(target);
@@ -1069,11 +1080,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     if (local && tablet && !bento && edge) {
         const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
             KWin::RectF(QRectF(handoff.carry().position(), m_carryPickup.size())),
-            DesktopStageController::CardDropIntent::ActivateBento);
+            DesktopStageController::CardDropIntent::ActivateBento, side);
         if (!reserved) return;
         m_carryDestination = reserved;
         m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
         const auto intent = monitorDropIntent(target->name(), 0, std::nullopt, edge);
+        if (side && !m_carryPreview) return;
         handoff.previewDrop(*intent,
             [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
             [this, reserved](const PreparedCarrySource &source) {
@@ -1091,16 +1103,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     if (stayNative && inNativeDockReleaseZone(contact, QRectF(target->geometry()), area))
         landing = safeNativeLanding(landing, area);
     const KWin::RectF geometry(landing);
-    const auto reserved = local && !desktopWindow
+    const auto reserved = local && !desktopWindow && !side
         ? m_desktopStage->prepareLocalCardDrop(m_carriedWindow, target, geometry, contact)
         : m_desktopStage->prepareCardDrop(m_carriedWindow, target, geometry,
         stayNative ? DesktopStageController::CardDropIntent::NativeDesktop
         : edge && (!tablet || desktopWindow) ? DesktopStageController::CardDropIntent::ActivateBento
-             : DesktopStageController::CardDropIntent::OpenSpace);
+             : DesktopStageController::CardDropIntent::OpenSpace, side);
     if (!reserved) return;
     m_carryDestination = reserved;
     m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
     const bool existing = m_desktopStage->hasSessionOnOutput(target->name());
+    if (side && !m_carryPreview) return;
     QPointer<KWin::LogicalOutput> output = target;
     const auto destination = stayNative
         ? monitorDropIntent(target->name(), 0, std::nullopt)
@@ -1578,6 +1591,7 @@ void Effect::beginCardGrab(const QPointF &position)
 
 void Effect::updateCardGrab(const QPointF &position)
 {
+    const auto previousDestination = m_lineDestination;
     m_linePreview.reset();
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_cardStage->updateCardGrab(position);
@@ -1586,14 +1600,21 @@ void Effect::updateCardGrab(const QPointF &position)
         if (!QRectF(output->geometry()).contains(position)) continue;
         const auto edge = isPanelPoint(position) ? std::nullopt
             : monitorCarryEdge(QRectF(output->geometry()), position);
+        std::optional<BentoSidePlacement> side;
+        if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
+            side = bentoSideChoice(*edge == CarryEdge::Right, position.y(),
+                QRectF(output->geometry()).center().y(), previousDestination
+                    && previousDestination->destinationOutput() == output
+                    ? previousDestination->sidePlacement() : std::nullopt);
         if (isTabletOutput(output) && !edge) continue;
         const KWin::RectF geometry(QRectF(m_cardStage->cardGrabTarget())
             .translated(m_cardStage->cardGrabOffset()));
         m_lineDestination = m_desktopStage->prepareCardDrop(selectedWindow(), output, geometry,
             edge ? DesktopStageController::CardDropIntent::ActivateBento
-                 : DesktopStageController::CardDropIntent::OpenSpace);
+                 : DesktopStageController::CardDropIntent::OpenSpace, side);
         if (m_lineDestination) {
             m_linePreview = m_desktopStage->cardDropPreview(*m_lineDestination);
+            if (side && !m_linePreview) { m_lineDestination.reset(); continue; }
             m_lineDestinationWindow = selectedWindow();
             m_lineDestinationContact = position;
         }

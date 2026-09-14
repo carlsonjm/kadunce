@@ -52,6 +52,8 @@ public Q_SLOTS:
   xcb_flush(c);
  }
  void companion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->resize(500,400); w->show(); }
+ void largeCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1000,700); w->resize(1000,700); w->show(); }
+ void overflowCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void clickTarget() {
   auto *button = new QPushButton("Unload safety target");
   button->setAttribute(Qt::WA_DeleteOnClose);

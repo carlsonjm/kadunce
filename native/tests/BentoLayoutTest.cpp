@@ -4,6 +4,7 @@
 */
 
 #include "BentoLayout.h"
+#include "BentoSidePlacement.h"
 #include <algorithm>
 
 #include <cmath>
@@ -36,6 +37,44 @@ void require(bool condition, const char *message)
 
 int main()
 {
+    const BentoCandidate small{100, 100, 1, 1, false};
+    for (int count = 2; count <= 8; ++count) {
+        for (bool right : {false, true}) for (bool large : {false, true}) {
+            const auto layout = bentoSideLayout({right, large}, 3840, 2160, small,
+                std::vector<BentoCandidate>(count-1, small));
+            require(layout && layout->size() == static_cast<size_t>(count),
+                "Monitor preset lost a resident");
+            const auto pixels = makePixelBentoLayout(*layout, 0, 0, 3840, 2160);
+            for (size_t i = 0; i < pixels.size(); ++i) {
+                require(pixels[i].width >= 100 && pixels[i].height >= 100,
+                    "Monitor preset violated minimum");
+                for (size_t j = i+1; j < pixels.size(); ++j)
+                    require(!overlaps(pixels[i], pixels[j]), "Monitor preset overlaps");
+            }
+        }
+    }
+    for (bool right : {false, true}) for (bool large : {false, true}) {
+        const auto layout = bentoSideLayout({right, large}, 1260, 780, small, small);
+        require(layout && layout->size() == 2, "Side placement failed");
+        const auto pixels = makePixelBentoLayout(*layout, 10, 10, 1260, 780);
+        require((pixels[0].x > pixels[1].x) == right, "Side placement reversed");
+        require((pixels[0].width > pixels[1].width) == large, "Side share reversed");
+        require(!overlaps(pixels[0], pixels[1]), "Side panes overlap");
+        require(std::abs((*layout)[0].width - (large ? 2.0/3.0 : 1.0/3.0)) < .00001,
+            "Unconstrained pane does not use thirds");
+    }
+    const auto sideConstrained = bentoSideLayout({false, false}, 1200, 780,
+        BentoCandidate{500, 200, 1, 1, false}, small);
+    require(sideConstrained && makePixelBentoLayout(*sideConstrained, 0, 0, 1200, 780)[0].width >= 500,
+        "Side split violated app minimum");
+    require(!bentoSideLayout({false, true}, 1200, 780,
+        BentoCandidate{800, 100, 1, 1, false}, BentoCandidate{800, 100, 1, 1, false}),
+        "Impossible pair admitted");
+    require(bentoSideLayout({true, false}, 1200, 780, small, std::nullopt)->at(0).width == 1,
+        "Single card did not fill Active space");
+    require(bentoSideChoice(false, 410, 400, BentoSidePlacement{false, true}).large
+        && !bentoSideChoice(false, 425, 400, BentoSidePlacement{false, true}).large,
+        "Midpoint hysteresis incorrect");
     for (int count = 1; count <= 8; ++count) {
         const std::vector<BentoRect> layout = makeBentoLayout(count, true);
         require(static_cast<int>(layout.size()) == count,
@@ -125,6 +164,21 @@ int main()
         const auto plan = chooseBentoTransferAdmission(ordinary, incoming, 2540, 1410);
         require(plan && std::find(plan->candidateIndices.begin(), plan->candidateIndices.end(), incoming)
             != plan->candidateIndices.end(), "Required non-leading candidate missing");
+    }
+    const std::vector<BentoCandidate> sideOverflow{
+        {300, 240, 900, 700, true}, {1000, 700, 1000, 700, false},
+        {300, 240, 900, 700, false}};
+    for (bool right : {false, true}) for (bool large : {false, true}) {
+        const auto fitted = chooseBentoSideAdmission({right, large}, 1200, 800, sideOverflow);
+        require(fitted && fitted->candidateIndices == std::vector<int>({0, 2}),
+            "Infeasible resident blocked edge admission or displaced dragged card");
+        require(!chooseBentoSideAdmission({right, large}, 1200, 800, sideOverflow, 1),
+            "Required newcomer was silently parked");
+        const auto alone = chooseBentoSideAdmission({right, large}, 1200, 800,
+            std::vector<BentoCandidate>{sideOverflow[1], sideOverflow[0]});
+        require(alone && alone->candidateIndices == std::vector<int>{0}
+            && alone->rects[0].width == 1 && alone->rects[0].height == 1,
+            "Only fitting card did not fill Active space");
     }
     std::cout << "Bento layout/admission checks passed\n";
     return 0;

@@ -569,6 +569,20 @@ public Q_SLOTS:
         }
         return QStringLiteral("{}");
     }
+    bool minimizeWindow(const QString &id, bool minimized) {
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (window->internalId().toString(QUuid::WithoutBraces) != id || !window->window()) continue;
+            window->window()->setMinimized(minimized);
+            return true;
+        }
+        return false;
+    }
+    bool windowMinimized(const QString &id) {
+        for (auto *window : KWin::effects->stackingOrder())
+            if (window->internalId().toString(QUuid::WithoutBraces) == id)
+                return window->isMinimized();
+        return false;
+    }
 private:
     KWin::LogicalOutput *paintingOutput = nullptr;
     int carryPaints = 0;

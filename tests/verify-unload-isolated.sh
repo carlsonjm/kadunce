@@ -2,6 +2,8 @@
 set -euo pipefail
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
+    side-runtime-session.sh) ;;
+    membership-runtime-session.sh) ;;
     lifetime-runtime-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;

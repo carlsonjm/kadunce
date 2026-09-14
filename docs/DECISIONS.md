@@ -1,5 +1,16 @@
 # Decisions
 
+## September14: edge admission may minimize non-fitting residents
+
+J confirmed ordinary edge snapping resumes after closing Spotify and approved
+overflow rather than rejecting the whole snap. Side planning selects the largest
+fitting ordered subset of at most ten considered windows/eight visible panes,
+always retaining the edge-selected card and any required newcomer. Non-fitting
+residents retain snapshots in existing minimized overflow; a singleton fills the
+work area while remembering side/share. Preview and commit use the same pure
+planner. No input, dock, native-edge or renderer changes. An arrival larger than
+the entire work area still rejects rather than violating native minimums.
+
 ## September13: animation continuation belongs after paint
 
 Live input/model timing was prompt; source audit found prePaintScreen requested
@@ -1250,3 +1261,26 @@ test. Installed accepted pickup build remains unchanged at candidate preparation
 J subsequently passed the three tablet acceptance checks and authorized freeze
 and push. Installed production8e4c8436 and post-install live safety are verified.
 See FREEZE-20260914-ACTIVE-LIFETIME.md. Monitor acceptance remains deferred.
+## September 14 — Bento visible participation
+
+Candidate: a per-restore-record userMinimized flag excludes deliberate minimized
+cards from layout admission without discarding their original geometry/flags.
+Session application suppresses its own minimize notifications, so overflow remains
+eligible to fill vacancies. Restoring clears the participation exclusion. Empty
+sessions retain ownership for release/unload and later restoration. Changes during
+native interaction are marked dirty and reconciled after interaction, with a fresh
+configure grace rather than an immediate geometry-mismatch fallback.
+Normal release re-minimizes after geometry restoration; immediate unload retains
+the previously approved visibility exception. Maximize/fullscreen restore records
+remain unchanged. Focused private evidence: /tmp/kadunce-unload-test.JuC7AO.
+Not installed or accepted; J's physical test is next. Divider/drop changes excluded.
+## September 14 — Explicit side/share placement
+
+Use one optional side/share intent in the existing PreparedDrop reservation,
+carried through ordinary-window, Active, Card Line and Bento transfer paths.
+Pure session planning owns constraint adjustment; paint only consumes its result.
+Persist side identity/share in the session for single-card fill and later joins.
+Interior swaps clear that preference. Preserve default62/38 for non-explicit entry.
+J expanded this pass to monitor patterns: reuse curated presets in the remainder,
+up to eight visible cards, without silently hiding residents to force a fit.
+No new gesture owner or touch rail. See BENTO-SIDE-20260914.md for evidence/limits.
