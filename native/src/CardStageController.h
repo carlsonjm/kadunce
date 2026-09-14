@@ -189,6 +189,7 @@ private:
     QElapsedTimer m_previewTransition;
     bool m_poseTransition = false;
     bool m_rowPageTransition = false;
+    bool m_pickupTransition = false;
     int m_stackBrowseDirection = 0;
     QPointer<KWin::EffectWindow> m_stackBrowseOutgoing;
     double m_rowDisplacement = 0; // normalized shared horizontal travel
@@ -205,6 +206,7 @@ private:
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
     KWin::Rect m_cardGrabTarget;
+    double m_cardGrabRotation = 0.0;
     QSizeF m_cardGrabDestinationSize;
     QElapsedTimer m_cardGrabScaleTimer;
     int m_cardGrabPageOffset = 0;

@@ -39,7 +39,9 @@ row_entry=$(sed -n '/^void CardStageController::pageHorizontal(/,/^bool CardStag
 printf '%s\n' "$row_entry" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_rowPageTransition = true;.*?m_workspace.page\(delta\)/s)'
 held_page=$(sed -n '/^void CardStageController::pageCardGrab(/,/^void CardStageController::finishCardGrab(/p' "$card_cpp")
 printf '%s\n' "$held_page" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_cardGrabPageOffset =/s)'
-rg -Fq '(!m_rowPageTransition || window == selectedWindow())' "$card_cpp"
+rg -Fq '((!m_rowPageTransition && !m_pickupTransition) || window == selectedWindow())' "$card_cpp"
+rg -Fq 'm_pickupTransition = m_poseTransition;' "$card_cpp"
+rg -Fq 'if (!commit) clearCardTransition();' "$card_cpp"
 rg -Fq 'if (m_rowPageTransition) clearCardTransition();' "$card_cpp"
 rg -Fq 'm_cardStage->paintSlot(window)' "$effect_cpp"
 rg -Fq 'm_workspace.idAtOffset(side * 2)' "$card_cpp"

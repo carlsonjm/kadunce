@@ -4,6 +4,12 @@
 #include <algorithm>
 namespace Kadunce {
 inline constexpr double HeldCardFraction = 0.44;
+inline constexpr int HeldPickupDuration = 180;
+inline double heldPickupProgress(double elapsed)
+{
+    const double t = std::clamp(elapsed / HeldPickupDuration, 0.0, 1.0);
+    return 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t);
+}
 // Immutable pickup plus contact-relative scale; drag translation is applied once
 // by the caller. This is the previously tried44% math without old paging code.
 inline CardRect anchoredStackCarry(const CardRect &pickup, double contactX,

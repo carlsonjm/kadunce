@@ -239,6 +239,11 @@ int main()
             "The bottom reference layout shoulder did not retain its slight upward tilt");
 
     const auto closedBack = Kadunce::makeClosedStackPose(0, 4, width);
+    require(close(Kadunce::heldPickupProgress(0), 0)
+        && close(Kadunce::heldPickupProgress(90), 0.875)
+        && close(Kadunce::heldPickupProgress(180), 1)
+        && close(Kadunce::heldPickupProgress(500), 1),
+        "Pickup easing must start at captured pose and finish in180ms");
     for (int count : {3, 4}) {
         for (int side : {-1, 1}) {
             const double extent = 7.0 * (count - 1);

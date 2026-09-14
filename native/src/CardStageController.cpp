@@ -231,8 +231,7 @@ int CardStageController::cardGrabPageOffset() const
 KWin::Rect CardStageController::cardGrabTarget() const
 {
     if (!m_cardGrabActive || !m_cardGrabScaleTimer.isValid()) return m_cardGrabTarget;
-    const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
-        std::clamp(double(m_cardGrabScaleTimer.elapsed()) / PreviewTransitionDuration, 0.0, 1.0));
+    const double t = heldPickupProgress(m_cardGrabScaleTimer.elapsed());
     const auto rect = anchoredStackCarry(
         {double(m_cardGrabTarget.x()), double(m_cardGrabTarget.y()),
          double(m_cardGrabTarget.width()), double(m_cardGrabTarget.height())},
@@ -318,9 +317,9 @@ double CardStageController::stackPreviewBlend() const
 bool CardStageController::animationsRunning() const
 {
     return (m_cardGrabActive && m_cardGrabScaleTimer.isValid()
-            && m_cardGrabScaleTimer.elapsed() < PreviewTransitionDuration)
+            && m_cardGrabScaleTimer.elapsed() < HeldPickupDuration)
         || (m_previewTransition.isValid()
-            && m_previewTransition.elapsed() < (m_rowPageTransition ? RowPageDuration
+            && m_previewTransition.elapsed() < (m_pickupTransition ? HeldPickupDuration : m_rowPageTransition ? RowPageDuration
                 : m_stackBrowseDirection ? StackBrowseDuration : PreviewTransitionDuration))
         || (m_cardStackPreviewTimer.isValid()
             && m_cardStackPreviewTimer.elapsed()
@@ -419,6 +418,7 @@ void CardStageController::clearCardTransition()
     m_previewTransition.invalidate();
     m_previewOrigins.clear();
     m_poseTransition = false;
+    m_pickupTransition = false;
     m_rowPageTransition = false;
     m_stackBrowseDirection = 0;
     m_stackBrowseOutgoing.clear();
@@ -485,6 +485,7 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
     }
     m_previewOrigins = origins;
     m_poseTransition = fullPose;
+    m_pickupTransition = false;
     m_rowPageTransition = false;
     m_stackBrowseDirection = 0;
     m_stackBrowseOutgoing.clear();
@@ -543,11 +544,11 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
                                              KWin::Rect &rect, CardStackPose &pose) const
 {
     auto *output = m_host->tabletOutputForCardStage();
-    const int duration = m_rowPageTransition ? RowPageDuration
+    const int duration = m_pickupTransition ? HeldPickupDuration : m_rowPageTransition ? RowPageDuration
         : m_stackBrowseDirection ? StackBrowseDuration
         : m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
     if (!output || !m_poseTransition
-        || (m_cardGrabActive && (!m_rowPageTransition || window == selectedWindow()))
+        || (m_cardGrabActive && ((!m_rowPageTransition && !m_pickupTransition) || window == selectedWindow()))
         || !m_previewTransition.isValid()
         || m_presentation != CardPresentation::CardLine
         || m_previewTransition.elapsed() >= duration) return 1.0;
@@ -623,7 +624,12 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
 CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *window, double width) const
 {
     auto *tablet = m_host->tabletOutputForCardStage();
-    if (!tablet || (m_cardGrabActive && window == selectedWindow())) return {0.0, 0.0, 0.0, true};
+    if (!tablet) return {0.0, 0.0, 0.0, true};
+    if (m_cardGrabActive && window == selectedWindow()) {
+        const double t = m_cardGrabScaleTimer.isValid()
+            ? heldPickupProgress(m_cardGrabScaleTimer.elapsed()) : 1.0;
+        return {0.0, 0.0, m_cardGrabRotation * (1.0 - t), true};
+    }
     const auto &cardLine = m_workspace.model();
     const int cardId = m_workspace.windows().indexOf(const_cast<KWin::EffectWindow *>(window)) + 1;
     const double previewBlend = stackPreviewBlend();
@@ -906,15 +912,18 @@ void CardStageController::beginCardGrab(const QPointF &position)
     pickup.translate(qRound(pickupPose.x), qRound(pickupPose.y));
     (void)applyPoseTransition(selectedWindow(), pickup, pickupPose);
     if (pickup.isEmpty()) return;
+    captureCardTransition(false, true);
     if (!m_workspace.selectedIsStandalone()
         && !m_workspace.detachSelectedMember()) {
+        clearCardTransition();
         return;
     }
     m_cardGrabActive = true;
-    clearCardTransition();
+    m_pickupTransition = m_poseTransition;
     m_cardGrabOffset = {};
     m_cardGrabStart = position;
     m_cardGrabTarget = pickup;
+    m_cardGrabRotation = pickupPose.rotation;
     const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
     m_cardGrabDestinationSize = QSizeF(work.width() * HeldCardFraction,
                                      work.height() * HeldCardFraction);
@@ -989,11 +998,12 @@ void CardStageController::finishCardGrab(bool commit)
         return;
     }
     KWin::EffectWindow *grabbed = selectedWindow();
+    if (!commit) clearCardTransition();
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     // Release animation is presentation only. Capture before changing order;
     // the held surface remains directly attached to its contact until release.
     // Cancellation/disable must never acquire an animation lifetime.
-    if (commit && m_cardGrabMoved && !m_launcherGuestActive) {
+    if (commit && !m_launcherGuestActive) {
         captureCardTransition(false, true);
     }
     int movement = 0;
@@ -1046,6 +1056,7 @@ void CardStageController::resetCardGrabState(
     m_cardGrabOffset = {};
     m_cardGrabStart = {};
     m_cardGrabTarget = {};
+    m_cardGrabRotation = 0.0;
     m_cardGrabDestinationSize = {};
     m_cardGrabScaleTimer.invalidate();
     m_cardGrabPageOffset = 0;

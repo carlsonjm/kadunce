@@ -1,24 +1,27 @@
 # Current state
 
-## Accepted stack polish freeze
+## Accepted pickup freeze
 
-J accepted reverse browse, held ordering and equal neighbor spacing; freeze/push
-authorized. Installed artifact verified against candidate:
-fc3126e8b0864c13cbc12548b264f7e979f385fcf50863ee212e412040e22efe.
+Accepted pickup:180ms contact-anchored scale with captured tilt easing
+flat; remaining cards ease from captured pre-detach poses on the same180ms clock.
+Committed stationary holds use existing release settle. Cancellation
+remains immediate. Focused tests/control and J physical acceptance pass.
+Installed a7482cc840526c86428f79bec1a70db68749a2241b94ecbca604eeeb0a8336d8 verified.
+Freeze/push authorized. New ownership/drop failures are the next investigation;
+see NEXT-ROADMAP.md. Prior cross-display passes do not invalidate this report.
+../install-kadunce-pickup-line-20260913.sh; rollback restores acceptedfc3126e8.
+
+Previous accepted stack polish/rollback: fc3126e8.
 The accepted reverse browse
 leaves upward motion exact; downward accents the incoming face downward while
 the outgoing face only interpolates to its fan slot (no second send-away bump).
-Build, directional motion/source/control and installer checks pass; J accepted.
-Stack browse uses220ms rigid accents, at most24px/0.25degree, zero endpoint
-value/slope, captured interruptions and immediate selection. Input stays unchanged.
+Stack browse uses220ms rigid accents with immediate selection; J accepted.
 See FREEZE-20260913-STACK-BROWSE.md for scope and separate held-order bug.
 ../install-kadunce-stack-browse-20260913.sh --rollback restores exacta422853a.
 Held-order build passed J's physical tests:
 detach now exposes the preceding visual shoulder; pickup and held paging refresh
 destination back-to-front stacking while the held card remains elevated.
-Build, five focused tests, source/control checks pass. Four-stack tests cover every
-lift position and cancellation. No motion/input/cache changes. Candidate282e7ef6;
-../install-kadunce-held-order-20260913.sh retains installed15882014 as rollback.
+Four-stack tests cover every lift position and cancellation.
 Neighbor revision preserves the compact inward edge/gap, sharing40% of the visible
 side peek equally between shoulders (two for3 cards, three for4+). Selected-relative
 depth preserves ordering. Centered browse/insertion and timing stay unchanged.
@@ -131,9 +134,8 @@ trace), then Zen. Witness result INVALID. No intentional restart/app close.
 Recovered session, ChatGPT focused, showfps absent, tray kill switch verified.
 Do not repeat overlay+recording on the live desktop.
 
-Next: preserve this accepted working baseline; no further speculative caching or
-power tuning. Animation polish can be scoped separately. Zen sampling waves
-remain separate/unproven. This freeze does not promote trusted repair.
+Next: ownership/drop block in NEXT-ROADMAP.md. No speculative caching/power tuning.
+Zen sampling remains separate. Trusted repair is not promoted.
 
 ## Recovery and other scope
 
