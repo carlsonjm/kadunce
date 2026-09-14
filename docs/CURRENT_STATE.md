@@ -1,26 +1,30 @@
 # Current state
 
-## September 14 — Bento side/share candidate
+## September 14 — Accepted Bento column/full-divider freeze
 
-J accepted membership d2acb77c: minimize/restore/fill passed; retained as rollback.
-Main remains ead1fe3. New source adds upper/lower side-edge larger/smaller intent,
-minimum-aware thirds and curated remainder patterns through eight cards.
-Preview/commit share the plan; one card fills and remembers its side/share.
-Side admission now selects a fitting subset including the dragged card; other
-residents use minimized overflow. A lone pane fills Active space. Launch admission
-still requires the newcomer visible and can discard an incompatible remembered split.
-Production build, layout/transfer/control checks pass. Private zARsqi passes
-mouse/touch overflow entry and restoration; live safety/hash preflight passes.
-Monitor hardware acceptance remains deferred. No divider changes.
-See BENTO-SIDE-20260914.md for scope, tests and local installer. Installed launch
-build23baa failed snapping with Spotify present; closing it restored snapping.
-J passed installed overflowcd7df; locally frozen, not pushed. Next: divider grab rail.
-Membership retains the approved
-immediate-unload visibility exception during incomplete restoration.
+J passed installed overflowcd7df, frozen at0184129. This accepted batch includes
+membership/minimize reflow, side/share intent,
+minimum-aware fitting subsets with minimized overflow and required visible launches.
+See BENTO-SIDE-20260914.md. Immediate-unload visibility exception remains approved.
+
+J passed installed railcd34ba in both axes and column splittingcf5011. It preserves an
+occupied edge column and splits top/bottom, absorbing a vacated third column into
+its remaining neighbor. Small columns on tablet; larger columns also on monitor.
+Minimum failures retain existing fitting/overflow fallback. Rails now hide at idle;
+90ms stationary hold reveals preview, release applies once. Early motion cancels
+activation. Native carry adoption retires forwarded contacts; no new resize loop.
+Fullrail302b1 extends capture across the full shared divider, not just the pill;
+Plasma receives no initial divider press. Outside desktop behavior is unchanged.
+Private NYkGoz/l96RD3 pass off-center horizontal/vertical grabs, cancellation,
+split/overflow and held unload. Control/live safety/hash checks pass.
+Installer ../install-kadunce-bento-fullrail-20260914.sh; rollbackcf5011.
+J passed installed302b1 and authorized freeze/push. Installed hash and live safety
+verified. See FREEZE-20260914-BENTO.md. Monitor hardware acceptance remains deferred.
+Next non-monitor slice: Bento neighbor/reflow motion; Zen sampling remains separate.
 
 ## September 14 — Accepted Active ownership lifetime freeze
 
-J passed all three tablet checks and authorized freeze/push. Active departure parks
+J accepted this freeze. Active departure parks
 per-window desktop restore records instead of applying them. Reentry reuses them;
 explicit release/unload restores them. Bento collects all retained records before
 Card Stage releases. Committed departure forgets only the transferred record.
@@ -37,10 +41,7 @@ Next: deferred monitor handoff acceptance when hardware is available.
 
 ## Card Line motion batch — September 13
 
-J reports the installed unified-row build passed and authorizes freeze/push.
-Installed plugin verified:
-a422853a94c2b0668e8f96c12aaa3940e0a128e24b680a774385863dcedfe36b.
-See FREEZE-20260913-ROW-MOTION.md for provenance and exact rollback.
+Accepted historical row build/rollback: FREEZE-20260913-ROW-MOTION.md.
 
 Ordinary and held row paging use interruptible220ms presentation, immediate
 selection, captured reversal and shared center/neighbor displacement. Wrapping
@@ -112,8 +113,7 @@ extra full-output damage repair or diagnostic timing hooks.
 
 ## Evidence and uncertainty
 
-Read LIVE-LAG-EVIDENCE-20260913.md. Controlled touch selection coincided with
-crossing38px (~71ms into the scripted swipe). Six shortcut selections took7–9ms.
+Read LIVE-LAG-EVIDENCE-20260913.md for historical touch/shortcut measurements.
 Without recording,124 KWin D-Bus samples median5.87ms/max11.62ms while transition
 coordinates advanced. Recorded frame gaps are confounded by screencast overhead;
 not proof of GPU stalls.

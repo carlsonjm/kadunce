@@ -46,6 +46,29 @@ for target in '5 180' '1275 600' '1275 180' '5 600'; do
 done
 done
 echo 'PASS: ordinary entry and repeated Bento side/share snaps match preview for mouse and touch'
+for kind in pointer touch; do
+    before=$(probe windowGeometry "$main")
+    neighbor=$(probe windowGeometry "$other")
+    read -r rx ry <<<"$(jq -nr --argjson a "$before" --argjson b "$neighbor" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height*.15)] | map(floor) | @tsv')"
+    probe pointer "$rx" "$ry"
+    if [[ $kind == pointer ]]; then probe contactButton true; else probe down 71 "$rx" "$ry"; fi
+    sleep .12
+    if [[ $kind == pointer ]]; then probe contactMotion "$((rx+40))" "$ry"; else probe motion 71 "$((rx+40))" "$ry"; fi
+    test "$(probe windowGeometry "$main")" = "$before"
+    if [[ $kind == pointer ]]; then probe contactButton false; else probe up 71; fi
+    sleep .6
+    probe windowGeometry "$main" | jq -e --argjson old "$before" '.width > $old.width+20'
+done
+before=$(probe windowGeometry "$main")
+neighbor=$(probe windowGeometry "$other")
+read -r rx ry <<<"$(jq -nr --argjson a "$before" --argjson b "$neighbor" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height/2)] | map(floor) | @tsv')"
+probe down 72 "$rx" "$ry"
+sleep .12
+probe motion 72 "$((rx-100))" "$ry"
+probe contactCancel
+sleep .2
+test "$(probe windowGeometry "$main")" = "$before"
+echo 'PASS: pill rail previews without native resize, commits mouse/touch and cancels touch unchanged'
 probe minimizeWindow "$other" true
 sleep .6
 probe windowGeometry "$main" | jq -e '.width > 1200'
@@ -109,4 +132,19 @@ if [[ ${KADUNCE_SIDE_TABLET:-0} == 1 ]]; then
     echo 'PASS: tablet Card Line touch placement commits the same side/share preview'
     probe releaseRuntime
 fi
+if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
+    probe minimizeWindow "$incoming" true
+    probe contactFocus
+    kad toggleBentoOnOutput Virtual-0
+    sleep .6
+    a=$(probe windowGeometry "$main"); b=$(probe windowGeometry "$other")
+    read -r rx ry <<<"$(jq -nr --argjson a "$a" --argjson b "$b" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height/2)] | map(floor) | @tsv')"
+    probe down 73 "$rx" "$ry"
+    sleep .12
+    probe motion 73 "$((rx+40))" "$ry"
+fi
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
+if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
+    probe up 73
+    echo 'PASS: unload during rail touch completes without delaying disable'
+fi

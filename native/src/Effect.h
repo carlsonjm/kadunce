@@ -115,6 +115,12 @@ Q_SIGNALS:
     Q_SCRIPTABLE void bridgeUnavailable();
 
 private:
+    bool beginRailFromInput(QPointF p) override {
+        return !m_carriedWindow && !m_cardStage->cardGrabActive()
+            && !(isTabletPoint(p) && m_cardStage->isActive()) && m_desktopStage->beginRail(p);
+    }
+    void updateRailFromInput(QPointF p) override { m_desktopStage->updateRail(p); }
+    void finishRailFromInput(bool commit) override { m_desktopStage->finishRail(commit); }
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;

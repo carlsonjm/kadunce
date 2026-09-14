@@ -180,6 +180,28 @@ int main()
             && alone->rects[0].width == 1 && alone->rects[0].height == 1,
             "Only fitting card did not fill Active space");
     }
+    for (bool right : {false,true}) {
+        const std::vector<BentoRect> pair = right
+            ? std::vector<BentoRect>{{0,0,2.0/3,1},{2.0/3,0,1.0/3,1}}
+            : std::vector<BentoRect>{{1.0/3,0,2.0/3,1},{0,0,1.0/3,1}};
+        const std::vector<BentoCandidate> small(3,{100,100,400,400,false});
+        const auto split = splitBentoColumn(pair,small,2,{right,false},1463,885,false);
+        require(split && (*split)[0].x == pair[0].x && (*split)[0].width == pair[0].width
+            && (*split)[1].y == 0 && (*split)[1].height == .5
+            && (*split)[2].y == .5 && (*split)[2].width == pair[1].width,
+            "Occupied small column did not preserve opposite pane and split downward");
+        auto tooTall = small; tooTall[2].minimumHeight = 800;
+        require(!splitBentoColumn(pair,tooTall,2,{right,false},1463,885,false),
+            "Column split ignored native minimum heights");
+        require(!splitBentoColumn(pair,small,2,{!right,false},1463,885,false)
+            && splitBentoColumn(pair,small,2,{!right,false},2560,1440,true),
+            "Large column split should be monitor-only");
+    }
+    const auto regroup = splitBentoColumn({{0,0,1.0/3,1},{1.0/3,0,1.0/3,1},{2.0/3,0,1.0/3,1}},
+        std::vector<BentoCandidate>(3,{100,100,400,400,false}),0,{true,false},1463,885,false);
+    require(regroup && (*regroup)[0].y == .5 && (*regroup)[2].height == .5
+        && (*regroup)[1].x == 0 && std::abs((*regroup)[1].width-2.0/3) < .001,
+        "Moving a third column left a hole instead of filling the surviving pane");
     std::cout << "Bento layout/admission checks passed\n";
     return 0;
 }

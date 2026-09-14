@@ -78,6 +78,57 @@ inline std::optional<std::vector<BentoRect>> bentoSideLayout(BentoSidePlacement 
         companion ? std::vector<BentoCandidate>{*companion} : std::vector<BentoCandidate>{});
 }
 
+// Split an occupied full-height edge column without rebuilding unrelated panes.
+// Arrival is appended, or moved out of a full-height third column. In that case
+// the remaining adjacent column absorbs its old space before the target splits.
+inline std::optional<std::vector<BentoRect>> splitBentoColumn(
+    const std::vector<BentoRect> &existing, const std::vector<BentoCandidate> &candidates,
+    int arrival, BentoSidePlacement choice, int width, int height, bool allowLarge)
+{
+    if (existing.size() < 2 || existing.size() >= 8 || arrival < 0
+        || arrival > int(existing.size()) || candidates.size() != existing.size()+(arrival == int(existing.size()))
+        || width <= 0 || height <= 0 || (!allowLarge && choice.large)) return std::nullopt;
+    int target = -1;
+    for (int i = 0; i < int(existing.size()); ++i) {
+        const auto &r = existing[i];
+        if (i != arrival && std::abs(r.y) < .002 && std::abs(r.height-1) < .002
+            && r.width < .999 && (allowLarge || r.width <= .5)
+            && (choice.right ? std::abs(r.x+r.width-1) < .002 : std::abs(r.x) < .002)) {
+            target = i; break;
+        }
+    }
+    if (target < 0) return std::nullopt;
+    auto result = existing;
+    if (arrival < int(existing.size())) {
+        const auto old = existing[arrival];
+        if (std::abs(old.y) > .002 || std::abs(old.height-1) > .002) return std::nullopt;
+        int neighbor = -1;
+        for (int i = 0; i < int(existing.size()); ++i) {
+            const auto &r = existing[i];
+            if (i != arrival && i != target && std::abs(r.y) < .002 && std::abs(r.height-1) < .002
+                && (std::abs(r.x+r.width-old.x) < .002 || std::abs(old.x+old.width-r.x) < .002)) {
+                neighbor = i; break;
+            }
+        }
+        if (neighbor < 0) return std::nullopt;
+        auto &r = result[neighbor];
+        const double end = std::max(r.x+r.width,old.x+old.width);
+        r.x = std::min(r.x,old.x); r.width = end-r.x;
+    } else result.push_back({});
+    const auto column = existing[target];
+    const double low = (candidates[choice.large ? arrival : target].minimumHeight+7.0)/height;
+    const double high = 1.0-(candidates[choice.large ? target : arrival].minimumHeight+7.0)/height;
+    if (low > high) return std::nullopt;
+    const double cut = std::clamp(.5,low,high);
+    result[choice.large ? arrival : target] = {column.x,0,column.width,cut};
+    result[choice.large ? target : arrival] = {column.x,cut,column.width,1-cut};
+    const auto pixels = makePixelBentoLayout(result,0,0,width,height);
+    for (size_t i = 0; i < pixels.size(); ++i)
+        if (pixels[i].width < candidates[i].minimumWidth || pixels[i].height < candidates[i].minimumHeight)
+            return std::nullopt;
+    return result;
+}
+
 // Keep the edge-selected card visible; park only the residents that cannot fit.
 // Bound search like ordinary admission, preserve resident order, prefer more panes.
 inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement choice,

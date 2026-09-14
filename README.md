@@ -63,6 +63,8 @@ KWin loads the new binary.
 - `Ctrl+Up/Down`: move through a selected stack.
 - `Ctrl+B`: toggle Bento under the pointer.
 - `Ctrl+Esc`: release managed windows.
+- Bento dividers: hold anywhere along a shared divider for90ms to reveal its grab rail;
+  drag the preview, then release to resize. Rails hide when idle.
 
 The Kadunce tray icon contains one checked **Kadunce enabled** switch. Turning
 it off releases managed windows before unloading the effect. Turning it back on

@@ -412,6 +412,11 @@ Effect::Effect()
         traceNativeMove(w ? w->effectWindow() : m_carriedWindow.data(), event);
     };
     m_carryRuntime->adopted = [this](KWin::Window *w) {
+        const auto owner = m_carryRuntime->route.owner();
+        if (m_inputRouter) {
+            if (owner.kind == CarryDevice::Touch) m_inputRouter->retireNativeTouch(owner.contact);
+            else m_inputRouter->retireNativePointer(Qt::LeftButton);
+        }
         m_carryPickup = QRectF(m_carryRuntime->handoff.carry().snapshot().geometry);
         if (m_nativeCarry == w->effectWindow()) {
             m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
@@ -1878,6 +1883,45 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
 {
     m_paintingOutput = screen;
     KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+    if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
+        && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
+        QList<QRectF> pills;
+        for (const auto &rail : m_desktopStage->grabRails())
+            if (rail.output == screen->name()) pills.append(rail.pill);
+        const auto previews = m_desktopStage->railPreview(screen->name());
+        const auto drawRailShape = [&](const QRectF &box, bool pill) {
+            QList<QVector2D> vertices;
+            for (const auto &dirty : deviceRegion.rects()) {
+                const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
+                    .intersected(QRectF(screen->geometry())).intersected(box);
+                if (part.isEmpty()) continue;
+                vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                    << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+            }
+            if (vertices.isEmpty()) return;
+            KWin::ShaderBinder binder(m_destinationShader.get());
+            auto matrix = viewport.projectionMatrix();
+            matrix.scale(viewport.scale(), viewport.scale());
+            m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+            m_destinationShader->setUniform("destinationBox", QVector4D(box.x(),box.y(),box.width(),box.height()));
+            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : 10.f);
+            m_destinationShader->setUniform("surfaceFill", QVector4D(.88f,.88f,.88f,pill ? .85f : .035f));
+            m_destinationShader->setUniform("outlineOpacity", pill ? 0.f : .8f);
+            m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+                renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+            const bool blended = glIsEnabled(GL_BLEND);
+            GLint sr,dr,sa,da;
+            glGetIntegerv(GL_BLEND_SRC_RGB,&sr); glGetIntegerv(GL_BLEND_DST_RGB,&dr);
+            glGetIntegerv(GL_BLEND_SRC_ALPHA,&sa); glGetIntegerv(GL_BLEND_DST_ALPHA,&da);
+            glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+            auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+            buffer->reset(); buffer->setVertices(vertices); buffer->render(GL_TRIANGLES);
+            glBlendFuncSeparate(sr,dr,sa,da);
+            if (!blended) glDisable(GL_BLEND);
+        };
+        for (const auto &box : previews) drawRailShape(box,false);
+        if (!previews.isEmpty()) for (const auto &pill : pills) drawRailShape(pill,true);
+    }
     // Draw only from a still-owned reservation. No layout solve, timers, native
     // outline window, or input grab belongs in the paint pass.
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;

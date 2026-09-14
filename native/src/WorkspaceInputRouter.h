@@ -43,6 +43,9 @@ class WorkspaceInputTarget
 {
 public:
     virtual ~WorkspaceInputTarget() = default;
+    virtual bool beginRailFromInput(QPointF) { return false; }
+    virtual void updateRailFromInput(QPointF) {}
+    virtual void finishRailFromInput(bool) {}
 
     [[nodiscard]] virtual WorkspacePresentation presentationForInput() const = 0;
     // KWin owns the complete transaction for an ordinary window move/resize.
@@ -99,6 +102,12 @@ public:
     bool touchCancel() override;
     // Invalidate actions, but retain consumed contacts until their release.
     void cancelWorkspaceInteraction();
+    // Native carry now owns this previously forwarded stream, including its up.
+    void retireNativePointer(Qt::MouseButton button) { m_forwardedPointerButtons.remove(button); }
+    void retireNativeTouch(qint32 id) {
+        m_observedTouchIds.remove(id);
+        if (m_bottomCandidateId == id) m_bottomCandidateId = -1;
+    }
 
 private:
     bool reconcileNativeInteraction();
@@ -137,6 +146,12 @@ private:
     void resetTouch();
 
     WorkspaceInputTarget *m_target;
+    bool m_railPointer = false;
+    qint32 m_railTouch = -1;
+    QTimer m_railHoldTimer;
+    bool m_railReady = false;
+    QPointF m_railStart;
+    QPointF m_railPosition;
     bool m_ownsSystemEdges = true;
     QPointF m_pointerStart;
     QPointF m_pointerCurrent;

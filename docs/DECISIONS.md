@@ -1,5 +1,39 @@
 # Decisions
 
+## September14: full divider capture,90ms activation
+
+J passed column sizing but off-center holds reached Plasma edit mode. The hit
+rectangle now spans each complete shared pane boundary,32px across, clipped to
+the work area. Center pill remains visual feedback only. Capture starts on down;
+J requested90ms reveal/activation, superseding180ms. Popups and panels retain
+their input. No global Plasma edit lock or persistent setting modification.
+
+## September14: occupied-column intent and quiet rails
+
+J passed both divider axes. A lower side-edge arrival into a full-height small
+column first attempts top/bottom subdivision, retaining column width and opposite
+geometry. On monitor outputs larger columns can also subdivide; upper contact
+puts arrival above. A moved third full-height column is absorbed by its adjacent
+non-target column. Pure minimum-aware split feeds the existing preview/commit
+planner; if impossible, existing fit/overflow policy remains. No recursive tiling
+tree or automatic fourth-level split is introduced.
+Rails are hidden at rest. Existing router arms a180ms hold with12px movement
+tolerance; early movement cancels activation. Revealed rail/outline tracks contact
+and native geometry applies once on release. No second dwell or idle timer.
+
+## September14: Bento divider grab is a preview transaction
+
+J accepted/froze0184129 before the rail batch and asked to hold publication.
+DesktopStage owns rail topology, minimum clamping, generation validation and the
+preview value copy. WorkspaceInputRouter owns one initiating pointer/touch contact
+and drains cancellation. Effect only bridges and paints. Pill42x4/held48 follows
+Tette;32px cross-axis hit area is deliberately wider than the visible gutter.
+Movement changes preview only; release applies native geometry once through the
+existing session owner. Teardown/Esc/membership invalidation cannot commit a stale
+preview. Native minimum clamp includes gap allowance. No timers, snapshots, new
+native resize loop or KWin edge-policy changes. The accepted baseline is the exact
+installer rollback; physical rail acceptance is required before publication.
+
 ## September14: edge admission may minimize non-fitting residents
 
 J confirmed ordinary edge snapping resumes after closing Spotify and approved

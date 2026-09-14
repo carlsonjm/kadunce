@@ -36,6 +36,13 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     , m_target(target)
     , m_ownsSystemEdges(ownsSystemEdges)
 {
+    m_railHoldTimer.setSingleShot(true);
+    m_railHoldTimer.setInterval(90);
+    QObject::connect(&m_railHoldTimer, &QTimer::timeout, [this] {
+        if (!m_railPointer && m_railTouch < 0) return;
+        m_railReady = true;
+        m_target->updateRailFromInput(m_railPosition);
+    });
     m_holdTimer.setSingleShot(true);
     m_holdTimer.setInterval(CardHoldDelay);
     QObject::connect(&m_holdTimer, &QTimer::timeout, [this]() {
@@ -103,6 +110,12 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 {
+    if (m_railPointer) {
+        m_railPosition = event->position;
+        if (m_railReady) m_target->updateRailFromInput(event->position);
+        else if (QLineF(m_railStart,event->position).length() > 12) m_railHoldTimer.stop();
+        return true;
+    }
     if (reconcileNativeInteraction()) return false;
     if (!m_forwardedPointerButtons.isEmpty()) return false;
     if (!m_pointerPressed && !m_launcherGuestNavigationPointer
@@ -158,6 +171,27 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    if (m_railPointer) {
+        const bool commit = event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Released;
+        if (!commit) m_drainingPointerButtons.insert(Qt::LeftButton);
+        m_railPointer = false;
+        m_railHoldTimer.stop();
+        m_target->finishRailFromInput(commit && m_railReady);
+        m_railReady = false;
+        if (commit) return true;
+    }
+    if (event->state == KWin::PointerButtonState::Pressed && event->button == Qt::LeftButton
+        && m_railTouch < 0 && m_observedTouchIds.isEmpty() && !m_pointerPressed
+        && m_forwardedPointerButtons.isEmpty() && m_drainingPointerButtons.isEmpty()
+        && m_panelPointerButtons.isEmpty() && !m_target->nativeWindowInteractionForInput()
+        && !m_target->launcherGuestActiveForInput() && !m_target->isPanelPoint(event->position)
+        && m_target->beginRailFromInput(event->position)) {
+        m_railPointer = true;
+        m_railStart = m_railPosition = event->position;
+        m_railReady = false;
+        m_railHoldTimer.start();
+        return true;
+    }
     if (reconcileNativeInteraction()) {
         if (event->state == KWin::PointerButtonState::Released) {
             m_forwardedPointerButtons.remove(event->button);
@@ -338,6 +372,24 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
     m_observedTouchIds.insert(event->id);
+    if (m_railTouch >= 0) {
+        m_drainingTouchIds.insert(m_railTouch);
+        m_drainingTouchIds.insert(event->id);
+        m_railTouch = -1;
+        m_railHoldTimer.stop(); m_railReady = false;
+        m_target->finishRailFromInput(false);
+        return true;
+    }
+    if (m_observedTouchIds.size() == 1 && !m_railPointer && !m_pointerPressed
+        && m_forwardedPointerButtons.isEmpty() && m_panelPointerButtons.isEmpty()
+        && !m_target->nativeWindowInteractionForInput() && !m_target->launcherGuestActiveForInput()
+        && !m_target->isPanelPoint(event->pos) && m_target->beginRailFromInput(event->pos)) {
+        m_railTouch = event->id;
+        m_railStart = m_railPosition = event->pos;
+        m_railReady = false;
+        m_railHoldTimer.start();
+        return true;
+    }
     if (reconcileNativeInteraction()) return false;
     if (m_observedTouchIds.size() > 1) m_bottomCandidateId = -1;
     // Preserve the native bottom-edge swipe in Active/Inactive; only the
@@ -398,6 +450,12 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    if (event->id == m_railTouch) {
+        m_railPosition = event->pos;
+        if (m_railReady) m_target->updateRailFromInput(event->pos);
+        else if (QLineF(m_railStart,event->pos).length() > 12) m_railHoldTimer.stop();
+        return true;
+    }
     const bool native = reconcileNativeInteraction();
     if (m_drainingTouchIds.contains(event->id)) return true;
     if (native) return false;
@@ -461,6 +519,14 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
+    if (event->id == m_railTouch) {
+        m_observedTouchIds.remove(event->id);
+        m_railTouch = -1;
+        m_railHoldTimer.stop();
+        m_target->finishRailFromInput(m_railReady);
+        m_railReady = false;
+        return true;
+    }
     reconcileNativeInteraction();
     m_observedTouchIds.remove(event->id);
     if (m_drainingTouchIds.remove(event->id)) return true;
@@ -500,6 +566,12 @@ bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 
 bool WorkspaceInputRouter::touchCancel()
 {
+    if (m_railTouch >= 0) {
+        m_railHoldTimer.stop(); m_railReady = false;
+        m_observedTouchIds.remove(m_railTouch);
+        m_railTouch = -1;
+        m_target->finishRailFromInput(false);
+    }
     // Cancellation belongs to the touch stream, not the pointer stream.
     // Let it continue to clients if any contact was forwarded to them.
     QSet<qint32> forwarded = m_observedTouchIds;
@@ -543,6 +615,12 @@ bool WorkspaceInputRouter::reconcileNativeInteraction()
 
 void WorkspaceInputRouter::cancelWorkspaceInteraction()
 {
+    m_railHoldTimer.stop(); m_railReady = false;
+    if (m_railPointer) m_drainingPointerButtons.insert(Qt::LeftButton);
+    if (m_railTouch >= 0) m_drainingTouchIds.insert(m_railTouch);
+    m_railPointer = false;
+    m_railTouch = -1;
+    m_target->finishRailFromInput(false);
     const bool rollback = m_holdSource != HoldSource::None
         && m_target->cardGrabActiveForInput();
     m_drainingTouchIds.unite(m_ownedTouchIds);

@@ -72,6 +72,12 @@ public:
 
     [[nodiscard]] QStringList outputStageState() const;
     bool toggleOnOutput(const QString &outputName);
+    struct GrabRail { QString output; int index; bool vertical; QRectF pill; QRectF hitArea; };
+    QList<GrabRail> grabRails() const;
+    bool beginRail(QPointF position);
+    void updateRail(QPointF position);
+    void finishRail(bool commit);
+    QList<QRectF> railPreview(const QString &output) const;
     bool handoffLeadToOutput(const QString &sourceName,
                              const QString &destinationName);
 
@@ -174,6 +180,17 @@ private:
         bool participationDirty = false;
         quint64 applicationToken = 0;
     };
+    struct RailDrag {
+        GrabRail rail;
+        Session original;
+        Session preview;
+        quint64 generation;
+        KWin::Rect area;
+        QPointF contact;
+    };
+    std::optional<RailDrag> m_railDrag;
+    bool m_railRevealed = false;
+    bool railValid() const;
 
     [[nodiscard]] std::optional<Session> prepareCardAdmission(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
