@@ -6,6 +6,7 @@
 #include "CardStageController.h"
 #include "HeldCardGeometry.h"
 #include "RowPageMotion.h"
+#include "StackBrowseMotion.h"
 #include "CardLineLayout.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
@@ -318,7 +319,8 @@ bool CardStageController::animationsRunning() const
     return (m_cardGrabActive && m_cardGrabScaleTimer.isValid()
             && m_cardGrabScaleTimer.elapsed() < PreviewTransitionDuration)
         || (m_previewTransition.isValid()
-            && m_previewTransition.elapsed() < (m_rowPageTransition ? RowPageDuration : PreviewTransitionDuration))
+            && m_previewTransition.elapsed() < (m_rowPageTransition ? RowPageDuration
+                : m_stackBrowseDirection ? StackBrowseDuration : PreviewTransitionDuration))
         || (m_cardStackPreviewTimer.isValid()
             && m_cardStackPreviewTimer.elapsed()
                 < CardStackTransitionDuration)
@@ -417,6 +419,8 @@ void CardStageController::clearCardTransition()
     m_previewOrigins.clear();
     m_poseTransition = false;
     m_rowPageTransition = false;
+    m_stackBrowseDirection = 0;
+    m_stackBrowseOutgoing.clear();
 }
 
 void CardStageController::anchorRowTransition()
@@ -481,6 +485,8 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
     m_previewOrigins = origins;
     m_poseTransition = fullPose;
     m_rowPageTransition = false;
+    m_stackBrowseDirection = 0;
+    m_stackBrowseOutgoing.clear();
     m_previewTransition.start();
 }
 
@@ -537,6 +543,7 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
 {
     auto *output = m_host->tabletOutputForCardStage();
     const int duration = m_rowPageTransition ? RowPageDuration
+        : m_stackBrowseDirection ? StackBrowseDuration
         : m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
     if (!output || !m_poseTransition
         || (m_cardGrabActive && (!m_rowPageTransition || window == selectedWindow()))
@@ -598,6 +605,15 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
             blend(origin.normalized.width() * work.width(), rect.width()),
             blend(origin.normalized.height() * work.height(), rect.height()));
         pose.rotation = origin.rotation + (pose.rotation - origin.rotation) * t;
+        if (m_stackBrowseDirection) {
+            const int role = window == selectedWindow() ? 1
+                : window == m_stackBrowseOutgoing ? -1 : 0;
+            const auto accent = stackBrowseAccent(
+                double(m_previewTransition.elapsed()) / duration,
+                rect.height(), m_stackBrowseDirection, role);
+            rect.translate(0, qRound(accent.y));
+            pose.rotation += accent.rotation;
+        }
         return opacity;
     }
     return t; // Newly visible group: fade in rather than pop into the row.
@@ -1468,7 +1484,9 @@ void CardStageController::pageStack(int delta)
     // Capture complete fan poses, including an interrupted browse transition.
     // All input routes already share this action; do not add device-specific motion.
     captureCardTransition(false, true);
+    m_stackBrowseOutgoing = selectedWindow();
     m_workspace.pageStack(delta);
+    m_stackBrowseDirection = delta < 0 ? -1 : 1;
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce stack selected member"

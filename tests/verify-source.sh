@@ -8,6 +8,10 @@ effect_cpp="${native_dir}/src/Effect.cpp"
 effect_header="${native_dir}/src/Effect.h"
 card_cpp="${native_dir}/src/CardStageController.cpp"
 card_header="${native_dir}/src/CardStageController.h"
+stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
+printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
+rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
+rg -Fq 'm_stackBrowseDirection ? StackBrowseDuration' "$card_cpp"
 router_cpp="${native_dir}/src/WorkspaceInputRouter.cpp"
 router_header="${native_dir}/src/WorkspaceInputRouter.h"
 desktop_cpp="${native_dir}/src/DesktopStageController.cpp"

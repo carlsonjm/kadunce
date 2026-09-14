@@ -1,5 +1,29 @@
 # Current state
 
+## Accepted stack-browse local freeze
+
+J reports the reverse pull clean/passed and requests freeze, not publication.
+Verified installed158820149383349c8fd179b116715577736c01f18d077f67a765eb17c3b7b35e
+leaves upward motion exact; downward accents the incoming face downward while
+the outgoing face only interpolates to its fan slot (no second send-away bump).
+Build, directional motion/source/control and installer checks pass; J accepted.
+The first stack-browse candidate
+introduced220ms explicit stack browsing instead of280ms, with a bounded directional
+rigid accent on the visible incoming/outgoing faces (at most24px and0.25degree).
+Accent value/slope are zero at endpoints; interrupted capture samples the current
+pose before resetting the accent. Selection/elevation remain immediate. Hidden
+member visibility retains the previous fade behavior. No new texture preparation,
+input gate, stack-order, dwell, row, pickup/release or native ownership change.
+Focused tests and safety checks pass.
+See FREEZE-20260913-STACK-BROWSE.md for scope and separate held-order bug.
+../install-kadunce-stack-browse-20260913.sh --rollback restores exacta422853a.
+Local freeze only; no push requested. Before pickup/release polish, investigate
+J's held-card paging/insertion ordering report. Screenshot shows a slot2of4
+preview with held card and overlapping stack faces. Saved model order versus
+paint/elevation mismatch is unconfirmed. Do not mark this interaction passed or
+change accepted browse choreography to guess at it. Capture expected identities,
+actual visible order while held, and committed order after release next.
+
 ## Card Line motion batch — September 13
 
 J reports the installed unified-row build passed and authorizes freeze/push.

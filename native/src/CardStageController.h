@@ -189,6 +189,8 @@ private:
     QElapsedTimer m_previewTransition;
     bool m_poseTransition = false;
     bool m_rowPageTransition = false;
+    int m_stackBrowseDirection = 0;
+    QPointer<KWin::EffectWindow> m_stackBrowseOutgoing;
     double m_rowDisplacement = 0; // normalized shared horizontal travel
     QTimer m_arrivalTimer;
     QElapsedTimer m_arrivalWait;

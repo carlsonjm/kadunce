@@ -1203,3 +1203,26 @@ geometry and rapid reversals remain J's physical gate. Rollback preserves8b76637
 
 J subsequently reports “passed, freeze and push.” The installed a422853a binary
 is the accepted row-motion freeze; see FREEZE-20260913-ROW-MOTION.md.
+
+## September 13 — Explicit stack browsing depth cue candidate
+
+Use existing full-pose capture/interpolation and immediate model/elevation change.
+Only explicit pageStack gets220ms and a small mirrored rigid y/rotation accent
+on visible incoming/outgoing faces. Canonical endpoints remain exact; the accent
+has zero endpoint value/slope and is captured before a new browse resets it.
+Do not introduce deferred selection, a z-order timer, cache changes, or new dwell
+thresholds. Hidden-member fade behavior remains unchanged. This is a physical
+feel candidate, not proof of smoothness; J tests before promotion. Exact rollback
+is the accepted row-motion a422853a, with pickup/release outside this slice.
+
+J clarified reverse is functional but should pull the returning face forward.
+Follow-up preserves the accepted upward accent exactly; downward now moves the
+incoming face down and leaves the outgoing face on its ordinary fan interpolation.
+No layering delay or selection policy change. Directional tests replace the
+incorrect assumption that reverse should simply mirror both accents. Physical
+acceptance pending; first browse c3911330 and frozen a422853a remain preserved.
+
+J subsequently accepted15882014 and requested local freeze. Held-card paging
+ordering is separately reported and remains unresolved; do not conflate ordinary
+browse acceptance with insertion/held-row correctness. See the stack-browse
+freeze record for reproduction boundary. No push requested this turn.
