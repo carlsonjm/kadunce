@@ -1,5 +1,15 @@
 # Decisions
 
+## September14 — Optional expanded launcher guest
+
+Keep launcher protocol3 compatible and advertise presentationCapability1. Tette
+requests expanded/compact on its existing lease; only that unique D-Bus owner may
+change the state. Expanded guest hit testing uses canonical Active bounds and
+suppresses neighbor/horizontal guest navigation without moving real cards or
+enrolling Tette into Bento. End/owner loss clears expanded state. Tette owns its
+content/animation/input mask; no per-frame bridge calls. Candidate integration
+notes live in sibling tettegouche/docs/ACTIVE-DRAWER-20260914.md. Not yet accepted.
+
 ## September 14 — Accepted live-preview rendering correction
 
 Tilted previews integrate four samples within the destination pixel footprint;
@@ -1339,3 +1349,12 @@ Interior swaps clear that preference. Preserve default62/38 for non-explicit ent
 J expanded this pass to monitor patterns: reuse curated presets in the remainder,
 up to eight visible cards, without silently hiding residents to force a fit.
 No new gesture owner or touch rail. See BENTO-SIDE-20260914.md for evidence/limits.
+# September 14 — Expanded launcher guest presentation
+
+Expanded Tette uses the intersection of Active bounds and the existing visible-dock
+safe area, leaving10px. This does not change ordinary Active window geometry.
+Real card neighbors depart/return with a finite220ms paint-only slide/fade; no
+model reorder, native resize or persistent cache. While any launcher guest lease
+is active, selected-stack elevation and stack raising are suspended: collapsing
+the drawer does not end Tette's center ownership. End-guest restores normal card
+stacking. A clear Close drawer pill supplements the existing downward drag.

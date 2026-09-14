@@ -1,5 +1,12 @@
 # Current state
 
+J accepted installed Tette drawer bridgebec4d8 and authorized freeze/push.
+Dock-safe bounds,220ms neighbor departure/return and guest-lifetime suspension of
+stack elevation/raising passed. Protocol3 retained; no card geometry/order changes.
+Focused model, private guestxvnGsl, control/live safety pass; installed hash verified.
+Tette finalb681ec is also installed/J-passed. Installer/rollback and evidence:
+../../tettegouche/docs/ACTIVE-DRAWER-20260914.md. Monitor expansion remains deferred.
+
 ## September 14 — Accepted Bento column/full-divider freeze
 
 J passed installed overflowcd7df, frozen at0184129. This accepted batch includes
@@ -112,16 +119,8 @@ extra full-output damage repair or diagnostic timing hooks.
 
 ## Evidence and uncertainty
 
-Historical measurements: LIVE-LAG-EVIDENCE-20260913.md; recording overhead
-confounds frame gaps, which are not proof of GPU stalls.
-
-KWin6.7.5 calls prePaint before resetting current layer repaint state.
-Its own SlideEffect requests continuation in postPaintScreen.
-Source regression guard fails before correction and passes after it.
-Plugin build, source guards, control2/2, live tray and diff checks pass.
-J's post-install physical feedback: still smooth; accepts this as working baseline.
-Zen's rendering artifact remains open. Live safety switch verified after install.
-This is user acceptance, not an instrumented frame-time or root-cause proof.
+Historical measurements and repaint ordering: LIVE-LAG-EVIDENCE-20260913.md.
+Accepted post-paint baseline; not an instrumented GPU root-cause proof.
 
 Power/refresh/runtime contribution to historical lag remains unproven.
 

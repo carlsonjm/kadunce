@@ -18,6 +18,7 @@
 
 #include <QList>
 #include <QHash>
+#include <QDBusContext>
 #include <QPointer>
 #include <QStringList>
 
@@ -31,6 +32,7 @@ namespace Kadunce
 {
 
 class Effect final : public KWin::OffscreenEffect,
+                     protected QDBusContext,
                      private WorkspaceInputTarget,
                      private DesktopStageHost,
                      private CardStageHost
@@ -103,6 +105,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
     Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
+    Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
     Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken);
@@ -304,6 +307,11 @@ private:
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
     QString m_launcherGuestOwner;
+    bool m_launcherGuestExpanded = false;
+    QElapsedTimer m_guestNeighborMotion;
+    double m_guestNeighborFrom = 1.0;
+    double guestNeighborOpacity() const;
+    KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;

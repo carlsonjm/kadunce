@@ -787,7 +787,7 @@ bool Effect::launcherGuestContainsForInput(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
     return m_cardStage->launcherGuestActive() && tablet
-        && m_cardStage->launcherGuestTarget(tablet)
+        && (m_launcherGuestExpanded ? launcherGuestExpandedTarget(tablet) : m_cardStage->launcherGuestTarget(tablet))
                .contains(position.toPoint());
 }
 
@@ -811,6 +811,7 @@ void Effect::dismissLauncherGuestFromInput()
 
 void Effect::navigateLauncherGuestFromInput(const QPointF &position)
 {
+    if (m_launcherGuestExpanded) return;
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet || !m_cardStage->launcherGuestActive()) {
         return;
@@ -1024,6 +1025,7 @@ QString Effect::nativeCarryState() const
     }
     return QString::fromUtf8(QJsonDocument(QJsonObject{
         {QStringLiteral("dropSettling"), bool(settling)},
+        {QStringLiteral("guestNeighborOpacity"), guestNeighborOpacity()},
         {QStringLiteral("bentoMotion"), bentoMotion},
         {QStringLiteral("dropRect"), settling ? geometryContext(KWin::RectF(*settling).toRect()) : QJsonObject{}},
         {QStringLiteral("destinationPreview"), previewValid},
@@ -1569,10 +1571,13 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
     });
 
     reply.insert(QStringLiteral("accepted"), true);
+    m_launcherGuestExpanded = false;
+    m_guestNeighborMotion.invalidate();
+    reply.insert(QStringLiteral("presentationCapability"), 1);
     reply.insert(QStringLiteral("card"),
                  geometryContext(m_cardStage->launcherGuestTarget(tablet)));
     reply.insert(QStringLiteral("active"),
-                 geometryContext(activeTarget(tablet)));
+                 geometryContext(launcherGuestExpandedTarget(tablet)));
     reply.insert(QStringLiteral("output"), tablet->name());
     return QString::fromUtf8(
         QJsonDocument(reply).toJson(QJsonDocument::Compact));
@@ -1580,11 +1585,45 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
 
 void Effect::updateLauncherGuest(double horizontalDelta)
 {
+    if (m_launcherGuestExpanded) return;
     m_cardStage->updateLauncherGuest(horizontalDelta);
+}
+
+bool Effect::setLauncherGuestExpanded(bool expanded)
+{
+    if (!calledFromDBus() || message().service() != m_launcherGuestOwner
+        || !m_cardStage->launcherGuestActive() || !tabletOutput()) return false;
+    if (expanded != m_launcherGuestExpanded) {
+        m_guestNeighborFrom = guestNeighborOpacity();
+        m_guestNeighborMotion.start();
+    }
+    m_launcherGuestExpanded = expanded;
+    m_cardStage->updateLauncherGuest(0);
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+KWin::Rect Effect::launcherGuestExpandedTarget(KWin::LogicalOutput *output) const
+{
+    if (!output) return {};
+    // Floating panels may not reserve a work-area strut. Reuse the existing
+    // visible-dock boundary without changing ordinary Active card geometry.
+    return KWin::RectF(dockSafeGuestRect(QRectF(activeTarget(output)),
+        nativeLandingAreaForOutput(output))).toRect();
+}
+
+double Effect::guestNeighborOpacity() const
+{
+    const double target = m_launcherGuestExpanded ? 0.0 : 1.0;
+    if (!m_guestNeighborMotion.isValid() || m_guestNeighborMotion.elapsed() >= 220) return target;
+    const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        m_guestNeighborMotion.elapsed() / 220.0);
+    return m_guestNeighborFrom + (target - m_guestNeighborFrom) * t;
 }
 
 bool Effect::finishLauncherGuest(double horizontalDelta)
 {
+    if (m_launcherGuestExpanded) return false;
     const bool committed =
         m_cardStage->finishLauncherGuest(horizontalDelta);
     if (committed) {
@@ -1639,6 +1678,8 @@ void Effect::cancelLauncherGuestLaunch()
 
 void Effect::endLauncherGuest()
 {
+    m_launcherGuestExpanded = false;
+    m_guestNeighborMotion.invalidate();
     cancelLauncherGuestLaunch();
     m_cardStage->endLauncherGuest();
     m_launcherGuestOwner.clear();
@@ -1910,6 +1951,11 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     m_preparationNeighbors = neighbors;
     if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
+    if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
+        && m_guestNeighborMotion.elapsed() < 220) {
+        data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+        m_continueRepaint = true;
+    }
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (!bentoMotionRect(it->window)) {
             if (it->window && !it->window->isDeleted()) unredirect(it->window);
@@ -2313,6 +2359,9 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
+        && m_paintingOutput == tabletOutput() && isCardWindow(window)
+        && m_cardStage->paintSlot(window) != 99) return;
     const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
         && window->window()->moveResizeOutput() != m_paintingOutput) return;
@@ -2429,6 +2478,12 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
     const double poseOpacity = m_cardStage->applyPoseTransition(window, target, paintPose);
     data.multiplyOpacity(poseOpacity);
+    if (m_cardStage->launcherGuestActive() && m_paintingOutput == tablet) {
+        const double opacity = guestNeighborOpacity();
+        data.multiplyOpacity(opacity);
+        const int direction = target.center().x() < tablet->geometry().center().x() ? -1 : 1;
+        target.translate(qRound(direction * (1.0 - opacity) * target.width() * 0.25), 0);
+    }
     paintPose.rotation += launcherGuestRotation;
     if (!paintPose.visible) {
         return;

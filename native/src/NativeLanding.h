@@ -4,6 +4,10 @@
 #include <QList>
 #include <algorithm>
 namespace Kadunce {
+inline QRectF dockSafeGuestRect(QRectF active, QRectF usable)
+{
+    return active.intersected(usable.adjusted(10, 10, -10, -10));
+}
 // Floating bottom docks may reserve no work-area strut. Treat their visible
 // frame as an additional landing boundary, never as an input interception.
 inline QRectF nativeLandingArea(QRectF output, QRectF workArea, const QList<QRectF> &docks)

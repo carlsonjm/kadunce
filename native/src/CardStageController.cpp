@@ -1225,11 +1225,14 @@ void CardStageController::syncSelectedElevation()
         return;
     }
     const int selectedId = m_workspace.selectedId();
+    // Tette owns the center for its entire guest lease, including drawer
+    // collapse. Restore stack elevation only after the guest actually leaves.
     for (int index = 0; index < m_workspace.windows().size(); ++index) {
         KWin::EffectWindow *window = m_workspace.windows().at(index).data();
         if (window && !window->isDeleted()) {
             KWin::effects->setElevatedWindow(
                 window, m_presentation == CardPresentation::CardLine
+                    && !m_launcherGuestActive
                     && index + 1 == selectedId
                     && m_workspace.stackSizeForId(selectedId) > 1);
         }
@@ -1239,7 +1242,7 @@ void CardStageController::syncSelectedElevation()
 
 void CardStageController::syncSelectedStackingOrder()
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine) {
+    if (!m_active || m_presentation != CardPresentation::CardLine || m_launcherGuestActive) {
         return;
     }
     const int faceId = m_cardGrabActive ? stackBrowseTarget() : m_workspace.selectedId();

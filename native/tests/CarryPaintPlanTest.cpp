@@ -35,6 +35,11 @@ int main()
         const QRectF screen(x, 0, 1280, 800);
         const QRectF floatingDock(x + 100, 744, 1080, 48);
         const auto safeArea = nativeLandingArea(screen, screen, {floatingDock});
+        const auto guest = dockSafeGuestRect(screen.adjusted(10,10,-10,-10), safeArea);
+        assert(guest.bottom() == floatingDock.top() - 10);
+        assert(!guest.intersects(floatingDock));
+        assert(guest.left() == screen.left() + 10);
+        assert(dockSafeGuestRect(guest, safeArea) == guest);
         assert(safeArea.bottom() == 744);
         assert(inNativeDockReleaseZone({x + 700, 750}, screen, safeArea));
         assert(!inNativeDockReleaseZone({x + 700, 700}, screen, safeArea));
