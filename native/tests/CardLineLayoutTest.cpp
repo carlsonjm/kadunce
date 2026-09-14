@@ -6,6 +6,7 @@
 #include "CardLineLayout.h"
 #include "FocusedPairLayout.h"
 #include "HeldCardGeometry.h"
+#include "NeighborStackPose.h"
 
 #include <algorithm>
 #include <cmath>
@@ -238,6 +239,21 @@ int main()
             "The bottom reference layout shoulder did not retain its slight upward tilt");
 
     const auto closedBack = Kadunce::makeClosedStackPose(0, 4, width);
+    for (int count : {3, 4}) {
+        for (int side : {-1, 1}) {
+            const double extent = 7.0 * (count - 1);
+            const auto front = Kadunce::neighborStackPose(0, count, side, 100, extent);
+            const auto back = Kadunce::neighborStackPose(count - 1, count, side, 100, extent);
+            require(close(front.x - back.x, 40), "Neighbor spread must share a fixed budget");
+            require(close(side > 0 ? back.x : front.x, side > 0 ? -extent : 0),
+                "Neighbor inward edge must preserve the gap");
+            for (int depth = 1; depth < count; ++depth) {
+                const auto a = Kadunce::neighborStackPose(depth - 1, count, side, 100, extent);
+                const auto b = Kadunce::neighborStackPose(depth, count, side, 100, extent);
+                require(close(a.x - b.x, 40.0 / (count - 1)), "Unequal neighbor shoulders");
+            }
+        }
+    }
     const auto closedMiddle = Kadunce::makeClosedStackPose(2, 4, width);
     const auto closedFront = Kadunce::makeClosedStackPose(3, 4, width);
     require(close(closedBack.x, -21.0)

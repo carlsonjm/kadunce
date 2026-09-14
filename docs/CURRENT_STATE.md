@@ -1,28 +1,30 @@
 # Current state
 
-## Accepted stack-browse local freeze
+## Accepted stack polish freeze
 
-J reports the reverse pull clean/passed and requests freeze, not publication.
-Verified installed158820149383349c8fd179b116715577736c01f18d077f67a765eb17c3b7b35e
+J accepted reverse browse, held ordering and equal neighbor spacing; freeze/push
+authorized. Installed artifact verified against candidate:
+fc3126e8b0864c13cbc12548b264f7e979f385fcf50863ee212e412040e22efe.
+The accepted reverse browse
 leaves upward motion exact; downward accents the incoming face downward while
 the outgoing face only interpolates to its fan slot (no second send-away bump).
 Build, directional motion/source/control and installer checks pass; J accepted.
-The first stack-browse candidate
-introduced220ms explicit stack browsing instead of280ms, with a bounded directional
-rigid accent on the visible incoming/outgoing faces (at most24px and0.25degree).
-Accent value/slope are zero at endpoints; interrupted capture samples the current
-pose before resetting the accent. Selection/elevation remain immediate. Hidden
-member visibility retains the previous fade behavior. No new texture preparation,
-input gate, stack-order, dwell, row, pickup/release or native ownership change.
-Focused tests and safety checks pass.
+Stack browse uses220ms rigid accents, at most24px/0.25degree, zero endpoint
+value/slope, captured interruptions and immediate selection. Input stays unchanged.
 See FREEZE-20260913-STACK-BROWSE.md for scope and separate held-order bug.
 ../install-kadunce-stack-browse-20260913.sh --rollback restores exacta422853a.
-Local freeze only; no push requested. Before pickup/release polish, investigate
-J's held-card paging/insertion ordering report. Screenshot shows a slot2of4
-preview with held card and overlapping stack faces. Saved model order versus
-paint/elevation mismatch is unconfirmed. Do not mark this interaction passed or
-change accepted browse choreography to guess at it. Capture expected identities,
-actual visible order while held, and committed order after release next.
+Held-order build passed J's physical tests:
+detach now exposes the preceding visual shoulder; pickup and held paging refresh
+destination back-to-front stacking while the held card remains elevated.
+Build, five focused tests, source/control checks pass. Four-stack tests cover every
+lift position and cancellation. No motion/input/cache changes. Candidate282e7ef6;
+../install-kadunce-held-order-20260913.sh retains installed15882014 as rollback.
+Neighbor revision preserves the compact inward edge/gap, sharing40% of the visible
+side peek equally between shoulders (two for3 cards, three for4+). Selected-relative
+depth preserves ordering. Centered browse/insertion and timing stay unchanged.
+Headless geometry checks cover both sides/counts. J's physical acceptance passed.
+../install-kadunce-even-neighbor-20260913.sh is opt-in; rollback restores70fdce52.
+Unrelated NEXT-ROADMAP edits preserved.
 
 ## Card Line motion batch — September 13
 

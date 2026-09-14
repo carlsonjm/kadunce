@@ -23,6 +23,28 @@ void require(bool condition, const char *message)
 
 int main()
 {
+    for (int active = 0; active < 4; ++active) {
+        Kadunce::CardLineModel lifted(4);
+        require(lifted.stackSelectedWith(2), "Four-face seed failed");
+        for (int id = 3; id <= 4; ++id) {
+            lifted.page(1);
+            require(lifted.stackSelectedWith(1), "Four-face setup failed");
+        }
+        lifted.pageStack(active - 3);
+        const int held = lifted.selectedId();
+        const auto members = lifted.stackMembersForId(held);
+        auto remainingPaint = lifted.stackPaintOrderForId(held);
+        require(remainingPaint.back() == held, "Original face not on top");
+        remainingPaint.pop_back();
+        require(lifted.detachSelectedMember(), "Front lift failed");
+        const int exposed = lifted.detachedNeighborhood(0)[1];
+        require(exposed == remainingPaint.back(), "Lift rotated the face underneath");
+        require(lifted.stackPaintOrderForId(exposed) == remainingPaint,
+            "Lift reordered the remaining visible fan");
+        require(lifted.restoreDetachedMember() && lifted.selectedId() == held
+            && lifted.stackMembersForId(held) == members,
+            "Lift cancellation failed to restore original stack");
+    }
     // Every insertion slot preserves the destination's active identity; users
     // can then browse to the newly placed member without rewriting order.
     for (int active = 0; active < 3; ++active) {

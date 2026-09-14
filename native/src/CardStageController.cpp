@@ -5,6 +5,7 @@
 
 #include "CardStageController.h"
 #include "HeldCardGeometry.h"
+#include "NeighborStackPose.h"
 #include "RowPageMotion.h"
 #include "StackBrowseMotion.h"
 #include "CardLineLayout.h"
@@ -639,9 +640,13 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
         && browseTarget != 0
         && cardLine.sameStack(cardId, browseTarget);
     if (memberCount > 1 || previewDestination || browseDestination) {
-        const CardStackPose closed = makeClosedStackPose(
-            memberIndex, memberCount,
+        // Compact neighbors around their selected face, not storage order.
+        // Keep the same visible identities as the open fan (three shoulders).
+        const int closedDepth = (activeIndex - memberIndex + memberCount) % memberCount;
+        CardStackPose closed = makeClosedStackPose(
+            memberCount - 1 - closedDepth, memberCount,
             tablet->geometry().width());
+        closed.visible = closedDepth <= 3;
         if (previewDestination) {
             const int insertion = std::clamp(
                 stackInsertionIndex(), 0, memberCount);
@@ -684,6 +689,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                 memberIndex, memberCount,
                 activeIndex, width);
         } else if (!cardGrabActive()
+                   && (!m_launcherGuestActive || m_launcherGuestArrival)
                    && cardLine.sameStack(
                        cardId, cardLine.selectedId())) {
             pose = makeOpenStackPose(
@@ -691,6 +697,20 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                 activeIndex, width);
         } else {
             pose = closed;
+            const int side = visibleSlot(window);
+            if (side == -1 || side == 1) {
+                const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
+                const auto base = m_launcherGuestActive && !m_launcherGuestArrival
+                    ? launcherGuestTargetForSlot(tablet, side)
+                    : cardTargetForSlot(tablet, side);
+                const double extent = 7.0 * tablet->geometry().width() / 1024.0
+                    * std::min(memberCount - 1, 3);
+                const double available = side > 0
+                    ? work.right() - (base.x() - extent)
+                    : base.right() - work.x();
+                pose = neighborStackPose(closedDepth, memberCount, side,
+                    available, extent);
+            }
         }
     }
     return pose;
@@ -913,6 +933,7 @@ void CardStageController::beginCardGrab(const QPointF &position)
     m_cardGrabPointer = position;
     m_cardGrabDestinationOutput.clear();
     KWin::effects->setElevatedWindow(selectedWindow(), true);
+    syncSelectedStackingOrder();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "lifted Card Line card"
             << m_workspace.selectedId();
@@ -955,6 +976,7 @@ void CardStageController::pageCardGrab(int direction)
     const int remainder = next % destinations;
     m_cardGrabPageOffset = remainder < 0 ? remainder + destinations : remainder;
     anchorRowTransition();
+    syncSelectedStackingOrder();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision
             << "edge-dwell paged detached row"
@@ -1202,12 +1224,12 @@ void CardStageController::syncSelectedElevation()
 
 void CardStageController::syncSelectedStackingOrder()
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine
-        || m_cardGrabActive) {
+    if (!m_active || m_presentation != CardPresentation::CardLine) {
         return;
     }
+    const int faceId = m_cardGrabActive ? stackBrowseTarget() : m_workspace.selectedId();
     const std::vector<int> paintOrder =
-        m_workspace.stackPaintOrderForId(m_workspace.selectedId());
+        m_workspace.stackPaintOrderForId(faceId);
     if (paintOrder.size() <= 1) {
         return;
     }

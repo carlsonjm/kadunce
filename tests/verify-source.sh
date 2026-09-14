@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# Guest-centered Card Line must compact its formerly selected neighbor.
+controller="$(dirname "$0")/../native/src/CardStageController.cpp"
+sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F '&& (!m_launcherGuestActive || m_launcherGuestArrival)' > /dev/null
+rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
+
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 native_dir="${project_dir}/native"
 effect_cpp="${native_dir}/src/Effect.cpp"
@@ -12,6 +17,11 @@ stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void 
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
 rg -Fq 'm_stackBrowseDirection ? StackBrowseDuration' "$card_cpp"
+rg -Fq 'm_cardGrabActive ? stackBrowseTarget() : m_workspace.selectedId()' "$card_cpp"
+pickup=$(sed -n '/^void CardStageController::beginCardGrab(/,/^void CardStageController::updateCardGrab(/p' "$card_cpp")
+printf '%s\n' "$pickup" | perl -0777 -ne 'exit(!/setElevatedWindow\(selectedWindow\(\), true\);\s*syncSelectedStackingOrder\(\)/s)'
+held_order=$(sed -n '/^void CardStageController::pageCardGrab(/,/^void CardStageController::finishCardGrab(/p' "$card_cpp")
+printf '%s\n' "$held_order" | perl -0777 -ne 'exit(!/m_cardGrabPageOffset =.*?syncSelectedStackingOrder\(\)/s)'
 router_cpp="${native_dir}/src/WorkspaceInputRouter.cpp"
 router_header="${native_dir}/src/WorkspaceInputRouter.h"
 desktop_cpp="${native_dir}/src/DesktopStageController.cpp"
@@ -386,7 +396,7 @@ test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
 # Explicit insertion-selection policy is covered across all slots/active members
 # in CardLineModelTest; fixed aperture/layout hashes above remain unchanged.
 test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
-    "aa74041534449bac8f888560a8ca903ebc715ec5eeea46e387d08f07a6fcdeb2"
+    "149cbc1a3135b711ee782c1541422d1a68fcc2d2d10d7ac23e8b176783c18a4f"
 test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
     "4318ebca92933accaef1c1259dd17f78c7ddd701ff1dd98fc7348f91cdba9247"
 rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"

@@ -378,8 +378,10 @@ bool CardLineModel::detachSelectedMember()
     };
 
     source.cards.erase(source.cards.begin() + sourceMemberIndex);
-    source.activeIndex = std::min(
-        sourceMemberIndex, static_cast<int>(source.cards.size()) - 1);
+    // The fan exposes preceding members nearest-first. Removing its front
+    // must reveal that same nearest shoulder, not the next storage-list item.
+    source.activeIndex = sourceMemberIndex > 0 ? sourceMemberIndex - 1
+        : static_cast<int>(source.cards.size()) - 1;
     m_stacks.insert(m_stacks.begin() + sourceStackIndex,
                     CardStack{{cardId}, 0});
     m_selectedIndex = sourceStackIndex;
