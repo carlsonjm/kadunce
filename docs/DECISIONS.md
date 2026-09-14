@@ -1,5 +1,16 @@
 # Decisions
 
+## September 14 — Accepted live-preview rendering correction
+
+Tilted previews integrate four samples within the destination pixel footprint;
+unrotated cards preserve their previous sampling. Live redirection tracks frame
+size and frame-relative buffer/expanded bounds for visible and prepared neighbors.
+A changed source mapping invalidates only that window's redirected texture.
+Ordinary translation does not invalidate; Active/native paint and deletion retire
+metadata. No fullscreen capture, native resizing, new pixel cache, timer or input
+gate. J accepted consistent sizing and corrected tilt; black-bar fit policy stays
+unchanged. Evidence, exact hashes and remaining uncertainty: RENDER-AUDIT-20260914.md.
+
 ## September 14 — Bento reflow is presentation only
 
 DesktopStageController captures visible pane poses before committing a layout

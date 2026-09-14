@@ -217,6 +217,7 @@ uniform sampler2D sampler;
 uniform vec4 modulation;
 uniform vec2 apertureSize;
 uniform float apertureRadius;
+uniform float tiltedSampling;
 
 float roundedRectangleDistance(vec2 point, vec2 size, float radius)
 {
@@ -231,6 +232,17 @@ void main(void)
 {
     vec2 point = cardPoint;
     vec4 tex = texture(sampler, texcoord0);
+    if (tiltedSampling > 0.5) {
+        // Integrate four points inside the destination pixel footprint. A
+        // single bilinear lookup aliases thin client lines under fan rotation.
+        // Keep ordinary cards on their exact existing sampling path.
+        vec2 dx = dFdx(texcoord0) * 0.25;
+        vec2 dy = dFdy(texcoord0) * 0.25;
+        tex = (texture(sampler, texcoord0 - dx - dy)
+             + texture(sampler, texcoord0 + dx - dy)
+             + texture(sampler, texcoord0 - dx + dy)
+             + texture(sampler, texcoord0 + dx + dy)) * 0.25;
+    }
 
     float radius = min(
         apertureRadius, 0.5 * min(apertureSize.x, apertureSize.y));
@@ -267,6 +279,8 @@ KWin::Region roundedClip(const KWin::Rect &rect, double radius)
 
 Effect::Effect()
 {
+    connect(KWin::effects, &KWin::EffectsHandler::windowDeleted, this,
+        [this](KWin::EffectWindow *window) { m_previewSourceBounds.remove(window); });
     m_cardStage = std::make_unique<CardStageController>(
         static_cast<CardStageHost *>(this));
     m_desktopStage = std::make_unique<DesktopStageController>(
@@ -2192,6 +2206,26 @@ KWin::Rect Effect::activeTarget(KWin::LogicalOutput *output) const
     return m_cardStage->activeTarget(output);
 }
 
+void Effect::redirectPreviewSource(KWin::EffectWindow *window)
+{
+    const QRectF frame(window->frameGeometry());
+    const std::array<QRectF, 3> sourceBounds = {
+        QRectF(QPointF(), frame.size()),
+        QRectF(window->bufferGeometry()).translated(-frame.topLeft()),
+        QRectF(window->expandedGeometry()).translated(-frame.topLeft())};
+    const auto previousBounds = m_previewSourceBounds.constFind(window);
+    if (previousBounds != m_previewSourceBounds.cend() && *previousBounds != sourceBounds) {
+        // Damage alone does not describe a changed frame/buffer mapping.
+        qInfo() << "Kadunce preview source bounds changed" << window->caption()
+                << "frame" << (*previousBounds)[0] << "->" << sourceBounds[0]
+                << "buffer" << (*previousBounds)[1] << "->" << sourceBounds[1]
+                << "expanded" << (*previousBounds)[2] << "->" << sourceBounds[2];
+        unredirect(window);
+    }
+    m_previewSourceBounds.insert(window, sourceBounds);
+    redirect(window);
+}
+
 void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
                         const KWin::RenderViewport &viewport,
                         KWin::EffectWindow *window,
@@ -2213,12 +2247,13 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         // hidden deck members, and shader failure all return
         // to KWin's exact r20 direct path.
         unredirect(window);
+        m_previewSourceBounds.remove(window);
         KWin::OffscreenEffect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data);
         return;
     }
 
-    redirect(window);
+    redirectPreviewSource(window);
     setShader(window, m_fanApertureShader.get());
     KWin::ShaderManager::instance()->pushShader(
         m_fanApertureShader.get());
@@ -2236,6 +2271,8 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
                   static_cast<float>(m_fanApertureSize.height())));
     m_fanApertureShader->setUniform(
         m_fanApertureRadiusLocation, m_fanApertureRadius);
+    m_fanApertureShader->setUniform("tiltedSampling",
+        qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
     glActiveTexture(GL_TEXTURE0);
 
     KWin::OffscreenEffect::drawWindow(
@@ -2258,7 +2295,7 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
             // At most two extra full-window surfaces, each bounded to32MiB.
             if (size.width() > 0 && size.height() > 0
                 && size.width()*size.height()*scale*scale*4 <= 32*1024*1024) {
-                redirect(neighbor);
+                redirectPreviewSource(neighbor);
                 setShader(neighbor, nullptr);
                 KWin::WindowPaintData preparation;
                 KWin::OffscreenEffect::drawWindow(renderTarget, viewport, neighbor,

@@ -25,8 +25,9 @@ with native placement once and paint-only interpolation. Fresh input interrupts;
 no snapshot/cache or resize loop. Focused layout/transfer, control and private
 column/rail motion lifecycle checks pass (X4rEyt). Installed hash/live safety verified.
 Installer ../install-kadunce-bento-motion-20260914.sh; rollback accepted302b1.
-See BENTO-MOTION-20260914.md. J authorized freeze/push. Next: render audit;
-Zen is normal unstacked, wavy when stacked. Black bars also remain reported.
+See BENTO-MOTION-20260914.md. Rendering e59f5b6 installed/J-passed; hash/live
+safety verified, freeze/push authorized. Includes tilt sampling and bounds
+invalidation. See RENDER-AUDIT-20260914.md. Black-bar policy unchanged.
 
 ## September 14 — Accepted Active ownership lifetime freeze
 
@@ -111,10 +112,8 @@ extra full-output damage repair or diagnostic timing hooks.
 
 ## Evidence and uncertainty
 
-Read LIVE-LAG-EVIDENCE-20260913.md for historical touch/shortcut measurements.
-Without recording,124 KWin D-Bus samples median5.87ms/max11.62ms while transition
-coordinates advanced. Recorded frame gaps are confounded by screencast overhead;
-not proof of GPU stalls.
+Historical measurements: LIVE-LAG-EVIDENCE-20260913.md; recording overhead
+confounds frame gaps, which are not proof of GPU stalls.
 
 KWin6.7.5 calls prePaint before resetting current layer repaint state.
 Its own SlideEffect requests continuation in postPaintScreen.

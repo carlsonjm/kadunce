@@ -17,10 +17,12 @@
 #include "DesktopExitLabel.h"
 
 #include <QList>
+#include <QHash>
 #include <QPointer>
 #include <QStringList>
 
 #include <memory>
+#include <array>
 
 class QAction;
 class QDBusServiceWatcher;
@@ -115,6 +117,9 @@ Q_SIGNALS:
     Q_SCRIPTABLE void bridgeUnavailable();
 
 private:
+    // Source-local bounds only: ordinary window movement does not recapture.
+    QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
+    void redirectPreviewSource(KWin::EffectWindow *window);
     struct BentoMotion {
         QPointer<KWin::EffectWindow> window;
         QPointer<KWin::LogicalOutput> output;
