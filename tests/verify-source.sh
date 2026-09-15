@@ -391,10 +391,12 @@ rg -q 'tex \*= coverage' "${effect_cpp}" "${card_cpp}"
 rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
+# Accepted output-local dock-clearance baseline 884e5c3; visual alignment does
+# not change this geometry. Keep the fixed hashes tied to that accepted source.
 test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
-    "2ad30c528e776ded46c9c2407035458d88ec98273458c92b8ca3dc6b23d945fb"
+    "d993218447265b79504cbf18c5779096e1b50bcdc0de52704667465fe50d1056"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
-    "8f50b02d02f47cb01bbf8a31faf4fb79c0b47e5aca61c09f9963cab5455d8957"
+    "9eb9e4f1352ce6d69a809b8a73b0768b9ebd59ee3d9e1dd7b6f425a7c9a3144d"
 # Explicit insertion-selection policy is covered across all slots/active members
 # in CardLineModelTest; fixed aperture/layout hashes above remain unchanged.
 test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \

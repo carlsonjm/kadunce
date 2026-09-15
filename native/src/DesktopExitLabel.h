@@ -12,7 +12,7 @@ namespace Kadunce {
 class DesktopExitLabel {
 public:
     void render(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
-                const QRectF &box, const QString &text = QObject::tr("Return to desktop")) {
+                const QRectF &box, const QString &text = QObject::tr("return to desktop")) {
             if (!m_texture || m_text != text) {
                 QImage label(480, 72, QImage::Format_ARGB32_Premultiplied);
                 label.fill(Qt::transparent);
@@ -21,7 +21,7 @@ public:
                 painter.setBrush(QColor(20, 20, 20, 235)); painter.setPen(Qt::NoPen);
                 painter.drawRoundedRect(label.rect(), 24, 24);
                 QFont font; font.setPixelSize(28); painter.setFont(font);
-                painter.setPen(Qt::white);
+                painter.setPen(QColor(248, 248, 255)); // Ghost White
                 painter.drawText(label.rect(), Qt::AlignCenter, text);
                 painter.end();
                 m_texture = KWin::GLTexture::upload(label);

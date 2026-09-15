@@ -2111,7 +2111,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         && m_cardStage->stackInsertionPreviewValid()) {
         const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, screen));
         m_stackSlotLabel.render(renderTarget, viewport, work,
-            tr("Place in slot %1 of %2")
+            tr("place in slot %1 of %2")
                 .arg(m_cardStage->stackInsertionIndex() + 1)
                 .arg(m_cardStage->model().stackSizeForId(m_cardStage->stackPreviewTarget()) + 1));
     }
