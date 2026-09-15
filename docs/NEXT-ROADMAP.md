@@ -20,68 +20,58 @@ implementation and installed provenance.
 - Accepted behavior is a regression contract. Do not rebuild it to address an
   unverified historical report.
 
-## Active work block — Tette Files and Ambient
+## Active work block — Ambient Tette
 
-Finish these as two bounded, independently reviewable packets. They may proceed
-in parallel in isolated worktrees; integrate only after focused tests and review.
+Files basics are ready enough to leave the critical path. The local
+transfer-robustness candidate remains available for later review and promotion;
+do not expand its test matrix before current product work.
 
-### T1 — Files operation plumbing
+Ambient Tette is the right-side dock surface for ongoing context: **what matters
+now**. Temperance remains the left-side notification ticker today and owns the
+future transient-event surface for **what changed**. Source apps and services own
+actual state and actions. There is no separate Live Rail app.
 
-Owner: A-Team/Astra.
+Width reveals information, not capability. Ambient packs concurrent activity:
+each item keeps a minimum recognizable state and essential action while extra
+space reveals filename/title, artist, bytes, duration, and ETA. A transfer may
+compress media description, but must not remove media controls when both cores
+fit. Similar activities group only when their cores cannot all fit. Both flexible
+sides preserve the physical center of the application dock.
 
-- Add useful operation progress and explicit cancellation where KIO supports it.
-- Make collision, interruption, dismissal, guest loss, application launch and
-  process-exit behavior truthful and recoverable. Preserve the existing bounded
-  process-owned job lifetime; no always-on service without new evidence.
-- Use disposable fixtures. Preserve partial-success reporting and refuse unsafe
-  overwrite behavior unless a deliberate conflict decision is implemented.
-- Do not include thumbnails, recursive search, devices/network, external drag,
-  Open With, properties or unrelated Files polish.
+Authoritative contract and packet gates:
+`../../tettegouche/docs/AMBIENT-LIVE-ACTIVITY-HANDOFF.md`.
 
-Exit: focused native/QML tests and local build pass; source behavior and remaining
-limits are documented; J receives a short physical copy/move/cancel/collision and
-dismiss/reopen checklist. No install or push before review.
+1. A-Team: read-only source/geometry feasibility and exact provider contract.
+2. B-Team: responsive compositor against that approved contract.
+3. A-Team: production providers/integration after J accepts the interaction.
+4. B-Team: later Temperance event-source expansion; current Temperance is
+   notification-only and does not block initial Ambient.
 
-### T2 — Ambient Tette
-
-Owner: B-Team/Sol.
-
-- Keep full Apps/Files controls on the Active-sized surface. Leaving content mode
-  returns to the quiet compact Tette card while preserving query, file location,
-  history, selection, scroll and appropriate focus.
-- Preserve Escape precedence, Meta dismissal, guest cleanup, drawer motion,
-  standalone fallback and accepted Kadunce ownership.
-- Track expansion ownership where the current protocol supports it. If manual
-  persistent Active cannot be distinguished from content-caused expansion,
-  implement only the unambiguous automatic contraction and surface the product
-  decision instead of inventing a protocol.
-- No normal-window/Bento conversion, new service, redesign or speculative
-  Kadunce contract.
-
-Exit: focused QML/controller tests and local build pass; J receives an Apps/Files
-expand, exit, state-retention, Meta and standalone physical checklist.
-
-Stop rule for both packets: two unsuccessful candidates or a required new owner/
-cross-repo protocol triggers evidence review and a fresh scope decision.
+No daemon, polling loop, persistent history, replacement task manager, or broad
+Plasma patch without a new architecture/budget decision. Two failed approaches
+to one boundary trigger evidence review.
 
 ## Next major feature blocks
 
 Sequence is product-first; independent work may overlap only when files and
 acceptance surfaces are disjoint.
 
-1. **Tette Files completion:** transfer robustness acceptance, then desktop
+1. **Ambient Tette:** complete its gated source, compositor, and integration
+   packets, then J's tablet/monitor acceptance.
+2. **Tette Files completion:** optional transfer-robustness promotion, then desktop
    integration (external drag/drop, Open With, properties), discovery
    (thumbnails/previews, recursive search, Recent), and storage lifecycle
    (removable devices and optional KIO/network places). Keep these as related
    2–3 feature packets rather than one file-manager rewrite.
-2. **Tette desktop/Bento use:** verify standalone display, focus and launch
+3. **Tette desktop/Bento use:** verify standalone display, focus and launch
    destination before choosing any guest-contract expansion.
-3. **Steam/external libraries:** scoped discovery and launch. Steam owns library
+4. **Steam/external libraries:** scoped discovery and launch. Steam owns library
    and Proton resolution; missing drives fail safely without boot mounts.
-4. **Temperance release closure:** recheck current source before assigning the
+5. **Temperance release closure:** add the bounded non-notification event-source
+   slice after initial Ambient, then recheck current source before assigning the
    truthful power-state audit, stock-notification presenter handback or remaining
    badge details. Historical inventory is not proof of a current bug.
-5. **Suite integration and packaging:** build each repo from clean source; verify
+6. **Suite integration and packaging:** build each repo from clean source; verify
    install/uninstall or rollback paths, Kadunce persistent safety control,
    tablet-only and docked behavior, scaling/rotation, focus/Meta cleanup and
    package provenance. J performs final physical acceptance for each release.
