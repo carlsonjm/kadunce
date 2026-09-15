@@ -1,5 +1,11 @@
 # Current state
 
+J's post-1.0 Kadunce 1.1 concept, **Table**, is logged in
+`KADUNCE-TABLE-1.1-CONCEPT.md` and linked from `NEXT-ROADMAP.md`. Table makes
+existing KDE Virtual Desktops tangible above Card Line/Bento while leaving KWin
+authoritative. It is product direction only: no implementation packet is active,
+and Itasca 1.0 release completion remains higher priority.
+
 `ITASCA-VISUAL-LANGUAGE.md` is the accepted shared visual grammar:
 spacing, pills for controls, rounded boxes for information, corner continuity,
 color/highlight roles, responsive fit, and casing. Lucide is selected for

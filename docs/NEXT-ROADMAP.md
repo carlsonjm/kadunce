@@ -76,6 +76,31 @@ acceptance surfaces are disjoint.
    tablet-only and docked behavior, scaling/rotation, focus/Meta cleanup and
    package provenance. J performs final physical acceptance for each release.
 
+## Post-1.0 product direction — Kadunce 1.1 Table
+
+J has defined **Table** as the working concept for Kadunce 1.1. It extends the
+existing spatial hierarchy outward without replacing KDE Virtual Desktops:
+
+`Active = this window → Card Line/Bento = these windows → Table = these workspaces`
+
+The first acceptance proof is intentionally complete and narrow: from Card Line
+on a touch device, four-finger swipe up into Table, show multiple existing KDE
+Virtual Desktops as spatial surfaces, drag one real Kadunce-managed window to a
+different desktop, enter that desktop, and find the window in its Card Line while
+KDE still reports correct underlying membership.
+
+KWin/Plasma remain authoritative for virtual-desktop identity, membership,
+switching, lifecycle and persistence. Table must reuse Kadunce's accepted card,
+ownership, display and transfer architecture. Virtual desktops and physical
+displays remain separate dimensions. Multi-display behavior and gesture ownership
+require explicit design/engineering audits before implementation; the proposed
+four-finger horizontal gesture is not accepted scope.
+
+Table is explicitly outside Itasca 1.0, the current installer/website path and
+release-critical work. Engineering begins only after 1.0 is stable enough to
+reopen Kadunce feature development. Full product brief and non-goals:
+`KADUNCE-TABLE-1.1-CONCEPT.md`.
+
 ## Debug block — after major feature work
 
 Collect remaining observed defects here and reproduce each on current main before
