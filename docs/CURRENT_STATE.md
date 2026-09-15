@@ -1,5 +1,11 @@
 # Current state
 
+`ITASCA-VISUAL-LANGUAGE.md` is the accepted shared visual grammar:
+spacing, pills for controls, rounded boxes for information, corner continuity,
+color/highlight roles, responsive fit, and casing. Lucide is selected for
+suite-owned action chrome and `#F8F8FF` is named Ghost White. Production audit
+and alignment are assigned separately.
+
 Accepted freeze addresses J's fresh-enable monitor tests4/6: ordinary monitor
 admission may supersede a side preference only to fit more visible windows;
 inactive tablet transfers establish real card ownership before Active sizing.
