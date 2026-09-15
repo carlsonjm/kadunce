@@ -224,6 +224,18 @@ Static 1.46.0 under the ISC license, including its inherited Feather MIT notice.
 Temperance's accepted bell uses Lucide Bell geometry, redrawn locally for its
 animated clapper and slash. It is the first documented suite-specific exception.
 
+### Protected custom icon work
+
+These established visuals are product identity or behavior, not migration targets:
+
+- Tette Dot / launcher identity.
+- Temperance's animated Bell.
+- Temperance's custom Weather glyph and behavior.
+- The suite's custom tray icon work.
+
+Lucide must not replace, redraw, simplify, or absorb these components. Preserve
+their geometry and behavior unless J explicitly opens a focused redesign.
+
 ## Responsive composition
 
 Width reveals information, not capability.
@@ -259,6 +271,7 @@ Ambient media is the reference:
 - Lucide is the canonical suite action family.
 - `#F8F8FF` is named **Ghost White** and remains the primary foreground.
 - The animated Temperance bell remains a documented Lucide-derived exception.
+- Tette Dot, Bell, Weather, and custom tray icon work remain protected exceptions.
 - Each repository owns its pinned Lucide subset; there is no runtime cross-repo
   asset dependency.
 
