@@ -118,6 +118,66 @@ a later engineering block.
 Hover scale may reach roughly 1.06 for isolated panel icons. Do not combine scale,
 strong fill, outline, and color change for one ordinary hover.
 
+## Motion and animation
+
+Motion explains state, causality, spatial continuity, or completion. It should not
+decorate an idle interface or delay an action the system already understands.
+
+### Timing tiers
+
+| Tier | Duration | Use |
+|---|---:|---|
+| Immediate feedback | 80–120 ms | Press response, tiny color/opacity acknowledgement |
+| Micro transition | 120–160 ms | Hover, focus, toggle fill, icon state change |
+| State transition | 160–200 ms | Reveal/hide, popup opacity, compact content replacement |
+| Spatial transition | 220–280 ms | Drawer, card, sheet, responsive geometry, mode continuity |
+| Confirmation hold | 700–900 ms | Brief authoritative success/check state before removal |
+
+Durations describe perceived motion. Use platform-scaled/Kirigami durations where
+they preserve these relationships and respect the user's animation settings.
+
+### Easing
+
+- Use ease-out cubic for entrances and direct manipulation settling.
+- Use ease-in-out cubic for reversible geometry or state morphs.
+- Exits may be slightly faster than entrances; they must not feel abrupt.
+- Linear motion is reserved for continuous progress or a genuinely constant-rate
+  indicator.
+- Springs are reserved for physical or spatial continuity, such as an arriving
+  floating surface. Avoid springing routine hover, text, or status changes.
+
+### Choreography
+
+- Animate the container or relationship before individually animating its details.
+- Keep related controls together during motion; never scatter a cluster to fill
+  changing width.
+- Responsive disclosure should fade/settle optional information without moving the
+  stable actionable core unnecessarily.
+- Small sequencing delays may clarify order, but repeated stagger should stay
+  subtle and normally below 60 ms.
+- A source-authoritative completed activity may become a check for 700–900 ms,
+  then leave. Filesystem quiet time alone cannot claim success.
+- Progress changes should remain legible and stable; do not bounce or overshoot a
+  factual value.
+
+### Interruption and ownership
+
+- Every transition must be safe to interrupt, reverse, or retarget from its current
+  visible state.
+- User input wins immediately over decorative or settling animation.
+- The owner of the state owns completion. Presentation may interpolate known state
+  but must not invent progress, success, or failure.
+- Source loss removes stale activity without playing a false success animation.
+- Repeated events update an existing surface when identity is stable instead of
+  replaying the full entrance.
+
+### Reduced motion
+
+- Follow the platform animation scale and accessibility preference where exposed.
+- Under reduced motion, preserve state communication with short opacity/color
+  changes and final geometry; remove travel, overshoot, and stagger.
+- Never make animation the only indication of state.
+
 ## Type hierarchy and casing
 
 Use the system UI family. Create hierarchy with size, weight, opacity, and spacing.
@@ -192,6 +252,7 @@ Ambient media is the reference:
 8. Does the result remain coherent at tablet and monitor widths?
 9. Are icons from one approved family at a consistent optical size?
 10. Does motion explain state or continuity rather than decorate the interface?
+11. Can every animation be interrupted or retargeted without jumping or lying?
 
 ## Accepted decisions and remaining audit questions
 
