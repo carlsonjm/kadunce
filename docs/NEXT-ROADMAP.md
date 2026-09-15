@@ -1,110 +1,128 @@
-# Remaining roadmap — September 13, 2026
+# Itasca launch roadmap — September 15, 2026
 
-This is the active queue, replacing historical P0–P3/K0–K6 “next” directives.
-CURRENT_STATE.md records installed/source provenance. J owns acceptance; physical
-failures override earlier passes. Planning is not permission to install or expand scope.
+This is the active suite queue. It replaces the September 13 R1-first order and
+the historical P0–P3/K0–K6 directives. J owns product priority and physical
+acceptance. Repo source and current-state documents remain authoritative for
+implementation and installed provenance.
 
-## Accepted baseline — preserve, do not rebuild
+## Accepted baseline — preserve
 
-- Native touch carry, Card Line/Bento operation, edge entry, dock-safe exit and
-  output handoff have prior acceptance. Coverage is now reopened narrowly by R1.
-- Card Line shared paging, hidden-neighbor preparation, directional stack browsing,
-  ordered insertion, held-front ordering, balanced neighboring decks, and coordinated
-  pickup/release have passed. Keep 44% hold size and immediate finger tracking.
-- Tette Meta toggle/fullscreen panel access: bdf4523.
-- Temperance notification readability/banner and Bluetooth pairing polish: ff62ce3.
-  Kadunce Active elevation cleanup passed with the earlier coordinated QoL batch.
-- These passes are regression contracts, not proof of every app/device sequence.
-  Zen sampling remains unresolved; no new cache experiments are authorized.
+- Kadunce native touch carry, Card Line/Bento operation, edge entry, dock-safe
+  exit, output handoff, Active ownership lifetime, shared paging and stack
+  browsing are accepted. September 14 monitor admission and tablet ownership
+  corrections close the majority of the former R1 block.
+- Tette Meta toggle, fullscreen panel access, shared Active drawer sizing,
+  dock-safe bounds, Browse Everything, and the accepted local Files foundation
+  are in main. Files includes navigation, selection, internal copy drag/drop,
+  copy/paste, create, rename, cut/move, recoverable Trash and default-app open.
+- Temperance notification readability, banner behavior, Bluetooth pairing and
+  aligned controls are accepted.
+- Accepted behavior is a regression contract. Do not rebuild it to address an
+  unverified historical report.
 
-## R1 — Bento/card ownership and drop targets (next engineering block)
+## Active work block — Tette Files and Ambient
 
-### Current report
-J must force cards into Card Line individually or they revert to ordinary windows
-or return to the monitor. Bento drop regions also need work. Exact source state,
-gesture and destination for each failure are not yet established. Earlier
-cross-display passes are real but do not establish coverage of this sequence.
-Do not label it a confirmed code regression or a new architecture requirement yet.
+Finish these as two bounded, independently reviewable packets. They may proceed
+in parallel in isolated worktrees; integrate only after focused tests and review.
 
-### Product contract
-- Eligible windows on an activated card workspace should not require individual
-  manual promotion to obtain the intended workspace behavior.
-- Source ownership persists while a drag is in flight; crossing a display alone
-  must not commit membership or overwrite the source restore record.
-- Existing destination Bento receives the card through its admission plan.
-- Without destination Bento, monitor open-space release becomes an ordinary
-  window; intentional edge placement activates Bento for eligible local windows.
-- Tablet Card Line/Active/Bento must agree about admission and departure. A valid
-  accepted drop must not spring back; rejection must restore the original state.
-- Preview and committed destination must agree. Preserve bottom dock gestures,
-  safe landing, tablet output fences, Ctrl+Esc and instant disable.
+### T1 — Files operation plumbing
 
-### R1a: bounded diagnosis before editing
-Capture one failing route and a matched passing route on current main. Record
-source presentation, native/card membership, initiating input, destination display,
-existing destination session, preview intent, and result at release. Include
-ordinary windows that have never entered Card Line and cards explicitly promoted.
-Compare the relevant changes against the prior accepted edge/ownership freeze;
-do not roll back animation or assume all earlier fixes are absent.
-Inspect CardStageController, DesktopStageController, NativeCarryRuntime and the
-existing admission/reservation boundaries only as evidence requires.
-Deliver: exact reproduction, first divergent owner/decision, smallest correction.
+Owner: A-Team/Astra.
 
-### R1b: ownership correction
-Fix only the proven boundary, using existing authoritative membership and restore
-records. No app-name exceptions, per-frame geometry enforcement, new persistent
-service or blanket re-admission. Focused regression test plus J's failing route
-and one neighboring passing route; stop after acceptance.
+- Add useful operation progress and explicit cancellation where KIO supports it.
+- Make collision, interruption, dismissal, guest loss, application launch and
+  process-exit behavior truthful and recoverable. Preserve the existing bounded
+  process-owned job lifetime; no always-on service without new evidence.
+- Use disposable fixtures. Preserve partial-success reporting and refuse unsafe
+  overwrite behavior unless a deliberate conflict decision is implemented.
+- Do not include thumbnails, recursive search, devices/network, external drag,
+  Open With, properties or unrelated Files polish.
 
-### R1c: Bento drop-region correction
-J identifies the unintuitive/missed drop region; compare visible preview with the
-actual hit test and release decision. Fix shared target geometry/intent rather
-than separate preview and commit heuristics. Cover tablet-only and monitor,
-both approach directions, existing/empty Bento and pullback cancellation as
-relevant. Separate this change from R1b if it changes interaction policy.
+Exit: focused native/QML tests and local build pass; source behavior and remaining
+limits are documented; J receives a short physical copy/move/cancel/collision and
+dismiss/reopen checklist. No install or push before review.
 
-Stop rule: two unsuccessful candidates require an evidence review, not another
-speculative layer. No broad KWin rebuild or test campaign without scope approval.
+### T2 — Ambient Tette
 
-## R2 — Remaining motion (after R1 acceptance)
+Owner: B-Team/Sol.
 
-Only demonstrated gaps: Bento displaced-neighbor/reflow motion and any cross-display
-arrival discontinuity. Pickup/drop and line/stack cycling are no longer pending.
-No replacement animation engine or blanket duration changes.
+- Keep full Apps/Files controls on the Active-sized surface. Leaving content mode
+  returns to the quiet compact Tette card while preserving query, file location,
+  history, selection, scroll and appropriate focus.
+- Preserve Escape precedence, Meta dismissal, guest cleanup, drawer motion,
+  standalone fallback and accepted Kadunce ownership.
+- Track expansion ownership where the current protocol supports it. If manual
+  persistent Active cannot be distinguished from content-caused expansion,
+  implement only the unambiguous automatic contraction and surface the product
+  decision instead of inventing a protocol.
+- No normal-window/Bento conversion, new service, redesign or speculative
+  Kadunce contract.
 
-## R3 — Known compatibility and release confidence
+Exit: focused QML/controller tests and local build pass; J receives an Apps/Files
+expand, exit, state-retention, Meta and standalone physical checklist.
 
-- Zen rendering/sampling artifact: separate bounded rendering investigation;
-  never trade accepted touch responsiveness for speculative cache machinery.
-- Affinity splash/main-window transition: deferred, nonblocking compatibility.
-- Short physical checkpoint on tablet-only and docked configurations after R1;
-  preserve safety switch, restore behavior and dock gestures. J owns physical
-  acceptance; automated coverage does not substitute for it.
-- Distribution bundle, broader hardware coverage and update/repair integration
-  are later packaging decisions, not new mandatory architecture.
+Stop rule for both packets: two unsuccessful candidates or a required new owner/
+cross-repo protocol triggers evidence review and a fresh scope decision.
 
-## Separate app feature queue
+## Next major feature blocks
 
-1. Tette Active-sized Browse Everything/All Files: begin with backend feasibility
-   and guest-sizing/job-lifetime decisions, not full implementation. Preserve
-   search scope/ranking and touch-friendly minimal UI.
-2. Tette desktop/Bento use: verify standalone display/focus/launch behavior before
-   selecting any guest-contract expansion.
-3. Steam/external libraries: scoped discovery and launch work; Steam owns library
-   and Proton resolution. Missing drives must fail safely.
-4. Temperance truthful power-state audit, stock-notification handback and any
-   remaining badge details: recheck current app source and acceptance before
-   treating historical inventory entries as open bugs. Bolt is not proof of bypass.
+Sequence is product-first; independent work may overlap only when files and
+acceptance surfaces are disjoint.
 
-## Deferred, not MVP blockers
+1. **Tette Files completion:** transfer robustness acceptance, then desktop
+   integration (external drag/drop, Open With, properties), discovery
+   (thumbnails/previews, recursive search, Recent), and storage lifecycle
+   (removable devices and optional KIO/network places). Keep these as related
+   2–3 feature packets rather than one file-manager rewrite.
+2. **Tette desktop/Bento use:** verify standalone display, focus and launch
+   destination before choosing any guest-contract expansion.
+3. **Steam/external libraries:** scoped discovery and launch. Steam owns library
+   and Proton resolution; missing drives fail safely without boot mounts.
+4. **Temperance release closure:** recheck current source before assigning the
+   truthful power-state audit, stock-notification presenter handback or remaining
+   badge details. Historical inventory is not proof of a current bug.
+5. **Suite integration and packaging:** build each repo from clean source; verify
+   install/uninstall or rollback paths, Kadunce persistent safety control,
+   tablet-only and docked behavior, scaling/rotation, focus/Meta cleanup and
+   package provenance. J performs final physical acceptance for each release.
 
-Persistent layouts across unload, native-to-stack producers beyond existing
-paths, renderer extraction, new services and additional tiling modes.
+## Debug block — after major feature work
 
-## Design archive
+Collect remaining observed defects here and reproduce each on current main before
+editing. The former R1 ownership/drop-target reports are no longer the active
+queue; September 14 cleared most of that block. Candidate items include only
+failures that still reproduce:
 
-ROADMAP-HISTORY-20260913.md preserves the entire former roadmap, including existing
-E13–E15 additions and the detailed E12 All Files F0–F5 plan. It is design/history,
-not execution order. Completed ecosystem fixes must not be reintroduced as tasks.
-MVP-RELEASE-SCOPE.md remains the scope/resource policy; this queue reflects the
-new user-authorized priorities. Next assignment is R1a, not all blocks at once.
+- card/Bento ownership, spring-back or preview-versus-drop-target mismatch;
+- Ghostty's reported stray one-pixel bottom line/flat-dock trigger;
+- Zen rendering/sampling artifact;
+- Affinity splash/main-window transition;
+- cross-display arrival discontinuity or remaining Bento reflow motion;
+- any Tette/Temperance regressions discovered during feature acceptance.
+
+For each item capture one failing route and one neighboring passing route, find
+the first divergent owner/decision, and make the smallest correction. Two failed
+approaches require evidence review. Any lost window, stuck input or broken
+Kadunce disable control remains an immediate safety blocker and does not wait for
+this block.
+
+## Launch definition
+
+Itasca is launch-ready when the selected V1 feature set is accepted, all three
+repos build from clean source, packages and rollback/uninstall paths are verified,
+Kadunce's persistent kill switch passes live control checks, no release-blocking
+data-loss/input/window-loss issue remains, and J completes final tablet-only and
+docked acceptance. Broader hardware coverage, persistent layouts, renderer
+extraction, new tiling modes and new always-on services remain post-launch unless
+J explicitly promotes them.
+
+## Resource and budget policy
+
+- B-Team/Sol is the default bounded implementation owner. A-Team/Astra takes
+  cross-owner architecture, risky lifecycle work and review gates.
+- Assign one coherent packet at a time with a visible failure or outcome, exact
+  owner, focused tests, physical acceptance and stop point.
+- Prefer focused checks over broad campaigns. Do not rebuild unchanged packages.
+- Architecture cleanup alone does not block a usable release. Scope expansion,
+  a new persistent owner or a broad compatibility matrix requires a product and
+  budget decision from J.
