@@ -16,13 +16,13 @@
   <g mask="url(#rear-cards)">
     <rect x="7" y="15" width="35" height="42" rx="7"
           transform="rotate(-10 42 57)"
-          fill="none" stroke="#ffffff" stroke-opacity="0.24"
+          fill="none" stroke="#F8F8FF" stroke-opacity="0.24"
           stroke-width="4"/>
     <rect x="14" y="10" width="36" height="45" rx="7"
           transform="rotate(-5 50 55)"
-          fill="none" stroke="#ffffff" stroke-opacity="0.36"
+          fill="none" stroke="#F8F8FF" stroke-opacity="0.36"
           stroke-width="4"/>
   </g>
   <rect x="22" y="7" width="35" height="49" rx="7"
-        fill="#ffffff" mask="url(#front-card)"/>
+        fill="#F8F8FF" mask="url(#front-card)"/>
 </svg>
