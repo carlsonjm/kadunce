@@ -1,5 +1,12 @@
 # Current state
 
+Accepted freeze addresses J's fresh-enable monitor tests4/6: ordinary monitor
+admission may supersede a side preference only to fit more visible windows;
+inactive tablet transfers establish real card ownership before Active sizing.
+Build and four focused suites pass; J installed and passed both physical retests.
+Installed5df69825 and post-install live safety verified; freeze/push authorized.
+See MONITOR-ADMISSION-20260914.md for source evidence and rollback.
+
 September14 accepted freeze: output-local Active bottom clearance matches Bento's extra
 10px only when MaximizeArea reserves bottom space; dock-free output keeps symmetric
 gutters. No Card Line/native ownership or repaint changes. Production build,

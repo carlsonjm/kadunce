@@ -1680,8 +1680,8 @@ bool CardStageController::admitTransferredWindowToTablet(
 {
     QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
     if (!tablet || !window || window->isDeleted() || !window->window()
-        || (m_active && (!window->isNormalWindow()
-            || !m_host->isManagedWindowForCardStage(window)))) {
+        || !window->isNormalWindow()
+        || !m_host->isManagedWindowForCardStage(window)) {
         return false;
     }
     QPointer<KWin::EffectWindow> arrival = window;
@@ -1700,8 +1700,8 @@ bool CardStageController::admitTransferredWindowToTablet(
     const auto ticket = m_transferGuard.issue();
     if (!target.isValid() || !KWin::effects->screens().contains(tablet.data())
         || window->isUserMove() || window->isUserResize()) return false;
-    const bool newMember = m_active && liveCardIndex(window) < 0;
-    const bool animateArrival = m_presentation == CardPresentation::CardLine
+    const bool newMember = liveCardIndex(window) < 0;
+    const bool animateArrival = m_active && m_presentation == CardPresentation::CardLine
         && !m_launcherGuestActive;
     const int previousSelection = m_workspace.selectedIndex();
     if (newMember) {
@@ -1714,6 +1714,12 @@ bool CardStageController::admitTransferredWindowToTablet(
         if (animateArrival) captureCardTransition();
         if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
         m_originalCardStackingOrder.append(arrival);
+        // A fresh receiver must own the card before applying Active geometry.
+        // Otherwise the first upward swipe can start an ordinary native resize.
+        if (!m_active) {
+            m_active = true;
+            m_host->setPagingShortcutsForCardStage(true);
+        }
     } else if (!commitSource()) {
         return false;
     }

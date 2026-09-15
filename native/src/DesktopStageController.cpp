@@ -828,7 +828,8 @@ bool DesktopStageController::planSession(Session &session,
         for (int i = 0; i < std::min(10, int(owned.size())); ++i)
             candidates.push_back(candidate(owned[i]));
         const auto admission = chooseBentoSideAdmission(*session.side, area.width(), area.height(),
-            candidates, requirePreferred ? owned.indexOf(preferred) : 0);
+            candidates, requirePreferred ? owned.indexOf(preferred) : 0,
+            !m_host->isTabletOutputForDesktopStage(output));
         if (!admission) return false;
         session.windows.clear();
         session.overflow = owned;

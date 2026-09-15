@@ -180,6 +180,12 @@ int main()
             && alone->rects[0].width == 1 && alone->rects[0].height == 1,
             "Only fitting card did not fill Active space");
     }
+    const std::vector<BentoCandidate> monitorFour(4, {600,600,900,700,false});
+    for (bool right : {false,true}) {
+        const auto plan = chooseBentoSideAdmission({right,true},2540,1410,monitorFour,0,true);
+        require(plan && plan->candidateIndices.size() == 4,
+            "Monitor edge preference hid a fourth window that fits normal Bento");
+    }
     for (bool right : {false,true}) {
         const std::vector<BentoRect> pair = right
             ? std::vector<BentoRect>{{0,0,2.0/3,1},{2.0/3,0,1.0/3,1}}

@@ -1,5 +1,14 @@
 # Decisions
 
+## September14 — Accepted fresh-state admission correction
+
+Monitor side preference yields only when ordinary admission keeps strictly more
+windows visible, retaining both required and edge-selected cards. Equal counts
+preserve side intent; tablet side layouts remain unchanged. A fresh tablet
+transfer commits card membership and retains its restore record before Active
+placement, so native resize cannot bypass ownership. J passed both retests.
+See MONITOR-ADMISSION-20260914.md; no rendering or timing changes.
+
 ## September14 — Optional expanded launcher guest
 
 Keep launcher protocol3 compatible and advertise presentationCapability1. Tette

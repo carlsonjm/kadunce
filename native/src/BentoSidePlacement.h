@@ -132,7 +132,8 @@ inline std::optional<std::vector<BentoRect>> splitBentoColumn(
 // Keep the edge-selected card visible; park only the residents that cannot fit.
 // Bound search like ordinary admission, preserve resident order, prefer more panes.
 inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement choice,
-    int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0)
+    int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0,
+    bool allowMonitorFallback = false)
 {
     const int count = std::min(10, int(candidates.size()));
     if (count == 0 || required < 0 || required >= count) return std::nullopt;
@@ -153,6 +154,15 @@ inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement
         admission.rects = *rects;
         best = std::move(admission);
     }
+    // A side proportion is a preference, not a reason to hide a window that
+    // the normal monitor layout can fit. Keep the side plan on equal counts.
+    const auto ordinary = allowMonitorFallback
+        ? chooseBentoTransferAdmission(candidates, required, width, height, 8)
+        : std::optional<BentoAdmission>{};
+    if (ordinary && (!best || ordinary->candidateIndices.size() > best->candidateIndices.size())
+        && std::find(ordinary->candidateIndices.begin(), ordinary->candidateIndices.end(), 0)
+            != ordinary->candidateIndices.end())
+        best = ordinary;
     return best;
 }
 }
