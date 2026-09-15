@@ -1,143 +1,128 @@
-# Itasca launch roadmap — September 15, 2026
+# Itasca launch roadmap — September 15, 2026 EOD
 
-This is the active suite queue. It replaces the September 13 R1-first order and
-the historical P0–P3/K0–K6 directives. J owns product priority and physical
+This is the active suite queue after J's installed whole-suite pass. It replaces
+the earlier Ambient-first packet list. J owns product priority and physical
 acceptance. Repo source and current-state documents remain authoritative for
 implementation and installed provenance.
 
-## Accepted baseline — preserve
+## Accepted launch baseline — preserve
 
-- Kadunce native touch carry, Card Line/Bento operation, edge entry, dock-safe
-  exit, output handoff, Active ownership lifetime, shared paging and stack
-  browsing are accepted. September 14 monitor admission and tablet ownership
-  corrections close the majority of the former R1 block.
-- Tette Meta toggle, fullscreen panel access, shared Active drawer sizing,
-  dock-safe bounds, Browse Everything, and the accepted local Files foundation
-  are in main. Files includes navigation, selection, internal copy drag/drop,
-  copy/paste, create, rename, cut/move, recoverable Trash and default-app open.
-- Temperance notification readability, banner behavior, Bluetooth pairing and
-  aligned controls are accepted.
-- Accepted behavior is a regression contract. Do not rebuild it to address an
-  unverified historical report.
+- **Kadunce:** native touch carry, Card Line/Bento, edge entry, dock-safe exit,
+  output handoff, Active ownership lifetime, monitor admission, shared paging and
+  stack browsing. The visual audit aligns the custom tray and spatial hints while
+  preserving card/fan/Bento geometry and the persistent safety control.
+- **Tettegouche:** Meta/panel access, Files foundation, responsive Ambient media
+  and transfer activity, real MPRIS/KJob providers, compact local activity
+  popups, responsive information density, completion feedback, and Lucide action
+  chrome. The center application dock remains visually centered.
+- **Temperance:** notification ticker/history, producer actions, individual and
+  group dismissal, Bluetooth/power/status controls, left-boundary measurement,
+  Lucide action chrome, and protected custom Bell/Weather/tray identity.
+- **Suite language:** Ghost White `#F8F8FF`; pills are controls; rounded boxes are
+  information; labels use lowercase where they are labels; provider identity is
+  preserved; motion is bounded and interruptible.
 
-## Active work block — Ambient Tette
+The ownership boundary remains:
 
-Files basics are ready enough to leave the critical path. The local
-transfer-robustness candidate remains available for later review and promotion;
-do not expand its test matrix before current product work.
+- Temperance = transient awareness, **what changed**.
+- Ambient Tette = ongoing context, **what matters now**.
+- Source apps/services = actual state and actions.
 
-Ambient Tette is the right-side dock surface for ongoing context: **what matters
-now**. Temperance remains the left-side notification ticker today and owns the
-future transient-event surface for **what changed**. Source apps and services own
-actual state and actions. There is no separate Live Rail app.
+There is no separate Live Rail product. Width reveals information rather than
+adding capability. Controls remain together; remaining width reveals title,
+artist, runtime and richer detail in priority order.
 
-Width reveals information, not capability. Ambient packs concurrent activity:
-each item keeps a minimum recognizable state and essential action while extra
-space reveals filename/title, artist, bytes, duration, and ETA. A transfer may
-compress media description, but must not remove media controls when both cores
-fit. Similar activities group only when their cores cannot all fit. Both flexible
-sides preserve the physical center of the application dock.
+## Active block 1 — Tette component polish
 
-Authoritative contract and packet gates:
-`../../tettegouche/docs/AMBIENT-LIVE-ACTIVITY-HANDOFF.md`.
+Use the screenshots from J's September 15 review as the acceptance source. Keep
+this bounded to visible inconsistencies:
 
-1. A-Team: read-only source/geometry feasibility and exact provider contract.
-2. B-Team: responsive compositor against that approved contract.
-3. A-Team: production providers/integration after J accepts the interaction.
-4. B-Team: later Temperance event-source expansion; current Temperance is
-   notification-only and does not block initial Ambient.
+1. Treat `close drawer`, path, new-item and similar actions as controls with
+   consistent pill/icon-button affordances.
+2. Remove premature truncation such as `New f...` when the drawer has unused
+   width. Use measured fit rather than fixed descriptive tiers.
+3. Replace remaining raw Unicode action marks and align search-clear, sort,
+   Everyday/Quiet mode, and navigation states with the pinned Lucide subset.
+4. Tune media title/artist/runtime spacing while preserving the accepted order
+   `[previous, play/pause, next] → song → artist → runtime` and minimum controls.
+5. Preserve the Tette Dot, real provider identity, current responsive boundary,
+   local popups and center-dock geometry.
 
-No daemon, polling loop, persistent history, replacement task manager, or broad
-Plasma patch without a new architecture/budget decision. Two failed approaches
-to one boundary trigger evidence review.
+Owner: B-Team by default. Stop after focused build/tests and J's tablet/monitor
+visual pass. Do not turn this into a Files rewrite.
 
-## Next major feature blocks
+## Active block 2 — Temperance release closure
 
-Sequence is product-first; independent work may overlap only when files and
-acceptance surfaces are disjoint.
+Split this into two evidence-driven packets:
 
-1. **Ambient Tette:** complete its gated source, compositor, and integration
-   packets, then J's tablet/monitor acceptance.
-2. **Tette Files completion:** optional transfer-robustness promotion, then desktop
-   integration (external drag/drop, Open With, properties), discovery
-   (thumbnails/previews, recursive search, Recent), and storage lifecycle
-   (removable devices and optional KIO/network places). Keep these as related
-   2–3 feature packets rather than one file-manager rewrite.
-3. **Tette desktop/Bento use:** verify standalone display, focus and launch
-   destination before choosing any guest-contract expansion.
-4. **Steam/external libraries:** scoped discovery and launch. Steam owns library
-   and Proton resolution; missing drives fail safely without boot mounts.
-5. **Temperance release closure:** add the bounded non-notification event-source
-   slice after initial Ambient, then recheck current source before assigning the
-   truthful power-state audit, stock-notification presenter handback or remaining
-   badge details. Historical inventory is not proof of a current bug.
-6. **Suite integration and packaging:** build each repo from clean source; verify
-   install/uninstall or rollback paths, Kadunce persistent safety control,
-   tablet-only and docked behavior, scaling/rotation, focus/Meta cleanup and
-   package provenance. J performs final physical acceptance for each release.
+1. **Popup clearance:** capture the settled popup, panel and available-screen
+   geometry in the live session. Target the established 10 px breathing room only
+   at the layer that owns the external placement. Plasma-owned placement is a
+   valid boundary; do not simulate the gap with card padding or reduced content.
+2. **Event sources:** add the smallest useful non-notification transient source
+   slice so Temperance can represent system transitions beyond notifications.
+   Keep events ephemeral and separate from Tette's persistent live activities.
 
-## Post-1.0 product direction — Kadunce 1.1 Table
+Owner: A-Team for the geometry/ownership gate; B-Team for the bounded event UI
+after the contract is approved. Preserve notification actions, custom Bell and
+left-side responsive measurement.
 
-J has defined **Table** as the working concept for Kadunce 1.1. It extends the
-existing spatial hierarchy outward without replacing KDE Virtual Desktops:
+## Active block 3 — Tette Files completion
+
+Treat these as related but separate packets:
+
+1. Desktop integration: external drag/drop, Open With and properties.
+2. Discovery: thumbnails/previews, recursive search and Recent.
+3. Storage lifecycle: removable devices and optional KIO/network places.
+
+The filesystem provider may observe incoming files, but observation alone cannot
+invent authoritative progress or success. KJob/source ownership remains the
+truth for percentage, cancellation and completion.
+
+## Active block 4 — launch integration
+
+Build all three repos from clean source. Verify package provenance, install and
+uninstall or rollback paths, Kadunce's persistent kill switch, tablet-only and
+docked behavior, scaling/rotation, focus and Meta cleanup, and the final website
+or distribution path. J performs final physical acceptance.
+
+Launch requires no release-blocking data loss, input loss or window loss. A
+missing/broken Kadunce disable control blocks release immediately.
+
+## Deferred Debug block
+
+After major feature work, reproduce each report on current main before editing:
+
+- Ghostty's stray one-pixel bottom line/flat-dock trigger;
+- Zen rendering/sampling artifact;
+- Affinity splash/main-window transition;
+- cross-display arrival discontinuity or remaining Bento motion issue;
+- regressions found during current Tette/Temperance acceptance.
+
+Most former R1 ownership/drop reports were cleared September 14. Do not restore
+them to the queue without a current reproduction. Capture one failing and one
+neighboring passing route, then correct the first divergent owner/decision.
+
+## Post-1.0 — Kadunce Table 1.1
+
+Table extends the existing spatial hierarchy:
 
 `Active = this window → Card Line/Bento = these windows → Table = these workspaces`
 
-The first acceptance proof is intentionally complete and narrow: from Card Line
-on a touch device, four-finger swipe up into Table, show multiple existing KDE
-Virtual Desktops as spatial surfaces, drag one real Kadunce-managed window to a
-different desktop, enter that desktop, and find the window in its Card Line while
-KDE still reports correct underlying membership.
-
-KWin/Plasma remain authoritative for virtual-desktop identity, membership,
-switching, lifecycle and persistence. Table must reuse Kadunce's accepted card,
-ownership, display and transfer architecture. Virtual desktops and physical
-displays remain separate dimensions. Multi-display behavior and gesture ownership
-require explicit design/engineering audits before implementation; the proposed
-four-finger horizontal gesture is not accepted scope.
-
-Table is explicitly outside Itasca 1.0, the current installer/website path and
-release-critical work. Engineering begins only after 1.0 is stable enough to
-reopen Kadunce feature development. Full product brief and non-goals:
-`KADUNCE-TABLE-1.1-CONCEPT.md`.
-
-## Debug block — after major feature work
-
-Collect remaining observed defects here and reproduce each on current main before
-editing. The former R1 ownership/drop-target reports are no longer the active
-queue; September 14 cleared most of that block. Candidate items include only
-failures that still reproduce:
-
-- card/Bento ownership, spring-back or preview-versus-drop-target mismatch;
-- Ghostty's reported stray one-pixel bottom line/flat-dock trigger;
-- Zen rendering/sampling artifact;
-- Affinity splash/main-window transition;
-- cross-display arrival discontinuity or remaining Bento reflow motion;
-- any Tette/Temperance regressions discovered during feature acceptance.
-
-For each item capture one failing route and one neighboring passing route, find
-the first divergent owner/decision, and make the smallest correction. Two failed
-approaches require evidence review. Any lost window, stuck input or broken
-Kadunce disable control remains an immediate safety blocker and does not wait for
-this block.
-
-## Launch definition
-
-Itasca is launch-ready when the selected V1 feature set is accepted, all three
-repos build from clean source, packages and rollback/uninstall paths are verified,
-Kadunce's persistent kill switch passes live control checks, no release-blocking
-data-loss/input/window-loss issue remains, and J completes final tablet-only and
-docked acceptance. Broader hardware coverage, persistent layouts, renderer
-extraction, new tiling modes and new always-on services remain post-launch unless
-J explicitly promotes them.
+KWin/Plasma remain authoritative for virtual desktops. The first proof is a
+four-finger upward transition from Card Line, multiple existing desktops as
+spatial surfaces, one real card moved to another desktop, and correct membership
+when entering its destination Card Line. Gesture ownership, multi-display rules
+and the KDE virtual-desktop API require explicit audits before implementation.
+See `KADUNCE-TABLE-1.1-CONCEPT.md`.
 
 ## Resource and budget policy
 
-- B-Team/Sol is the default bounded implementation owner. A-Team/Astra takes
-  cross-owner architecture, risky lifecycle work and review gates.
-- Assign one coherent packet at a time with a visible failure or outcome, exact
-  owner, focused tests, physical acceptance and stop point.
-- Prefer focused checks over broad campaigns. Do not rebuild unchanged packages.
-- Architecture cleanup alone does not block a usable release. Scope expansion,
-  a new persistent owner or a broad compatibility matrix requires a product and
-  budget decision from J.
+- B-Team/Sol owns bounded visual and Tette/Temperance implementation by default.
+- A-Team/Astra owns cross-owner architecture, Kadunce, risky lifecycle work and
+  geometry authority gates.
+- Assign one coherent packet with a visible outcome, focused tests, physical
+  acceptance and a stop point. Prefer focused checks over broad campaigns.
+- Architecture cleanup alone does not block a usable release. A new persistent
+  owner, broad compatibility matrix or scope expansion requires J's product and
+  budget decision.

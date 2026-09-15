@@ -1,172 +1,79 @@
 # Current state
 
-J's post-1.0 Kadunce 1.1 concept, **Table**, is logged in
-`KADUNCE-TABLE-1.1-CONCEPT.md` and linked from `NEXT-ROADMAP.md`. Table makes
-existing KDE Virtual Desktops tangible above Card Line/Bento while leaving KWin
-authoritative. It is product direction only: no implementation packet is active,
-and Itasca 1.0 release completion remains higher priority.
+## September 15 — Itasca visual and Ambient freeze
 
-`ITASCA-VISUAL-LANGUAGE.md` is the accepted shared visual grammar:
-spacing, pills for controls, rounded boxes for information, corner continuity,
-color/highlight roles, responsive fit, and casing. Lucide is selected for
-suite-owned action chrome and `#F8F8FF` is named Ghost White. Production audit
-and alignment are assigned separately.
+J installed the whole-suite candidate, rebooted, and physically passed the final
+state. The accepted production heads at the start of the EOD documentation pass
+are:
 
-Accepted freeze addresses J's fresh-enable monitor tests4/6: ordinary monitor
-admission may supersede a side preference only to fit more visible windows;
-inactive tablet transfers establish real card ownership before Active sizing.
-Build and four focused suites pass; J installed and passed both physical retests.
-Installed5df69825 and post-install live safety verified; freeze/push authorized.
-See MONITOR-ADMISSION-20260914.md for source evidence and rollback.
+- Kadunce **192d8b4** — Ghost White tray foreground, lowercase spatial hints,
+  and the completed visual/motion audit on top of the Table 1.1 product record.
+- Tettegouche **7f54caa** — responsive Ambient media/transfers, real providers,
+  Lucide action chrome, completion feedback, and corrected packaged icon paths.
+- Temperance **10fb70f** — Lucide action chrome, notification actions and
+  individual dismissal, corrected notification/tray copy, packaged icon fixes,
+  and restored event-driven left-boundary measurement.
 
-September14 accepted freeze: output-local Active bottom clearance matches Bento's extra
-10px only when MaximizeArea reserves bottom space; dock-free output keeps symmetric
-gutters. No Card Line/native ownership or repaint changes. Production build,
-layout/carry-paint and independent control pass. J installed and passed connected
-displays and unplugged tablet-only. Installed211f7c2 and live safety verified;
-freeze/push authorized. Ghostty's reported stray1px bottom line/flat-dock trigger
-remains a separate unconfirmed-cause follow-up; no speculative rendering change.
-Evidence, installer and tablet/monitor physical checklist:
-../../tettegouche/docs/ACTIVE-DOCK-20260914.md. Preserve unrelated roadmap edits.
+All three preserve the accepted center-dock geometry. Tette owns ongoing context
+on the right: **what matters now**. Temperance owns transient notification/events
+on the left: **what changed**. Source services remain authoritative for state and
+actions. Width reveals information in the order controls, title, artist, runtime;
+available width is measured rather than capped to a fixed descriptive tier.
 
-J accepted installed Tette drawer bridgebec4d8 and authorized freeze/push.
-Dock-safe bounds,220ms neighbor departure/return and guest-lifetime suspension of
-stack elevation/raising passed. Protocol3 retained; no card geometry/order changes.
-Focused model, private guestxvnGsl, control/live safety pass; installed hash verified.
-Tette finalb681ec is also installed/J-passed. Installer/rollback and evidence:
-../../tettegouche/docs/ACTIVE-DRAWER-20260914.md. Monitor expansion remains deferred.
+The shared visual grammar is `ITASCA-VISUAL-LANGUAGE.md`: Lucide 1.46.0 for
+suite-owned action chrome, Ghost White `#F8F8FF`, pills for controls, rounded
+boxes for information, lowercase labels, responsive fit, and bounded motion.
+Custom identity work remains protected: Tette Dot, Temperance Bell, Weather,
+tray, Speaker, performance selector, and Kadunce stacked-card tray mark. Provider
+icons and proper names remain external identity and are not normalized.
 
-## September 14 — Accepted Bento column/full-divider freeze
+Kadunce's accepted spatial behavior is unchanged by its visual pass. Its custom
+card, fan, Bento, rail and preview geometry remains the interaction language.
+The persistent tray enable/disable control remains release-critical and wired to
+`graphical-session.target`. A separate motion-policy gap remains: custom
+compositor durations do not yet follow platform animation scaling or reduced
+motion. See `VISUAL-AUDIT-20260915.md`.
 
-J passed installed overflowcd7df, frozen at0184129. This accepted batch includes
-membership/minimize reflow, side/share intent,
-minimum-aware fitting subsets with minimized overflow and required visible launches.
-See BENTO-SIDE-20260914.md. Immediate-unload visibility exception remains approved.
+## Validation and acceptance
 
-J passed installed railcd34ba in both axes and column splittingcf5011. It preserves an
-occupied edge column and splits top/bottom, absorbing a vacated third column into
-its remaining neighbor. Small columns on tablet; larger columns also on monitor.
-Minimum failures retain existing fitting/overflow fallback. Rails now hide at idle;
-90ms stationary hold reveals preview, release applies once. Early motion cancels
-activation. Native carry adoption retires forwarded contacts; no new resize loop.
-Fullrail302b1 extends capture across the full shared divider, not just the pill;
-Plasma receives no initial divider press. Outside desktop behavior is unchanged.
-Private NYkGoz/l96RD3 pass off-center horizontal/vertical grabs, cancellation,
-split/overflow and held unload. Control/live safety/hash checks pass.
-Installer ../install-kadunce-bento-fullrail-20260914.sh; rollbackcf5011.
-J passed installed302b1 and authorized freeze/push. Installed hash and live safety
-verified. See FREEZE-20260914-BENTO.md. Monitor hardware acceptance remains deferred.
-Installed, J-accepted Bento motion eac125d adds shared220ms ease-out reflow,
-with native placement once and paint-only interpolation. Fresh input interrupts;
-no snapshot/cache or resize loop. Focused layout/transfer, control and private
-column/rail motion lifecycle checks pass (X4rEyt). Installed hash/live safety verified.
-Installer ../install-kadunce-bento-motion-20260914.sh; rollback accepted302b1.
-See BENTO-MOTION-20260914.md. Rendering e59f5b6 installed/J-passed; hash/live
-safety verified, freeze/push authorized. Includes tilt sampling and bounds
-invalidation. See RENDER-AUDIT-20260914.md. Black-bar policy unchanged.
+- Tettegouche exact-head build, source checks, 12/12 CTests and diff checks pass.
+  The protected Dot applet source is unchanged.
+- Temperance exact-head build, 5/5 CTests and diff checks pass. Its focused panel
+  boundary test passes; protected custom glyph sources remain unchanged.
+- Kadunce production build, five focused motion/layout/paint CTests, source
+  checks, mandatory control verification, staged dependency check and diff checks
+  pass. J's whole-suite reboot and physical pass supplies the final visual
+  acceptance for this batch.
 
-## September 14 — Accepted Active ownership lifetime freeze
+No accepted production change from this batch remains only in a release
+worktree. Older experiments and unrelated local Files branches are not part of
+the freeze.
 
-J accepted this freeze. Active departure parks
-per-window desktop restore records instead of applying them. Reentry reuses them;
-explicit release/unload restores them. Bento collects all retained records before
-Card Stage releases. Committed departure forgets only the transferred record.
-Native resize requests on retained cards are cancelled without releasing ownership.
-No renderer, animation, paging threshold or dock hit-region changes.
+## Next bounded work
 
-Production compiles; five focused model/input tests and verify-control pass.
-Private runtime lifetime and direct-edge gesture checks pass (uysp1k evidence).
-See tests/unload-probe/lifetime-runtime-session.sh; its fixture requires Virtual-0
-as tablet and direct system edges enabled. Never install that fixture binary.
-Installed production8e4c8436 verified; live safety switch passes after installation.
-Exact hashes/rollback: FREEZE-20260914-ACTIVE-LIFETIME.md.
-Next: deferred monitor handoff acceptance when hardware is available.
+1. **Tette component polish:** align Files/drawer control affordances, fix wasted
+   width and premature truncation, replace remaining raw action glyphs, and tune
+   media spacing without changing accepted responsive capability order.
+2. **Temperance closure:** capture settled popup/dock geometry before changing the
+   reported gap; then add a bounded non-notification event-source slice. Do not
+   fake the gap with internal content padding.
+3. **Tette Files completion:** external drag/drop, Open With and properties;
+   thumbnails/recursive search/Recent; then removable and optional network
+   storage lifecycle as separate packets.
+4. **Release integration:** clean builds and package provenance for all repos,
+   install/uninstall or rollback, persistent Kadunce safety control, tablet-only
+   and docked acceptance, scaling/rotation, focus and Meta cleanup.
+5. **Debug block:** reproduce any remaining report on current main after major
+   work. Do not reopen cleared R1 reports without a current failure.
 
-## Card Line motion batch — September 13
+The Table 1.1 concept remains recorded in `KADUNCE-TABLE-1.1-CONCEPT.md` as
+post-launch direction. No Table implementation packet is active before 1.0.
 
-Accepted historical row build/rollback: FREEZE-20260913-ROW-MOTION.md.
+Full daily handoff and continuation order: `EOD-20260915.md`.
 
-Ordinary and held row paging use interruptible220ms presentation, immediate
-selection, captured reversal and shared center/neighbor displacement. Wrapping
-uses the same progress rather than a separate half-clock; single-card gutters
-remain stable. Existing fan endpoints and contact-anchored44% held geometry stay.
-Departing cards are paint-only, not input/model-visible; release retires the old
-detached-row transition. Stack timing/order and native ownership are unchanged.
+## Safety
 
-At most two next-hidden selected faces are prepared with KWin OffscreenEffect,
-one per frame and32MiB per extra surface. Empty final clip prevents screen output.
-Neighborhood/Active/release cleanup retires hidden preparation; finite frames
-prepare both sides. No new retained snapshots, background timer, input readiness
-gate or native geometry. Paging can outrun preparation and never waits for it.
-Entry is opaque; clipping replaces the superseded16px/fade experiments.
-
-Historical row-motion rollback: ../install-kadunce-row-unison-20260913.sh --rollback.
-Source/runtime checks and J's physical pass cover this scoped freeze, not all
-hardware. Zen sampling remains open; do not restart caching experiments.
-Preserve unrelated NEXT-ROADMAP edits.
-
-## Accepted QoL freeze
-
-September13: shared enterActive now clears temporary Card Line elevation after
-publishing Active. Shortcut toggle already did this afterward, but timed arrival
-and external activation paths could retain elevation and cover Plasma popups.
-No geometry, ownership, timing, renderer or input policy changed. Source guard
-checks the shared boundary; build, control and live-control checks pass.
-Local ../install-qol-20260913.sh bundles this with Tette Meta toggle/panel focus;
---rollback restores the accepted ae40 plugin and both prior Tette binaries.
-J reports a full physical pass and authorizes freeze/publication to main.
-Accepted QoL plugin hash (now rollback):
-6c981b08cb951f26e954bc6007d66998b7b8887f701881eb0bebd7b9dae47368.
-All14 native tests pass; independent control2/2 and live safety checks pass.
-No Temperance source edit is needed for this specific elevation leak.
-
-Updated September13. Accepted post-paint stack baseline frozen for main;
-supersedes the earlier contact-driven freeze20f2007. See
-FREEZE-20260913-STACK-BASELINE.md. Trusted repair is not promoted.
-
-## Previous baseline provenance
-
-Historical rigid-fan/caching experiment provenance and exact rollback hashes:
-FREEZE-20260913-STACK-BASELINE.md. Rejected caching experiments stay rejected.
-
-Relative to the preceding rigid-fan baseline, only runtime changes are
-Effect.cpp/.h: prePaintScreen records whether animation
-or drop settling needs continuation; postPaintScreen requests the next repaint
-after KWin consumes current layer damage. Pre-paint masks remain unchanged.
-The pre-paint latch ensures a final endpoint frame if the animation expires
-during painting; the next inactive pre-paint clears it. No idle repaint loop,
-new timer, cache, timing/geometry/ownership/input changes.
-
-## Preserved accepted behavior
-
-Contact-anchored44% held size;500ms shoulder paging;300/350ms physical-edge paging;
-inward cancellation; canonical insertion depth/selected-face continuity;
-rigid browse/insertion fan; outline-only seam; native ownership and dock safety.
-Live proportional previews with the firm-pass backing and rounded aperture.
-No retained Active image cache, readiness gates, startup shader preparation,
-extra full-output damage repair or diagnostic timing hooks.
-
-## Evidence and uncertainty
-
-Historical measurements and repaint ordering: LIVE-LAG-EVIDENCE-20260913.md.
-Accepted post-paint baseline; not an instrumented GPU root-cause proof.
-
-Power/refresh/runtime contribution to historical lag remains unproven.
-
-## Safety and next bounded action
-
-A showfps + Spectacle diagnostic crashed KWin at16:14:01 (screencast framebuffer
-trace), then Zen. Witness result INVALID. No intentional restart/app close.
-Recovered session, ChatGPT focused, showfps absent, tray kill switch verified.
-Do not repeat overlay+recording on the live desktop.
-
-Next: ownership/drop block in NEXT-ROADMAP.md. No speculative caching/power tuning.
-Zen sampling remains separate. Trusted repair is not promoted.
-
-## Recovery and other scope
-
-Local candidates remain under ../work, outside Git; fresh clones use install.sh.
-Trusted repair stays27f775ecad1e2d132f985950660c8d039eaf015b7e499723cf348cd51c4fa1d9.
-KWin6.7.5-1.2 engine patch unchanged. Never reinstate rejected rough-swipeba47bf.
-Occupied-tablet arrival considered solved; Affinity splash deferred.
-B owns Temperance. Preserve unrelated NEXT-ROADMAP edits.
+For Kadunce changes, run `bash tests/verify-control.sh`; after installation in the
+graphical session, run `bash tests/verify-live-control.sh`. Do not infer a missing
+kill switch from a sandbox or D-Bus transport failure. Do not log out, stop the
+graphical session, or toggle the effect as a test without J's authorization.
