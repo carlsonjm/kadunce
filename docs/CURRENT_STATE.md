@@ -1,31 +1,30 @@
 # Current state
 
-## September 16 — A1 published; A2 physical-review candidate
+## September 16 — A2 ownership and Temperance T1 physically accepted
 
-J passed A1 tests 1–3: persistent control, committed cross-display release to the
-tablet, and immediate ownership of every Card Line member. A1 **0565ccf** was
-replayed unchanged as **02e6a6f** on PM's **8d3a0b9**, then published with acceptance
-docs at **0d970c9** by normal fast-forward. PM's roadmap/checklist are preserved.
-Fresh production build, eight focused tests and source/control checks passed.
+J passed A2 constrained-launch routing, Bento → Card Line stack retention and
+large-pane selection, monitor isolation, and lifecycle. Zen using the small pane
+is accepted when its minimum permits it. Accepted candidate **5e91671** is replayed
+as **d2a0357** on PM main **bfe761b**, with identical production sources and every
+newer rolling roadmap/checklist edit preserved. A1 **02e6a6f** remains included.
+See `OWNERSHIP-A2-20260916.md` and `CHECKPOINT-20260916.md` for evidence and rollback.
 
-A2 is isolated on `a/ownership-a2` from **0d970c9**. Tablet Bento now transfers its
-retained members into one Card Line stack with the largest pane selected. A new
-constrained tablet window uses the existing pane planner or remains owned as a
-prepared Active-sized minimized card. Ordinary cross-display adoption into existing
-tablet Bento uses the same committed tablet-origin rule as A1. Release cancels
-pending preparation and preserves ordinary geometry/minimized state. Existing
-session and stack owners suffice; no new persistence owner is introduced.
+J also passed Temperance T1 **8022fc6**: ticker is back to normal with both stock
+spacers expanding. The installed Temperance plugin is byte-identical to that
+source build. The correction refreshes scene-space width when Plasma moves an
+ancestor container; it does not change layout policy. Tette stays at **7f54caa**.
 
-See `OWNERSHIP-A2-20260916.md` for exact evidence and physical checklist. The private
-two-output runtime passes launch, grouping/Active round trips, origin preservation,
-monitor isolation, rejected/committed cross-display adoption and immediate release.
-Physical Zen/Ghostty behavior, gestures and Plasma dock painting remain J's gate.
-A2 is not installed or pushed; installed acceptance remains A1. Rollback is
-published **0d970c9**. No Tettegouche/Temperance, geometry library, renderer, motion,
-input timing or safety-control changes are included in A2.
+This source freeze adds no installation or live configuration change. Kadunce
+installed provenance is J's accepted A2 candidate; replay changes documentation,
+not production behavior. Publication validates the replay's production build,
+focused tests, private ownership runtime and mandatory control package again.
+A2 rollback is A1 **0d970c9** (same production behavior as **bfe761b**). T1 rollback
+is Temperance **10fb70f** through a separate build/install, without history reset.
 
-After A2 handoff, the separately authorized center-slot architecture review may
-begin. Do not mix its implementation into this ownership candidate.
+**Still open:** Bento-derived Card Line presentation uses undersized live content
+inside large black areas. A2.1 has no production commit and is excluded. Tette
+center/transfer and remaining notification polish also remain open. No rejected
+shared-center or fixed-spacer code is part of this freeze.
 
 ## September 15 — Itasca visual and Ambient freeze
 
@@ -79,8 +78,10 @@ the freeze.
 ## Next bounded work
 
 The rolling execution plan is `NEXT-ROADMAP.md`; update its section status and
-planning number after every accepted block. Current forecast is **6 focused
-working days**, with a 5–7 day expected range.
+planning number after every accepted block. Current forecast is **5.5 focused
+working days remaining**, with a 5–7 day expected range. This modest reduction
+credits accepted ownership/ticker work while retaining the presentation and
+Tette regression allowance.
 
 1. **Debug and polish:** A1 and A2 ownership behavior passed J's physical tests.
    Zen correctly used the small Bento pane because its minimum size did not

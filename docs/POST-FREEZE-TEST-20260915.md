@@ -6,6 +6,10 @@ Missing Features section. A checked item means the reported behavior has been
 reproduced and corrected on a later installed candidate; source-only validation
 does not close it.
 
+September 16 checkpoint: A2 **5e91671** ownership and T1 **8022fc6** physically
+passed J. See `CHECKPOINT-20260916.md`; presentation and all unchecked items remain
+open. Zen using a small pane is accepted when its minimum permits it.
+
 ## Kadunce ownership and card manipulation
 
 - [x] **Cross-display release target:** arrange windows on the monitor, enable
@@ -69,8 +73,9 @@ contact anchoring, current card geometry and direct edge paging.
 
 ## Temperance
 
-- [ ] **Ticker regression:** ticker content appears only inside the arrow-control
-  view box on both tablet and monitor.
+- [x] **Ticker regression:** J passed T1 **8022fc6** on September 16: ticker is
+  back to normal with both stock spacers expanding. The ancestor-geometry watcher
+  correction preserves actual-region clipping and the existing width policy.
 - [ ] **Recent-notification layout:** recent notifications can merge into one
   visual box or fail to expand the popup to accommodate neighboring cards as
   grouped alerts do.

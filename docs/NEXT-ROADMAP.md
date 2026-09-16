@@ -1,6 +1,6 @@
 # Itasca launch roadmap — rolling execution plan
 
-Updated September 15, 2026. This is the active roadmap and status format for the
+Updated September 16, 2026. This is the active roadmap and status format for the
 remainder of Itasca 1.0. Update each section as work is accepted. After every
 meaningful block, record actual elapsed time and revise the remaining planning
 number from observed delivery speed.
@@ -11,14 +11,14 @@ lifecycle work and ownership gates. Repo source remains authoritative.
 
 ## Planning snapshot
 
-- **Current planning number:** 6 focused working days
+- **Current planning number:** 5.5 focused working days remaining
 - **Expected launch range:** 5–7 working days
 - **Aggressive path:** 4 days if regressions are narrow and the website ports cleanly
 - **Review point:** after Debug/Polish and again after the first interactive website proof
 - **Budget target:** roughly 70–110% of one additional weekly allowance; stop and
   review before materially exceeding that range
 
-Today established a much faster baseline than the original estimate: the major
+The September 15 baseline was faster than the original estimate: the major
 Ambient architecture, real providers, design system, physical corrections and
 suite freeze landed in roughly six hours at about 20% weekly usage. The planning
 number is therefore a rolling forecast, not a fixed promise.
@@ -33,7 +33,7 @@ number is therefore a rolling forecast, not a fixed promise.
 
 - [x] Cross-display Escape release returns the window to the tablet ownership origin.
 - [x] Windows commit to Card Line ownership on entry without first becoming Active.
-- [ ] Temperance ticker is no longer confined to the arrow-control view box.
+- [x] Temperance ticker is no longer confined to the arrow-control view box.
 - [x] New constrained windows route through the Bento solver or prepared Active
   ownership instead of floating unmanaged above Bento.
 - [x] Touch Card Line preserves Bento-owned cards as a stack with the large-pane
@@ -66,11 +66,18 @@ actionable. Do not leave duplicate persistent completion on both sides.
 
 ### Exit gate
 
-A1 retained-ownership correction passed J's physical tests for safety control,
-cross-display release and immediate Card Line ownership. A2 Card Line/Bento
-ownership is now the gate before further Tette feature iteration. One installed
-candidate must pass tablet-only and docked-monitor testing. Any missing window,
+A1, A2 ownership and T1 ticker now passed J's installed physical review.
+The September 16 checkpoint closes constrained launch ownership, stack retention /
+large-pane selection, monitor isolation/lifecycle, and the ticker regression with
+expanding spacers. Zen may use the small pane when its minimum fits. The remaining
+first-section gates are Bento-derived Card Line presentation, Tette center/transfer
+behavior, card manipulation and notification/visual polish. Any missing window,
 stuck input, or broken Kadunce disable control blocks release immediately.
+
+See `CHECKPOINT-20260916.md`. Remaining planning number is reduced conservatively
+from 6 to 5.5 focused days, retaining the 5–7 day range because presentation and
+center/transfer work remain unresolved. Exact September 16 engineering/testing
+hours and weekly usage were not measured; no invented actuals are recorded.
 
 ## 2. Missing features
 
@@ -249,7 +256,7 @@ publication.
 
 | Working day | A-Team | B-Team | PM / J |
 |---|---|---|---|
-| 1 | Kadunce ownership and ticker gates | Ambient, notifications and visual polish | Installed acceptance loops |
+| 1 | Bento-derived presentation and card manipulation (ownership/ticker accepted) | Ambient center/transfer, notifications and visual polish | Installed acceptance loops |
 | 2 | Card manipulation and event contract | Files B and Files C | Resolve product edges; start website story |
 | 3 | Refactor/lifecycle audit | Event UI and remaining feature slice | Website shell and guided entry |
 | 4 | Consumer installer | Package corrections | Product cards and interactive demos |

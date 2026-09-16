@@ -1,7 +1,10 @@
 # A2 — tablet Bento and Card Line ownership
 
-Source candidate on `a/ownership-a2`, worktree `../.worktrees/kadunce-ownership-a2`,
-from published/physically accepted A1 **0d970c9**. No install or publication of A2.
+Accepted source candidate **5e91671** from A1 **0d970c9**, replayed as **d2a0357**
+on PM main **bfe761b**. J physically passed constrained launches, stack retention /
+large-pane selection, monitor isolation and lifecycle on September 16. Zen may
+use the small pane when its minimum permits it. Production replay is identical;
+see `CHECKPOINT-20260916.md` for publication checks and remaining presentation defect.
 
 ## Failure and contract
 
@@ -61,7 +64,8 @@ KWin's accepted Active target can be smaller than a client's advertised minimum.
 The test checks the native accepted/configured target rather than assuming KWin
 will clamp it. This preserves the existing Active sizing policy. No claim is made
 about physical gesture recognition, Plasma dock painting or Zen-specific behavior
-until J tests the installed candidate.
+beyond J's September 16 physical ownership pass. Bento-derived Card Line presentation
+remains defective and is not covered by that acceptance.
 
 ## Rollback and physical review
 
@@ -83,6 +87,6 @@ session procedure. No reset, history rewrite or branch deletion is needed.
 6. Release/disable immediately after a constrained launch. No late minimize,
    stranded member or stale presentation may survive ownership release.
 
-Stop at this candidate and J's physical review. Center-slot architecture is a
-separate assignment, and no stack hit-zone, label, renderer or motion work belongs
-in A2.
+Ownership is physically accepted. Center/transfer geometry, stack hit-zones,
+labels and the Bento-derived live presentation defect remain separate open work.
+No unfinished A2.1 production change is included.
