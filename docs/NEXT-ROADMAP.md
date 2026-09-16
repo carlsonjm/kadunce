@@ -31,11 +31,13 @@ number is therefore a rolling forecast, not a fixed promise.
 
 ### A-Team — behavioral regressions
 
-- [ ] Cross-display Escape release returns the window to the tablet ownership origin.
-- [ ] Windows commit to Card Line ownership on entry without first becoming Active.
+- [x] Cross-display Escape release returns the window to the tablet ownership origin.
+- [x] Windows commit to Card Line ownership on entry without first becoming Active.
 - [ ] Temperance ticker is no longer confined to the arrow-control view box.
 - [ ] New constrained windows route into Bento's large pane or prepared Active
   ownership instead of floating unmanaged above Bento.
+- [ ] Touch Card Line preserves Bento-owned cards as a stack with the large-pane
+  card on top, without changing monitor Bento behavior.
 - [ ] Pulling a card from a stack back into Card Line is reliable.
 - [ ] Reordering has a useful intent zone without accidental paging.
 - [ ] Cards have centered labels; stack position shares that row at the right edge.
@@ -62,8 +64,11 @@ actionable. Do not leave duplicate persistent completion on both sides.
 
 ### Exit gate
 
-One installed candidate passes tablet-only and docked-monitor testing. Any missing
-window, stuck input, or broken Kadunce disable control blocks release immediately.
+A1 retained-ownership correction passed J's physical tests for safety control,
+cross-display release and immediate Card Line ownership. A2 Card Line/Bento
+ownership is now the gate before further Tette feature iteration. One installed
+candidate must pass tablet-only and docked-monitor testing. Any missing window,
+stuck input, or broken Kadunce disable control blocks release immediately.
 
 ## 2. Missing features
 

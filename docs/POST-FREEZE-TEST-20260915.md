@@ -8,11 +8,11 @@ does not close it.
 
 ## Kadunce ownership and card manipulation
 
-- [ ] **Cross-display release target:** arrange windows on the monitor, enable
+- [x] **Cross-display release target:** arrange windows on the monitor, enable
   Kadunce, drag one window to the tablet until Kadunce takes card ownership, then
   press Escape. Reported failure: the window returns to the monitor instead of
   releasing to the tablet where ownership was acquired.
-- [ ] **Initial Card Line ownership commit:** enter Card Line with previously
+- [x] **Initial Card Line ownership commit:** enter Card Line with previously
   unowned windows. Reported failure: some windows do not commit to card ownership
   until they are swiped through or clicked as Active. Visible proof: the floating
   dock becomes flat even though every window has Active sizing.
@@ -23,6 +23,11 @@ does not close it.
   it cannot join the current Bento layout, give it Active sizing and minimize it
   as a prepared card ready to be called Active. It must not float unmanaged over
   the owned Bento workspace.
+- [ ] **Bento projection into Card Line:** on a touch device, activating Card
+  Line from Bento must retain the Bento-owned cards as one stack. The large-pane
+  card is the default top/selected card. Returning to Bento must preserve the
+  owned set and meaningful order. This projection must not change monitor Bento
+  behavior because monitor outputs do not expose Card Line.
 - [ ] **Remove a card from a stack:** pulling a card from a stack back into Card
   Line is too difficult.
 - [ ] **Reorder within Card Line:** the useful drop strip between Active and its
@@ -44,11 +49,14 @@ contact anchoring, current card geometry and direct edge paging.
   Temperance instead of shedding information. Expected constrained sequence:
   remove artist, then song, then previous/next controls; play/pause is the final
   compact media capability.
-- [ ] **Concurrent transfer fit:** starting a download pushes media under the
-  application dock and clips the artist instead of recomputing available width
-  and shedding information.
-- [ ] **Transfer interaction:** a download still disappears too quickly, with no
-  usable pause opportunity and no visible completion checkmark.
+- [ ] **Concurrent transfer fit:** physical B1 test failed. Under task pressure,
+  the centered icon dock still moves toward Temperance instead of remaining
+  centered while Ambient sheds media details. During a download, media does not
+  shed to reveal the filename.
+- [ ] **Transfer interaction:** physical B1 test showed only the download icon;
+  there was no useful filename and no visible completion checkmark. Pause/resume
+  and false-success cases remain deferred until the geometry/lifecycle correction
+  is actually visible.
 - [ ] **Transfer completion handoff:** retain a brief truthful completion state in
   Tette. After the ongoing activity ends, Temperance may surface the completed
   transition when it remains useful or actionable. Do not duplicate an
