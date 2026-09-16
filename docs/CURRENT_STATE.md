@@ -1,5 +1,19 @@
 # Current state
 
+## Product direction — Good Input / Shuffle
+
+Good Input is the company and publisher. Shuffle for Plasma is the consumer product;
+Shuffle is the conversational name. Kadunce, Tettegouche and Temperance remain the
+internal component names and free/open-source repositories. The integrated consumer
+product will live in a private Shuffle repository under a Good Input organization,
+with a documented boundary for private integration, product assets and packaging.
+
+Table and Shuffle Keyboard are essential to the final consumer product. The former
+5.5-day forecast is retired because it excluded both features and private-product
+assembly. Server and interactive website work move to the bottom of the dependency
+order. A new launch estimate follows bounded Table and Keyboard feasibility; product
+correctness takes priority over launching against an arbitrary date.
+
 ## September 16 — budget pause after Temperance visual polish
 
 J accepted the installed Temperance visual-polish candidate as the paused working

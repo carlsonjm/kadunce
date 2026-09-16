@@ -1,7 +1,7 @@
-# Itasca launch roadmap — rolling execution plan
+# Shuffle launch roadmap — rolling execution plan
 
 Updated September 16, 2026. This is the active roadmap and status format for the
-remainder of Itasca 1.0. Update each section as work is accepted. After every
+remainder of Shuffle 1.0. Update each section as work is accepted. After every
 meaningful block, record actual elapsed time and revise the remaining planning
 number from observed delivery speed.
 
@@ -11,17 +11,32 @@ lifecycle work and ownership gates. Repo source remains authoritative.
 
 ## Planning snapshot
 
-- **Current planning number:** 5.5 focused working days remaining
-- **Expected launch range:** 5–7 working days
-- **Aggressive path:** 4 days if regressions are narrow and the website ports cleanly
-- **Review point:** after Debug/Polish and again after the first interactive website proof
-- **Budget target:** roughly 70–110% of one additional weekly allowance; stop and
-  review before materially exceeding that range
+- **Current state:** paused for working-budget replenishment
+- **Previous implementation forecast:** 5.5 focused days for the former Itasca
+  component/installer/website scope; retired because it excluded Table, Keyboard,
+  private-product assembly and the Good Input / Shuffle migration
+- **Next estimate gate:** after bounded Table and Keyboard feasibility plus the
+  private consumer-repository plan
+- **Release priority:** get the first consumer release right; no date-driven cut
+  is allowed to remove an essential interaction merely to launch sooner
 
 The September 15 baseline was faster than the original estimate: the major
 Ambient architecture, real providers, design system, physical corrections and
 suite freeze landed in roughly six hours at about 20% weekly usage. The planning
-number is therefore a rolling forecast, not a fixed promise.
+number is therefore historical evidence, not the current launch forecast.
+
+## Product and repository boundary
+
+- **Good Input** is the company and publisher.
+- **Shuffle for Plasma** is the consumer product; **Shuffle** is the conversational
+  name.
+- **Kadunce, Tettegouche and Temperance** remain the internal component names and
+  the free/open-source repositories.
+- A Good Input organization and private Shuffle consumer repository will own the
+  integrated commercial product layer, release assembly, consumer assets and
+  product-facing packaging. Preserve component Git history and compatibility.
+- The current checkout may remain physically named `Itasca` until a controlled path
+  migration is scheduled; product-facing work uses Shuffle immediately.
 
 ## 1. Debug and polish
 
@@ -82,10 +97,10 @@ first-section gates are Bento-derived Card Line presentation, Tette center/trans
 behavior, card manipulation and notification/visual polish. Any missing window,
 stuck input, or broken Kadunce disable control blocks release immediately.
 
-See `CHECKPOINT-20260916.md`. Remaining planning number is reduced conservatively
-from 6 to 5.5 focused days, retaining the 5–7 day range because presentation and
-center/transfer work remain unresolved. Exact September 16 engineering/testing
-hours and weekly usage were not measured; no invented actuals are recorded.
+See `CHECKPOINT-20260916.md`. Its 5.5-day number records the former scope and must
+not be used as a Shuffle launch estimate now that Table, Keyboard and private-product
+assembly are essential. Exact September 16 engineering/testing hours and weekly
+usage were not measured; no invented actuals are recorded.
 
 ## 2. Missing features
 
@@ -142,10 +157,10 @@ This remains the cleanest feature to move behind launch if schedule pressure gro
 Each slice receives its own focused tests and installed acceptance. One provider
 or storage failure must not hold unrelated slices open.
 
-## 3. Refactor audit and consumer install package
+## 3. Refactor audit
 
 **Status:** Queued
-**Estimate:** 1–1.5 days
+**Estimate:** 0.5–0.75 day
 
 ### Refactor audit
 
@@ -158,33 +173,91 @@ or storage failure must not hold unrelated slices open.
 
 This is a surgical audit, not a rewrite.
 
-### Consumer installer
+### Exit gate
 
-- [ ] Clean builds from all three repositories
-- [ ] One Fish-safe suite installation path
-- [ ] Plasma restart/session instructions included in the completed flow
-- [ ] Dependency detection with useful failures
-- [ ] Version and package provenance
-- [ ] Upgrade behavior
-- [ ] Rollback and uninstall
-- [ ] Persistent Kadunce safety-control verification
-- [ ] Fresh-user installation test
+The three open-source components are maintainable, lifecycle-safe and ready to be
+consumed by the private Shuffle product without accidental duplicated ownership.
 
-The launch package targets the supported KDE Plasma Linux environment. A universal
-multi-distribution matrix is outside initial release scope.
+## 4. Table — essential consumer spatial model
+
+**Status:** Concept locked; engineering feasibility queued
+**Estimate:** Recalculate after feasibility
+
+Table is part of the final consumer product, not a post-launch idea:
+
+`Active = this window → Card Line/Bento = these windows → Table = these workspaces`
+
+- [ ] Audit KWin/Plasma virtual-desktop APIs, gesture ownership and lifecycle.
+- [ ] Define touch entry/exit, workspace presentation and direct manipulation.
+- [ ] Prove multi-display behavior without changing monitor-only Bento semantics.
+- [ ] Preserve KWin/Plasma as authority for virtual desktops.
+- [ ] Prototype the smallest complete Table interaction and physically test it.
+- [ ] Add safety, restore and rollback behavior before product integration.
+
+See `KADUNCE-TABLE-1.1-CONCEPT.md`. The former post-1.0 classification is retired.
 
 ### Exit gate
 
-A fresh supported machine can install, update, roll back and uninstall without
-repo knowledge. Kadunce's live disable control remains functional throughout.
+J can manage workspaces through Table as the natural level above Card Line/Bento,
+with correct touch, keyboard, lifecycle and multi-display behavior.
 
-## 4. Mac mini website host and tablet control
+## 5. Shuffle Keyboard — essential consumer input surface
+
+**Status:** Product concept approved; technical evaluation queued
+**Estimate:** Recalculate after feasibility
+
+Shuffle Keyboard completes the premium touch experience through reliable text
+input and precision desktop control without requiring physical peripherals.
+
+- [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
+  Fcitx5 OSK before selecting an implementation base.
+- [ ] Use the four-row layout, cascading Backspace/Enter/Shuffle controls and
+  directly adjustable height defined in the approved product brief.
+- [ ] Prove the full-footprint Keyboard ↔ Shuffle precision-surface transition.
+- [ ] Validate edit gestures separately from pointer/trackpad behavior.
+- [ ] Verify locale/keymap correctness, focus stability, latency and dropped-input
+  behavior across Qt/KDE, GTK, browsers, Electron and terminals.
+- [ ] Reserve usable workspace correctly as keyboard height changes.
+- [ ] Keep autocorrect, prediction, swipe typing, dictation, custom IMEs and similar
+  language-engine work outside Shuffle 1.0 unless mature system infrastructure
+  supplies it safely.
+
+### Exit gate
+
+A supported 10–13 inch touch device can perform reliable text and precision desktop
+input without a physical keyboard or mouse. Dropped characters, meaningful latency,
+wrong keymaps, focus loss or unreliable show/hide behavior block release.
+
+## 6. Private Shuffle consumer product and installation
+
+**Status:** Queued
+**Estimate:** Recalculate after Table/Keyboard feasibility
+
+- [ ] Establish the Good Input organization and private Shuffle repository.
+- [ ] Record the boundary between open-source components and private product code,
+  assets, integration, release assembly and support material.
+- [ ] Consume pinned Kadunce, Tettegouche and Temperance versions with provenance.
+- [ ] Apply Good Input / Shuffle naming to product-facing metadata and UI while
+  preserving internal component names and upgrade compatibility.
+- [ ] Build cleanly from all component repositories and the private integration repo.
+- [ ] Provide one Fish-safe installation path with dependency detection.
+- [ ] Include Plasma restart/session instructions in the completed flow.
+- [ ] Verify versioning, upgrades, rollback, uninstall and Kadunce safety control.
+- [ ] Complete a fresh-user installation test on the supported Plasma environment.
+
+### Exit gate
+
+A fresh supported machine can install, update, roll back and uninstall Shuffle
+without repository knowledge. The public component boundary remains truthful and
+Kadunce's live disable control remains functional throughout.
+
+## 7. Mac mini website host and tablet control
 
 **Status:** Queued
 **Estimate:** 0.25–0.5 day, excluding router/DNS surprises
 
-The Mac mini only hosts the Itasca website and its repository. J's personal site
-may move there later, but that migration does not block Itasca launch.
+The Mac mini only hosts the Shuffle website and its repository. J's personal site
+may move there later, but that migration does not block Shuffle launch.
 
 - [ ] Create the website repository checkout and production build directory.
 - [ ] Configure a standard web server and HTTPS deployment path.
@@ -201,12 +274,12 @@ Use established remote administration and deployment tools.
 From the tablet, J can securely deploy or roll back the site, inspect status/logs,
 and restart the standard website service.
 
-## 5. Interactive website and release
+## 8. Interactive website and release
 
 **Status:** Queued
 **Estimate:** 2–3.5 days
 
-The website is a full-screen interactive Itasca desktop demonstration, not a
+The website is a full-screen interactive Shuffle desktop demonstration, not a
 traditional static product page. Reuse the suite's visual assets and interaction
 logic where practical while implementing a web-native, maintainable presentation.
 
@@ -214,17 +287,18 @@ logic where practical while implementing a web-native, maintainable presentation
 
 **Estimate:** 0.5–0.75 day
 
-- [ ] Full-screen desktop composition based on Itasca
+- [ ] Full-screen desktop composition based on Shuffle
 - [ ] Responsive tablet and desktop layout
 - [ ] Active guided information for first-time visitors
 - [ ] Clear path to enter, skip or replay guidance
 - [ ] Ghost White, spacing, surfaces, typography and motion from the design kit
 
-### Website B — Kadunce, Tettegouche and Temperance cards
+### Website B — Shuffle capability cards
 
 **Estimate:** 0.75–1 day
 
-- [ ] Present Kadunce, Tettegouche and Temperance as the three primary cards.
+- [ ] Present the product-facing Shuffle capabilities while crediting Kadunce,
+  Tettegouche and Temperance as the open-source component foundation.
 - [ ] Clicking a card makes it Active.
 - [ ] Active card expands into a concise feature/integration page.
 - [ ] Moving between cards communicates how the suite fits together.
@@ -255,24 +329,28 @@ logic where practical while implementing a web-native, maintainable presentation
 
 ### Exit gate
 
-A visitor can understand the three products, interact with representative suite
-behavior, open each product card for a focused explanation, and reach a verified
-consumer installation path. J gives final desktop and tablet acceptance before
-publication.
+A visitor can understand Shuffle and its open-source component foundation, interact
+with representative product behavior, explore focused capability cards, and reach
+a verified consumer installation path. J gives final desktop and tablet acceptance
+before publication.
 
 ## Rolling execution schedule
 
-| Working day | A-Team | B-Team | PM / J |
-|---|---|---|---|
-| 1 | Bento-derived presentation and card manipulation (ownership/ticker accepted) | Ambient center/transfer, notifications and visual polish | Installed acceptance loops |
-| 2 | Card manipulation and event contract | Files B and Files C | Resolve product edges; start website story |
-| 3 | Refactor/lifecycle audit | Event UI and remaining feature slice | Website shell and guided entry |
-| 4 | Consumer installer | Package corrections | Product cards and interactive demos |
-| 5 | Release/safety verification | Website interaction support | Mac mini deployment and website acceptance |
-| 6 | Buffer and launch corrections | Buffer and launch corrections | Final release |
+Exact working days will be replanned after Table and Keyboard feasibility. Preserve
+this dependency order:
 
-Website work can begin after the Debug/Polish interaction behavior is stable enough
-to serve as the demonstration source. Server setup can overlap the website build.
+1. Finish Debug/Polish and remaining component features.
+2. Complete the component refactor/lifecycle audit.
+3. Prove and implement Table.
+4. Prove and implement Shuffle Keyboard.
+5. Establish the Good Input organization and private Shuffle consumer product.
+6. Complete consumer packaging, clean installation, upgrade and rollback acceptance.
+7. Configure the Mac mini host and tablet administration.
+8. Build, deploy and accept the interactive Shuffle website and release surface.
+
+Table and Keyboard research may overlap when it does not compete for the same
+engineering owner or physical test loop. Website and server work stay at the bottom
+of the roadmap and do not pull resources from product correctness.
 
 ## Progress update rule
 
@@ -287,13 +365,3 @@ At the completion of each numbered section:
 
 Statuses are **Queued → In progress → Physical review → Complete**. A blocker gets
 its own explicit note, owner and decision needed from J.
-
-## Post-1.0 — Kadunce Table 1.1
-
-Table remains post-launch product direction:
-
-`Active = this window → Card Line/Bento = these windows → Table = these workspaces`
-
-KWin/Plasma remain authoritative for virtual desktops. Gesture ownership,
-multi-display behavior and the KDE virtual-desktop API require explicit audits
-before implementation. See `KADUNCE-TABLE-1.1-CONCEPT.md`.
