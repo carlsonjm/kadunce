@@ -209,6 +209,9 @@ with correct touch, keyboard, lifecycle and multi-display behavior.
 Shuffle Keyboard completes the premium touch experience through reliable text
 input and precision desktop control without requiring physical peripherals.
 
+The authoritative product contract is `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`. This
+roadmap summarizes sequencing and does not replace that brief.
+
 - [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
   Fcitx5 OSK before selecting an implementation base.
 - [ ] Use the four-row layout, cascading Backspace/Enter/Shuffle controls and
