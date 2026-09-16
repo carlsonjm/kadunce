@@ -29,8 +29,21 @@ The ownership boundary remains:
 - Source apps/services = actual state and actions.
 
 There is no separate Live Rail product. Width reveals information rather than
-adding capability. Controls remain together; remaining width reveals title,
-artist, runtime and richer detail in priority order.
+adding capability. Under constraint, Ambient now follows J's explicit shedding
+order: artist, song, then previous/next; play/pause is the final compact media
+capability.
+
+## Post-freeze physical findings
+
+J's installed testing produced a concrete replacement checklist covering Kadunce
+ownership/reordering, Ambient constraint and transfer behavior, the Temperance
+ticker/notification geometry, and suite control spacing. It is the current defect
+intake: `POST-FREEZE-TEST-20260915.md`.
+
+The first engineering gate is reproduction/ownership triage for Kadunce's
+cross-display Escape target, delayed Card Line ownership, and Temperance's ticker
+being confined to the arrow-control box. These are behavioral regressions and
+take priority over the visual-polish packet below.
 
 ## Active block 1 — Tette component polish
 
@@ -43,8 +56,9 @@ this bounded to visible inconsistencies:
    width. Use measured fit rather than fixed descriptive tiers.
 3. Replace remaining raw Unicode action marks and align search-clear, sort,
    Everyday/Quiet mode, and navigation states with the pinned Lucide subset.
-4. Tune media title/artist/runtime spacing while preserving the accepted order
-   `[previous, play/pause, next] → song → artist → runtime` and minimum controls.
+4. Correct constrained media shedding to J's latest order: artist, song, then
+   previous/next; play/pause is the final compact capability. Transfers must
+   trigger the same fit calculation rather than pushing media under the dock.
 5. Preserve the Tette Dot, real provider identity, current responsive boundary,
    local popups and center-dock geometry.
 
@@ -78,6 +92,10 @@ Treat these as related but separate packets:
 The filesystem provider may observe incoming files, but observation alone cannot
 invent authoritative progress or success. KJob/source ownership remains the
 truth for percentage, cancellation and completion.
+
+Tette owns the brief authoritative completion state. Temperance may then surface
+the transition as an event when it remains useful or actionable; avoid duplicate
+persistent completion on both sides.
 
 ## Active block 4 — launch integration
 

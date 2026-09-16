@@ -51,25 +51,31 @@ the freeze.
 
 ## Next bounded work
 
-1. **Tette component polish:** align Files/drawer control affordances, fix wasted
-   width and premature truncation, replace remaining raw action glyphs, and tune
-   media spacing without changing accepted responsive capability order.
-2. **Temperance closure:** capture settled popup/dock geometry before changing the
-   reported gap; then add a bounded non-notification event-source slice. Do not
-   fake the gap with internal content padding.
-3. **Tette Files completion:** external drag/drop, Open With and properties;
+J's post-freeze physical findings replace the earlier general regression
+checklist and are recorded in `POST-FREEZE-TEST-20260915.md`. Highest-risk
+reproductions are Kadunce cross-display release/initial ownership, the Temperance
+ticker confinement, and Ambient width/transfer lifecycle failures.
+
+1. **Regression triage:** isolate the Kadunce ownership failures and Temperance
+   ticker confinement before visual polish. Preserve accepted geometry and safety.
+2. **Ambient correction:** enforce J's constrained shedding order, recompute media
+   fit during transfers, and make pause/completion feedback observable.
+3. **Temperance and drawer polish:** notification layout, label casing, popup
+   clearance, spacing, reveal/dropdown behavior and remaining Files kit alignment.
+4. **Tette Files completion:** external drag/drop, Open With and properties;
    thumbnails/recursive search/Recent; then removable and optional network
    storage lifecycle as separate packets.
-4. **Release integration:** clean builds and package provenance for all repos,
+5. **Release integration:** clean builds and package provenance for all repos,
    install/uninstall or rollback, persistent Kadunce safety control, tablet-only
    and docked acceptance, scaling/rotation, focus and Meta cleanup.
-5. **Debug block:** reproduce any remaining report on current main after major
-   work. Do not reopen cleared R1 reports without a current failure.
+6. **Debug block:** reproduce any remaining historical report on current main
+   after major work. Do not reopen cleared R1 reports without a current failure.
 
 The Table 1.1 concept remains recorded in `KADUNCE-TABLE-1.1-CONCEPT.md` as
 post-launch direction. No Table implementation packet is active before 1.0.
 
-Full daily handoff and continuation order: `EOD-20260915.md`.
+Full daily handoff: `EOD-20260915.md`. Live post-freeze checklist:
+`POST-FREEZE-TEST-20260915.md`.
 
 ## Safety
 
