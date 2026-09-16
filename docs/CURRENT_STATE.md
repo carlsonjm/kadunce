@@ -1,5 +1,21 @@
 # Current state
 
+## September 16 — A1 ownership candidate (not installed)
+
+On isolated `a/ownership-a1` from **b971c0a**, Card Line now retains every member's
+restore record at committed entry rather than waiting for per-card Active visits.
+Cross-output adoption retains KWin's accepted tablet ordinary placement before
+Active sizing; rejection still preserves the monitor source. PM confirmed this
+phase boundary supersedes the old postcommit fixture comment. No admission,
+destination, geometry, input-timing, renderer or visual policy changes.
+
+Production build, eight focused model/layout/input tests, source guards and mandatory
+control checks pass. Two-output private runtime verifies both ownership routes and
+exact release geometry. See [OWNERSHIP-A1-20260916.md](OWNERSHIP-A1-20260916.md)
+for evidence, limitations, rollback and physical checklist. No install, toggle,
+logout, reboot or push. J's gesture/dock check and post-install live safety remain
+pending. The accepted installed baseline below remains authoritative until then.
+
 ## September 15 — Itasca visual and Ambient freeze
 
 J installed the whole-suite candidate, rebooted, and physically passed the final

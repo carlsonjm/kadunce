@@ -162,6 +162,7 @@ private:
     };
 
     void rebuildLiveCards();
+    void retainManagedOwnership(KWin::EffectWindow *window);
     void captureCardTransition(bool includeGuest = false, bool includeGrab = false);
     void clearCardTransition();
     void startArrivalTimer(KWin::EffectWindow *window);

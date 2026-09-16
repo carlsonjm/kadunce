@@ -1373,3 +1373,14 @@ Match Bento's extra10px below Active where the output work area reserves bottom
 space. Keep symmetric gutters on dock-free outputs. Use existing placement and
 guest bridge; no new dock-visibility resize loop, ownership change or cache.
 Physical connected-display acceptance pending; see Tette ACTIVE-DOCK-20260914.md.
+
+## September 16: A1 committed-entry ownership record boundary
+
+Source candidate: membership and its retained restore record commit together,
+independently of Active selection. Snapshot capture uses KWin's accepted native
+placement without forcing a presentation or geometry change. A committed tablet
+receiver retains its post-sendToOutput ordinary origin before Active sizing;
+precommit rejection/cancellation keeps the source restore. Same-output retained
+records remain authoritative. PM confirmed this phase distinction for the current
+physical expectation. No destination/admission policy changes. Evidence and pending
+physical acceptance: OWNERSHIP-A1-20260916.md.

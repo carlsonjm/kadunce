@@ -13,6 +13,24 @@ effect_cpp="${native_dir}/src/Effect.cpp"
 effect_header="${native_dir}/src/Effect.h"
 card_cpp="${native_dir}/src/CardStageController.cpp"
 card_header="${native_dir}/src/CardStageController.h"
+python3 - "$card_cpp" <<'PY'
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+def section(start, end):
+    return source.split(start, 1)[1].split(end, 1)[0]
+entry = section('void CardStageController::rebuildLiveCards()',
+                'void CardStageController::retainManagedOwnership(')
+ownership = section('void CardStageController::retainManagedOwnership(',
+                    'bool CardStageController::enterActive()')
+assert entry.index('m_workspace.reset(') < entry.index('retainManagedOwnership(window)')
+for mutation in ('enterActive(', 'moveResize(', 'maximize(', 'setFullScreen('):
+    assert mutation not in entry + ownership, 'Entry ownership must not activate/resize cards'
+transfer = section('bool CardStageController::admitTransferredWindowToTablet(',
+                   'void CardStageController::startArrivalTimer(')
+assert transfer.index('m_workspace.commitAdmission(') < transfer.index('client->sendToOutput(tablet)')
+assert transfer.index('client->sendToOutput(tablet)') < transfer.index('retainManagedOwnership(arrival)') < transfer.index('client->moveResize(target)')
+assert 'if (sameOutput && m_active && !managedRestore(arrival))' in transfer
+PY
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"

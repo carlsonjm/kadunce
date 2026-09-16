@@ -52,8 +52,8 @@ sleep .3
 probe windowGeometry "$main" | jq -e --argjson original "$original" '. == $original'
 echo 'PASS: tablet Bento shortcut destination, Active/Card Line edge entry and withdrawal with pointer/touch; lone card and restoration'
 for origin in ordinary bento; do
-    # Unload restores the arriving ordinary window to its monitor pickup.
-    # Give each case fresh clients rather than assuming unload returns it to tablet.
+    # Precommit cancellation restores monitor pickup; committed tablet ownership
+    # releases on tablet. Use fresh clients so each case starts independently.
     kill "$client_pid"
     wait "$client_pid" || true
     probe pointer 500 350

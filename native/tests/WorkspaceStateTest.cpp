@@ -9,6 +9,19 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main() {
+    // Initial ownership is a complete membership commit, not a sequence of
+    // selecting/activating individual faces. Restore owners can enumerate it once.
+    for (int selected = 0; selected < 3; ++selected) {
+        CardWorkspaceState<QString> entry;
+        const QList<QString> original{u"first"_s, u"second"_s, u"third"_s};
+        entry.reset(original, selected);
+        require(entry.windows() == original && entry.count() == 3
+            && entry.selectedWindow() == original[selected], "Initial entry omitted unselected ownership");
+        const auto admission = entry.prepareAdmission(u"incoming"_s, false);
+        require(admission && !entry.commitAdmission(*admission, [] { return false; })
+            && entry.windows() == original, "Rejected adoption changed existing membership");
+    }
+
     for (int count = 1; count <= 8; ++count) {
         for (int active = 0; active < count; ++active) {
             for (int depth = 0; depth <= count; ++depth) {

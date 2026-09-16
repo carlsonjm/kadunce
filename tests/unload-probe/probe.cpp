@@ -533,6 +533,11 @@ public Q_SLOTS:
     bool bentoOutputLostDuringRestore() { return bento.outputLostDuringRestore(); }
     bool cardAdmissionOrdering() { return bento.cardAdmissionOrdering(); }
     bool edgeBatchAdmission() { return bento.edgeBatchAdmission(); }
+    bool ownershipEntry() { return bento.ownershipEntry(); }
+    bool ownershipRestored() { return bento.ownershipRestored(); }
+    bool ownershipTransferPrepare() { return bento.ownershipTransferPrepare(); }
+    bool ownershipTransfer() { return bento.ownershipTransfer(); }
+    QString ownershipEvidence() const { return bento.ownershipEvidence; }
     bool tabletAdmissionOrdering() { return bento.tabletAdmissionOrdering(); }
     bool productionTabletAdmission() { return bento.productionTabletAdmission(); }
     bool prepareProductionTablet() { return bento.prepareProductionTablet(); }

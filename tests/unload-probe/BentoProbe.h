@@ -42,6 +42,93 @@ struct TabletProbeHost final : Kadunce::CardStageHost {
     }
 };
 struct BentoProbe {
+    TabletProbeHost ownershipHost;
+    std::unique_ptr<Kadunce::CardStageController> ownershipCards;
+    QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> ownershipExpected;
+    QPointer<KWin::EffectWindow> ownershipArrival;
+    QPointer<KWin::LogicalOutput> ownershipSource;
+    Kadunce::NativeMoveSnapshot ownershipSourceSnapshot;
+    QString ownershipEvidence;
+    bool ownershipEntry() {
+        QList<KWin::EffectWindow *> windows;
+        for (auto *w : KWin::effects->stackingOrder())
+            if (host.isManagedWindowForDesktopStage(w)) windows.append(w);
+        if (windows.size() < 2) return false;
+        ownershipHost.tablet = windows.first()->screen();
+        ownershipExpected.clear();
+        for (auto *w : windows) {
+            if (w->screen() != ownershipHost.tablet) return false;
+            ownershipExpected.append({w, w->window()->moveResizeGeometry()});
+        }
+        ownershipCards = std::make_unique<Kadunce::CardStageController>(&ownershipHost);
+        ownershipCards->toggle();
+        if (!ownershipCards->isActive()
+            || ownershipCards->presentation() != Kadunce::CardPresentation::CardLine) return false;
+        for (const auto &[w, geometry] : ownershipExpected) {
+            const auto saved = ownershipCards->managedRestore(w);
+            if (!saved || saved->geometry != geometry || w->window()->moveResizeGeometry() != geometry) {
+                ownershipEvidence = QStringLiteral("Initial member has no retained origin or entry changed native geometry");
+                return false;
+            }
+        }
+        // Later visits cannot overwrite the shared-entry records.
+        ownershipCards->toggle();
+        ownershipCards->pageHorizontal(1);
+        for (const auto &[w, geometry] : ownershipExpected) {
+            const auto saved = ownershipCards->managedRestore(w);
+            if (!saved || saved->geometry != geometry) return false;
+        }
+        ownershipCards->release();
+        return true;
+    }
+    bool ownershipRestored() const {
+        for (const auto &[w, geometry] : ownershipExpected)
+            if (!w || !w->window() || w->frameGeometry() != geometry) return false;
+        return !ownershipExpected.isEmpty();
+    }
+    bool ownershipTransferPrepare() {
+        ownershipCards.reset();
+        ownershipArrival.clear();
+        for (auto *w : KWin::effects->stackingOrder())
+            if (host.isManagedWindowForDesktopStage(w)) { ownershipArrival = w; break; }
+        if (!ownershipArrival) return false;
+        ownershipHost.tablet = ownershipArrival->screen();
+        for (auto *o : KWin::effects->screens())
+            if (o != ownershipHost.tablet) { ownershipSource = o; break; }
+        if (!ownershipSource) return false;
+        ownershipArrival->window()->sendToOutput(ownershipSource);
+        return true;
+    }
+    bool ownershipTransfer() {
+        auto *w = ownershipArrival.data();
+        if (!w || !w->window() || w->screen() != ownershipSource) return false;
+        auto *native = w->window();
+        ownershipSourceSnapshot = {native, ownershipSource, native->moveResizeGeometry(),
+            native->geometryRestore(), native->fullscreenGeometryRestore(), native->maximizeMode(),
+            native->quickTileMode(), native->isFullScreen(), native->isMinimized()};
+        ownershipCards = std::make_unique<Kadunce::CardStageController>(&ownershipHost);
+        int calls = 0;
+        if (ownershipCards->admitTransferredWindowToTablet(w, [&] { ++calls; return false; }, {}, &ownershipSourceSnapshot)
+            || calls != 1 || ownershipCards->isActive() || ownershipCards->liveCardIndex(w) >= 0
+            || native->moveResizeGeometry() != ownershipSourceSnapshot.geometry
+            || w->screen() != ownershipSource) return false;
+        // Cancellation/rejection keeps the source; acceptance establishes the
+        // tablet ordinary origin before the receiver's Active geometry write.
+        const bool accepted = ownershipCards->admitTransferredWindowToTablet(w, [&] {
+            ++calls;
+            return native->moveResizeGeometry() == ownershipSourceSnapshot.geometry;
+        }, {}, &ownershipSourceSnapshot);
+        const auto saved = ownershipCards->managedRestore(w);
+        if (!accepted || calls != 2 || !saved || saved->geometry == ownershipSourceSnapshot.geometry
+            || !ownershipHost.tablet->geometry().contains(saved->geometry.center().toPoint())
+            || saved->geometry.size() != ownershipSourceSnapshot.geometry.size()) {
+            ownershipEvidence = QStringLiteral("Committed tablet origin still points to source or changed ordinary size");
+            return false;
+        }
+        ownershipExpected = {{w, saved->geometry}};
+        ownershipCards->release();
+        return native->moveResizeGeometry() == saved->geometry;
+    }
     TabletProbeHost reservationHost;
     std::unique_ptr<Kadunce::CardStageController> reservationCards;
     std::optional<Kadunce::PreparedCarrySource> reservation;

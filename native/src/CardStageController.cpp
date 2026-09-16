@@ -1556,7 +1556,30 @@ void CardStageController::rebuildLiveCards()
         admitted.append(window);
     }
     m_workspace.reset(admitted, activeIndex >= 0 ? activeIndex : admitted.size() - 1);
+    for (const auto &window : admitted) retainManagedOwnership(window);
     if (!admitted.isEmpty()) m_originalCardStackingOrder = admitted;
+}
+
+void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
+{
+    if (!window || window->isDeleted() || !window->window()
+        || liveCardIndex(window) < 0 || m_activeRestore.window == window) return;
+    for (const auto &saved : std::as_const(m_parkedRestores))
+        if (saved.window == window) return;
+    auto *client = window->window();
+    // Membership owns restoration, independently of the selected presentation.
+    // Use KWin's accepted placement, which can precede a Wayland buffer/frame.
+    m_parkedRestores.append(ActiveRestoreSnapshot{
+        .window = window,
+        .geometry = client->moveResizeGeometry(),
+        .floatingGeometry = client->geometryRestore(),
+        .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
+        .quickTileMode = client->quickTileMode(),
+        .maximizeMode = client->maximizeMode(),
+        .fullScreen = client->isFullScreen(),
+        .valid = true,
+    });
+    ++m_restoreGeneration;
 }
 
 bool CardStageController::enterActive()
@@ -1584,6 +1607,7 @@ bool CardStageController::enterActive()
         }
     }
     parkActiveSnapshot();
+    retainManagedOwnership(effectWindow);
     const auto retained = std::find_if(m_parkedRestores.begin(), m_parkedRestores.end(),
         [effectWindow](const auto &saved) { return saved.window == effectWindow; });
     if (retained != m_parkedRestores.end()) {
@@ -1740,9 +1764,14 @@ bool CardStageController::admitTransferredWindowToTablet(
         parkActiveSnapshot();
         if (!valid()) return true;
     }
-    if (m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
+    // A source record belongs to cancellation until commit. Same-output
+    // admission may retain it; cross-output adoption establishes a new receiver
+    // origin from KWin's accepted tablet placement before Active sizing.
+    const bool sameOutput = restore ? restore->output == tablet : window->screen() == tablet;
+    if (sameOutput && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
     client->sendToOutput(tablet);
     if (!valid()) return true;
+    retainManagedOwnership(arrival);
     client->moveResize(target);
     if (!valid()) return true;
     if (!m_active) {
@@ -1845,6 +1874,7 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     m_presentation = CardPresentation::CardLine;
     int previousSelection = m_workspace.selectedIndex();
     m_workspace.append(window, animateArrival || m_launcherGuestActive);
+    retainManagedOwnership(window);
     m_originalCardStackingOrder.append(window);
     m_host->connectManagedWindowForCardStage(window);
     finishNewArrival(window, animateArrival, previousSelection);
