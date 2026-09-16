@@ -1,5 +1,18 @@
 # Current state
 
+## September 16 — budget pause after Temperance visual polish
+
+J accepted the installed Temperance visual-polish candidate as the paused working
+model. Popup clearance, smaller rendered power glyphs, lowercase `do not disturb`,
+the compact notification source/title/body hierarchy, repeated-action card sizing,
+and hairline action pills with hover fill passed physical review. Temperance commits
+**4f173d8** and **6e04f4a** sit on the published casing baseline **0e2d9b4**.
+
+Two notification follow-ups remain after the budget pause: action-pill labels need
+smaller text or more horizontal padding, and the newly exposed snooze action must be
+traced to a real functional path before it is accepted as QoL. No further feature or
+architecture work is authorized until the working budget is replenished.
+
 ## September 16 — A2 ownership and Temperance T1 physically accepted
 
 J passed A2 constrained-launch routing, Bento → Card Line stack retention and

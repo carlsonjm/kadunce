@@ -51,12 +51,17 @@ number is therefore a rolling forecast, not a fixed promise.
   the application dock.
 - [ ] Pause and authoritative completion feedback remain visible long enough to use.
 - [ ] Recent notifications remain distinct and popup geometry fits neighboring cards.
-- [ ] Notification cards follow the design-kit hierarchy: source and title share one
+- [x] Notification cards follow the design-kit hierarchy: source and title share one
   header row, body copy sits directly below, action pills use tighter padding, and
   card spacing is recalculated around the simplified layout.
 - [x] `do not disturb` is lowercase.
-- [ ] Power glyphs are slightly smaller.
-- [ ] Popup-to-dock clearance matches the accepted external spacing.
+- [x] Power glyphs are slightly smaller.
+- [x] Popup-to-dock clearance matches the accepted external spacing.
+- [ ] Refine notification action-pill typography or side padding; J accepted the
+  current hairline/hover-fill treatment as the paused baseline, but the label needs
+  either smaller text or more breathing room at the sides.
+- [ ] Verify that the newly exposed snooze action reaches a real notification path
+  and preserves state correctly; keep it only if the action is functional.
 - [ ] Control Center and System Tray follow the design-kit spacing hierarchy.
 - [ ] Drawer reveal, dropdown bounds, sorting, hover/active pills and Files visuals
   align with the accepted kit.
