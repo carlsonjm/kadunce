@@ -1879,7 +1879,11 @@ void Effect::toggle()
     if (!m_cardStage->isActive()) {
         KWin::LogicalOutput *tablet = tabletOutput();
         if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
-            m_desktopStage->toggleOnOutput(tablet->name());
+            m_desktopStage->transferTabletSessionToCardLine(tablet,
+                [this](const auto &restores, const auto &commit) {
+                    return m_cardStage->admitBentoStack(restores, commit);
+                });
+            return; // Rejection retains Bento; never fall through to rediscovery.
         }
     }
     m_cardStage->toggle();

@@ -1,5 +1,6 @@
 #include "WorkspaceInputRouter.h"
 #include "BentoProbe.h"
+#include "OwnershipTransitionProbe.h"
 #include "SnapProbe.h"
 #include "ContactProbe.h"
 #include "NativeCarryHandoff.h"
@@ -533,6 +534,20 @@ public Q_SLOTS:
     bool bentoOutputLostDuringRestore() { return bento.outputLostDuringRestore(); }
     bool cardAdmissionOrdering() { return bento.cardAdmissionOrdering(); }
     bool edgeBatchAdmission() { return bento.edgeBatchAdmission(); }
+    bool a2Setup() { return ownershipTransitions.setup(); }
+    bool a2Begin() { return ownershipTransitions.begin(); }
+    bool a2Arrival(bool oversized) { return ownershipTransitions.arrival(oversized); }
+    bool a2Prepared() { return ownershipTransitions.prepared(); }
+    bool a2CrossPrepare() { return ownershipTransitions.crossPrepare(); }
+    bool a2CrossAdmit() { return ownershipTransitions.crossAdmit(); }
+    bool a2Project() { return ownershipTransitions.project(); }
+    bool a2Return() { return ownershipTransitions.returnToBento(); }
+    bool a2Reactivate() { return ownershipTransitions.reactivate(); }
+    bool a2ImmediatePlace() { return ownershipTransitions.immediatePlace(); }
+    bool a2ImmediateRelease() { return ownershipTransitions.immediateRelease(); }
+    bool a2Release() { return ownershipTransitions.release(); }
+    bool a2Restored() { return ownershipTransitions.restored(); }
+    QString a2Evidence() const { return ownershipTransitions.evidence; }
     bool ownershipEntry() { return bento.ownershipEntry(); }
     bool ownershipRestored() { return bento.ownershipRestored(); }
     bool ownershipTransferPrepare() { return bento.ownershipTransferPrepare(); }
@@ -606,6 +621,7 @@ private:
     QMetaObject::Connection handoffFinishConnection;
     int handoffFallbacks = 0, handoffFinishes = 0, handoffResult = -1;
     BentoProbe bento;
+    OwnershipTransitionProbe ownershipTransitions;
     Device device;
     EdgeOrderProbe edgeOrder;
     std::unique_ptr<WorkspaceInputRouter> router;

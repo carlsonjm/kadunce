@@ -1,25 +1,31 @@
 # Current state
 
-## September 16 — A1 physically accepted
+## September 16 — A1 published; A2 physical-review candidate
 
 J passed A1 tests 1–3: persistent control, committed cross-display release to the
-tablet, and immediate ownership of every Card Line member. Candidate **0565ccf**
-was replayed without production changes as **02e6a6f** on PM's **8d3a0b9**;
-latest roadmap and physical checklist updates are preserved. Initial entry retains
-all restore records; committed tablet adoption records KWin's tablet ordinary
-placement before Active sizing. Precommit cancellation retains the source.
+tablet, and immediate ownership of every Card Line member. A1 **0565ccf** was
+replayed unchanged as **02e6a6f** on PM's **8d3a0b9**, then published with acceptance
+docs at **0d970c9** by normal fast-forward. PM's roadmap/checklist are preserved.
+Fresh production build, eight focused tests and source/control checks passed.
 
-The production build, eight focused tests, source/control checks and two-output
-private ownership runtime passed for A1. Publication repeats the focused/source/
-control checks; production sources match the tested and physically accepted
-candidate. See `OWNERSHIP-A1-20260916.md`. No further installation is required by
-this source replay. Original rollback remains **b971c0a**.
+A2 is isolated on `a/ownership-a2` from **0d970c9**. Tablet Bento now transfers its
+retained members into one Card Line stack with the largest pane selected. A new
+constrained tablet window uses the existing pane planner or remains owned as a
+prepared Active-sized minimized card. Ordinary cross-display adoption into existing
+tablet Bento uses the same committed tablet-origin rule as A1. Release cancels
+pending preparation and preserves ordinary geometry/minimized state. Existing
+session and stack owners suffice; no new persistence owner is introduced.
 
-Next bounded work is A2: constrained tablet launches must remain owned, and tablet
-Bento must project into Card Line as a stack with its large-pane card selected.
-Audit only adjacent ownership transitions; monitor Bento, native authority,
-accepted geometry, input timing and safety control remain unchanged. A2 must stay
-source-only pending J's physical review.
+See `OWNERSHIP-A2-20260916.md` for exact evidence and physical checklist. The private
+two-output runtime passes launch, grouping/Active round trips, origin preservation,
+monitor isolation, rejected/committed cross-display adoption and immediate release.
+Physical Zen/Ghostty behavior, gestures and Plasma dock painting remain J's gate.
+A2 is not installed or pushed; installed acceptance remains A1. Rollback is
+published **0d970c9**. No Tettegouche/Temperance, geometry library, renderer, motion,
+input timing or safety-control changes are included in A2.
+
+After A2 handoff, the separately authorized center-slot architecture review may
+begin. Do not mix its implementation into this ownership candidate.
 
 ## September 15 — Itasca visual and Ambient freeze
 

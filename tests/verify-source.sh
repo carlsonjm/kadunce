@@ -31,6 +31,17 @@ assert transfer.index('m_workspace.commitAdmission(') < transfer.index('client->
 assert transfer.index('client->sendToOutput(tablet)') < transfer.index('retainManagedOwnership(arrival)') < transfer.index('client->moveResize(target)')
 assert 'if (sameOutput && m_active && !managedRestore(arrival))' in transfer
 PY
+# A2 projection transfers retained ownership before native visibility changes.
+python3 - "$card_cpp" "$effect_cpp" <<'PY_A2'
+import pathlib, sys
+card, effect = (pathlib.Path(p).read_text() for p in sys.argv[1:])
+projection = card.split('bool CardStageController::admitBentoStack(', 1)[1].split('void CardStageController::release()', 1)[0]
+assert projection.index('m_workspace.commitAdmission(') < projection.index('setMinimized(false)')
+assert 'enterActive(' not in projection and 'moveResize(' not in projection
+route = effect.split('void Effect::toggle()', 1)[1].split('void Effect::release()', 1)[0]
+assert 'transferTabletSessionToCardLine' in route and 'admitBentoStack' in route
+assert 'toggleOnOutput' not in route, 'Card Line entry must not discard Bento ownership'
+PY_A2
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"

@@ -172,6 +172,7 @@ bool DesktopStageController::handoffLeadToOutput(
 bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
 {
     if (m_restoring) return false;
+    if (ownsWindow(window)) return true;
     if (!window || !m_host->isManagedWindowForDesktopStage(window)) {
         return false;
     }
@@ -181,22 +182,25 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     }
     for (const auto &snapshot : std::as_const(session->snapshots))
         if (snapshot.window == window) return true;
-    // Use the same value-planned admission as a dragged arrival. Preserve the
-    // actual pre-admission state; never hide a launch simply because Bento exists.
+    // Keep ordinary monitor admission unchanged. Tablet launches must remain
+    // owned even when no curated pane can satisfy the native minimum size.
     Session candidate = *session;
     candidate.snapshots.append(makeSnapshot(window));
-    if (!reflowSession(candidate, window, true, false)) {
-        // A remembered edge split is a preference, not permission to strand a
-        // newly launched app. Retry the established required-arrival planner;
-        // explicit drag/drop reservations remain strict and preview-exact.
-        if (!candidate.side) return true;
+    bool visible = reflowSession(candidate, window, true, false);
+    if (!visible && candidate.side) {
         candidate.side.reset();
         candidate.sideWindow.clear();
-        if (!reflowSession(candidate, window, true, false)) return true;
+        visible = reflowSession(candidate, window, true, false);
+    }
+    if (!visible) {
+        if (!m_host->isTabletOutputForDesktopStage(window->screen())) return true;
+        candidate = *session;
+        candidate.snapshots.append(makeSnapshot(window));
+        candidate.overflow.append(window);
     }
     m_applicationGuard.invalidate();
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    if (applySession(*session, visible, visible ? nullptr : window)) scheduleSettle();
     return true;
 }
 
@@ -212,6 +216,8 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
         auto &session = it.value();
         // Placement/overflow minimization is not a user participation change.
         if (session.applying) continue;
+        // Deferred preparation minimizes only an already-owned overflow card.
+        if (window->isMinimized() && session.overflow.contains(window)) continue;
         auto saved = std::find_if(session.snapshots.begin(), session.snapshots.end(),
             [window](const auto &s) { return s.window == window; });
         if (saved == session.snapshots.end()) continue;
@@ -545,6 +551,24 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     };
     if (!valid()) return true; // Logical commit happened; never replay source removal.
     if (candidate) {
+        if (restore && restore->output != target && m_host->isTabletOutputForDesktopStage(target)) {
+            // Committed ordinary monitor arrival into existing tablet Bento has
+            // the same receiver-origin contract as Card Line adoption (A1).
+            // Ask KWin for tablet placement before overwriting it with a pane.
+            client->sendToOutput(target);
+            if (!valid()) return true;
+            auto session = m_sessions.find(key);
+            if (session == m_sessions.end()) return true;
+            auto saved = std::find_if(session->snapshots.begin(), session->snapshots.end(),
+                [&](const auto &s) { return s.window == arrival; });
+            if (saved == session->snapshots.end()) return true;
+            *saved = {.window = arrival, .geometry = client->moveResizeGeometry(),
+                .floatingGeometry = client->geometryRestore(),
+                .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
+                .outputName = key, .quickTileMode = client->quickTileMode(),
+                .maximizeMode = client->maximizeMode(), .fullScreen = client->isFullScreen(),
+                .minimized = client->isMinimized(), .valid = true};
+        }
         auto session = m_sessions.find(key);
         if (session != m_sessions.end() && applySession(session.value(), true)) scheduleSettle();
     } else {
@@ -559,6 +583,15 @@ bool DesktopStageController::hasActiveSession() const
 {
     // Empty visible layout still owns restore records and must remain releasable.
     return !m_sessions.isEmpty();
+}
+
+bool DesktopStageController::ownsWindow(KWin::EffectWindow *window) const
+{
+    if (!window) return false;
+    for (const auto &session : m_sessions)
+        for (const auto &saved : session.snapshots)
+            if (saved.valid && saved.window == window) return true;
+    return false;
 }
 
 bool DesktopStageController::managesWindow(KWin::EffectWindow *window) const
@@ -881,7 +914,8 @@ bool DesktopStageController::planSession(Session &session,
     return true;
 }
 
-bool DesktopStageController::applySession(Session &session, bool activateLead)
+bool DesktopStageController::applySession(Session &session, bool activateLead,
+    KWin::EffectWindow *prepareOverflow)
 {
     if (session.participationDirty) {
         if (!reflowSession(session)) return false;
@@ -938,7 +972,20 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
          plan.overflow) {
         if (!current()) return false;
         if (window && !window->isDeleted() && window->window()) {
-            window->window()->setMinimized(true);
+            if (window == prepareOverflow) {
+                const QPointer<KWin::Window> client = window->window();
+                const auto valid = [&] {
+                    return current() && client && window && !window->isDeleted()
+                        && window->window() == client && !window->isUserMove() && !window->isUserResize();
+                };
+                if (!applyNativePlacement(client.data(), output.data(),
+                        KWin::RectF(m_host->activeTargetForDesktopStage(output)), valid)) return false;
+                // Observe KWin's accepted Active target, then minimize once;
+                // the arrival's minimum already ruled out the curated panes.
+                m_restoredMinimizations.push_back(std::make_unique<RestoredMinimization>(client,
+                    RestoredMinimization::Target{client->moveResizeGeometry(), KWin::MaximizeRestore,
+                        KWin::QuickTileMode{}, false}));
+            } else window->window()->setMinimized(true);
             if (!current()) return false;
         }
     }
@@ -999,8 +1046,9 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
 
 void DesktopStageController::restoreSession(const QString &key, bool outputRemoving)
 {
-    std::erase_if(m_restoredMinimizations, [](const auto &pending) {
-        return pending->result() != RestoredMinimization::Result::Pending;
+    std::erase_if(m_restoredMinimizations, [&](const auto &pending) {
+        return pending->result() != RestoredMinimization::Result::Pending
+            || pending->output() == outputForKey(key);
     });
     QScopedValueRollback<bool> restoring(m_restoring, true);
     m_applicationGuard.invalidate();
@@ -1099,6 +1147,51 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "restored output-local Bento on"
             << key << "during removal" << outputRemoving;
+}
+
+bool DesktopStageController::transferTabletSessionToCardLine(KWin::LogicalOutput *output,
+    const std::function<bool(const QList<NativeMoveSnapshot> &,
+                             const std::function<bool()> &)> &accept)
+{
+    if (m_restoring || !output || !m_host->isTabletOutputForDesktopStage(output)
+        || m_interactionWindow || m_railDrag) return false;
+    const auto *session = sessionForOutput(output);
+    if (!session || session->applying || session->windows.isEmpty()) return false;
+    // Largest real Bento pane is the default face, followed by visible pane
+    // order and then retained overflow. No monitor session participates.
+    auto ordered = session->windows;
+    int lead = 0;
+    for (int i = 1; i < int(session->rects.size()); ++i)
+        if (session->rects[i].width * session->rects[i].height
+            > session->rects[lead].width * session->rects[lead].height) lead = i;
+    if (lead < ordered.size()) ordered.move(lead, 0);
+    for (const auto &saved : session->snapshots)
+        if (!ordered.contains(saved.window)) ordered.append(saved.window);
+    QList<NativeMoveSnapshot> restores;
+    for (const auto &window : ordered) {
+        const auto saved = std::find_if(session->snapshots.cbegin(), session->snapshots.cend(),
+            [&](const auto &s) { return s.window == window; });
+        if (!window || window->isDeleted() || !window->window() || window->screen() != output
+            || saved == session->snapshots.cend() || !saved->valid) return false;
+        restores.append({window->window(), output, saved->geometry, saved->floatingGeometry,
+            saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
+            saved->fullScreen, saved->minimized || saved->userMinimized});
+    }
+    const auto generation = m_applicationGuard.generation();
+    const QString key = outputKey(output);
+    bool committed = false;
+    const bool accepted = accept(restores, [&] {
+        if (committed || generation != m_applicationGuard.generation()
+            || !m_sessions.contains(key)) return false;
+        m_sessions.remove(key);
+        m_applicationGuard.invalidate();
+        std::erase_if(m_restoredMinimizations, [output](const auto &pending) {
+            return pending->output() == output;
+        });
+        committed = true;
+        return true;
+    });
+    return accepted && committed;
 }
 
 void DesktopStageController::restoreAllSessions()

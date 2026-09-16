@@ -22,6 +22,35 @@ int main() {
             && entry.windows() == original, "Rejected adoption changed existing membership");
     }
 
+    // Bento projection is one transactional stack with the large pane selected.
+    for (int count = 1; count <= 12; ++count) {
+        CardWorkspaceState<QString> stack;
+        QList<QString> windows;
+        for (int i = 0; i < count; ++i) windows.append(QString::number(i));
+        const auto plan = stack.prepareStackAdmission(windows);
+        require(plan && !stack.commitAdmission(*plan, [] { return false; })
+            && stack.windows().isEmpty(), "Rejected stack import mutated ownership");
+        require(stack.commitAdmission(*plan, [] { return true; })
+            && stack.count() == 1 && stack.cardCount() == count
+            && stack.selectedWindow() == windows.first() && stack.invariantHolds(),
+            "Bento import lost membership or selected large pane");
+        for (int i = 0; i < count; ++i) {
+            require(stack.selectedWindow() == windows[i], "Imported stack order changed");
+            stack.pageStack(1);
+        }
+        const auto order = stack.stackMembersForId(1);
+        require(!stack.prepareStackAdmission(windows), "Occupied owner accepted replacement stack");
+        if (count > 1) {
+            require(stack.detachSelectedMember() && stack.restoreDetachedMember()
+                && stack.stackMembersForId(1) == order, "Projection detach/cancel lost stack order");
+            require(stack.removeAt(count - 1) && stack.cardCount() == count - 1
+                && stack.selectedWindow() == windows.first(), "Projected closure lost lead");
+        }
+    }
+    CardWorkspaceState<QString> duplicateStack;
+    require(!duplicateStack.prepareStackAdmission({u"same"_s, u"same"_s}),
+        "Duplicate stack identity accepted");
+
     for (int count = 1; count <= 8; ++count) {
         for (int active = 0; active < count; ++active) {
             for (int depth = 0; depth <= count; ++depth) {

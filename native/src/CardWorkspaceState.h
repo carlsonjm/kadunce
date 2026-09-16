@@ -114,6 +114,24 @@ public:
         appendTo(result.model, result.windows, window, centered);
         return result;
     }
+    // Import an output-local composition as one stack. The first identity is
+    // its selected face; the remaining identities keep deterministic order.
+    std::optional<PreparedAdmission> prepareStackAdmission(const QList<Handle> &windows) const {
+        if (!m_windows.isEmpty() || windows.isEmpty()) return std::nullopt;
+        PreparedAdmission result;
+        result.destination = m_identity;
+        result.revision = m_revision;
+        for (const auto &window : windows) {
+            if (result.windows.contains(window)) return std::nullopt;
+            const int id = appendTo(result.model, result.windows, window, false);
+            if (id > 1) {
+                result.model.selectIndex(result.model.count() - 1);
+                if (!result.model.stackSelectedWith(1, -1,
+                        CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
+            }
+        }
+        return result;
+    }
     // Synchronous source-model callback only: no native operations, signals,
     // or destination mutations. Validate destination before touching source,
     // then publish immediately, with no externally observable calls between.

@@ -12,6 +12,7 @@
 #include "CardWorkspaceState.h"
 #include "DeferredCommandGuard.h"
 #include "PreparedCarrySource.h"
+#include "RestoredMinimization.h"
 
 #include <effect/effectwindow.h>
 
@@ -149,6 +150,9 @@ public:
     void handleManualWindowChange(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
+    bool admitBentoStack(const QList<NativeMoveSnapshot> &restores,
+                         const std::function<bool()> &commitSource);
+
 private:
     struct ActiveRestoreSnapshot {
         QPointer<KWin::EffectWindow> window;
@@ -158,6 +162,7 @@ private:
         KWin::QuickTileMode quickTileMode;
         KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
         bool fullScreen = false;
+        bool minimized = false;
         bool valid = false;
     };
 
@@ -204,6 +209,7 @@ private:
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
     ActiveRestoreSnapshot m_activeRestore;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
+    std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     int m_activeSettleRemaining = 0;

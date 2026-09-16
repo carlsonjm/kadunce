@@ -1,5 +1,17 @@
 # Decisions
 
+## September 16 — tablet composition projects through existing stack ownership
+
+A2 keeps one live owner at each presentation boundary: DesktopStageController's
+Bento membership transfers to CardWorkspaceState as a single stack, carrying
+ordinary restore records directly. The largest pane is the default selected face.
+Returning to Bento uses its existing activation and retained-record adapter.
+No new persistence owner is required; grouping lasts within the current live
+session and explicit release still ends ownership. This applies only to the touch
+tablet; monitor Bento remains native. Tablet constrained launches stay owned as
+prepared overflow if the existing pane planner cannot fit them. See
+`OWNERSHIP-A2-20260916.md` for candidate status, evidence and physical gate.
+
 ## September14 — Accepted fresh-state admission correction
 
 Monitor side preference yields only when ordinary admission keeps strictly more

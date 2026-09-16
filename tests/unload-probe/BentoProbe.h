@@ -8,6 +8,8 @@
 // Test-only host. Never installed; all virtual outputs are composition stages.
 struct BentoProbeHost final : Kadunce::DesktopStageHost {
     QPointer<KWin::LogicalOutput> tablet;
+    std::function<void(KWin::LogicalOutput *)> prepare;
+    std::function<std::optional<Kadunce::NativeMoveSnapshot>(KWin::EffectWindow *)> restore;
     std::function<bool(KWin::EffectWindow *, const std::function<bool()> &)> admission;
     bool isTabletOutputForDesktopStage(const KWin::LogicalOutput *o) const override { return tablet && o == tablet; }
     bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *) const override { return true; }
@@ -16,7 +18,10 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     }
     KWin::LogicalOutput *tabletOutputForDesktopStage() const override { return tablet; }
     KWin::Rect activeTargetForDesktopStage(KWin::LogicalOutput *o) const override { return o->geometry(); }
-    void prepareOutputForDesktopStage(KWin::LogicalOutput *) override {}
+    void prepareOutputForDesktopStage(KWin::LogicalOutput *o) override { if (prepare) prepare(o); }
+    std::optional<Kadunce::NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *w) const override {
+        return restore ? restore(w) : std::nullopt;
+    }
     bool admitTransferredWindowToTablet(KWin::EffectWindow *w, const std::function<bool()> &commit) override {
         return admission && admission(w, commit);
     }

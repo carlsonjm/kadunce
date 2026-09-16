@@ -68,10 +68,16 @@ public:
     [[nodiscard]] bool nativeCarrySourceValid(const PreparedCarrySource &source) const;
 
     [[nodiscard]] bool hasActiveSession() const;
+    [[nodiscard]] bool ownsWindow(KWin::EffectWindow *window) const;
+    // Visible native panes only; retained overflow is owned but not a pane.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
     void toggleUnderPointer();
     void restoreAllSessions();
+    // Synchronous ownership transfer; no restoration or placement on success.
+    bool transferTabletSessionToCardLine(KWin::LogicalOutput *output,
+        const std::function<bool(const QList<NativeMoveSnapshot> &,
+                                 const std::function<bool()> &)> &accept);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 
@@ -217,7 +223,8 @@ private:
                   KWin::EffectWindow *preferred = nullptr,
                   std::optional<BentoSidePlacement> side = {});
     void restoreSession(const QString &key, bool outputRemoving = false);
-    bool applySession(Session &session, bool activateLead);
+    bool applySession(Session &session, bool activateLead,
+                      KWin::EffectWindow *prepareOverflow = nullptr);
     void scheduleSettle();
     void settleSessions();
     bool sessionGeometryMatches(const Session &session) const;
