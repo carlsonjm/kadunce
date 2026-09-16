@@ -1,6 +1,6 @@
 # A1 — ownership records at committed Card Line entry
 
-Source-only candidate on `a/ownership-a1`, fresh worktree
+Originally source-only candidate **0565ccf** on `a/ownership-a1`, fresh worktree
 `../.worktrees/kadunce-ownership-a1`, based on **b971c0a**. This packet covers only
 initial Card Line ownership and committed cross-display tablet release.
 
@@ -94,3 +94,12 @@ installer/session procedure. No branch reset or history rewriting is required.
 
 Stop at a concrete failed case or J acceptance. No animation scaling, stack
 extraction, reorder-zone or other roadmap work belongs to A1.
+
+## Physical acceptance and publication — September 16
+
+J passed tests 1–3, including persistent control, committed tablet release and
+immediate initial ownership. PM authorized publication. The unchanged candidate
+was replayed as **02e6a6f** on **8d3a0b9**, preserving PM's newer roadmap/checklist.
+Publication worktree: `../.worktrees/kadunce-ownership-a1-release`.
+The earlier pending/source-only statements describe the original handoff.
+A2 is a separate bounded ownership candidate and is not authorized for publication.

@@ -1,20 +1,25 @@
 # Current state
 
-## September 16 — A1 ownership candidate (not installed)
+## September 16 — A1 physically accepted
 
-On isolated `a/ownership-a1` from **b971c0a**, Card Line now retains every member's
-restore record at committed entry rather than waiting for per-card Active visits.
-Cross-output adoption retains KWin's accepted tablet ordinary placement before
-Active sizing; rejection still preserves the monitor source. PM confirmed this
-phase boundary supersedes the old postcommit fixture comment. No admission,
-destination, geometry, input-timing, renderer or visual policy changes.
+J passed A1 tests 1–3: persistent control, committed cross-display release to the
+tablet, and immediate ownership of every Card Line member. Candidate **0565ccf**
+was replayed without production changes as **02e6a6f** on PM's **8d3a0b9**;
+latest roadmap and physical checklist updates are preserved. Initial entry retains
+all restore records; committed tablet adoption records KWin's tablet ordinary
+placement before Active sizing. Precommit cancellation retains the source.
 
-Production build, eight focused model/layout/input tests, source guards and mandatory
-control checks pass. Two-output private runtime verifies both ownership routes and
-exact release geometry. See [OWNERSHIP-A1-20260916.md](OWNERSHIP-A1-20260916.md)
-for evidence, limitations, rollback and physical checklist. No install, toggle,
-logout, reboot or push. J's gesture/dock check and post-install live safety remain
-pending. The accepted installed baseline below remains authoritative until then.
+The production build, eight focused tests, source/control checks and two-output
+private ownership runtime passed for A1. Publication repeats the focused/source/
+control checks; production sources match the tested and physically accepted
+candidate. See `OWNERSHIP-A1-20260916.md`. No further installation is required by
+this source replay. Original rollback remains **b971c0a**.
+
+Next bounded work is A2: constrained tablet launches must remain owned, and tablet
+Bento must project into Card Line as a stack with its large-pane card selected.
+Audit only adjacent ownership transitions; monitor Bento, native authority,
+accepted geometry, input timing and safety control remain unchanged. A2 must stay
+source-only pending J's physical review.
 
 ## September 15 — Itasca visual and Ambient freeze
 
