@@ -51,7 +51,10 @@ number is therefore a rolling forecast, not a fixed promise.
   the application dock.
 - [ ] Pause and authoritative completion feedback remain visible long enough to use.
 - [ ] Recent notifications remain distinct and popup geometry fits neighboring cards.
-- [ ] `do not disturb` is lowercase.
+- [ ] Notification cards follow the design-kit hierarchy: source and title share one
+  header row, body copy sits directly below, action pills use tighter padding, and
+  card spacing is recalculated around the simplified layout.
+- [x] `do not disturb` is lowercase.
 - [ ] Power glyphs are slightly smaller.
 - [ ] Popup-to-dock clearance matches the accepted external spacing.
 - [ ] Control Center and System Tray follow the design-kit spacing hierarchy.
