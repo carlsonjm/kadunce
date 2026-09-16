@@ -51,31 +51,24 @@ the freeze.
 
 ## Next bounded work
 
-J's post-freeze physical findings replace the earlier general regression
-checklist and are recorded in `POST-FREEZE-TEST-20260915.md`. Highest-risk
-reproductions are Kadunce cross-display release/initial ownership, the Temperance
-ticker confinement, and Ambient width/transfer lifecycle failures.
+The rolling execution plan is `NEXT-ROADMAP.md`; update its section status and
+planning number after every accepted block. Current forecast is **6 focused
+working days**, with a 5–7 day expected range.
 
-1. **Regression triage:** isolate the Kadunce ownership failures and Temperance
-   ticker confinement before visual polish. Preserve accepted geometry and safety.
-2. **Ambient correction:** enforce J's constrained shedding order, recompute media
-   fit during transfers, and make pause/completion feedback observable.
-3. **Temperance and drawer polish:** notification layout, label casing, popup
-   clearance, spacing, reveal/dropdown behavior and remaining Files kit alignment.
-4. **Tette Files completion:** external drag/drop, Open With and properties;
-   thumbnails/recursive search/Recent; then removable and optional network
-   storage lifecycle as separate packets.
-5. **Release integration:** clean builds and package provenance for all repos,
-   install/uninstall or rollback, persistent Kadunce safety control, tablet-only
-   and docked acceptance, scaling/rotation, focus and Meta cleanup.
-6. **Debug block:** reproduce any remaining historical report on current main
-   after major work. Do not reopen cleared R1 reports without a current failure.
+1. **Debug and polish:** current Kadunce ownership/ticker regressions, Ambient
+   constraint/transfer behavior, Temperance layout and shared visual alignment.
+2. **Missing features:** Files B properties/discovery, Files C storage lifecycle,
+   Temperance event sources, and Steam/external libraries if retained for 1.0.
+3. **Refactor audit and consumer installer.**
+4. **Mac mini website hosting with standard secure tablet control.**
+5. **Interactive website and release:** full-screen Itasca desktop, guided entry,
+   active Kadunce/Tettegouche/Temperance cards and representative interactions.
 
-The Table 1.1 concept remains recorded in `KADUNCE-TABLE-1.1-CONCEPT.md` as
-post-launch direction. No Table implementation packet is active before 1.0.
+The former Files A slice is deleted; external drag-and-drop and Open With are not
+launch-roadmap items. Properties is part of Files B. The Mac mini is not a custom
+controller/build service. J's personal-site migration is later and nonblocking.
 
-Full daily handoff: `EOD-20260915.md`. Live post-freeze checklist:
-`POST-FREEZE-TEST-20260915.md`.
+Live post-freeze checklist: `POST-FREEZE-TEST-20260915.md`.
 
 ## Safety
 
