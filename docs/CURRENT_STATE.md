@@ -76,10 +76,12 @@ The rolling execution plan is `NEXT-ROADMAP.md`; update its section status and
 planning number after every accepted block. Current forecast is **6 focused
 working days**, with a 5–7 day expected range.
 
-1. **Debug and polish:** A1 retained-ownership fixes passed J's physical tests.
-   The active gate is tablet Card Line/Bento ownership: new-window routing and
-   retaining Bento cards as a Card Line stack with the large pane on top. Tette B1
-   remains unaccepted after centered-dock and transfer-completion failures.
+1. **Debug and polish:** A1 and A2 ownership behavior passed J's physical tests.
+   Zen correctly used the small Bento pane because its minimum size did not
+   require the large pane. The remaining Kadunce follow-up is Bento-derived Card
+   Line presentation geometry: ownership/stack order survive, but the live card
+   content is undersized inside large black areas. Tette B1 remains unaccepted
+   after centered-dock and transfer-completion failures.
 2. **Missing features:** Files B properties/discovery, Files C storage lifecycle,
    Temperance event sources, and Steam/external libraries if retained for 1.0.
 3. **Refactor audit and consumer installer.**

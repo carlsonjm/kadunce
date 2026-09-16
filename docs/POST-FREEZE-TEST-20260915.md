@@ -16,18 +16,23 @@ does not close it.
   unowned windows. Reported failure: some windows do not commit to card ownership
   until they are swiped through or clicked as Active. Visible proof: the floating
   dock becomes flat even though every window has Active sizing.
-- [ ] **Bento launch routing on tablet:** with tablet-only Kadunce active, snap one
+- [x] **Bento launch routing on tablet:** with tablet-only Kadunce active, snap one
   window as Active, open Ghostty so it enters Bento, then launch Zen. Reported
   failure: Zen opens as an unmanaged normal window above Bento. Expected result:
   admit Zen into Bento's large pane when its minimum size requires that pane; if
   it cannot join the current Bento layout, give it Active sizing and minimize it
   as a prepared card ready to be called Active. It must not float unmanaged over
   the owned Bento workspace.
-- [ ] **Bento projection into Card Line:** on a touch device, activating Card
+- [x] **Bento projection into Card Line:** on a touch device, activating Card
   Line from Bento must retain the Bento-owned cards as one stack. The large-pane
   card is the default top/selected card. Returning to Bento must preserve the
   owned set and meaningful order. This projection must not change monitor Bento
   behavior because monitor outputs do not expose Card Line.
+- [ ] **Bento-derived Card Line presentation:** ownership and stack order pass,
+  but projected window content uses the wrong presentation geometry and appears
+  as a small centered image with large black unused areas. Each large- and
+  small-pane member must use the existing live proportional Card Line aperture
+  without changing native Bento geometry or adding retained snapshots.
 - [ ] **Remove a card from a stack:** pulling a card from a stack back into Card
   Line is too difficult.
 - [ ] **Reorder within Card Line:** the useful drop strip between Active and its
