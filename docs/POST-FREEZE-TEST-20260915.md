@@ -16,6 +16,13 @@ does not close it.
   unowned windows. Reported failure: some windows do not commit to card ownership
   until they are swiped through or clicked as Active. Visible proof: the floating
   dock becomes flat even though every window has Active sizing.
+- [ ] **Bento launch routing on tablet:** with tablet-only Kadunce active, snap one
+  window as Active, open Ghostty so it enters Bento, then launch Zen. Reported
+  failure: Zen opens as an unmanaged normal window above Bento. Expected result:
+  admit Zen into Bento's large pane when its minimum size requires that pane; if
+  it cannot join the current Bento layout, give it Active sizing and minimize it
+  as a prepared card ready to be called Active. It must not float unmanaged over
+  the owned Bento workspace.
 - [ ] **Remove a card from a stack:** pulling a card from a stack back into Card
   Line is too difficult.
 - [ ] **Reorder within Card Line:** the useful drop strip between Active and its

@@ -34,6 +34,8 @@ number is therefore a rolling forecast, not a fixed promise.
 - [ ] Cross-display Escape release returns the window to the tablet ownership origin.
 - [ ] Windows commit to Card Line ownership on entry without first becoming Active.
 - [ ] Temperance ticker is no longer confined to the arrow-control view box.
+- [ ] New constrained windows route into Bento's large pane or prepared Active
+  ownership instead of floating unmanaged above Bento.
 - [ ] Pulling a card from a stack back into Card Line is reliable.
 - [ ] Reordering has a useful intent zone without accidental paging.
 - [ ] Cards have centered labels; stack position shares that row at the right edge.
