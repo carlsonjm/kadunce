@@ -176,6 +176,8 @@ private:
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
+    void retireBentoProjectionForCardStage(
+        const QList<QPointer<KWin::EffectWindow>> &windows) override;
     [[nodiscard]] bool admitCardToDesktopStage(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,

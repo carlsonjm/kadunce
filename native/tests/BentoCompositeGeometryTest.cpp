@@ -92,6 +92,13 @@ int main()
         && close(projected->authoritativeSurface.bottom(),
                  projected->authoritativeFrame.bottom() + 16),
         "Decoration margins were not applied around the authoritative frame");
+    const auto mappedWideFrame = Kadunce::mapBentoCompositeRect(
+        composite, projected->authoritativeFrame);
+    require(close(projected->targetClip.x, mappedWideFrame.x)
+        && close(projected->targetClip.y, mappedWideFrame.y)
+        && close(projected->targetClip.width, mappedWideFrame.width)
+        && close(projected->targetClip.height, mappedWideFrame.height),
+        "Expanded pixels escaped the authoritative pane frame");
 
     const auto repeated = Kadunce::makeBentoProjectedPaneGeometry(composite,
         workspace, wideRect, {9000, 6000, 300, 900},
@@ -114,12 +121,19 @@ int main()
 
     const auto fullWithShadow = Kadunce::makeBentoProjectedPaneGeometry(composite,
         workspace, {0, 0, 1, 1}, {50, 50, 400, 300}, {20, 20, 460, 360});
+    const auto fullFrame = fullWithShadow
+        ? Kadunce::mapBentoCompositeRect(composite, fullWithShadow->authoritativeFrame)
+        : Kadunce::CardRect{};
     require(fullWithShadow.has_value()
-        && close(fullWithShadow->targetClip.x, composite.targetUnion.x)
-        && close(fullWithShadow->targetClip.y, composite.targetUnion.y)
-        && close(fullWithShadow->targetClip.right(), composite.targetUnion.right())
-        && close(fullWithShadow->targetClip.bottom(), composite.targetUnion.bottom()),
-        "Projected pane shadow was not clipped to the workspace card");
+        && close(fullWithShadow->targetClip.x, fullFrame.x)
+        && close(fullWithShadow->targetClip.y, fullFrame.y)
+        && close(fullWithShadow->targetClip.right(), fullFrame.right())
+        && close(fullWithShadow->targetClip.bottom(), fullFrame.bottom())
+        && fullWithShadow->targetClip.x > composite.targetUnion.x
+        && fullWithShadow->targetClip.y > composite.targetUnion.y
+        && fullWithShadow->targetClip.right() < composite.targetUnion.right()
+        && fullWithShadow->targetClip.bottom() < composite.targetUnion.bottom(),
+        "Projected pane shadow consumed the authoritative workspace gutters");
 
     const auto extremeComposite = Kadunce::makeBentoCompositeGeometry(
         slot, {0, 0, 2400, 120});

@@ -41,6 +41,11 @@ assert 'enterActive(' not in projection and 'moveResize(' not in projection
 assert 'setMinimized(false)' not in projection, 'Projection must not unminimize retained overflow'
 resume = pathlib.Path(sys.argv[1]).read_text().split('bool CardStageController::resumeSelectedBentoProjection()', 1)[1].split('void CardStageController::release()', 1)[0]
 assert all(call not in resume for call in ('moveResize(', 'setMinimized(', 'enterActive('))
+assert resume.index('m_bentoProjectionSession.reset()') < resume.index('retireBentoProjectionForCardStage(projectionWindows)') < resume.index('committed = true')
+retire = effect.split('void Effect::retireBentoProjectionForCardStage(', 1)[1].split('bool Effect::admitCardToDesktopStage(', 1)[0]
+for required in ('m_fanApertureWindow = nullptr', 'm_previewSourceBounds.remove(window)',
+                 'unredirect(window)', 'addRepaintFull()'):
+    assert required in retire, f'projection retirement must include {required}'
 route = effect.split('void Effect::toggle()', 1)[1].split('void Effect::release()', 1)[0]
 assert 'transferTabletSessionToCardLine' in route and 'admitBentoStack' in route
 assert 'toggleOnOutput' not in route, 'Card Line entry must not discard Bento ownership'
@@ -483,6 +488,10 @@ rg -q 'bentoProjectionWorkspace' "${effect_cpp}" "${card_cpp}" "${card_header}"
 rg -q 'bentoProjectionRect' "${effect_cpp}" "${card_cpp}" "${card_header}"
 rg -q 'makeBentoProjectedPaneGeometry' \
     "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
+rg -Fq 'mapBentoCompositeRect(composite, frame)' \
+    "${native_dir}/src/BentoCompositeGeometry.h"
+rg -q 'retireBentoProjectionForCardStage' \
+    "${effect_cpp}" "${effect_header}" "${card_cpp}" "${card_header}"
 rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
 rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"

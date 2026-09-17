@@ -42,6 +42,8 @@ check a2Return
 sleep .6
 check a2Project
 sleep .4
+check a2Return
+sleep .6
 check a2Release
 sleep .6
 check a2Restored

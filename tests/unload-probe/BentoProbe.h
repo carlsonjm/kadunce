@@ -30,6 +30,7 @@ struct TabletProbeHost final : Kadunce::CardStageHost {
     QPointer<KWin::LogicalOutput> tablet;
     std::function<void()> canceled;
     std::function<void(KWin::EffectWindow *)> connected;
+    std::function<void(const QList<QPointer<KWin::EffectWindow>> &)> projectionRetired;
     std::function<bool(KWin::EffectWindow *, KWin::LogicalOutput *, const KWin::RectF &,
         const std::function<bool()> &, const std::function<void()> &)> desktopAdmission;
     std::function<bool(const Kadunce::BentoProjectionSession &,
@@ -43,6 +44,10 @@ struct TabletProbeHost final : Kadunce::CardStageHost {
     void cancelInputForCardStage() override { if (canceled) canceled(); }
     void connectManagedWindowForCardStage(KWin::EffectWindow *w) override { if (connected) connected(w); }
     void unredirectForCardStage(KWin::EffectWindow *) override {}
+    void retireBentoProjectionForCardStage(
+        const QList<QPointer<KWin::EffectWindow>> &windows) override {
+        if (projectionRetired) projectionRetired(windows);
+    }
     bool admitCardToDesktopStage(KWin::EffectWindow *w, KWin::LogicalOutput *o, const KWin::RectF &g,
         const std::function<bool()> &commit, const std::function<void()> &release) override {
         return desktopAdmission && desktopAdmission(w,o,g,commit,release);

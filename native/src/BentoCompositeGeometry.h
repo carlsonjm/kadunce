@@ -113,7 +113,11 @@ makeBentoProjectedPaneGeometry(const BentoCompositeGeometry &composite,
     const CardRect surface{frame.x - left, frame.y - top,
         frame.width + left + right, frame.height + top + bottom};
     const auto target = mapBentoCompositeRect(composite, surface);
-    const auto clip = intersectBentoCompositeRect(target, composite.targetUnion);
+    // Decorations and shadows participate in the live transform, but the stored
+    // Bento pane frame remains the hard aperture. This preserves client chrome
+    // inside the frame without letting expanded pixels consume workspace gaps.
+    const auto clip = intersectBentoCompositeRect(
+        mapBentoCompositeRect(composite, frame), composite.targetUnion);
     if (target.width <= 0.0 || target.height <= 0.0
         || clip.width <= 0.0 || clip.height <= 0.0) return std::nullopt;
     return BentoProjectedPaneGeometry{frame, surface, target, clip};

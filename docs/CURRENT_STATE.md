@@ -19,8 +19,10 @@ Shuffle capabilities; their technical feasibility remains open.
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
   clearance. Painting reconstructs each pane from the transferred normalized rect,
-  so later live-frame acknowledgements cannot move it inside the group. One
-  translucent-black field replaces wallpaper behind the panes.
+  so later live-frame acknowledgements cannot move it inside the group. The stored
+  pane frame clips expanded decoration and shadow pixels out of workspace gutters.
+  One translucent-black field replaces wallpaper behind the panes and all group
+  paint state retires before an exact resume exposes native Bento again.
   Retained overflow stays owned and minimized. The group has no member paging,
   fan, or member carry; activation resumes the exact Bento session without a
   layout solve and restores neighboring ordinary cards from their own records.
@@ -58,11 +60,11 @@ before the next installation.
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
 package checks, and mandatory control checks have passed for the current sources.
-The Bento group-card candidate has focused full-work-area and repeated-projection
-geometry, translucent backdrop, session-contract, no-member-paging,
-overflow-minimization, exact-resume, first-snap refresh, and private two-output
-ownership lifecycle coverage but still requires physical appearance review before
-promotion.
+The Bento group-card candidate has focused full-work-area, pane-frame clipping and
+repeated-projection geometry, translucent backdrop, session-contract,
+no-member-paging, overflow-minimization, residue-free repeated exact resume,
+first-snap refresh, and private two-output ownership lifecycle coverage but still
+requires physical appearance review before promotion.
 Physical review has accepted ownership, constrained launch routing, stack retention,
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,

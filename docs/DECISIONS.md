@@ -120,7 +120,10 @@ accept a stack insertion, or detach one member.
 
 Pane placement comes from the transferred normalized Bento rect, not later absolute
 client geometry. Current expanded-versus-frame margins preserve live decorations and
-shadows around that authoritative frame; the mapped workspace clips all pane paint.
+shadows for transformation, while the authoritative stored frame clips pixels out of
+pane gaps and outer gutters. Successful exact resume clears projection provenance,
+offscreen sources, and per-frame aperture state before native Bento can repaint;
+rejection retains all projection presentation.
 
 The transfer carries pane order and rects, lead, side metadata, overflow,
 minimization, stacking, and authoritative restore records. Activating the group

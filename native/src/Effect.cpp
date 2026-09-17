@@ -699,6 +699,30 @@ void Effect::connectManagedWindowForCardStage(KWin::EffectWindow *window)
 void Effect::unredirectForCardStage(KWin::EffectWindow *window)
 {
     unredirect(window);
+    m_previewSourceBounds.remove(window);
+}
+
+void Effect::retireBentoProjectionForCardStage(
+    const QList<QPointer<KWin::EffectWindow>> &windows)
+{
+    // Exact resume can synchronously return these surfaces to Desktop Stage.
+    // Drop every Card Line paint latch before that native scene becomes visible.
+    m_fanApertureWindow = nullptr;
+    m_fanPaintSize = {};
+    m_fanApertureOrigin = {};
+    m_fanApertureSize = {};
+    m_fanApertureRadius = 0.0F;
+    m_preparationNeighbors.removeIf([&](const auto &window) {
+        return windows.contains(window);
+    });
+    m_neighborPreparedThisFrame = false;
+    m_neighborPreparationFrames = m_preparationNeighbors.size();
+    for (const auto &window : windows) {
+        if (!window || window->isDeleted()) continue;
+        unredirect(window);
+        m_previewSourceBounds.remove(window);
+    }
+    KWin::effects->addRepaintFull();
 }
 
 bool Effect::admitCardToDesktopStage(

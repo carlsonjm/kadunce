@@ -60,8 +60,8 @@ physical checks, and have explicit ownership.
 - [ ] Physically accept the full-work-area Bento group-card candidate. It maps
   live panes into one proportional desktop view with a translucent-black field,
   no retained snapshots, and no native Bento resizing; automated geometry,
-  repeated-projection stability, first-snap, exact-resume, neighbor, and two-output
-  ownership routes pass.
+  pane-frame clipping, repeated-projection stability, residue-free exact resume,
+  first-snap, neighbor, and two-output ownership routes pass.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
 - [ ] Center card labels and place stack position on the same row at the right edge.

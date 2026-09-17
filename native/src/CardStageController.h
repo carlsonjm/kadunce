@@ -56,6 +56,8 @@ public:
     virtual void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) = 0;
     virtual void unredirectForCardStage(KWin::EffectWindow *window) = 0;
+    virtual void retireBentoProjectionForCardStage(
+        const QList<QPointer<KWin::EffectWindow>> &windows) = 0;
     [[nodiscard]] virtual bool admitCardToDesktopStage(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,

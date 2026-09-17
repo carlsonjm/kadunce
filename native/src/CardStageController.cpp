@@ -1455,6 +1455,7 @@ bool CardStageController::resumeSelectedBentoProjection()
         || m_cardGrabActive || m_launcherGuestActive) return false;
     const BentoProjectionSession projection = *m_bentoProjectionSession;
     const auto allWindows = m_workspace.windows();
+    const auto projectionWindows = m_bentoProjectionWindows;
     const auto originalStackingOrder = m_originalCardStackingOrder;
     QList<ActiveRestoreSnapshot> ordinaryRestores;
     for (const auto &snapshot : std::as_const(m_parkedRestores)) {
@@ -1467,7 +1468,7 @@ bool CardStageController::resumeSelectedBentoProjection()
     }
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
-        [this, &committed] {
+        [this, projectionWindows, &committed] {
             if (!m_active || !selectedIsBentoProjection()) return false;
             m_transferGuard.invalidate();
             m_host->cancelInputForCardStage();
@@ -1483,6 +1484,11 @@ bool CardStageController::resumeSelectedBentoProjection()
             m_bentoProjectionPaneWindows.clear();
             m_bentoProjectionSession.reset();
             m_originalCardStackingOrder.clear();
+            for (const auto &window : projectionWindows) {
+                if (window && !window->isDeleted())
+                    KWin::effects->setElevatedWindow(window, false);
+            }
+            m_host->retireBentoProjectionForCardStage(projectionWindows);
             committed = true;
             return true;
         },

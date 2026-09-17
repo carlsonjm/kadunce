@@ -10,6 +10,9 @@ struct OwnershipTransitionProbe {
     QPointer<KWin::LogicalOutput> tablet, monitor;
     QPointer<KWin::EffectWindow> monitorWindow, oversized, cross, immediate, ordinary, projectedLead;
     QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> origins;
+    QList<QPointer<KWin::EffectWindow>> currentProjectionWindows, lastRetiredProjection;
+    int projectionRetirements = 0;
+    bool projectionStateClearedAtRetirement = false;
     KWin::RectF monitorTile;
     QString evidence;
 
@@ -24,6 +27,14 @@ struct OwnershipTransitionProbe {
         cardHost.projectionResume = [this](const auto &projection,
             const auto &commit, const auto &release) {
             return desktop.resumeProjectedSession(projection, commit, release);
+        };
+        cardHost.projectionRetired = [this](const auto &windows) {
+            ++projectionRetirements;
+            lastRetiredProjection = windows;
+            projectionStateClearedAtRetirement = std::all_of(
+                windows.cbegin(), windows.cend(), [this](const auto &window) {
+                    return !cards.usesBentoProjectionAperture(window);
+                });
         };
         QList<KWin::EffectWindow *> windows;
         for (auto *w : KWin::effects->stackingOrder())
@@ -144,7 +155,9 @@ struct OwnershipTransitionProbe {
         projectedLead = transferred.lead;
         QList<Kadunce::BentoProjectionMember> members = transferred.panes;
         members.append(transferred.overflow);
+        currentProjectionWindows.clear();
         for (const auto &saved : members) {
+            currentProjectionWindows.append(saved.window);
             if (!cards.usesBentoProjectionAperture(saved.window))
                 return fail("Projection member lost Bento presentation provenance");
             const auto retained = cards.managedRestore(saved.window);
@@ -182,6 +195,7 @@ struct OwnershipTransitionProbe {
             return fail("Bento group did not remain one ordinary Card Line neighbor");
         const auto ordinaryRestore = cards.managedRestore(ordinary);
         if (!ordinaryRestore) return fail("Ordinary neighbor lost its Card Line restore");
+        const int retirementCount = projectionRetirements;
         cardHost.projectionResume = [this](const auto &projection,
             const auto &, const auto &release) {
             return desktop.resumeProjectedSession(projection, [] { return false; }, release);
@@ -189,7 +203,12 @@ struct OwnershipTransitionProbe {
         if (cards.resumeSelectedBentoProjection() || !cards.isActive()
             || cards.model().count() != 2 || !cards.managedRestore(ordinary)
             || cards.managedRestore(ordinary)->geometry != ordinaryRestore->geometry
-            || desktop.hasSessionOnOutput(tablet->name()))
+            || desktop.hasSessionOnOutput(tablet->name())
+            || projectionRetirements != retirementCount
+            || std::any_of(currentProjectionWindows.cbegin(), currentProjectionWindows.cend(),
+                [this](const auto &window) {
+                    return !cards.usesBentoProjectionAperture(window);
+                }))
             return fail("Rejected exact resume mutated group or ordinary neighbor ownership");
         cardHost.projectionResume = [this](const auto &projection,
             const auto &commit, const auto &release) {
@@ -198,8 +217,18 @@ struct OwnershipTransitionProbe {
         return true;
     }
     bool returnToBento() {
+        const int retirementCount = projectionRetirements;
         if (!cards.resumeSelectedBentoProjection() || cards.isActive()
             || !desktop.hasSessionOnOutput(tablet->name())) return fail("Return to Bento failed");
+        if (projectionRetirements != retirementCount + 1
+            || !projectionStateClearedAtRetirement
+            || lastRetiredProjection.size() != currentProjectionWindows.size()
+            || std::any_of(currentProjectionWindows.cbegin(), currentProjectionWindows.cend(),
+                [this](const auto &window) {
+                    return !lastRetiredProjection.contains(window);
+                })) {
+            return fail("Successful exact resume did not retire every projected paint source");
+        }
         for (const auto &[w, geometry] : origins) {
             if (w == ordinary) {
                 if (desktop.ownsWindow(w) || w->frameGeometry() != geometry)
