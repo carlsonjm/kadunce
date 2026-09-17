@@ -59,16 +59,17 @@ the eventual approved model, and several physical micro-adjustments.
 
 ## Current sequence
 
-1. Finish Temperance notification action-pill spacing and validate or remove snooze.
+1. [x] Finish Temperance notification action-pill spacing and validate Snooze.
 2. [x] Fix Kadunce Bento-derived Card Line live presentation geometry.
-3. Finish Kadunce Card Line extraction, reordering, labels, and stack position.
-4. Complete Tette responsive media/transfer and completion behavior.
-5. Finish remaining component features and visual polish.
-6. Audit maintainability and lifecycle boundaries.
-7. Prove and implement Table.
-8. Prove and implement Shuffle Keyboard.
-9. Assemble, package, install, and release the private Shuffle product.
-10. Prepare the website host and interactive release site.
+3. Refactor Kadunce ownership around the visible-pane Bento contract.
+4. Finish Kadunce Card Line extraction and reordering.
+5. Complete Tette responsive media/transfer and completion behavior.
+6. Finish remaining component features and visual polish.
+7. Audit maintainability and lifecycle boundaries.
+8. Prove and implement Table.
+9. Prove and implement Shuffle Keyboard.
+10. Assemble, package, install, and release the private Shuffle product.
+11. Prepare the website host and interactive release site.
 
 Only run steps in parallel when they use different repositories, have disjoint
 physical checks, and have explicit ownership.
@@ -89,10 +90,19 @@ physical checks, and have explicit ownership.
   no retained snapshots, and no native Bento resizing; automated geometry,
   rounded pane apertures, repeated-projection stability, residue-free exact resume,
   first-snap, neighbor, and two-output ownership routes pass.
+- [x] Physically accept centered card labels, right-edge stack position, and the
+  pane-ordered Bento group label.
+- [ ] Refactor ownership so Bento contains only its visible pane combination;
+  minimized, displaced, overflowed, and extracted windows become independent Card
+  Line cards with no retained Bento association.
+- [ ] Add atomic prepared admission and removal for one logical group. Selecting a
+  Bento group must transfer only that group while unrelated individual cards remain
+  owned and hidden; selecting an individual must preserve the separate group.
+- [ ] Rebuild top-edge Active extraction on that ownership contract and cover both
+  selection paths, rollback, repeated transitions, release, unload, and other-output
+  isolation before physical review.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
-- [ ] Physically accept centered card labels, right-edge stack position, and the
-  pane-ordered Bento group label from the verified source candidate.
 
 ### Tettegouche
 
