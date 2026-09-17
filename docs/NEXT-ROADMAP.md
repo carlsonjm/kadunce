@@ -91,7 +91,8 @@ physical checks, and have explicit ownership.
   first-snap, neighbor, and two-output ownership routes pass.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
-- [ ] Center card labels and place stack position on the same row at the right edge.
+- [ ] Physically accept centered card labels, right-edge stack position, and the
+  pane-ordered Bento group label from the verified source candidate.
 
 ### Tettegouche
 

@@ -29,6 +29,7 @@
 #include <wayland/seat.h>
 
 #include <KGlobalAccel>
+#include <KService>
 
 #include <QAction>
 #include <QDBusConnection>
@@ -924,6 +925,8 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
                 this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::windowClassChanged,
                 this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::captionChanged,
+                this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::fullScreenChanged,
                 this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::maximizedChanged,
@@ -944,6 +947,33 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
             this, &Effect::handleWindowMoveResizeFinished,
             Qt::UniqueConnection);
     if (m_carryRuntime && window->window()) m_carryRuntime->observer.watch(window->window());
+}
+
+QString Effect::applicationDisplayName(KWin::EffectWindow *window)
+{
+    if (!window) return {};
+    const auto cached = m_applicationDisplayNames.constFind(window);
+    if (cached != m_applicationDisplayNames.cend()) return *cached;
+    QString serviceName;
+    QString resourceClass;
+    if (window->window()) {
+        const QString desktopFileName =
+            window->window()->desktopFileName().trimmed();
+        if (!desktopFileName.isEmpty()) {
+            QString desktopName = desktopFileName;
+            if (desktopName.endsWith(QStringLiteral(".desktop")))
+                desktopName.chop(8);
+            auto service = KService::serviceByDesktopName(desktopName);
+            if (!service) service = KService::serviceByStorageId(desktopFileName);
+            if (service) serviceName = service->name();
+        }
+        resourceClass = window->window()->resourceClass();
+    }
+    const QString name = humanApplicationName(serviceName, resourceClass,
+        window->windowClass().section(QLatin1Char(' '), -1),
+        window->caption());
+    m_applicationDisplayNames.insert(window, name);
+    return name;
 }
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
@@ -2067,6 +2097,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                          KWin::LogicalOutput *screen)
 {
     m_paintingOutput = screen;
+    if (screen && screen == tabletOutput()) m_cardLabelTargets.clear();
     KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
     if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
         && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
@@ -2162,6 +2193,38 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 .arg(m_cardStage->stackInsertionIndex() + 1)
                 .arg(m_cardStage->model().stackSizeForId(m_cardStage->stackPreviewTarget()) + 1));
     }
+    if (screen && screen == tabletOutput() && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::CardLine) {
+        const auto &model = m_cardStage->model();
+        const auto &windows = m_cardStage->liveCards();
+        for (int index = 0; index < windows.size(); ++index) {
+            auto *window = windows.at(index).data();
+            if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99)
+                continue;
+            const int cardId = index + 1;
+            if (model.stackPositionForId(cardId)
+                != model.stackActivePositionForId(cardId)) continue;
+            const bool bentoGroup = m_cardStage->usesBentoProjectionAperture(window);
+            QString applicationName;
+            if (bentoGroup) {
+                QStringList paneNames;
+                for (const auto &pane : m_cardStage->bentoProjectionPanes()) {
+                    if (pane && !pane->isDeleted())
+                        paneNames.append(applicationDisplayName(pane));
+                }
+                applicationName = bentoApplicationNames(paneNames);
+            } else {
+                applicationName = applicationDisplayName(window);
+            }
+            const int count = model.stackSizeForId(cardId);
+            const auto target = m_cardLabelTargets.constFind(window);
+            if (target == m_cardLabelTargets.cend()) continue;
+            m_cardLabelRenderer.render(renderTarget, viewport,
+                *target,
+                {applicationName, stackPositionLabel(
+                    model.stackActivePositionForId(cardId), count, bentoGroup)});
+        }
+    }
     m_paintingOutput = nullptr;
 }
 
@@ -2195,6 +2258,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    m_applicationDisplayNames.remove(window);
+    m_cardLabelTargets.remove(window);
     if (window == m_settlingWindow) clearDropSettle();
     if (window == m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     m_activationOrder.remove(windowIdentity(window));
@@ -2230,6 +2295,8 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
 
 void Effect::handleLaunchWindowChanged()
 {
+    m_applicationDisplayNames.clear();
+    KWin::effects->addRepaintFull();
     if (!m_launcherGuestLaunchPending) return;
     for (auto *window : KWin::effects->stackingOrder()) {
         if (window->window() == sender() && completeLauncherGuestForWindow(window)) return;
@@ -2592,6 +2659,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                             : QVector3D(0.075F, 0.075F, 0.075F),
             bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
     }
+    m_cardLabelTargets.insert(window, bentoProjection
+        ? QRectF(composite.targetUnion.x, composite.targetUnion.y,
+                 composite.targetUnion.width, composite.targetUnion.height)
+        : QRectF(target));
     // Ordinary cards keep the fixed backing path. A Bento projection maps every
     // live pane from its stored Bento rect through one authoritative desktop
     // work area while the canonical slot still owns Card Line layout and input.

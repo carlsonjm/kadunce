@@ -15,6 +15,7 @@
 
 #include <effect/offscreeneffect.h>
 #include "DesktopExitLabel.h"
+#include "CardLabelRenderer.h"
 
 #include <QList>
 #include <QHash>
@@ -122,6 +123,10 @@ Q_SIGNALS:
 private:
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
+    QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
+    QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
+    CardLabelRenderer m_cardLabelRenderer;
+    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
     void redirectPreviewSource(KWin::EffectWindow *window);
     struct BentoMotion {
         QPointer<KWin::EffectWindow> window;

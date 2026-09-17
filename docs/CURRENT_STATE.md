@@ -44,10 +44,17 @@ ownership, constrained-launch correction, and physically accepted Bento group-ca
 presentation. Revalidate source, package, control, and live provenance before the
 next installation.
 
+The current source candidate adds Card Line application labels without changing
+card geometry or input. Ordinary cards resolve their human application name from
+desktop service metadata with window metadata and caption fallbacks, keep it
+centered below the card, and put pageable stack position at the row's right edge.
+A Bento group lists every visible pane application in pane order, including
+duplicates, while excluding retained overflow and omitting stack position.
+
 ## Open limitations
 
-- Pulling a member back from a stack, reorder intent zones, centered labels, and
-  stack-position labeling still need product completion.
+- Pulling a member back from a stack and reorder intent zones still need product
+  completion. The source label candidate still needs physical acceptance.
 - Native-to-stack admission is not one atomic destination transaction.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
@@ -61,6 +68,8 @@ next installation.
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
 package checks, and mandatory control checks have passed for the current sources.
+The label candidate additionally has focused name precedence, Bento aggregation,
+duplicate preservation, and stack-position coverage; its full verification passes.
 The Bento group-card implementation has focused full-work-area, rounded
 pane-aperture and repeated-projection geometry, translucent backdrop, session-contract,
 no-member-paging, overflow-minimization, residue-free repeated exact resume,

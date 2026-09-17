@@ -16,7 +16,7 @@ include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui Widgets)
-find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config)
+find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config Service)
 find_package(KWin 6.7 REQUIRED COMPONENTS kwineffects)
 find_package(KDecoration3 REQUIRED)
 find_package(XCB REQUIRED COMPONENTS XCB)
@@ -30,6 +30,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/ProjectedCardGeometry.h
         src/BentoCompositeGeometry.h
         src/BentoProjectionSession.h
+        src/CardLabelPresentation.h
+        src/CardLabelRenderer.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
@@ -53,11 +55,17 @@ target_link_libraries(kwin4_effect_kadunce
     Qt6::Widgets
     KF6::GlobalAccel
     KF6::ConfigCore
+    KF6::Service
     KWin::kwin
 )
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(kadunce-card-label-presentation-test
+        tests/CardLabelPresentationTest.cpp)
+    target_include_directories(kadunce-card-label-presentation-test PRIVATE src)
+    target_link_libraries(kadunce-card-label-presentation-test PRIVATE Qt6::Core)
+    add_test(NAME card-label-presentation COMMAND kadunce-card-label-presentation-test)
     add_executable(kadunce-row-page-motion-test tests/RowPageMotionTest.cpp)
     target_include_directories(kadunce-row-page-motion-test PRIVATE src)
     target_link_libraries(kadunce-row-page-motion-test PRIVATE Qt6::Core)
