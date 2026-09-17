@@ -180,6 +180,10 @@ private:
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource) override;
+    [[nodiscard]] bool resumeBentoProjectionForCardStage(
+        const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource) override;
     void setPagingShortcutsActive(bool active);
     [[nodiscard]] WorkspacePresentation presentationForInput() const override;
     [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;

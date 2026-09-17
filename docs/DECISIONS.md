@@ -108,16 +108,23 @@ Cards render through KWin `OffscreenEffect` live textures with contain scaling,
 established fan geometry, and black backing. Aspect-ratio margins are accepted.
 Kadunce does not maintain a retained snapshot store to hide them.
 
-### Bento projection changes visual bounds, not the canonical slot
+### Bento projects as one reversible group card
 
-A card entering Card Line directly from Bento retains the established slot for
-pitch, stack layout, and input. Its compositor backing, live transform, rounded
-aperture, rotation pivot, and clip use centered proportional live bounds. In an
-open projected stack, the widest member aspect determines one common preview
-height that fits the canonical slot; each member retains its own proportional
-width and the existing fan pose. Ordinary Card Line cards keep the fixed-slot
-path. This presentation provenance cannot change native geometry, membership,
-restoration, or output ownership.
+A Bento composition entering Card Line occupies one ordinary logical card slot.
+Its pane-visible live surfaces map from their current native frame union into one
+centered proportional composite, preserving exact relative pane geometry. A single
+tinted-black backdrop fills the mapped group bounds. Retained overflow stays owned
+and minimized and does not paint. The group cannot fan, page members, accept a
+stack insertion, or detach one member.
+
+The transfer carries pane order and rects, lead, side metadata, overflow,
+minimization, stacking, and authoritative restore records. Activating the group
+validates current native geometry, commits the reverse ownership transfer, and
+publishes the same Bento session without a solver or native geometry write.
+Rejection leaves the group card and neighboring Card Line ownership intact.
+On success, non-group Card Line neighbors restore through their own retained
+records while the projected panes remain untouched. Ordinary Card Line rendering
+and layout remain unchanged.
 
 ### Model truth does not wait for animation
 

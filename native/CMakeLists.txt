@@ -28,6 +28,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/CardLineLayout.cpp
         src/CardLineLayout.h
         src/ProjectedCardGeometry.h
+        src/BentoCompositeGeometry.h
+        src/BentoProjectionSession.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
@@ -129,6 +131,20 @@ if(BUILD_TESTING)
     )
     target_include_directories(kadunce-projected-card-geometry-test PRIVATE src)
     add_test(NAME projected-card-geometry COMMAND kadunce-projected-card-geometry-test)
+
+    add_executable(kadunce-bento-composite-geometry-test
+        tests/BentoCompositeGeometryTest.cpp
+        src/CardLineLayout.cpp
+    )
+    target_include_directories(kadunce-bento-composite-geometry-test PRIVATE src)
+    add_test(NAME bento-composite-geometry COMMAND kadunce-bento-composite-geometry-test)
+
+    add_executable(kadunce-bento-projection-session-test
+        tests/BentoProjectionSessionTest.cpp
+    )
+    target_include_directories(kadunce-bento-projection-session-test PRIVATE src)
+    target_link_libraries(kadunce-bento-projection-session-test PRIVATE KWin::kwin Qt6::Core)
+    add_test(NAME bento-projection-session COMMAND kadunce-bento-projection-session-test)
 
     add_executable(kadunce-bento-layout-test
         tests/BentoLayoutTest.cpp

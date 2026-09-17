@@ -1150,37 +1150,54 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
 }
 
 bool DesktopStageController::transferTabletSessionToCardLine(KWin::LogicalOutput *output,
-    const std::function<bool(const QList<NativeMoveSnapshot> &,
+    const std::function<bool(const BentoProjectionSession &,
                              const std::function<bool()> &)> &accept)
 {
     if (m_restoring || !output || !m_host->isTabletOutputForDesktopStage(output)
         || m_interactionWindow || m_railDrag) return false;
     const auto *session = sessionForOutput(output);
     if (!session || session->applying || session->windows.isEmpty()) return false;
-    // Largest real Bento pane is the default face, followed by visible pane
-    // order and then retained overflow. No monitor session participates.
+    // Preserve pane order alongside the authoritative rect vector. The largest
+    // real pane is selected as the group lead without reordering that vector.
     auto ordered = session->windows;
     int lead = 0;
     for (int i = 1; i < int(session->rects.size()); ++i)
         if (session->rects[i].width * session->rects[i].height
             > session->rects[lead].width * session->rects[lead].height) lead = i;
-    if (lead < ordered.size()) ordered.move(lead, 0);
     for (const auto &saved : session->snapshots)
         if (!ordered.contains(saved.window)) ordered.append(saved.window);
-    QList<NativeMoveSnapshot> restores;
+    BentoProjectionSession projection;
+    projection.output = output;
+    projection.outputName = outputKey(output);
+    projection.rects = session->rects;
+    projection.side = session->side;
+    projection.sideWindow = session->sideWindow;
     for (const auto &window : ordered) {
         const auto saved = std::find_if(session->snapshots.cbegin(), session->snapshots.cend(),
             [&](const auto &s) { return s.window == window; });
         if (!window || window->isDeleted() || !window->window() || window->screen() != output
             || saved == session->snapshots.cend() || !saved->valid) return false;
-        restores.append({window->window(), output, saved->geometry, saved->floatingGeometry,
+        BentoProjectionMember member{window,
+            {window->window(), output, saved->geometry, saved->floatingGeometry,
             saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
-            saved->fullScreen, saved->minimized || saved->userMinimized});
+            saved->fullScreen, saved->minimized || saved->userMinimized},
+            window->isMinimized()};
+        if (session->windows.contains(window)) projection.panes.append(member);
+        else projection.overflow.append(member);
     }
+    projection.lead = session->windows.value(lead);
+    for (auto *stacked : KWin::effects->stackingOrder()) {
+        if (ordered.contains(stacked)) projection.stackingOrder.append(stacked);
+    }
+    for (const auto &member : ordered) {
+        if (!projection.stackingOrder.contains(member))
+            projection.stackingOrder.append(member);
+    }
+    if (!validBentoProjectionShape(projectionShape(projection))) return false;
     const auto generation = m_applicationGuard.generation();
     const QString key = outputKey(output);
     bool committed = false;
-    const bool accepted = accept(restores, [&] {
+    const bool accepted = accept(projection, [&] {
         if (committed || generation != m_applicationGuard.generation()
             || !m_sessions.contains(key)) return false;
         m_sessions.remove(key);
@@ -1192,6 +1209,77 @@ bool DesktopStageController::transferTabletSessionToCardLine(KWin::LogicalOutput
         return true;
     });
     return accepted && committed;
+}
+
+bool DesktopStageController::resumeProjectedSession(
+    const BentoProjectionSession &projection,
+    const std::function<bool()> &commitSource,
+    const std::function<void()> &releaseSource)
+{
+    if (m_restoring || m_interactionWindow || m_railDrag || !projection.output
+        || outputForKey(projection.outputName) != projection.output
+        || sessionForOutput(projection.output)
+        || !m_host->isTabletOutputForDesktopStage(projection.output)
+        || !validBentoProjectionShape(projectionShape(projection))) {
+        return false;
+    }
+    Session candidate;
+    candidate.outputName = projection.outputName;
+    candidate.rects = projection.rects;
+    candidate.side = projection.side;
+    candidate.sideWindow = projection.sideWindow;
+    const auto append = [&](const BentoProjectionMember &member, bool pane) {
+        if (!member.window || member.window->isDeleted() || !member.window->window()
+            || member.restore.window != member.window->window()
+            || member.window->screen() != projection.output
+            || member.window->isMinimized() != member.minimized) {
+            return false;
+        }
+        if (pane) candidate.windows.append(member.window);
+        else candidate.overflow.append(member.window);
+        candidate.snapshots.append({
+            .window = member.window,
+            .geometry = member.restore.geometry,
+            .floatingGeometry = member.restore.floatingGeometry,
+            .fullscreenRestoreGeometry = member.restore.fullscreenRestoreGeometry,
+            .outputName = outputKey(member.restore.output),
+            .quickTileMode = member.restore.quickTileMode,
+            .maximizeMode = member.restore.maximizeMode,
+            .fullScreen = member.restore.fullScreen,
+            .minimized = member.restore.minimized,
+            .valid = true,
+        });
+        return true;
+    };
+    for (const auto &member : projection.panes) {
+        if (member.minimized || !append(member, true)) return false;
+    }
+    for (const auto &member : projection.overflow) {
+        if (!member.minimized || !append(member, false)) return false;
+    }
+    const KWin::Rect area = stageArea(projection.output);
+    const auto pixels = makePixelBentoLayout(candidate.rects,
+        area.x(), area.y(), area.width(), area.height());
+    if (pixels.size() != std::size_t(candidate.windows.size())) return false;
+    for (int index = 0; index < candidate.windows.size(); ++index) {
+        const auto &pixel = pixels[std::size_t(index)];
+        if (candidate.windows[index]->frameGeometry().toRect()
+            != KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height)) {
+            return false;
+        }
+    }
+    if (!commitSource || !commitSource()) return false;
+
+    m_applicationGuard.invalidate();
+    m_sessions.insert(candidate.outputName, std::move(candidate));
+    if (releaseSource) releaseSource();
+    if (projection.lead && !projection.lead->isDeleted()
+        && projection.lead->window()) {
+        KWin::workspace()->raiseWindow(projection.lead->window());
+        KWin::workspace()->activateWindow(projection.lead->window(), true);
+    }
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 void DesktopStageController::restoreAllSessions()

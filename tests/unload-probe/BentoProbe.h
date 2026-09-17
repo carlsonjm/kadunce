@@ -32,6 +32,8 @@ struct TabletProbeHost final : Kadunce::CardStageHost {
     std::function<void(KWin::EffectWindow *)> connected;
     std::function<bool(KWin::EffectWindow *, KWin::LogicalOutput *, const KWin::RectF &,
         const std::function<bool()> &, const std::function<void()> &)> desktopAdmission;
+    std::function<bool(const Kadunce::BentoProjectionSession &,
+        const std::function<bool()> &, const std::function<void()> &)> projectionResume;
     KWin::LogicalOutput *tabletOutputForCardStage() const override { return tablet; }
     bool isTabletOutputForCardStage(const KWin::LogicalOutput *o) const override { return o == tablet; }
     bool isManagedWindowForCardStage(const KWin::EffectWindow *w) const override {
@@ -44,6 +46,10 @@ struct TabletProbeHost final : Kadunce::CardStageHost {
     bool admitCardToDesktopStage(KWin::EffectWindow *w, KWin::LogicalOutput *o, const KWin::RectF &g,
         const std::function<bool()> &commit, const std::function<void()> &release) override {
         return desktopAdmission && desktopAdmission(w,o,g,commit,release);
+    }
+    bool resumeBentoProjectionForCardStage(const Kadunce::BentoProjectionSession &projection,
+        const std::function<bool()> &commit, const std::function<void()> &release) override {
+        return projectionResume && projectionResume(projection, commit, release);
     }
 };
 struct BentoProbe {

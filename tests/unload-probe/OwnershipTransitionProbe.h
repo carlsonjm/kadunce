@@ -8,7 +8,7 @@ struct OwnershipTransitionProbe {
     Kadunce::DesktopStageController desktop{&desktopHost};
     Kadunce::CardStageController cards{&cardHost};
     QPointer<KWin::LogicalOutput> tablet, monitor;
-    QPointer<KWin::EffectWindow> monitorWindow, oversized, cross, immediate;
+    QPointer<KWin::EffectWindow> monitorWindow, oversized, cross, immediate, ordinary, projectedLead;
     QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> origins;
     KWin::RectF monitorTile;
     QString evidence;
@@ -21,6 +21,10 @@ struct OwnershipTransitionProbe {
         desktopHost.tablet = tablet; cardHost.tablet = tablet;
         desktopHost.prepare = [this](auto *output) { if (output == tablet) cards.release(); };
         desktopHost.restore = [this](auto *w) { return cards.managedRestore(w); };
+        cardHost.projectionResume = [this](const auto &projection,
+            const auto &commit, const auto &release) {
+            return desktop.resumeProjectedSession(projection, commit, release);
+        };
         QList<KWin::EffectWindow *> windows;
         for (auto *w : KWin::effects->stackingOrder())
             if (desktopHost.isManagedWindowForDesktopStage(w)) windows.append(w);
@@ -112,55 +116,96 @@ struct OwnershipTransitionProbe {
             const double area = frame.width() * frame.height();
             if (area > largest) { largest = area; expectedLead = w; }
         }
-        QList<Kadunce::NativeMoveSnapshot> transferred;
-        if (!desktop.transferTabletSessionToCardLine(tablet, [this, &transferred](const auto &restores, const auto &commit) {
-                transferred = restores;
+        Kadunce::BentoProjectionSession transferred;
+        if (!desktop.transferTabletSessionToCardLine(tablet, [this, &transferred](const auto &projection, const auto &commit) {
+                transferred = projection;
                 if (cross) {
-                    const auto incoming = std::find_if(restores.cbegin(), restores.cend(),
-                        [this](const auto &s) { return s.window == cross->window(); });
-                    if (incoming == restores.cend() || incoming->output != tablet
-                        || !tablet->geometry().contains(incoming->geometry.center().toPoint())
-                        || incoming->geometry.width() != 400 || incoming->geometry.height() != 300)
+                    QList<Kadunce::BentoProjectionMember> members = projection.panes;
+                    members.append(projection.overflow);
+                    const auto incoming = std::find_if(members.cbegin(), members.cend(),
+                        [this](const auto &s) { return s.window == cross; });
+                    if (incoming == members.cend() || incoming->restore.output != tablet
+                        || !tablet->geometry().contains(incoming->restore.geometry.center().toPoint())
+                        || incoming->restore.geometry.width() != 400 || incoming->restore.geometry.height() != 300)
                         return fail("Bento cross admission retained monitor origin/changed ordinary size");
                     if (std::none_of(origins.cbegin(), origins.cend(), [this](const auto &p) { return p.first == cross; }))
-                        origins.append({cross, incoming->geometry});
+                        origins.append({cross, incoming->restore.geometry});
                 }
-                return cards.admitBentoStack(restores, commit);
+                return cards.admitBentoStack(projection, commit);
             })) return fail("Tablet projection rejected");
         if (desktop.hasSessionOnOutput(tablet->name()) || !desktop.hasSessionOnOutput(monitor->name())
             || monitorWindow->window()->moveResizeGeometry() != monitorTile)
             return fail("Projection retained duplicate owner or changed monitor");
-        if (cards.model().count() != 1 || cards.liveCards().size() != origins.size() - 1
-            || cards.selectedWindow()->window() != transferred.first().window
+        if (cards.model().count() != 1
+            || cards.liveCards().size() != transferred.panes.size() + transferred.overflow.size()
+            || cards.selectedWindow() != transferred.lead
             || cards.selectedWindow() != expectedLead)
             return fail("Projection lost membership/large-pane selection");
-        for (const auto &saved : transferred) {
-            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
+        projectedLead = transferred.lead;
+        QList<Kadunce::BentoProjectionMember> members = transferred.panes;
+        members.append(transferred.overflow);
+        for (const auto &saved : members) {
+            if (!cards.usesBentoProjectionAperture(saved.window))
                 return fail("Projection member lost Bento presentation provenance");
-            const auto retained = cards.managedRestore(saved.window->effectWindow());
-            if (!retained || retained->geometry != saved.geometry || retained->minimized != saved.minimized)
+            const auto retained = cards.managedRestore(saved.window);
+            if (!retained || retained->geometry != saved.restore.geometry
+                || retained->minimized != saved.restore.minimized)
                 return fail("Projection replaced authoritative restore record");
+            if (saved.window->isMinimized() != saved.minimized)
+                return fail("Projection changed pane/overflow minimization");
         }
         for (const auto &[w, geometry] : origins) {
-            if (w == monitorWindow) continue;
+            if (w == monitorWindow || w == ordinary) continue;
             const auto retained = cards.managedRestore(w);
             if (!retained || retained->geometry != geometry) return fail("Round trip lost ordinary origin");
         }
-        cards.toggle(); // Visit Active, then return to the retained stack.
-        cards.toggle();
-        for (const auto &saved : transferred)
-            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
-                return fail("Active round trip discarded projected presentation provenance");
+        const auto selectedBeforeBrowse = cards.selectedWindow();
         cards.pageStack(1);
         cards.pageStack(-1);
-        for (const auto &saved : transferred)
-            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
-                return fail("Stack browse discarded projected presentation provenance");
+        if (cards.selectedWindow() != selectedBeforeBrowse)
+            return fail("Bento group allowed member paging");
+        return true;
+    }
+    bool ordinaryNeighbor() {
+        for (auto *w : KWin::effects->stackingOrder())
+            if (w->caption().contains("Ordinary neighbor")) ordinary = w;
+        if (!ordinary || !ordinary->window() || ordinary->screen() != tablet)
+            return fail("Ordinary Card Line neighbor missing/wrong output");
+        origins.append({ordinary, ordinary->window()->moveResizeGeometry()});
+        if (!cards.handleWindowAdded(ordinary) || cards.model().count() != 2)
+            return fail("Ordinary neighbor did not coexist with Bento group card");
+        if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(-1);
+        if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(1);
+        if (cards.selectedWindow() != projectedLead
+            || cards.visibleSlot(ordinary) == 0
+            || cards.visibleSlot(projectedLead) != 0)
+            return fail("Bento group did not remain one ordinary Card Line neighbor");
+        const auto ordinaryRestore = cards.managedRestore(ordinary);
+        if (!ordinaryRestore) return fail("Ordinary neighbor lost its Card Line restore");
+        cardHost.projectionResume = [this](const auto &projection,
+            const auto &, const auto &release) {
+            return desktop.resumeProjectedSession(projection, [] { return false; }, release);
+        };
+        if (cards.resumeSelectedBentoProjection() || !cards.isActive()
+            || cards.model().count() != 2 || !cards.managedRestore(ordinary)
+            || cards.managedRestore(ordinary)->geometry != ordinaryRestore->geometry
+            || desktop.hasSessionOnOutput(tablet->name()))
+            return fail("Rejected exact resume mutated group or ordinary neighbor ownership");
+        cardHost.projectionResume = [this](const auto &projection,
+            const auto &commit, const auto &release) {
+            return desktop.resumeProjectedSession(projection, commit, release);
+        };
         return true;
     }
     bool returnToBento() {
-        if (!desktop.toggleOnOutput(tablet->name()) || cards.isActive()) return fail("Return to Bento failed");
+        if (!cards.resumeSelectedBentoProjection() || cards.isActive()
+            || !desktop.hasSessionOnOutput(tablet->name())) return fail("Return to Bento failed");
         for (const auto &[w, geometry] : origins) {
+            if (w == ordinary) {
+                if (desktop.ownsWindow(w) || w->frameGeometry() != geometry)
+                    return fail("Exact Bento resume consumed or displaced ordinary neighbor");
+                continue;
+            }
             if (!desktop.ownsWindow(w)) return fail("Return dropped an owned member");
             if (cards.usesBentoProjectionAperture(w))
                 return fail("Released Card Line retained projected presentation provenance");

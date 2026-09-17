@@ -7,6 +7,7 @@
 
 #include "BentoLayout.h"
 #include "BentoSidePlacement.h"
+#include "BentoProjectionSession.h"
 #include "DeferredCommandGuard.h"
 #include "PreparedCarrySource.h"
 #include "RestoredMinimization.h"
@@ -76,8 +77,11 @@ public:
     void restoreAllSessions();
     // Synchronous ownership transfer; no restoration or placement on success.
     bool transferTabletSessionToCardLine(KWin::LogicalOutput *output,
-        const std::function<bool(const QList<NativeMoveSnapshot> &,
+        const std::function<bool(const BentoProjectionSession &,
                                  const std::function<bool()> &)> &accept);
+    bool resumeProjectedSession(const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 

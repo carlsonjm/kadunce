@@ -541,6 +541,7 @@ public Q_SLOTS:
     bool a2CrossPrepare() { return ownershipTransitions.crossPrepare(); }
     bool a2CrossAdmit() { return ownershipTransitions.crossAdmit(); }
     bool a2Project() { return ownershipTransitions.project(); }
+    bool a2OrdinaryNeighbor() { return ownershipTransitions.ordinaryNeighbor(); }
     bool a2Return() { return ownershipTransitions.returnToBento(); }
     bool a2Reactivate() { return ownershipTransitions.reactivate(); }
     bool a2ImmediatePlace() { return ownershipTransitions.immediatePlace(); }

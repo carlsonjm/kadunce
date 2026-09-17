@@ -2,19 +2,15 @@
 
 ## Bento-derived Card Line presentation
 
-Bento-owned windows keep correct ownership, order, and large-pane selection when the
-tablet returns to Card Line. The current candidate removes the oversized fixed
-backing and gives every member of an open projected stack one proportional common
-height derived from the widest member aspect. The canonical slot continues to own
-layout and input. Mixed-aspect geometry, fan-envelope containment, and private
-ownership lifecycle are automated; physical appearance review remains open.
-Common height does not guarantee that an extremely narrow rear member protrudes
-past a much wider active face under the existing fan offset. Physical review must
-include that ordering before this candidate is accepted.
+Bento-owned windows keep correct ownership, restore records, pane geometry, and
+overflow when the tablet returns to Card Line. The current candidate presents the
+visible composition as one proportional live group card with a tinted-black group
+backdrop, then resumes the exact Bento session on activation. Composite geometry,
+session validation, no-member-paging, overflow retention, and private two-output
+lifecycle are automated; physical appearance and interaction review remain open.
 
-A client that renders black inside its own surface will retain it. A genuinely
-narrow pane also remains narrow because Kadunce does not crop, stretch, natively
-resize, or retain a second rendered source for Card Line.
+Kadunce does not crop, stretch, natively resize, or retain a second rendered source
+for this presentation. Client-painted black remains part of each live source.
 
 ## Card manipulation finish
 

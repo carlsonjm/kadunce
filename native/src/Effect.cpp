@@ -7,7 +7,7 @@
 #include <QScopeGuard>
 #include "LaunchIdentity.h"
 #include "CardLineLayout.h"
-#include "ProjectedCardGeometry.h"
+#include "BentoCompositeGeometry.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
 #include "NativeLanding.h"
@@ -57,7 +57,6 @@ namespace
 {
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 10.0;
-constexpr float CardHairlineOutlineOpacity = 0.65f;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr auto DestinationVertex = R"GLSL(#version 140
 in vec4 position;
@@ -717,6 +716,15 @@ bool Effect::admitCardToDesktopStage(
         return committed;
     }
     return m_desktopStage->transferCardWindow(window, output, geometry, commitSource, releaseSource);
+}
+
+bool Effect::resumeBentoProjectionForCardStage(
+    const BentoProjectionSession &projection,
+    const std::function<bool()> &commitSource,
+    const std::function<void()> &releaseSource)
+{
+    return m_desktopStage->resumeProjectedSession(
+        projection, commitSource, releaseSource);
 }
 
 WorkspacePresentation Effect::presentationForInput() const
@@ -1869,7 +1877,9 @@ void Effect::activateSelectedFromInput()
             && !nativeWindowInteractionForInput() && !m_cardStage->cardGrabActive()
             && !m_cardStage->launcherGuestActive() && m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::CardLine) {
-            toggle();
+            if (!m_cardStage->resumeSelectedBentoProjection()) {
+                toggle();
+            }
         }
     });
 }
@@ -1883,12 +1893,14 @@ void Effect::toggle()
         KWin::LogicalOutput *tablet = tabletOutput();
         if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
             m_desktopStage->transferTabletSessionToCardLine(tablet,
-                [this](const auto &restores, const auto &commit) {
-                    return m_cardStage->admitBentoStack(restores, commit);
+                [this](const auto &projection, const auto &commit) {
+                    return m_cardStage->admitBentoStack(projection, commit);
                 });
             return; // Rejection retains Bento; never fall through to rediscovery.
         }
     }
+    if (m_cardStage->selectedIsBentoProjection()
+        && m_cardStage->resumeSelectedBentoProjection()) return;
     m_cardStage->toggle();
 }
 
@@ -2441,7 +2453,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
             deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(tablet->geometry())),
             QRectF(m_cardStage->stackPlaceholderTarget()), 0.6, 0.0f,
-            CardHairlineOutlineOpacity);
+            0.65f);
     }
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
     KWin::Rect target = m_cardStage->previewTargetForWindow(tablet, window);
@@ -2499,55 +2511,51 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     KWin::Rect visualTarget = target;
     const bool bentoProjection =
         m_cardStage->usesBentoProjectionAperture(window);
-    if (bentoProjection) {
-        const CardRect slot{double(target.x()), double(target.y()),
-                            double(target.width()), double(target.height())};
-        CardRect contained = makeProjectedCardVisualRect(
-            slot, logicalRegion.width(), logicalRegion.height());
-
-        const auto &model = m_cardStage->model();
-        const int cardId = m_cardStage->liveCardIndex(window) + 1;
-        const int memberCount = model.stackSizeForId(cardId);
-        const bool openSelectedStack = !m_cardStage->cardGrabActive()
-            && !m_cardStage->launcherGuestActive()
-            && memberCount > 1
-            && model.sameStack(cardId, model.selectedId());
-        if (openSelectedStack) {
-            const KWin::Rect canonicalTarget =
-                m_cardStage->cardTargetForSlot(tablet, 0);
-            std::vector<double> projectedAspects;
-            for (const int memberId : model.stackMembersForId(cardId)) {
-                KWin::EffectWindow *member =
-                    m_cardStage->liveCards().value(memberId - 1).data();
-                if (!member || member->isDeleted()
-                    || !m_cardStage->usesBentoProjectionAperture(member)) {
-                    continue;
-                }
-                const auto source = member->expandedGeometry();
-                if (source.width() > 0.0 && source.height() > 0.0) {
-                    projectedAspects.push_back(
-                        source.width() / source.height());
-                }
-            }
-            const auto policy = makeProjectedStackPreviewPolicy(
-                CardRect{0.0, 0.0, double(canonicalTarget.width()),
-                         double(canonicalTarget.height())},
-                projectedAspects);
-            contained = makeNormalizedProjectedCardVisualRect(
-                slot, logicalRegion.width(), logicalRegion.height(), policy);
+    BentoCompositeGeometry composite;
+    if (bentoProjection && m_cardStage->isBentoProjectionPane(window)) {
+        std::vector<CardRect> frames;
+        for (const auto &pane : m_cardStage->bentoProjectionPanes()) {
+            if (!pane || pane->isDeleted() || pane->isMinimized()) continue;
+            const auto frame = pane->frameGeometry();
+            frames.push_back({frame.x(), frame.y(), frame.width(), frame.height()});
         }
-        visualTarget = KWin::Rect(
-            qRound(contained.x), qRound(contained.y),
-            qRound(contained.width), qRound(contained.height));
+        composite = makeBentoCompositeGeometry(
+            {double(target.x()), double(target.y()),
+             double(target.width()), double(target.height())}, frames);
+        const auto source = window->expandedGeometry();
+        const auto mapped = mapBentoCompositeRect(composite,
+            {source.x(), source.y(), source.width(), source.height()});
+        if (!composite.valid() || mapped.width <= 0.0 || mapped.height <= 0.0) return;
+        visualTarget = KWin::Rect(qRound(mapped.x), qRound(mapped.y),
+            qRound(mapped.width), qRound(mapped.height));
+    } else if (bentoProjection) {
+        return; // Retained Bento overflow remains owned and minimized, never painted.
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-        deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry())),
-        QRectF(visualTarget), paintPose.rotation, float(data.opacity()),
-        bentoProjection ? CardHairlineOutlineOpacity : 0.0f);
-    // Ordinary cards retain their accepted fixed backing and contain transform.
-    // Bento projections use their proportional aperture, with open stacks
-    // sharing one group height; their canonical slot still owns layout and input.
+    bool paintProjectionBackdrop = false;
+    if (bentoProjection) {
+        for (auto *stacked : KWin::effects->stackingOrder()) {
+            if (stacked && !stacked->isDeleted() && !stacked->isMinimized()
+                && m_cardStage->isBentoProjectionPane(stacked)) {
+                paintProjectionBackdrop = stacked == window;
+                break;
+            }
+        }
+    }
+    if (!bentoProjection || paintProjectionBackdrop) {
+        const auto surface = bentoProjection
+            ? QRectF(composite.targetUnion.x, composite.targetUnion.y,
+                     composite.targetUnion.width, composite.targetUnion.height)
+            : QRectF(visualTarget);
+        const KWin::Region outputFence(
+            viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
+        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+            bentoProjection ? outputFence : deviceRegion & outputFence,
+            surface, paintPose.rotation, float(data.opacity()), 0.0f);
+    }
+    // Ordinary cards keep the fixed backing path. A Bento projection maps every
+    // live pane through one current native union while the canonical slot still
+    // owns Card Line layout and input.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
@@ -2582,10 +2590,16 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceTarget.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
+    const KWin::Region compositeFence = bentoProjection
+        ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::Rect(
+            qRound(composite.targetUnion.x), qRound(composite.targetUnion.y),
+            qRound(composite.targetUnion.width), qRound(composite.targetUnion.height))))
+        : outputFence;
     const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
-            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()))) & outputFence;
+            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale())))
+        & outputFence & compositeFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
@@ -2595,7 +2609,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         : QPointF();
     m_fanApertureSize = useFanAperture
         ? QSizeF(deviceTarget.size()) : QSizeF();
-    m_fanApertureRadius = useFanAperture
+    m_fanApertureRadius = useFanAperture && !bentoProjection
         ? static_cast<float>(CardCornerRadius * viewport.scale()) : 0.0F;
 
     KWin::effects->paintWindow(

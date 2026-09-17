@@ -34,6 +34,10 @@ check a2CrossAdmit
 sleep .6
 check a2Project
 sleep .4
+qdbus6 studio.warbler.UnloadClient /Client ordinaryCompanion
+sleep .4
+check a2OrdinaryNeighbor
+sleep .4
 check a2Return
 sleep .6
 check a2Project
@@ -41,7 +45,7 @@ sleep .4
 check a2Release
 sleep .6
 check a2Restored
-echo 'PASS: Bento/Card Line/Bento stack membership, lead, origins and monitor isolation survive round trip and release'
+echo 'PASS: Bento group exact resume preserves rejected source state, ordinary neighbors, pane/overflow ownership, origins and monitor isolation'
 check a2Reactivate
 sleep .6
 qdbus6 studio.warbler.UnloadClient /Client immediateCompanion

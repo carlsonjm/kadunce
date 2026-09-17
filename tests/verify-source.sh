@@ -36,12 +36,23 @@ python3 - "$card_cpp" "$effect_cpp" <<'PY_A2'
 import pathlib, sys
 card, effect = (pathlib.Path(p).read_text() for p in sys.argv[1:])
 projection = card.split('bool CardStageController::admitBentoStack(', 1)[1].split('void CardStageController::release()', 1)[0]
-assert projection.index('m_workspace.commitAdmission(') < projection.index('setMinimized(false)')
+assert projection.index('m_workspace.commitAdmission(') < projection.index('m_bentoProjectionSession = projection')
 assert 'enterActive(' not in projection and 'moveResize(' not in projection
+assert 'setMinimized(false)' not in projection, 'Projection must not unminimize retained overflow'
+resume = pathlib.Path(sys.argv[1]).read_text().split('bool CardStageController::resumeSelectedBentoProjection()', 1)[1].split('void CardStageController::release()', 1)[0]
+assert all(call not in resume for call in ('moveResize(', 'setMinimized(', 'enterActive('))
 route = effect.split('void Effect::toggle()', 1)[1].split('void Effect::release()', 1)[0]
 assert 'transferTabletSessionToCardLine' in route and 'admitBentoStack' in route
 assert 'toggleOnOutput' not in route, 'Card Line entry must not discard Bento ownership'
 PY_A2
+python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+resume = source.split('bool DesktopStageController::resumeProjectedSession(', 1)[1].split('void DesktopStageController::restoreAllSessions()', 1)[0]
+for forbidden in ('applySession(', 'reflowSession(', 'moveResize(', 'setMinimized('):
+    assert forbidden not in resume, f'exact projection resume must not call {forbidden}'
+assert resume.index('commitSource()') < resume.index('m_sessions.insert(') < resume.index('releaseSource()')
+PY_RESUME
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
@@ -466,7 +477,7 @@ rg -q 'event->deltaV120' "${router_cpp}"
 rg -q 'activateSelectedFromInput' "${router_cpp}" "${effect_cpp}" "${card_cpp}"
 rg -q 'm_ownedTouchIds' "${router_cpp}"
 rg -q 'makeCoverPaintRect' "${native_dir}/src/CardLineLayout.cpp"
-rg -q 'makeProjectedCardVisualRect' "${native_dir}/src/ProjectedCardGeometry.h" "${effect_cpp}"
+rg -q 'makeBentoCompositeGeometry' "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
 rg -q 'usesBentoProjectionAperture' "${card_cpp}" "${effect_cpp}"
 rg -q 'workHeight \* 0\.54' "${native_dir}/src/CardLineLayout.cpp"
 rg -q 'workWidth \* 0\.056' "${native_dir}/src/CardLineLayout.cpp"

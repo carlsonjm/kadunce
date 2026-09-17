@@ -10,6 +10,7 @@
 #include "ActiveSettings.h"
 #include "CardWorkspaceSnapshot.h"
 #include "CardWorkspaceState.h"
+#include "BentoProjectionSession.h"
 #include "DeferredCommandGuard.h"
 #include "PreparedCarrySource.h"
 #include "RestoredMinimization.h"
@@ -59,6 +60,10 @@ public:
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource) = 0;
+    [[nodiscard]] virtual bool resumeBentoProjectionForCardStage(
+        const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource) = 0;
 };
 
 class CardStageController final
@@ -84,6 +89,11 @@ public:
     // remain entirely in the ordinary workspace/restore owners.
     [[nodiscard]] bool usesBentoProjectionAperture(
         const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool isBentoProjectionPane(
+        const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool selectedIsBentoProjection() const;
+    [[nodiscard]] QList<QPointer<KWin::EffectWindow>> bentoProjectionPanes() const;
+    [[nodiscard]] bool resumeSelectedBentoProjection();
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> preparationNeighbors() const;
 
@@ -155,7 +165,7 @@ public:
     void handleManualWindowChange(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
-    bool admitBentoStack(const QList<NativeMoveSnapshot> &restores,
+    bool admitBentoStack(const BentoProjectionSession &projection,
                          const std::function<bool()> &commitSource);
 
 private:
@@ -213,6 +223,8 @@ private:
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
+    QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
+    std::optional<BentoProjectionSession> m_bentoProjectionSession;
     ActiveRestoreSnapshot m_activeRestore;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
