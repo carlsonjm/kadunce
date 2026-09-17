@@ -1377,6 +1377,18 @@ void CardStageController::toggle()
 bool CardStageController::admitBentoStack(const BentoProjectionSession &projection,
     const std::function<bool()> &commitSource)
 {
+    return admitBentoStack(projection, commitSource, false);
+}
+
+bool CardStageController::admitBentoStackToCardLine(const BentoProjectionSession &projection,
+    const std::function<bool()> &commitSource)
+{
+    return admitBentoStack(projection, commitSource, true);
+}
+
+bool CardStageController::admitBentoStack(const BentoProjectionSession &projection,
+    const std::function<bool()> &commitSource, bool enterCardLine)
+{
     auto *tablet = m_host->tabletOutputForCardStage();
     const bool mixed = m_active;
     const bool retainedIndividuals = !m_workspace.windows().isEmpty();
@@ -1448,7 +1460,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     });
     ++m_restoreGeneration;
     m_active = true;
-    if (!mixed) m_presentation = CardPresentation::CardLine;
+    if (!mixed || enterCardLine) m_presentation = CardPresentation::CardLine;
     if (mixed || retainedIndividuals) {
         for (const auto &window : projection.stackingOrder)
             if (!m_originalCardStackingOrder.contains(window))

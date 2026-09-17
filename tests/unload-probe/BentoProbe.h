@@ -1,6 +1,7 @@
 #pragma once
 #include "DesktopStageController.h"
 #include "CardStageController.h"
+#include "BentoCompositeGeometry.h"
 #include <effect/effecthandler.h>
 #include <core/output.h>
 #include <window.h>
@@ -638,14 +639,33 @@ struct BentoProbe {
             [&](const auto &projection, const auto &commit) {
                 for (const auto &member : projection.panes) projected.append(member.window);
                 for (const auto &member : projection.overflow) projected.append(member.window);
-                return cards.admitBentoStack(projection, commit);
+                return cards.admitBentoStackToCardLine(projection, commit);
             });
-        if (grouped) cards.toggle();
         const bool neighbors = grouped
             && cards.presentation() == Kadunce::CardPresentation::CardLine
             && cards.model().count() == 2 && cards.selectedWindow() == windows[0]
+            && cards.bentoProjectionPanes() == projected
             && std::all_of(projected.cbegin(), projected.cend(), [&](const auto &window) {
-                return cards.usesBentoProjectionAperture(window);
+                const int slotId = cards.paintSlot(window);
+                const auto slot = cards.cardTargetForSlot(tablet, slotId);
+                const auto work = cards.bentoProjectionWorkspace();
+                const auto stored = cards.bentoProjectionRect(window);
+                const auto composite = Kadunce::makeBentoCompositeGeometry(
+                    {double(slot.x()), double(slot.y()), double(slot.width()), double(slot.height())},
+                    {double(work.x()), double(work.y()), double(work.width()), double(work.height())});
+                const auto frame = window->frameGeometry();
+                const auto expanded = window->expandedGeometry();
+                const auto pane = stored ? Kadunce::makeBentoProjectedPaneGeometry(composite,
+                    {double(work.x()), double(work.y()), double(work.width()), double(work.height())},
+                    *stored,
+                    {frame.x(), frame.y(), frame.width(), frame.height()},
+                    {expanded.x(), expanded.y(), expanded.width(), expanded.height()}) : std::nullopt;
+                return cards.usesBentoProjectionAperture(window)
+                    && cards.visibleSlot(window) != 0
+                    && slotId != 99 && slotId == cards.visibleSlot(window)
+                    && composite.valid() && pane
+                    && pane->targetSurface.width > 0 && pane->targetSurface.height > 0
+                    && pane->targetClip.width > 0 && pane->targetClip.height > 0;
             });
         cards.release();
         const bool repeatedSetup = neighbors && controller.toggleOnOutput(tablet->name());

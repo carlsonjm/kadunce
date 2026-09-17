@@ -1971,16 +1971,17 @@ void Effect::toggle()
     if (m_cardStage->launcherGuestActive()) {
         dismissLauncherGuestFromInput();
     }
-    if (!m_cardStage->isActive()) {
-        KWin::LogicalOutput *tablet = tabletOutput();
-        if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
-            const bool accepted = m_desktopStage->transferTabletSessionToCardLine(tablet,
-                [this](const auto &projection, const auto &commit) {
-                    return m_cardStage->admitBentoStack(projection, commit);
-                });
-            if (!accepted || m_cardStage->presentation() == CardPresentation::CardLine)
-                return; // Rejection retains Bento; never fall through to rediscovery.
-        }
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
+        const bool mixedActive = m_cardStage->isActive()
+            && m_cardStage->presentation() == CardPresentation::Active;
+        (void)m_desktopStage->transferTabletSessionToCardLine(tablet,
+            [this, mixedActive](const auto &projection, const auto &commit) {
+                return mixedActive
+                    ? m_cardStage->admitBentoStackToCardLine(projection, commit)
+                    : m_cardStage->admitBentoStack(projection, commit);
+            });
+        return; // Success is already Card Line; rejection retains the exact source stages.
     }
     if (m_cardStage->selectedIsBentoProjection()
         && m_cardStage->resumeSelectedBentoProjection()) return;

@@ -173,9 +173,13 @@ public:
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
     bool admitBentoStack(const BentoProjectionSession &projection,
-                         const std::function<bool()> &commitSource);
+        const std::function<bool()> &commitSource);
+    bool admitBentoStackToCardLine(const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource);
 
 private:
+    bool admitBentoStack(const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource, bool enterCardLine);
     struct ActiveRestoreSnapshot {
         QPointer<KWin::EffectWindow> window;
         KWin::RectF geometry;
