@@ -59,8 +59,8 @@ physical checks, and have explicit ownership.
 - [x] Output-local Bento ownership and lifecycle remain isolated.
 - [ ] Make Bento-derived live Card Line content use the correct proportional
   presentation geometry without retained snapshots or native Bento resizing.
-  The projected-only aperture candidate is automated and awaits physical review;
-  keep this item open until the installed candidate passes.
+  The common-height projected-stack candidate is automated and awaits physical
+  review; keep this item open until the installed candidate passes.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
 - [ ] Center card labels and place stack position on the same row at the right edge.

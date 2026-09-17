@@ -125,6 +125,7 @@ if(BUILD_TESTING)
 
     add_executable(kadunce-projected-card-geometry-test
         tests/ProjectedCardGeometryTest.cpp
+        src/CardLineLayout.cpp
     )
     target_include_directories(kadunce-projected-card-geometry-test PRIVATE src)
     add_test(NAME projected-card-geometry COMMAND kadunce-projected-card-geometry-test)

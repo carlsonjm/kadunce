@@ -4,9 +4,13 @@
 
 Bento-owned windows keep correct ownership, order, and large-pane selection when the
 tablet returns to Card Line. The current candidate removes the oversized fixed
-backing by using the pane-shaped source's maximum proportional aperture while the
-canonical slot continues to own layout and input. It has automated geometry and
-private ownership-lifecycle coverage but awaits physical appearance review.
+backing and gives every member of an open projected stack one proportional common
+height derived from the widest member aspect. The canonical slot continues to own
+layout and input. Mixed-aspect geometry, fan-envelope containment, and private
+ownership lifecycle are automated; physical appearance review remains open.
+Common height does not guarantee that an extremely narrow rear member protrudes
+past a much wider active face under the existing fan offset. Physical review must
+include that ordering before this candidate is accepted.
 
 A client that renders black inside its own surface will retain it. A genuinely
 narrow pane also remains narrow because Kadunce does not crop, stretch, natively

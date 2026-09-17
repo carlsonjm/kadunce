@@ -112,10 +112,12 @@ Kadunce does not maintain a retained snapshot store to hide them.
 
 A card entering Card Line directly from Bento retains the established slot for
 pitch, stack layout, and input. Its compositor backing, live transform, rounded
-aperture, rotation pivot, and clip use the largest centered proportional rectangle
-that contains the current pane-shaped source. Ordinary Card Line cards keep the
-fixed-slot path. This presentation provenance cannot change native geometry,
-membership, restoration, or output ownership.
+aperture, rotation pivot, and clip use centered proportional live bounds. In an
+open projected stack, the widest member aspect determines one common preview
+height that fits the canonical slot; each member retains its own proportional
+width and the existing fan pose. Ordinary Card Line cards keep the fixed-slot
+path. This presentation provenance cannot change native geometry, membership,
+restoration, or output ownership.
 
 ### Model truth does not wait for animation
 

@@ -151,6 +151,11 @@ struct OwnershipTransitionProbe {
         for (const auto &saved : transferred)
             if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
                 return fail("Active round trip discarded projected presentation provenance");
+        cards.pageStack(1);
+        cards.pageStack(-1);
+        for (const auto &saved : transferred)
+            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
+                return fail("Stack browse discarded projected presentation provenance");
         return true;
     }
     bool returnToBento() {

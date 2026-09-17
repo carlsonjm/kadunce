@@ -48,6 +48,7 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <vector>
 
 namespace Kadunce
 {
@@ -56,6 +57,7 @@ namespace
 {
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 10.0;
+constexpr float CardHairlineOutlineOpacity = 0.65f;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr auto DestinationVertex = R"GLSL(#version 140
 in vec4 position;
@@ -2438,7 +2440,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && m_cardStage->stackInsertionPreviewValid()) {
         paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
             deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(tablet->geometry())),
-            QRectF(m_cardStage->stackPlaceholderTarget()), 0.6, 0.0f, 0.65f);
+            QRectF(m_cardStage->stackPlaceholderTarget()), 0.6, 0.0f,
+            CardHairlineOutlineOpacity);
     }
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
     KWin::Rect target = m_cardStage->previewTargetForWindow(tablet, window);
@@ -2494,11 +2497,45 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
     KWin::Rect visualTarget = target;
-    if (m_cardStage->usesBentoProjectionAperture(window)) {
-        const CardRect contained = makeProjectedCardVisualRect(
-            CardRect{double(target.x()), double(target.y()),
-                     double(target.width()), double(target.height())},
-            logicalRegion.width(), logicalRegion.height());
+    const bool bentoProjection =
+        m_cardStage->usesBentoProjectionAperture(window);
+    if (bentoProjection) {
+        const CardRect slot{double(target.x()), double(target.y()),
+                            double(target.width()), double(target.height())};
+        CardRect contained = makeProjectedCardVisualRect(
+            slot, logicalRegion.width(), logicalRegion.height());
+
+        const auto &model = m_cardStage->model();
+        const int cardId = m_cardStage->liveCardIndex(window) + 1;
+        const int memberCount = model.stackSizeForId(cardId);
+        const bool openSelectedStack = !m_cardStage->cardGrabActive()
+            && !m_cardStage->launcherGuestActive()
+            && memberCount > 1
+            && model.sameStack(cardId, model.selectedId());
+        if (openSelectedStack) {
+            const KWin::Rect canonicalTarget =
+                m_cardStage->cardTargetForSlot(tablet, 0);
+            std::vector<double> projectedAspects;
+            for (const int memberId : model.stackMembersForId(cardId)) {
+                KWin::EffectWindow *member =
+                    m_cardStage->liveCards().value(memberId - 1).data();
+                if (!member || member->isDeleted()
+                    || !m_cardStage->usesBentoProjectionAperture(member)) {
+                    continue;
+                }
+                const auto source = member->expandedGeometry();
+                if (source.width() > 0.0 && source.height() > 0.0) {
+                    projectedAspects.push_back(
+                        source.width() / source.height());
+                }
+            }
+            const auto policy = makeProjectedStackPreviewPolicy(
+                CardRect{0.0, 0.0, double(canonicalTarget.width()),
+                         double(canonicalTarget.height())},
+                projectedAspects);
+            contained = makeNormalizedProjectedCardVisualRect(
+                slot, logicalRegion.width(), logicalRegion.height(), policy);
+        }
         visualTarget = KWin::Rect(
             qRound(contained.x), qRound(contained.y),
             qRound(contained.width), qRound(contained.height));
@@ -2506,10 +2543,11 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
     paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
         deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry())),
-        QRectF(visualTarget), paintPose.rotation, float(data.opacity()), 0.0f);
+        QRectF(visualTarget), paintPose.rotation, float(data.opacity()),
+        bentoProjection ? CardHairlineOutlineOpacity : 0.0f);
     // Ordinary cards retain their accepted fixed backing and contain transform.
-    // Bento projections instead use their maximum proportional contained bounds
-    // for every visual layer; their canonical slot still owns layout and input.
+    // Bento projections use their proportional aperture, with open stacks
+    // sharing one group height; their canonical slot still owns layout and input.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
