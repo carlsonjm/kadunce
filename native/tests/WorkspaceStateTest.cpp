@@ -50,6 +50,19 @@ int main() {
     CardWorkspaceState<QString> duplicateStack;
     require(!duplicateStack.prepareStackAdmission({u"same"_s, u"same"_s}),
         "Duplicate stack identity accepted");
+    {
+        CardWorkspaceState<QString> mixed;
+        mixed.reset({u"a"_s, u"b"_s}, 1);
+        const auto admission = mixed.prepareGroupAdmission({u"c"_s, u"d"_s});
+        require(admission && mixed.commitAdmission(*admission, [] { return true; })
+            && mixed.count() == 3 && mixed.selectedWindow() == u"b"_s
+            && mixed.sameStack(3, 4), "Grouped admission lost independent selection");
+        const auto removal = mixed.prepareGroupRemoval({u"c"_s, u"d"_s});
+        require(removal && mixed.commitGroupRemoval(*removal)
+            && mixed.windows() == QList<QString>({u"a"_s, u"b"_s})
+            && mixed.selectedWindow() == u"b"_s && mixed.invariantHolds(),
+            "Grouped removal changed unrelated ownership");
+    }
 
     for (int count = 1; count <= 8; ++count) {
         for (int active = 0; active < count; ++active) {

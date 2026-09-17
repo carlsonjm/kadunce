@@ -1376,7 +1376,10 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     const std::function<bool()> &commitSource)
 {
     auto *tablet = m_host->tabletOutputForCardStage();
-    if (m_active || !tablet || projection.output != tablet
+    const bool mixed = m_active;
+    if ((mixed && (m_presentation != CardPresentation::Active
+            || m_bentoProjectionSession || m_cardGrabActive || m_launcherGuestActive))
+        || !tablet || projection.output != tablet
         || projection.outputName != tablet->name()
         || !tablet->geometry().contains(projection.workspaceArea)
         || !validBentoProjectionShape(projectionShape(projection))) return false;
@@ -1416,11 +1419,14 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             [&](const auto &member) { return member.window == window; });
         if (overflow == projection.overflow.cend() || !append(*overflow, false)) return false;
     }
-    const auto admission = m_workspace.prepareStackAdmission(windows);
+    const auto admission = m_workspace.prepareGroupAdmission(windows);
     if (!admission || !m_workspace.commitAdmission(*admission, commitSource)) return false;
     // Both membership owners publish before signals/native calls. Original
     // restore records cross directly; no frame acknowledgement is required.
-    m_parkedRestores = snapshots;
+    if (mixed) {
+        parkActiveSnapshot();
+        m_parkedRestores.append(snapshots);
+    } else m_parkedRestores = snapshots;
     m_bentoProjectionWindows = windows;
     m_bentoProjectionPaneWindows.clear();
     for (const auto &member : projection.panes)
@@ -1428,8 +1434,12 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     m_bentoProjectionSession = projection;
     ++m_restoreGeneration;
     m_active = true;
-    m_presentation = CardPresentation::CardLine;
-    m_originalCardStackingOrder = projection.stackingOrder;
+    if (!mixed) m_presentation = CardPresentation::CardLine;
+    if (mixed) {
+        for (const auto &window : projection.stackingOrder)
+            if (!m_originalCardStackingOrder.contains(window))
+                m_originalCardStackingOrder.append(window);
+    } else m_originalCardStackingOrder = projection.stackingOrder;
     m_restoredMinimizations.clear();
     m_host->cancelInputForCardStage();
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
@@ -1454,36 +1464,31 @@ bool CardStageController::resumeSelectedBentoProjection()
         || !selectedIsBentoProjection() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
     const BentoProjectionSession projection = *m_bentoProjectionSession;
-    const auto allWindows = m_workspace.windows();
     const auto projectionWindows = m_bentoProjectionWindows;
-    const auto originalStackingOrder = m_originalCardStackingOrder;
-    QList<ActiveRestoreSnapshot> ordinaryRestores;
-    for (const auto &snapshot : std::as_const(m_parkedRestores)) {
-        if (!m_bentoProjectionWindows.contains(snapshot.window))
-            ordinaryRestores.append(snapshot);
-    }
-    if (m_activeRestore.valid
-        && !m_bentoProjectionWindows.contains(m_activeRestore.window)) {
-        ordinaryRestores.append(m_activeRestore);
-    }
+    const auto removal = m_workspace.prepareGroupRemoval(projectionWindows);
+    if (!removal) return false;
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
-        [this, projectionWindows, &committed] {
+        [this, projectionWindows, removal = *removal, &committed] {
             if (!m_active || !selectedIsBentoProjection()) return false;
+            if (!m_workspace.commitGroupRemoval(removal)) return false;
             m_transferGuard.invalidate();
             m_host->cancelInputForCardStage();
             clearCardTransition();
             m_activeSettleTimer.stop();
             m_activeSettleRemaining = 0;
-            m_active = false;
+            m_active = !m_workspace.windows().isEmpty();
             m_presentation = CardPresentation::CardLine;
-            m_workspace.clear();
             m_activeRestore = {};
-            m_parkedRestores.clear();
+            m_parkedRestores.removeIf([&](const auto &snapshot) {
+                return projectionWindows.contains(snapshot.window);
+            });
             m_bentoProjectionWindows.clear();
             m_bentoProjectionPaneWindows.clear();
             m_bentoProjectionSession.reset();
-            m_originalCardStackingOrder.clear();
+            m_originalCardStackingOrder.removeIf([&](const auto &window) {
+                return projectionWindows.contains(window);
+            });
             for (const auto &window : projectionWindows) {
                 if (window && !window->isDeleted())
                     KWin::effects->setElevatedWindow(window, false);
@@ -1492,36 +1497,19 @@ bool CardStageController::resumeSelectedBentoProjection()
             committed = true;
             return true;
         },
-        [this, allWindows, originalStackingOrder, ordinaryRestores, &committed] {
+        [this, projectionWindows, &committed] {
             if (!committed) return;
-            for (const auto &window : allWindows) {
+            for (const auto &window : projectionWindows) {
                 if (window && !window->isDeleted()) {
                     KWin::effects->setElevatedWindow(window, false);
                     m_host->unredirectForCardStage(window);
                 }
             }
-            QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-            m_restoredMinimizations.clear();
-            for (const auto &snapshot : ordinaryRestores) {
-                if (!snapshot.valid || !snapshot.window
-                    || snapshot.window->isDeleted() || !snapshot.window->window()) continue;
-                auto *client = snapshot.window->window();
-                restoreWindowState(client, snapshot, snapshot.geometry,
-                    true, true, false);
-                if (snapshot.minimized && snapshot.window
-                    && !snapshot.window->isDeleted()) {
-                    m_restoredMinimizations.push_back(
-                        std::make_unique<RestoredMinimization>(client,
-                            RestoredMinimization::Target{
-                                client->moveResizeGeometry(), snapshot.maximizeMode,
-                                snapshot.quickTileMode, snapshot.fullScreen}));
-                }
+            if (m_active) {
+                if (!enterActive()) m_presentation = CardPresentation::CardLine;
+            } else {
+                m_host->setPagingShortcutsForCardStage(false);
             }
-            for (const auto &window : originalStackingOrder) {
-                if (window && !window->isDeleted() && window->window())
-                    KWin::workspace()->raiseWindow(window->window());
-            }
-            m_host->setPagingShortcutsForCardStage(false);
             KWin::effects->addRepaintFull();
         });
 }

@@ -114,23 +114,79 @@ public:
         appendTo(result.model, result.windows, window, centered);
         return result;
     }
-    // Import an output-local composition as one stack. The first identity is
-    // its selected face; the remaining identities keep deterministic order.
-    std::optional<PreparedAdmission> prepareStackAdmission(const QList<Handle> &windows) const {
-        if (!m_windows.isEmpty() || windows.isEmpty()) return std::nullopt;
+    // Import one logical group beside any existing independent cards. The first
+    // identity is its selected face; existing selection remains authoritative.
+    std::optional<PreparedAdmission> prepareGroupAdmission(const QList<Handle> &windows) const {
+        if (windows.isEmpty() || !invariantHolds() || hasDetachedMember()) return std::nullopt;
         PreparedAdmission result;
         result.destination = m_identity;
         result.revision = m_revision;
+        result.model = m_model;
+        result.windows = m_windows;
+        const int selectedId = result.windows.isEmpty() ? 0 : result.model.selectedId();
+        int destination = 0;
         for (const auto &window : windows) {
             if (result.windows.contains(window)) return std::nullopt;
             const int id = appendTo(result.model, result.windows, window, false);
-            if (id > 1) {
+            if (!destination) destination = id;
+            else {
                 result.model.selectIndex(result.model.count() - 1);
-                if (!result.model.stackSelectedWith(1, -1,
+                if (!result.model.stackSelectedWith(destination, -1,
                         CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
             }
         }
+        if (selectedId) {
+            for (int i = 0; i < result.model.count(); ++i) {
+                result.model.selectIndex(i);
+                if (result.model.selectedId() == selectedId) break;
+            }
+        }
         return result;
+    }
+    std::optional<PreparedAdmission> prepareStackAdmission(const QList<Handle> &windows) const {
+        return m_windows.isEmpty() ? prepareGroupAdmission(windows) : std::nullopt;
+    }
+    class PreparedGroupRemoval {
+        friend class CardWorkspaceState;
+        std::weak_ptr<const int> source;
+        quint64 revision = 0;
+        CardLineModel model{1};
+        QList<Handle> windows;
+    };
+    std::optional<PreparedGroupRemoval> prepareGroupRemoval(
+        const QList<Handle> &group) const {
+        if (group.isEmpty() || !invariantHolds() || hasDetachedMember()) return std::nullopt;
+        const int first = indexOf(group.first());
+        if (first < 0) return std::nullopt;
+        const int firstId = first + 1;
+        for (const auto &window : group) {
+            const int index = indexOf(window);
+            if (index < 0 || !m_model.sameStack(firstId, index + 1)) return std::nullopt;
+        }
+        PreparedGroupRemoval result;
+        result.source = m_identity;
+        result.revision = m_revision;
+        result.model = m_model;
+        result.windows = m_windows;
+        QList<Handle> remaining = group;
+        while (!remaining.isEmpty()) {
+            int index = -1;
+            for (int i = result.windows.size() - 1; i >= 0; --i)
+                if (remaining.contains(result.windows[i])) { index = i; break; }
+            if (index < 0 || (result.windows.size() > 1
+                && !result.model.removeCard(index + 1))) return std::nullopt;
+            remaining.removeAll(result.windows[index]);
+            result.windows.removeAt(index);
+        }
+        return result;
+    }
+    bool commitGroupRemoval(const PreparedGroupRemoval &prepared) {
+        if (prepared.source.lock() != m_identity || prepared.revision != m_revision)
+            return false;
+        m_model = prepared.model;
+        m_windows = prepared.windows;
+        ++m_revision;
+        return true;
     }
     // Synchronous source-model callback only: no native operations, signals,
     // or destination mutations. Validate destination before touching source,

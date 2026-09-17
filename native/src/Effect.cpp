@@ -758,7 +758,8 @@ bool Effect::resumeBentoProjectionForCardStage(
 
 WorkspacePresentation Effect::presentationForInput() const
 {
-    if (!m_cardStage->isActive()) {
+    if (!m_cardStage->isActive()
+        || m_cardStage->presentation() == CardPresentation::Active) {
         return WorkspacePresentation::Inactive;
     }
     return m_cardStage->presentation() == CardPresentation::CardLine
@@ -1950,11 +1951,12 @@ void Effect::toggle()
     if (!m_cardStage->isActive()) {
         KWin::LogicalOutput *tablet = tabletOutput();
         if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
-            m_desktopStage->transferTabletSessionToCardLine(tablet,
+            const bool accepted = m_desktopStage->transferTabletSessionToCardLine(tablet,
                 [this](const auto &projection, const auto &commit) {
                     return m_cardStage->admitBentoStack(projection, commit);
                 });
-            return; // Rejection retains Bento; never fall through to rediscovery.
+            if (!accepted || m_cardStage->presentation() == CardPresentation::CardLine)
+                return; // Rejection retains Bento; never fall through to rediscovery.
         }
     }
     if (m_cardStage->selectedIsBentoProjection()
