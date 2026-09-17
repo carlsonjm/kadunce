@@ -16,8 +16,9 @@ Shuffle capabilities; their technical feasibility remains open.
 - Transfers prepare and validate the destination before removing the source.
 - Constrained new windows enter the Bento solver or prepared Active ownership.
 - Touch Card Line preserves a Bento composition as one logical group card. Its
-  pane-visible live surfaces keep their native relative geometry inside one
-  centered proportional composite and share one tinted-black group backdrop.
+  pane-visible live surfaces keep their native work-area positions and proportions
+  inside one centered desktop view, including outer gutters, pane gaps, and dock
+  clearance. One translucent-black field replaces wallpaper behind the panes.
   Retained overflow stays owned and minimized. The group has no member paging,
   fan, or member carry; activation resumes the exact Bento session without a
   layout solve and restores neighboring ordinary cards from their own records.
@@ -25,6 +26,9 @@ Shuffle capabilities; their technical feasibility remains open.
 - Other outputs keep their own Bento sessions when the tablet changes presentation.
 - Native carries preserve input ownership, exact restore records, dock clearance,
   cancellation, and output-local admission rules.
+- First-layout edge admission re-solves current client size hints at commit. A
+  still-feasible configure acknowledgement does not require a second snap;
+  infeasible current hints still reject before ownership publication.
 - Live card presentation uses KWin's off-screen texture path. Proportional margins
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
@@ -52,10 +56,10 @@ before the next installation.
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
 package checks, and mandatory control checks have passed for the current sources.
-The Bento group-card candidate has focused composite-geometry, session-contract,
-no-member-paging, overflow-minimization, exact-resume, and private two-output
-ownership lifecycle coverage but still requires physical appearance review before
-promotion.
+The Bento group-card candidate has focused full-work-area geometry, translucent
+backdrop, session-contract, no-member-paging, overflow-minimization, exact-resume,
+first-snap refresh, and private two-output ownership lifecycle coverage but still
+requires physical appearance review before promotion.
 Physical review has accepted ownership, constrained launch routing, stack retention,
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,

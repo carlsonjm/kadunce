@@ -10,7 +10,7 @@ for attempt in {1..40}; do
     sleep .1
 done
 for kind in pointer touch; do
-for scenario in edge external withdrawn unload dock; do
+for scenario in edge edge-refresh edge-refresh-reject external withdrawn unload dock; do
     echo "DESKTOP $kind $scenario"
     "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
     client_pid=$!
@@ -35,6 +35,17 @@ for scenario in edge external withdrawn unload dock; do
     x=1275; if [[ $scenario == external ]]; then x=2555; fi
     if [[ $kind == pointer ]]; then probe contactMotion "$x" 380; else probe motion 52 "$x" 380; fi
     kad nativeCarryState | jq -e '.carrying and .inputBusy and .destinationPreview'
+    if [[ $scenario == edge-refresh ]]; then
+        # A client can publish a still-feasible size hint after edge preview.
+        # The release-time solve must use that current hint without requiring a
+        # second snap, while the resident/output reservation stays unchanged.
+        client minimumSizeHint 300 240
+        sleep .1
+    fi
+    if [[ $scenario == edge-refresh-reject ]]; then
+        client minimumSizeHint 2000 1200
+        sleep .1
+    fi
     if [[ $scenario == withdrawn || $scenario == dock ]]; then
         y=400; if [[ $scenario == dock ]]; then y=780; fi
         if [[ $kind == pointer ]]; then probe contactMotion 550 "$y"; else probe motion 52 550 "$y"; fi
@@ -52,18 +63,21 @@ for scenario in edge external withdrawn unload dock; do
     if [[ $scenario != unload ]]; then
         kad nativeCarryState | jq -e '(.carrying|not) and (.inputBusy|not)'
         active=$(kad workspaceContext | jq '[.displayContext.displays[] | select(.bentoActive)] | length')
-        if [[ $scenario == edge || $scenario == external ]]; then kad nativeMoveTrace; fi
-        if [[ $scenario == edge || $scenario == external ]]; then test "$active" = 1; else test "$active" = 0; fi
-        if [[ $scenario == edge || $scenario == external || $scenario == withdrawn || ( $scenario == dock && $tablet == 0 ) ]]; then
+        if [[ $scenario == edge || $scenario == edge-refresh || $scenario == edge-refresh-reject || $scenario == external ]]; then kad nativeMoveTrace; fi
+        if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external ]]; then test "$active" = 1; else test "$active" = 0; fi
+        if [[ $scenario == edge || $scenario == edge-refresh ]]; then kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'; fi
+        if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external || $scenario == withdrawn || ( $scenario == dock && $tablet == 0 ) ]]; then
             probe windowGeometry "$main" | jq -e --argjson target "$destination" '. == $target'
         fi
         qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     fi
     sleep .2
-    if [[ $scenario != withdrawn && $scenario != dock ]]; then
+    if [[ $scenario != withdrawn && $scenario != dock && $scenario != edge-refresh-reject ]]; then
         probe windowGeometry "$main" | jq -e --argjson target "$original" '. == $target'
     fi
-    probe windowGeometry "$other" | jq -e --argjson target "$original_other" '. == $target'
+    if [[ $scenario != edge-refresh-reject ]]; then
+        probe windowGeometry "$other" | jq -e --argjson target "$original_other" '. == $target'
+    fi
     kill "$client_pid"
     wait "$client_pid" || true
     sleep .1

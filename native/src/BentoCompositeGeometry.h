@@ -4,9 +4,6 @@
 #include "CardLineLayout.h"
 
 #include <algorithm>
-#include <span>
-#include <vector>
-
 namespace Kadunce
 {
 
@@ -24,34 +21,21 @@ struct BentoCompositeGeometry {
 };
 
 [[nodiscard]] inline BentoCompositeGeometry makeBentoCompositeGeometry(
-    const CardRect &slot, std::span<const CardRect> paneFrames)
+    const CardRect &slot, const CardRect &workspace)
 {
-    if (slot.width <= 0.0 || slot.height <= 0.0 || paneFrames.empty()) {
+    if (slot.width <= 0.0 || slot.height <= 0.0
+        || workspace.width <= 0.0 || workspace.height <= 0.0) {
         return {};
     }
-    double left = paneFrames.front().x;
-    double top = paneFrames.front().y;
-    double right = paneFrames.front().right();
-    double bottom = paneFrames.front().bottom();
-    for (const auto &frame : paneFrames) {
-        if (frame.width <= 0.0 || frame.height <= 0.0) {
-            return {};
-        }
-        left = std::min(left, frame.x);
-        top = std::min(top, frame.y);
-        right = std::max(right, frame.right());
-        bottom = std::max(bottom, frame.bottom());
-    }
-    const CardRect source{left, top, right - left, bottom - top};
-    const double scale = std::min(slot.width / source.width,
-                                  slot.height / source.height);
+    const double scale = std::min(slot.width / workspace.width,
+                                  slot.height / workspace.height);
     const CardRect target{
-        slot.x + (slot.width - source.width * scale) / 2.0,
-        slot.y + (slot.height - source.height * scale) / 2.0,
-        source.width * scale,
-        source.height * scale,
+        slot.x + (slot.width - workspace.width * scale) / 2.0,
+        slot.y + (slot.height - workspace.height * scale) / 2.0,
+        workspace.width * scale,
+        workspace.height * scale,
     };
-    return {source, target, scale};
+    return {workspace, target, scale};
 }
 
 [[nodiscard]] inline CardRect mapBentoCompositeRect(

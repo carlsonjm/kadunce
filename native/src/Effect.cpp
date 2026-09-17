@@ -57,6 +57,7 @@ namespace
 {
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 10.0;
+constexpr float BentoWorkspaceTintOpacity = 0.22F;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr auto DestinationVertex = R"GLSL(#version 140
 in vec4 position;
@@ -92,7 +93,9 @@ void main() {
 // Card backing and vacant seam share one rigid transform and neutral material.
 void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
-    const QRectF &box, double angle, float opacity, float outline)
+    const QRectF &box, double angle, float opacity, float outline,
+    const QVector3D &fillColor = QVector3D(0.075F, 0.075F, 0.075F),
+    float fillOpacityScale = 1.0F)
 {
     if (!shader || box.isEmpty()) return;
     QList<QVector2D> vertices;
@@ -107,7 +110,8 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
     shader->setUniform("outlineRadius", float(CardCornerRadius));
-    shader->setUniform("surfaceFill", QVector4D(0.075f, 0.075f, 0.075f, opacity));
+    shader->setUniform("surfaceFill", QVector4D(fillColor,
+        opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
@@ -2513,15 +2517,12 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         m_cardStage->usesBentoProjectionAperture(window);
     BentoCompositeGeometry composite;
     if (bentoProjection && m_cardStage->isBentoProjectionPane(window)) {
-        std::vector<CardRect> frames;
-        for (const auto &pane : m_cardStage->bentoProjectionPanes()) {
-            if (!pane || pane->isDeleted() || pane->isMinimized()) continue;
-            const auto frame = pane->frameGeometry();
-            frames.push_back({frame.x(), frame.y(), frame.width(), frame.height()});
-        }
+        const auto workspace = m_cardStage->bentoProjectionWorkspace();
         composite = makeBentoCompositeGeometry(
             {double(target.x()), double(target.y()),
-             double(target.width()), double(target.height())}, frames);
+             double(target.width()), double(target.height())},
+            {double(workspace.x()), double(workspace.y()),
+             double(workspace.width()), double(workspace.height())});
         const auto source = window->expandedGeometry();
         const auto mapped = mapBentoCompositeRect(composite,
             {source.x(), source.y(), source.width(), source.height()});
@@ -2551,10 +2552,13 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
         paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
             bentoProjection ? outputFence : deviceRegion & outputFence,
-            surface, paintPose.rotation, float(data.opacity()), 0.0f);
+            surface, paintPose.rotation, float(data.opacity()), 0.0f,
+            bentoProjection ? QVector3D(0.0F, 0.0F, 0.0F)
+                            : QVector3D(0.075F, 0.075F, 0.075F),
+            bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
     }
     // Ordinary cards keep the fixed backing path. A Bento projection maps every
-    // live pane through one current native union while the canonical slot still
+    // live pane through one authoritative desktop work area while the canonical slot still
     // owns Card Line layout and input.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,

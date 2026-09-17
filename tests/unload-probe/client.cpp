@@ -35,6 +35,7 @@ public Q_SLOTS:
  void closeWindow() { QApplication::closeAllWindows(); }
  void armMove() { moveArmed = true; }
  void armResize() { resizeArmed = true; }
+ void minimumSizeHint(int width, int height) { setMinimumSize(width, height); }
  // Private test client only: exercise rejected EWMH requests through the real server.
  void x11Request(int direction, int button) {
   auto *native = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();

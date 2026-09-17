@@ -171,6 +171,12 @@ QList<QPointer<KWin::EffectWindow>> CardStageController::bentoProjectionPanes() 
     return m_bentoProjectionPaneWindows;
 }
 
+KWin::Rect CardStageController::bentoProjectionWorkspace() const
+{
+    return m_bentoProjectionSession ? m_bentoProjectionSession->workspaceArea
+                                    : KWin::Rect();
+}
+
 QList<QPointer<KWin::EffectWindow>> CardStageController::preparationNeighbors() const
 {
     QList<QPointer<KWin::EffectWindow>> result;
@@ -1357,6 +1363,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     auto *tablet = m_host->tabletOutputForCardStage();
     if (m_active || !tablet || projection.output != tablet
         || projection.outputName != tablet->name()
+        || !tablet->geometry().contains(projection.workspaceArea)
         || !validBentoProjectionShape(projectionShape(projection))) return false;
     QList<QPointer<KWin::EffectWindow>> windows;
     QList<ActiveRestoreSnapshot> snapshots;

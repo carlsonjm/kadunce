@@ -13,6 +13,7 @@ void require(bool condition, const char *message) {
 int main()
 {
     Kadunce::BentoProjectionShape shape{
+        .workspaceArea = {0, 0, 1280, 740},
         .panes = {1, 2, 3},
         .overflow = {4, 5},
         .stackingOrder = {4, 1, 3, 2, 5},
@@ -41,4 +42,7 @@ int main()
     shape.hasSide = true; shape.sideWindow = 3;
     require(Kadunce::validBentoProjectionShape(shape),
         "Valid side-member metadata was rejected");
+    invalid = shape; invalid.workspaceArea = {};
+    require(!Kadunce::validBentoProjectionShape(invalid),
+        "Projection without an authoritative work area was accepted");
 }

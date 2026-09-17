@@ -370,11 +370,19 @@ bool DesktopStageController::cardDropValid(const PreparedDrop &drop) const
     if (!drop.consumed || *drop.consumed || drop.owner.lock() != m_carrySourceIdentity)
         return false;
     const auto current = prepareCardDrop(drop.window, drop.output, drop.geometry, drop.intent, drop.side);
-    return current && current->generation == drop.generation
-        && current->outputGeometry == drop.outputGeometry && current->area == drop.area
-        && current->hadSession == drop.hadSession && current->leavingBento == drop.leavingBento
-        && current->residents == drop.residents
-        && current->minimumSizes == drop.minimumSizes && current->sourceGeometries == drop.sourceGeometries
+    if (!current || current->generation != drop.generation
+        || current->outputGeometry != drop.outputGeometry || current->area != drop.area
+        || current->hadSession != drop.hadSession
+        || current->leavingBento != drop.leavingBento
+        || current->residents != drop.residents) return false;
+    const bool sameInputs = current->minimumSizes == drop.minimumSizes
+        && current->sourceGeometries == drop.sourceGeometries;
+    // First-layout edge entry is re-solved by transferCardWindow immediately
+    // before publication. A configure acknowledgement or still-feasible minimum
+    // hint update must not invalidate otherwise unchanged receiver ownership.
+    const bool refreshableFirstEdge = drop.intent == CardDropIntent::ActivateBento
+        && !drop.hadSession && !drop.leavingBento && !drop.localTarget;
+    return (sameInputs || refreshableFirstEdge)
         && (!drop.localTarget || prepareLocalPlacement(drop).has_value());
 }
 
@@ -620,14 +628,19 @@ KWin::LogicalOutput *DesktopStageController::outputForKey(const QString &key) co
 
 KWin::Rect DesktopStageController::stageArea(KWin::LogicalOutput *output) const
 {
-    if (!output) {
-        return {};
-    }
-    const KWin::RectF work = KWin::effects->clientArea(
-        KWin::MaximizeArea, output);
-    return KWin::Rect(qRound(work.x()) + 10, qRound(work.y()) + 10,
-                      std::max(1, qRound(work.width()) - 20),
-                      std::max(1, qRound(work.height()) - 30));
+    const KWin::Rect work = workspaceArea(output);
+    if (work.isEmpty()) return {};
+    return KWin::Rect(work.x() + 10, work.y() + 10,
+                      std::max(1, work.width() - 20),
+                      std::max(1, work.height() - 30));
+}
+
+KWin::Rect DesktopStageController::workspaceArea(KWin::LogicalOutput *output) const
+{
+    if (!output) return {};
+    const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    return KWin::Rect(qRound(work.x()), qRound(work.y()),
+        std::max(1, qRound(work.width())), std::max(1, qRound(work.height())));
 }
 
 DesktopStageController::Session *DesktopStageController::sessionForOutput(
@@ -1169,6 +1182,7 @@ bool DesktopStageController::transferTabletSessionToCardLine(KWin::LogicalOutput
     BentoProjectionSession projection;
     projection.output = output;
     projection.outputName = outputKey(output);
+    projection.workspaceArea = workspaceArea(output);
     projection.rects = session->rects;
     projection.side = session->side;
     projection.sideWindow = session->sideWindow;
@@ -1257,6 +1271,7 @@ bool DesktopStageController::resumeProjectedSession(
     for (const auto &member : projection.overflow) {
         if (!member.minimized || !append(member, false)) return false;
     }
+    if (workspaceArea(projection.output) != projection.workspaceArea) return false;
     const KWin::Rect area = stageArea(projection.output);
     const auto pixels = makePixelBentoLayout(candidate.rects,
         area.x(), area.y(), area.width(), area.height());

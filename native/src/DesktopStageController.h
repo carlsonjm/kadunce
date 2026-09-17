@@ -216,6 +216,7 @@ private:
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;
     [[nodiscard]] KWin::Rect stageArea(KWin::LogicalOutput *output) const;
+    [[nodiscard]] KWin::Rect workspaceArea(KWin::LogicalOutput *output) const;
     [[nodiscard]] Session *sessionForOutput(KWin::LogicalOutput *output);
     [[nodiscard]] const Session *sessionForOutput(
         const KWin::LogicalOutput *output) const;

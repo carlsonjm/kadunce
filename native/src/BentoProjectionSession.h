@@ -26,6 +26,7 @@ struct BentoProjectionMember {
 struct BentoProjectionSession {
     QPointer<KWin::LogicalOutput> output;
     QString outputName;
+    KWin::Rect workspaceArea;
     QList<BentoProjectionMember> panes;
     QList<BentoProjectionMember> overflow;
     QList<QPointer<KWin::EffectWindow>> stackingOrder;
@@ -36,6 +37,7 @@ struct BentoProjectionSession {
 };
 
 struct BentoProjectionShape {
+    KWin::Rect workspaceArea;
     std::vector<quintptr> panes;
     std::vector<quintptr> overflow;
     std::vector<quintptr> stackingOrder;
@@ -48,7 +50,8 @@ struct BentoProjectionShape {
 [[nodiscard]] inline bool validBentoProjectionShape(
     const BentoProjectionShape &shape)
 {
-    if (shape.panes.empty() || shape.panes.size() != shape.rects.size()
+    if (shape.workspaceArea.width() <= 0 || shape.workspaceArea.height() <= 0
+        || shape.panes.empty() || shape.panes.size() != shape.rects.size()
         || shape.lead == 0) {
         return false;
     }
@@ -89,6 +92,7 @@ struct BentoProjectionShape {
     const BentoProjectionSession &session)
 {
     BentoProjectionShape shape;
+    shape.workspaceArea = session.workspaceArea;
     shape.rects = session.rects;
     shape.lead = reinterpret_cast<quintptr>(session.lead.data());
     shape.sideWindow = reinterpret_cast<quintptr>(session.sideWindow.data());

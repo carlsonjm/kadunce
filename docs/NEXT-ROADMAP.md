@@ -57,10 +57,10 @@ physical checks, and have explicit ownership.
 - [x] Constrained windows route through Bento admission or prepared Active ownership.
 - [x] Tablet Card Line retains Bento members as a stack and selects the large pane.
 - [x] Output-local Bento ownership and lifecycle remain isolated.
-- [ ] Make Bento-derived live Card Line content use the correct proportional
-  presentation geometry without retained snapshots or native Bento resizing.
-  The single live Bento group-card candidate is automated and awaits physical
-  review; keep this item open until the installed candidate passes.
+- [ ] Physically accept the full-work-area Bento group-card candidate. It maps
+  live panes into one proportional desktop view with a translucent-black field,
+  no retained snapshots, and no native Bento resizing; automated geometry,
+  first-snap, exact-resume, neighbor, and two-output ownership routes pass.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
 - [ ] Center card labels and place stack position on the same row at the right edge.

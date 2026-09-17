@@ -93,6 +93,7 @@ public:
         const KWin::EffectWindow *window) const;
     [[nodiscard]] bool selectedIsBentoProjection() const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> bentoProjectionPanes() const;
+    [[nodiscard]] KWin::Rect bentoProjectionWorkspace() const;
     [[nodiscard]] bool resumeSelectedBentoProjection();
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> preparationNeighbors() const;
