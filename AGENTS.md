@@ -21,6 +21,13 @@ Keep `SWARM.md` empty unless another live agent must act. A live handoff must be
 most 50 words; remove it when the dependency is resolved. Do not put backlogs,
 status reports, implementation history, or completed handoffs there.
 
+## Work packets
+
+Keep assignments compact and ordered: repository and roadmap item; required
+outcome; task-relevant contracts; acceptance checks; stop conditions; permissions
+already granted. Omit history and unrelated reading. If another worker must act,
+reduce the dependency to one `SWARM.md` handoff and delete it when resolved.
+
 # Safety control
 
 Kadunce's persistent tray enable/disable switch is release-critical, including
@@ -31,7 +38,7 @@ For sandbox, D-Bus, private compositor, or startup failures, follow
 `docs/TEST-ENVIRONMENT-PROCEDURE.md`. A transport denial is not evidence that the
 kill switch is missing. Preserve private/live bus separation.
 
-For Kadunce changes, run `bash tests/verify-control.sh`. After an authorized live
+For Kadunce changes, run `./verify.sh`. After an authorized live
 installation, run `bash tests/verify-live-control.sh` in the graphical session and
 confirm the controller is wanted by `graphical-session.target`. Do not log out the
 user, stop the graphical session, toggle the live effect, install, or publish unless

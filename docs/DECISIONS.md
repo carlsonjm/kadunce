@@ -2,7 +2,7 @@
 
 This ledger records current architectural and product decisions. It is grouped by
 subsystem. Superseded discussion and candidate evidence are preserved in
-`archive/DECISIONS-THROUGH-20260916.md` and Git history.
+`docs/archive/` and Git history.
 
 ## Product and authority
 

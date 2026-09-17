@@ -17,6 +17,10 @@ Read only:
 Then open only the references required by the task. Consult `archive/` for a
 regression, provenance question, or failed-candidate diagnosis.
 
+Run `../verify.sh` for the repository's source, package, safety-control, and
+documentation checks. The documentation guard enforces archive isolation, compact
+runtime handoffs, current-state hygiene, and index coverage.
+
 ## Canonical
 
 | Document | Authority |
