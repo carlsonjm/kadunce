@@ -69,6 +69,58 @@ int main()
         && close(mappedExpanded.y, mapped[1].y - 20 * composite.scale),
         "Expanded live surface lost its frame-relative offset");
 
+    const Kadunce::BentoRect wideRect{0, 0, 2.0 / 3.0, 1};
+    const Kadunce::CardRect driftedFrame{4300, 2100, 700, 300};
+    const Kadunce::CardRect driftedExpanded{4288, 2082, 730, 334};
+    const auto projected = Kadunce::makeBentoProjectedPaneGeometry(composite,
+        workspace, wideRect, driftedFrame, driftedExpanded);
+    require(projected.has_value(), "Stored Bento pane could not be projected");
+    const auto stage = Kadunce::makeBentoStageArea(workspace);
+    const auto expectedPixels = Kadunce::makePixelBentoLayout({wideRect},
+        int(stage.x), int(stage.y), int(stage.width), int(stage.height));
+    require(close(projected->authoritativeFrame.x, expectedPixels[0].x)
+        && close(projected->authoritativeFrame.y, expectedPixels[0].y)
+        && close(projected->authoritativeFrame.width, expectedPixels[0].width)
+        && close(projected->authoritativeFrame.height, expectedPixels[0].height),
+        "Live frame drift replaced the stored Bento rect");
+    require(close(projected->authoritativeSurface.x,
+                  projected->authoritativeFrame.x - 12)
+        && close(projected->authoritativeSurface.y,
+                 projected->authoritativeFrame.y - 18)
+        && close(projected->authoritativeSurface.right(),
+                 projected->authoritativeFrame.right() + 18)
+        && close(projected->authoritativeSurface.bottom(),
+                 projected->authoritativeFrame.bottom() + 16),
+        "Decoration margins were not applied around the authoritative frame");
+
+    const auto repeated = Kadunce::makeBentoProjectedPaneGeometry(composite,
+        workspace, wideRect, {9000, 6000, 300, 900},
+        {8988, 5982, 330, 934});
+    require(repeated.has_value()
+        && close(repeated->targetSurface.x, projected->targetSurface.x)
+        && close(repeated->targetSurface.y, projected->targetSurface.y)
+        && close(repeated->targetSurface.width, projected->targetSurface.width)
+        && close(repeated->targetSurface.height, projected->targetSurface.height),
+        "Repeated projection accumulated live frame drift");
+
+    const Kadunce::BentoRect smallRect{2.0 / 3.0, 0, 1.0 / 3.0, .5};
+    const auto small = Kadunce::makeBentoProjectedPaneGeometry(composite,
+        workspace, smallRect, {100, 100, 80, 700}, {90, 90, 100, 720});
+    require(small.has_value()
+        && small->authoritativeFrame.x > projected->authoritativeFrame.x
+        && small->authoritativeFrame.width < projected->authoritativeFrame.width
+        && small->authoritativeFrame.height < projected->authoritativeFrame.height,
+        "Stored small pane did not retain its relative shape");
+
+    const auto fullWithShadow = Kadunce::makeBentoProjectedPaneGeometry(composite,
+        workspace, {0, 0, 1, 1}, {50, 50, 400, 300}, {20, 20, 460, 360});
+    require(fullWithShadow.has_value()
+        && close(fullWithShadow->targetClip.x, composite.targetUnion.x)
+        && close(fullWithShadow->targetClip.y, composite.targetUnion.y)
+        && close(fullWithShadow->targetClip.right(), composite.targetUnion.right())
+        && close(fullWithShadow->targetClip.bottom(), composite.targetUnion.bottom()),
+        "Projected pane shadow was not clipped to the workspace card");
+
     const auto extremeComposite = Kadunce::makeBentoCompositeGeometry(
         slot, {0, 0, 2400, 120});
     require(extremeComposite.valid()

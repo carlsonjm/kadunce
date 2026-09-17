@@ -118,6 +118,10 @@ backdrop fills that mapped work area without capturing wallpaper. Retained overf
 stays owned and minimized and does not paint. The group cannot fan, page members,
 accept a stack insertion, or detach one member.
 
+Pane placement comes from the transferred normalized Bento rect, not later absolute
+client geometry. Current expanded-versus-frame margins preserve live decorations and
+shadows around that authoritative frame; the mapped workspace clips all pane paint.
+
 The transfer carries pane order and rects, lead, side metadata, overflow,
 minimization, stacking, and authoritative restore records. Activating the group
 validates current native geometry, commits the reverse ownership transfer, and

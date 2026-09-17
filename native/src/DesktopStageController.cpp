@@ -4,6 +4,7 @@
 */
 
 #include "DesktopStageController.h"
+#include "BentoCompositeGeometry.h"
 #include "BentoSessionTransfer.h"
 #include "NativePlacement.h"
 #include "WindowStateRestore.h"
@@ -630,9 +631,10 @@ KWin::Rect DesktopStageController::stageArea(KWin::LogicalOutput *output) const
 {
     const KWin::Rect work = workspaceArea(output);
     if (work.isEmpty()) return {};
-    return KWin::Rect(work.x() + 10, work.y() + 10,
-                      std::max(1, work.width() - 20),
-                      std::max(1, work.height() - 30));
+    const auto stage = makeBentoStageArea({double(work.x()), double(work.y()),
+        double(work.width()), double(work.height())});
+    return KWin::Rect(qRound(stage.x), qRound(stage.y),
+        std::max(1, qRound(stage.width)), std::max(1, qRound(stage.height)));
 }
 
 KWin::Rect DesktopStageController::workspaceArea(KWin::LogicalOutput *output) const

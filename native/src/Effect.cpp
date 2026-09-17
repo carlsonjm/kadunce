@@ -2513,22 +2513,33 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return;
     }
     KWin::Rect visualTarget = target;
+    KWin::Rect projectionPaneClip;
     const bool bentoProjection =
         m_cardStage->usesBentoProjectionAperture(window);
     BentoCompositeGeometry composite;
     if (bentoProjection && m_cardStage->isBentoProjectionPane(window)) {
         const auto workspace = m_cardStage->bentoProjectionWorkspace();
+        const auto storedRect = m_cardStage->bentoProjectionRect(window);
         composite = makeBentoCompositeGeometry(
             {double(target.x()), double(target.y()),
              double(target.width()), double(target.height())},
             {double(workspace.x()), double(workspace.y()),
              double(workspace.width()), double(workspace.height())});
-        const auto source = window->expandedGeometry();
-        const auto mapped = mapBentoCompositeRect(composite,
-            {source.x(), source.y(), source.width(), source.height()});
-        if (!composite.valid() || mapped.width <= 0.0 || mapped.height <= 0.0) return;
-        visualTarget = KWin::Rect(qRound(mapped.x), qRound(mapped.y),
-            qRound(mapped.width), qRound(mapped.height));
+        const auto frame = window->frameGeometry();
+        const auto expanded = window->expandedGeometry();
+        const auto pane = storedRect ? makeBentoProjectedPaneGeometry(composite,
+            {double(workspace.x()), double(workspace.y()),
+             double(workspace.width()), double(workspace.height())}, *storedRect,
+            {frame.x(), frame.y(), frame.width(), frame.height()},
+            {expanded.x(), expanded.y(), expanded.width(), expanded.height()})
+            : std::nullopt;
+        if (!pane) return;
+        visualTarget = KWin::Rect(qRound(pane->targetSurface.x),
+            qRound(pane->targetSurface.y), qRound(pane->targetSurface.width),
+            qRound(pane->targetSurface.height));
+        projectionPaneClip = KWin::Rect(qRound(pane->targetClip.x),
+            qRound(pane->targetClip.y), qRound(pane->targetClip.width),
+            qRound(pane->targetClip.height));
     } else if (bentoProjection) {
         return; // Retained Bento overflow remains owned and minimized, never painted.
     }
@@ -2558,8 +2569,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
     }
     // Ordinary cards keep the fixed backing path. A Bento projection maps every
-    // live pane through one authoritative desktop work area while the canonical slot still
-    // owns Card Line layout and input.
+    // live pane from its stored Bento rect through one authoritative desktop
+    // work area while the canonical slot still owns Card Line layout and input.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
@@ -2599,11 +2610,14 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             qRound(composite.targetUnion.x), qRound(composite.targetUnion.y),
             qRound(composite.targetUnion.width), qRound(composite.targetUnion.height))))
         : outputFence;
+    const KWin::Region paneFence = bentoProjection
+        ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(projectionPaneClip))
+        : outputFence;
     const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
             : roundedClip(deviceTarget, CardCornerRadius * viewport.scale())))
-        & outputFence & compositeFence;
+        & outputFence & compositeFence & paneFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();

@@ -134,6 +134,7 @@ if(BUILD_TESTING)
 
     add_executable(kadunce-bento-composite-geometry-test
         tests/BentoCompositeGeometryTest.cpp
+        src/BentoLayout.cpp
         src/CardLineLayout.cpp
     )
     target_include_directories(kadunce-bento-composite-geometry-test PRIVATE src)

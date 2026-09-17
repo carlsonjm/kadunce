@@ -177,6 +177,21 @@ KWin::Rect CardStageController::bentoProjectionWorkspace() const
                                     : KWin::Rect();
 }
 
+std::optional<BentoRect> CardStageController::bentoProjectionRect(
+    const KWin::EffectWindow *window) const
+{
+    if (!window || !m_bentoProjectionSession) return std::nullopt;
+    const auto member = std::find_if(m_bentoProjectionSession->panes.cbegin(),
+        m_bentoProjectionSession->panes.cend(), [window](const auto &member) {
+            return member.window == window;
+        });
+    if (member == m_bentoProjectionSession->panes.cend()) return std::nullopt;
+    const auto index = std::distance(m_bentoProjectionSession->panes.cbegin(), member);
+    if (index < 0 || std::size_t(index) >= m_bentoProjectionSession->rects.size())
+        return std::nullopt;
+    return m_bentoProjectionSession->rects[std::size_t(index)];
+}
+
 QList<QPointer<KWin::EffectWindow>> CardStageController::preparationNeighbors() const
 {
     QList<QPointer<KWin::EffectWindow>> result;

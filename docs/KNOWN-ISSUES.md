@@ -6,9 +6,9 @@ Bento-owned windows keep correct ownership, restore records, pane geometry, and
 overflow when the tablet returns to Card Line. The current candidate presents the
 visible composition as one proportional live desktop view with a translucent-black
 work-area backdrop, then resumes the exact Bento session on activation. Composite
-geometry, session validation, no-member-paging, overflow retention, and private
-two-output lifecycle are automated; physical appearance and interaction review
-remain open.
+geometry includes live-frame drift and repeated-projection guards. Session
+validation, no-member-paging, overflow retention, and private two-output lifecycle
+are automated; physical appearance and interaction review remain open.
 
 Kadunce does not crop, stretch, natively resize, or retain a second rendered source
 for this presentation. Client-painted black remains part of each live source.
