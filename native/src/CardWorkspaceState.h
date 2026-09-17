@@ -152,8 +152,8 @@ public:
     void clear() {
         ++m_revision;
         m_windows.clear();
-        // Keep the old empty-stage model semantics. A fresh admission session
-        // explicitly resets it; this refactor does not introduce persistence.
+        // Clearing membership leaves the empty-stage model inert until a fresh
+        // admission session explicitly resets it.
     }
     void reset(const QList<Handle> &windows, int selectedIndex) {
         ++m_revision;

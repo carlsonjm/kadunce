@@ -11,7 +11,7 @@ inline double heldPickupProgress(double elapsed)
     return 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t);
 }
 // Immutable pickup plus contact-relative scale; drag translation is applied once
-// by the caller. This is the previously tried44% math without old paging code.
+// by the caller. Scaling preserves the fixed 44% held-card target.
 inline CardRect anchoredStackCarry(const CardRect &pickup, double contactX,
     double contactY, double targetWidth, double targetHeight, double progress)
 {

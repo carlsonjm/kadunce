@@ -2527,7 +2527,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // solid Spotify surface exactly like a translucent decoration.
     // A tilted aperture must not be cut by an unrotated bottom boundary.
     // Straight and tilted previews share the same antialiased aperture.
-    // Keep the old hard-rounded path solely as the shader-unavailable fallback.
+    // Keep the hard-rounded path solely as the shader-unavailable fallback.
     // Active has already returned above and remains on the system paint path.
     const bool useFanAperture = m_fanApertureShader
         && data.xScale() > 0 && data.yScale() > 0

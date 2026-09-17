@@ -2023,9 +2023,9 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     }
     m_presentation = CardPresentation::CardLine;
 
-    // Select the requested card through the existing stack model so a task
-    // manager click can address both standalone cards and a specific member
-    // of a stack without rewriting the frozen card-line core.
+    // Select through the stack model so a task-manager click can address both
+    // standalone cards and a specific stack member while selection remains
+    // centralized in the card-line model.
     for (int step = 0;
          step < m_workspace.count()
          && !m_workspace.sameStack(targetId, m_workspace.selectedId());

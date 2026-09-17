@@ -420,8 +420,8 @@ rg -q 'tex \*= coverage' "${effect_cpp}" "${card_cpp}"
 rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
-# Accepted output-local dock-clearance baseline 884e5c3; visual alignment does
-# not change this geometry. Keep the fixed hashes tied to that accepted source.
+# Fixed hashes protect output-local dock-clearance geometry; visual alignment
+# must not change this behavior.
 test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
     "d993218447265b79504cbf18c5779096e1b50bcdc0de52704667465fe50d1056"
 test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \

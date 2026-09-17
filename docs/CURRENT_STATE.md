@@ -89,6 +89,11 @@ motion. See `VISUAL-AUDIT-20260915.md`.
 
 ## Validation and acceptance
 
+The September 16 coordination cleanup adds the root runtime-only `SWARM.md`,
+standardizes agent startup order, and removes stale conversational residue from
+comments. It changes no product behavior or installed state. Source and mandatory
+control checks pass; active handoffs are empty while implementation is paused.
+
 - Tettegouche exact-head build, source checks, 12/12 CTests and diff checks pass.
   The protected Dot applet source is unchanged.
 - Temperance exact-head build, 5/5 CTests and diff checks pass. Its focused panel

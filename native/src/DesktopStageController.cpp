@@ -770,8 +770,8 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
             return reflowSession(candidate, lead, required);
         });
     if (!prepared) return false;
-    // Publish only a complete plan. The future edge adapter must prepare its
-    // arrival/source transaction too; it must not call this mutating entry point.
+    // Publish only a complete plan. Callers must prepare their arrival/source
+    // transaction before invoking this mutating entry point.
     m_sessions.insert(session.outputName, std::move(*prepared));
     Session &stored = m_sessions[session.outputName];
     if (applySession(stored, true)) scheduleSettle();

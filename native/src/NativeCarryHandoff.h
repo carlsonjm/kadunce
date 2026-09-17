@@ -5,8 +5,7 @@
 
 namespace Kadunce {
 // One-event-turn coordination between native-start and correlated input proof.
-// Caller routes finish through ownsNativeFinish BEFORE legacy drop handling.
-// Not enabled in Effect until rendering and release draining are connected.
+// Caller routes finish through ownsNativeFinish BEFORE fallback drop handling.
 class NativeCarryHandoff final : public QObject {
 public:
     bool stage(KWin::Window *window, PreparedCarrySource source,

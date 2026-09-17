@@ -1,9 +1,17 @@
-# Repository context and handoff
+# Repository context and startup
 
-Start substantial work with `docs/CURRENT_STATE.md` and `docs/ARCHITECTURE.md`.
-Use their links to read only the relevant decisions, contract, research and source.
-Check the actual branch/diff before editing. Historical chats/checklists are
-design evidence, not proof of current implementation or blanket authorization.
+For every assigned task, use this startup order:
+
+1. Read `AGENTS.md`.
+2. Read the canonical current state and roadmap: `docs/CURRENT_STATE.md` and
+   `docs/NEXT-ROADMAP.md`.
+3. Read `SWARM.md`.
+4. Read only source and documentation relevant to the assigned task.
+5. Do not reconstruct historical context unless one of those sources explicitly
+   requires it.
+
+Check the actual branch and diff before editing. Read `docs/ARCHITECTURE.md` and
+its linked decisions and contracts only when the assigned task requires them.
 
 End substantial work by updating CURRENT_STATE: changed behavior, evidence,
 installed versus source state, remaining uncertainty, and the next bounded task.
@@ -19,6 +27,14 @@ Read `docs/MVP-RELEASE-SCOPE.md` before planning further MVP work; it overrides
 the old mandatory block sequence. A owns planning-time scope/resource decisions.
 Focused checks plus safety are the default; J owns broader physical regression.
 Do not infer permission to install or publish from a handoff document.
+
+Cross-agent communication belongs only in `SWARM.md`. Keep at most three live
+handoffs there, with at most 50 words per handoff, and delete completed handoffs
+instead of archiving them. Record durable architectural and engineering decisions
+in `docs/ARCHITECTURE.md` or `docs/DECISIONS.md`; Git history records implementation
+changes. Code comments explain code behavior and reasoning only, never agent
+conversation, handoffs, product-management instructions, implementation history,
+or who changed something.
 
 # Mandatory safety control
 

@@ -82,7 +82,7 @@ for kind in pointer touch; do
     # Xwayland can synthesize a matching release on pointer re-entry even after
     # native-only KWin cancellation. Accept that bounded cleanup, never a new
     # press. x11-action-runtime-session separately checks real button activation
-    # and fresh-click recovery. User approved native-equivalent behavior.
+    # and fresh-click recovery.
     sleep .2
     before=$(client state)
     if [[ $kind == pointer ]]; then probe contactButton false; else probe up 62; fi
