@@ -199,6 +199,41 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
         candidate.snapshots.append(makeSnapshot(window));
         candidate.overflow.append(window);
     }
+    QList<QPointer<KWin::EffectWindow>> departed;
+    for (const auto &parked : std::as_const(candidate.overflow))
+        if (!session->overflow.contains(parked)) departed.append(parked);
+    if (departed.size() == 1) {
+        const auto displaced = departed.first();
+        const auto saved = std::find_if(candidate.snapshots.cbegin(), candidate.snapshots.cend(),
+            [&](const auto &snapshot) { return snapshot.window == displaced; });
+        if (saved != candidate.snapshots.cend()) {
+            const NativeMoveSnapshot restore{displaced->window(), displaced->screen(), saved->geometry,
+                saved->floatingGeometry, saved->fullscreenRestoreGeometry, saved->maximizeMode,
+                saved->quickTileMode, saved->fullScreen, saved->minimized};
+            candidate.snapshots.removeIf([&](const auto &snapshot) { return snapshot.window == displaced; });
+            candidate.overflow.removeAll(displaced);
+            const QString key = session->outputName;
+            const quint64 generation = m_applicationGuard.generation();
+            bool committed = false;
+            const auto commit = [&] {
+                if (committed || generation != m_applicationGuard.generation()
+                    || !m_sessions.contains(key)) return false;
+                m_sessions[key] = candidate;
+                m_applicationGuard.invalidate();
+                committed = true;
+                return true;
+            };
+            const bool accepted = displaced == window
+                ? m_host->admitTransferredWindowToTablet(displaced, commit)
+                : m_host->admitIndependentWindowToCardWorkspace(displaced, restore, commit);
+            if (committed) {
+                auto remaining = m_sessions.find(key);
+                if (remaining != m_sessions.end() && applySession(remaining.value(), false)) scheduleSettle();
+                return true;
+            }
+            Q_UNUSED(accepted);
+        }
+    }
     m_applicationGuard.invalidate();
     *session = std::move(candidate);
     if (applySession(*session, visible, visible ? nullptr : window)) scheduleSettle();
@@ -222,6 +257,36 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
         auto saved = std::find_if(session.snapshots.begin(), session.snapshots.end(),
             [window](const auto &s) { return s.window == window; });
         if (saved == session.snapshots.end()) continue;
+        if (window->isMinimized()) {
+            Session candidate = session;
+            auto candidateSaved = std::find_if(candidate.snapshots.begin(), candidate.snapshots.end(),
+                [window](const auto &s) { return s.window == window; });
+            const NativeMoveSnapshot restore{window->window(), window->screen(), saved->geometry,
+                saved->floatingGeometry, saved->fullscreenRestoreGeometry, saved->maximizeMode,
+                saved->quickTileMode, saved->fullScreen, true};
+            candidate.snapshots.erase(candidateSaved);
+            candidate.windows.removeAll(window);
+            candidate.overflow.removeAll(window);
+            if (!candidate.snapshots.isEmpty() && !reflowSession(candidate, {}, false, false)) return;
+            const QString key = it.key();
+            const quint64 generation = m_applicationGuard.generation();
+            bool committed = false;
+            const bool accepted = m_host->admitIndependentWindowToCardWorkspace(window, restore, [&] {
+                if (committed || generation != m_applicationGuard.generation()
+                    || !m_sessions.contains(key)) return false;
+                if (candidate.snapshots.isEmpty()) m_sessions.remove(key);
+                else m_sessions[key] = candidate;
+                m_applicationGuard.invalidate();
+                committed = true;
+                return true;
+            });
+            if (committed) {
+                auto remaining = m_sessions.find(key);
+                if (remaining != m_sessions.end() && applySession(remaining.value(), false)) scheduleSettle();
+                return;
+            }
+            Q_UNUSED(accepted);
+        }
         saved->userMinimized = window->isMinimized();
         session.participationDirty = true;
         m_applicationGuard.invalidate();
@@ -275,8 +340,11 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
         || !m_host->allowsDesktopStageOnOutput(output)
         || !m_host->isManagedWindowForDesktopStage(window)
         || (intent != CardDropIntent::OpenSpace && intent != CardDropIntent::ActivateBento
-            && intent != CardDropIntent::NativeDesktop))
+            && intent != CardDropIntent::NativeDesktop && intent != CardDropIntent::ActiveCard))
         return std::nullopt;
+    if (intent == CardDropIntent::ActiveCard
+        && (window->screen() != output || !m_host->isTabletOutputForDesktopStage(output)
+            || !managesWindow(window) || side)) return std::nullopt;
     // An ordinary source may finish its held carry on a free external output.
     // Keep managed departures and occupied/tablet destinations on their
     // workspace admission path; NativeDesktop must not bypass that ownership.
@@ -376,14 +444,18 @@ bool DesktopStageController::cardDropValid(const PreparedDrop &drop) const
         || current->hadSession != drop.hadSession
         || current->leavingBento != drop.leavingBento
         || current->residents != drop.residents) return false;
-    const bool sameInputs = current->minimumSizes == drop.minimumSizes
-        && current->sourceGeometries == drop.sourceGeometries;
+    const bool sameMinimums = current->minimumSizes == drop.minimumSizes;
+    const bool sameInputs = sameMinimums && current->sourceGeometries == drop.sourceGeometries;
     // First-layout edge entry is re-solved by transferCardWindow immediately
     // before publication. A configure acknowledgement or still-feasible minimum
     // hint update must not invalidate otherwise unchanged receiver ownership.
     const bool refreshableFirstEdge = drop.intent == CardDropIntent::ActivateBento
         && !drop.hadSession && !drop.leavingBento && !drop.localTarget;
-    return (sameInputs || refreshableFirstEdge)
+    // A held Bento pane may still be acknowledging the source layout's settle
+    // while it is carried. Active admission removes from a freshly solved value
+    // copy, so geometry drift alone is not a stale topology signal.
+    const bool refreshableActive = drop.intent == CardDropIntent::ActiveCard && sameMinimums;
+    return (sameInputs || refreshableFirstEdge || refreshableActive)
         && (!drop.localTarget || prepareLocalPlacement(drop).has_value());
 }
 
@@ -439,9 +511,55 @@ bool DesktopStageController::transferNativeCarryToDesktop(
     return handoffWindowToOutput(drop.window, drop.output, drop.geometry, drop.intent, drop.side);
 }
 
+bool DesktopStageController::transferBentoCarryToActive(
+    const PreparedCarrySource &source, const PreparedDrop &drop)
+{
+    if (drop.intent != CardDropIntent::ActiveCard
+        || !nativeCarrySourceValid(source) || !cardDropValid(drop)
+        || source.isDesktopWindow() || source.m_window != drop.window
+        || source.origin().output != outputKey(drop.output)
+        || drop.window->isUserMove() || drop.window->isUserResize()) return false;
+    const QString sourceKey = source.origin().output;
+    const auto session = m_sessions.constFind(sourceKey);
+    if (session == m_sessions.cend()) return false;
+    const auto departure = prepareBentoDeparture(session.value(), source.m_window,
+        [this](Session &candidate, const auto &preferred, bool required) {
+            return reflowSession(candidate, preferred, required, false);
+        });
+    if (!departure) return false;
+    PreparedDrop validation = drop;
+    validation.consumed = std::make_shared<bool>(false);
+    const auto token = m_applicationGuard.generation();
+    QPointer<KWin::EffectWindow> arrival = drop.window;
+    QPointer<KWin::LogicalOutput> tablet = drop.output;
+    bool committed = false;
+    const bool accepted = m_host->admitTransferredWindowToTablet(drop.window, [&] {
+        if (committed || !m_applicationGuard.accepts(token) || m_restoring
+            || !arrival || arrival->isDeleted() || !arrival->window()
+            || arrival->isUserMove() || arrival->isUserResize()
+            || !tablet || m_retiredOutputs.contains(tablet)
+            || !KWin::effects->screens().contains(tablet.data())
+            || !nativeCarrySourceValid(source) || !cardDropValid(validation)
+            || !m_sessions.contains(sourceKey)) return false;
+        if (departure->snapshots.isEmpty()) m_sessions.remove(sourceKey);
+        else m_sessions[sourceKey] = *departure;
+        committed = true;
+        return true;
+    });
+    if (!committed) return false;
+    *drop.consumed = true;
+    // Once receiver membership and source removal publish, later native
+    // interruption belongs to CardStage; never replay stale Bento ownership.
+    if (!accepted || !m_applicationGuard.accepts(token)) return true;
+    auto remaining = m_sessions.find(sourceKey);
+    if (remaining != m_sessions.end() && !applySession(remaining.value(), false)) return true;
+    scheduleSettle();
+    return true;
+}
+
 std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const PreparedDrop &drop)
 {
-    if (drop.intent == CardDropIntent::NativeDesktop)
+    if (drop.intent == CardDropIntent::NativeDesktop || drop.intent == CardDropIntent::ActiveCard)
         return cardDropValid(drop) ? std::optional<KWin::RectF>(drop.geometry) : std::nullopt;
     if (!cardDropValid(drop) || (m_host->isTabletOutputForDesktopStage(drop.output)
         && drop.intent == CardDropIntent::OpenSpace && !drop.hadSession))

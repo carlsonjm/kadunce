@@ -23,7 +23,7 @@ struct CarryOrigin {
     quint64 revision = 0;     // Source membership revision at pickup.
     bool operator==(const CarryOrigin &) const = default;
 };
-enum class CarryDestinationKind { LineGap, StackGap, LayoutSlot, NewLayoutEdge, NativeDesktop };
+enum class CarryDestinationKind { LineGap, StackGap, LayoutSlot, NewLayoutEdge, NativeDesktop, ActiveCard };
 enum class CarryEdge { Left, Right, Top, Bottom };
 struct CarryDestination {
     CarryDestinationKind kind;
@@ -101,7 +101,9 @@ public:
             default: return std::nullopt;
             }
         } else if (destination.edge
-            || (destination.kind == CarryDestinationKind::NativeDesktop && destination.position != 0)) {
+            || ((destination.kind == CarryDestinationKind::NativeDesktop
+                 || destination.kind == CarryDestinationKind::ActiveCard)
+                && destination.position != 0)) {
             return std::nullopt;
         }
         m_destination = std::move(destination);

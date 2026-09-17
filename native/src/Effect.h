@@ -261,6 +261,9 @@ private:
     void connectManagedWindow(KWin::EffectWindow *window);
     bool admitTransferredWindowToTablet(
         KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; }) override;
+    bool admitIndependentWindowToCardWorkspace(KWin::EffectWindow *window,
+        const NativeMoveSnapshot &restore,
+        const std::function<bool()> &commitSource) override;
 
     QAction *m_toggleAction = nullptr;
     QAction *m_releaseAction = nullptr;

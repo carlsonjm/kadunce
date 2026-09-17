@@ -116,7 +116,8 @@ public:
     }
     // Import one logical group beside any existing independent cards. The first
     // identity is its selected face; existing selection remains authoritative.
-    std::optional<PreparedAdmission> prepareGroupAdmission(const QList<Handle> &windows) const {
+    std::optional<PreparedAdmission> prepareGroupAdmission(const QList<Handle> &windows,
+        const QList<Handle> &independent = {}) const {
         if (windows.isEmpty() || !invariantHolds() || hasDetachedMember()) return std::nullopt;
         PreparedAdmission result;
         result.destination = m_identity;
@@ -134,6 +135,10 @@ public:
                 if (!result.model.stackSelectedWith(destination, -1,
                         CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
             }
+        }
+        for (const auto &window : independent) {
+            if (result.windows.contains(window)) return std::nullopt;
+            appendTo(result.model, result.windows, window, false);
         }
         if (selectedId) {
             for (int i = 0; i < result.model.count(); ++i) {

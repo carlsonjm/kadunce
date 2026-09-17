@@ -555,6 +555,8 @@ public Q_SLOTS:
     bool ownershipTransfer() { return bento.ownershipTransfer(); }
     QString ownershipEvidence() const { return bento.ownershipEvidence; }
     bool tabletAdmissionOrdering() { return bento.tabletAdmissionOrdering(); }
+    bool bentoActiveAdmission() { return bento.bentoActiveAdmission(); }
+    QString bentoActiveEvidence() const { return bento.activeEvidence; }
     bool productionTabletAdmission() { return bento.productionTabletAdmission(); }
     bool prepareProductionTablet() { return bento.prepareProductionTablet(); }
     bool productionTabletPlaced() { return bento.productionTabletPlaced(); }

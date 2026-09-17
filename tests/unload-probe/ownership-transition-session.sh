@@ -37,7 +37,7 @@ sleep .4
 qdbus6 studio.warbler.UnloadClient /Client ordinaryCompanion
 sleep .4
 check a2OrdinaryNeighbor
-sleep .4
+sleep 1
 check a2Return
 sleep .6
 check a2Project

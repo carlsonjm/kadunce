@@ -5,7 +5,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh) ;;
     side-runtime-session.sh|column-runtime-session.sh) ;;
     membership-runtime-session.sh) ;;
-    lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
+    lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh|active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
@@ -14,7 +14,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
 esac
 unload_root=$(mktemp -d /tmp/kadunce-unload-test.XXXXXX)
 output_count=1
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-transition-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh ]]; then output_count=2; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-transition-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == active-admission-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh ]]; then output_count=2; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == *runtime-session.sh ]]; then output_count=2; test -d "${KADUNCE_RUNTIME_BUILD:?runtime build required}/bin"; fi
 if [[ -n ${KADUNCE_TEST_OUTPUT_COUNT:-} ]]; then
     [[ $KADUNCE_TEST_OUTPUT_COUNT == 1 || $KADUNCE_TEST_OUTPUT_COUNT == 2 ]] || exit 2

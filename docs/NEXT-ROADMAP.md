@@ -92,15 +92,16 @@ physical checks, and have explicit ownership.
   first-snap, neighbor, and two-output ownership routes pass.
 - [x] Physically accept centered card labels, right-edge stack position, and the
   pane-ordered Bento group label.
-- [ ] Refactor ownership so Bento contains only its visible pane combination;
+- [x] Refactor ownership so Bento contains only its visible pane combination;
   minimized, displaced, overflowed, and extracted windows become independent Card
   Line cards with no retained Bento association.
-- [ ] Add atomic prepared admission and removal for one logical group. Selecting a
+- [x] Add atomic prepared admission and removal for one logical group. Selecting a
   Bento group must transfer only that group while unrelated individual cards remain
   owned and hidden; selecting an individual must preserve the separate group.
-- [ ] Rebuild top-edge Active extraction on that ownership contract and cover both
-  selection paths, rollback, repeated transitions, release, unload, and other-output
-  isolation before physical review.
+- [ ] Physically accept the rebuilt top-edge Active extraction. The candidate uses
+  the canonical ownership contract and now covers both selection paths, rollback,
+  repeated transitions, final-member teardown, release, unload, and other-output
+  isolation.
 - [ ] Make stack extraction reliable.
 - [ ] Give reorder a useful intent zone without accidental paging.
 

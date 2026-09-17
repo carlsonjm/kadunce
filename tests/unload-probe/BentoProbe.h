@@ -11,6 +11,8 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     std::function<void(KWin::LogicalOutput *)> prepare;
     std::function<std::optional<Kadunce::NativeMoveSnapshot>(KWin::EffectWindow *)> restore;
     std::function<bool(KWin::EffectWindow *, const std::function<bool()> &)> admission;
+    std::function<bool(KWin::EffectWindow *, const Kadunce::NativeMoveSnapshot &,
+        const std::function<bool()> &)> independentAdmission;
     bool isTabletOutputForDesktopStage(const KWin::LogicalOutput *o) const override { return tablet && o == tablet; }
     bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *) const override { return true; }
     bool isManagedWindowForDesktopStage(const KWin::EffectWindow *w) const override {
@@ -24,6 +26,10 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     }
     bool admitTransferredWindowToTablet(KWin::EffectWindow *w, const std::function<bool()> &commit) override {
         return admission && admission(w, commit);
+    }
+    bool admitIndependentWindowToCardWorkspace(KWin::EffectWindow *w,
+        const Kadunce::NativeMoveSnapshot &restore, const std::function<bool()> &commit) override {
+        return independentAdmission && independentAdmission(w, restore, commit);
     }
 };
 struct TabletProbeHost final : Kadunce::CardStageHost {
@@ -339,6 +345,7 @@ struct BentoProbe {
     int contestedFrames = 0;
     int unwantedCorrections = 0;
     QString tabletEvidence = QStringLiteral("not started");
+    QString activeEvidence = QStringLiteral("not started");
     QPointer<KWin::LogicalOutput> expectedTablet;
     bool productionTabletPlaced() const { return client && expectedTablet && client->screen() == expectedTablet; }
     bool beginGeometryTest(bool contest) {
@@ -544,6 +551,140 @@ struct BentoProbe {
         host.tablet.clear();
         controller.restoreAllSessions();
         return rejected && stale && accepted;
+    }
+    bool bentoActiveAdmission() {
+        activeEvidence = QStringLiteral("collect");
+        controller.restoreAllSessions();
+        QList<QPointer<KWin::EffectWindow>> windows;
+        for (auto *w : KWin::effects->stackingOrder())
+            if (host.isManagedWindowForDesktopStage(w)) windows.append(w);
+        if (windows.size() < 3 || KWin::effects->screens().size() < 2) return false;
+        activeEvidence = QStringLiteral("choose-output");
+        KWin::LogicalOutput *tablet = nullptr;
+        KWin::LogicalOutput *other = nullptr;
+        for (auto *candidate : KWin::effects->screens()) {
+            const int count = std::count_if(windows.cbegin(), windows.cend(),
+                [candidate](const auto &window) { return window->screen() == candidate; });
+            if (count >= 2) { tablet = candidate; break; }
+        }
+        if (!tablet) return false;
+        activeEvidence = QStringLiteral("activate-bento");
+        for (auto *candidate : KWin::effects->screens())
+            if (candidate != tablet) { other = candidate; break; }
+        if (!other) return false;
+        host.tablet = tablet;
+        windows.removeIf([tablet](const auto &window) { return window->screen() != tablet; });
+        for (auto &window : windows) window->window()->setMinimized(false);
+        QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> sourceOrigins;
+        for (const auto &window : windows) sourceOrigins.append({window, window->frameGeometry()});
+        const bool toggled = controller.toggleOnOutput(tablet->name());
+        if (!toggled) return false;
+        activeEvidence = QStringLiteral("prepare");
+        const auto otherBefore = controller.outputStageState();
+        TabletProbeHost cardsHost;
+        cardsHost.tablet = tablet;
+        Kadunce::CardStageController cards(&cardsHost);
+        auto prepare = [&](KWin::EffectWindow *window) {
+            const auto source = controller.prepareNativeCarrySource(window);
+            const auto drop = controller.prepareCardDrop(window, tablet,
+                host.activeTargetForDesktopStage(tablet),
+                Kadunce::DesktopStageController::CardDropIntent::ActiveCard);
+            return std::pair(source, drop);
+        };
+        auto [rejectedSource, rejectedDrop] = prepare(windows[0]);
+        if (!rejectedSource || !rejectedDrop) return false;
+        activeEvidence = QStringLiteral("transactions");
+        const auto exactBefore = controller.outputStageState();
+        host.admission = [](auto *, const auto &) { return false; };
+        const bool rejected = !controller.transferBentoCarryToActive(*rejectedSource, *rejectedDrop)
+            && controller.outputStageState() == exactBefore && controller.managesWindow(windows[0]);
+
+        auto [staleSource, staleDrop] = prepare(windows[0]);
+        bool staleCommitRejected = false;
+        host.admission = [&](auto *, const auto &commit) {
+            controller.stopPendingSettle();
+            staleCommitRejected = !commit();
+            return false;
+        };
+        const bool stale = staleSource && staleDrop
+            && !controller.transferBentoCarryToActive(*staleSource, *staleDrop)
+            && staleCommitRejected && controller.outputStageState() == exactBefore
+            && controller.managesWindow(windows[0]);
+
+        auto [firstSource, firstDrop] = prepare(windows[0]);
+        bool admissionCalled = false, sourceCommitAccepted = false;
+        if (firstSource) {
+            const auto restore = firstSource->restoreSnapshot();
+            host.admission = [&, restore](KWin::EffectWindow *window, const auto &commit) {
+                admissionCalled = true;
+                return cards.admitTransferredWindowToTablet(window, [&] {
+                    sourceCommitAccepted = commit();
+                    return sourceCommitAccepted;
+                }, {}, &restore);
+            };
+        }
+        const bool firstCommit = firstSource && firstDrop
+            && controller.transferBentoCarryToActive(*firstSource, *firstDrop);
+        const bool firstReplay = firstSource && firstDrop
+            && !controller.transferBentoCarryToActive(*firstSource, *firstDrop);
+        const bool firstCards = cards.isActive() && cards.liveCardIndex(windows[0]) >= 0;
+        const bool firstDeparted = !controller.managesWindow(windows[0]);
+        const bool firstRemaining = controller.managesWindow(windows[1]);
+        const bool firstSession = controller.hasSessionOnOutput(tablet->name());
+        const bool first = firstCommit && firstReplay && firstCards && firstDeparted
+            && firstRemaining && firstSession;
+        QList<QPointer<KWin::EffectWindow>> projected;
+        const bool grouped = first && controller.transferTabletSessionToCardLine(tablet,
+            [&](const auto &projection, const auto &commit) {
+                for (const auto &member : projection.panes) projected.append(member.window);
+                for (const auto &member : projection.overflow) projected.append(member.window);
+                return cards.admitBentoStack(projection, commit);
+            });
+        if (grouped) cards.toggle();
+        const bool neighbors = grouped
+            && cards.presentation() == Kadunce::CardPresentation::CardLine
+            && cards.model().count() == 2 && cards.selectedWindow() == windows[0]
+            && std::all_of(projected.cbegin(), projected.cend(), [&](const auto &window) {
+                return cards.usesBentoProjectionAperture(window);
+            });
+        cards.release();
+        const bool repeatedSetup = neighbors && controller.toggleOnOutput(tablet->name());
+        bool lastCommit = repeatedSetup;
+        for (int i = 0; i < windows.size(); ++i) {
+            auto [nextSource, nextDrop] = prepare(windows[i]);
+            if (nextSource) {
+                const auto restore = nextSource->restoreSnapshot();
+                host.admission = [&, restore](KWin::EffectWindow *window, const auto &commit) {
+                    return cards.admitTransferredWindowToTablet(window, commit, {}, &restore);
+                };
+            }
+            lastCommit &= nextSource && nextDrop
+                && controller.transferBentoCarryToActive(*nextSource, *nextDrop);
+        }
+        const bool lastCard = cards.liveCardIndex(windows.last()) >= 0;
+        const bool lastSessionGone = !controller.hasSessionOnOutput(tablet->name());
+        const bool lastDeparted = !controller.managesWindow(windows.last());
+        const bool last = lastCommit && lastCard && lastSessionGone && lastDeparted;
+        const bool isolated = controller.outputStageState().filter(other->name() + QLatin1Char('|'))
+                == otherBefore.filter(other->name() + QLatin1Char('|'));
+        host.admission = {};
+        cards.release();
+        controller.restoreAllSessions();
+        bool restored = true;
+        for (const auto &[window, geometry] : sourceOrigins)
+            restored &= window && !window->isMinimized() && window->frameGeometry() == geometry;
+        host.tablet.clear();
+        activeEvidence = QStringLiteral("rejected=%1 stale=%2 first=%3 neighbors=%4 repeated=%5 last=%6 isolated=%7 restored=%8")
+            .arg(rejected).arg(stale).arg(first).arg(neighbors).arg(repeatedSetup)
+            .arg(last).arg(isolated).arg(restored);
+        if (!first) activeEvidence += QStringLiteral(" commit=%1 replay=%2 called=%3 source=%4 cards=%5 index=%6 departed=%7 remaining=%8 session=%9")
+            .arg(firstCommit).arg(firstReplay).arg(admissionCalled)
+            .arg(sourceCommitAccepted).arg(firstCards).arg(cards.liveCardIndex(windows[0]))
+            .arg(firstDeparted).arg(firstRemaining).arg(firstSession);
+        if (!last) activeEvidence += QStringLiteral(" lastCommit=%1 lastIndex=%2 lastDeparted=%3 lastSession=%4")
+            .arg(lastCommit).arg(lastCard).arg(lastDeparted).arg(lastSessionGone);
+        return rejected && stale && first && neighbors && repeatedSetup
+            && last && isolated && restored;
     }
     bool edgeBatchAdmission() {
         controller.restoreAllSessions();

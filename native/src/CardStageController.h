@@ -163,6 +163,8 @@ public:
     bool admitTransferredWindowToTablet(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const QRectF &carriedOrigin = {}, const NativeMoveSnapshot *restore = nullptr);
+    bool admitIndependentWindow(KWin::EffectWindow *window,
+        const NativeMoveSnapshot &restore, const std::function<bool()> &commitSource);
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
     void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);

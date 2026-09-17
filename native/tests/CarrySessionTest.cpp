@@ -103,6 +103,22 @@ int main()
         require(s.resolve(lineRequest->ticket, true, 3, 7), "Line gap rejected");
         require(outcome(CarryResolution::ReadyToCommit).destination == line, "Line gap lost");
 
+        start();
+        const CarryDestination active{CarryDestinationKind::ActiveCard,
+            QStringLiteral("tablet"), QStringLiteral("tablet"), 0, 0};
+        require(s.preview(active).has_value(), "Active-card destination rejected");
+        auto activeRequest = s.release(owner);
+        require(activeRequest && s.resolve(activeRequest->ticket, true, 3, 0),
+            "Active-card acceptance failed");
+        require(outcome(CarryResolution::ReadyToCommit).destination == active,
+            "Active-card destination lost");
+        start();
+        auto malformedActive = active; malformedActive.position = 1;
+        require(!s.preview(malformedActive), "Active-card destination accepted a slot");
+        malformedActive = active; malformedActive.edge = CarryEdge::Top;
+        require(!s.preview(malformedActive), "Active-card destination duplicated edge semantics");
+        s.cancel(); outcome(CarryResolution::ReturnToOrigin);
+
         const QString monitor = QStringLiteral("monitor");
         const auto native = monitorDropIntent(monitor, 10, std::nullopt);
         require(native && native->kind == CarryDestinationKind::NativeDesktop && !native->edge,

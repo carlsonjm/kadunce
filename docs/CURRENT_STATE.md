@@ -50,12 +50,20 @@ centered below the card, and put pageable stack position at the row's right edge
 A Bento group lists every visible pane application in pane order, including
 duplicates, while excluding overflow and omitting stack position.
 
-## Open limitations
+The current candidate implements the approved visible-pane Bento ownership model.
+Bento owns only its current visible pane combination. Solver overflow, recomposition
+displacement, user/application minimization, and top extraction publish independent
+CardWorkspace identities with no Bento provenance. Minimized intent remains minimized
+and nonselected. Selecting the Bento group suspends unrelated individual cards while
+only that group resumes natively; reopening Card Line re-admits the same group beside
+those retained cards. Release and unload restore every identity once.
 
-- The current implementation still retains Bento overflow and restores unrelated
-  Card Line neighbors when a projected Bento group resumes. Both behaviors are
-  superseded by the approved visible-pane ownership contract and require a protected
-  ownership refactor before top-edge extraction can be promoted.
+The candidate also maps the existing 12 px top contact band to ordinary Active-card
+admission for a carried Bento pane. Left/right Bento layout control, bottom desktop
+detach, Shift tiling, and KWin maximize behavior remain unchanged. This adapter has
+automated and private-compositor coverage but still requires physical acceptance.
+
+## Open limitations
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
 - Native-to-stack admission is not one atomic destination transaction.

@@ -59,6 +59,11 @@ public:
         KWin::EffectWindow *) const { return std::nullopt; }
     virtual bool admitTransferredWindowToTablet(
         KWin::EffectWindow *window, const std::function<bool()> &commitSource) = 0;
+    virtual bool admitIndependentWindowToCardWorkspace(
+        KWin::EffectWindow *window, const NativeMoveSnapshot &restore,
+        const std::function<bool()> &commitSource) {
+        Q_UNUSED(window); Q_UNUSED(restore); Q_UNUSED(commitSource); return false;
+    }
 };
 
 class DesktopStageController final
@@ -113,7 +118,7 @@ public:
                                        KWin::LogicalOutput *output,
                                        const KWin::RectF &geometry);
 
-    enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
+    enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop, ActiveCard };
     // Opaque receiver reservation. Copies share consumption: a preview cannot
     // be replayed, including when source commitment is rejected.
     class PreparedDrop {
@@ -154,6 +159,8 @@ public:
     bool activatePreparedTabletDrop(const PreparedDrop &drop);
     bool transferNativeCarryToDesktop(const PreparedCarrySource &source,
                                      const PreparedDrop &drop);
+    bool transferBentoCarryToActive(const PreparedCarrySource &source,
+                                    const PreparedDrop &drop);
     bool transferPreparedCard(const PreparedDrop &drop,
         const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource);

@@ -1158,6 +1158,23 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const QRectF area = nativeLandingAreaForOutput(target);
     // Landing clearance is separate from the physical-edge gesture target.
     const double exitBottom = area.bottom() - 10.0;
+    if (local && tablet && bento && !desktopWindow
+        && edge == CarryEdge::Top) {
+        const KWin::RectF targetRect(activeTarget(target));
+        const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
+            targetRect, DesktopStageController::CardDropIntent::ActiveCard);
+        if (!reserved) return;
+        m_carryDestination = reserved;
+        m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+        if (!m_carryPreview) return;
+        handoff.previewDrop({CarryDestinationKind::ActiveCard, target->name(),
+            target->name(), 0, 0},
+            [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+            [this, reserved](const PreparedCarrySource &source) {
+                return m_desktopStage->transferBentoCarryToActive(source, *reserved);
+            });
+        return;
+    }
     if (local && bento && !desktopWindow
         && contact.y() >= double(target->geometry().bottom()) - 24.0) {
         QSizeF size = QRectF(handoff.source()->restoreSnapshot().floatingGeometry).size();
@@ -1398,6 +1415,12 @@ bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window,
         : std::nullopt;
     return m_cardStage->admitTransferredWindowToTablet(window, commitSource, carriedOrigin,
         restore ? &*restore : nullptr);
+}
+
+bool Effect::admitIndependentWindowToCardWorkspace(KWin::EffectWindow *window,
+    const NativeMoveSnapshot &restore, const std::function<bool()> &commitSource)
+{
+    return m_cardStage->admitIndependentWindow(window, restore, commitSource);
 }
 
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
