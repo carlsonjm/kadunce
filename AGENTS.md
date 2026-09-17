@@ -1,55 +1,38 @@
 # Repository context and startup
 
-For every assigned task, use this startup order:
+For every task, read only this startup set, in order:
 
-1. Read `AGENTS.md`.
-2. Read the canonical current state and roadmap: `docs/CURRENT_STATE.md` and
-   `docs/NEXT-ROADMAP.md`.
-3. Read `SWARM.md`.
-4. Read only source and documentation relevant to the assigned task.
-5. Do not reconstruct historical context unless one of those sources explicitly
-   requires it.
+1. `AGENTS.md`
+2. `docs/CURRENT_STATE.md`
+3. `docs/NEXT-ROADMAP.md`
+4. `SWARM.md`
 
-Check the actual branch and diff before editing. Read `docs/ARCHITECTURE.md` and
-its linked decisions and contracts only when the assigned task requires them.
+Then inspect the branch, working tree, and only the source or reference documents
+needed for the assigned work. `docs/README.md` classifies the remaining documents.
+Do not read `docs/archive/` during normal startup. Use archived evidence only to
+diagnose a regression, answer a provenance question, or revisit a failed candidate.
 
-End substantial work by updating CURRENT_STATE: changed behavior, evidence,
-installed versus source state, remaining uncertainty, and the next bounded task.
-Record architectural changes in `docs/DECISIONS.md`. Keep CURRENT_STATE under
-1,000 words; replace stale state instead of appending a transcript. Documentation
-is a navigation cache, not a substitute for checking source or live state.
+`CURRENT_STATE.md` describes current behavior, limitations, source/installed state,
+and validation only. Replace stale text instead of appending progress notes.
+`NEXT-ROADMAP.md` is the sole execution plan. Record durable architecture decisions
+in `DECISIONS.md`; Git records implementation history.
 
-J-Team owns product/design/priorities and physical acceptance. A-Team is lead
-engineer/co-architect; B-Team is senior engineer and default implementation owner.
-Use `docs/ENGINEERING-BLOCKS.md` for bounded assignments and architecture-review
-gates. Do not begin unassigned packets. Work on disjoint files when tasks overlap.
-Read `docs/MVP-RELEASE-SCOPE.md` before planning further MVP work; it overrides
-the old mandatory block sequence. A owns planning-time scope/resource decisions.
-Focused checks plus safety are the default; J owns broader physical regression.
-Do not infer permission to install or publish from a handoff document.
+Keep `SWARM.md` empty unless another live agent must act. A live handoff must be at
+most 50 words; remove it when the dependency is resolved. Do not put backlogs,
+status reports, implementation history, or completed handoffs there.
 
-Cross-agent communication belongs only in `SWARM.md`. Keep at most three live
-handoffs there, with at most 50 words per handoff, and delete completed handoffs
-instead of archiving them. Record durable architectural and engineering decisions
-in `docs/ARCHITECTURE.md` or `docs/DECISIONS.md`; Git history records implementation
-changes. Code comments explain code behavior and reasoning only, never agent
-conversation, handoffs, product-management instructions, implementation history,
-or who changed something.
+# Safety control
 
-# Mandatory safety control
+Kadunce's persistent tray enable/disable switch is release-critical, including
+when the workspace effect is disabled or incompatible. Never remove it, make it
+optional, or treat effect tests alone as release evidence.
 
-For sandbox, D-Bus or compositor startup failures, first follow
-`docs/TEST-ENVIRONMENT-PROCEDURE.md`. Transport denial is not proof of a missing
-kill switch. Preserve private/live bus separation and consume user-run evidence.
+For sandbox, D-Bus, private compositor, or startup failures, follow
+`docs/TEST-ENVIRONMENT-PROCEDURE.md`. A transport denial is not evidence that the
+kill switch is missing. Preserve private/live bus separation.
 
-Kadunce's persistent tray enable/disable switch is a release-blocking requirement,
-including when the workspace effect is disabled or incompatible. Never remove it
-or make it optional. Do not mark an install/update ready based on effect tests alone.
-
-For Kadunce updates, run `bash tests/verify-control.sh` and, in the user's graphical
-session after installation, `bash tests/verify-live-control.sh`. Check session
-startup wiring too: the control must be wanted by `graphical-session.target`, not
-only `default.target`, so logout/login under a surviving user manager restarts it.
-Do not log out the user, stop the graphical session, or toggle the effect as a test
-without permission. Ask for visual confirmation when needed; report any safety
-control failure as blocking further feature testing.
+For Kadunce changes, run `bash tests/verify-control.sh`. After an authorized live
+installation, run `bash tests/verify-live-control.sh` in the graphical session and
+confirm the controller is wanted by `graphical-session.target`. Do not log out the
+user, stop the graphical session, toggle the live effect, install, or publish unless
+the task explicitly authorizes it. A safety-control failure blocks promotion.

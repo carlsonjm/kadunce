@@ -1,0 +1,88 @@
+# Archive index
+
+These documents are historical evidence. They are excluded from normal startup and
+must not override canonical state, roadmap, architecture, decisions, or live
+contracts. Use them for regression diagnosis, provenance, or a failed-candidate
+investigation.
+
+## Canonical/reference snapshots
+
+- `ARCHITECTURE-THROUGH-20260916.md`
+- `CARRY-SESSION-CONTRACT-THROUGH-20260911.md`
+- `CURRENT_STATE-20260916.md`
+- `DECISIONS-THROUGH-20260916.md`
+- `INPUT-OWNERSHIP-20260911.md`
+- `INTEGRATION-RELEASE-GATE-20260916.md`
+- `ITASCA-VISUAL-AUDIT-BASELINE-20260915.md`
+- `KADUNCE-TABLE-CONCEPT-20260915.md`
+- `NEXT-ROADMAP-20260916.md`
+- `REFACTOR-REGRESSION-GATE-20260911.md`
+- `SHUFFLE-KEYBOARD-CONCEPT-20260916.md`
+- `TEST-ENVIRONMENT-PROCEDURE-20260915.md`
+
+## Accepted freezes and checkpoints
+
+- `CHECKPOINT-20260916.md`
+- `EOD-20260915.md`
+- `FREEZE-20260912-EDGE-STABILIZATION.md`
+- `FREEZE-20260912.md`
+- `FREEZE-20260913-ROW-MOTION.md`
+- `FREEZE-20260913-STACK-BASELINE.md`
+- `FREEZE-20260913-STACK-BROWSE.md`
+- `FREEZE-20260913-STACK-POLISH.md`
+- `FREEZE-20260914-ACTIVE-LIFETIME.md`
+- `FREEZE-20260914-BENTO.md`
+- `FROZEN-2026-09-10.md`
+- `GUEST-CORNERS-CANDIDATE.md`
+- `RENDER-AUDIT-20260914.md`
+
+## Carry, ownership, and restoration investigations
+
+- `ACTIVE-CARRY-DESTINATION.md`
+- `CARRY-INPUT-ROUTE.md`
+- `CARRY-PAINT.md`
+- `DISPLAY-HANDOFF-CANDIDATE.md`
+- `EDGE-OWNERSHIP-AUDIT.md`
+- `K1-TAKEOVER-AUDIT.md`
+- `MONITOR-ADMISSION-20260914.md`
+- `NATIVE-CONTACT-OWNERSHIP.md`
+- `NATIVE-HANDOFF-COORDINATOR.md`
+- `NATIVE-INTERRUPTION-VALIDATION.md`
+- `NATIVE-MOVE-OBSERVER.md`
+- `NATIVE-SNAP-VALIDATION.md`
+- `OWNERSHIP-A1-20260916.md`
+- `OWNERSHIP-A2-20260916.md`
+- `PRODUCTION-CARRY-INTEGRATION.md`
+- `RESTORATION-FREEZE.md`
+- `RESTORATION-VALIDATION.md`
+- `ROLLBACK-PROVENANCE.md`
+- `UNLOAD-VALIDATION.md`
+
+## Physical and candidate validation
+
+- `CARRY-TEST-TONIGHT.md`
+- `COUCH-VALIDATION.md`
+- `DESKTOP-EXIT-TEST.md`
+- `FIRST-CARRY-PHYSICAL-RESULT.md`
+- `FOCUSED-PAIR-TEST-PASS.md`
+- `NATIVE-ENTRY-TEST.md`
+- `NATIVE-REFINEMENTS-TEST.md`
+- `NATIVE-RETURN-TEST.md`
+- `POST-FREEZE-TEST-20260915.md`
+- `WINDOW-STATE-TEST-PASS.md`
+- `XWAYLAND-TEST.md`
+
+## Geometry, rendering, and research
+
+- `BENTO-COLUMN-20260914.md`
+- `BENTO-MOTION-20260914.md`
+- `BENTO-RAIL-20260914.md`
+- `BENTO-SIDE-20260914.md`
+- `GEOMETRY-AUDIT-20260913.md`
+- `KDE-REUSE-AUDIT.md`
+- `LIVE-LAG-EVIDENCE-20260913.md`
+- `VISUAL-AUDIT-20260915.md`
+
+Moved files keep their original basename, so the trace from an old path is mechanical:
+`docs/NAME.md` → `docs/archive/NAME.md`. Git history remains authoritative for exact
+commit context and for deleted redundant documents.

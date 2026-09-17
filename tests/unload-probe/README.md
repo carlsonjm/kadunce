@@ -29,13 +29,15 @@ Run `KADUNCE_PROBE_SESSION=bento-session.sh bash tests/verify-unload-isolated.sh
 from the repository root for real-client synchronous restoration during Bento
 placement. The test-only host treats virtual outputs as external. It compiles
 the current production controller; it is not a production plugin replacement.
-See docs/NATIVE-INTERRUPTION-VALIDATION.md for coverage and limits.
+Interpret results against `../../docs/CARRY-SESSION-CONTRACT.md` and
+`../../docs/INTEGRATION-RELEASE-GATE.md`.
 
-## Native snap experiment
+## Native takeover probe
 
 Run `KADUNCE_PROBE_SESSION=snap-session.sh bash tests/verify-unload-isolated.sh`.
 This needs jq in addition to the existing test dependencies. SnapProbe is a
 test-only filter, not production Effect. Native positive controls demonstrate
 actual snapping; pointer/touch adoption demonstrates suppression plus shared
 CarrySession pose updates. Early Shift and fresh native behavior are checked.
-See docs/NATIVE-SNAP-VALIDATION.md before interpreting this as runtime readiness.
+The probe validates the takeover boundary only. It does not establish production
+runtime readiness or authorize live-session testing.

@@ -1,0 +1,78 @@
+# Documentation index
+
+Canonical documentation states what is true now, why it is true, and what must be
+preserved. Reference documents define live interfaces, tests, product contracts, or
+operational procedures. Archived evidence explains how the current state was reached
+and is not part of normal startup.
+
+## Normal startup
+
+Read only:
+
+1. `../AGENTS.md`
+2. `CURRENT_STATE.md`
+3. `NEXT-ROADMAP.md`
+4. `../SWARM.md`
+
+Then open only the references required by the task. Consult `archive/` for a
+regression, provenance question, or failed-candidate diagnosis.
+
+## Canonical
+
+| Document | Authority |
+| --- | --- |
+| `../AGENTS.md` | repository workflow and safety requirements |
+| `../README.md` | public package and developer entry point |
+| `../SWARM.md` | live cross-worker dependencies only |
+| `README.md` | document classification and routing |
+| `CURRENT_STATE.md` | current behavior, limitations, provenance boundary, validation |
+| `NEXT-ROADMAP.md` | sole execution plan |
+| `ARCHITECTURE.md` | subsystem ownership and invariants |
+| `DECISIONS.md` | durable subsystem-grouped decision ledger |
+| `PRODUCT-CONTRACT.md` | accepted Kadunce product behavior |
+
+## Reference
+
+| Document | Live contract |
+| --- | --- |
+| `CARRY-SESSION-CONTRACT.md` | prepared transfer lifecycle and invariants |
+| `INPUT-OWNERSHIP.md` | input routing, proof, cancellation, and teardown |
+| `INTEGRATION-RELEASE-GATE.md` | candidate promotion evidence |
+| `REFACTOR-REGRESSION-GATE.md` | behavior preserved across structural change |
+| `KNOWN-ISSUES.md` | current limitations and compatibility constraints |
+| `TEST-ENVIRONMENT-PROCEDURE.md` | private/live test separation and failure classification |
+| `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
+| `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |
+| `KADUNCE-TABLE-1.1-CONCEPT.md` | required Table product contract and feasibility gate |
+| `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` | required keyboard product contract and feasibility gate |
+| `../patches/kwin/README.md` | version-bound native touch correction |
+| `../patches/kwin/package/README.md` | installed package and rollback provenance |
+| `../tests/unload-probe/README.md` | private unload/takeover harness contract |
+
+These references are retained outside the archive because changing Kadunce safely
+still depends on them.
+
+## Historical evidence
+
+`archive/README.md` indexes every archived freeze, candidate audit, physical result,
+investigation, and pre-normalization snapshot. An old `docs/NAME.md` reference maps to
+`docs/archive/NAME.md` when that filename exists. Pre-normalization snapshots use a
+date or `THROUGH-YYYYMMDD` suffix and retain the old content verbatim.
+
+## Obsolete or redundant
+
+The following completed coordination or superseded planning documents were deleted.
+Their last pre-normalization versions remain recoverable from Git revision `125806b`:
+
+- `ENGINEERING-BLOCKS.md`
+- `HEAVY-REMAINING.md`
+- `KDE_RESEARCH.md`
+- `MORNING-CHECKLIST.md`
+- `MVP-RELEASE-SCOPE.md`
+- `REFACTOR-PLAN.md`
+- `ROADMAP-HISTORY-20260913.md`
+- `UNIFIED-CARD-BLOCKS.md`
+- `UNIFIED-CARD-OWNERSHIP.md`
+
+No current contract links to these files. Their active scope, where still relevant,
+is represented in `NEXT-ROADMAP.md`, `ARCHITECTURE.md`, or `DECISIONS.md`.

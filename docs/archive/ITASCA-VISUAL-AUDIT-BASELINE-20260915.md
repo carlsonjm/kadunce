@@ -1,7 +1,8 @@
 # Itasca visual language
 
-**Status:** Accepted suite reference. This defines shared visual grammar without
-replacing component-specific interaction contracts.
+**Status:** Accepted suite reference derived from the Kadunce, Tettegouche, and
+Temperance interfaces. This defines shared visual grammar and guides future audit
+and alignment work without replacing app-specific interaction contracts.
 
 ## Intent
 
@@ -74,7 +75,8 @@ Use a 4 px base rhythm. These are semantic roles, not an immediate migration lis
 
 ## Color roles
 
-These semantic values apply to suite-owned presentation.
+These consolidate values already used by Tette and Temperance. Code migration is
+a later engineering block.
 
 | Role | Current baseline | Purpose |
 |---|---|---|
@@ -214,7 +216,7 @@ Static 1.46.0 under the ISC license, including its inherited Feather MIT notice.
 - Do not ship raw Unicode symbols as control icons.
 - Do not mix families inside one control cluster.
 - Draw custom glyphs only for genuine suite-specific gaps.
-- Keep KDE Breeze/provider lookup for application, file, weather, and other
+- Keep KDE Breeze/provider lookup for application, file, weather, tray, and other
   externally owned identity.
 - Use identical semantic names across repositories even when each repository
   vendors only its required subset.
@@ -227,11 +229,12 @@ animated clapper and slash. It is the first documented suite-specific exception.
 These established visuals are product identity or behavior, not migration targets:
 
 - Tette Dot / launcher identity.
-- Temperance's animated Bell and custom Weather glyph.
-- Kadunce's stacked-card tray mark.
+- Temperance's animated Bell.
+- Temperance's custom Weather glyph and behavior.
+- The suite's custom tray icon work.
 
 Lucide must not replace, redraw, simplify, or absorb these components. Preserve
-their geometry and behavior unless a focused product redesign changes the contract.
+their geometry and behavior unless J explicitly opens a focused redesign.
 
 ## Responsive composition
 
@@ -263,14 +266,15 @@ Ambient media is the reference:
 10. Does motion explain state or continuity rather than decorate the interface?
 11. Can every animation be interrupted or retargeted without jumping or lying?
 
-## Durable decisions
+## Accepted decisions and remaining audit questions
 
 - Lucide is the canonical suite action family.
 - `#F8F8FF` is named **Ghost White** and remains the primary foreground.
 - The animated Temperance bell remains a documented Lucide-derived exception.
-- Tette Dot, Bell, Weather, and Kadunce's stacked-card tray mark remain protected.
+- Tette Dot, Bell, Weather, and custom tray icon work remain protected exceptions.
 - Each repository owns its pinned Lucide subset; there is no runtime cross-repo
   asset dependency.
 
-Soft primary (`#F2FFFFFF`) remains a separate foreground level. App-specific outer
-silhouettes may differ when they encode product identity or interaction.
+The audit may recommend whether soft primary (`#F2FFFFFF`) should remain a
+separate foreground level and whether app-specific outer silhouettes should
+converge. Those are review findings, not permission for broad repainting.

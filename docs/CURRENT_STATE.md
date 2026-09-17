@@ -1,124 +1,65 @@
 # Current state
 
-## Product direction — Good Input / Shuffle
+## Product
 
-Good Input publishes the consumer product Shuffle for Plasma. Kadunce, Tettegouche
-and Temperance remain the internal free/open-source components; private integration,
-assets and packaging will live in a Good Input Shuffle repository. Table and Shuffle
-Keyboard are essential. Re-estimate after their feasibility work; server and website
-remain last. See `NEXT-ROADMAP.md`.
+Kadunce is the open-source spatial-window component used by Good Input's Shuffle
+for Plasma product. KWin owns real windows and virtual desktops. Kadunce owns the
+touch interaction model, card membership, output-local Bento sessions, input
+routing, and compositor presentation. Table and Shuffle Keyboard are required
+Shuffle capabilities; their technical feasibility remains open.
 
-## September 16 — budget pause after Temperance visual polish
+## Accepted behavior
 
-J accepted Temperance **4f173d8** and **6e04f4a** as the paused working model:
-popup clearance, smaller power glyphs, lowercase labels, compact notification
-hierarchy, repeated-action sizing and hairline/hover-fill pills. Pill typography or
-padding and the snooze action path remain open. Implementation is paused for budget.
-On resume, close that notification packet first, then fix Kadunce Bento-derived Card
-Line presentation before further Tette feature work. `SWARM.md` stays empty meanwhile.
+- Active, Card Line, ordered stacks, and output-local Bento are implemented.
+- Card Line is compositor presentation and does not park clients at off-screen
+  coordinates. Bento uses reversible real geometry.
+- Transfers prepare and validate the destination before removing the source.
+- Constrained new windows enter the Bento solver or prepared Active ownership.
+- Touch Card Line preserves Bento-owned cards as an ordered stack and keeps the
+  large-pane card on top. A card whose minimum size fits may use the small pane.
+- Other outputs keep their own Bento sessions when the tablet changes presentation.
+- Native carries preserve input ownership, exact restore records, dock clearance,
+  cancellation, and output-local admission rules.
+- Live card presentation uses KWin's off-screen texture path. Proportional margins
+  are accepted; Kadunce does not retain a second snapshot cache.
+- The persistent tray controller releases windows before unloading the effect and
+  is wired to `graphical-session.target`.
 
-## September 16 — A2 ownership and Temperance T1 physically accepted
+The current `main` production sources include the accepted ownership and
+constrained-launch correction. The last confirmed installed Kadunce build used the
+same production content. Revalidate source, package, control, and live provenance
+before the next installation.
 
-J passed A2 constrained-launch routing, Bento → Card Line stack retention and
-large-pane selection, monitor isolation, and lifecycle. Zen using the small pane
-is accepted when its minimum permits it. Accepted candidate **5e91671** is replayed
-as **d2a0357** on PM main **bfe761b**, with identical production sources and every
-newer rolling roadmap/checklist edit preserved. A1 **02e6a6f** remains included.
-See `OWNERSHIP-A2-20260916.md` and `CHECKPOINT-20260916.md` for evidence and rollback.
+## Open limitations
 
-J also passed Temperance T1 **8022fc6**: ticker is back to normal with both stock
-spacers expanding. The installed Temperance plugin is byte-identical to that
-source build. The correction refreshes scene-space width when Plasma moves an
-ancestor container; it does not change layout policy. Tette stays at **7f54caa**.
+- Bento-derived cards retain correct ownership and stack order in Card Line, but
+  some live content is undersized inside a large black presentation area.
+- Pulling a member back from a stack, reorder intent zones, centered labels, and
+  stack-position labeling still need product completion.
+- Native-to-stack admission is not one atomic destination transaction.
+- Some arrival and displaced-neighbor transitions remain visually incomplete.
+- Custom compositor motion does not yet fully follow platform animation scaling or
+  reduced-motion preferences.
+- Plugin installation assumes the tested native KWin plugin directory and requires
+  a rebuild after a KWin ABI change.
+- Table and Shuffle Keyboard have approved product contracts but no accepted
+  feasibility implementation.
 
-This source freeze adds no installation or live configuration change. Kadunce
-installed provenance is J's accepted A2 candidate; replay changes documentation,
-not production behavior. Publication validates the replay's production build,
-focused tests, private ownership runtime and mandatory control package again.
-A2 rollback is A1 **0d970c9** (same production behavior as **bfe761b**). T1 rollback
-is Temperance **10fb70f** through a separate build/install, without history reset.
+## Validation boundary
 
-**Still open:** Bento-derived Card Line presentation uses undersized live content
-inside large black areas. A2.1 has no production commit and is excluded. Tette
-center/transfer and remaining notification polish also remain open. No rejected
-shared-center or fixed-spacer code is part of this freeze.
-
-## September 15 — Itasca visual and Ambient freeze
-
-J installed the whole-suite candidate, rebooted, and physically passed the final
-state. The accepted production heads at the start of the EOD documentation pass
-are:
-
-- Kadunce **192d8b4** — Ghost White tray foreground, lowercase spatial hints,
-  and the completed visual/motion audit on top of the Table 1.1 product record.
-- Tettegouche **7f54caa** — responsive Ambient media/transfers, real providers,
-  Lucide action chrome, completion feedback, and corrected packaged icon paths.
-- Temperance **10fb70f** — Lucide action chrome, notification actions and
-  individual dismissal, corrected notification/tray copy, packaged icon fixes,
-  and restored event-driven left-boundary measurement.
-
-All three preserve the accepted center-dock geometry. Tette owns ongoing context
-on the right: **what matters now**. Temperance owns transient notification/events
-on the left: **what changed**. Source services remain authoritative for state and
-actions. Width reveals information in the order controls, title, artist, runtime;
-available width is measured rather than capped to a fixed descriptive tier.
-
-The shared visual grammar is `ITASCA-VISUAL-LANGUAGE.md`: Lucide 1.46.0 for
-suite-owned action chrome, Ghost White `#F8F8FF`, pills for controls, rounded
-boxes for information, lowercase labels, responsive fit, and bounded motion.
-Custom identity work remains protected: Tette Dot, Temperance Bell, Weather,
-tray, Speaker, performance selector, and Kadunce stacked-card tray mark. Provider
-icons and proper names remain external identity and are not normalized.
-
-Kadunce's accepted spatial behavior is unchanged by its visual pass. Its custom
-card, fan, Bento, rail and preview geometry remains the interaction language.
-The persistent tray enable/disable control remains release-critical and wired to
-`graphical-session.target`. A separate motion-policy gap remains: custom
-compositor durations do not yet follow platform animation scaling or reduced
-motion. See `VISUAL-AUDIT-20260915.md`.
-
-## Validation and acceptance
-
-- Tettegouche exact-head build, source checks, 12/12 CTests and diff checks pass.
-  The protected Dot applet source is unchanged.
-- Temperance exact-head build, 5/5 CTests and diff checks pass. Its focused panel
-  boundary test passes; protected custom glyph sources remain unchanged.
-- Kadunce production build, five focused motion/layout/paint CTests, source
-  checks, mandatory control verification, staged dependency check and diff checks
-  pass. J's whole-suite reboot and physical pass supplies the final visual
-  acceptance for this batch.
-
-No accepted production change from this batch remains only in a release
-worktree. Older experiments and unrelated local Files branches are not part of
-the freeze.
-
-## Next bounded work
-
-The rolling execution plan is `NEXT-ROADMAP.md`. The former 5.5-day estimate is
-retired; recalculate after Table and Keyboard feasibility.
-
-1. **Debug and polish:** A1 and A2 ownership behavior passed J's physical tests.
-   Zen correctly used the small Bento pane because its minimum size did not
-   require the large pane. The remaining Kadunce follow-up is Bento-derived Card
-   Line presentation geometry: ownership/stack order survive, but the live card
-   content is undersized inside large black areas. Tette B1 remains unaccepted
-   after centered-dock and transfer-completion failures.
-2. **Missing features:** Files B properties/discovery, Files C storage lifecycle,
-   Temperance event sources, and Steam/external libraries if retained for 1.0.
-3. **Refactor audit and consumer installer.**
-4. **Mac mini website hosting with standard secure tablet control.**
-5. **Interactive website and release:** full-screen Itasca desktop, guided entry,
-   active Kadunce/Tettegouche/Temperance cards and representative interactions.
-
-The former Files A slice is deleted; external drag-and-drop and Open With are not
-launch-roadmap items. Properties is part of Files B. The Mac mini is not a custom
-controller/build service. J's personal-site migration is later and nonblocking.
-
-Live post-freeze checklist: `POST-FREEZE-TEST-20260915.md`.
+The production build, focused layout/motion/paint tests, integrated carry routes,
+package checks, and mandatory control checks have passed for the accepted sources.
+Physical review has accepted ownership, constrained launch routing, stack retention,
+large-pane selection, monitor isolation, lifecycle, and the current live-rendering
+model. Automated and private-compositor checks do not replace physical appearance,
+frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 ## Safety
 
-For Kadunce changes, run `bash tests/verify-control.sh`; after installation in the
-graphical session, run `bash tests/verify-live-control.sh`. Do not infer a missing
-kill switch from a sandbox or D-Bus transport failure. Do not log out, stop the
-graphical session, or toggle the effect as a test without J's authorization.
+Run `bash tests/verify-control.sh` for every Kadunce change. After an authorized
+installation, run `bash tests/verify-live-control.sh` in the graphical session and
+confirm startup wiring. Do not infer a missing control from sandbox or D-Bus
+transport failure. Do not stop the graphical session or toggle the effect without
+explicit authorization.
+
+Future work and ordering live only in `NEXT-ROADMAP.md`.

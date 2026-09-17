@@ -1,40 +1,47 @@
 # Known issues
 
-## Active transition motion
+## Bento-derived Card Line presentation
 
-Calling an existing card forward from the application dock selects and focuses
-the correct real window. The current resize transition does not yet interpolate
-from that window's exact prior geometry, so the motion can look disconnected
-from its source. This is visual debt reserved for the Card Line flagship pass;
-the final window, card identity, and focus state are correct.
+Bento-owned windows keep correct ownership, order, and large-pane selection when the
+tablet returns to Card Line. Some live content is undersized inside a large black
+card area. Fix presentation geometry without changing native Bento geometry, restore
+records, stack order, or the accepted live-texture model.
+
+## Card manipulation finish
+
+Stack extraction, reorder intent zones, centered labels, and stack-position labeling
+remain incomplete. Native-to-stack arrival is not yet one atomic membership and
+insertion transaction.
+
+## Motion accessibility
+
+Some compositor-owned durations do not yet follow the platform animation scale or
+reduced-motion preference. Preserve causal feedback and final geometry while removing
+unnecessary travel under reduced motion.
 
 ## Native plugin installation
 
-The installer currently targets
-`/usr/lib/qt6/plugins/kwin/effects/plugins/`, the native KWin effect directory
-used by the tested system. Distributions using another library directory must
-adapt that destination before installation. The plugin must be rebuilt against
-the installed KWin version after an ABI-changing system update.
+The installer targets the native KWin effect directory used by the supported system.
+Distributions with another Qt/KWin library directory must adapt the destination. The
+plugin must be rebuilt against the installed KWin version after an ABI change.
+
+The tray's on-disk factory-version check cannot prove that an already running,
+pre-upgrade compositor can load the rebuilt plugin. Cached plugins may require a
+normal logout/login. In-session hot reload is not promised.
 
 ## Guided compatibility repair
 
-The tray compares the installed plugin factory version with the installed KWin
-executable. This on-disk check does not prove a running pre-update compositor can
-load it. Explicit repair builds the source snapshot saved at installation, as the
-normal user, runs tests, and requests administrator approval for one plugin file.
-A backup stays in /var/tmp. No downloads, effect toggles, or session restarts occur.
-The emergency switch remains available during the build. Cached plugins may need
-a normal logout/login; in-session hot reload is not promised.
+Repair builds the source snapshot retained at installation as the normal user, runs
+tests, and requests authorization for one plugin file. It performs no download,
+effect toggle, or session restart. Build dependencies and the retained snapshot are
+required; a future source incompatibility may need a maintained Kadunce update.
 
-Build dependencies and the retained snapshot are required. Future source API
-changes may need a maintained Kadunce update, not just a rebuild. No package hooks
-or automatic repair are included. Logs: $XDG_STATE_HOME/kadunce/repair.log (default
-~/.local/state/kadunce/repair.log). Snapshot checksums detect accidental edits, not
-malicious changes by someone controlling the user account.
+The repair log is `$XDG_STATE_HOME/kadunce/repair.log` or
+`~/.local/state/kadunce/repair.log`. Snapshot checksums detect accidental edits, not
+changes by an actor who already controls the user account.
 
 ## Hardware-specific edge input
 
-Kadunce uses native compositor touch edges on ordinary hardware. A supported
-posture helper enables the richer direct four-edge backend. Hardware without
-that helper retains top/bottom workspace entry but may not expose the same
-side-edge paging behavior until its compositor configuration provides it.
+Ordinary hardware uses native compositor touch edges. A supported posture helper
+enables richer direct four-edge behavior. Without it, top/bottom workspace entry is
+available, while side-edge paging depends on compositor/hardware support.

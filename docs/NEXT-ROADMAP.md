@@ -1,407 +1,249 @@
-# Shuffle launch roadmap — rolling execution plan
+# Shuffle launch roadmap
 
-Updated September 16, 2026. This is the active roadmap and status format for the
-remainder of Shuffle 1.0. Update each section as work is accepted. After every
-meaningful block, record actual elapsed time and revise the remaining planning
-number from observed delivery speed.
+This is the sole canonical execution plan for Shuffle 1.0. Update status and order
+when product scope, architecture, acceptance, or a blocking dependency changes. Git
+records routine implementation steps and `docs/archive/` records dated evidence.
 
-J owns product priority and physical acceptance. B-Team/Sol is the default bounded
-implementation owner. A-Team/Astra owns cross-suite architecture, Kadunce, risky
-lifecycle work and ownership gates. Repo source remains authoritative.
+## Product boundary
 
-## Planning snapshot
+- Good Input publishes Shuffle for Plasma.
+- Kadunce, Tettegouche, and Temperance remain open-source component repositories.
+- A private Shuffle repository will own consumer assembly, private assets, release
+  packaging, product-facing naming, and support material.
+- Table and Shuffle Keyboard are required 1.0 capabilities.
+- KWin, Plasma, and the system input stack remain authoritative for windows,
+  virtual desktops, and text delivery.
 
-- **Current state:** paused for working-budget replenishment
-- **Previous implementation forecast:** 5.5 focused days for the former Itasca
-  component/installer/website scope; retired because it excluded Table, Keyboard,
-  private-product assembly and the Good Input / Shuffle migration
-- **Next estimate gate:** after bounded Table and Keyboard feasibility plus the
-  private consumer-repository plan
-- **Release priority:** get the first consumer release right; no date-driven cut
-  is allowed to remove an essential interaction merely to launch sooner
+## Execution policy
 
-The September 15 baseline was faster than the original estimate: the major
-Ambient architecture, real providers, design system, physical corrections and
-suite freeze landed in roughly six hours at about 20% weekly usage. The planning
-number is therefore historical evidence, not the current launch forecast.
+- Keep one implementation owner per repository. Use a second worker only for
+  read-only review or a disjoint file set.
+- Identify and measure the property that controls a visual or geometry defect before
+  changing constants.
+- Batch two or three related physical checks into one candidate. Freeze passed items;
+  later candidates touch only failures.
+- Separate feasibility, minimal prototype, and product implementation for Table and
+  Shuffle Keyboard.
+- Keep `SWARM.md` empty unless another live worker must act.
+- Update durable documentation only for accepted/rejected behavior, architecture or
+  scope changes, sequencing blockers, installed provenance, and published freezes.
+- Keep rejected candidates out of `main`; preserve useful evidence in the archive.
+- Estimate remaining work only after the relevant feasibility proof.
 
-## Product and repository boundary
+## Current sequence
 
-- **Good Input** is the company and publisher.
-- **Shuffle for Plasma** is the consumer product; **Shuffle** is the conversational
-  name.
-- **Kadunce, Tettegouche and Temperance** remain the internal component names and
-  the free/open-source repositories.
-- A Good Input organization and private Shuffle consumer repository will own the
-  integrated commercial product layer, release assembly, consumer assets and
-  product-facing packaging. Preserve component Git history and compatibility.
-- The current checkout may remain physically named `Itasca` until a controlled path
-  migration is scheduled; product-facing work uses Shuffle immediately.
+1. Finish Temperance notification action-pill spacing and validate or remove snooze.
+2. Fix Kadunce Bento-derived Card Line live presentation geometry.
+3. Finish Kadunce Card Line extraction, reordering, labels, and stack position.
+4. Complete Tette responsive media/transfer and completion behavior.
+5. Finish remaining component features and visual polish.
+6. Audit maintainability and lifecycle boundaries.
+7. Prove and implement Table.
+8. Prove and implement Shuffle Keyboard.
+9. Assemble, package, install, and release the private Shuffle product.
+10. Prepare the website host and interactive release site.
 
-## Lean execution policy
+Only run steps in parallel when they use different repositories, have disjoint
+physical checks, and have explicit ownership.
 
-- Keep one implementation owner per repository. A second agent may perform a
-  read-only review or a separately scoped task on disjoint files.
-- Route bounded implementation, visual correction, tests and packaging to Sol.
-  Route compositor ownership, lifecycle, cross-suite contracts and failed-candidate
-  diagnosis to Astra. PM owns sequencing, scope, documentation and publication.
-- Before changing visual or geometry behavior, identify and measure the property
-  that controls the rendered result. A plausible constant is not evidence.
-- Package two or three closely related physical checks into one candidate. Freeze
-  passed items and let the next candidate touch only failed items.
-- Separate feasibility, minimal prototype and product implementation for Table and
-  Keyboard. Research must not silently become an implementation branch.
-- Keep `SWARM.md` empty unless another live agent must act. Backlog, rejected
-  candidates and pending physical review belong in canonical state documents.
-- Update durable documentation only for acceptance/rejection, scope or architecture
-  changes, sequencing blockers and published freezes. Git records routine steps.
-- Assignment prompts should name the roadmap item, preserved boundaries, stop
-  condition, validation and physical checklist; agents obtain context from the repo.
-- Keep rejected candidates out of `main`. Preserve only useful evidence and resume
-  them through a new bounded assignment.
-- Re-estimate from completed evidence and feasibility results, never from an old
-  launch target.
-
-## Resume sequence after budget replenishment
-
-1. Close the remaining Temperance notification action-pill typography/padding and
-   verify or remove the snooze action path.
-2. Fix Kadunce Bento-derived Card Line live presentation geometry. This remains the
-   gate before further Tette feature work.
-3. Complete Card Line extraction, reordering, labels and stack-position behavior.
-4. Resume Tette responsive media/transfer and completion behavior.
-5. Finish the remaining component polish and feature sections in roadmap order.
-
-Dispatch one bounded packet at a time unless tasks use different repositories,
-disjoint physical checks and an explicit token budget supports parallel work.
-
-## 1. Debug and polish
+## 1. Component correctness and polish
 
 **Status:** In progress
-**Estimate:** 1–1.5 days
-**Authoritative checklist:** `POST-FREEZE-TEST-20260915.md`
 
-### A-Team — behavioral regressions
+### Kadunce
 
-- [x] Cross-display Escape release returns the window to the tablet ownership origin.
-- [x] Windows commit to Card Line ownership on entry without first becoming Active.
-- [x] Temperance ticker is no longer confined to the arrow-control view box.
-- [x] New constrained windows route through the Bento solver or prepared Active
-  ownership instead of floating unmanaged above Bento.
-- [x] Touch Card Line preserves Bento-owned cards as a stack with the large-pane
-  card on top, without changing monitor Bento behavior.
-- [ ] Bento-derived stack cards use correct live proportional presentation
-  geometry in Card Line without retained snapshots or native Bento resizing.
-- [ ] Pulling a card from a stack back into Card Line is reliable.
-- [ ] Reordering has a useful intent zone without accidental paging.
-- [ ] Cards have centered labels; stack position shares that row at the right edge.
+- [x] Cross-display Escape returns a carried window to its ownership origin.
+- [x] Windows commit to Card Line ownership on entry without an Active detour.
+- [x] Constrained windows route through Bento admission or prepared Active ownership.
+- [x] Tablet Card Line retains Bento members as a stack and selects the large pane.
+- [x] Output-local Bento ownership and lifecycle remain isolated.
+- [ ] Make Bento-derived live Card Line content use the correct proportional
+  presentation geometry without retained snapshots or native Bento resizing.
+- [ ] Make stack extraction reliable.
+- [ ] Give reorder a useful intent zone without accidental paging.
+- [ ] Center card labels and place stack position on the same row at the right edge.
 
-### B-Team — Ambient, Temperance and visual polish
+### Tettegouche
 
-- [ ] Ambient sheds artist, song, then previous/next; play/pause survives last.
-- [ ] A transfer recomputes available media width instead of pushing content under
-  the application dock.
-- [ ] Pause and authoritative completion feedback remain visible long enough to use.
-- [ ] Recent notifications remain distinct and popup geometry fits neighboring cards.
-- [x] Notification cards follow the design-kit hierarchy: source and title share one
-  header row, body copy sits directly below, action pills use tighter padding, and
-  card spacing is recalculated around the simplified layout.
-- [x] `do not disturb` is lowercase.
-- [x] Power glyphs are slightly smaller.
-- [x] Popup-to-dock clearance matches the accepted external spacing.
-- [ ] Refine notification action-pill typography or side padding; J accepted the
-  current hairline/hover-fill treatment as the paused baseline, but the label needs
-  either smaller text or more breathing room at the sides.
-- [ ] Verify that the newly exposed snooze action reaches a real notification path
-  and preserves state correctly; keep it only if the action is functional.
-- [ ] Control Center and System Tray follow the design-kit spacing hierarchy.
-- [ ] Drawer reveal, dropdown bounds, sorting, hover/active pills and Files visuals
-  align with the accepted kit.
+- [ ] Remove media metadata in priority order: artist, song, then previous/next;
+  keep play/pause until last.
+- [ ] Recompute media width when transfer activity appears so content does not run
+  under the application dock.
+- [ ] Keep pause and authoritative completion feedback visible long enough to use.
+- [ ] Complete drawer bounds, sorting, hover/active states, Files visuals, and shared
+  control spacing.
 
-### Completion handoff
+### Temperance
 
-Tette owns the brief authoritative completion state while an activity finishes.
-Temperance may then surface the completed transition when it remains useful or
-actionable. Do not leave duplicate persistent completion on both sides.
+- [x] Apply the accepted notification hierarchy, lowercase labels, compact power
+  glyphs, hairline/hover-fill actions, and popup clearance.
+- [ ] Refine action-pill typography or horizontal padding.
+- [ ] Verify that snooze reaches a real notification action and preserves state;
+  remove it if the route is not functional.
+- [ ] Keep recent notifications distinct and fit popup geometry beside adjacent
+  cards.
+- [ ] Align Control Center and System Tray with the shared spacing hierarchy.
 
-### Exit gate
+Tette owns brief authoritative activity completion. Temperance may show the completed
+transition only when it remains useful or actionable; both sides must not retain the
+same completion indefinitely.
 
-A1, A2 ownership and T1 ticker now passed J's installed physical review.
-The September 16 checkpoint closes constrained launch ownership, stack retention /
-large-pane selection, monitor isolation/lifecycle, and the ticker regression with
-expanding spacers. Zen may use the small pane when its minimum fits. The remaining
-first-section gates are Bento-derived Card Line presentation, Tette center/transfer
-behavior, card manipulation and notification/visual polish. Any missing window,
-stuck input, or broken Kadunce disable control blocks release immediately.
+**Exit gate:** No missing windows, stuck input, broken restoration, cross-output
+ownership leak, or failed Kadunce disable control. Physical review passes the exact
+candidate on supported hardware.
 
-See `CHECKPOINT-20260916.md`. Its 5.5-day number records the former scope and must
-not be used as a Shuffle launch estimate now that Table, Keyboard and private-product
-assembly are essential. Exact September 16 engineering/testing hours and weekly
-usage were not measured; no invented actuals are recorded.
-
-## 2. Missing features
+## 2. Remaining component features
 
 **Status:** Queued
-**Estimate:** 1.25–2.5 days
 
-### Files B — properties and discovery
+### Files discovery and properties
 
-**Estimate:** 0.5–0.75 day
+- [ ] File and folder Properties.
+- [ ] Thumbnails and previews.
+- [ ] Recursive search and recent files.
+- [ ] Loading, empty, and failure states.
 
-- [ ] File and folder Properties
-- [ ] Thumbnails and previews
-- [ ] Recursive search
-- [ ] Recent files
-- [ ] Loading, empty and failure states
+External drag-and-drop and Open With are outside the 1.0 plan.
 
-The former Files A desktop-integration slice is deleted. External drag-and-drop
-and Open With are not launch-roadmap items. Properties now belongs to Files B.
+### Storage lifecycle
 
-### Files C — storage lifecycle
-
-**Estimate:** 0.5–1 day
-
-- [ ] Removable-device arrival and removal
-- [ ] Safe mount/unmount presentation
-- [ ] Optional KIO/network locations
-- [ ] Source disappearance, reconnect and truthful failure behavior
-
-Network support should ship as a truthful bounded subset. Provider-specific
-authentication must not turn this into a compatibility campaign.
+- [ ] Present removable-device arrival and removal.
+- [ ] Provide safe mount/unmount behavior.
+- [ ] Add a bounded truthful subset of KIO/network locations if feasible.
+- [ ] Handle disappearance, reconnect, and failure without stale state.
 
 ### Temperance event sources
 
-**Estimate:** 0.5–0.75 day
-
-- [ ] Completed-transfer event
-- [ ] Device and network transitions
-- [ ] Battery or relevant system-state thresholds
-- [ ] Ephemeral event presentation distinct from Tette live activities
+- [ ] Completed transfer.
+- [ ] Device and network transition.
+- [ ] Relevant battery or system-state threshold.
+- [ ] Ephemeral event treatment distinct from Tette live activities.
 
 ### Steam and external libraries
 
-**Estimate:** 0.5–1 day if retained for 1.0
+- [ ] Discover installed Steam libraries if this slice remains in 1.0.
+- [ ] Delegate launch and Proton selection to Steam.
+- [ ] Handle unavailable drives safely.
+- [ ] Avoid custom compatibility or boot-mount management.
 
-- [ ] Discover installed Steam libraries
-- [ ] Defer launch and Proton resolution to Steam
-- [ ] Handle unavailable drives safely
-- [ ] Avoid custom compatibility or boot-mount management
+This is the first slice to defer if release pressure requires scope reduction.
 
-This remains the cleanest feature to move behind launch if schedule pressure grows.
+**Exit gate:** Each provider or lifecycle slice has focused automated checks and an
+installed acceptance pass. One provider failure does not block unrelated slices.
 
-### Exit gate
-
-Each slice receives its own focused tests and installed acceptance. One provider
-or storage failure must not hold unrelated slices open.
-
-## 3. Refactor audit
+## 3. Maintainability and lifecycle audit
 
 **Status:** Queued
-**Estimate:** 0.5–0.75 day
 
-### Refactor audit
-
-- [ ] Remove accidental duplication introduced during the sprint.
+- [ ] Remove accidental duplication that creates visible reliability or maintenance
+  risk.
 - [ ] Verify Tette/Temperance activity ownership and cleanup boundaries.
-- [ ] Audit timers, model lifetime, responsive calculations and resource paths.
-- [ ] Confirm protected custom icons remain intact.
-- [ ] Review Kadunce animation scaling/reduced-motion behavior.
-- [ ] Restrict fixes to visible reliability, maintenance or release risk.
+- [ ] Audit timers, model lifetime, responsive calculations, and resource paths.
+- [ ] Confirm protected custom icons remain unchanged.
+- [ ] Make Kadunce custom motion respect platform animation scaling and reduced
+  motion.
+- [ ] Keep the audit bounded; do not reopen stable architecture for style alone.
 
-This is a surgical audit, not a rewrite.
+**Exit gate:** The three components are lifecycle-safe, maintainable, and ready for
+private product consumption without duplicated state ownership.
 
-### Exit gate
+## 4. Table
 
-The three open-source components are maintainable, lifecycle-safe and ready to be
-consumed by the private Shuffle product without accidental duplicated ownership.
+**Status:** Product contract approved; engineering feasibility queued
 
-## 4. Table — essential consumer spatial model
-
-**Status:** Concept locked; engineering feasibility queued
-**Estimate:** Recalculate after feasibility
-
-Table is part of the final consumer product, not a post-launch idea:
+Table provides the level above Card Line/Bento:
 
 `Active = this window → Card Line/Bento = these windows → Table = these workspaces`
 
-- [ ] Audit KWin/Plasma virtual-desktop APIs, gesture ownership and lifecycle.
-- [ ] Define touch entry/exit, workspace presentation and direct manipulation.
-- [ ] Prove multi-display behavior without changing monitor-only Bento semantics.
-- [ ] Preserve KWin/Plasma as authority for virtual desktops.
-- [ ] Prototype the smallest complete Table interaction and physically test it.
-- [ ] Add safety, restore and rollback behavior before product integration.
+- [ ] Audit KWin/Plasma virtual-desktop APIs, gesture ownership, and lifecycle.
+- [ ] Define touch entry/exit, workspace presentation, and direct manipulation.
+- [ ] Prove multi-display behavior without changing output-local Bento semantics.
+- [ ] Preserve KWin as the virtual-desktop authority.
+- [ ] Build the smallest complete prototype and test it physically.
+- [ ] Add restoration, interruption, safety, and rollback behavior.
+- [ ] Implement the accepted interaction only after feasibility passes.
 
-See `KADUNCE-TABLE-1.1-CONCEPT.md`. The former post-1.0 classification is retired.
+Reference: `KADUNCE-TABLE-1.1-CONCEPT.md`.
 
-### Exit gate
+**Exit gate:** A user can enter Table, move a real managed window between existing
+KDE virtual desktops, enter the destination Card Line, and observe correct underlying
+desktop membership without regressing normal KDE switching or display ownership.
 
-J can manage workspaces through Table as the natural level above Card Line/Bento,
-with correct touch, keyboard, lifecycle and multi-display behavior.
+## 5. Shuffle Keyboard
 
-## 5. Shuffle Keyboard — essential consumer input surface
+**Status:** Product contract approved; technical evaluation queued
 
-**Status:** Product concept approved; technical evaluation queued
-**Estimate:** Recalculate after feasibility
+- [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing, and
+  Fcitx5 OSK.
+- [ ] Select a system-backed implementation base or document why none is viable.
+- [ ] Prove the four-row layout, cascading Backspace/Enter/Shuffle controls, and
+  directly adjustable height.
+- [ ] Prove the full-footprint keyboard/precision-surface transition.
+- [ ] Validate edit gestures separately from pointer behavior.
+- [ ] Verify locale/keymap correctness, focus, latency, and loss-free input across
+  Qt/KDE, GTK, browsers, Electron, and terminals.
+- [ ] Reserve usable workspace correctly as height changes.
+- [ ] Keep autocorrect, prediction, swipe typing, dictation, and custom IME work out
+  of 1.0 unless mature system infrastructure supplies them.
 
-Shuffle Keyboard completes the premium touch experience through reliable text
-input and precision desktop control without requiring physical peripherals.
+Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`.
 
-The authoritative product contract is `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`. This
-roadmap summarizes sequencing and does not replace that brief.
+**Exit gate:** A supported 10–13 inch touch device can perform reliable text and
+precision desktop input without physical peripherals. Dropped characters, meaningful
+latency, wrong keymaps, focus loss, or unreliable show/hide behavior block release.
 
-- [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
-  Fcitx5 OSK before selecting an implementation base.
-- [ ] Use the four-row layout, cascading Backspace/Enter/Shuffle controls and
-  directly adjustable height defined in the approved product brief.
-- [ ] Prove the full-footprint Keyboard ↔ Shuffle precision-surface transition.
-- [ ] Validate edit gestures separately from pointer/trackpad behavior.
-- [ ] Verify locale/keymap correctness, focus stability, latency and dropped-input
-  behavior across Qt/KDE, GTK, browsers, Electron and terminals.
-- [ ] Reserve usable workspace correctly as keyboard height changes.
-- [ ] Keep autocorrect, prediction, swipe typing, dictation, custom IMEs and similar
-  language-engine work outside Shuffle 1.0 unless mature system infrastructure
-  supplies it safely.
+## 6. Private product assembly and installation
 
-### Exit gate
-
-A supported 10–13 inch touch device can perform reliable text and precision desktop
-input without a physical keyboard or mouse. Dropped characters, meaningful latency,
-wrong keymaps, focus loss or unreliable show/hide behavior block release.
-
-## 6. Private Shuffle consumer product and installation
-
-**Status:** Queued
-**Estimate:** Recalculate after Table/Keyboard feasibility
+**Status:** Queued after Table and Keyboard feasibility
 
 - [ ] Establish the Good Input organization and private Shuffle repository.
-- [ ] Record the boundary between open-source components and private product code,
-  assets, integration, release assembly and support material.
-- [ ] Consume pinned Kadunce, Tettegouche and Temperance versions with provenance.
-- [ ] Apply Good Input / Shuffle naming to product-facing metadata and UI while
-  preserving internal component names and upgrade compatibility.
-- [ ] Build cleanly from all component repositories and the private integration repo.
-- [ ] Provide one Fish-safe installation path with dependency detection.
-- [ ] Include Plasma restart/session instructions in the completed flow.
-- [ ] Verify versioning, upgrades, rollback, uninstall and Kadunce safety control.
-- [ ] Complete a fresh-user installation test on the supported Plasma environment.
+- [ ] Document the public component/private product boundary.
+- [ ] Consume pinned component versions with provenance.
+- [ ] Apply Shuffle product naming while preserving component compatibility.
+- [ ] Build from clean component and integration checkouts.
+- [ ] Provide one Fish-safe installer with dependency detection.
+- [ ] Verify versioning, upgrade, rollback, uninstall, and Kadunce safety control.
+- [ ] Complete a fresh-machine installation test on the supported environment.
 
-### Exit gate
+**Exit gate:** A fresh supported machine can install, update, roll back, and uninstall
+Shuffle without repository knowledge, while the Kadunce disable control remains
+functional throughout.
 
-A fresh supported machine can install, update, roll back and uninstall Shuffle
-without repository knowledge. The public component boundary remains truthful and
-Kadunce's live disable control remains functional throughout.
-
-## 7. Mac mini website host and tablet control
+## 7. Website host
 
 **Status:** Queued
-**Estimate:** 0.25–0.5 day, excluding router/DNS surprises
 
-The Mac mini only hosts the Shuffle website and its repository. J's personal site
-may move there later, but that migration does not block Shuffle launch.
+- [ ] Configure the Mac mini as a standard HTTPS website host.
+- [ ] Establish secure standard tablet administration for deploy, status, logs,
+  restart, and rollback.
+- [ ] Configure startup, backups, and basic uptime/disk visibility.
+- [ ] Document DNS, router, and recovery dependencies.
 
-- [ ] Create the website repository checkout and production build directory.
-- [ ] Configure a standard web server and HTTPS deployment path.
-- [ ] Establish secure standard remote control from the tablet.
-- [ ] Support deploy, restart, logs and rollback from the tablet.
-- [ ] Configure startup, backups and basic uptime/disk visibility.
-- [ ] Document DNS/router dependencies and recovery steps.
-
-No custom server dashboard, orchestration product, build farm or artifact service.
-Use established remote administration and deployment tools.
-
-### Exit gate
-
-From the tablet, J can securely deploy or roll back the site, inspect status/logs,
-and restart the standard website service.
+The host is not a custom orchestration product, build farm, or artifact service.
 
 ## 8. Interactive website and release
 
 **Status:** Queued
-**Estimate:** 2–3.5 days
 
-The website is a full-screen interactive Shuffle desktop demonstration, not a
-traditional static product page. Reuse the suite's visual assets and interaction
-logic where practical while implementing a web-native, maintainable presentation.
+- [ ] Build the full-screen Shuffle desktop shell and guided entry.
+- [ ] Present active Kadunce, Tettegouche, and Temperance capability cards.
+- [ ] Add representative interactions that explain the product without simulating
+  unsupported behavior.
+- [ ] Provide installation, requirements, source, privacy, support, and release
+  information.
+- [ ] Test keyboard, touch, responsive layout, performance, and accessibility.
 
-### Website A — desktop shell and guided entry
-
-**Estimate:** 0.5–0.75 day
-
-- [ ] Full-screen desktop composition based on Shuffle
-- [ ] Responsive tablet and desktop layout
-- [ ] Active guided information for first-time visitors
-- [ ] Clear path to enter, skip or replay guidance
-- [ ] Ghost White, spacing, surfaces, typography and motion from the design kit
-
-### Website B — Shuffle capability cards
-
-**Estimate:** 0.75–1 day
-
-- [ ] Present the product-facing Shuffle capabilities while crediting Kadunce,
-  Tettegouche and Temperance as the open-source component foundation.
-- [ ] Clicking a card makes it Active.
-- [ ] Active card expands into a concise feature/integration page.
-- [ ] Moving between cards communicates how the suite fits together.
-- [ ] Preserve the distinction between spatial windows, ongoing context and events.
-
-### Website C — interactive demonstrations
-
-**Estimate:** 0.75–1.5 days
-
-- [ ] Recreate representative Card Line/Bento interactions.
-- [ ] Demonstrate responsive Ambient media and transfer behavior.
-- [ ] Demonstrate Temperance ticker, notification and system surfaces.
-- [ ] Port existing visuals/assets where licensing and web rendering allow.
-- [ ] Use constrained simulations rather than embedding product implementation.
-- [ ] Keep motion interruptible and respect reduced-motion preferences.
-
-### Website D — release surface
-
-**Estimate:** 0.5 day
-
-- [ ] Supported-environment and installation guidance
-- [ ] Download/repository links and checksums
-- [ ] Upgrade, rollback and uninstall instructions
-- [ ] Release notes and known limitations
-- [ ] Accessible keyboard/touch interaction
-- [ ] Performance, responsive-layout and link smoke tests
-- [ ] Production deployment to the Mac mini
-
-### Exit gate
-
-A visitor can understand Shuffle and its open-source component foundation, interact
-with representative product behavior, explore focused capability cards, and reach
-a verified consumer installation path. J gives final desktop and tablet acceptance
-before publication.
-
-## Rolling execution schedule
-
-Exact working days will be replanned after Table and Keyboard feasibility. Preserve
-this dependency order:
-
-1. Finish Debug/Polish and remaining component features.
-2. Complete the component refactor/lifecycle audit.
-3. Prove and implement Table.
-4. Prove and implement Shuffle Keyboard.
-5. Establish the Good Input organization and private Shuffle consumer product.
-6. Complete consumer packaging, clean installation, upgrade and rollback acceptance.
-7. Configure the Mac mini host and tablet administration.
-8. Build, deploy and accept the interactive Shuffle website and release surface.
-
-Table and Keyboard research may overlap when it does not compete for the same
-engineering owner or physical test loop. Website and server work stay at the bottom
-of the roadmap and do not pull resources from product correctness.
+**Exit gate:** The public site accurately demonstrates the released product and
+provides a complete supported installation path.
 
 ## Progress update rule
 
-At the completion of each numbered section:
+For a meaningful accepted block, update only:
 
-1. Change its status to **Complete** and check accepted items.
-2. Record actual engineering time, J testing time and approximate weekly usage.
-3. Update source/install/push hashes in `CURRENT_STATE.md`.
-4. Recalculate the remaining estimates using the newly observed delivery rate.
-5. Adjust the planning number upward or downward rather than preserving an obsolete
-   estimate.
+- its checkbox or status;
+- any changed invariant or scope decision;
+- the next blocked dependency;
+- the estimate when new feasibility evidence makes it defensible.
 
-Statuses are **Queued → In progress → Physical review → Complete**. A blocker gets
-its own explicit note, owner and decision needed from J.
+Do not append sprint narration, worker summaries, candidate hashes, or repeated test
+logs to this file.

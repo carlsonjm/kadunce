@@ -1,53 +1,59 @@
-# Integrated carry release gate
+# Integration release gate
 
-This is the current finish line, not a new feature wishlist. Source-only;
-installation and physical acceptance remain separate. See CURRENT_STATE.md for
-the installed/repair identities and current evidence.
+This gate covers the implemented Kadunce carry and restoration routes. It is source
+validation. Installation, live safety, and physical acceptance remain separate.
 
-## Reproduce the implemented-route checks
+## Private route matrix
 
-Run `bash tests/verify-integrated-carry.sh` from the repository. It snapshots native
-source/tests (including uncommitted work), records hashes and base commit, builds
-production and an explicit disposable Virtual-0 tablet variant, then runs:
+Run from the repository root:
 
-- All native CTests.
-- Real-plugin pointer/touch cross-output carry, destination footprints, unload.
-- Same-output Bento pane exchange, return-home, dock exclusion, restoration.
-- Ordinary monitor entry: pointer/touch edge creation, withdrawal, held unload and
-  restoration, including a cross-monitor edge destination.
-- Tablet Active departure and Bento return into a resident Card Line.
-- Card Line transfer, stack insertion/browsing, cancellation, interrupted motion.
-- Full candidate Bento transfer/restoration/unload and independent safety checks.
+```bash
+bash tests/verify-integrated-carry.sh
+```
 
-Each suite runs on a private display/bus. The live safety check reads registration
-only. No install, real input injection, effect toggle, restart or repair execution.
-Failure stops the gate. Logs and both binaries remain in the printed temporary
-evidence directory. Passing is NOT physical appearance/frame-pacing acceptance.
+The harness snapshots the exact source and tests, records the base revision and
+hashes, builds the production plugin plus a disposable virtual-tablet variant, and
+runs:
 
-## Remaining implementation boundaries
+- all native CTests;
+- pointer and touch cross-output carry and destination footprints;
+- same-output Bento exchange, return-home, dock exclusion, and restoration;
+- ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration;
+- tablet Active departure and Bento return into Card Line;
+- Card Line transfer, stack insertion/browsing, cancellation, and interrupted motion;
+- candidate Bento transfer/restoration/unload and independent safety checks.
 
-1. **Ordinary desktop entry:** now connected for eligible monitor windows using a
-   controller-owned pickup snapshot, existing contact proof, receiver planner and
-   one-shot placement. Edge withdrawal, cancellation and unload are tested; native
-   resize/unsupported starts remain native. Physical cross-display acceptance is
-   still required. The opt-in checklist is CARRY-TEST-TONIGHT.md.
-2. **Native-to-stack:** native receiver selection represents tablet arrival, not a
-   stack slot. Card Line's prepared insertion handles an already admitted selected
-   member. External membership admission and exact stack insertion must publish
-   together before placement, with preview identity/slot validation. Appending an
-   arrival and then trying a second stack command is not atomic acceptance.
-3. **Remaining motion:** displaced Bento neighbor, Active/inactive tablet arrival
-   feedback and tablet receiver outline. These are presentation work, not reasons
-   to change native geometry repeatedly or extend input ownership.
-4. **Physical acceptance:** quick flicks/holds, interrupted animations, live buffer
-   rounding, Tette, fullscreen release, fractional-scale monitor handoff and instant
-   disable. Preserve the stable installed build until an explicitly approved test
-   candidate and recovery path are ready.
+Each runtime suite uses a private display, runtime directory, and D-Bus session. The
+live safety check is read-only. The harness does not install, inject input into the
+real session, toggle the effect, restart Plasma, or execute repair. Keep its printed
+evidence directory until the candidate is accepted or rejected.
+
+## Promotion checks
+
+A promotable candidate requires all of the following:
+
+1. Exact source identity and clean expected diff.
+2. Production build and focused native tests pass.
+3. `tests/verify-source.sh`, `tests/verify-package.sh`, and
+   `tests/verify-control.sh` pass.
+4. The integrated private route matrix passes without weakened assertions.
+5. After authorized installation, installed binary provenance and
+   `tests/verify-live-control.sh` pass.
+6. Physical review covers the behavior changed by the candidate plus restoration,
+   hardware touch, output scaling/topology, and instant disable when relevant.
+
+## Known open boundaries
+
+- Native-to-stack must admit membership and exact insertion atomically; current
+  native arrival and existing Card Line insertion are separate concepts.
+- Displaced Bento neighbor, some tablet arrival feedback, and tablet receiver outline
+  remain presentation gaps.
+- Physical appearance, frame pacing, fullscreen release, fractional-scale transfer,
+  suspend/resume, and hardware input cannot be accepted from the private harness.
 
 ## Stop conditions
 
-Any safety-control, source-identity, restoration or isolated-route regression blocks
-candidate promotion. Do not report the full overhaul complete while entry/stack
-routes above are missing. No new renderer rewrite, persistence service or timing
-redesign is required merely to run this gate. Persistent stacks across complete
-release remain a separately documented limitation, not silently added scope.
+Any safety-control, source-identity, restoration, teardown, or isolated-route failure
+blocks promotion. Infrastructure failure remains infrastructure evidence until the
+private environment is proven healthy. Do not patch production behavior to compensate
+for an unclassified sandbox, display, D-Bus, or dependency failure.
