@@ -38,6 +38,43 @@ number is therefore historical evidence, not the current launch forecast.
 - The current checkout may remain physically named `Itasca` until a controlled path
   migration is scheduled; product-facing work uses Shuffle immediately.
 
+## Lean execution policy
+
+- Keep one implementation owner per repository. A second agent may perform a
+  read-only review or a separately scoped task on disjoint files.
+- Route bounded implementation, visual correction, tests and packaging to Sol.
+  Route compositor ownership, lifecycle, cross-suite contracts and failed-candidate
+  diagnosis to Astra. PM owns sequencing, scope, documentation and publication.
+- Before changing visual or geometry behavior, identify and measure the property
+  that controls the rendered result. A plausible constant is not evidence.
+- Package two or three closely related physical checks into one candidate. Freeze
+  passed items and let the next candidate touch only failed items.
+- Separate feasibility, minimal prototype and product implementation for Table and
+  Keyboard. Research must not silently become an implementation branch.
+- Keep `SWARM.md` empty unless another live agent must act. Backlog, rejected
+  candidates and pending physical review belong in canonical state documents.
+- Update durable documentation only for acceptance/rejection, scope or architecture
+  changes, sequencing blockers and published freezes. Git records routine steps.
+- Assignment prompts should name the roadmap item, preserved boundaries, stop
+  condition, validation and physical checklist; agents obtain context from the repo.
+- Keep rejected candidates out of `main`. Preserve only useful evidence and resume
+  them through a new bounded assignment.
+- Re-estimate from completed evidence and feasibility results, never from an old
+  launch target.
+
+## Resume sequence after budget replenishment
+
+1. Close the remaining Temperance notification action-pill typography/padding and
+   verify or remove the snooze action path.
+2. Fix Kadunce Bento-derived Card Line live presentation geometry. This remains the
+   gate before further Tette feature work.
+3. Complete Card Line extraction, reordering, labels and stack-position behavior.
+4. Resume Tette responsive media/transfer and completion behavior.
+5. Finish the remaining component polish and feature sections in roadmap order.
+
+Dispatch one bounded packet at a time unless tasks use different repositories,
+disjoint physical checks and an explicit token budget supports parallel work.
+
 ## 1. Debug and polish
 
 **Status:** In progress

@@ -14,6 +14,8 @@ J accepted Temperance **4f173d8** and **6e04f4a** as the paused working model:
 popup clearance, smaller power glyphs, lowercase labels, compact notification
 hierarchy, repeated-action sizing and hairline/hover-fill pills. Pill typography or
 padding and the snooze action path remain open. Implementation is paused for budget.
+On resume, close that notification packet first, then fix Kadunce Bento-derived Card
+Line presentation before further Tette feature work. `SWARM.md` stays empty meanwhile.
 
 ## September 16 — A2 ownership and Temperance T1 physically accepted
 
