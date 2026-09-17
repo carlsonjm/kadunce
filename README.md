@@ -24,11 +24,11 @@ The first time you send a window to the top, left, or right edge, Kadunce also g
 
 ### Active card
 
-The active card is the application you are currently using. Other cards remain managed in the background and are ready when you return to Card Line.
+The active card is the application you are currently using. Other cards remain managed in the background and are ready when you return to Card Spread.
 
 ### Card Spread
 
-Card Line shows your managed windows as an ordered row of cards. Choose a card to make it active, or move through the row to find another application.
+Shows your managed windows as an ordered row of cards. Choose a card to make it active, or move through the row to find another application.
 
 Opening a new application creates a new card. It does not replace or release the cards you already have.
 
@@ -40,7 +40,7 @@ Cards can be collected into a stack. A stack keeps related applications together
 
 Bento shows two or more application windows together in one layout.
 
-In Card Line, the complete Bento arrangement appears as a single grouped card. Choosing it restores the same panes and proportions.
+In Card Spread, the complete Bento arrangement appears as a single grouped card. Choosing it restores the same panes and proportions.
 
 A window leaves Bento and becomes its own card when you:
 
@@ -57,17 +57,17 @@ Each display can have one Bento layout at a time.
 
 On the built-in touchscreen:
 
-- Swipe upward from the bottom edge to open Card Line.
+- Swipe upward from the bottom edge to open Card Spread.
 - Swipe downward from the top edge to return to the current card or Bento layout.
 - Swipe from the left or right edge while using a card to move between cards.
-- Swipe across the Card Line background to move through the line.
+- Swipe across the Card Spread background to move through the line.
 - Swipe vertically on a stack to change its selected card.
 - Hold a card to pick it up and move it.
 
 Keyboard controls are also available:
 
-- `Ctrl+S`: switch between the active card and Card Line.
-- `Ctrl+Left` / `Ctrl+Right`: move through Card Line.
+- `Ctrl+S`: switch between the active Card and Spread.
+- `Ctrl+Left` / `Ctrl+Right`: move through Card Spread.
 - `Ctrl+Up` / `Ctrl+Down`: move through the selected stack.
 - `Ctrl+B`: open or close Bento on the display under the pointer.
 - `Ctrl+Esc`: return Kadunce-managed windows on that display to the regular Plasma desktop.
@@ -78,7 +78,7 @@ While adjusting Bento, hold a divider briefly, drag it to the desired position, 
 
 Kadunce manages each display separately.
 
-The built-in touchscreen can use active cards, Card Line, stacks, and Bento. An attached monitor continues to work as a normal Plasma desktop and can have its own Bento layout.
+The built-in touchscreen can use active Cards, Card Spread, Stacks, and Bento. An attached monitor continues to work as a normal Plasma desktop and can have its own Bento layout.
 
 Moving a window between displays transfers it to the destination display. It is no longer managed by the display it left.
 
@@ -119,8 +119,6 @@ Some system versions may require the documented KWin touch correction in `patche
 ```
 
 Disabling returns managed windows to Plasma and temporarily turns Kadunce off.
-
-- **There is always an available 'Kadunce' button located in System Tray to disable fully.**
 
 Uninstalling removes the installed components but leaves this source folder intact. Log out and back in if the plugin remains loaded for the current session.
 
