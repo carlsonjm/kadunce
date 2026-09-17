@@ -35,11 +35,20 @@ records routine implementation steps and `docs/archive/` records dated evidence.
 
 ## Planning and budget controls
 
-The accepted Bento group-card block is the current empirical baseline: roughly four
-hours and 1,260 purchased credits ($50.40 at 2,500 credits per $100) for one primary
-architecture solve plus required scenario logic. It included one implementation
-started before design approval, one provisional acceptance that retained that path,
-the eventual approved model, and several physical micro-adjustments.
+Two September 17 production samples now set the planning baseline:
+
+- The accepted Bento group-card block used roughly four hours and 1,260 purchased
+  credits ($50.40 at 2,500 credits per $100) for one primary architecture solve,
+  required scenario logic, one unapproved false start, one provisional acceptance,
+  and several physical adjustments.
+- The full production day used 2,421 purchased-credit equivalents ($96.84) across
+  implementation, physical iteration, ownership investigation, freezes, and
+  documentation. This is approximately half of one observed weekly included limit.
+
+For scheduling only, treat one weekly included limit as roughly 5,000 purchased
+credits or $200 of purchased-credit capacity. Four weekly limits are therefore
+roughly $800 of monthly purchased-credit capacity. This is an empirical planning
+proxy, not a billing guarantee.
 
 - Schedule every major architecture change or architecture-level bug fix inside the
   weekly included-limit plan. Reserve one focused weekly block before starting; do
@@ -54,22 +63,80 @@ the eventual approved model, and several physical micro-adjustments.
   a known controlling property and stop condition.
 - Give credit-funded work a fixed packet, acceptance test, and spend ceiling. Stop
   when evidence changes the task into architecture or product design.
+- A budget estimate schedules the work; it does not justify cutting off an agent
+  before a coherent implementation or safely preserved candidate exists.
+- Preserve unfinished but useful architecture candidates on named WIP branches.
+  Promote only physically accepted behavior to `main`.
 - Re-estimate this baseline after each accepted major slice using elapsed time,
   consumed credits, false starts, and physical candidate count.
 
-## Current sequence
+## Current production map
 
-1. [x] Finish Temperance notification action-pill spacing and validate Snooze.
-2. [x] Fix Kadunce Bento-derived Card Line live presentation geometry.
-3. Refactor Kadunce ownership around the visible-pane Bento contract.
-4. Finish Kadunce Card Line extraction and reordering.
-5. Complete Tette responsive media/transfer and completion behavior.
-6. Finish remaining component features and visual polish.
-7. Audit maintainability and lifecycle boundaries.
-8. Prove and implement Table.
-9. Prove and implement Shuffle Keyboard.
-10. Assemble, package, install, and release the private Shuffle product.
-11. Prepare the website host and interactive release site.
+### Frozen foundation
+
+- [x] Normalize repository documentation and startup reading.
+- [x] Establish the runtime-only swarm protocol and comment hygiene rules.
+- [x] Publish plain-language READMEs for Kadunce, Tettegouche, and Temperance.
+- [x] Physically accept Temperance notification polish and spacing.
+- [x] Physically accept Kadunce Bento group-card presentation and Card labels.
+- [x] Preserve the unfinished Kadunce ownership candidate on a remote WIP branch;
+  keep experimental ownership code out of `main`.
+
+### Weekly architecture block 1 — Kadunce ownership
+
+1. Refactor ownership around the canonical Card lifecycle and visible-pane Bento
+   contract.
+2. Make first Card or Bento admission atomically adopt eligible windows on the
+   current display and virtual desktop.
+3. Keep individual Cards and the Bento group as independent Spread peers through
+   every selection, minimize, close, release, and rollback path.
+4. Rebuild top-edge extraction on the accepted ownership model.
+
+Do not split this block into credit-sized workarounds. Exit only after automated
+ownership coverage and physical two-pane, three-pane, repeated-selection, cold-start,
+and multi-display checks pass.
+
+### Weekly architecture block 2 — Kadunce manipulation
+
+1. Make stack extraction reliable.
+2. Give Card reordering a usable intent zone without accidental paging.
+3. Complete arrival, displacement, cancellation, and neighbor motion.
+4. Normalize live terminology from Card Line to Spread after the behavior is stable.
+
+### Production block 3 — Tettegouche completion
+
+1. Finish responsive media priority and centered dock budgeting.
+2. Finish transfer pause, completion, filename, and concurrent-media behavior.
+3. Complete Files properties, previews, recursive search, Recent, and bounded error
+   states in separately accepted packets.
+4. Complete storage lifecycle and external file integration without weakening KIO
+   ownership or truthful activity reporting.
+
+### Production block 4 — Temperance event boundary
+
+1. Add only authoritative, useful system transitions.
+2. Preserve Tettegouche ownership of live progress and actions.
+3. Revisit presenter switching only after its process-wide lifecycle is proven.
+
+### Weekly architecture blocks 5 and 6 — Table and Keyboard
+
+1. Prove Table against KWin virtual-desktop authority, multi-display ownership, and
+   direct manipulation before implementation.
+2. Prove the system-backed Keyboard path, resizing, precision-surface transition,
+   input correctness, and cross-toolkit reliability before implementation.
+
+Table and Keyboard are required for the final consumer product. Each receives its
+own protected weekly feasibility and architecture block.
+
+### Finalization
+
+1. Audit component lifecycle, maintainability, accessibility, reduced motion, and
+   installation boundaries.
+2. Create the private consumer-product repository and assemble pinned component
+   releases there.
+3. Complete clean-machine installation, update, rollback, and uninstall testing.
+4. Configure the standard website host and tablet administration.
+5. Build and release the interactive website last.
 
 Only run steps in parallel when they use different repositories, have disjoint
 physical checks, and have explicit ownership.
