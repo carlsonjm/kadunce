@@ -17,6 +17,10 @@ Shuffle capabilities; their technical feasibility remains open.
 - Constrained new windows enter the Bento solver or prepared Active ownership.
 - Touch Card Line preserves Bento-owned cards as an ordered stack and keeps the
   large-pane card on top. A card whose minimum size fits may use the small pane.
+- Bento-projected cards preserve their canonical Card Line slot for layout and
+  input while their backing, live texture, aperture, pivot, and clip use the
+  largest centered rectangle matching the current live source. Ordinary Card
+  Line cards retain their accepted fixed-slot presentation.
 - Other outputs keep their own Bento sessions when the tablet changes presentation.
 - Native carries preserve input ownership, exact restore records, dock clearance,
   cancellation, and output-local admission rules.
@@ -32,8 +36,9 @@ before the next installation.
 
 ## Open limitations
 
-- Bento-derived cards retain correct ownership and stack order in Card Line, but
-  some live content is undersized inside a large black presentation area.
+- A genuinely narrow Bento source remains narrow in Card Line. Kadunce does not
+  crop, stretch, resize the client, or retain another surface to invent wider
+  application content. Client-painted black remains part of the live source.
 - Pulling a member back from a stack, reorder intent zones, centered labels, and
   stack-position labeling still need product completion.
 - Native-to-stack admission is not one atomic destination transaction.
@@ -48,7 +53,9 @@ before the next installation.
 ## Validation boundary
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
-package checks, and mandatory control checks have passed for the accepted sources.
+package checks, and mandatory control checks have passed for the current sources.
+The Bento-projection aperture has focused geometry and private two-output ownership
+lifecycle coverage but still requires physical appearance review before promotion.
 Physical review has accepted ownership, constrained launch routing, stack retention,
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,

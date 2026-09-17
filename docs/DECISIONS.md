@@ -108,6 +108,15 @@ Cards render through KWin `OffscreenEffect` live textures with contain scaling,
 established fan geometry, and black backing. Aspect-ratio margins are accepted.
 Kadunce does not maintain a retained snapshot store to hide them.
 
+### Bento projection changes visual bounds, not the canonical slot
+
+A card entering Card Line directly from Bento retains the established slot for
+pitch, stack layout, and input. Its compositor backing, live transform, rounded
+aperture, rotation pivot, and clip use the largest centered proportional rectangle
+that contains the current pane-shaped source. Ordinary Card Line cards keep the
+fixed-slot path. This presentation provenance cannot change native geometry,
+membership, restoration, or output ownership.
+
 ### Model truth does not wait for animation
 
 Motion interpolates a captured visible pose, can be interrupted or retargeted, and

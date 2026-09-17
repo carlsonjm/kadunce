@@ -7,6 +7,7 @@
 #include <QScopeGuard>
 #include "LaunchIdentity.h"
 #include "CardLineLayout.h"
+#include "ProjectedCardGeometry.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
 #include "NativeLanding.h"
@@ -2492,35 +2493,44 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (!paintPose.visible) {
         return;
     }
+    KWin::Rect visualTarget = target;
+    if (m_cardStage->usesBentoProjectionAperture(window)) {
+        const CardRect contained = makeProjectedCardVisualRect(
+            CardRect{double(target.x()), double(target.y()),
+                     double(target.width()), double(target.height())},
+            logicalRegion.width(), logicalRegion.height());
+        visualTarget = KWin::Rect(
+            qRound(contained.x), qRound(contained.y),
+            qRound(contained.width), qRound(contained.height));
+    }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
     paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
         deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry())),
-        QRectF(target), paintPose.rotation, float(data.opacity()), 0.0f);
-    // Keep the full source inside the fixed card instead of zooming/cropping.
-    // Every card uses a proportional contain transform over the fixed backing.
-    // The GPU aperture rounds the complete card without stretching its content.
+        QRectF(visualTarget), paintPose.rotation, float(data.opacity()), 0.0f);
+    // Ordinary cards retain their accepted fixed backing and contain transform.
+    // Bento projections instead use their maximum proportional contained bounds
+    // for every visual layer; their canonical slot still owns layout and input.
     KWin::Effect::setPositionTransformations(
-        data, logicalRegion, window, target,
+        data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
     if (rotatedFanCard) {
-        // Keep the already-approved reference layout pose anchored to the card's bottom
-        // right, not the larger proportional cover rectangle's bottom right.
+        // Rotate each visible aperture around its own lower-right corner. The
+        // canonical slot still supplies the accepted fan offset and envelope.
         const double originX =
-            (target.x() + target.width() - logicalRegion.x())
+            (visualTarget.x() + visualTarget.width() - logicalRegion.x())
             / data.xScale();
         const double originY =
-            (target.y() + target.height() - logicalRegion.y())
+            (visualTarget.y() + visualTarget.height() - logicalRegion.y())
             / data.yScale();
         data.setRotationAngle(paintPose.rotation);
         data.setRotationOrigin(QVector3D(originX, originY, 0.0));
     }
 
-    // deviceRegion is KWin's actual renderer clip. Intersecting it with the
-    // fixed slot produces a native per-card aperture: every live surface
-    // covers the same rectangle, while excess pixels remain compositor-only
-    // and can never alter the Card Line pitch or cross an output boundary.
+    // deviceRegion is KWin's actual renderer clip. The visual aperture can be
+    // smaller than the canonical slot for a projected Bento pane, but cannot
+    // alter Card Line pitch, input reservation, or the output fence.
     const KWin::Rect deviceTarget =
-        viewport.mapToDeviceCoordinatesAligned(target);
+        viewport.mapToDeviceCoordinatesAligned(visualTarget);
     // QRegion remains only the hard output fence. Each visible preview uses
     // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
@@ -2542,8 +2552,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
     m_fanApertureOrigin = useFanAperture
-        ? QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
-                  (target.y() - logicalRegion.y()) * viewport.scale())
+        ? QPointF((visualTarget.x() - logicalRegion.x()) * viewport.scale(),
+                  (visualTarget.y() - logicalRegion.y()) * viewport.scale())
         : QPointF();
     m_fanApertureSize = useFanAperture
         ? QSizeF(deviceTarget.size()) : QSizeF();

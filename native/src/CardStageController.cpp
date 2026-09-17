@@ -143,6 +143,14 @@ int CardStageController::liveCardIndex(const KWin::EffectWindow *window) const
     return -1;
 }
 
+bool CardStageController::usesBentoProjectionAperture(
+    const KWin::EffectWindow *window) const
+{
+    return window && std::any_of(
+        m_bentoProjectionWindows.cbegin(), m_bentoProjectionWindows.cend(),
+        [window](const auto &projected) { return projected == window; });
+}
+
 QList<QPointer<KWin::EffectWindow>> CardStageController::preparationNeighbors() const
 {
     QList<QPointer<KWin::EffectWindow>> result;
@@ -1336,6 +1344,7 @@ bool CardStageController::admitBentoStack(const QList<NativeMoveSnapshot> &resto
     // Both membership owners publish before signals/native calls. Original
     // restore records cross directly; no frame acknowledgement is required.
     m_parkedRestores = snapshots;
+    m_bentoProjectionWindows = windows;
     ++m_restoreGeneration;
     m_active = true;
     m_presentation = CardPresentation::CardLine;
@@ -1395,6 +1404,7 @@ void CardStageController::release()
     }
     m_host->setPagingShortcutsForCardStage(false);
     m_workspace.clear();
+    m_bentoProjectionWindows.clear();
     m_originalCardStackingOrder.clear();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "released";
@@ -1583,6 +1593,7 @@ void CardStageController::rebuildLiveCards()
 {
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     m_workspace.clear();
+    m_bentoProjectionWindows.clear();
     if (!tablet) {
         return;
     }
@@ -1736,6 +1747,8 @@ void CardStageController::forgetManagedRestore(KWin::EffectWindow *window)
 {
     if (m_activeRestore.window == window) m_activeRestore = {};
     m_parkedRestores.removeIf([window](const auto &s) { return !s.window || s.window == window; });
+    m_bentoProjectionWindows.removeIf(
+        [window](const auto &projected) { return !projected || projected == window; });
     ++m_restoreGeneration;
 }
 

@@ -3,9 +3,14 @@
 ## Bento-derived Card Line presentation
 
 Bento-owned windows keep correct ownership, order, and large-pane selection when the
-tablet returns to Card Line. Some live content is undersized inside a large black
-card area. Fix presentation geometry without changing native Bento geometry, restore
-records, stack order, or the accepted live-texture model.
+tablet returns to Card Line. The current candidate removes the oversized fixed
+backing by using the pane-shaped source's maximum proportional aperture while the
+canonical slot continues to own layout and input. It has automated geometry and
+private ownership-lifecycle coverage but awaits physical appearance review.
+
+A client that renders black inside its own surface will retain it. A genuinely
+narrow pane also remains narrow because Kadunce does not crop, stretch, natively
+resize, or retain a second rendered source for Card Line.
 
 ## Card manipulation finish
 

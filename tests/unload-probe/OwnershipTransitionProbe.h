@@ -135,6 +135,8 @@ struct OwnershipTransitionProbe {
             || cards.selectedWindow() != expectedLead)
             return fail("Projection lost membership/large-pane selection");
         for (const auto &saved : transferred) {
+            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
+                return fail("Projection member lost Bento presentation provenance");
             const auto retained = cards.managedRestore(saved.window->effectWindow());
             if (!retained || retained->geometry != saved.geometry || retained->minimized != saved.minimized)
                 return fail("Projection replaced authoritative restore record");
@@ -146,12 +148,18 @@ struct OwnershipTransitionProbe {
         }
         cards.toggle(); // Visit Active, then return to the retained stack.
         cards.toggle();
+        for (const auto &saved : transferred)
+            if (!cards.usesBentoProjectionAperture(saved.window->effectWindow()))
+                return fail("Active round trip discarded projected presentation provenance");
         return true;
     }
     bool returnToBento() {
         if (!desktop.toggleOnOutput(tablet->name()) || cards.isActive()) return fail("Return to Bento failed");
-        for (const auto &[w, geometry] : origins)
+        for (const auto &[w, geometry] : origins) {
             if (!desktop.ownsWindow(w)) return fail("Return dropped an owned member");
+            if (cards.usesBentoProjectionAperture(w))
+                return fail("Released Card Line retained projected presentation provenance");
+        }
         return true;
     }
     bool release() {

@@ -79,6 +79,11 @@ public:
     [[nodiscard]] const QList<QPointer<KWin::EffectWindow>> &liveCards() const;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
+    // Presentation provenance only. These windows entered Card Line while their
+    // live surfaces still had Bento pane dimensions; membership and restoration
+    // remain entirely in the ordinary workspace/restore owners.
+    [[nodiscard]] bool usesBentoProjectionAperture(
+        const KWin::EffectWindow *window) const;
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> preparationNeighbors() const;
 
@@ -207,6 +212,7 @@ private:
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
+    QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
     ActiveRestoreSnapshot m_activeRestore;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;

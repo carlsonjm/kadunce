@@ -27,6 +27,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/CardLineModel.h
         src/CardLineLayout.cpp
         src/CardLineLayout.h
+        src/ProjectedCardGeometry.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
@@ -121,6 +122,12 @@ if(BUILD_TESTING)
     )
     target_include_directories(kadunce-card-line-layout-test PRIVATE src)
     add_test(NAME card-line-layout COMMAND kadunce-card-line-layout-test)
+
+    add_executable(kadunce-projected-card-geometry-test
+        tests/ProjectedCardGeometryTest.cpp
+    )
+    target_include_directories(kadunce-projected-card-geometry-test PRIVATE src)
+    add_test(NAME projected-card-geometry COMMAND kadunce-projected-card-geometry-test)
 
     add_executable(kadunce-bento-layout-test
         tests/BentoLayoutTest.cpp
