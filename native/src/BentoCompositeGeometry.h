@@ -79,6 +79,13 @@ struct BentoProjectedPaneGeometry {
     };
 }
 
+[[nodiscard]] inline double scaleBentoCompositeRadius(
+    const BentoCompositeGeometry &geometry, double sourceRadius)
+{
+    return geometry.valid() && std::isfinite(sourceRadius) && sourceRadius > 0.0
+        ? sourceRadius * geometry.scale : 0.0;
+}
+
 [[nodiscard]] inline CardRect intersectBentoCompositeRect(
     const CardRect &first, const CardRect &second)
 {

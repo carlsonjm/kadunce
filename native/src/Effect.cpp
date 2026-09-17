@@ -2614,8 +2614,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // deviceRegion is KWin's actual renderer clip. The visual aperture can be
     // smaller than the canonical slot for a projected Bento pane, but cannot
     // alter Card Line pitch, input reservation, or the output fence.
-    const KWin::Rect deviceTarget =
-        viewport.mapToDeviceCoordinatesAligned(visualTarget);
+    const KWin::Rect apertureTarget = bentoProjection
+        ? projectionPaneClip : visualTarget;
+    const KWin::Rect deviceAperture =
+        viewport.mapToDeviceCoordinatesAligned(apertureTarget);
     // QRegion remains only the hard output fence. Each visible preview uses
     // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
@@ -2626,7 +2628,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // Active has already returned above and remains on the system paint path.
     const bool useFanAperture = m_fanApertureShader
         && data.xScale() > 0 && data.yScale() > 0
-        && !deviceTarget.isEmpty();
+        && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
     const KWin::Region compositeFence = bentoProjection
@@ -2637,22 +2639,26 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const KWin::Region paneFence = bentoProjection
         ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(projectionPaneClip))
         : outputFence;
-    const KWin::Region cardClip = (rotatedFanCard
+    const double apertureRadius = bentoProjection
+        ? scaleBentoCompositeRadius(composite, CardCornerRadius)
+            * viewport.scale()
+        : CardCornerRadius * viewport.scale();
+    const KWin::Region cardClip = (rotatedFanCard && !bentoProjection
         ? deviceRegion
-        : deviceRegion & (useFanAperture ? KWin::Region(deviceTarget)
-            : roundedClip(deviceTarget, CardCornerRadius * viewport.scale())))
+        : deviceRegion & (useFanAperture ? KWin::Region(deviceAperture)
+            : roundedClip(deviceAperture, apertureRadius)))
         & outputFence & compositeFence & paneFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
     m_fanApertureOrigin = useFanAperture
-        ? QPointF((visualTarget.x() - logicalRegion.x()) * viewport.scale(),
-                  (visualTarget.y() - logicalRegion.y()) * viewport.scale())
+        ? QPointF((apertureTarget.x() - logicalRegion.x()) * viewport.scale(),
+                  (apertureTarget.y() - logicalRegion.y()) * viewport.scale())
         : QPointF();
     m_fanApertureSize = useFanAperture
-        ? QSizeF(deviceTarget.size()) : QSizeF();
-    m_fanApertureRadius = useFanAperture && !bentoProjection
-        ? static_cast<float>(CardCornerRadius * viewport.scale()) : 0.0F;
+        ? QSizeF(deviceAperture.size()) : QSizeF();
+    m_fanApertureRadius = useFanAperture
+        ? static_cast<float>(apertureRadius) : 0.0F;
 
     KWin::effects->paintWindow(
         renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,

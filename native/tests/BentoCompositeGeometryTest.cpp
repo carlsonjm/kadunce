@@ -39,6 +39,10 @@ int main()
         && close(composite.sourceUnion.width, workspace.width)
         && close(composite.sourceUnion.height, workspace.height),
         "Composite replaced the full work area with a pane union");
+    const double logicalRadius = Kadunce::scaleBentoCompositeRadius(composite, 10.0);
+    require(close(logicalRadius, 10.0 * composite.scale)
+        && close(logicalRadius * 1.25, 10.0 * composite.scale * 1.25),
+        "Pane radius did not preserve workspace-to-card scale at fractional DPR");
 
     std::vector<Kadunce::CardRect> mapped;
     for (const auto &frame : frames)
@@ -145,4 +149,7 @@ int main()
         "Empty work area unexpectedly became valid");
     require(!Kadunce::makeBentoCompositeGeometry(slot, {0, 0, 0, 10}).valid(),
         "Invalid work area unexpectedly became valid");
+    require(close(Kadunce::scaleBentoCompositeRadius({}, 10.0), 0.0)
+        && close(Kadunce::scaleBentoCompositeRadius(composite, -1.0), 0.0),
+        "Invalid pane radius unexpectedly became paintable");
 }

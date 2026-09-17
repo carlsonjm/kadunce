@@ -233,7 +233,7 @@ rg -q 'restoreOriginalStackingOrder' "${effect_cpp}" "${card_cpp}" "${effect_hea
 rg -q 'mapToDeviceCoordinatesAligned\(target\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'roundedClip(deviceTarget, CardCornerRadius' -F "${effect_cpp}"
 rg -q 'const bool useFanAperture = m_fanApertureShader' -F "${effect_cpp}"
-rg -q 'useFanAperture ? KWin::Region(deviceTarget)' -F "${effect_cpp}"
+rg -q 'useFanAperture ? KWin::Region(deviceAperture)' -F "${effect_cpp}"
 rg -q 'constexpr double CardCornerRadius = 10\.0' "${effect_cpp}" "${card_cpp}"
 rg -q 'path\.addRoundedRect' "${effect_cpp}" "${card_cpp}"
 rg -q 'CardCornerRadius \* viewport\.scale\(\)' "${effect_cpp}" "${card_cpp}"
@@ -490,6 +490,14 @@ rg -q 'makeBentoProjectedPaneGeometry' \
     "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
 rg -Fq 'mapBentoCompositeRect(composite, frame)' \
     "${native_dir}/src/BentoCompositeGeometry.h"
+rg -q 'scaleBentoCompositeRadius' \
+    "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}" \
+    "${native_dir}/tests/BentoCompositeGeometryTest.cpp"
+rg -Fq '? projectionPaneClip : visualTarget' "${effect_cpp}"
+rg -Fq 'mapToDeviceCoordinatesAligned(apertureTarget)' "${effect_cpp}"
+rg -Fq 'roundedClip(deviceAperture, apertureRadius)' "${effect_cpp}"
+rg -Fq 'm_fanApertureSize = useFanAperture' "${effect_cpp}"
+rg -Fq '? QSizeF(deviceAperture.size())' "${effect_cpp}"
 rg -q 'retireBentoProjectionForCardStage' \
     "${effect_cpp}" "${effect_header}" "${card_cpp}" "${card_header}"
 rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
