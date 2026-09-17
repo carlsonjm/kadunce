@@ -16,6 +16,9 @@ records routine implementation steps and `docs/archive/` records dated evidence.
 
 ## Execution policy
 
+- J approves product behavior and visual direction before implementation begins.
+  Engineering may present evidence, constraints, and alternatives but must not turn
+  an unapproved proposal into a candidate.
 - Keep one implementation owner per repository. Use a second worker only for
   read-only review or a disjoint file set.
 - Identify and measure the property that controls a visual or geometry defect before
@@ -30,10 +33,34 @@ records routine implementation steps and `docs/archive/` records dated evidence.
 - Keep rejected candidates out of `main`; preserve useful evidence in the archive.
 - Estimate remaining work only after the relevant feasibility proof.
 
+## Planning and budget controls
+
+The accepted Bento group-card block is the current empirical baseline: roughly four
+hours and 1,260 purchased credits ($50.40 at 2,500 credits per $100) for one primary
+architecture solve plus required scenario logic. It included one implementation
+started before design approval, one provisional acceptance that retained that path,
+the eventual approved model, and several physical micro-adjustments.
+
+- Schedule every major architecture change or architecture-level bug fix inside the
+  weekly included-limit plan. Reserve one focused weekly block before starting; do
+  not fund exploratory architecture with purchased credits or a small residual
+  weekly balance.
+- Use an approved interaction model and explicit physical acceptance checks as the
+  entry gate. If the model is undecided, spend only on evidence and alternatives.
+- Budget a comparable architecture solve at no less than 4-6 focused hours and one
+  protected weekly block until later accepted work provides a better baseline.
+- Purchased credits may flex for bounded procedural work such as documentation,
+  packaging, installer corrections, mechanical cleanup, or a well-isolated fix with
+  a known controlling property and stop condition.
+- Give credit-funded work a fixed packet, acceptance test, and spend ceiling. Stop
+  when evidence changes the task into architecture or product design.
+- Re-estimate this baseline after each accepted major slice using elapsed time,
+  consumed credits, false starts, and physical candidate count.
+
 ## Current sequence
 
 1. Finish Temperance notification action-pill spacing and validate or remove snooze.
-2. Fix Kadunce Bento-derived Card Line live presentation geometry.
+2. [x] Fix Kadunce Bento-derived Card Line live presentation geometry.
 3. Finish Kadunce Card Line extraction, reordering, labels, and stack position.
 4. Complete Tette responsive media/transfer and completion behavior.
 5. Finish remaining component features and visual polish.
@@ -57,7 +84,7 @@ physical checks, and have explicit ownership.
 - [x] Constrained windows route through Bento admission or prepared Active ownership.
 - [x] Tablet Card Line retains Bento members as a stack and selects the large pane.
 - [x] Output-local Bento ownership and lifecycle remain isolated.
-- [ ] Physically accept the full-work-area Bento group-card candidate. It maps
+- [x] Physically accept the full-work-area Bento group-card implementation. It maps
   live panes into one proportional desktop view with a translucent-black field,
   no retained snapshots, and no native Bento resizing; automated geometry,
   rounded pane apertures, repeated-projection stability, residue-free exact resume,

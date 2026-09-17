@@ -39,10 +39,10 @@ Shuffle capabilities; their technical feasibility remains open.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
 
-The current `main` production sources include the accepted ownership and
-constrained-launch correction. The last confirmed installed Kadunce build used the
-same production content. Revalidate source, package, control, and live provenance
-before the next installation.
+The current `main` production sources and installed candidate include the accepted
+ownership, constrained-launch correction, and physically accepted Bento group-card
+presentation. Revalidate source, package, control, and live provenance before the
+next installation.
 
 ## Open limitations
 
@@ -61,11 +61,12 @@ before the next installation.
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
 package checks, and mandatory control checks have passed for the current sources.
-The Bento group-card candidate has focused full-work-area, rounded pane-aperture and
-repeated-projection geometry, translucent backdrop, session-contract,
+The Bento group-card implementation has focused full-work-area, rounded
+pane-aperture and repeated-projection geometry, translucent backdrop, session-contract,
 no-member-paging, overflow-minimization, residue-free repeated exact resume,
-first-snap refresh, and private two-output ownership lifecycle coverage but still
-requires physical appearance review before promotion.
+first-snap refresh, and private two-output ownership lifecycle coverage. Physical
+review accepted its geometry, tint, gutters, container-level rounded clipping,
+exact resume, and repeated-entry behavior.
 Physical review has accepted ownership, constrained launch routing, stack retention,
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,
