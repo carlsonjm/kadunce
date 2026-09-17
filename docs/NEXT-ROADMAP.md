@@ -95,6 +95,9 @@ physical checks, and have explicit ownership.
 - [ ] Refactor ownership so Bento contains only its visible pane combination;
   minimized, displaced, overflowed, and extracted windows become independent Card
   Line cards with no retained Bento association.
+- [ ] Make first Card or Bento entry atomically adopt every eligible application
+  window on that display and current virtual desktop, as defined by
+  `CARD-LIFECYCLE.md`.
 - [ ] Add atomic prepared admission and removal for one logical group. Selecting a
   Bento group must transfer only that group while unrelated individual cards remain
   owned and hidden; selecting an individual must preserve the separate group.

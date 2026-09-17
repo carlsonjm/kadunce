@@ -8,6 +8,9 @@ touch interaction model, card membership, output-local Bento sessions, input
 routing, and compositor presentation. Table and Shuffle Keyboard are required
 Shuffle capabilities; their technical feasibility remains open.
 
+`CARD-LIFECYCLE.md` is the approved canonical ownership and presentation contract.
+Current implementation differences are limitations, not alternate behavior.
+
 ## Accepted behavior
 
 - Active, Card Line, ordered stacks, and output-local Bento are implemented.

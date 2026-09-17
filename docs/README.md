@@ -34,6 +34,7 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `ARCHITECTURE.md` | subsystem ownership and invariants |
 | `DECISIONS.md` | durable subsystem-grouped decision ledger |
 | `PRODUCT-CONTRACT.md` | accepted Kadunce product behavior |
+| `CARD-LIFECYCLE.md` | canonical card ownership, presentation, transition, and navigation contract |
 
 ## Reference
 

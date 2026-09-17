@@ -22,8 +22,11 @@ The built-in touch display can present Active, Card Line, and undocked Bento.
 - **Active** is one fixed, interactive application card.
 - **Card Line** is an ordered compositor view with one centered card and two
   partial neighbors. It never moves real windows into off-screen positions.
-- **Bento** uses real geometry for simultaneous interaction and parks overflow
-  rather than violating application minimum sizes.
+- **Bento** uses real geometry for simultaneous interaction and owns only its
+  visible pane combination. Nonvisible windows remain independent cards.
+
+`CARD-LIFECYCLE.md` is authoritative for card ownership, admission, selection,
+minimization, Bento membership, release, and Shuffle navigation.
 
 ## Desktop stage
 
@@ -50,8 +53,9 @@ compositor plugin.
 
 ## Input
 
-- Bottom-edge upward: Card Line
-- Top-edge downward: Active
+- Bottom-edge upward: launch Card Spread
+- Top-edge downward: return to the current card state, including Solo Card, Card
+  Stacks, or resumed Bento
 - Active left/right edge: previous/next card
 - Card Line background swipe: page line
 - Stack vertical gesture: previous/next member

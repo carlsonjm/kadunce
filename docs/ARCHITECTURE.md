@@ -38,8 +38,10 @@ but extraction must not create a second model, event bus, or persistence service
 
 Active presents one interactive card. Card Line presents an ordered center and
 neighbors, including visibly ordered stacks. Both are output-local views of logical
-membership. Bento presents simultaneously interactive real windows and parks
-overflow rather than violating application minimum sizes.
+membership. Bento presents simultaneously interactive real windows and owns only
+its current visible pane combination. Nonvisible, minimized, displaced, and
+extracted windows use independent Card Stage ownership. `CARD-LIFECYCLE.md` is the
+canonical state and transition contract.
 
 Live card content uses KWin's `OffscreenEffect` texture path with contain scaling,
 the established fan rotation/aperture, and black backing where aspect ratios differ.
@@ -63,10 +65,10 @@ UUID while the effect is loaded; array indices are compatibility data, not durab
 identity. Kadunce does not currently promise persistence across a complete effect
 unload.
 
-Constrained new windows use the Bento admission solver or prepared Active ownership.
-On the built-in display, switching Bento into Card Line retains Bento members as one
-ordered stack. Large-pane selection remains on top; minimum-size rules may place a
-window in the small pane.
+Constrained new windows use the Bento admission solver or prepared individual-card
+ownership. Switching Bento into Card Line represents only its visible panes as one
+logical group. Other eligible windows remain independent cards; presentation
+changes never release them to the native desktop.
 
 ## Transfer transaction
 
@@ -156,3 +158,4 @@ and D-Bus. They do not prove live-session safety or physical behavior. Follow
 7. Companion applications cannot enter compositor ownership through context APIs.
 8. Disable restores clients before unloading the effect.
 9. Safety-control failure blocks candidate promotion.
+10. Ownership and presentation transitions conform to `CARD-LIFECYCLE.md`.

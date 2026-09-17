@@ -11,6 +11,8 @@ Then inspect the branch, working tree, and only the source or reference document
 needed for the assigned work. `docs/README.md` classifies the remaining documents.
 Do not read `docs/archive/` during normal startup. Use archived evidence only to
 diagnose a regression, answer a provenance question, or revisit a failed candidate.
+For any card, Bento, admission, release, or Shuffle navigation task, read
+`docs/CARD-LIFECYCLE.md` before inspecting implementation.
 
 `CURRENT_STATE.md` describes current behavior, limitations, source/installed state,
 and validation only. Replace stale text instead of appending progress notes.

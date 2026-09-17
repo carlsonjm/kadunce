@@ -4,6 +4,10 @@ This ledger records current architectural and product decisions. It is grouped b
 subsystem. Superseded discussion and candidate evidence are preserved in
 `docs/archive/` and Git history.
 
+`CARD-LIFECYCLE.md` is the canonical product authority for card ownership,
+presentation states, transitions, release, and Shuffle navigation. This ledger
+records the architectural rationale that implements that contract.
+
 ## Product and authority
 
 ### KDE remains authoritative
