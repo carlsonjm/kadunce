@@ -2,30 +2,18 @@
 
 ## Product direction — Good Input / Shuffle
 
-Good Input is the company and publisher. Shuffle for Plasma is the consumer product;
-Shuffle is the conversational name. Kadunce, Tettegouche and Temperance remain the
-internal component names and free/open-source repositories. The integrated consumer
-product will live in a private Shuffle repository under a Good Input organization,
-with a documented boundary for private integration, product assets and packaging.
-
-Table and Shuffle Keyboard are essential to the final consumer product. The former
-5.5-day forecast is retired because it excluded both features and private-product
-assembly. Server and interactive website work move to the bottom of the dependency
-order. A new launch estimate follows bounded Table and Keyboard feasibility; product
-correctness takes priority over launching against an arbitrary date.
+Good Input publishes the consumer product Shuffle for Plasma. Kadunce, Tettegouche
+and Temperance remain the internal free/open-source components; private integration,
+assets and packaging will live in a Good Input Shuffle repository. Table and Shuffle
+Keyboard are essential. Re-estimate after their feasibility work; server and website
+remain last. See `NEXT-ROADMAP.md`.
 
 ## September 16 — budget pause after Temperance visual polish
 
-J accepted the installed Temperance visual-polish candidate as the paused working
-model. Popup clearance, smaller rendered power glyphs, lowercase `do not disturb`,
-the compact notification source/title/body hierarchy, repeated-action card sizing,
-and hairline action pills with hover fill passed physical review. Temperance commits
-**4f173d8** and **6e04f4a** sit on the published casing baseline **0e2d9b4**.
-
-Two notification follow-ups remain after the budget pause: action-pill labels need
-smaller text or more horizontal padding, and the newly exposed snooze action must be
-traced to a real functional path before it is accepted as QoL. No further feature or
-architecture work is authorized until the working budget is replenished.
+J accepted Temperance **4f173d8** and **6e04f4a** as the paused working model:
+popup clearance, smaller power glyphs, lowercase labels, compact notification
+hierarchy, repeated-action sizing and hairline/hover-fill pills. Pill typography or
+padding and the snooze action path remain open. Implementation is paused for budget.
 
 ## September 16 — A2 ownership and Temperance T1 physically accepted
 
@@ -89,11 +77,6 @@ motion. See `VISUAL-AUDIT-20260915.md`.
 
 ## Validation and acceptance
 
-The September 16 coordination cleanup adds the root runtime-only `SWARM.md`,
-standardizes agent startup order, and removes stale conversational residue from
-comments. It changes no product behavior or installed state. Source and mandatory
-control checks pass; active handoffs are empty while implementation is paused.
-
 - Tettegouche exact-head build, source checks, 12/12 CTests and diff checks pass.
   The protected Dot applet source is unchanged.
 - Temperance exact-head build, 5/5 CTests and diff checks pass. Its focused panel
@@ -109,11 +92,8 @@ the freeze.
 
 ## Next bounded work
 
-The rolling execution plan is `NEXT-ROADMAP.md`; update its section status and
-planning number after every accepted block. Current forecast is **5.5 focused
-working days remaining**, with a 5–7 day expected range. This modest reduction
-credits accepted ownership/ticker work while retaining the presentation and
-Tette regression allowance.
+The rolling execution plan is `NEXT-ROADMAP.md`. The former 5.5-day estimate is
+retired; recalculate after Table and Keyboard feasibility.
 
 1. **Debug and polish:** A1 and A2 ownership behavior passed J's physical tests.
    Zen correctly used the small Bento pane because its minimum size did not
