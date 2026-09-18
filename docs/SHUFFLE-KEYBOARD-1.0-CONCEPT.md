@@ -70,6 +70,26 @@ spacing, and subtle boundaries. Avoid skeuomorphic keys, dense outlines, permane
 toolbars, and ornamental technical styling. The cascading action geometry is part of
 the recognizable keyboard silhouette.
 
+### Accepted visual direction
+
+The September 17 concept establishes the direction without serving as a pixel-level
+layout specification:
+
+![Shuffle Keyboard visual direction](../assets/concepts/shuffle-keyboard-direction-2026-09-17.png)
+
+- Retain MaiN Keyboard's open spacing, floating labels, and quiet lower key edges.
+- Use the shared dark surfaces, Ghost White labels, rounded controls, restrained
+  borders, and accent only for meaningful state.
+- Backspace is one ordinary-key width. Enter is approximately 1.5 key widths.
+- Shuffle is a two-key-wide surface spanning two rows at the lower-right corner.
+- Shuffle behaves as a small text-edit gesture surface. Its gesture hints are quiet
+  guidance, not five separate buttons.
+- The bottom control order is `ctrl`, `alt`, `space`, `shift`, `123`, then Shuffle.
+- Shift sits immediately right of Space. It is visually neutral until active and
+  must not read as a second Caps Lock.
+- The pictured `caps` label is superseded by `shift`; do not implement duplicate
+  Shift or Caps controls from the reference image.
+
 ## Engineering constraints
 
 - Evaluate Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing, and
