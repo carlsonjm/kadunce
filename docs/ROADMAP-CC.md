@@ -339,9 +339,11 @@ disable control.
 
 ## Block 3b — Bento layout grammar
 
-**Status:** Ready and parallel with Block 3. Separated from it on 19 September
-because it is different work: layout selection sitting on top of the ownership
-paths, not ownership itself. It stalled behind them for that reason.
+**Status:** Implemented; physical review owed. Separated from Block 3 on 19
+September because it is different work: layout selection sitting on top of the
+ownership paths, not ownership itself. It stalled behind them for that reason.
+Headless and KWin-linked suites pass. The tablet's maximum moves from two panes
+to three, which physical review has not yet seen.
 
 `BentoLayout.h` and `BentoSidePlacement.h` are pure value code covered by the
 headless suite, so this block can be prepared in a cloud session and needs no
@@ -354,20 +356,20 @@ occlusion handling, `bentoSideChoice` already reads upper/lower edge intent with
 midpoint hysteresis, and preferred proportions are already clamped by window
 minimums. What is missing is a stated mapping from intent to shape.
 
-- [ ] Give each display one pane cap that both admission paths read. They
+- [x] Give each display one pane cap that both admission paths read. They
   currently disagree: the edge-snap path passes no maximum at all, while
   `chooseBentoAdmission` passes `compact ? 2 : 8` with `compact` true for the
   tablet's 1443x894 work area. The tablet's cap is three; larger displays keep
   eight.
-- [ ] Derive layout orientation from the work area, not from `isTabletOutput`.
+- [x] Derive layout orientation from the work area, not from `isTabletOutput`.
   `chooseBentoAdmission` already uses `areaWidth >= areaHeight`; the side path
   passes `!isTabletOutputForDesktopStage(output)`, so the same landscape-shaped
   tablet work area is treated as portrait by one path and landscape by the other.
-- [ ] Add the tablet's second three-pane shape. `makeBentoLayout(3, landscape)`
+- [x] Add the tablet's second three-pane shape. `makeBentoLayout(3, landscape)`
   supplies one column beside a top/bottom split; three vertical columns do not
   exist yet and belong beside it as an alternate, the way
   `makeAlternateTwoPaneBentoLayout` already provides a second two-pane shape.
-- [ ] Make side contact select the shape, per §5. The intent is already read
+- [x] Make side contact select the shape, per §5. The intent is already read
   correctly: `bentoSideChoice` sets `large` from which half of the edge was
   touched and holds the previous choice within 18px of the midpoint. What is
   missing is a stated mapping from that intent to a shape. Two paths can answer
@@ -376,10 +378,22 @@ minimums. What is missing is a stated mapping from intent to shape.
   on which one succeeds. On the tablet the pairing currently inverts §5: an
   upper-half snap yields one large pane beside two stacked, and a lower-half snap
   yields three columns.
-- [ ] Remove `allowLarge` as a device test. `splitBentoColumn` receives
+- [x] Remove `allowLarge` as a device test. `splitBentoColumn` receives
   `!isTabletOutputForDesktopStage(output)` and so refuses every upper-half split
   on the tablet, which is policy keyed to hardware identity rather than to
   whether the minimums allow the shape.
+
+- [x] Bound `splitBentoColumn` by the display's pane cap. It had no pane bound
+  at all, so once the compact cap rose from two to three a side snap into a
+  three-pane session would have grown it to four: the split path preserves
+  existing rects and never consulted a maximum.
+
+**Open:** §5 scopes the contact mapping to a display whose maximum is three
+panes, and the exit gate below asks for it on both displays. On a larger display
+the curated library governs and `splitBentoColumn` still preserves unrelated
+panes, so a shape there can still depend on what was on screen. Closing it means
+either §5 naming the monitor's contact shapes or narrowing the gate. Both are
+product decisions.
 
 **Exit gate:** The same side contact yields the same shape regardless of layout
 history, on both displays. No shape decision reads `isTabletOutput`. Headless
