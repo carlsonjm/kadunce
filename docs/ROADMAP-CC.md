@@ -129,7 +129,10 @@ all.
 
 ### 1e. Give the effect its input backend on a cold boot
 
-**Status:** Priority. Found while validating Block 3's gestures.
+**Status:** Implemented; awaiting the cold-boot check. The effect now watches
+the runtime directory for the kit and adopts the direct router when it appears,
+handing each edge back from Plasma first. The current session loaded with the kit
+already present, so only a cold boot exercises the path.
 
 - [ ] `Effect.cpp` latches `m_usesDirectSystemEdges = z13TabletKitAvailable()`
   once in its constructor, testing for `$XDG_RUNTIME_DIR/z13-tablet-kit/posture`.

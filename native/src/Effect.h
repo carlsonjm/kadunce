@@ -28,6 +28,7 @@
 
 class QAction;
 class QDBusServiceWatcher;
+class QFileSystemWatcher;
 
 namespace Kadunce
 {
@@ -121,6 +122,11 @@ Q_SIGNALS:
     Q_SCRIPTABLE void bridgeUnavailable();
 
 private:
+    // The tablet kit decides which backend owns the top and bottom edges, and it
+    // can appear after the effect loads. These move the session onto the direct
+    // router at that point instead of leaving the constructor's answer final.
+    void watchForTabletKit();
+    void adoptDirectSystemEdges();
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
@@ -278,6 +284,7 @@ private:
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
+    std::unique_ptr<QFileSystemWatcher> m_tabletKitWatcher;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;

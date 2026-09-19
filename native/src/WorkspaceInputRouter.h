@@ -102,6 +102,14 @@ public:
     bool touchCancel() override;
     // Invalidate actions, but retain consumed contacts until their release.
     void cancelWorkspaceInteraction();
+    // The Z13 tablet kit can appear after the effect loads, handing the top and
+    // bottom edges from Plasma to this router mid-session. Any interaction in
+    // flight belongs to the previous backend and is cancelled rather than split.
+    void setOwnsSystemEdges(bool owns) {
+        if (m_ownsSystemEdges == owns) return;
+        m_ownsSystemEdges = owns;
+        cancelWorkspaceInteraction();
+    }
     // Native carry now owns this previously forwarded stream, including its up.
     void retireNativePointer(Qt::MouseButton button) { m_forwardedPointerButtons.remove(button); }
     void retireNativeTouch(qint32 id) {

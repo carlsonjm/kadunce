@@ -36,6 +36,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
+#include <QFileSystemWatcher>
 #include <QDebug>
 #include <QEasingCurve>
 #include <QFile>
@@ -514,6 +515,8 @@ Effect::Effect()
         KWin::input()->installInputEventFilter(m_inputRouter.get());
     }
 
+    if (!m_usesDirectSystemEdges) watchForTabletKit();
+
     m_nativeEdgePolicy = std::make_unique<NativeEdgePolicy<KWin::Options>>(KWin::options);
     connect(KWin::options, &KWin::Options::configChanged, this, [this] {
         if (m_nativeEdgePolicy) m_nativeEdgePolicy->refresh();
@@ -571,6 +574,51 @@ void Effect::showActive()
 bool Effect::supported()
 {
     return true;
+}
+
+void Effect::watchForTabletKit()
+{
+    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (runtime.isEmpty()) return;
+    // The posture manager is a separate user service and has been observed
+    // reaching active state after KWin. Testing once in the constructor then
+    // makes the Plasma edge fallback permanent for the session, so watch the
+    // runtime directory for the kit and adopt the direct router when it lands.
+    m_tabletKitWatcher = std::make_unique<QFileSystemWatcher>();
+    const QString kit = runtime + QStringLiteral("/z13-tablet-kit");
+    m_tabletKitWatcher->addPath(runtime);
+    if (QFileInfo::exists(kit)) m_tabletKitWatcher->addPath(kit);
+    connect(m_tabletKitWatcher.get(), &QFileSystemWatcher::directoryChanged,
+            this, [this, kit] {
+                // The directory can appear before the posture file inside it.
+                if (m_tabletKitWatcher && QFileInfo::exists(kit)
+                    && !m_tabletKitWatcher->directories().contains(kit)) {
+                    m_tabletKitWatcher->addPath(kit);
+                }
+                adoptDirectSystemEdges();
+            });
+}
+
+void Effect::adoptDirectSystemEdges()
+{
+    if (m_usesDirectSystemEdges || !z13TabletKitAvailable()) return;
+    m_usesDirectSystemEdges = true;
+    m_tabletKitWatcher.reset();
+    // Hand each edge back to Plasma before the router claims it, so one swipe
+    // cannot reach both backends. Adoption is one-way: a kit that later goes
+    // away leaves Kadunce's own recognition in place rather than churning the
+    // backend mid-session.
+    const auto release = [](KWin::ElectricBorder border, QAction *&action) {
+        if (!action) return;
+        KWin::effects->unregisterTouchBorder(border, action);
+        action->deleteLater();
+        action = nullptr;
+    };
+    release(KWin::ElectricBottom, m_showSpreadAction);
+    release(KWin::ElectricTop, m_showActiveAction);
+    if (m_inputRouter) m_inputRouter->setOwnsSystemEdges(true);
+    qInfo() << "Kadunce" << Revision
+            << "adopted direct Z13 system edges after the tablet kit appeared";
 }
 
 bool Effect::isTabletOutput(const KWin::LogicalOutput *output)
