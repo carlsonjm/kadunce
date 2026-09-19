@@ -90,7 +90,9 @@ promotion evidence.
 ## Ordering rationale
 
 Four findings changed the order. They are recorded in
-`OWNERSHIP-AUDIT-20260919.md`.
+`OWNERSHIP-AUDIT-20260919.md`. Findings 1 and 2 are closed by Block 2 and finding
+3 by Block 1a; they are kept here because they explain why the blocks are shaped
+the way they are. Finding 4 still stands.
 
 1. Ownership has no single representation. Individual cards live in
    `CardWorkspaceState`, Bento panes in `DesktopStageController` sessions, and
@@ -108,13 +110,42 @@ Four findings changed the order. They are recorded in
    asymmetric Ambient and ticker width and supplies the Keyboard's mount
    geometry, so it gates two later blocks and cannot sit inside private assembly.
 
+Live validation on 19 September added two more. Physical gesture evidence is not
+trustworthy while the edge backend is decided by a boot race, which is why 1e
+precedes Block 3's physical checks. And Bento shape selection turned out to be
+layout work resting on the ownership paths rather than ownership work, which is
+why Block 3b is separate and can run beside Block 3 rather than after it.
+
 Table and Keyboard feasibility remain after the component engines meet their
 contracts. Proving input plumbing against a shell that does not yet satisfy
 `CARD-LIFECYCLE.md` would prove it against a moving target.
 
 ## Block 1 — Refactor enablement
 
-**Status:** Complete. Block 2 is unblocked.
+**Status:** 1a, 1b and 1c are complete and unblocked Blocks 2 and 3. Two items
+remain, both about an installed candidate behaving as installed. 1e is the
+current priority because it decides whether physical evidence can be trusted at
+all.
+
+### 1e. Give the effect its input backend on a cold boot
+
+**Status:** Priority. Found while validating Block 3's gestures.
+
+- [ ] `Effect.cpp` latches `m_usesDirectSystemEdges = z13TabletKitAvailable()`
+  once in its constructor, testing for `$XDG_RUNTIME_DIR/z13-tablet-kit/posture`.
+  Measured 19 September: `plasma-kwin_wayland.service` became active at 13:56:43
+  and `z13-tablet-switch.service` at 13:56:55, so a cold boot latches the absent
+  file and delegates top and bottom gestures to Plasma touch borders. Only an
+  effect reload recovers the direct four-edge router. One-shot check, no retry,
+  no signal on the service appearing.
+- [ ] Until this is fixed, a physical gesture result depends on which backend won
+  the boot race. One live session already ran its first checks on the
+  Plasma-native path and a later one on the direct router, leaving them not
+  comparable.
+
+**Exit gate:** A cold boot reports `direct Z13 system edges` with no reload. The
+banner distinguishes the two backends, so the check is a single line of the
+journal.
 
 ### 1d. Make an installed candidate actually run
 
@@ -193,7 +224,8 @@ outside the three frozen layer-3 identities.
 
 ## Block 2 — Ownership foundation
 
-**Status:** Complete. Block 3 is unblocked.
+**Status:** Complete and live-verified on a restarted compositor. Block 3 is
+unblocked.
 
 - [x] Narrow prepared tickets to the membership, order and grouping delta they
   intend. A ticket must not transport selection, page offset or neighbor side.
@@ -235,10 +267,18 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** Ready. Block 2's ledger is live-verified, and the ownership refactor
-stays unresolved for testing until edge snapping below behaves as specified: the
-current solver decides pane membership, so a test cannot separate an ownership
-defect from a solver decision.
+**Status:** Ready, and the current implementation priority once 1e lands. Block
+2's ledger is live-verified, so a violation it reports now names a real defect
+rather than a solver decision. `CARD-LIFECYCLE.md` carries the approved model
+this block implements.
+
+Order within the block matters. Deliberate snapping comes first because it is the
+smallest change that makes the system testable: while the solver decides pane
+membership, a test cannot separate an ownership defect from a solver decision.
+Overflow deletion follows, because once almost nothing produces overflow the
+container can be removed by subtraction rather than by behavior change. Write the
+failing headless assertion before each, the way Block 1a replaced source-order
+assertions with behavioral coverage.
 
 - [ ] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
   §3. One window dragged to the top, left or right edge becomes exactly one
@@ -277,6 +317,40 @@ defect from a solver decision.
   is never parked, so admission cannot reintroduce overflow and a background event
   cannot rearrange a layout the user placed. This is what makes Bento feel
   seamless at a monitor and is deliberately kept.
+- [ ] First Card or Bento entry atomically adopts every eligible window on that
+  display and current virtual desktop.
+- [ ] Atomic prepared admission and removal for one logical group: selecting a
+  group transfers only that group; selecting an individual preserves the group.
+- [ ] Rebuild top-edge Active extraction on that contract, covering both
+  selection paths, rollback, repeated transitions, release, unload and
+  other-output isolation.
+
+**Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
+repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
+holds two rules, not three. Two symptoms measured on the installed candidate must
+be gone: activating an overflow window from the Plasma task manager brings it
+forward instead of being re-minimized by the next solve, and a pane dragged to the
+top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of returning to it. No
+missing window, stuck input, broken restoration, cross-output leak, or failed
+disable control.
+
+## Block 3b — Bento layout grammar
+
+**Status:** Ready and parallel with Block 3. Separated from it on 19 September
+because it is different work: layout selection sitting on top of the ownership
+paths, not ownership itself. It stalled behind them for that reason.
+
+`BentoLayout.h` and `BentoSidePlacement.h` are pure value code covered by the
+headless suite, so this block can be prepared in a cloud session and needs no
+tablet, D-Bus or installation. Its file set is disjoint from Block 3's, so the
+two can run at once under separate implementation owners.
+
+`CARD-LIFECYCLE.md` §5 owns the shapes, the cap and the contact mapping. More is
+already built than the stalled state suggests: rails exist on both axes with
+occlusion handling, `bentoSideChoice` already reads upper/lower edge intent with
+midpoint hysteresis, and preferred proportions are already clamped by window
+minimums. What is missing is a stated mapping from intent to shape.
+
 - [ ] Give each display one pane cap that both admission paths read. They
   currently disagree: the edge-snap path passes no maximum at all, while
   `chooseBentoAdmission` passes `compact ? 2 : 8` with `compact` true for the
@@ -303,21 +377,12 @@ defect from a solver decision.
   `!isTabletOutputForDesktopStage(output)` and so refuses every upper-half split
   on the tablet, which is policy keyed to hardware identity rather than to
   whether the minimums allow the shape.
-- [ ] First Card or Bento entry atomically adopts every eligible window on that
-  display and current virtual desktop.
-- [ ] Atomic prepared admission and removal for one logical group: selecting a
-  group transfers only that group; selecting an individual preserves the group.
-- [ ] Rebuild top-edge Active extraction on that contract, covering both
-  selection paths, rollback, repeated transitions, release, unload and
-  other-output isolation.
 
-**Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
-repeated-selection, cold-start and multi-display checks pass. Two symptoms
-measured on the installed candidate must be gone: activating an overflow window
-from the Plasma task manager brings it forward instead of being re-minimized by
-the next solve, and a pane dragged to the top edge leaves Bento under
-`CARD-LIFECYCLE.md` §5 instead of returning to it. No missing window, stuck
-input, broken restoration, cross-output leak, or failed disable control.
+**Exit gate:** The same side contact yields the same shape regardless of layout
+history, on both displays. No shape decision reads `isTabletOutput`. Headless
+coverage for the cap, the orientation rule, both three-pane shapes and the
+contact mapping passes, and physical review accepts the tablet's two shapes and
+rail behavior within them.
 
 ## Block 4 — Kadunce manipulation
 
