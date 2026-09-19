@@ -99,6 +99,11 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-workspace-state-test PRIVATE src)
     target_link_libraries(kadunce-workspace-state-test PRIVATE Qt6::Core)
     add_test(NAME workspace-state COMMAND kadunce-workspace-state-test)
+    add_executable(kadunce-ownership-handoff-test
+        tests/OwnershipHandoffTest.cpp src/CardLineModel.cpp)
+    target_include_directories(kadunce-ownership-handoff-test PRIVATE src)
+    target_link_libraries(kadunce-ownership-handoff-test PRIVATE Qt6::Core)
+    add_test(NAME ownership-handoff COMMAND kadunce-ownership-handoff-test)
     add_executable(kadunce-workspace-snapshot-test
         tests/WorkspaceSnapshotTest.cpp src/CardLineModel.cpp)
     target_include_directories(kadunce-workspace-snapshot-test PRIVATE src)

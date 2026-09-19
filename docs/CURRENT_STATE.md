@@ -74,6 +74,9 @@ duplicates, while excluding overflow and omitting stack position.
 
 The production build, focused layout/motion/paint tests, integrated carry routes,
 package checks, and mandatory control checks have passed for the current sources.
+Ownership publication, native adoption and resume handback ordering is covered
+behaviorally by the headless `ownership-handoff` test rather than by source-order
+assertions; the invariants themselves are unchanged.
 The accepted labels additionally have focused name precedence, Bento aggregation,
 duplicate preservation, and stack-position coverage; their full verification passes.
 The Bento group-card implementation has focused full-work-area, rounded
@@ -95,4 +98,5 @@ confirm startup wiring. Do not infer a missing control from sandbox or D-Bus
 transport failure. Do not stop the graphical session or toggle the effect without
 explicit authorization.
 
-Future work and ordering live only in `NEXT-ROADMAP.md`.
+Ordering and open product decisions live only in `ROADMAP-CC.md`;
+per-component task detail lives in `NEXT-ROADMAP.md`.

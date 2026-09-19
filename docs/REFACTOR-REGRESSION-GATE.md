@@ -43,6 +43,6 @@ test unless repair behavior itself changed.
 
 ## Refactor rule
 
-A regression blocks the refactor. A new product idea belongs in `NEXT-ROADMAP.md`
+A regression blocks the refactor. A new product idea belongs in `ROADMAP-CC.md`
 only after scope approval. Structural extraction must keep one mutable state owner,
 typed controller boundaries, value-first admission, and rendering as a reader.

@@ -70,6 +70,15 @@ A transfer token is reversible until the destination validates and accepts it.
 Rejection preserves source membership, selection, stack order, and restore state.
 Native geometry changes occur only after logical publication.
 
+### Handoff order is carried by a shared sequence, not by source order
+
+Publication before native placement, restore capture between the accepted output
+placement and Kadunce's own geometry, and projection retirement before a resume
+commits are expressed as duck-typed sequences in `OwnershipHandoff.h`. A caller
+supplies the steps and cannot reorder them. Checks therefore assert the observable
+order and what a refusal leaves undone, never where a call sits in a file, so a
+controller may be restructured without weakening the invariant.
+
 ### Existing Bento has destination priority
 
 An incoming monitor card first targets an existing Bento session. Invalid existing

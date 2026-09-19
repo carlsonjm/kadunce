@@ -4,7 +4,7 @@ For every task, read only this startup set, in order:
 
 1. `AGENTS.md`
 2. `docs/CURRENT_STATE.md`
-3. `docs/NEXT-ROADMAP.md`
+3. `docs/ROADMAP-CC.md`
 4. `SWARM.md`
 
 Then inspect the branch, working tree, and only the source or reference documents
@@ -14,10 +14,15 @@ diagnose a regression, answer a provenance question, or revisit a failed candida
 For any card, Bento, admission, release, or Shuffle navigation task, read
 `docs/CARD-LIFECYCLE.md` before inspecting implementation.
 
+Claude Code loads `CLAUDE.md` automatically. It routes into this same startup set
+and adds no separate protocol.
+
 `CURRENT_STATE.md` describes current behavior, limitations, source/installed state,
 and validation only. Replace stale text instead of appending progress notes.
-`NEXT-ROADMAP.md` is the sole execution plan. Record durable architecture decisions
-in `DECISIONS.md`; Git records implementation history.
+`ROADMAP-CC.md` is the execution plan and owns block order, dependencies and open
+product decisions. `NEXT-ROADMAP.md` supplies per-component task detail and is read
+when a block is picked up, not at startup. Record durable architecture decisions in
+`DECISIONS.md`; Git records implementation history.
 
 Keep `SWARM.md` empty unless another live agent must act. A live handoff must be at
 most 50 words; remove it when the dependency is resolved. Do not put backlogs,

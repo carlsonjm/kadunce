@@ -5,6 +5,7 @@
 
 #include "CardStageController.h"
 #include "HeldCardGeometry.h"
+#include "OwnershipHandoff.h"
 #include "NeighborStackPose.h"
 #include "RowPageMotion.h"
 #include "StackBrowseMotion.h"
@@ -1417,20 +1418,26 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
         if (overflow == projection.overflow.cend() || !append(*overflow, false)) return false;
     }
     const auto admission = m_workspace.prepareStackAdmission(windows);
-    if (!admission || !m_workspace.commitAdmission(*admission, commitSource)) return false;
+    if (!admission) return false;
     // Both membership owners publish before signals/native calls. Original
     // restore records cross directly; no frame acknowledgement is required.
-    m_parkedRestores = snapshots;
-    m_bentoProjectionWindows = windows;
-    m_bentoProjectionPaneWindows.clear();
-    for (const auto &member : projection.panes)
-        m_bentoProjectionPaneWindows.append(member.window);
-    m_bentoProjectionSession = projection;
-    ++m_restoreGeneration;
-    m_active = true;
-    m_presentation = CardPresentation::CardLine;
-    m_originalCardStackingOrder = projection.stackingOrder;
-    m_restoredMinimizations.clear();
+    if (!publishOwnershipThenRecord(
+            [&] { return m_workspace.commitAdmission(*admission, commitSource); },
+            [&] {
+                m_parkedRestores = snapshots;
+                m_bentoProjectionWindows = windows;
+                m_bentoProjectionPaneWindows.clear();
+                for (const auto &member : projection.panes)
+                    m_bentoProjectionPaneWindows.append(member.window);
+                m_bentoProjectionSession = projection;
+                ++m_restoreGeneration;
+                m_active = true;
+                m_presentation = CardPresentation::CardLine;
+                m_originalCardStackingOrder = projection.stackingOrder;
+                m_restoredMinimizations.clear();
+            })) {
+        return false;
+    }
     m_host->cancelInputForCardStage();
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     for (const auto &window : windows) {
@@ -1469,28 +1476,34 @@ bool CardStageController::resumeSelectedBentoProjection()
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
         [this, projectionWindows, &committed] {
-            if (!m_active || !selectedIsBentoProjection()) return false;
-            m_transferGuard.invalidate();
-            m_host->cancelInputForCardStage();
-            clearCardTransition();
-            m_activeSettleTimer.stop();
-            m_activeSettleRemaining = 0;
-            m_active = false;
-            m_presentation = CardPresentation::CardLine;
-            m_workspace.clear();
-            m_activeRestore = {};
-            m_parkedRestores.clear();
-            m_bentoProjectionWindows.clear();
-            m_bentoProjectionPaneWindows.clear();
-            m_bentoProjectionSession.reset();
-            m_originalCardStackingOrder.clear();
-            for (const auto &window : projectionWindows) {
-                if (window && !window->isDeleted())
-                    KWin::effects->setElevatedWindow(window, false);
-            }
-            m_host->retireBentoProjectionForCardStage(projectionWindows);
-            committed = true;
-            return true;
+            committed = commitResumeHandback(
+                [&] {
+                    if (!m_active || !selectedIsBentoProjection()) return false;
+                    m_transferGuard.invalidate();
+                    m_host->cancelInputForCardStage();
+                    clearCardTransition();
+                    m_activeSettleTimer.stop();
+                    m_activeSettleRemaining = 0;
+                    m_active = false;
+                    m_presentation = CardPresentation::CardLine;
+                    m_workspace.clear();
+                    m_activeRestore = {};
+                    m_parkedRestores.clear();
+                    m_bentoProjectionWindows.clear();
+                    m_bentoProjectionPaneWindows.clear();
+                    m_originalCardStackingOrder.clear();
+                    return true;
+                },
+                [&] {
+                    m_bentoProjectionSession.reset();
+                    for (const auto &window : projectionWindows) {
+                        if (window && !window->isDeleted())
+                            KWin::effects->setElevatedWindow(window, false);
+                    }
+                    m_host->retireBentoProjectionForCardStage(projectionWindows);
+                },
+                [] {});
+            return committed;
         },
         [this, allWindows, originalStackingOrder, ordinaryRestores, &committed] {
             if (!committed) return;
@@ -1776,9 +1789,19 @@ void CardStageController::rebuildLiveCards()
         m_host->connectManagedWindowForCardStage(window);
         admitted.append(window);
     }
-    m_workspace.reset(admitted, activeIndex >= 0 ? activeIndex : admitted.size() - 1);
-    for (const auto &window : admitted) retainManagedOwnership(window);
-    if (!admitted.isEmpty()) m_originalCardStackingOrder = admitted;
+    // Entry publishes the whole admitted set before any of it is described.
+    // A restore record is defined only for a published card, so capture here
+    // cannot precede the reset that publishes them.
+    publishOwnershipThenRecord(
+        [&] {
+            m_workspace.reset(admitted,
+                activeIndex >= 0 ? activeIndex : admitted.size() - 1);
+            return true;
+        },
+        [&] {
+            for (const auto &window : admitted) retainManagedOwnership(window);
+            if (!admitted.isEmpty()) m_originalCardStackingOrder = admitted;
+        });
 }
 
 void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
@@ -2027,11 +2050,11 @@ bool CardStageController::admitTransferredWindowToTablet(
     // origin from KWin's accepted tablet placement before Active sizing.
     const bool sameOutput = restore ? restore->output == tablet : window->screen() == tablet;
     if (sameOutput && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
-    client->sendToOutput(tablet);
-    if (!valid()) return true;
-    retainManagedOwnership(arrival);
-    client->moveResize(target);
-    if (!valid()) return true;
+    if (!adoptPublishedCard(client.data(), tablet.data(),
+            [&] { return liveCardIndex(arrival) >= 0; },
+            [&] { retainManagedOwnership(arrival); }, target, valid)) {
+        return true;
+    }
     if (!m_active) {
         KWin::workspace()->raiseWindow(client);
         if (!valid()) return true;

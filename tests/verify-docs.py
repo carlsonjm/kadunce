@@ -27,6 +27,7 @@ def tracked_documents() -> list[str]:
     root_docs = {
         "AGENTS.md",
         "CHANGELOG.md",
+        "CLAUDE.md",
         "README.md",
         "SWARM.md",
         "THIRD_PARTY_NOTICES.md",

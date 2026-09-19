@@ -81,11 +81,14 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ### 1a. Free the checks from implementation shape
 
-- [ ] Convert the six source-order assertions in `tests/verify-source.sh` to
+**Status:** Complete. No check now asserts the position of an ownership symbol.
+
+- [x] Convert the six source-order assertions in `tests/verify-source.sh` to
   behavioral coverage of the same invariants: destination acceptance before
   source removal, publication before native placement, projection retirement
-  before resume commits.
-- [ ] Keep the packaging, service-name and plugin-identity greps; they assert
+  before resume commits. The three invariants are now duck-typed sequences in
+  `OwnershipHandoff.h`, driven by the headless `ownership-handoff` test.
+- [x] Keep the packaging, service-name and plugin-identity greps; they assert
   installed facts rather than implementation shape.
 
 ### 1b. Apply the terminology contract

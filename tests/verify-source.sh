@@ -13,6 +13,10 @@ effect_cpp="${native_dir}/src/Effect.cpp"
 effect_header="${native_dir}/src/Effect.h"
 card_cpp="${native_dir}/src/CardStageController.cpp"
 card_header="${native_dir}/src/CardStageController.h"
+# Ordering of ownership publication, native placement and projection retirement
+# is carried by OwnershipHandoff.h and covered behaviorally by the
+# ownership-handoff test. The checks below assert only which calls a section may
+# make, never where in the file a call sits.
 python3 - "$card_cpp" <<'PY'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
@@ -22,13 +26,10 @@ entry = section('void CardStageController::rebuildLiveCards()',
                 'void CardStageController::retainManagedOwnership(')
 ownership = section('void CardStageController::retainManagedOwnership(',
                     'bool CardStageController::enterActive()')
-assert entry.index('m_workspace.reset(') < entry.index('retainManagedOwnership(window)')
 for mutation in ('enterActive(', 'moveResize(', 'maximize(', 'setFullScreen('):
     assert mutation not in entry + ownership, 'Entry ownership must not activate/resize cards'
 transfer = section('bool CardStageController::admitTransferredWindowToTablet(',
                    'void CardStageController::startArrivalTimer(')
-assert transfer.index('m_workspace.commitAdmission(') < transfer.index('client->sendToOutput(tablet)')
-assert transfer.index('client->sendToOutput(tablet)') < transfer.index('retainManagedOwnership(arrival)') < transfer.index('client->moveResize(target)')
 assert 'if (sameOutput && m_active && !managedRestore(arrival))' in transfer
 PY
 # A2 projection transfers retained ownership before native visibility changes.
@@ -36,12 +37,10 @@ python3 - "$card_cpp" "$effect_cpp" <<'PY_A2'
 import pathlib, sys
 card, effect = (pathlib.Path(p).read_text() for p in sys.argv[1:])
 projection = card.split('bool CardStageController::admitBentoStack(', 1)[1].split('void CardStageController::release()', 1)[0]
-assert projection.index('m_workspace.commitAdmission(') < projection.index('m_bentoProjectionSession = projection')
 assert 'enterActive(' not in projection and 'moveResize(' not in projection
 assert 'setMinimized(false)' not in projection, 'Projection must not unminimize retained overflow'
 resume = pathlib.Path(sys.argv[1]).read_text().split('bool CardStageController::resumeSelectedBentoProjection()', 1)[1].split('void CardStageController::release()', 1)[0]
 assert all(call not in resume for call in ('moveResize(', 'setMinimized(', 'enterActive('))
-assert resume.index('m_bentoProjectionSession.reset()') < resume.index('retireBentoProjectionForCardStage(projectionWindows)') < resume.index('committed = true')
 retire = effect.split('void Effect::retireBentoProjectionForCardStage(', 1)[1].split('bool Effect::admitCardToDesktopStage(', 1)[0]
 for required in ('m_fanApertureWindow = nullptr', 'm_previewSourceBounds.remove(window)',
                  'unredirect(window)', 'addRepaintFull()'):
@@ -56,7 +55,6 @@ source = pathlib.Path(sys.argv[1]).read_text()
 resume = source.split('bool DesktopStageController::resumeProjectedSession(', 1)[1].split('void DesktopStageController::restoreAllSessions()', 1)[0]
 for forbidden in ('applySession(', 'reflowSession(', 'moveResize(', 'setMinimized('):
     assert forbidden not in resume, f'exact projection resume must not call {forbidden}'
-assert resume.index('commitSource()') < resume.index('m_sessions.insert(') < resume.index('releaseSource()')
 PY_RESUME
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'

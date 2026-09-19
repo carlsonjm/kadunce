@@ -6,6 +6,7 @@
 #include "DesktopStageController.h"
 #include "BentoCompositeGeometry.h"
 #include "BentoSessionTransfer.h"
+#include "OwnershipHandoff.h"
 #include "NativePlacement.h"
 #include "WindowStateRestore.h"
 #include "RestoreOutputPlan.h"
@@ -1285,11 +1286,15 @@ bool DesktopStageController::resumeProjectedSession(
             return false;
         }
     }
-    if (!commitSource || !commitSource()) return false;
-
-    m_applicationGuard.invalidate();
-    m_sessions.insert(candidate.outputName, std::move(candidate));
-    if (releaseSource) releaseSource();
+    if (!commitResumeHandback(
+            [&] { return commitSource && commitSource(); },
+            [&] {
+                m_applicationGuard.invalidate();
+                m_sessions.insert(candidate.outputName, std::move(candidate));
+            },
+            [&] { if (releaseSource) releaseSource(); })) {
+        return false;
+    }
     if (projection.lead && !projection.lead->isDeleted()
         && projection.lead->window()) {
         KWin::workspace()->raiseWindow(projection.lead->window());

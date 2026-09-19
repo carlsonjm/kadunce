@@ -11,7 +11,7 @@ Read only:
 
 1. `../AGENTS.md`
 2. `CURRENT_STATE.md`
-3. `NEXT-ROADMAP.md`
+3. `ROADMAP-CC.md`
 4. `../SWARM.md`
 
 Then open only the references required by the task. Consult `archive/` for a
@@ -26,6 +26,7 @@ runtime handoffs, current-state hygiene, and index coverage.
 | Document | Authority |
 | --- | --- |
 | `../AGENTS.md` | repository workflow and safety requirements |
+| `../CLAUDE.md` | Claude Code entry point; routes into the `AGENTS.md` startup set |
 | `../README.md` | public package and developer entry point |
 | `../SWARM.md` | live cross-worker dependencies only |
 | `README.md` | document classification and routing |
