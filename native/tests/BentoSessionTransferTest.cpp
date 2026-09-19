@@ -27,8 +27,8 @@ int main() {
             candidates.push_back({100,100,500,500,session.snapshots[i].window == required});
             if (session.snapshots[i].window == required) arriving = i;
         }
-        auto admission = mandatory ? chooseBentoTransferAdmission(candidates, arriving, 1600,1000)
-            : std::optional<BentoAdmission>{chooseBentoAdmission(candidates,1600,1000)};
+        auto admission = mandatory ? chooseBentoTransferAdmission(candidates, arriving, 1920,1080)
+            : std::optional<BentoAdmission>{chooseBentoAdmission(candidates,1920,1080)};
         if (!admission) return false;
         session.windows.clear(); session.overflow.clear();
         for (int index : admission->candidateIndices) session.windows.append(session.snapshots[index].window);

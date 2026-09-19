@@ -388,15 +388,22 @@ minimums. What is missing is a stated mapping from intent to shape.
   three-pane session would have grown it to four: the split path preserves
   existing rects and never consulted a maximum.
 
-**Open:** §5 scopes the contact mapping to a display whose maximum is three
-panes, and the exit gate below asks for it on both displays. On a larger display
-the curated library governs and `splitBentoColumn` still preserves unrelated
-panes, so a shape there can still depend on what was on screen. Closing it means
-either §5 naming the monitor's contact shapes or narrowing the gate. Both are
-product decisions.
+**Deferred:** the tablet keeps a two-pane maximum. J accepted that tradeoff on 19
+September: the three-pane split raised questions — which resident holds which
+pane, what the shapes mean in a portrait work area, and whether the mapping
+extends to the monitor — that were not worth answering to reach an install. The
+shapes and the mapping stay in the source, dormant behind
+`BentoContactGrammarPaneCap`, which no display's cap reaches. Raising the compact
+cap to three revives them and reopens those questions.
+
+What the block still delivers is the part that was never in doubt: one cap per
+display read by every path, orientation from the work area, no shape decision
+reading `isTabletOutput`, and a pane bound on the column split. The tablet's edge
+path was previously uncapped, which is how a side snap reached three panes while
+ordinary admission stopped at two; it now stops at two as well.
 
 **Exit gate:** The same side contact yields the same shape regardless of layout
-history, on both displays. No shape decision reads `isTabletOutput`. Headless
+history, on the displays the grammar governs. No shape decision reads `isTabletOutput`. Headless
 coverage for the cap, the orientation rule, both three-pane shapes and the
 contact mapping passes, and physical review accepts the tablet's two shapes and
 rail behavior within them.

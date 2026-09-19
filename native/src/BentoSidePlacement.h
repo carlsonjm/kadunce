@@ -38,8 +38,8 @@ enum class BentoSideShape {
 inline std::vector<BentoSideShape> bentoSideShapeOrder(
     BentoSidePlacement choice, int paneCount, int width, int height)
 {
-    if (paneCount != BentoCompactPaneCap
-        || bentoPaneCap(width, height) != BentoCompactPaneCap)
+    if (paneCount != BentoContactGrammarPaneCap
+        || bentoPaneCap(width, height) != BentoContactGrammarPaneCap)
         return {BentoSideShape::Proportional};
     return choice.large
         ? std::vector<BentoSideShape>{BentoSideShape::VerticalPanes,

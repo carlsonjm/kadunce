@@ -133,9 +133,8 @@ Bento does not retain minimized or displaced panes.
 Each display has one maximum visible pane count, and every admission path reads
 the same value for that display.
 
-The tablet's maximum is three. Its permitted three-pane shapes are one full-height
-pane beside two stacked panes, and three vertical panes. A larger display uses the
-curated layout library up to eight panes.
+The tablet's maximum is two. A larger display uses the curated layout library up
+to eight panes.
 
 Layout orientation follows the work area's own proportions, never the display's
 hardware identity.
@@ -153,13 +152,15 @@ A side snap carries an intent taken from where the edge was touched. The upper
 half of the side edge asks for the larger placement, the lower half for the
 smaller one. Contact near the midpoint keeps the previous choice.
 
-On the tablet, at its three-pane maximum:
+The arriving window keeps the edge it was released into and takes the share its
+half asked for.
 
-- A lower-half snap gives one full-height larger pane beside two stacked smaller
-  panes. The arriving window takes the lower stacked pane.
-- An upper-half snap gives three vertical panes.
-- Where minimums forbid the requested shape, the other three-pane shape is used,
-  and failing that the layout stays at two panes.
+A three-pane grammar is specified for a display whose maximum is three, and is
+not in effect. Under it a lower-half snap gives one full-height larger pane
+beside two stacked smaller panes with the arrival in the lower one, an upper-half
+snap gives three vertical panes, and where minimums forbid the requested shape
+the other is used. No display caps at three, so the curated placement governs
+everywhere; raising a maximum to three is what puts the grammar back in play.
 
 The shape follows from the gesture. It never depends on which admission attempt
 happened to succeed first.

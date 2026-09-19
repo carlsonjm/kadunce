@@ -48,7 +48,13 @@ struct BentoAdmission
 // hardware the work area belongs to.
 inline constexpr int BentoCompactAreaWidth = 1800;
 inline constexpr int BentoCompactAreaHeight = 1000;
-inline constexpr int BentoCompactPaneCap = 3;
+inline constexpr int BentoCompactPaneCap = 2;
+// The pane count the side-contact grammar in BentoSidePlacement.h describes.
+// It is deliberately not BentoCompactPaneCap: the compact display's maximum is
+// a product decision and this is the shape vocabulary's own size. No display
+// caps at this today, so that grammar is dormant; raising a cap to it revives
+// the grammar without touching the mapping.
+inline constexpr int BentoContactGrammarPaneCap = 3;
 inline constexpr int BentoCuratedPaneCap = 8;
 
 [[nodiscard]] constexpr int bentoPaneCap(int areaWidth, int areaHeight)
