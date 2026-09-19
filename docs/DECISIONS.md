@@ -44,17 +44,11 @@ substitute for the pre-presentation restore record.
 
 ### Bento owns only the visible pane combination
 
-A Bento session owns only the windows currently visible in its pane combination.
-Those panes project into Spread as one non-pageable logical group. Any minimized,
-displaced, overflowed, or explicitly extracted window has ordinary individual
-Spread ownership and no continuing association with its former Bento group. Only the
-selected individual card is presented as Active. Other outputs keep their sessions.
-
-Selecting a Bento group transfers only that group to Desktop Stage. Unrelated
-individual cards remain Card Stage owned and hidden. Selecting an individual card
-leaves the separate Bento group owned and hidden. Returning to Spread restores
-both peer entries; only explicit release or disable restores ordinary desktop
-windows.
+`CARD-LIFECYCLE.md` states the rule and its transitions. The decision is to scope
+ownership to what is visible rather than to a remembered group: a window the user
+cannot see is a window they will look for somewhere else, and a retained
+association would have to be reconciled on every minimize, displace and overflow.
+Scoping to visible panes removes that reconciliation instead of automating it.
 
 ### Admission is value-first and idempotent
 
@@ -66,9 +60,11 @@ not partially mutate a session.
 
 ### Destination acceptance precedes source removal
 
-A transfer token is reversible until the destination validates and accepts it.
-Rejection preserves source membership, selection, stack order, and restore state.
-Native geometry changes occur only after logical publication.
+`ARCHITECTURE.md` § Transfer transaction states the order. The decision is that a
+transfer is a destination-led transaction rather than a source-led move, because
+only the destination can evaluate output, minimum size and its own revision. A
+source-led move would have to undo itself after a rejection, and an undo that
+runs after native geometry has changed is not reliably reversible.
 
 ### Handoff order is carried by a shared sequence, not by source order
 
@@ -171,8 +167,10 @@ preferences. This is a live gap, not permission for a broad renderer rewrite.
 
 ### Sessions are output-local
 
-Spread and Bento are not permanently restricted by display type. Each output owns
-its own Bento session; releasing or re-presenting one output does not release others.
+Kept as `ARCHITECTURE.md` invariant 6. Output-local sessions are what let the
+tablet change presentation without disturbing an external display the user is
+still reading; a single global session would make every tablet gesture a
+multi-display event.
 
 ### Teardown order is part of correctness
 
@@ -189,9 +187,10 @@ a service solely to preserve an implementation extraction boundary.
 
 ### The tray control is mandatory
 
-The out-of-process tray switch is the recovery path even when the effect is disabled
-or incompatible. It must be started by `graphical-session.target`. Disabling must
-confirm safe unload; on failure the enabled setting is restored.
+`PRODUCT-CONTRACT.md` § System control states the behavior. The decision is that
+recovery lives outside the compositor plugin, because the failure it exists for is
+the plugin not loading. A control hosted by the thing it recovers cannot recover
+it, which is why no effect test can stand in for this one.
 
 ### Private tests and live evidence remain distinct
 

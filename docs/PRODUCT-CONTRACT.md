@@ -22,8 +22,7 @@ The built-in touch display can present Active, Spread, and undocked Bento.
 - **Active** is one fixed, interactive application card.
 - **Spread** is an ordered compositor view with one centered card and two
   partial neighbors. It never moves real windows into off-screen positions.
-- **Bento** uses real geometry for simultaneous interaction and owns only its
-  visible pane combination. Nonvisible windows remain independent cards.
+- **Bento** uses real geometry for simultaneous interaction.
 
 `CARD-LIFECYCLE.md` is authoritative for card ownership, admission, selection,
 minimization, Bento membership, release, and Shuffle navigation.

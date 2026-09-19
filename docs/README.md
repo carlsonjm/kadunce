@@ -31,12 +31,29 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `../SWARM.md` | live cross-worker dependencies only |
 | `README.md` | document classification and routing |
 | `CURRENT_STATE.md` | current behavior, limitations, provenance boundary, validation |
-| `ROADMAP-CC.md` | execution plan: block order, dependencies and open product decisions |
-| `NEXT-ROADMAP.md` | per-component task detail consumed by `ROADMAP-CC.md` |
+| `ROADMAP-CC.md` | the only execution plan: block order, dependencies, task detail, planning controls and open product decisions |
 | `ARCHITECTURE.md` | subsystem ownership and invariants |
 | `DECISIONS.md` | durable subsystem-grouped decision ledger |
 | `PRODUCT-CONTRACT.md` | accepted Kadunce product behavior |
 | `CARD-LIFECYCLE.md` | canonical card ownership, presentation, transition, and navigation contract |
+
+## One owner per invariant
+
+An invariant is stated once. Other documents cite the owner rather than repeat
+its wording, so a behavior change cannot leave two documents disagreeing. When
+wording conflicts anyway, the owner governs.
+
+| Invariant class | Owner |
+| --- | --- |
+| Card ownership, presentation, transition, navigation | `CARD-LIFECYCLE.md` |
+| Subsystem authority, transfer order, input ownership, teardown | `ARCHITECTURE.md` |
+| What a user is promised, including gestures and release | `PRODUCT-CONTRACT.md` |
+| Why a decision holds, and what it rejected | `DECISIONS.md` |
+| What is true now, what is missing, what has been validated | `CURRENT_STATE.md` |
+| Block order, dependencies, open product decisions | `ROADMAP-CC.md` |
+
+`DECISIONS.md` records rationale, not restated rules. `CURRENT_STATE.md` reports
+status against the contracts and never redefines them.
 
 ## Reference
 
@@ -84,4 +101,4 @@ Their last pre-normalization versions remain recoverable from Git revision `1258
 - `UNIFIED-CARD-OWNERSHIP.md`
 
 No current contract links to these files. Their active scope, where still relevant,
-is represented in `NEXT-ROADMAP.md`, `ARCHITECTURE.md`, or `DECISIONS.md`.
+is represented in `ROADMAP-CC.md`, `ARCHITECTURE.md`, or `DECISIONS.md`.

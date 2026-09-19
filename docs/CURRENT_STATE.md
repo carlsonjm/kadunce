@@ -8,15 +8,16 @@ touch interaction model, card membership, output-local Bento sessions, input
 routing, and compositor presentation. Table and Shuffle Keyboard are required
 Shuffle capabilities; their technical feasibility remains open.
 
-`CARD-LIFECYCLE.md` is the approved canonical ownership and presentation contract.
-Current implementation differences are limitations, not alternate behavior.
+`CARD-LIFECYCLE.md` is the approved canonical ownership and presentation contract
+and `ARCHITECTURE.md` holds the structural invariants. This document reports status
+against both and does not restate them; a difference recorded here is a limitation,
+not alternate behavior, and where wording conflicts the owning document governs.
 
 ## Accepted behavior
 
 - Active, Spread, ordered stacks, and output-local Bento are implemented.
-- Spread is compositor presentation and does not park clients at off-screen
-  coordinates. Bento uses reversible real geometry.
-- Transfers prepare and validate the destination before removing the source.
+- `ARCHITECTURE.md` invariants 1-10 hold in the accepted sources except where
+  `Open limitations` records otherwise.
 - Constrained new windows enter the Bento solver or prepared Active ownership.
 - Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
@@ -92,11 +93,8 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 ## Safety
 
-Run `bash tests/verify-control.sh` for every Kadunce change. After an authorized
-installation, run `bash tests/verify-live-control.sh` in the graphical session and
-confirm startup wiring. Do not infer a missing control from sandbox or D-Bus
-transport failure. Do not stop the graphical session or toggle the effect without
-explicit authorization.
+`AGENTS.md` owns the safety requirements and the checks a change must run.
+Current status: the mandatory control checks pass for the accepted sources, and
+no live toggle or installation has been authorized since.
 
-Ordering and open product decisions live only in `ROADMAP-CC.md`;
-per-component task detail lives in `NEXT-ROADMAP.md`.
+Ordering, task detail and open product decisions live only in `ROADMAP-CC.md`.

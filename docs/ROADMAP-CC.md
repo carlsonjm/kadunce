@@ -1,9 +1,9 @@
 # Shuffle execution plan
 
-This plan orders work by dependency and by what recent evidence changed. It
-replaces the ordering in `NEXT-ROADMAP.md`; that file's product boundary and
-execution policy are preserved here, and its per-component task lists remain
-valid as the source of task detail.
+This plan orders work by dependency and by what recent evidence changed. It is
+the only execution plan in this repository. It absorbed the superseded
+`NEXT-ROADMAP.md`, whose product boundary, execution policy, planning controls
+and still-open task detail are carried below; Git holds that file's history.
 
 ## Product boundary
 
@@ -32,6 +32,43 @@ valid as the source of task detail.
 - Update durable documentation only for accepted or rejected behavior, an
   architecture or scope change, a sequencing blocker, installed provenance, or a
   published freeze.
+
+## Planning and budget controls
+
+Two production samples from 17 September 2026 set the planning baseline:
+
+- The accepted Bento group-card block used roughly four hours and 1,260 purchased
+  credits ($50.40 at 2,500 credits per $100) for one primary architecture solve,
+  required scenario logic, one unapproved false start, one provisional acceptance,
+  and several physical adjustments.
+- The full production day used 2,421 purchased-credit equivalents ($96.84) across
+  implementation, physical iteration, ownership investigation, freezes, and
+  documentation. This is approximately half of one observed weekly included limit.
+
+For scheduling only, treat one weekly included limit as roughly 5,000 purchased
+credits or $200 of purchased-credit capacity. Four weekly limits are therefore
+roughly $800 of monthly purchased-credit capacity. This is an empirical planning
+proxy, not a billing guarantee.
+
+- Schedule every major architecture change or architecture-level bug fix inside the
+  weekly included-limit plan. Reserve one focused weekly block before starting; do
+  not fund exploratory architecture with purchased credits or a small residual
+  weekly balance.
+- Use an approved interaction model and explicit physical acceptance checks as the
+  entry gate. If the model is undecided, spend only on evidence and alternatives.
+- Budget a comparable architecture solve at no less than 4-6 focused hours and one
+  protected weekly block until later accepted work provides a better baseline.
+- Purchased credits may flex for bounded procedural work such as documentation,
+  packaging, installer corrections, mechanical cleanup, or a well-isolated fix with
+  a known controlling property and stop condition.
+- Give credit-funded work a fixed packet, acceptance test, and spend ceiling. Stop
+  when evidence changes the task into architecture or product design.
+- A budget estimate schedules the work; it does not justify cutting off an agent
+  before a coherent implementation or safely preserved candidate exists.
+- Preserve unfinished but useful architecture candidates on named WIP branches.
+  Promote only physically accepted behavior to `main`.
+- Re-estimate this baseline after each accepted major slice using elapsed time,
+  consumed credits, false starts, and physical candidate count.
 
 ## Working model
 
@@ -77,7 +114,7 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** Ready. No product decision required. Steps are strictly ordered.
+**Status:** Complete. Block 2 is unblocked.
 
 ### 1a. Free the checks from implementation shape
 
@@ -127,11 +164,17 @@ strings carry it.
 
 ### 1c. Retire duplicated invariant text
 
-- [ ] Reduce the duplicated invariant text across `ARCHITECTURE.md`,
+**Status:** Complete.
+
+- [x] Reduce the duplicated invariant text across `ARCHITECTURE.md`,
   `DECISIONS.md`, `PRODUCT-CONTRACT.md` and `CURRENT_STATE.md` to one owner per
   invariant, so a later ownership change cannot leave four documents disagreeing.
-- [ ] Decide whether `NEXT-ROADMAP.md` is retired into this file or kept as
-  component task detail, and make the index say which.
+  `docs/README.md` § One owner per invariant records which document owns what and
+  states that the owner governs a conflict.
+- [x] Decide whether `NEXT-ROADMAP.md` is retired into this file or kept as
+  component task detail, and make the index say which. Retired: it was a second
+  complete plan with its own block numbering, not task detail, and the two had
+  already diverged. Its unique planning controls and audit items moved here.
 
 **Exit gate:** The full suite passes, no check fails purely because a symbol
 moved, and no live document or source symbol carries the retired workspace term
@@ -236,6 +279,21 @@ keyboard existing.
 
 **Exit gate:** Each slice has focused automated checks and an installed
 acceptance pass. One provider failure does not block unrelated slices.
+
+## Block 6b — Maintainability and lifecycle audit
+
+**Status:** Ready. Absorbed from the retired `NEXT-ROADMAP.md`. Bounded on
+purpose: it does not reopen stable architecture for style.
+
+- [ ] Remove accidental duplication that creates visible reliability or
+  maintenance risk.
+- [ ] Verify Tettegouche and Temperance activity ownership and cleanup
+  boundaries.
+- [ ] Audit timers, model lifetime, responsive calculations and resource paths.
+- [ ] Confirm protected custom icons remain unchanged.
+
+**Exit gate:** The three components are lifecycle-safe and ready for private
+product consumption without duplicated state ownership.
 
 ## Block 7 — Temperance event boundary
 

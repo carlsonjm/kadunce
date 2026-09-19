@@ -9,8 +9,8 @@ desktop backend, or persistent geometry authority.
 
 Spread is compositor space. It presents live windows as cards without storing or
 applying off-screen client coordinates. Bento is an output-local desktop layout and
-therefore uses real, reversible client geometry. A physical ownership change occurs
-only after a destination accepts a prepared transfer.
+therefore uses real, reversible client geometry. The order a physical ownership
+change follows is `Transfer transaction` below.
 
 ## Runtime owners
 
@@ -38,10 +38,9 @@ but extraction must not create a second model, event bus, or persistence service
 
 Active presents one interactive card. Spread presents an ordered center and
 neighbors, including visibly ordered stacks. Both are output-local views of logical
-membership. Bento presents simultaneously interactive real windows and owns only
-its current visible pane combination. Nonvisible, minimized, displaced, and
-extracted windows use independent Card Stage ownership. `CARD-LIFECYCLE.md` is the
-canonical state and transition contract.
+membership. Bento presents simultaneously interactive real windows. Which windows
+a Bento session owns, and what becomes of the rest, is `CARD-LIFECYCLE.md`; it is
+the canonical state and transition contract and this document does not restate it.
 
 Live card content uses KWin's `OffscreenEffect` texture path with contain scaling,
 the established fan rotation/aperture, and black backing where aspect ratios differ.
@@ -66,9 +65,8 @@ identity. Kadunce does not currently promise persistence across a complete effec
 unload.
 
 Constrained new windows use the Bento admission solver or prepared individual-card
-ownership. Switching Bento into Spread represents only its visible panes as one
-logical group. Other eligible windows remain independent cards; presentation
-changes never release them to the native desktop.
+ownership. Presentation changes never release a managed window to the native
+desktop; `CARD-LIFECYCLE.md` defines what each presentation owns.
 
 ## Transfer transaction
 
