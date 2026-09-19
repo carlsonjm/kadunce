@@ -22,6 +22,57 @@ Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
 dimensions and require an explicit integration design.
 
+### A side snap admits one card; Bento needs a pair
+
+A window dragged to the left or right edge becomes an individual Active card and
+nothing more. Bento begins only when a second window is snapped to join it.
+
+The rejected alternative let one side snap create the layout and fill the
+remaining panes from other eligible windows. That made the solver, not the user,
+decide membership, and every window it could not place became retained overflow
+that `CARD-LIFECYCLE.md` §14 gives to the card stage but the implementation kept
+inside the session. Requiring a deliberate pair removes that class of defect at
+its source rather than reconciling it afterwards: a window is a pane only because
+someone put it there.
+
+A lone side-snapped window therefore presents as an ordinary Active card rather
+than holding its requested half, because a one-window Bento state must not exist
+at all.
+
+### Overflow is deleted, not reconciled
+
+A window Kadunce owns and cannot currently show is an individual card. There is
+no fourth place for it to be.
+
+`CARD-LIFECYCLE.md` §5 always said Bento does not own hidden overflow, but the
+implementation kept a per-session overflow container anyway, which created a
+state nothing could name: retained by a session, owned by nobody. The rejected
+alternative was to keep the container and reconcile it — teach each transition to
+maintain it correctly and report where it drifted. That preserves the state it
+was meant to remove and grows with every new transition.
+
+Removing the container removes the state. Bento never takes a window it cannot
+show, so a full Bento displaces rather than parks, and displacement is one of the
+six directed transitions. The violation rule that reported the state retires with
+it; a rule still worth reporting would mean the container had moved rather than
+gone.
+
+### A layout is rearranged only by a deliberate gesture
+
+A launching application may grow Bento into a free pane, but it never evicts one.
+When the layout cannot grow, the new window becomes an individual Active card.
+
+Auto-admission is what makes Bento seamless at a monitor, and removing it would
+hide a window the user just opened behind a layout. Keeping it is safe because
+growth-only admission produces a pane or a card and never a parked window, so it
+cannot reintroduce the overflow state. Displacement stays with the deliberate
+edge gesture, where the user chooses the side and can see which pane yields.
+
+The rejected alternative scoped auto-admission to external displays. That would
+have keyed product behavior to `isTabletOutput`, a name-prefix guess at hardware,
+when the property that actually matters is whether the work area has room. A
+tablet at its cap and a monitor with no free pane should behave the same way.
+
 ### Release is a command
 
 Release returns managed clients to safe ordinary Plasma windows. It is not a saved

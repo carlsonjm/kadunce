@@ -60,12 +60,18 @@ duplicates, while excluding overflow and omitting stack position.
   Spread neighbors when a projected Bento group resumes. Both behaviors are
   superseded by the approved visible-pane ownership contract and require a protected
   ownership refactor before top-edge extraction can be promoted.
-  Measured on a live two-output session: entering Bento on the tablet with five
-  eligible windows produced two visible panes and three overflow windows, and
-  none of the three held individual-card ownership. `CARD-LIFECYCLE.md` §14
-  gives every window outside the visible combination to the card stage, so each
-  is one violation. The same measurement found no window with two owners, no
-  display with two Bento layouts, and no effect on the other output.
+  Measured live on the installed candidate, two outputs attached: entering Bento
+  on the tablet with six eligible windows produced three visible panes and three
+  overflow windows, and none of the three held individual-card ownership.
+  `CARD-LIFECYCLE.md` §14 gives every window outside the visible combination to
+  the card stage, so each is one violation. The same measurement found no window
+  with two owners, no display with two Bento layouts, and no effect on the other
+  output, and it held unchanged across a tray disable and re-enable.
+  Two user-visible symptoms follow. Activating an overflow window from the Plasma
+  task manager does not bring it forward: un-minimizing re-solves the session and
+  the solver minimizes it again. A pane dragged to the top edge returns to Bento,
+  and ownership never records it leaving, so §5's departure and one-remaining-pane
+  rules never run.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
 - Native-to-stack admission is not one atomic destination transaction.
@@ -101,13 +107,18 @@ Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the
 previous plugin image mapped across an unload, so a freshly loaded effect can
 still be the previous build. A compositor restart is what replaces the image,
-and until one happens an installed candidate is unexercised. The ownership
-observer is therefore not yet live-verified.
+and until one happens an installed candidate is unexercised.
+
+The ownership observer has since been live-verified on a restarted compositor
+running the installed candidate. It reported the overflow violations above and
+no others, suppressed an unchanged shape, and reported nothing during tray
+disable, release and re-enable.
 
 ## Safety
 
 `AGENTS.md` owns the safety requirements and the checks a change must run.
-Current status: the mandatory control checks pass for the accepted sources, and
-no live toggle or installation has been authorized since.
+Current status: the mandatory control checks pass for the accepted sources and
+again on the installed candidate in the graphical session, where the tray
+enable/disable control released and restored ownership cleanly.
 
 Ordering, task detail and open product decisions live only in `ROADMAP-CC.md`.

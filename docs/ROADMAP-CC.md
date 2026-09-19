@@ -235,14 +235,74 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** Blocked by Block 2. This is the behavior the previous plan's first
-block requested, now expressible.
+**Status:** Ready. Block 2's ledger is live-verified, and the ownership refactor
+stays unresolved for testing until edge snapping below behaves as specified: the
+current solver decides pane membership, so a test cannot separate an ownership
+defect from a solver decision.
 
-- [ ] Bento owns only its visible pane combination; minimized, displaced,
-  overflowed and extracted windows become independent cards with no retained
-  association. Measured: a five-window tablet Bento yields two panes and three
-  overflow windows owned by nobody, which is three §14 violations and the
-  defect this item removes.
+- [ ] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
+  §3. One window dragged to the top, left or right edge becomes exactly one
+  individual Active card; a side snap no longer starts a layout. Bento begins
+  only when a second window is snapped while a card is Active, pairing those two
+  and no others, and §5 already ends Bento when it falls back to one pane. First
+  entry still adopts every eligible window on the display and current virtual
+  desktop, but adoption produces individual cards and never fills an unrequested
+  pane. This removes overflow at its source: a window is a pane only because it
+  was put there.
+- [ ] Delete Bento overflow rather than reconcile it. `Session::overflow`,
+  `BentoOwnershipView::overflow`, `BentoProjectionSession::overflow` and its
+  card-stage carriers, the `prepareOverflow` path through `applySession`, and the
+  loop that minimizes every non-pane all go. `CARD-LIFECYCLE.md` §5 already says
+  Bento does not own hidden overflow; the container is what made a state nothing
+  could name. Measured: a six-window tablet Bento yields three panes and three
+  overflow windows owned by nobody, which is three §14 violations.
+- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` with the container,
+  so the state becomes unrepresentable rather than merely unreported. Ownership
+  then holds at three owners, six transitions and two violation rules, both
+  checkable in the one place Block 2 built. A rule that still needs reporting
+  means the container was relocated, not removed.
+- [ ] Bento owns only its visible pane combination; minimized, displaced and
+  extracted windows become independent cards with no retained association. A
+  displaced pane becomes a nonselected individual card, not a minimized one:
+  leaving Bento is not minimizing, and only the user minimizing makes a card
+  sleeping under §7. That distinction is what `userMinimized` already records,
+  and it is why activating a displaced window from the task manager currently
+  fails.
+- [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
+  is the one holding the side the card was released into, per §5. No interaction
+  history decides it, so the user can see which pane will yield while dragging.
+- [ ] Keep new-window admission and make it growth-only, per the rewritten §8. A
+  launching application joins Bento when the layout can grow to show it and
+  becomes an individual Active card when it cannot. It never displaces a pane and
+  is never parked, so admission cannot reintroduce overflow and a background event
+  cannot rearrange a layout the user placed. This is what makes Bento feel
+  seamless at a monitor and is deliberately kept.
+- [ ] Give each display one pane cap that both admission paths read. They
+  currently disagree: the edge-snap path passes no maximum at all, while
+  `chooseBentoAdmission` passes `compact ? 2 : 8` with `compact` true for the
+  tablet's 1443x894 work area. The tablet's cap is three; larger displays keep
+  eight.
+- [ ] Derive layout orientation from the work area, not from `isTabletOutput`.
+  `chooseBentoAdmission` already uses `areaWidth >= areaHeight`; the side path
+  passes `!isTabletOutputForDesktopStage(output)`, so the same landscape-shaped
+  tablet work area is treated as portrait by one path and landscape by the other.
+- [ ] Add the tablet's second three-pane shape. `makeBentoLayout(3, landscape)`
+  supplies one column beside a top/bottom split; three vertical columns do not
+  exist yet and belong beside it as an alternate, the way
+  `makeAlternateTwoPaneBentoLayout` already provides a second two-pane shape.
+- [ ] Make side contact select the shape, per §5. The intent is already read
+  correctly: `bentoSideChoice` sets `large` from which half of the edge was
+  touched and holds the previous choice within 18px of the midpoint. What is
+  missing is a stated mapping from that intent to a shape. Two paths can answer
+  the same snap — `splitBentoColumn` when a splittable full-height edge column
+  exists, `bentoSideLayout` otherwise — and they disagree, so the shape depends
+  on which one succeeds. On the tablet the pairing currently inverts §5: an
+  upper-half snap yields one large pane beside two stacked, and a lower-half snap
+  yields three columns.
+- [ ] Remove `allowLarge` as a device test. `splitBentoColumn` receives
+  `!isTabletOutputForDesktopStage(output)` and so refuses every upper-half split
+  on the tablet, which is policy keyed to hardware identity rather than to
+  whether the minimums allow the shape.
 - [ ] First Card or Bento entry atomically adopts every eligible window on that
   display and current virtual desktop.
 - [ ] Atomic prepared admission and removal for one logical group: selecting a
@@ -252,8 +312,12 @@ block requested, now expressible.
   other-output isolation.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
-repeated-selection, cold-start and multi-display checks pass. No missing window,
-stuck input, broken restoration, cross-output leak, or failed disable control.
+repeated-selection, cold-start and multi-display checks pass. Two symptoms
+measured on the installed candidate must be gone: activating an overflow window
+from the Plasma task manager brings it forward instead of being re-minimized by
+the next solve, and a pane dragged to the top edge leaves Bento under
+`CARD-LIFECYCLE.md` §5 instead of returning to it. No missing window, stuck
+input, broken restoration, cross-output leak, or failed disable control.
 
 ## Block 4 — Kadunce manipulation
 

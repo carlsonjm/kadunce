@@ -80,10 +80,22 @@ Kadunce atomically adopts every eligible open application window on that display
 
 ### Left/right-edge entry
 
-- Kadunce creates or updates the display's Bento layout.
-- The selected window enters the requested Bento side.
-- Other eligible windows may fill the remaining visible panes.
-- Windows outside the visible pane combination become individual cards.
+- The dragged window becomes an individual card.
+- It becomes Active.
+- Every other eligible window becomes an individual nonselected card.
+
+Bento does not begin here. Bento requires at least two paired windows, so one
+side-snapped window is one card and nothing more.
+
+### Pairing into Bento
+
+Bento begins when a window is dragged to the left or right edge while an
+individual card is Active.
+
+- The dragged window takes the side it was released into.
+- The Active card takes the opposite side.
+- Both become Bento panes.
+- No other window joins. Kadunce never fills an unrequested pane.
 
 If the complete ownership batch cannot be prepared safely, every window remains
 Native.
@@ -116,6 +128,42 @@ Bento does not own hidden overflow.
 
 Bento does not retain minimized or displaced panes.
 
+### Pane limit
+
+Each display has one maximum visible pane count, and every admission path reads
+the same value for that display.
+
+The tablet's maximum is three. Its permitted three-pane shapes are one full-height
+pane beside two stacked panes, and three vertical panes. A larger display uses the
+curated layout library up to eight panes.
+
+Layout orientation follows the work area's own proportions, never the display's
+hardware identity.
+
+### Shape, not size
+
+A preset fixes how panes are arranged, not their proportions. A preferred
+proportion is a starting point, clamped by each window's minimum size, and the
+user then moves any shared boundary with its rail. A shape the minimums cannot
+satisfy is not used.
+
+### Choosing a shape by side contact
+
+A side snap carries an intent taken from where the edge was touched. The upper
+half of the side edge asks for the larger placement, the lower half for the
+smaller one. Contact near the midpoint keeps the previous choice.
+
+On the tablet, at its three-pane maximum:
+
+- A lower-half snap gives one full-height larger pane beside two stacked smaller
+  panes. The arriving window takes the lower stacked pane.
+- An upper-half snap gives three vertical panes.
+- Where minimums forbid the requested shape, the other three-pane shape is used,
+  and failing that the layout stays at two panes.
+
+The shape follows from the gesture. It never depends on which admission attempt
+happened to succeed first.
+
 ### When a pane leaves Bento
 
 The window becomes an independent Spread card when it is:
@@ -128,6 +176,9 @@ The window becomes an independent Spread card when it is:
 
 It retains no saved Bento position or group association.
 
+Leaving Bento is not by itself a minimize. Unless the user minimized it, the
+window becomes an ordinary nonselected individual card and stays presentable.
+
 ### One remaining pane
 
 When Bento falls to one visible pane, Bento ends.
@@ -139,6 +190,9 @@ The remaining pane becomes an individual card.
 An individual card returns to Bento only through an explicit left/right-edge action.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
+The pane that yields is the one occupying the side the returning card was
+released into. The user can see which pane will yield while dragging, and no
+interaction history decides it.
 
 ## 6. Spread selection
 
@@ -188,12 +242,15 @@ A minimized card never silently returns to Bento.
 
 ### While Bento is presented
 
-Kadunce attempts to admit the new window into the visible Bento combination.
+Kadunce admits the new window into the visible Bento combination when the layout
+can grow to show it.
 
-- If it fits, Bento recomposes.
-- Any displaced pane becomes an individual card.
-- If it cannot fit safely, the new window becomes an individual Active card.
-- Existing Bento remains a separate hidden group.
+- If it fits, Bento recomposes and the new window becomes a pane.
+- If it does not fit, the new window becomes an individual Active card, and the
+  existing Bento remains a separate hidden group.
+
+A new window never displaces a pane and is never parked. Only a deliberate edge
+gesture rearranges a layout the user placed.
 
 ### While an individual card is Active
 
@@ -235,7 +292,8 @@ Make the carried window an independent Active card.
 
 ### Left or right edge
 
-Admit the carried window into Bento.
+Pair the carried window into Bento with the Active card, or admit it as an
+individual Active card when there is nothing to pair with.
 
 ### Bottom edge
 
