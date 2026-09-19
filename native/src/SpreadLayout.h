@@ -20,7 +20,7 @@ struct CardRect {
     [[nodiscard]] double bottom() const { return y + height; }
 };
 
-struct CardLineLayout {
+struct SpreadLayout {
     std::array<CardRect, 3> cards;
     double gutter;
 };
@@ -39,23 +39,23 @@ struct CardStackEnvelope {
     double right;
 };
 
-enum class CardLineAction {
+enum class SpreadAction {
     None,
     Previous,
     Next,
     Activate,
 };
 
-[[nodiscard]] CardLineLayout makeCardLineLayout(
+[[nodiscard]] SpreadLayout makeSpreadLayout(
     double workX, double workY, double workWidth, double workHeight);
 
-// Scale a source proportionally until it covers the entire fixed Card Line
+// Scale a source proportionally until it covers the entire fixed Spread
 // slot. The compositor clips this expanded paint rectangle back to the slot,
 // so source geometry can never shrink or stretch a card.
 [[nodiscard]] CardRect makeCoverPaintRect(
     const CardRect &slot, double sourceWidth, double sourceHeight);
 
-[[nodiscard]] CardLineAction classifyCardLineGesture(
+[[nodiscard]] SpreadAction classifySpreadGesture(
     double startX, double startY, double endX, double endY,
     double centerLeft, double centerRight);
 
@@ -70,7 +70,7 @@ enum class CardLineAction {
 [[nodiscard]] int classifyCardEdge(
     double positionX, double workX, double workWidth, double edgeZone);
 
-// the reference layout's stacked-card geometry adapted to a stable PC Card Line: the
+// the reference layout's stacked-card geometry adapted to a stable PC Spread: the
 // active member stays centered while at most three members occupy fixed,
 // compressed fan poses behind it. A closed stack exposes only its last three
 // seven-pixel steps. The visual cap is never a membership cap.
@@ -84,7 +84,7 @@ enum class CardLineAction {
 [[nodiscard]] CardStackPose makeInsertionStackPose(
     int memberIndex, int memberCount, int insertionIndex, double cardWidth);
 
-// Measure the transformed bounds of an open deck. Neighboring Card Line
+// Measure the transformed bounds of an open deck. Neighboring Spread
 // groups reserve these extensions so a stack remains one logical slot without
 // allowing either adjacent group to paint through it.
 [[nodiscard]] CardStackEnvelope makeOpenStackEnvelope(
@@ -93,7 +93,7 @@ enum class CardLineAction {
     int cardCount, double cardWidth, double cardHeight);
 
 [[nodiscard]] CardRect makeReservedCardTarget(
-    const CardLineLayout &layout, int slot,
+    const SpreadLayout &layout, int slot,
     const CardStackEnvelope &centerEnvelope);
 
 [[nodiscard]] CardRect makeActiveTarget(

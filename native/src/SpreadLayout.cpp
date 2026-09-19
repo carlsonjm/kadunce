@@ -3,7 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 
 #include <algorithm>
 #include <cmath>
@@ -52,7 +52,7 @@ CardStackEnvelope bottomRightRotationEnvelope(
 }
 }
 
-CardLineLayout makeCardLineLayout(double workX, double workY,
+SpreadLayout makeSpreadLayout(double workX, double workY,
                                   double workWidth, double workHeight)
 {
     const double cardWidth = workWidth * 0.54;
@@ -93,23 +93,23 @@ CardRect makeCoverPaintRect(const CardRect &slot,
     };
 }
 
-CardLineAction classifyCardLineGesture(
+SpreadAction classifySpreadGesture(
     double startX, double startY, double endX, double endY,
     double centerLeft, double centerRight)
 {
     const double dx = endX - startX;
     const double dy = endY - startY;
     if (std::abs(dx) > 58.0 && std::abs(dx) > std::abs(dy) * 1.2) {
-        return dx < 0.0 ? CardLineAction::Next
-                        : CardLineAction::Previous;
+        return dx < 0.0 ? SpreadAction::Next
+                        : SpreadAction::Previous;
     }
     if (endX < centerLeft) {
-        return CardLineAction::Previous;
+        return SpreadAction::Previous;
     }
     if (endX >= centerRight) {
-        return CardLineAction::Next;
+        return SpreadAction::Next;
     }
-    return CardLineAction::Activate;
+    return SpreadAction::Activate;
 }
 
 int classifyStackGesture(double startX, double startY,
@@ -287,7 +287,7 @@ CardStackEnvelope makeInsertionStackEnvelope(int cardCount,
     return {left, right};
 }
 
-CardRect makeReservedCardTarget(const CardLineLayout &layout, int slot,
+CardRect makeReservedCardTarget(const SpreadLayout &layout, int slot,
                                 const CardStackEnvelope &centerEnvelope)
 {
     const CardRect &center = layout.cards[1];

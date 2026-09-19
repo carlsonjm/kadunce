@@ -7,7 +7,7 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main() {
-    CardLineModel model(3);
+    SpreadModel model(3);
     QStringList ids{u"window-a"_s, u"window-b"_s, u"window-c"_s};
     require(model.stackSelectedWith(2), "Stack setup failed");
     const auto before = makeCardWorkspaceSnapshot(model, ids, true);
@@ -30,10 +30,10 @@ int main() {
     const auto inactive = makeCardWorkspaceSnapshot(model, ids, false);
     require(inactive.selectedCardId.isEmpty() && inactive.selectedStack.isEmpty(),
         "Inactive context exposed an active selection");
-    const auto empty = makeCardWorkspaceSnapshot(CardLineModel(1), {}, false);
+    const auto empty = makeCardWorkspaceSnapshot(SpreadModel(1), {}, false);
     require(empty.cards.isEmpty() && empty.selectedCardId.isEmpty(), "Empty workspace invented a card");
     // A null native handle must not renumber the remaining window metadata.
-    const auto missing = makeCardWorkspaceSnapshot(CardLineModel(2), {QString(), u"survivor"_s}, true);
+    const auto missing = makeCardWorkspaceSnapshot(SpreadModel(2), {QString(), u"survivor"_s}, true);
     require(!missing.find({}) && missing.find(u"survivor"_s)->cardIndex == 2,
         "Missing native handle shifted a surviving compatibility index");
 }

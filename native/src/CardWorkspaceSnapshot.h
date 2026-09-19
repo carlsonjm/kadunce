@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CardLineModel.h"
+#include "SpreadModel.h"
 #include <QStringList>
 #include <QList>
 
@@ -32,7 +32,7 @@ struct CardWorkspaceSnapshot {
 };
 
 inline CardWorkspaceSnapshot makeCardWorkspaceSnapshot(
-    const CardLineModel &model, const QStringList &identities, bool active)
+    const SpreadModel &model, const QStringList &identities, bool active)
 {
     CardWorkspaceSnapshot result;
     const auto identity = [&identities](int id) { return identities.value(id - 1); };

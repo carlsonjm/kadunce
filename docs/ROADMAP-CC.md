@@ -44,7 +44,7 @@ Two session types share GitHub and have different reach.
 | `tests/verify-headless.sh` domain suite | yes | yes |
 | Reading, analysis, documentation | yes | yes |
 
-Domain-layer work in `CardWorkspaceState`, `CardLineModel`, `CardLineLayout` and
+Domain-layer work in `CardWorkspaceState`, `SpreadModel`, `SpreadLayout` and
 `BentoLayout` is fully covered by the headless suite and can be prepared in either
 session. Anything touching `Effect`, `WorkspaceInputRouter`, packaging or the
 installed system requires a local session. A headless pass is a pre-check, never
@@ -60,7 +60,7 @@ Four findings changed the order. They are recorded in
    Native only as absence from both. No object can evaluate
    `CARD-LIFECYCLE.md` §14's first invariant, so every transition maintains two
    containers by hand. This is why the ownership block has not closed.
-2. Prepared transactions copy and write back the whole `CardLineModel`, which
+2. Prepared transactions copy and write back the whole `SpreadModel`, which
    carries selection and paging. Presentation state travels inside ownership
    tickets, so the revision guard that voids them is load-bearing and cannot be
    removed first.
@@ -93,6 +93,9 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ### 1b. Apply the terminology contract
 
+**Status:** Complete for Kadunce. Tettegouche carries two retired consumer
+strings and neither it nor Temperance has the guard yet.
+
 `TERMINOLOGY.md` holds the approved and retired language and the three-layer
 rule. This step applies layers 1 and 2 only; layer 3, package and interface
 identity, is Block 10b.
@@ -102,21 +105,25 @@ Block 2 because Blocks 2 and 3 rewrite exactly the code that carries the retired
 name. Renaming afterwards would touch those lines twice and would let new
 ownership code be written in retired vocabulary.
 
-Measured scope for Card Line to Spread: 248 occurrences across 27 Kadunce source
+Measured scope for the retired term: 248 occurrences across 27 Kadunce source
 files, 6 filenames, 15 live Kadunce documents and 4 Tettegouche documents. No
-Tettegouche or Temperance source depends on the term.
+Tettegouche or Temperance source depends on it, though two Tettegouche consumer
+strings carry it.
 
-- [ ] Rename code symbols, filenames and live documentation in one mechanical
+- [x] Rename code symbols, filenames and live documentation in one mechanical
   commit with no behavior change, reviewable and bisectable on its own.
-- [ ] Confirm consumer-facing text uses Workspace, Spread, Search, Status Bar and
-  Ambient as the contract defines them.
-- [ ] Leave `docs/archive/` unchanged.
-- [ ] Leave every identifier in layer 3 unchanged, including the `Q_SCRIPTABLE`
-  `showCardLine` method and the `cardLine` context value. Both are on the public
+- [x] Confirm consumer-facing text uses Workspace, Spread, Search, Status Bar and
+  Ambient as the contract defines them. Kadunce ships no consumer product term:
+  `Good Input` and `Shuffle*` appear in documentation only, never in source,
+  packaging or a user-visible string.
+- [x] Leave `docs/archive/` unchanged.
+- [x] Leave every identifier in layer 3 unchanged, including the `Q_SCRIPTABLE`
+  `showCardLine` method, the `cardLine` context value and the persisted
+  `Kadunce Card Line` global-shortcut identity. All three are on the installed
   surface; retiring them is a versioned protocol change, not a vocabulary pass.
-- [ ] Extend the retired-identity guard from `tettegouche/tests/verify-source.sh`
-  to Kadunce and Temperance, then add retired vocabulary to its pattern so the
-  rename cannot regress.
+- [x] Extend the retired-identity guard from `tettegouche/tests/verify-source.sh`
+  to Kadunce, then add retired vocabulary to its pattern so the rename cannot
+  regress. Temperance and Tettegouche still need the same guard.
 
 ### 1c. Retire duplicated invariant text
 
@@ -127,7 +134,8 @@ Tettegouche or Temperance source depends on the term.
   component task detail, and make the index say which.
 
 **Exit gate:** The full suite passes, no check fails purely because a symbol
-moved, and no live document or source symbol still says Card Line.
+moved, and no live document or source symbol carries the retired workspace term
+outside the three frozen layer-3 identities.
 
 ## Block 2 — Ownership foundation
 
@@ -179,8 +187,7 @@ stuck input, broken restoration, cross-output leak, or failed disable control.
 - [ ] Complete arrival, displacement, cancellation and neighbor motion.
 - [ ] Make custom compositor motion follow platform animation scaling and
   reduced-motion preferences.
-- [ ] Normalize live terminology from Card Line to Spread once behavior is
-  stable. READMEs already use the user-facing term.
+- [x] Normalize live terminology to Spread. Completed in Block 1b.
 
 **Exit gate:** Physical review accepts manipulation on supported hardware, and
 user-facing terminology matches the contract.
@@ -335,7 +342,8 @@ hard-codes `studio.warbler.Kadunce` in seven call sites.
 
 - [ ] Choose the Good Input reverse-DNS namespace.
 - [ ] Rename service, interface, plugin and desktop-entry identifiers together,
-  including the `showCardLine` method and the `cardLine` context value.
+  including the `showCardLine` method, the `cardLine` context value and the
+  persisted `Kadunce Card Line` global-shortcut identity.
 - [ ] Bump the workspace-context schema and launcher-guest protocol versions, and
   update Tettegouche's supported versions in the same release.
 - [ ] Document the migration. Temperance 1.1.0 already showed that a package

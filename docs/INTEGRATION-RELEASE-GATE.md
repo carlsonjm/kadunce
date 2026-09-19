@@ -19,8 +19,8 @@ runs:
 - pointer and touch cross-output carry and destination footprints;
 - same-output Bento exchange, return-home, dock exclusion, and restoration;
 - ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration;
-- tablet Active departure and Bento return into Card Line;
-- Card Line transfer, stack insertion/browsing, cancellation, and interrupted motion;
+- tablet Active departure and Bento return into Spread;
+- Spread transfer, stack insertion/browsing, cancellation, and interrupted motion;
 - candidate Bento transfer/restoration/unload and independent safety checks.
 
 Each runtime suite uses a private display, runtime directory, and D-Bus session. The
@@ -45,7 +45,7 @@ A promotable candidate requires all of the following:
 ## Known open boundaries
 
 - Native-to-stack must admit membership and exact insertion atomically; current
-  native arrival and existing Card Line insertion are separate concepts.
+  native arrival and existing Spread insertion are separate concepts.
 - Displaced Bento neighbor, some tablet arrival feedback, and tablet receiver outline
   remain presentation gaps.
 - Physical appearance, frame pacing, fullscreen release, fractional-scale transfer,

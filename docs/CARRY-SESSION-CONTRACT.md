@@ -1,6 +1,6 @@
 # Carry session contract
 
-This reference defines the live transfer boundary shared by Card Line, Bento, and
+This reference defines the live transfer boundary shared by Spread, Bento, and
 ordinary native desktop movement. `ARCHITECTURE.md` owns the broader authority model.
 
 ## Session value
@@ -51,10 +51,10 @@ A deliberate new-layout edge destination prepares the complete eligible resident
 batch plus the arrival. It does not invoke a mutating shortcut path during planning.
 Unrelated clients, panels, other outputs, and companion guests are not recruited.
 
-### Tablet Card Line
+### Tablet Spread
 
 Successful admission publishes membership before placement/presentation cleanup.
-The arrival may seed the existing Card Line center/expand sequence from its released
+The arrival may seed the existing Spread center/expand sequence from its released
 pose. Native-to-stack admission remains incomplete until membership and exact stack
 insertion can be accepted atomically.
 

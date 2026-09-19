@@ -50,7 +50,7 @@ done
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .3
 probe windowGeometry "$main" | jq -e --argjson original "$original" '. == $original'
-echo 'PASS: tablet Bento shortcut destination, Active/Card Line edge entry and withdrawal with pointer/touch; lone card and restoration'
+echo 'PASS: tablet Bento shortcut destination, Active/Spread edge entry and withdrawal with pointer/touch; lone card and restoration'
 for origin in ordinary bento; do
     # Precommit cancellation restores monitor pickup; committed tablet ownership
     # releases on tablet. Use fresh clients so each case starts independently.
@@ -93,4 +93,4 @@ for origin in ordinary bento; do
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .3
 done
-echo 'PASS: existing tablet Bento receives ordinary and Bento native carries without re-entering Card Line'
+echo 'PASS: existing tablet Bento receives ordinary and Bento native carries without re-entering Spread'

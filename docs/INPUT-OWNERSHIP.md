@@ -11,7 +11,7 @@ card models, perform native placement, or infer ownership from paint state.
 | Pointer press on a Plasma panel | Plasma through release |
 | Contact inside a companion guest | Guest through release |
 | Contact outside an open guest on the tablet | Kadunce; stationary release may dismiss, movement cancels dismissal |
-| Contact on Card Line or Active chrome | Kadunce through the semantic transaction |
+| Contact on Spread or Active chrome | Kadunce through the semantic transaction |
 | Provisional bottom-edge touch | Client until deliberate upward intent and successful native cancellation |
 | Foreign or unmatched release | Original route; it cannot activate a card |
 

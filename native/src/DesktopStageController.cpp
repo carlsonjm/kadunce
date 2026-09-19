@@ -563,7 +563,7 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     if (candidate) {
         if (restore && restore->output != target && m_host->isTabletOutputForDesktopStage(target)) {
             // Committed ordinary monitor arrival into existing tablet Bento has
-            // the same receiver-origin contract as Card Line adoption (A1).
+            // the same receiver-origin contract as Spread adoption (A1).
             // Ask KWin for tablet placement before overwriting it with a pane.
             client->sendToOutput(target);
             if (!valid()) return true;
@@ -1165,7 +1165,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
             << key << "during removal" << outputRemoving;
 }
 
-bool DesktopStageController::transferTabletSessionToCardLine(KWin::LogicalOutput *output,
+bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *output,
     const std::function<bool(const BentoProjectionSession &,
                              const std::function<bool()> &)> &accept)
 {

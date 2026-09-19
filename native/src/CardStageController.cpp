@@ -9,7 +9,7 @@
 #include "NeighborStackPose.h"
 #include "RowPageMotion.h"
 #include "StackBrowseMotion.h"
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 
@@ -47,7 +47,7 @@ CardStageController::CardStageController(CardStageHost *host)
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {
         const auto window = m_arrivalWindow;
-        if (!m_active || m_presentation != CardPresentation::CardLine
+        if (!m_active || m_presentation != CardPresentation::Spread
             || !window || window->isDeleted() || selectedWindow() != window
             || !window->window() || m_launcherGuestActive || m_cardGrabActive
             || !m_host->tabletOutputForCardStage()
@@ -105,7 +105,7 @@ CardPresentation CardStageController::presentation() const
     return m_presentation;
 }
 
-const CardLineModel &CardStageController::model() const
+const SpreadModel &CardStageController::model() const
 {
     return m_workspace.model();
 }
@@ -197,7 +197,7 @@ QList<QPointer<KWin::EffectWindow>> CardStageController::preparationNeighbors() 
 {
     QList<QPointer<KWin::EffectWindow>> result;
     if (!m_active || m_workspace.count() == 0
-        || m_presentation != CardPresentation::CardLine || m_launcherGuestActive) return result;
+        || m_presentation != CardPresentation::Spread || m_launcherGuestActive) return result;
     for (int side : {-1, 1}) {
         const int id = m_cardGrabActive
             ? m_workspace.detachedNeighborhood(m_cardGrabPageOffset + side)[side < 0 ? 0 : 2]
@@ -217,7 +217,7 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
     }
     const int cardId = index + 1;
     if (m_launcherGuestActive && !m_launcherGuestArrival
-        && m_presentation == CardPresentation::CardLine) {
+        && m_presentation == CardPresentation::Spread) {
         if (m_launcherGuestPrimaryWindow && m_workspace.sameStack(cardId,
                 liveCardIndex(m_launcherGuestPrimaryWindow) + 1)) {
             return m_launcherGuestPrimarySide;
@@ -419,11 +419,11 @@ KWin::Rect CardStageController::cardTargetForSlot(
         KWin::MaximizeArea, output);
     const bool focusedPair = m_workspace.count() == 2
         && (!m_launcherGuestActive || m_launcherGuestArrival) && !m_cardGrabActive;
-    const CardLineLayout layout = focusedPair
+    const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeCardLineLayout(work.x(), work.y(), work.width(), work.height());
+        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     CardStackEnvelope envelope{0.0, 0.0};
-    if (m_presentation == CardPresentation::CardLine) {
+    if (m_presentation == CardPresentation::Spread) {
         if (!m_cardGrabActive) {
             const int selectedId = m_workspace.selectedId();
             const int memberCount = m_workspace.stackSizeForId(selectedId);
@@ -510,7 +510,7 @@ int CardStageController::paintSlot(const KWin::EffectWindow *window) const
 void CardStageController::captureCardTransition(bool includeGuest, bool includeGrab)
 {
     auto *output = m_host->tabletOutputForCardStage();
-    if (!output || m_presentation != CardPresentation::CardLine
+    if (!output || m_presentation != CardPresentation::Spread
         || (m_launcherGuestActive && !includeGuest) || (m_cardGrabActive && !includeGrab)) {
         clearCardTransition();
         return;
@@ -562,7 +562,7 @@ KWin::Rect CardStageController::previewTargetForWindow(
     }
     const int duration = m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
     if (!m_previewTransition.isValid() || m_cardGrabActive || m_poseTransition
-        || m_presentation != CardPresentation::CardLine
+        || m_presentation != CardPresentation::Spread
         || m_previewTransition.elapsed() >= duration) return target;
     const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
     QRectF from(target.x() + slot * work.width() * 0.2, target.y(),
@@ -602,7 +602,7 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
     if (!output || !m_poseTransition
         || (m_cardGrabActive && ((!m_rowPageTransition && !m_pickupTransition) || window == selectedWindow()))
         || !m_previewTransition.isValid()
-        || m_presentation != CardPresentation::CardLine
+        || m_presentation != CardPresentation::Spread
         || m_previewTransition.elapsed() >= duration) return 1.0;
     const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
     if (m_rowPageTransition) {
@@ -685,21 +685,21 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
             ? heldPickupProgress(m_cardGrabScaleTimer.elapsed()) : 1.0;
         return {0.0, 0.0, m_cardGrabRotation * (1.0 - t), true};
     }
-    const auto &cardLine = m_workspace.model();
+    const auto &spread = m_workspace.model();
     const int cardId = m_workspace.windows().indexOf(const_cast<KWin::EffectWindow *>(window)) + 1;
     const double previewBlend = stackPreviewBlend();
-    const int memberCount = cardLine.stackSizeForId(cardId);
-    const int memberIndex = cardLine.stackPositionForId(cardId);
-    const int activeIndex = cardLine.stackActivePositionForId(cardId);
+    const int memberCount = spread.stackSizeForId(cardId);
+    const int memberIndex = spread.stackPositionForId(cardId);
+    const int activeIndex = spread.stackActivePositionForId(cardId);
     CardStackPose pose{0.0, 0.0, 0.0, true};
     const bool previewDestination = cardGrabActive()
         && stackPreviewTarget() != 0
-        && cardLine.sameStack(
+        && spread.sameStack(
             cardId, stackPreviewTarget());
     const int browseTarget = stackBrowseTarget();
     const bool browseDestination = cardGrabActive()
         && browseTarget != 0
-        && cardLine.sameStack(cardId, browseTarget);
+        && spread.sameStack(cardId, browseTarget);
     if (memberCount > 1 || previewDestination || browseDestination) {
         // Compact neighbors around their selected face, not storage order.
         // Keep the same visible identities as the open fan (three shoulders).
@@ -751,8 +751,8 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                 activeIndex, width);
         } else if (!cardGrabActive()
                    && (!m_launcherGuestActive || m_launcherGuestArrival)
-                   && cardLine.sameStack(
-                       cardId, cardLine.selectedId())) {
+                   && spread.sameStack(
+                       cardId, spread.selectedId())) {
             pose = makeOpenStackPose(
                 memberIndex, memberCount,
                 activeIndex, width);
@@ -791,7 +791,7 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
     }
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, output);
-    const CardLineLayout layout = makeLauncherGuestLayout(work.x(), work.y(),
+    const SpreadLayout layout = makeLauncherGuestLayout(work.x(), work.y(),
         work.width(), work.height(), m_launcherGuestGroupCount);
     const auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
     return KWin::Rect(qRound(target.x), qRound(target.y),
@@ -811,7 +811,7 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 
 bool CardStageController::selectedStackContains(const QPointF &position) const
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine) {
+    if (!m_active || m_presentation != CardPresentation::Spread) {
         return false;
     }
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
@@ -856,7 +856,7 @@ int CardStageController::activeSideForPoint(const QPointF &position) const
 QStringList CardStageController::hudState() const
 {
     const bool available = m_active
-        && m_presentation == CardPresentation::CardLine;
+        && m_presentation == CardPresentation::Spread;
     KWin::EffectWindow *window = available ? selectedWindow() : nullptr;
     const int selectedId = available ? m_workspace.selectedId() : 0;
     const int stackCount = available
@@ -930,7 +930,7 @@ bool CardStageController::transferNativeCarryToDesktop(const PreparedCarrySource
             // geometry during cleanup, release, or synchronous activation signals.
             ++m_restoreGeneration;
             forgetManagedRestore(arrival);
-            m_presentation = CardPresentation::CardLine;
+            m_presentation = CardPresentation::Spread;
             m_active = !m_workspace.windows().isEmpty();
             m_originalCardStackingOrder.removeAll(arrival);
             return true;
@@ -954,7 +954,7 @@ bool CardStageController::transferNativeCarryToDesktop(const PreparedCarrySource
 
 void CardStageController::beginCardGrab(const QPointF &position)
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine
+    if (!m_active || m_presentation != CardPresentation::Spread
         || m_cardGrabActive || !selectedWindow() || selectedIsBentoProjection()
         || !qIsFinite(position.x()) || !qIsFinite(position.y())) {
         return;
@@ -1000,7 +1000,7 @@ void CardStageController::beginCardGrab(const QPointF &position)
     KWin::effects->setElevatedWindow(selectedWindow(), true);
     syncSelectedStackingOrder();
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "lifted Card Line card"
+    qInfo() << "Kadunce" << Revision << "lifted Spread card"
             << m_workspace.selectedId();
 }
 
@@ -1073,7 +1073,7 @@ void CardStageController::finishCardGrab(bool commit)
                && std::abs(m_cardGrabOffset.y()) <= m_cardGrabTarget.height() * 0.48) {
         const KWin::RectF work = KWin::effects->clientArea(
             KWin::MaximizeArea, tablet);
-        const CardLineLayout layout = makeCardLineLayout(
+        const SpreadLayout layout = makeSpreadLayout(
             work.x(), work.y(), work.width(), work.height());
         const double pitch = layout.cards[1].width + layout.gutter;
         if (m_cardGrabOffset.x() <= -pitch * 0.82) {
@@ -1094,7 +1094,7 @@ void CardStageController::finishCardGrab(bool commit)
         m_workspace.moveSelected(movement);
     }
     resetCardGrabState(grabbed, stacked);
-    qInfo() << "Kadunce" << Revision << "released Card Line card"
+    qInfo() << "Kadunce" << Revision << "released Spread card"
             << m_workspace.selectedId() << "movement" << movement
             << "stacked" << stacked;
 }
@@ -1135,7 +1135,7 @@ void CardStageController::resetCardGrabState(
 bool CardStageController::finishCardGrabOnOutput(const QPointF &position)
 {
     if (!m_cardGrabActive
-        || m_presentation != CardPresentation::CardLine) {
+        || m_presentation != CardPresentation::Spread) {
         return false;
     }
     KWin::LogicalOutput *destination = KWin::effects->screenAt(
@@ -1169,7 +1169,7 @@ bool CardStageController::finishCardGrabOnOutput(const QPointF &position)
             const bool empty = m_workspace.windows().isEmpty();
             if (empty) {
                 m_active = false;
-                m_presentation = CardPresentation::CardLine;
+                m_presentation = CardPresentation::Spread;
                 m_originalCardStackingOrder.clear();
             }
             resetCardGrabState(arrival, false);
@@ -1192,7 +1192,7 @@ int CardStageController::cardStackCandidate() const
     }
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, tablet);
-    const CardLineLayout layout = makeCardLineLayout(
+    const SpreadLayout layout = makeSpreadLayout(
         work.x(), work.y(), work.width(), work.height());
     if (std::abs(m_cardGrabOffset.x()) > layout.cards[1].width * 0.48
         || std::abs(m_cardGrabOffset.y()) > layout.cards[1].height * 0.48
@@ -1291,7 +1291,7 @@ void CardStageController::syncSelectedElevation()
             const bool selectedProjectionPane = selectedIsBentoProjection()
                 && isBentoProjectionPane(window);
             KWin::effects->setElevatedWindow(window,
-                m_presentation == CardPresentation::CardLine
+                m_presentation == CardPresentation::Spread
                     && !m_launcherGuestActive
                     && (selectedProjectionPane
                         || (index + 1 == selectedId
@@ -1303,7 +1303,7 @@ void CardStageController::syncSelectedElevation()
 
 void CardStageController::syncSelectedStackingOrder()
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine || m_launcherGuestActive) {
+    if (!m_active || m_presentation != CardPresentation::Spread || m_launcherGuestActive) {
         return;
     }
     if (selectedIsBentoProjection()) return;
@@ -1340,19 +1340,19 @@ void CardStageController::toggle()
     m_host->cancelInputForCardStage();
     if (m_active) {
         finishCardGrab(false);
-        if (m_presentation == CardPresentation::CardLine) {
+        if (m_presentation == CardPresentation::Spread) {
             if (!enterActive()) {
                 return;
             }
         } else {
             parkActiveSnapshot();
-            m_presentation = CardPresentation::CardLine;
+            m_presentation = CardPresentation::Spread;
         }
         syncSelectedElevation();
         KWin::effects->addRepaintFull();
         qInfo() << "Kadunce" << Revision << "changed to"
                 << (m_presentation == CardPresentation::Active
-                        ? "Active" : "Card Line");
+                        ? "Active" : "Spread");
         return;
     }
 
@@ -1364,7 +1364,7 @@ void CardStageController::toggle()
         return;
     }
     m_active = true;
-    m_presentation = CardPresentation::CardLine;
+    m_presentation = CardPresentation::Spread;
     m_host->setPagingShortcutsForCardStage(true);
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -1432,7 +1432,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
                 m_bentoProjectionSession = projection;
                 ++m_restoreGeneration;
                 m_active = true;
-                m_presentation = CardPresentation::CardLine;
+                m_presentation = CardPresentation::Spread;
                 m_originalCardStackingOrder = projection.stackingOrder;
                 m_restoredMinimizations.clear();
             })) {
@@ -1445,7 +1445,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
         if (window && !window->isDeleted() && window->window()) {
             m_host->connectManagedWindowForCardStage(window);
             // Pane and overflow visibility is part of the transferred session.
-            // Card Line never unmimizes overflow merely to present the group.
+            // Spread never unmimizes overflow merely to present the group.
         }
     }
     if (!m_active) return true;
@@ -1457,7 +1457,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
 
 bool CardStageController::resumeSelectedBentoProjection()
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine
+    if (!m_active || m_presentation != CardPresentation::Spread
         || !selectedIsBentoProjection() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
     const BentoProjectionSession projection = *m_bentoProjectionSession;
@@ -1485,7 +1485,7 @@ bool CardStageController::resumeSelectedBentoProjection()
                     m_activeSettleTimer.stop();
                     m_activeSettleRemaining = 0;
                     m_active = false;
-                    m_presentation = CardPresentation::CardLine;
+                    m_presentation = CardPresentation::Spread;
                     m_workspace.clear();
                     m_activeRestore = {};
                     m_parkedRestores.clear();
@@ -1555,7 +1555,7 @@ void CardStageController::release()
     // Stop filtering the scene before fullscreen restoration changes layers,
     // activation or geometry. Those operations can synchronously reenter KWin.
     m_active = false;
-    m_presentation = CardPresentation::CardLine;
+    m_presentation = CardPresentation::Spread;
     for (const QPointer<KWin::EffectWindow> &window :
          std::as_const(m_workspace.windows())) {
         if (window && !window->isDeleted()) {
@@ -1613,7 +1613,7 @@ void CardStageController::pageHorizontal(int delta)
         m_workspace.page(delta);
     }
     if (wasActive && !enterActive()) {
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
     }
     if (!wasActive) anchorRowTransition();
     syncSelectedElevation();
@@ -1624,7 +1624,7 @@ void CardStageController::pageHorizontal(int delta)
 
 bool CardStageController::beginLauncherGuest()
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine
+    if (!m_active || m_presentation != CardPresentation::Spread
         || m_workspace.windows().isEmpty() || m_cardGrabActive) {
         return false;
     }
@@ -1661,7 +1661,7 @@ void CardStageController::updateLauncherGuest(double horizontalDelta)
     }
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, tablet);
-    const CardLineLayout layout = makeCardLineLayout(
+    const SpreadLayout layout = makeSpreadLayout(
         work.x(), work.y(), work.width(), work.height());
     const double pitch = layout.cards[1].width + layout.gutter;
     m_launcherGuestOffset = std::clamp(
@@ -1742,7 +1742,7 @@ void CardStageController::endLauncherGuest()
 
 void CardStageController::pageStack(int delta)
 {
-    if (!m_active || m_presentation != CardPresentation::CardLine
+    if (!m_active || m_presentation != CardPresentation::Spread
         || delta == 0 || selectedIsBentoProjection()
         || m_workspace.stackSizeForId(m_workspace.selectedId()) <= 1) {
         return;
@@ -1887,7 +1887,7 @@ bool CardStageController::enterActive()
     // windowActivated signal is synchronous on some Plasma versions and must
     // not be mistaken for a second task-manager request.
     m_presentation = CardPresentation::Active;
-    // All entry paths must retire Card Line's temporary compositor elevation.
+    // All entry paths must retire Spread's temporary compositor elevation.
     // Active is a native window; panel popups must retain their normal layers.
     syncSelectedElevation();
     m_activeSettleTimer.start();
@@ -2006,7 +2006,7 @@ bool CardStageController::admitTransferredWindowToTablet(
     if (!target.isValid() || !KWin::effects->screens().contains(tablet.data())
         || window->isUserMove() || window->isUserResize()) return false;
     const bool newMember = liveCardIndex(window) < 0;
-    const bool animateArrival = m_active && m_presentation == CardPresentation::CardLine
+    const bool animateArrival = m_active && m_presentation == CardPresentation::Spread
         && !m_launcherGuestActive;
     const int previousSelection = m_workspace.selectedIndex();
     if (newMember) {
@@ -2041,7 +2041,7 @@ bool CardStageController::admitTransferredWindowToTablet(
         m_host->connectManagedWindowForCardStage(arrival);
         m_host->cancelInputForCardStage();
         if (!valid()) return true;
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
         parkActiveSnapshot();
         if (!valid()) return true;
     }
@@ -2069,9 +2069,9 @@ bool CardStageController::admitTransferredWindowToTablet(
         stageWindowArrival(arrival);
     }
     // The receiver owns presentation. Seed its existing center/expand sequence
-    // from the released face, not an invented off-screen Card Line slot. Do
+    // from the released face, not an invented off-screen Spread slot. Do
     // this after admission cleanup, which can cancel the source carry.
-    if (valid() && animateArrival && m_presentation == CardPresentation::CardLine
+    if (valid() && animateArrival && m_presentation == CardPresentation::Spread
         && m_arrivalWindow == arrival && carriedOrigin.isValid()) {
         const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
         if (work.width() > 0 && work.height() > 0) {
@@ -2100,7 +2100,7 @@ void CardStageController::stageWindowArrival(KWin::EffectWindow *window)
 {
     if (!m_active || !window || window->isDeleted() || liveCardIndex(window) < 0) return;
     m_host->cancelInputForCardStage();
-    if (m_presentation != CardPresentation::CardLine) {
+    if (m_presentation != CardPresentation::Spread) {
         handleWindowActivated(window);
         return;
     }
@@ -2144,7 +2144,7 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
         return false;
     }
 
-    const bool animateArrival = m_presentation == CardPresentation::CardLine
+    const bool animateArrival = m_presentation == CardPresentation::Spread
         && !m_launcherGuestActive && !m_cardGrabActive;
     m_host->cancelInputForCardStage();
     if (animateArrival) captureCardTransition();
@@ -2152,7 +2152,7 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     if (m_presentation == CardPresentation::Active) {
         parkActiveSnapshot();
     }
-    m_presentation = CardPresentation::CardLine;
+    m_presentation = CardPresentation::Spread;
     int previousSelection = m_workspace.selectedIndex();
     m_workspace.append(window, animateArrival || m_launcherGuestActive);
     retainManagedOwnership(window);
@@ -2180,7 +2180,7 @@ void CardStageController::finishNewArrival(KWin::EffectWindow *window,
     }
     syncSelectedElevation();
     if (!enterActive()) {
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
     }
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "admitted new card"
@@ -2216,10 +2216,10 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
         if (m_presentation == CardPresentation::Active) {
             parkActiveSnapshot();
         }
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
         rebuildLiveCards();
     } else if (closedActive) {
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -2247,11 +2247,11 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     if (m_presentation == CardPresentation::Active) {
         parkActiveSnapshot();
     }
-    m_presentation = CardPresentation::CardLine;
+    m_presentation = CardPresentation::Spread;
 
     // Select through the stack model so a task-manager click can address both
     // standalone cards and a specific stack member while selection remains
-    // centralized in the card-line model.
+    // centralized in the spread model.
     for (int step = 0;
          step < m_workspace.count()
          && !m_workspace.sameStack(targetId, m_workspace.selectedId());
@@ -2272,7 +2272,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
 
     syncSelectedElevation();
     if (!enterActive()) {
-        m_presentation = CardPresentation::CardLine;
+        m_presentation = CardPresentation::Spread;
     }
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision

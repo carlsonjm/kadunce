@@ -11,10 +11,10 @@
 namespace Kadunce
 {
 
-class CardLineModel
+class SpreadModel
 {
 public:
-    explicit CardLineModel(int cardCount = 20);
+    explicit SpreadModel(int cardCount = 20);
 
     [[nodiscard]] int count() const;
     [[nodiscard]] int cardCount() const;

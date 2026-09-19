@@ -5,7 +5,7 @@
 
 #include "WorkspaceInputRouter.h"
 
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 
 #include <input_event.h>
 #include <QDebug>
@@ -50,7 +50,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
         const QPointF delta = holdCurrent() - holdStart();
         if (m_holdSource != HoldSource::None
             && m_target->presentationForInput()
-                == WorkspacePresentation::CardLine
+                == WorkspacePresentation::Spread
             && std::hypot(delta.x(), delta.y()) <= CardHoldMotion) {
             stopEdgePaging();
             m_target->beginCardGrab(holdCurrent());
@@ -102,7 +102,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
         const int direction = m_stackInsertionDirection;
         (void)m_target->pageCardStackInsertion(direction);
         // One movement requests one slot. An end seam is not a request
-        // to leave the stack or repeat Card Line navigation.
+        // to leave the stack or repeat Spread navigation.
         m_stackInsertionAnchor = holdCurrent();
         stopStackInsertion();
     });
@@ -163,7 +163,7 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
     if (presentation == WorkspacePresentation::Inactive) {
         return false;
     }
-    if (presentation == WorkspacePresentation::CardLine) {
+    if (presentation == WorkspacePresentation::Spread) {
         return true;
     }
     return m_target->activeSideForPoint(event->position) != 0;
@@ -243,7 +243,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
          || !m_ownedTouchIds.isEmpty())
         && event->state == KWin::PointerButtonState::Pressed
         && m_target->isTabletPoint(event->position)
-        && (m_target->presentationForInput() == WorkspacePresentation::CardLine
+        && (m_target->presentationForInput() == WorkspacePresentation::Spread
             || m_target->activeSideForPoint(event->position) != 0)
         && !m_target->launcherGuestContainsForInput(event->position)) {
         m_drainingPointerButtons.insert(event->button);
@@ -276,17 +276,17 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         return false;
     }
     // A native drag may begin on a monitor and release over the tablet.
-    // Card Line must not consume that foreign release: KWin owns the matching
+    // Spread must not consume that foreign release: KWin owns the matching
     // press and needs the release to end its pointer grab.
     if (event->state == KWin::PointerButtonState::Released
         && !m_pointerPressed) {
         return false;
     }
-    const bool cardLine = presentation == WorkspacePresentation::CardLine;
-    const int activeSide = cardLine
+    const bool spread = presentation == WorkspacePresentation::Spread;
+    const int activeSide = spread
         ? 0 : m_target->activeSideForPoint(event->position);
     if (event->state == KWin::PointerButtonState::Pressed
-        && (!cardLine && activeSide == 0)) {
+        && (!spread && activeSide == 0)) {
         m_forwardedPointerButtons.insert(event->button);
         return false;
     }
@@ -302,7 +302,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_pointerStart = event->position;
         m_pointerCurrent = event->position;
         m_pointerActiveSide = activeSide;
-        if (cardLine) {
+        if (spread) {
             startCardHold(HoldSource::Pointer, event->position);
         }
     } else if (m_pointerPressed) {
@@ -318,8 +318,8 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
                 m_target->finishCardGrab(true);
             }
             m_stackTargetId = 0;
-        } else if (cardLine) {
-            finishCardLineGesture(m_pointerStart, m_pointerCurrent);
+        } else if (spread) {
+            finishSpreadGesture(m_pointerStart, m_pointerCurrent);
         } else if (m_pointerActiveSide < 0) {
             m_target->pageLeftFromInput();
         } else if (m_pointerActiveSide > 0) {
@@ -349,15 +349,15 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
         || presentation == WorkspacePresentation::Inactive) {
         return false;
     }
-    const bool cardLine = presentation == WorkspacePresentation::CardLine;
-    const int activeSide = cardLine
+    const bool spread = presentation == WorkspacePresentation::Spread;
+    const int activeSide = spread
         ? 0 : m_target->activeSideForPoint(event->position);
-    if (!cardLine && activeSide == 0) {
+    if (!spread && activeSide == 0) {
         return false;
     }
     const qreal delta = event->deltaV120 != 0
         ? event->deltaV120 : event->delta;
-    if (cardLine && m_target->selectedStackContains(event->position)) {
+    if (spread && m_target->selectedStackContains(event->position)) {
         m_target->pageStackFromInput(delta > 0.0 ? -1 : 1);
         return true;
     }
@@ -396,7 +396,7 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
     // overview's blanket touch capture needs a panel exclusion. Unowned IDs
     // already pass through motion/up, even after they leave the panel.
     if (m_touchId < 0
-        && m_target->presentationForInput() == WorkspacePresentation::CardLine
+        && m_target->presentationForInput() == WorkspacePresentation::Spread
         && m_target->isPanelPoint(event->pos)) return false;
     if (!m_target->isTabletPoint(event->pos)) {
         return false;
@@ -421,7 +421,7 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
     }
     const TouchMode mode = touchModeAt(event->pos);
     if (mode == TouchMode::BottomEdge
-        && m_target->presentationForInput() != WorkspacePresentation::CardLine
+        && m_target->presentationForInput() != WorkspacePresentation::Spread
         && m_touchId < 0) {
         if (m_observedTouchIds.size() == 1) {
             m_bottomCandidateId = event->id;
@@ -440,7 +440,7 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
         m_touchCurrent = event->pos;
         m_touchCommitted = false;
         m_touchMode = mode;
-        if (mode == TouchMode::CardLine) {
+        if (mode == TouchMode::Spread) {
             startCardHold(HoldSource::Touch, event->pos);
         }
     }
@@ -476,7 +476,7 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
             m_touchMode = TouchMode::BottomEdge;
             m_touchCommitted = true;
             m_ownedTouchIds.insert(event->id);
-            if (m_target->presentationForInput() != WorkspacePresentation::CardLine)
+            if (m_target->presentationForInput() != WorkspacePresentation::Spread)
                 m_target->toggleFromInput();
             return true;
         }
@@ -811,15 +811,15 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
         return m_ownsSystemEdges
             ? TouchMode::BottomEdge : TouchMode::None;
     }
-    if (presentation == WorkspacePresentation::CardLine && atTop) {
+    if (presentation == WorkspacePresentation::Spread && atTop) {
         return m_ownsSystemEdges
             ? TouchMode::TopEdge : TouchMode::None;
     }
     if (presentation == WorkspacePresentation::Inactive) {
         return TouchMode::None;
     }
-    if (presentation == WorkspacePresentation::CardLine) {
-        return TouchMode::CardLine;
+    if (presentation == WorkspacePresentation::Spread) {
+        return TouchMode::Spread;
     }
     const int side = m_target->activeSideForPoint(position);
     if (side < 0) {
@@ -839,12 +839,12 @@ void WorkspaceInputRouter::updateTouchGesture()
     const int stackDirection = classifyStackGesture(
         m_touchStart.x(), m_touchStart.y(),
         m_touchCurrent.x(), m_touchCurrent.y(),
-        m_touchMode == TouchMode::CardLine
+        m_touchMode == TouchMode::Spread
             && m_target->selectedStackContains(m_touchStart));
     if (stackDirection != 0) {
         m_target->pageStackFromInput(stackDirection);
         m_touchCommitted = true;
-    } else if (m_touchMode == TouchMode::CardLine
+    } else if (m_touchMode == TouchMode::Spread
                && std::abs(delta.x()) > 58.0 && horizontal) {
         delta.x() < 0.0
             ? m_target->pageRightFromInput()
@@ -861,21 +861,21 @@ void WorkspaceInputRouter::updateTouchGesture()
     } else if (m_touchMode == TouchMode::BottomEdge
                && delta.y() < -40.0 && vertical) {
         if (m_target->presentationForInput()
-            != WorkspacePresentation::CardLine) {
+            != WorkspacePresentation::Spread) {
             m_target->toggleFromInput();
         }
         m_touchCommitted = true;
     } else if (m_touchMode == TouchMode::TopEdge
                && delta.y() > 40.0 && vertical) {
         if (m_target->presentationForInput()
-            == WorkspacePresentation::CardLine) {
+            == WorkspacePresentation::Spread) {
             m_target->toggleFromInput();
         }
         m_touchCommitted = true;
     }
 }
 
-void WorkspaceInputRouter::finishCardLineGesture(const QPointF &start,
+void WorkspaceInputRouter::finishSpreadGesture(const QPointF &start,
                                                  const QPointF &end)
 {
     const WorkspaceInputGeometry geometry = m_target->geometryForInput();
@@ -889,22 +889,22 @@ void WorkspaceInputRouter::finishCardLineGesture(const QPointF &start,
         m_target->pageStackFromInput(stackDirection);
         return;
     }
-    const CardLineAction action = classifyCardLineGesture(
+    const SpreadAction action = classifySpreadGesture(
         start.x(), start.y(), end.x(), end.y(),
         geometry.centerCard.x(), geometry.centerRightInclusive);
-    if (action == CardLineAction::Previous) {
+    if (action == SpreadAction::Previous) {
         m_target->pageLeftFromInput();
-    } else if (action == CardLineAction::Next) {
+    } else if (action == SpreadAction::Next) {
         m_target->pageRightFromInput();
-    } else if (action == CardLineAction::Activate) {
+    } else if (action == SpreadAction::Activate) {
         m_target->activateSelectedFromInput();
     }
 }
 
 void WorkspaceInputRouter::finishTouchGesture()
 {
-    if (m_touchMode == TouchMode::CardLine) {
-        finishCardLineGesture(m_touchStart, m_touchCurrent);
+    if (m_touchMode == TouchMode::Spread) {
+        finishSpreadGesture(m_touchStart, m_touchCurrent);
     } else if (m_touchMode == TouchMode::ActiveLeft) {
         m_target->pageLeftFromInput();
     } else if (m_touchMode == TouchMode::ActiveRight) {

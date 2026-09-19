@@ -28,7 +28,7 @@ int main()
     require(composite.targetUnion.x >= slot.x && composite.targetUnion.y >= slot.y
         && composite.targetUnion.right() <= slot.right()
         && composite.targetUnion.bottom() <= slot.bottom(),
-        "Composite escaped canonical Card Line slot");
+        "Composite escaped canonical Spread slot");
     require(close(composite.targetUnion.x + composite.targetUnion.width / 2.0,
                   slot.x + slot.width / 2.0)
         && close(composite.targetUnion.y + composite.targetUnion.height / 2.0,

@@ -28,7 +28,7 @@ for cycle in 1 2 3; do
     sleep .2
     test "$(probe windowGeometry "$main")" = "$active"
 done
-echo 'PASS: repeated Active/Card Line keeps native geometry'
+echo 'PASS: repeated Active/Spread keeps native geometry'
 # A native resize request must not discard managed ownership or geometry.
 client armResize
 probe down 71 500 600
@@ -45,9 +45,9 @@ probe motion 72 640 735
 probe motion 72 640 680
 probe up 72
 sleep .3
-kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
+kad workspaceContext | jq -e '.cardStage.presentation == "spread"'
 test "$(probe windowGeometry "$main")" = "$active"
-echo 'PASS: bottom edge swipe enters Card Line without native resize'
+echo 'PASS: bottom edge swipe enters Spread without native resize'
 kad showActive
 # A second Active app must not overwrite the first app restore record.
 client companion
@@ -68,4 +68,4 @@ kad showCardLine
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .3
 test "$(probe windowGeometry "$main")" = "$original"
-echo 'PASS: unload from Card Line restores original desktop geometry'
+echo 'PASS: unload from Spread restores original desktop geometry'

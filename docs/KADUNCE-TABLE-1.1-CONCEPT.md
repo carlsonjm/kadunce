@@ -4,19 +4,19 @@
 
 Table extends Kadunce's spatial model to existing KDE Plasma virtual desktops:
 
-`Active = this window → Card Line/Bento = these windows → Table = these workspaces`
+`Active = this window → Spread/Bento = these windows → Table = these workspaces`
 
 KWin remains authoritative for virtual-desktop membership, switching, lifecycle,
 and persistence. Table is the interaction and presentation layer.
 
 ## Primary interaction
 
-1. Enter Table from Card Line with a four-finger upward gesture.
+1. Enter Table from Spread with a four-finger upward gesture.
 2. See existing virtual desktops as physical workspace surfaces containing
    recognizable Kadunce cards.
 3. Drag a real card from one desktop surface to another.
 4. Update the underlying KWin virtual-desktop membership.
-5. Select the destination desktop and return to its Card Line with the moved window.
+5. Select the destination desktop and return to its Spread with the moved window.
 6. Dismiss downward to return to the origin without changing context.
 
 Four fingers signify workspace-level manipulation and distinguish Table from
@@ -25,7 +25,7 @@ and Plasma gesture conflicts are audited.
 
 ## Presentation
 
-Card Line should appear to recede into one surface on a larger table. Selecting a
+Spread should appear to recede into one surface on a larger table. Selecting a
 desktop should move back into that workspace, preserving the sense of one spatial
 system. Desktop surfaces must remain large enough for touch manipulation and show a
 clear destination state before release.
@@ -39,7 +39,7 @@ numbered thumbnail strips.
 - Use KWin's virtual-desktop APIs; do not create parallel desktop membership.
 - Reuse Kadunce's window identity and prepared-transfer rules.
 - Keep virtual desktops and physical outputs as independent dimensions.
-- Preserve Active, Card Line, Bento, monitor transfer, tablet ownership, dock
+- Preserve Active, Spread, Bento, monitor transfer, tablet ownership, dock
   behavior, restoration, and the disable control.
 - Normal KDE desktop switching must continue to work.
 - A rejected or interrupted transfer preserves the source desktop and card state.
@@ -59,7 +59,7 @@ Before product implementation:
 
 On a supported touch device, the user can enter Table, see multiple existing KDE
 virtual desktops, move a real Kadunce-managed window between them, enter the
-destination Card Line, and observe correct underlying membership. Existing Kadunce
+destination Spread, and observe correct underlying membership. Existing Kadunce
 and KDE behavior remains intact.
 
 ## Non-goals

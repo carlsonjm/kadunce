@@ -16,7 +16,7 @@ inline bool paintCarryWindow(const KWin::RenderTarget &renderTarget,
 {
     if (!window || window->isDeleted() || plan.clip.isEmpty()) return false;
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();
-    // Match the established Card Line cover transform. If native cancellation
+    // Match the established Spread cover transform. If native cancellation
     // restores a different client size, paint still occupies the frozen pickup
     // envelope; no corrective moveResize is issued.
     KWin::Effect::setPositionTransformations(data, logicalRegion, window,

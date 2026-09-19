@@ -23,10 +23,10 @@ find_package(XCB REQUIRED COMPONENTS XCB)
 
 kcoreaddons_add_plugin(kwin4_effect_kadunce
     SOURCES
-        src/CardLineModel.cpp
-        src/CardLineModel.h
-        src/CardLineLayout.cpp
-        src/CardLineLayout.h
+        src/SpreadModel.cpp
+        src/SpreadModel.h
+        src/SpreadLayout.cpp
+        src/SpreadLayout.h
         src/ProjectedCardGeometry.h
         src/BentoCompositeGeometry.h
         src/BentoProjectionSession.h
@@ -95,22 +95,22 @@ if(BUILD_TESTING)
     target_link_libraries(kadunce-carry-session-test PRIVATE Qt6::Core)
     add_test(NAME carry-session COMMAND kadunce-carry-session-test)
     add_executable(kadunce-workspace-state-test
-        tests/WorkspaceStateTest.cpp src/CardLineModel.cpp)
+        tests/WorkspaceStateTest.cpp src/SpreadModel.cpp)
     target_include_directories(kadunce-workspace-state-test PRIVATE src)
     target_link_libraries(kadunce-workspace-state-test PRIVATE Qt6::Core)
     add_test(NAME workspace-state COMMAND kadunce-workspace-state-test)
     add_executable(kadunce-ownership-handoff-test
-        tests/OwnershipHandoffTest.cpp src/CardLineModel.cpp)
+        tests/OwnershipHandoffTest.cpp src/SpreadModel.cpp)
     target_include_directories(kadunce-ownership-handoff-test PRIVATE src)
     target_link_libraries(kadunce-ownership-handoff-test PRIVATE Qt6::Core)
     add_test(NAME ownership-handoff COMMAND kadunce-ownership-handoff-test)
     add_executable(kadunce-workspace-snapshot-test
-        tests/WorkspaceSnapshotTest.cpp src/CardLineModel.cpp)
+        tests/WorkspaceSnapshotTest.cpp src/SpreadModel.cpp)
     target_include_directories(kadunce-workspace-snapshot-test PRIVATE src)
     target_link_libraries(kadunce-workspace-snapshot-test PRIVATE Qt6::Core)
     add_test(NAME workspace-snapshot COMMAND kadunce-workspace-snapshot-test)
     add_executable(kadunce-panel-input-test tests/PanelInputTest.cpp
-        src/WorkspaceInputRouter.cpp src/CardLineLayout.cpp src/CardLineModel.cpp)
+        src/WorkspaceInputRouter.cpp src/SpreadLayout.cpp src/SpreadModel.cpp)
     target_include_directories(kadunce-panel-input-test PRIVATE src)
     target_link_libraries(kadunce-panel-input-test PRIVATE KWin::kwin Qt6::Core)
     add_test(NAME panel-input COMMAND kadunce-panel-input-test)
@@ -124,23 +124,23 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-launch-identity-test PRIVATE src)
     target_link_libraries(kadunce-launch-identity-test PRIVATE Qt6::Core)
     add_test(NAME launch-identity COMMAND kadunce-launch-identity-test)
-    add_executable(kadunce-card-line-model-test
-        tests/CardLineModelTest.cpp
-        src/CardLineModel.cpp
+    add_executable(kadunce-spread-model-test
+        tests/SpreadModelTest.cpp
+        src/SpreadModel.cpp
     )
-    target_include_directories(kadunce-card-line-model-test PRIVATE src)
-    add_test(NAME card-line-model COMMAND kadunce-card-line-model-test)
+    target_include_directories(kadunce-spread-model-test PRIVATE src)
+    add_test(NAME spread-model COMMAND kadunce-spread-model-test)
 
-    add_executable(kadunce-card-line-layout-test
-        tests/CardLineLayoutTest.cpp
-        src/CardLineLayout.cpp
+    add_executable(kadunce-spread-layout-test
+        tests/SpreadLayoutTest.cpp
+        src/SpreadLayout.cpp
     )
-    target_include_directories(kadunce-card-line-layout-test PRIVATE src)
-    add_test(NAME card-line-layout COMMAND kadunce-card-line-layout-test)
+    target_include_directories(kadunce-spread-layout-test PRIVATE src)
+    add_test(NAME spread-layout COMMAND kadunce-spread-layout-test)
 
     add_executable(kadunce-projected-card-geometry-test
         tests/ProjectedCardGeometryTest.cpp
-        src/CardLineLayout.cpp
+        src/SpreadLayout.cpp
     )
     target_include_directories(kadunce-projected-card-geometry-test PRIVATE src)
     add_test(NAME projected-card-geometry COMMAND kadunce-projected-card-geometry-test)
@@ -148,7 +148,7 @@ if(BUILD_TESTING)
     add_executable(kadunce-bento-composite-geometry-test
         tests/BentoCompositeGeometryTest.cpp
         src/BentoLayout.cpp
-        src/CardLineLayout.cpp
+        src/SpreadLayout.cpp
     )
     target_include_directories(kadunce-bento-composite-geometry-test PRIVATE src)
     add_test(NAME bento-composite-geometry COMMAND kadunce-bento-composite-geometry-test)

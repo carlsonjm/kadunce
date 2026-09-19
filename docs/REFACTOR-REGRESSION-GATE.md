@@ -25,9 +25,9 @@ acceptance. A skipped live or infrastructure check stays unverified.
 Choose the smallest subset touched by the candidate and record source/installed
 identity, session, display setup, and PASS/FAIL/NOT RUN.
 
-1. Active/Card Line entry and release with ordinary, maximized, and fullscreen
+1. Active/Spread entry and release with ordinary, maximized, and fullscreen
    windows; verify focus, interaction, and restored geometry.
-2. Card Line paging, arrival/removal, stack browsing, lift/cancel, extraction, and
+2. Spread paging, arrival/removal, stack browsing, lift/cancel, extraction, and
    stable selected identity.
 3. Guest outside tap, movement cancellation, swipe collapse, relaunch, and app
    replacement.

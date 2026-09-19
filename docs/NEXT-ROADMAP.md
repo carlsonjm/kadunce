@@ -101,7 +101,7 @@ and multi-display checks pass.
 1. Make stack extraction reliable.
 2. Give Card reordering a usable intent zone without accidental paging.
 3. Complete arrival, displacement, cancellation, and neighbor motion.
-4. Normalize live terminology from Card Line to Spread after the behavior is stable.
+4. Live terminology is normalized to Spread; Block 1b completed this.
 
 ### Production block 3 — Tettegouche completion
 
@@ -148,9 +148,9 @@ physical checks, and have explicit ownership.
 ### Kadunce
 
 - [x] Cross-display Escape returns a carried window to its ownership origin.
-- [x] Windows commit to Card Line ownership on entry without an Active detour.
+- [x] Windows commit to Spread ownership on entry without an Active detour.
 - [x] Constrained windows route through Bento admission or prepared Active ownership.
-- [x] Tablet Card Line retains Bento members as a stack and selects the large pane.
+- [x] Tablet Spread retains Bento members as a stack and selects the large pane.
 - [x] Output-local Bento ownership and lifecycle remain isolated.
 - [x] Physically accept the full-work-area Bento group-card implementation. It maps
   live panes into one proportional desktop view with a translucent-black field,
@@ -160,8 +160,8 @@ physical checks, and have explicit ownership.
 - [x] Physically accept centered card labels, right-edge stack position, and the
   pane-ordered Bento group label.
 - [ ] Refactor ownership so Bento contains only its visible pane combination;
-  minimized, displaced, overflowed, and extracted windows become independent Card
-  Line cards with no retained Bento association.
+  minimized, displaced, overflowed, and extracted windows become independent
+  Spread cards with no retained Bento association.
 - [ ] Make first Card or Bento entry atomically adopt every eligible application
   window on that display and current virtual desktop, as defined by
   `CARD-LIFECYCLE.md`.
@@ -262,9 +262,9 @@ private product consumption without duplicated state ownership.
 
 **Status:** Product contract approved; engineering feasibility queued
 
-Table provides the level above Card Line/Bento:
+Table provides the level above Spread/Bento:
 
-`Active = this window → Card Line/Bento = these windows → Table = these workspaces`
+`Active = this window → Spread/Bento = these windows → Table = these workspaces`
 
 - [ ] Audit KWin/Plasma virtual-desktop APIs, gesture ownership, and lifecycle.
 - [ ] Define touch entry/exit, workspace presentation, and direct manipulation.
@@ -277,7 +277,7 @@ Table provides the level above Card Line/Bento:
 Reference: `KADUNCE-TABLE-1.1-CONCEPT.md`.
 
 **Exit gate:** A user can enter Table, move a real managed window between existing
-KDE virtual desktops, enter the destination Card Line, and observe correct underlying
+KDE virtual desktops, enter the destination Spread, and observe correct underlying
 desktop membership without regressing normal KDE switching or display ownership.
 
 ## 5. Shuffle Keyboard

@@ -269,7 +269,7 @@ private:
     QAction *m_stackPreviousAction = nullptr;
     QAction *m_stackNextAction = nullptr;
     QAction *m_bentoAction = nullptr;
-    QAction *m_showCardLineAction = nullptr;
+    QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;

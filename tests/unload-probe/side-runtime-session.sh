@@ -129,7 +129,7 @@ if [[ ${KADUNCE_SIDE_TABLET:-0} == 1 ]]; then
     sleep .6
     a=$(probe windowGeometry "$main"); b=$(probe windowGeometry "$other")
     jq -en --argjson a "$a" --argjson b "$b" --argjson expected "$expected" '$a == $expected or $b == $expected'
-    echo 'PASS: tablet Card Line touch placement commits the same side/share preview'
+    echo 'PASS: tablet Spread touch placement commits the same side/share preview'
     probe releaseRuntime
 fi
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then

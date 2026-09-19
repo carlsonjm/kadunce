@@ -1,9 +1,9 @@
 # Known issues
 
-## Bento-derived Card Line presentation
+## Bento-derived Spread presentation
 
 Bento-owned windows keep correct ownership, restore records, pane geometry, and
-overflow when the tablet returns to Card Line. The current candidate presents the
+overflow when the tablet returns to Spread. The current candidate presents the
 visible composition as one proportional live desktop view with a translucent-black
 work-area backdrop, then resumes the exact Bento session on activation. Composite
 geometry includes live-frame drift, scaled rounded pane apertures, authoritative

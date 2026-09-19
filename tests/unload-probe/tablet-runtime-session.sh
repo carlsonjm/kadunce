@@ -51,11 +51,11 @@ for kind in pointer touch; do
         kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-1" and .bentoActive)] | length == 0'
     fi
     sleep .25
-    # Keep a resident on the tablet so return exercises Card Line's receiver,
+    # Keep a resident on the tablet so return exercises Spread's receiver,
     # rather than only native arrival onto an empty/inactive tablet.
     kad showCardLine
     sleep .3
-    kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
+    kad workspaceContext | jq -e '.cardStage.presentation == "spread"'
     probe pointer 1800 380
     client armMove
     if [[ $kind == pointer ]]; then probe contactButton true; else probe down 48 1800 380; fi
@@ -81,7 +81,7 @@ for kind in pointer touch; do
         sleep .15
         kad nativeCarryState | jq -e '(.carrying|not) and (.inputBusy|not)'
         if [[ $kind == pointer ]]; then probe contactMotion 500 350; else probe motion 48 500 350; fi
-        # Tablet arrival uses its own Card Line presentation, not a Bento outline.
+        # Tablet arrival uses its own Spread presentation, not a Bento outline.
         kad nativeCarryState | jq -e '.carrying and .destination'
     fi
     if [[ $kind == pointer ]]; then probe contactButton false; else probe up 48; fi

@@ -14,7 +14,7 @@ struct Target : WorkspaceInputTarget {
     bool guest = false;
     bool nativeInteraction = false;
     QRectF appletPopup;
-    WorkspacePresentation presentation = WorkspacePresentation::CardLine;
+    WorkspacePresentation presentation = WorkspacePresentation::Spread;
     int cancellations = 0;
     bool canCancel = true;
     double bottomGestureInset = 0.0;
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
         target.onToggle = [&] {
             router.cancelWorkspaceInteraction();
             target.presentation = target.presentation == WorkspacePresentation::Active
-                ? WorkspacePresentation::CardLine : WorkspacePresentation::Active;
+                ? WorkspacePresentation::Spread : WorkspacePresentation::Active;
         };
         target.onPage = [&] { router.cancelWorkspaceInteraction(); };
         KWin::TouchDownEvent down{101,{500,790},{}};
@@ -322,7 +322,7 @@ int main(int argc, char **argv) {
     for (bool guest : {false, true}) {
         for (auto firstReleased : {Qt::LeftButton, Qt::RightButton}) {
             Target target; target.guest = guest;
-            target.presentation = guest ? WorkspacePresentation::CardLine : WorkspacePresentation::Active;
+            target.presentation = guest ? WorkspacePresentation::Spread : WorkspacePresentation::Active;
             WorkspaceInputRouter router(&target);
             KWin::PointerButtonEvent button{};
             button.position = {500,300}; button.state = KWin::PointerButtonState::Pressed;
@@ -331,7 +331,7 @@ int main(int argc, char **argv) {
                 require(!router.pointerButton(&button), "Client chord press stolen");
             }
             router.cancelWorkspaceInteraction();
-            target.guest = false; target.presentation = WorkspacePresentation::CardLine;
+            target.guest = false; target.presentation = WorkspacePresentation::Spread;
             button.position = {50,300}; button.state = KWin::PointerButtonState::Released;
             button.button = firstReleased;
             require(!router.pointerButton(&button), "First client chord release stolen");
@@ -439,7 +439,7 @@ int main(int argc, char **argv) {
                     && target.actions == afterCancel && target.grabStarts == 0,
                 "Interrupted contact leaked release or fired an action");
         require(!router.touchUp(&up), "Drained contact retained ownership");
-        target.presentation = WorkspacePresentation::CardLine; target.guest = guest;
+        target.presentation = WorkspacePresentation::Spread; target.guest = guest;
         KWin::PointerButtonEvent button{};
         button.position = point; button.button = Qt::LeftButton;
         button.state = KWin::PointerButtonState::Pressed;
@@ -551,7 +551,7 @@ int main(int argc, char **argv) {
         KWin::PointerAxisEvent axis{}; axis.position = motion.position; axis.deltaV120 = 120;
         require(!router.pointerMotion(&motion) && !router.pointerButton(&button)
                     && !router.pointerAxis(&axis) && target.actions == 0,
-                "Card Line stole a native KWin move/resize transaction");
+                "Spread stole a native KWin move/resize transaction");
         target.nativeInteraction = false;
         motion.position = {1200,300}; button.position = motion.position;
         button.state = KWin::PointerButtonState::Pressed;
@@ -595,7 +595,7 @@ int main(int argc, char **argv) {
         target.canCancel = false;
         require(!router.touchDown(&down) && !router.touchMotion(&move) && !router.touchUp(&up),
                 "Failed client cancellation still stole touch ownership");
-        require(target.toggles == 1, "Failed client cancellation still opened Card Line");
+        require(target.toggles == 1, "Failed client cancellation still opened Spread");
         require(!router.touchDown(&down), "Cancel test contact stolen");
         router.touchCancel();
         require(!router.touchMotion(&move) && !router.touchUp(&up), "Canceled candidate remained armed");

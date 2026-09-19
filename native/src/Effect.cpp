@@ -6,7 +6,7 @@
 #include "Effect.h"
 #include <QScopeGuard>
 #include "LaunchIdentity.h"
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 #include "BentoCompositeGeometry.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
@@ -313,7 +313,7 @@ Effect::Effect()
         }
     }
 
-    m_toggleAction = new QAction(tr("Toggle Kadunce Card Line"), this);
+    m_toggleAction = new QAction(tr("Toggle Kadunce Spread"), this);
     m_toggleAction->setObjectName(QStringLiteral("Kadunce Card Line"));
     KGlobalAccel::self()->setDefaultShortcut(
         m_toggleAction, {QKeySequence(QStringLiteral("Ctrl+S"))},
@@ -398,13 +398,13 @@ Effect::Effect()
     // consumed or toggled twice.
     m_usesDirectSystemEdges = z13TabletKitAvailable();
     if (!m_usesDirectSystemEdges) {
-        m_showCardLineAction = new QAction(tr("Show Kadunce Card Line"), this);
-        m_showCardLineAction->setObjectName(
-            QStringLiteral("Kadunce Show Card Line"));
-        connect(m_showCardLineAction, &QAction::triggered,
+        m_showSpreadAction = new QAction(tr("Show Kadunce Spread"), this);
+        m_showSpreadAction->setObjectName(
+            QStringLiteral("Kadunce Show Spread"));
+        connect(m_showSpreadAction, &QAction::triggered,
                 this, &Effect::showCardLine);
         KWin::effects->registerTouchBorder(
-            KWin::ElectricBottom, m_showCardLineAction);
+            KWin::ElectricBottom, m_showSpreadAction);
 
         m_showActiveAction = new QAction(tr("Show Kadunce Active"), this);
         m_showActiveAction->setObjectName(
@@ -530,9 +530,9 @@ Effect::~Effect()
     m_inputRouter.reset();
     Q_EMIT bridgeUnavailable();
     endLauncherGuest();
-    if (m_showCardLineAction) {
+    if (m_showSpreadAction) {
         KWin::effects->unregisterTouchBorder(
-            KWin::ElectricBottom, m_showCardLineAction);
+            KWin::ElectricBottom, m_showSpreadAction);
     }
     if (m_showActiveAction) {
         KWin::effects->unregisterTouchBorder(
@@ -548,14 +548,14 @@ Effect::~Effect()
 
 void Effect::showCardLine()
 {
-    if (presentationForInput() != WorkspacePresentation::CardLine) {
+    if (presentationForInput() != WorkspacePresentation::Spread) {
         toggle();
     }
 }
 
 void Effect::showActive()
 {
-    if (presentationForInput() == WorkspacePresentation::CardLine) {
+    if (presentationForInput() == WorkspacePresentation::Spread) {
         toggle();
     }
 }
@@ -707,7 +707,7 @@ void Effect::retireBentoProjectionForCardStage(
     const QList<QPointer<KWin::EffectWindow>> &windows)
 {
     // Exact resume can synchronously return these surfaces to Desktop Stage.
-    // Drop every Card Line paint latch before that native scene becomes visible.
+    // Drop every Spread paint latch before that native scene becomes visible.
     m_fanApertureWindow = nullptr;
     m_fanPaintSize = {};
     m_fanApertureOrigin = {};
@@ -761,8 +761,8 @@ WorkspacePresentation Effect::presentationForInput() const
     if (!m_cardStage->isActive()) {
         return WorkspacePresentation::Inactive;
     }
-    return m_cardStage->presentation() == CardPresentation::CardLine
-        ? WorkspacePresentation::CardLine
+    return m_cardStage->presentation() == CardPresentation::Spread
+        ? WorkspacePresentation::Spread
         : WorkspacePresentation::Active;
 }
 
@@ -1515,7 +1515,7 @@ QString Effect::workspaceContext() const
 
     const QString presentation = !m_cardStage->isActive()
         ? QStringLiteral("inactive")
-        : m_cardStage->presentation() == CardPresentation::CardLine
+        : m_cardStage->presentation() == CardPresentation::Spread
             ? QStringLiteral("cardLine") : QStringLiteral("active");
 
     QJsonArray displays;
@@ -1612,7 +1612,7 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
             QJsonDocument(reply).toJson(QJsonDocument::Compact));
     }
 
-    if (presentationForInput() != WorkspacePresentation::CardLine) {
+    if (presentationForInput() != WorkspacePresentation::Spread) {
         showCardLine();
     }
     KWin::LogicalOutput *tablet = tabletOutput();
@@ -1934,7 +1934,7 @@ void Effect::activateSelectedFromInput()
             && requested && !requested->isDeleted() && selectedWindow() == requested
             && !nativeWindowInteractionForInput() && !m_cardStage->cardGrabActive()
             && !m_cardStage->launcherGuestActive() && m_cardStage->isActive()
-            && m_cardStage->presentation() == CardPresentation::CardLine) {
+            && m_cardStage->presentation() == CardPresentation::Spread) {
             if (!m_cardStage->resumeSelectedBentoProjection()) {
                 toggle();
             }
@@ -1950,7 +1950,7 @@ void Effect::toggle()
     if (!m_cardStage->isActive()) {
         KWin::LogicalOutput *tablet = tabletOutput();
         if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
-            m_desktopStage->transferTabletSessionToCardLine(tablet,
+            m_desktopStage->transferTabletSessionToSpread(tablet,
                 [this](const auto &projection, const auto &commit) {
                     return m_cardStage->admitBentoStack(projection, commit);
                 });
@@ -2021,7 +2021,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     for (const auto &window : std::as_const(m_preparationNeighbors)) {
         if (window && !neighbors.contains(window)
             && (!m_cardStage->isActive()
-                || m_cardStage->presentation() != CardPresentation::CardLine
+                || m_cardStage->presentation() != CardPresentation::Spread
                 || m_cardStage->paintSlot(window) == 99)) unredirect(window);
     }
     if (neighbors != m_preparationNeighbors) m_neighborPreparationFrames = neighbors.size();
@@ -2080,7 +2080,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     }
     if (m_cardStage->isActive()
         && window != m_nativeCarry
-        && m_cardStage->presentation() == CardPresentation::CardLine
+        && m_cardStage->presentation() == CardPresentation::Spread
         && m_cardStage->paintSlot(window) != 99) {
         data.setTransformed();
         // A rotated opaque client needs compositor blending for the
@@ -2194,7 +2194,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 .arg(m_cardStage->model().stackSizeForId(m_cardStage->stackPreviewTarget()) + 1));
     }
     if (screen && screen == tabletOutput() && m_cardStage->isActive()
-        && m_cardStage->presentation() == CardPresentation::CardLine) {
+        && m_cardStage->presentation() == CardPresentation::Spread) {
         const auto &model = m_cardStage->model();
         const auto &windows = m_cardStage->liveCards();
         for (int index = 0; index < windows.size(); ++index) {
@@ -2665,7 +2665,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         : QRectF(target));
     // Ordinary cards keep the fixed backing path. A Bento projection maps every
     // live pane from its stored Bento rect through one authoritative desktop
-    // work area while the canonical slot still owns Card Line layout and input.
+    // work area while the canonical slot still owns Spread layout and input.
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
@@ -2684,7 +2684,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
 
     // deviceRegion is KWin's actual renderer clip. The visual aperture can be
     // smaller than the canonical slot for a projected Bento pane, but cannot
-    // alter Card Line pitch, input reservation, or the output fence.
+    // alter Spread pitch, input reservation, or the output fence.
     const KWin::Rect apertureTarget = bentoProjection
         ? projectionPaneClip : visualTarget;
     const KWin::Rect deviceAperture =

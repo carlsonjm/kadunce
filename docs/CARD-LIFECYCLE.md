@@ -12,14 +12,14 @@ Every eligible application window has exactly one owner:
 2. **Individual card**
 
    - Kadunce owns the window as an independent card.
-   - It may be Active, visible in Card Line, sleeping, or hidden behind another
+   - It may be Active, visible in Spread, sleeping, or hidden behind another
      selected state.
 
 3. **Bento pane**
 
    - Kadunce owns the window as part of the display's current visible Bento
      combination.
-   - It appears inside the single Bento group card in Card Line.
+   - It appears inside the single Bento group card in Spread.
 
 A window cannot be an individual card and a Bento pane at the same time.
 
@@ -41,15 +41,15 @@ The display's current Bento pane combination is shown.
 
 Individual cards remain owned and hidden.
 
-### Card Line
+### Spread
 
-Card Line shows:
+Spread shows:
 
 - Every individual card
 - Every ordinary card stack
 - The display's single Bento group, if Bento exists
 
-The Bento group is one Card Line entry regardless of its pane count.
+The Bento group is one Spread entry regardless of its pane count.
 
 ### Sleeping
 
@@ -118,7 +118,7 @@ Bento does not retain minimized or displaced panes.
 
 ### When a pane leaves Bento
 
-The window becomes an independent Card Line card when it is:
+The window becomes an independent Spread card when it is:
 
 - Dragged to the top edge
 - Minimized
@@ -140,7 +140,7 @@ An individual card returns to Bento only through an explicit left/right-edge act
 
 If the Bento combination is full, the displaced pane becomes an individual card.
 
-## 6. Card Line selection
+## 6. Spread selection
 
 ### Selecting an individual card
 
@@ -156,7 +156,7 @@ If the Bento combination is full, the displaced pane becomes an individual card.
 - No individual card becomes a Bento member.
 - No individual card returns to the native desktop.
 
-### Returning to Card Line
+### Returning to Spread
 
 The same peer entries return:
 
@@ -199,24 +199,24 @@ Kadunce attempts to admit the new window into the visible Bento combination.
 
 The new window becomes a new individual Active card.
 
-The previous Active card remains an individual Card Line neighbor.
+The previous Active card remains an individual Spread neighbor.
 
-### While Card Line is open
+### While Spread is open
 
-The new window becomes an individual card and becomes the selected Card Line entry.
+The new window becomes an individual card and becomes the selected Spread entry.
 
 It does not silently join Bento unless the user sends it through a Bento edge.
 
 ## 9. Ordinary stacks
 
-Individual cards may be organized into ordinary Card Line stacks.
+Individual cards may be organized into ordinary Spread stacks.
 
 A stack:
 
 - Has one selected member
 - Remains separate from Bento
 - Can page through its members
-- Can release a member back into the Card Line
+- Can release a member back into the Spread
 - Shows its active position in the label row
 
 A Bento group:
@@ -273,7 +273,7 @@ Closing a window removes its card identity.
 
 ### Closing an individual card
 
-The card disappears from Card Line.
+The card disappears from Spread.
 
 ### Closing a Bento pane
 
@@ -283,7 +283,7 @@ If one pane remains, Bento ends and that pane becomes an individual card.
 
 ### Closing the Active card
 
-Kadunce returns to Card Line when other owned cards remain.
+Kadunce returns to Spread when other owned cards remain.
 
 If nothing remains, the display's Kadunce session ends.
 

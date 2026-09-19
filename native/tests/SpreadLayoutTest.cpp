@@ -3,7 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 #include "FocusedPairLayout.h"
 #include "HeldCardGeometry.h"
 #include "NeighborStackPose.h"
@@ -51,7 +51,7 @@ int main()
                                   std::array<double, 4>{-1280, 40, 1280, 1920}}) {
         const auto [x, y, w, h] = dimensions;
         const auto pair = Kadunce::makeFocusedPairLayout(x, y, w, h);
-        const auto ordinary = Kadunce::makeCardLineLayout(x, y, w, h);
+        const auto ordinary = Kadunce::makeSpreadLayout(x, y, w, h);
         for (int neighbors : {0, 1, 2, 3}) {
             const auto guest = Kadunce::makeLauncherGuestLayout(x, y, w, h, neighbors);
             const double scale = neighbors <= 1 ? 0.64 : 0.54;
@@ -115,8 +115,8 @@ int main()
         }
     }
     constexpr double height = 640.0;
-    const Kadunce::CardLineLayout layout =
-        Kadunce::makeCardLineLayout(0.0, 0.0, width, height);
+    const Kadunce::SpreadLayout layout =
+        Kadunce::makeSpreadLayout(0.0, 0.0, width, height);
     const auto &left = layout.cards[0];
     const auto &center = layout.cards[1];
     const auto &right = layout.cards[2];
@@ -139,9 +139,9 @@ int main()
 
     require(close(center.width, width * 0.54)
                 && close(center.height, height * 0.54),
-            "Card Line did not retain the accepted 54% card aperture");
+            "Spread did not retain the accepted 54% card aperture");
     require(close(layout.gutter, width * 0.056),
-            "Card Line did not retain the accepted 5.6% gutter");
+            "Spread did not retain the accepted 5.6% gutter");
 
     const auto landscapeCover = Kadunce::makeCoverPaintRect(
         center, 1600.0, 900.0);
@@ -159,32 +159,32 @@ int main()
                 "Cover paint is not centered behind its aperture");
     }
     require(close(portraitCover.width, center.width),
-            "Portrait source changed the fixed Card Line width");
+            "Portrait source changed the fixed Spread width");
 
-    using Kadunce::CardLineAction;
-    using Kadunce::classifyCardLineGesture;
-    require(classifyCardLineGesture(500, 300, 420, 305,
+    using Kadunce::SpreadAction;
+    using Kadunce::classifySpreadGesture;
+    require(classifySpreadGesture(500, 300, 420, 305,
                                     center.x, center.right())
-                == CardLineAction::Next,
-            "Leftward Card Line swipe did not select next");
-    require(classifyCardLineGesture(500, 300, 580, 295,
+                == SpreadAction::Next,
+            "Leftward Spread swipe did not select next");
+    require(classifySpreadGesture(500, 300, 580, 295,
                                     center.x, center.right())
-                == CardLineAction::Previous,
-            "Rightward Card Line swipe did not select previous");
-    require(classifyCardLineGesture(center.x - 10, 300,
+                == SpreadAction::Previous,
+            "Rightward Spread swipe did not select previous");
+    require(classifySpreadGesture(center.x - 10, 300,
                                     center.x - 10, 300,
                                     center.x, center.right())
-                == CardLineAction::Previous,
+                == SpreadAction::Previous,
             "Left neighbor tap did not select previous");
-    require(classifyCardLineGesture(center.right() + 10, 300,
+    require(classifySpreadGesture(center.right() + 10, 300,
                                     center.right() + 10, 300,
                                     center.x, center.right())
-                == CardLineAction::Next,
+                == SpreadAction::Next,
             "Right neighbor tap did not select next");
-    require(classifyCardLineGesture(center.x + 20, 300,
+    require(classifySpreadGesture(center.x + 20, 300,
                                     center.x + 20, 300,
                                     center.x, center.right())
-                == CardLineAction::Activate,
+                == SpreadAction::Activate,
             "Center card tap did not request Active");
 
     using Kadunce::classifyStackGesture;
@@ -390,6 +390,6 @@ int main()
     require(tiny.width > 0 && tiny.height >= 1, "Gutter produced invalid small-screen bounds");
     const auto negative = Kadunce::makeActiveTarget(0, 0, width, height, -5);
     require(close(negative.x, 6), "Negative gutter must clamp to 6 px");
-    std::cout << "Card Line anchors and Active bounds are deterministic\n";
+    std::cout << "Spread anchors and Active bounds are deterministic\n";
     return EXIT_SUCCESS;
 }

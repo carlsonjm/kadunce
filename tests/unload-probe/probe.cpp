@@ -36,7 +36,7 @@ public:
 struct Target final : WorkspaceInputTarget {
     bool guest = false;
     bool nativeInteraction = false;
-    WorkspacePresentation presentation = WorkspacePresentation::CardLine;
+    WorkspacePresentation presentation = WorkspacePresentation::Spread;
     int cancellations = 0;
     bool canCancel = true;
     int actions = 0;
@@ -453,7 +453,7 @@ public Q_SLOTS:
         const bool duplicateRejected = !bento.reservationCards->transferNativeCarryToDesktop(
             source,destination,KWin::RectF(destination->geometry()));
         const bool sourceStayedOrganized = !bento.reservationCards->isActive()
-            || bento.reservationCards->presentation() == Kadunce::CardPresentation::CardLine;
+            || bento.reservationCards->presentation() == Kadunce::CardPresentation::Spread;
         bento.reservationCards->release();
         QDebug(&destinationEvidence) << "Destination test" << existingBento << result << commits << cleanups
             << publishedBeforeCleanup << duplicateRejected << sourceStayedOrganized

@@ -7,7 +7,7 @@ virtual desktops, and recovery. Kadunce owns the spatial interaction model and t
 presentation derived from it. Kadunce must not create a competing window identity,
 desktop backend, or persistent geometry authority.
 
-Card Line is compositor space. It presents live windows as cards without storing or
+Spread is compositor space. It presents live windows as cards without storing or
 applying off-screen client coordinates. Bento is an output-local desktop layout and
 therefore uses real, reversible client geometry. A physical ownership change occurs
 only after a destination accepts a prepared transfer.
@@ -19,15 +19,15 @@ The native plugin has four principal owners:
 - `WorkspaceInputRouter` recognizes pointer and touch gestures, owns contact
   transactions and timers, and dispatches semantic commands. It cannot edit models
   or compositor state directly.
-- `CardStageController` owns Active, Card Line, membership, stacks, selection,
+- `CardStageController` owns Active, Spread, membership, stacks, selection,
   arrival, and reversible card transactions through `CardStageHost`.
 - `DesktopStageController` owns output-local Bento sessions, admission, layout,
   divider resize, transfer acceptance, placement observation, and restoration.
 - `Effect` owns KWin registration and lifecycle, output discovery, controller
   coordination, context publication, shortcuts, and card rendering.
 
-`CardWorkspaceState<Handle>` is the mutable authority for Card Line membership and
-its `CardLineModel`. `CardLineModel`, `CardLineLayout`, `BentoLayout`, and the value
+`CardWorkspaceState<Handle>` is the mutable authority for Spread membership and
+its `SpreadModel`. `SpreadModel`, `SpreadLayout`, `BentoLayout`, and the value
 transfer planners are headlessly testable domain primitives. Rendering consumes
 controller views and never mutates a controller.
 
@@ -36,7 +36,7 @@ but extraction must not create a second model, event bus, or persistence service
 
 ## Presentation model
 
-Active presents one interactive card. Card Line presents an ordered center and
+Active presents one interactive card. Spread presents an ordered center and
 neighbors, including visibly ordered stacks. Both are output-local views of logical
 membership. Bento presents simultaneously interactive real windows and owns only
 its current visible pane combination. Nonvisible, minimized, displaced, and
@@ -49,7 +49,7 @@ Proportional margins are accepted product behavior. There is no retained snapsho
 cache or capture-readiness state machine. Motion may retain a departing face only as
 ephemeral paint state; it cannot change membership or input visibility.
 
-Card Line motion captures the currently presented pose, so interruption and
+Spread motion captures the currently presented pose, so interruption and
 retargeting continue from what the user sees. Model and input updates do not wait for
 animation. Paint scheduling requests only the frames needed to reach an endpoint.
 
@@ -57,7 +57,7 @@ animation. Paint scheduling requests only the frames needed to reach an endpoint
 
 Every native geometry mutation has one authoritative restore record owned by the
 controller that owns the physical layout. Card membership keeps its restore record
-when presentation changes. Card Line or selection changes do not restore the native
+when presentation changes. Spread or selection changes do not restore the native
 window. Explicit release, unload, or an accepted transfer consumes the record.
 
 Card Stage release clears its live registry. Identity is stable by window handle or
@@ -66,7 +66,7 @@ identity. Kadunce does not currently promise persistence across a complete effec
 unload.
 
 Constrained new windows use the Bento admission solver or prepared individual-card
-ownership. Switching Bento into Card Line represents only its visible panes as one
+ownership. Switching Bento into Spread represents only its visible panes as one
 logical group. Other eligible windows remain independent cards; presentation
 changes never release them to the native desktop.
 
@@ -116,7 +116,7 @@ The detailed routing table is `INPUT-OWNERSHIP.md`.
 
 ## Output and dock rules
 
-Card Line and Bento are presentations, not display-type restrictions. Bento may run
+Spread and Bento are presentations, not display-type restrictions. Bento may run
 on the tablet and monitor. Sessions are output-local; changing or releasing one
 output must not release another output's session.
 
@@ -150,7 +150,7 @@ and D-Bus. They do not prove live-session safety or physical behavior. Follow
 ## Invariants
 
 1. A client has one physical KWin output and one owning native restore record.
-2. Card Line never mutates real client geometry.
+2. Spread never mutates real client geometry.
 3. Destination acceptance precedes source removal.
 4. Rendering reads state and never edits controller models.
 5. Input routing emits semantic commands and never edits models directly.

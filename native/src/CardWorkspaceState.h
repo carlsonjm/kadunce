@@ -1,5 +1,5 @@
 #pragma once
-#include "CardLineModel.h"
+#include "SpreadModel.h"
 #include <QList>
 #include <optional>
 #include <memory>
@@ -19,7 +19,7 @@ public:
         friend class CardWorkspaceState;
         std::weak_ptr<const int> owner;
         quint64 revision = 0;
-        CardLineModel model{1};
+        SpreadModel model{1};
     };
     std::optional<PreparedStackInsertion> prepareStackInsertion(
         const Handle &destination, int slot) const {
@@ -32,7 +32,7 @@ public:
         result.revision = m_revision;
         result.model = m_model;
         if (!result.model.stackSelectedWith(target, slot,
-                CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
+                SpreadModel::InsertionSelection::DestinationCard)) return std::nullopt;
         return result;
     }
     // Visual depth is front-first (0 = front), unlike the cyclic storage vector.
@@ -51,7 +51,7 @@ public:
         if (prepared && depth == 0) {
             prepared->model = m_model;
             if (!prepared->model.stackSelectedWith(target, slot,
-                    CardLineModel::InsertionSelection::InsertedCard)) return std::nullopt;
+                    SpreadModel::InsertionSelection::InsertedCard)) return std::nullopt;
         }
         return prepared;
     }
@@ -69,7 +69,7 @@ public:
         friend class CardWorkspaceState;
         std::weak_ptr<const int> source;
         quint64 revision = 0;
-        CardLineModel model{1};
+        SpreadModel model{1};
         QList<Handle> windows;
     };
     std::optional<PreparedRemoval> prepareRemoval(const Handle &window) const {
@@ -100,7 +100,7 @@ public:
         friend class CardWorkspaceState;
         std::weak_ptr<const int> destination;
         quint64 revision = 0;
-        CardLineModel model{1};
+        SpreadModel model{1};
         QList<Handle> windows;
     };
     std::optional<PreparedAdmission> prepareAdmission(const Handle &window, bool centered) const {
@@ -127,7 +127,7 @@ public:
             if (id > 1) {
                 result.model.selectIndex(result.model.count() - 1);
                 if (!result.model.stackSelectedWith(1, -1,
-                        CardLineModel::InsertionSelection::DestinationCard)) return std::nullopt;
+                        SpreadModel::InsertionSelection::DestinationCard)) return std::nullopt;
             }
         }
         return result;
@@ -145,7 +145,7 @@ public:
         ++m_revision;
         return true;
     }
-    const CardLineModel &model() const { return m_model; }
+    const SpreadModel &model() const { return m_model; }
     const QList<Handle> &windows() const { return m_windows; }
     int indexOf(const Handle &window) const { return m_windows.indexOf(window); }
     Handle selectedWindow() const { return m_windows.value(m_model.selectedId() - 1); }
@@ -159,7 +159,7 @@ public:
         ++m_revision;
         m_windows = windows;
         if (!m_windows.isEmpty()) {
-            m_model = CardLineModel(m_windows.size());
+            m_model = SpreadModel(m_windows.size());
             m_model.selectIndex(selectedIndex);
         }
     }
@@ -206,18 +206,18 @@ public:
     void commitDetachedMember() { ++m_revision; return m_model.commitDetachedMember(); }
 
 private:
-    static int appendTo(CardLineModel &model, QList<Handle> &windows,
+    static int appendTo(SpreadModel &model, QList<Handle> &windows,
                         const Handle &window, bool centered) {
         windows.append(window);
         if (windows.size() == 1) {
-            model = CardLineModel(1);
+            model = SpreadModel(1);
             return 1;
         }
         return centered ? model.appendCenteredCard() : model.appendCard();
     }
     const std::shared_ptr<const int> m_identity = std::make_shared<const int>(0);
     quint64 m_revision = 0;
-    CardLineModel m_model{1};
+    SpreadModel m_model{1};
     QList<Handle> m_windows;
 };
 } // namespace Kadunce

@@ -62,10 +62,10 @@ struct OwnershipTransitionProbe {
             return fail("Initial Bento activation failed");
         monitorTile = monitorWindow->window()->moveResizeGeometry();
         // Rejected projection must leave both owners untouched.
-        if (desktop.transferTabletSessionToCardLine(tablet, [](const auto &, const auto &) { return false; })
+        if (desktop.transferTabletSessionToSpread(tablet, [](const auto &, const auto &) { return false; })
             || !desktop.hasSessionOnOutput(tablet->name())) return fail("Rejected projection destroyed Bento");
-        if (desktop.transferTabletSessionToCardLine(monitor, [](const auto &, const auto &commit) { return commit(); }))
-            return fail("Monitor exposed Card Line projection");
+        if (desktop.transferTabletSessionToSpread(monitor, [](const auto &, const auto &commit) { return commit(); }))
+            return fail("Monitor exposed Spread projection");
         return true;
     }
     bool arrival(bool tooLarge) {
@@ -128,7 +128,7 @@ struct OwnershipTransitionProbe {
             if (area > largest) { largest = area; expectedLead = w; }
         }
         Kadunce::BentoProjectionSession transferred;
-        if (!desktop.transferTabletSessionToCardLine(tablet, [this, &transferred](const auto &projection, const auto &commit) {
+        if (!desktop.transferTabletSessionToSpread(tablet, [this, &transferred](const auto &projection, const auto &commit) {
                 transferred = projection;
                 if (cross) {
                     QList<Kadunce::BentoProjectionMember> members = projection.panes;
@@ -183,7 +183,7 @@ struct OwnershipTransitionProbe {
         for (auto *w : KWin::effects->stackingOrder())
             if (w->caption().contains("Ordinary neighbor")) ordinary = w;
         if (!ordinary || !ordinary->window() || ordinary->screen() != tablet)
-            return fail("Ordinary Card Line neighbor missing/wrong output");
+            return fail("Ordinary Spread neighbor missing/wrong output");
         origins.append({ordinary, ordinary->window()->moveResizeGeometry()});
         if (!cards.handleWindowAdded(ordinary) || cards.model().count() != 2)
             return fail("Ordinary neighbor did not coexist with Bento group card");
@@ -192,9 +192,9 @@ struct OwnershipTransitionProbe {
         if (cards.selectedWindow() != projectedLead
             || cards.visibleSlot(ordinary) == 0
             || cards.visibleSlot(projectedLead) != 0)
-            return fail("Bento group did not remain one ordinary Card Line neighbor");
+            return fail("Bento group did not remain one ordinary Spread neighbor");
         const auto ordinaryRestore = cards.managedRestore(ordinary);
-        if (!ordinaryRestore) return fail("Ordinary neighbor lost its Card Line restore");
+        if (!ordinaryRestore) return fail("Ordinary neighbor lost its Spread restore");
         const int retirementCount = projectionRetirements;
         cardHost.projectionResume = [this](const auto &projection,
             const auto &, const auto &release) {
@@ -237,7 +237,7 @@ struct OwnershipTransitionProbe {
             }
             if (!desktop.ownsWindow(w)) return fail("Return dropped an owned member");
             if (cards.usesBentoProjectionAperture(w))
-                return fail("Released Card Line retained projected presentation provenance");
+                return fail("Released Spread retained projected presentation provenance");
         }
         return true;
     }

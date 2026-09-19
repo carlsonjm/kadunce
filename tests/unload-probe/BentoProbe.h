@@ -79,7 +79,7 @@ struct BentoProbe {
         ownershipCards = std::make_unique<Kadunce::CardStageController>(&ownershipHost);
         ownershipCards->toggle();
         if (!ownershipCards->isActive()
-            || ownershipCards->presentation() != Kadunce::CardPresentation::CardLine) return false;
+            || ownershipCards->presentation() != Kadunce::CardPresentation::Spread) return false;
         for (const auto &[w, geometry] : ownershipExpected) {
             const auto saved = ownershipCards->managedRestore(w);
             if (!saved || saved->geometry != geometry || w->window()->moveResizeGeometry() != geometry) {
@@ -480,7 +480,7 @@ struct BentoProbe {
             cards.release();
             return false;
         }
-        qInfo() << "PASS: production Card Line 2D carry preserves pickup and native geometry; cancel resets pose";
+        qInfo() << "PASS: production Spread 2D carry preserves pickup and native geometry; cancel resets pose";
         tabletEvidence = QStringLiteral("active=%1 members=%2 source=%3 tablet=%4")
             .arg(cards.isActive()).arg(cards.liveCards().size()).arg(origin->name()).arg(host.tablet->name());
         if (!cards.isActive() || !controller.toggleOnOutput(origin->name())) return false;

@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 
 namespace Kadunce
 {
-// A pair uses the same aspect ratio and shoulder gap as ordinary Card Line.
+// A pair uses the same aspect ratio and shoulder gap as ordinary Spread.
 // Only the center grows. Shoulders retain their standard three-card size.
-inline CardLineLayout makeFocusedPairLayout(double x, double y, double width, double height)
+inline SpreadLayout makeFocusedPairLayout(double x, double y, double width, double height)
 {
-    auto layout = makeCardLineLayout(x, y, width, height);
+    auto layout = makeSpreadLayout(x, y, width, height);
     const double w = width * 0.64;
     const double h = height * 0.64;
     const double cx = x + (width - w) / 2.0;
@@ -19,7 +19,7 @@ inline CardLineLayout makeFocusedPairLayout(double x, double y, double width, do
     return layout;
 }
 
-inline CardRect makeReservedFocusedPairTarget(const CardLineLayout &layout, int slot,
+inline CardRect makeReservedFocusedPairTarget(const SpreadLayout &layout, int slot,
                                               const CardStackEnvelope &envelope)
 {
     auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
@@ -28,10 +28,10 @@ inline CardRect makeReservedFocusedPairTarget(const CardLineLayout &layout, int 
     return target;
 }
 
-inline CardLineLayout makeLauncherGuestLayout(double x, double y, double width,
+inline SpreadLayout makeLauncherGuestLayout(double x, double y, double width,
                                                double height, int neighborGroups)
 {
     return neighborGroups <= 1 ? makeFocusedPairLayout(x, y, width, height)
-                              : makeCardLineLayout(x, y, width, height);
+                              : makeSpreadLayout(x, y, width, height);
 }
 }

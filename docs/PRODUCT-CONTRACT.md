@@ -11,16 +11,16 @@ window lifecycle, focus, snapping, displays, and recovery.
 - Neither stage imitates the other.
 - Applications are cards.
 - Stacks are visibly ordered piles.
-- Card Line is compositor space, not extended-desktop geometry.
+- Spread is compositor space, not extended-desktop geometry.
 - Moving between outputs is a committed handoff, not background ownership.
 - Release always returns safe ordinary Plasma windows.
 
 ## Tablet stage
 
-The built-in touch display can present Active, Card Line, and undocked Bento.
+The built-in touch display can present Active, Spread, and undocked Bento.
 
 - **Active** is one fixed, interactive application card.
-- **Card Line** is an ordered compositor view with one centered card and two
+- **Spread** is an ordered compositor view with one centered card and two
   partial neighbors. It never moves real windows into off-screen positions.
 - **Bento** uses real geometry for simultaneous interaction and owns only its
   visible pane combination. Nonvisible windows remain independent cards.
@@ -31,7 +31,7 @@ minimization, Bento membership, release, and Shuffle navigation.
 ## Desktop stage
 
 An external output presents ordinary Plasma windows or per-output Bento. It
-does not run a second Card Line. It accepts deliberate tablet handoffs and
+does not run a second Spread. It accepts deliberate tablet handoffs and
 delegates ordinary movement, resizing, focus, and snapping to KWin.
 
 ## Release
@@ -57,10 +57,10 @@ compositor plugin.
 - Top-edge downward: return to the current card state, including Solo Card, Card
   Stacks, or resumed Bento
 - Active left/right edge: previous/next card
-- Card Line background swipe: page line
+- Spread background swipe: page line
 - Stack vertical gesture: previous/next member
 - Long hold: opaque lifted card with stable pointer attachment
-- `Ctrl+S`: tablet Active/Card Line
+- `Ctrl+S`: tablet Active/Spread
 - `Ctrl+B`: external Bento while docked, tablet Bento while undocked
 - `Ctrl+Arrow`: equivalent card and stack navigation
 - `Ctrl+Esc`: release the output under the pointer

@@ -144,7 +144,7 @@ echo "Edge paging starts at 300 ms and repeats every 350 ms."
 echo "Ctrl+Left/Right pages groups; Ctrl+Up/Down pages stack members."
 echo "Ctrl+B toggles Bento under the pointer."
 echo "Without an external display, Ctrl+B uses the tablet as the fallback Bento stage."
-echo "A lifted Card Line card can be released on that display to hand it over."
+echo "A lifted Spread card can be released on that display to hand it over."
 echo "Ctrl+S toggles; Ctrl+Esc releases."
 echo "The Kadunce tray icon exposes one persistent enable/disable switch."
 command -v notify-send >/dev/null 2>&1 \

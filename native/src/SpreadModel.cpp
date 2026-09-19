@@ -3,7 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-#include "CardLineModel.h"
+#include "SpreadModel.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -12,7 +12,7 @@
 namespace Kadunce
 {
 
-CardLineModel::CardLineModel(int cardCount)
+SpreadModel::SpreadModel(int cardCount)
 {
     cardCount = std::max(cardCount, 1);
     m_cardCount = cardCount;
@@ -22,34 +22,34 @@ CardLineModel::CardLineModel(int cardCount)
     }
 }
 
-int CardLineModel::count() const
+int SpreadModel::count() const
 {
     return static_cast<int>(m_stacks.size());
 }
 
-int CardLineModel::cardCount() const
+int SpreadModel::cardCount() const
 {
     return m_cardCount;
 }
 
-int CardLineModel::selectedIndex() const
+int SpreadModel::selectedIndex() const
 {
     return m_selectedIndex;
 }
 
-int CardLineModel::selectedId() const
+int SpreadModel::selectedId() const
 {
     return idAtOffset(0);
 }
 
-int CardLineModel::idAtOffset(int offset) const
+int SpreadModel::idAtOffset(int offset) const
 {
     const CardStack &stack = m_stacks.at(static_cast<std::size_t>(
         wrappedIndex(m_selectedIndex + offset)));
     return stack.cards.at(static_cast<std::size_t>(stack.activeIndex));
 }
 
-std::array<int, 3> CardLineModel::visibleNeighborhood() const
+std::array<int, 3> SpreadModel::visibleNeighborhood() const
 {
     if (count() == 2) {
         return m_pairNeighborSide < 0
@@ -59,7 +59,7 @@ std::array<int, 3> CardLineModel::visibleNeighborhood() const
     return {idAtOffset(-1), idAtOffset(0), idAtOffset(1)};
 }
 
-std::array<int, 3> CardLineModel::detachedNeighborhood(int pageOffset) const
+std::array<int, 3> SpreadModel::detachedNeighborhood(int pageOffset) const
 {
     if (count() == 1) {
         return {0, 0, 0};
@@ -91,7 +91,7 @@ std::array<int, 3> CardLineModel::detachedNeighborhood(int pageOffset) const
     };
 }
 
-bool CardLineModel::invariantHolds() const
+bool SpreadModel::invariantHolds() const
 {
     if (count() < 1 || m_selectedIndex < 0 || m_selectedIndex >= count()) {
         return false;
@@ -112,20 +112,20 @@ bool CardLineModel::invariantHolds() const
     return actual == expected;
 }
 
-bool CardLineModel::sameStack(int firstId, int secondId) const
+bool SpreadModel::sameStack(int firstId, int secondId) const
 {
     const int first = stackIndexForId(firstId);
     return first >= 0 && first == stackIndexForId(secondId);
 }
 
-int CardLineModel::stackSizeForId(int cardId) const
+int SpreadModel::stackSizeForId(int cardId) const
 {
     const int index = stackIndexForId(cardId);
     return index < 0 ? 0 : static_cast<int>(
         m_stacks.at(static_cast<std::size_t>(index)).cards.size());
 }
 
-int CardLineModel::stackPositionForId(int cardId) const
+int SpreadModel::stackPositionForId(int cardId) const
 {
     const int stackIndex = stackIndexForId(cardId);
     if (stackIndex < 0) {
@@ -138,21 +138,21 @@ int CardLineModel::stackPositionForId(int cardId) const
                               : static_cast<int>(std::distance(cards.cbegin(), it));
 }
 
-int CardLineModel::stackActivePositionForId(int cardId) const
+int SpreadModel::stackActivePositionForId(int cardId) const
 {
     const int index = stackIndexForId(cardId);
     return index < 0 ? -1
                      : m_stacks.at(static_cast<std::size_t>(index)).activeIndex;
 }
 
-std::vector<int> CardLineModel::stackMembersForId(int cardId) const
+std::vector<int> SpreadModel::stackMembersForId(int cardId) const
 {
     const int index = stackIndexForId(cardId);
     return index < 0 ? std::vector<int>{}
                      : m_stacks.at(static_cast<std::size_t>(index)).cards;
 }
 
-std::vector<int> CardLineModel::stackPaintOrderForId(int cardId) const
+std::vector<int> SpreadModel::stackPaintOrderForId(int cardId) const
 {
     const int index = stackIndexForId(cardId);
     if (index < 0) {
@@ -193,12 +193,12 @@ std::vector<int> CardLineModel::stackPaintOrderForId(int cardId) const
     return paintOrder;
 }
 
-bool CardLineModel::selectedIsStandalone() const
+bool SpreadModel::selectedIsStandalone() const
 {
     return stackSizeForId(selectedId()) == 1;
 }
 
-void CardLineModel::page(int delta)
+void SpreadModel::page(int delta)
 {
     if (delta == 0) {
         return;
@@ -211,7 +211,7 @@ void CardLineModel::page(int delta)
     }
 }
 
-void CardLineModel::pageStack(int delta)
+void SpreadModel::pageStack(int delta)
 {
     if (delta == 0) {
         return;
@@ -226,14 +226,14 @@ void CardLineModel::pageStack(int delta)
     stack.activeIndex = remainder < 0 ? remainder + size : remainder;
 }
 
-void CardLineModel::selectIndex(int index)
+void SpreadModel::selectIndex(int index)
 {
     if (count() == 2 && wrappedIndex(index) != m_selectedIndex)
         m_pairNeighborSide = -m_pairNeighborSide;
     m_selectedIndex = wrappedIndex(index);
 }
 
-int CardLineModel::appendCenteredCard()
+int SpreadModel::appendCenteredCard()
 {
     const int cardId = ++m_cardCount;
     // Keep the existing shoulder on its side; move the old center to the
@@ -245,7 +245,7 @@ int CardLineModel::appendCenteredCard()
     return cardId;
 }
 
-int CardLineModel::appendCard(bool preserveSelection)
+int SpreadModel::appendCard(bool preserveSelection)
 {
     const int cardId = ++m_cardCount;
     if (preserveSelection) {
@@ -262,7 +262,7 @@ int CardLineModel::appendCard(bool preserveSelection)
     return cardId;
 }
 
-bool CardLineModel::removeCard(int cardId)
+bool SpreadModel::removeCard(int cardId)
 {
     if (m_cardCount <= 1 || m_detachedMember.valid) {
         return false;
@@ -309,7 +309,7 @@ bool CardLineModel::removeCard(int cardId)
     return invariantHolds();
 }
 
-void CardLineModel::moveSelected(int delta)
+void SpreadModel::moveSelected(int delta)
 {
     if (count() < 2 || delta == 0) {
         return;
@@ -324,7 +324,7 @@ void CardLineModel::moveSelected(int delta)
     }
 }
 
-bool CardLineModel::stackSelectedWith(int destinationId, int insertionIndex,
+bool SpreadModel::stackSelectedWith(int destinationId, int insertionIndex,
                                     InsertionSelection selection)
 {
     if (!selectedIsStandalone()) {
@@ -357,7 +357,7 @@ bool CardLineModel::stackSelectedWith(int destinationId, int insertionIndex,
     return invariantHolds();
 }
 
-bool CardLineModel::detachSelectedMember()
+bool SpreadModel::detachSelectedMember()
 {
     if (m_detachedMember.valid || selectedIsStandalone()) {
         return false;
@@ -388,7 +388,7 @@ bool CardLineModel::detachSelectedMember()
     return invariantHolds();
 }
 
-bool CardLineModel::restoreDetachedMember()
+bool SpreadModel::restoreDetachedMember()
 {
     if (!m_detachedMember.valid) {
         return false;
@@ -424,24 +424,24 @@ bool CardLineModel::restoreDetachedMember()
     return invariantHolds();
 }
 
-void CardLineModel::commitDetachedMember()
+void SpreadModel::commitDetachedMember()
 {
     m_detachedMember = DetachedMember{};
 }
 
-bool CardLineModel::hasDetachedMember() const
+bool SpreadModel::hasDetachedMember() const
 {
     return m_detachedMember.valid;
 }
 
-int CardLineModel::wrappedIndex(int index) const
+int SpreadModel::wrappedIndex(int index) const
 {
     const int size = count();
     const int remainder = index % size;
     return remainder < 0 ? remainder + size : remainder;
 }
 
-int CardLineModel::stackIndexForId(int cardId) const
+int SpreadModel::stackIndexForId(int cardId) const
 {
     for (int stackIndex = 0; stackIndex < count(); ++stackIndex) {
         const std::vector<int> &cards =

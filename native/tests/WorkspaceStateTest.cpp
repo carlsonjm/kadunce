@@ -113,7 +113,7 @@ int main() {
     CardWorkspaceState<QString> state;
     require(state.windows().isEmpty() && state.invariantHolds(), "Empty registry invalid");
     state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
-    CardLineModel reference(3);
+    SpreadModel reference(3);
     auto equivalent = [&] {
         require(state.invariantHolds() && state.count() == reference.count()
             && state.cardCount() == reference.cardCount()

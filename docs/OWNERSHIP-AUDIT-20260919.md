@@ -46,7 +46,7 @@ This is not a defect in isolation. See Finding 3.
 ## Finding 3 — prepared tickets snapshot presentation, not a membership delta
 
 `PreparedStackInsertion`, `PreparedRemoval`, and `PreparedAdmission` each copy
-the entire `CardLineModel` at preparation time, and each `commit*` writes it
+the entire `SpreadModel` at preparation time, and each `commit*` writes it
 back wholesale with `m_model = prepared.model`. The model carries selection,
 page offset, and pair neighbor side, so a ticket prepared before a presentation
 change and committed after it reverts that change.
@@ -106,7 +106,7 @@ tracked document is listed.
 ## Verification boundary
 
 Findings 2 and 3 were reproduced by compiling unmodified `CardWorkspaceState.h`
-and `CardLineModel.cpp` against a minimal container shim in a sandbox without
+and `SpreadModel.cpp` against a minimal container shim in a sandbox without
 Qt or KWin. `WorkspaceStateTest.cpp` compiles and passes unmodified under the
 same shim. No Qt, KWin, package, control, or live-session verification was
 performed, and no installed or physical behavior is claimed.

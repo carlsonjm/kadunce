@@ -87,7 +87,7 @@ for kind in pointer touch; do
     sleep .2
 done
 done
-echo 'PASS: Card Line mouse/touch open, edge and withdrawn-edge use reserved receivers'
+echo 'PASS: Spread mouse/touch open, edge and withdrawn-edge use reserved receivers'
 echo 'PASS: monitor edge settling releases drag ownership and fresh pointer/touch retires animation'
 client companion
 sleep .6

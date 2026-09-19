@@ -64,6 +64,7 @@ classify it with `docs/TEST-ENVIRONMENT-PROCEDURE.md`.
   live documents. Git carries history.
 - Code comments explain code behavior and reasoning only — never handoffs,
   authorship, product instructions or agent conversation.
-- Terminology follows `docs/TERMINOLOGY.md`. Card Line becomes Spread in one
-  mechanical commit under Block 1b; do not rename it opportunistically while
-  doing other work.
+- Terminology follows `docs/TERMINOLOGY.md`. The retired workspace term was
+  replaced by Spread in one mechanical commit under Block 1b. Three layer-3
+  identities are deliberately frozen until Block 10b; `tests/verify-source.sh`
+  names them and rejects every other occurrence.

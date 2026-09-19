@@ -76,7 +76,7 @@ public:
     void toggleUnderPointer();
     void restoreAllSessions();
     // Synchronous ownership transfer; no restoration or placement on success.
-    bool transferTabletSessionToCardLine(KWin::LogicalOutput *output,
+    bool transferTabletSessionToSpread(KWin::LogicalOutput *output,
         const std::function<bool(const BentoProjectionSession &,
                                  const std::function<bool()> &)> &accept);
     bool resumeProjectedSession(const BentoProjectionSession &projection,

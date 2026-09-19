@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Guest-centered Card Line must compact its formerly selected neighbor.
+# Guest-centered Spread must compact its formerly selected neighbor.
 controller="$(dirname "$0")/../native/src/CardStageController.cpp"
 sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F '&& (!m_launcherGuestActive || m_launcherGuestArrival)' > /dev/null
 rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
@@ -46,8 +46,8 @@ for required in ('m_fanApertureWindow = nullptr', 'm_previewSourceBounds.remove(
                  'unredirect(window)', 'addRepaintFull()'):
     assert required in retire, f'projection retirement must include {required}'
 route = effect.split('void Effect::toggle()', 1)[1].split('void Effect::release()', 1)[0]
-assert 'transferTabletSessionToCardLine' in route and 'admitBentoStack' in route
-assert 'toggleOnOutput' not in route, 'Card Line entry must not discard Bento ownership'
+assert 'transferTabletSessionToSpread' in route and 'admitBentoStack' in route
+assert 'toggleOnOutput' not in route, 'Spread entry must not discard Bento ownership'
 PY_A2
 python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
 import pathlib, sys
@@ -105,6 +105,22 @@ retired_brand='web''os|pa''lm|ghostie''post|chrome''os'
 if rg -ni "${retired_brand}" "${project_dir}" \
         --glob '!.git/**' --glob '!docs/TERMINOLOGY.md'; then
     echo "Kadunce contains retired product or development-machine branding" >&2
+    exit 1
+fi
+
+# Retired vocabulary must not return. Layer 3 keeps three installed identities
+# that a vocabulary pass may not touch, so they are named here as the only
+# permitted occurrences; Block 10b retires them with a versioned migration.
+# `docs/archive/` preserves the language of its own candidate and is exempt.
+retired_vocabulary='card''line|card line'
+# Matched case-sensitively, so only these exact spellings are permitted.
+frozen_identity='showCardLine|cardLine|Kadunce Card Line'
+if rg -ni "${retired_vocabulary}" "${project_dir}" \
+        --glob '!.git/**' --glob '!docs/archive/**' \
+        --glob '!docs/TERMINOLOGY.md' --glob '!tests/verify-source.sh' \
+        --glob '!build-native/**' \
+        | rg -v "${frozen_identity}"; then
+    echo "Kadunce contains retired workspace vocabulary; Spread is the approved term" >&2
     exit 1
 fi
 
@@ -225,10 +241,10 @@ rg -q 'position.xy \* paintSize - apertureOrigin' "${effect_cpp}"
 rg -q 'Geometry coordinates are independent of texture flips' "${effect_cpp}"
 rg -q 'in vec2 cardPoint' "${effect_cpp}"
 rg -q 'target.x\(\) - logicalRegion.x\(\)' "${effect_cpp}"
-rg -q 'stackPaintOrderForId' "${native_dir}/src/CardLineModel.cpp" \
+rg -q 'stackPaintOrderForId' "${native_dir}/src/SpreadModel.cpp" \
     "${effect_cpp}" "${card_cpp}"
 rg -q 'A large fan did not expose a deterministic back-to-front deck' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
 rg -q 'restoreOriginalStackingOrder' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'mapToDeviceCoordinatesAligned\(target\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'roundedClip(deviceTarget, CardCornerRadius' -F "${effect_cpp}"
@@ -253,7 +269,7 @@ rg -q 'm_usesDirectSystemEdges' "${effect_cpp}" "${effect_header}"
 rg -q 'm_ownsSystemEdges' "${router_cpp}" "${router_header}"
 rg -q 'TouchMode::BottomEdge : TouchMode::None' "${router_cpp}"
 rg -q 'TouchMode::TopEdge : TouchMode::None' "${router_cpp}"
-if rg -q 'setCardLineInputActive|CardLineInputFilter' \
+if rg -q 'setSpreadInputActive|SpreadInputFilter' \
         "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}" "${router_cpp}" "${router_header}"; then
     echo "Four-edge input must have one persistent state-aware filter" >&2
     exit 1
@@ -271,7 +287,7 @@ rg -q 'class CardStageController final' "${card_header}"
 rg -q 'class CardStageHost' "${card_header}"
 rg -q 'std::make_unique<CardStageController>' "${effect_cpp}"
 rg -q 'm_cardStage->stackPoseForWindow' "${effect_cpp}"
-rg -q 'const auto &cardLine = m_workspace.model\(\)' "${card_cpp}"
+rg -q 'const auto &spread = m_workspace.model\(\)' "${card_cpp}"
 rg -q 'm_host->admitCardToDesktopStage' "${card_cpp}"
 rg -q 'm_cardStage->handleWindowAdded' "${effect_cpp}"
 if rg -q '\bm_workspace\b|\bm_liveCards\b|\bm_originalCardStackingOrder\b|\bm_activeRestore\b|\bm_presentation\b|\bm_cardGrabOffset\b|\bm_cardStackPreviewTarget\b|\bm_cardStackInsertionIndex\b' \
@@ -331,14 +347,14 @@ rg -q 'target = m_cardStage->cardGrabTarget\(\)' "${effect_cpp}"
 rg -q 'm_cardGrabOffset = position - m_cardGrabStart' "${card_cpp}"
 rg -q 'beginCardGrab\(holdCurrent\(\)\)' "${router_cpp}"
 rg -q 'm_workspace\.moveSelected\(movement\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'void CardLineModel::moveSelected' \
-    "${native_dir}/src/CardLineModel.cpp"
-rg -q 'CardLineModel::detachedNeighborhood' \
-    "${native_dir}/src/CardLineModel.cpp"
+rg -q 'void SpreadModel::moveSelected' \
+    "${native_dir}/src/SpreadModel.cpp"
+rg -q 'SpreadModel::detachedNeighborhood' \
+    "${native_dir}/src/SpreadModel.cpp"
 rg -q 'm_workspace\.detachedNeighborhood\(m_cardGrabPageOffset\)' \
     "${effect_cpp}" "${card_cpp}"
 rg -q 'Three-card edge page did not remain deterministic' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
 rg -q 'constexpr double CardEdgeZoneFraction = 0\.08' "${router_cpp}"
 rg -q 'constexpr double CardEdgeZoneMinimum = 72\.0' "${router_cpp}"
 rg -q 'constexpr int CardEdgeDwellDelay = 300' "${router_cpp}"
@@ -349,75 +365,75 @@ rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_he
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"
 rg -q 'QEasingCurve::InQuart' "${effect_cpp}" "${card_cpp}"
-rg -q 'CardLineModel::stackSelectedWith' \
-    "${native_dir}/src/CardLineModel.cpp"
-rg -q 'makeOpenStackPose' "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
-rg -q 'makeClosedStackPose' "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
+rg -q 'SpreadModel::stackSelectedWith' \
+    "${native_dir}/src/SpreadModel.cpp"
+rg -q 'makeOpenStackPose' "${native_dir}/src/SpreadLayout.cpp" "${effect_cpp}" "${card_cpp}"
+rg -q 'makeClosedStackPose' "${native_dir}/src/SpreadLayout.cpp" "${effect_cpp}" "${card_cpp}"
 rg -q 'slot \* width \* 0\.24 / 3\.0' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'StackClosedStep = 7\.0' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'return fanPose\(relative, cardWidth\)' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'StackFaceRotation = 0\.6' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'angles\{0\.6, 0\.2, -0\.2, -0\.4, -0\.6\}' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'The bottom reference layout shoulder did not retain its slight upward tilt' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'setRotationAngle\(paintPose\.rotation\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'makeOpenStackEnvelope' \
-    "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
+    "${native_dir}/src/SpreadLayout.cpp" "${effect_cpp}" "${card_cpp}"
 rg -q 'makeReservedCardTarget' \
-    "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
+    "${native_dir}/src/SpreadLayout.cpp" "${effect_cpp}" "${card_cpp}"
 rg -q 'bottomRightRotationEnvelope' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'const double groupCentering' \
-    "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'Left neighbor did not preserve the gutter around the stack' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'A large stack hid cards from vertical member paging' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'void CardLineModel::pageStack' \
-    "${native_dir}/src/CardLineModel.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'void SpreadModel::pageStack' \
+    "${native_dir}/src/SpreadModel.cpp"
 rg -q 'Horizontal paging did not treat a stack as one group' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
 rg -q 'QKeySequence\(QStringLiteral\("Ctrl\+Up"\)\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'QKeySequence\(QStringLiteral\("Ctrl\+Down"\)\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'selectedStackContains' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'classifyStackGesture' \
-    "${native_dir}/src/CardLineLayout.cpp" "${router_cpp}"
+    "${native_dir}/src/SpreadLayout.cpp" "${router_cpp}"
 rg -q 'Vertical motion outside a stack changed its member' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'A large stack did not expose exactly one face and three shoulders' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'Cycling a two-card stack moved its fixed reference layout fan' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'Vertical stack cycling changed the horizontal group envelope' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'const bool activeStack = wasActive' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_workspace\.pageStack\(delta\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'CardLineModel::detachSelectedMember' \
-    "${native_dir}/src/CardLineModel.cpp"
-rg -q 'CardLineModel::restoreDetachedMember' \
-    "${native_dir}/src/CardLineModel.cpp"
+rg -q 'SpreadModel::detachSelectedMember' \
+    "${native_dir}/src/SpreadModel.cpp"
+rg -q 'SpreadModel::restoreDetachedMember' \
+    "${native_dir}/src/SpreadModel.cpp"
 rg -q 'makeInsertionStackPose' \
-    "${native_dir}/src/CardLineLayout.cpp" "${effect_cpp}" "${card_cpp}"
+    "${native_dir}/src/SpreadLayout.cpp" "${effect_cpp}" "${card_cpp}"
 rg -q 'pageCardStackInsertion' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'An explicit insertion seam did not place the carried card in order' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
 rg -q 'The source stack did not remain centered beneath its lifted member' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'if \(!pose\.visible\)' "${native_dir}/src/CardLineLayout.cpp"
+    "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'if \(!pose\.visible\)' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'if \(!paintPose\.visible\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'Stack commit duplicated or lost a live card' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'Card Line imposed a four- or five-card stack limit' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'classifyCardEdge' "${native_dir}/src/CardLineLayout.cpp" \
+    "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'Spread imposed a four- or five-card stack limit' \
+    "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'classifyCardEdge' "${native_dir}/src/SpreadLayout.cpp" \
     "${router_cpp}"
 rg -q 'A destination-card hover incorrectly requested paging' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'An end seam is not a' \
     "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
@@ -438,16 +454,16 @@ rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior.
-test "$(sha256sum "${native_dir}/src/CardLineLayout.cpp" | cut -d' ' -f1)" = \
-    "d993218447265b79504cbf18c5779096e1b50bcdc0de52704667465fe50d1056"
-test "$(sha256sum "${native_dir}/src/CardLineLayout.h" | cut -d' ' -f1)" = \
-    "9eb9e4f1352ce6d69a809b8a73b0768b9ebd59ee3d9e1dd7b6f425a7c9a3144d"
+test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
+    "618f54ba01bc41e1da8e1f091f85212a861feac0e9b84123080fe8b4f6e8181d"
+test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
+    "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy is covered across all slots/active members
-# in CardLineModelTest; fixed aperture/layout hashes above remain unchanged.
-test "$(sha256sum "${native_dir}/src/CardLineModel.cpp" | cut -d' ' -f1)" = \
-    "149cbc1a3135b711ee782c1541422d1a68fcc2d2d10d7ac23e8b176783c18a4f"
-test "$(sha256sum "${native_dir}/src/CardLineModel.h" | cut -d' ' -f1)" = \
-    "4318ebca92933accaef1c1259dd17f78c7ddd701ff1dd98fc7348f91cdba9247"
+# in SpreadModelTest; fixed aperture/layout hashes above remain unchanged.
+test "$(sha256sum "${native_dir}/src/SpreadModel.cpp" | cut -d' ' -f1)" = \
+    "9cc0d5d4463c00265fb947337a35f7fcdf70b3ae0d08283b565cc9294143c15b"
+test "$(sha256sum "${native_dir}/src/SpreadModel.h" | cut -d' ' -f1)" = \
+    "e1a6700a718bbb90083874cd7811b139f8419f2ab175d11e89f5ec23c172d75b"
 rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"
 rg -q 'window == m_arrivalWindow' "${card_cpp}"
 rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"
@@ -475,13 +491,13 @@ if rg -q 'm_cardGrabDirection|finalSlot - slot|travel \* 0\.78' \
     echo "Ordinary carried-card travel must not move the destination row" >&2
     exit 1
 fi
-rg -q 'Wrapped reorder did not cross the Card Line seam cleanly' \
-    "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'classifyCardLineGesture' "${router_cpp}"
+rg -q 'Wrapped reorder did not cross the Spread seam cleanly' \
+    "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'classifySpreadGesture' "${router_cpp}"
 rg -q 'event->deltaV120' "${router_cpp}"
 rg -q 'activateSelectedFromInput' "${router_cpp}" "${effect_cpp}" "${card_cpp}"
 rg -q 'm_ownedTouchIds' "${router_cpp}"
-rg -q 'makeCoverPaintRect' "${native_dir}/src/CardLineLayout.cpp"
+rg -q 'makeCoverPaintRect' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'makeBentoCompositeGeometry' "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
 rg -q 'BentoWorkspaceTintOpacity = 0\.22F' "${effect_cpp}"
 rg -q 'bentoProjectionWorkspace' "${effect_cpp}" "${card_cpp}" "${card_header}"
@@ -504,13 +520,13 @@ rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
 rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"
 rg -q 'usesBentoProjectionAperture' "${card_cpp}" "${effect_cpp}"
-rg -q 'workHeight \* 0\.54' "${native_dir}/src/CardLineLayout.cpp"
-rg -q 'workWidth \* 0\.056' "${native_dir}/src/CardLineLayout.cpp"
+rg -q 'workHeight \* 0\.54' "${native_dir}/src/SpreadLayout.cpp"
+rg -q 'workWidth \* 0\.056' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'restoreActiveSnapshot' "${effect_cpp}" "${card_cpp}"
 rg -q 'setQuickTileMode\(KWin::QuickTileMode\{\}' "${effect_cpp}" "${card_cpp}"
 rg -q 'activateWindow' "${effect_cpp}" "${card_cpp}"
 
-# The accepted Card Line paint path remains compositor-only. Physical writes
+# The accepted Spread paint path remains compositor-only. Physical writes
 # are isolated to Active, monitor Bento, cross-output handoff, and their
 # matching restore paths.
 rg -q 'handleActiveGeometryChanged' "${effect_cpp}" "${card_cpp}"
@@ -522,18 +538,18 @@ rg -q 'handleWindowActivated' "${effect_cpp}" "${effect_header}" \
     "${card_cpp}" "${card_header}"
 rg -q 'promoted externally activated card' "${card_cpp}"
 rg -Fq 'std::clamp(requestedGutter, 6.0, 48.0)' \
-    "${native_dir}/src/CardLineLayout.cpp"
-if rg -q 'renderSyntheticLine|SYNTHETIC CARD LINE|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
+    "${native_dir}/src/SpreadLayout.cpp"
+if rg -q 'renderSyntheticLine|SYNTHETIC SPREAD|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Synthetic cards must never appear in the live effect" >&2
     exit 1
 fi
-rg -q 'visibleNeighborhood' "${native_dir}/src/CardLineModel.cpp"
-rg -q '10000' "${native_dir}/tests/CardLineModelTest.cpp"
-rg -q 'makeCardLineLayout' "${effect_cpp}" "${card_cpp}"
+rg -q 'visibleNeighborhood' "${native_dir}/src/SpreadModel.cpp"
+rg -q '10000' "${native_dir}/tests/SpreadModelTest.cpp"
+rg -q 'makeSpreadLayout' "${effect_cpp}" "${card_cpp}"
 rg -q 'Left neighbor is not a partial edge card' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'Right neighbor is not a partial edge card' \
-    "${native_dir}/tests/CardLineLayoutTest.cpp"
+    "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'native_plugin_system_target="/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce\.so"' \
     "${project_dir}/install.sh"
 rg -q 'pkexec /usr/bin/install -Dm755' "${project_dir}/install.sh"

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 
 #include <algorithm>
 
@@ -13,7 +13,7 @@ namespace Kadunce
 {
 
 // Fit the complete proportional source inside a fixed layout slot. The slot
-// remains authoritative for Card Line pitch and input; this rectangle is only
+// remains authoritative for Spread pitch and input; this rectangle is only
 // the maximum visual aperture available to a source with a different aspect.
 [[nodiscard]] inline CardRect makeProjectedCardVisualRect(
     const CardRect &slot, double sourceWidth, double sourceHeight)

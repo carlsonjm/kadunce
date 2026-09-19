@@ -14,7 +14,7 @@ Temperance.
 | Workspace | Consumer-facing Kadunce system; the spatial working environment | Locked |
 | Card | A normal application window managed spatially by Workspace | Locked |
 | Active | The Card currently being used | Locked |
-| Spread | The surrounding ordered field of Cards used for browsing | Locked |
+| Card Spread / Spread | The surrounding ordered field of Cards used for browsing. Card Spread is the full name of the action; Spread is the short form and both are approved | Locked |
 | Stack | Related individual Cards grouped for sequential paging | Locked |
 | Bento | Multiple simultaneously visible Cards composed into one layout | Locked |
 | Bento group / grouped Card | Bento's single representation when viewed in Spread | Working |
@@ -93,7 +93,14 @@ changed in 1.1.0 and existing panel widgets had to be removed and re-added.
 identity appears in the source tree. That mechanism is the model: a terminology
 regression should break a check, not wait for a reader to notice.
 
-- [ ] Extend the guard to Kadunce and Temperance.
-- [ ] Add retired product vocabulary to the pattern once the rename lands, so
-  Card Line cannot return.
-- [ ] Exclude `docs/archive/` and the guard file itself from the pattern.
+- [x] Extend the guard to Kadunce. Temperance still needs it.
+- [x] Add retired product vocabulary to the pattern once the rename lands, so
+  the retired term cannot return.
+- [x] Exclude `docs/archive/` and the guard file itself from the pattern.
+
+Kadunce's guard permits three layer-3 spellings and nothing else: the
+`showCardLine` scriptable method, the `cardLine` workspace-context value, and
+the persisted `Kadunce Card Line` global-shortcut identity. The first two are
+consumed by Tettegouche; the third is stored in the user's shortcut
+configuration, so renaming it discards a configured binding. Block 10b retires
+all three together with a documented migration.

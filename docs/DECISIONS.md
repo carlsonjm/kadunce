@@ -18,7 +18,7 @@ create parallel window identity, geometry, virtual-desktop, or input-method syst
 
 ### Spatial levels have distinct jobs
 
-Active means one window. Card Line and Bento mean a set of windows. Table means a
+Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
 dimensions and require an explicit integration design.
 
@@ -31,7 +31,7 @@ layout mode. Complete unload clears live card membership after restoration.
 
 ### Membership has one mutable owner
 
-`CardWorkspaceState` owns membership and `CardLineModel`. Controllers expose typed,
+`CardWorkspaceState` owns membership and `SpreadModel`. Controllers expose typed,
 read-only views. Indices are compatibility values; window identity is stable by
 handle or UUID while the effect is loaded.
 
@@ -45,14 +45,14 @@ substitute for the pre-presentation restore record.
 ### Bento owns only the visible pane combination
 
 A Bento session owns only the windows currently visible in its pane combination.
-Those panes project into Card Line as one non-pageable logical group. Any minimized,
-displaced, overflowed, or explicitly extracted window has ordinary individual Card
-Line ownership and no continuing association with its former Bento group. Only the
+Those panes project into Spread as one non-pageable logical group. Any minimized,
+displaced, overflowed, or explicitly extracted window has ordinary individual
+Spread ownership and no continuing association with its former Bento group. Only the
 selected individual card is presented as Active. Other outputs keep their sessions.
 
 Selecting a Bento group transfers only that group to Desktop Stage. Unrelated
 individual cards remain Card Stage owned and hidden. Selecting an individual card
-leaves the separate Bento group owned and hidden. Returning to Card Line restores
+leaves the separate Bento group owned and hidden. Returning to Spread restores
 both peer entries; only explicit release or disable restores ordinary desktop
 windows.
 
@@ -131,7 +131,7 @@ Kadunce does not maintain a retained snapshot store to hide them.
 
 ### Bento projects as one reversible group card
 
-A Bento composition entering Card Line occupies one ordinary logical card slot.
+A Bento composition entering Spread occupies one ordinary logical card slot.
 Its pane-visible live surfaces map from their current native frames into one
 centered proportional view of the authoritative KWin work area, preserving outer
 gutters, pane gaps, pane geometry, and dock clearance. A single 22%-opacity black
@@ -142,7 +142,7 @@ pane combination.
 Pane placement comes from the transferred normalized Bento rect, not later absolute
 client geometry. Current expanded-versus-frame margins preserve live decorations and
 shadows for transformation, while the authoritative stored frame clips pixels out of
-pane gaps and outer gutters. Its rounded GPU aperture uses the same Card Line radius
+pane gaps and outer gutters. Its rounded GPU aperture uses the same Spread radius
 scaled through the workspace composite and physical output scale; a rounded region
 is the shader-unavailable fallback. Successful exact resume clears projection
 provenance, offscreen sources, and per-frame aperture state before native Bento can
@@ -152,9 +152,9 @@ The transfer carries visible pane order and rects, lead, side metadata, stacking
 and authoritative restore records. Activating the group
 validates current native geometry, commits the reverse ownership transfer, and
 publishes the same Bento session without a solver or native geometry write.
-Rejection leaves the group card and neighboring Card Line ownership intact.
-On success, non-group Card Line neighbors remain owned and hidden; they do not
-restore as ordinary desktop windows. Ordinary Card Line rendering and layout remain
+Rejection leaves the group card and neighboring Spread ownership intact.
+On success, non-group Spread neighbors remain owned and hidden; they do not
+restore as ordinary desktop windows. Ordinary Spread rendering and layout remain
 unchanged.
 
 ### Model truth does not wait for animation
@@ -171,7 +171,7 @@ preferences. This is a live gap, not permission for a broad renderer rewrite.
 
 ### Sessions are output-local
 
-Card Line and Bento are not permanently restricted by display type. Each output owns
+Spread and Bento are not permanently restricted by display type. Each output owns
 its own Bento session; releasing or re-presenting one output does not release others.
 
 ### Teardown order is part of correctness
@@ -227,7 +227,7 @@ stacked-card tray mark remain protected custom work.
 
 ### Table is required and uses KDE virtual desktops
 
-Table is the workspace level above Card Line/Bento. It must manipulate existing KWin
+Table is the workspace level above Spread/Bento. It must manipulate existing KWin
 virtual-desktop membership and preserve current display ownership. Feasibility,
 gesture conflicts, and lifecycle behavior must be proven before implementation.
 

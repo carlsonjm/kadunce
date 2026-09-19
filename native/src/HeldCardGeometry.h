@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
-#include "CardLineLayout.h"
+#include "SpreadLayout.h"
 #include <algorithm>
 namespace Kadunce {
 inline constexpr double HeldCardFraction = 0.44;

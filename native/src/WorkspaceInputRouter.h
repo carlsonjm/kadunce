@@ -18,7 +18,7 @@ namespace Kadunce
 
 enum class WorkspacePresentation {
     Inactive,
-    CardLine,
+    Spread,
     Active,
 };
 
@@ -113,7 +113,7 @@ private:
     bool reconcileNativeInteraction();
     enum class TouchMode {
         None,
-        CardLine,
+        Spread,
         ActiveLeft,
         ActiveRight,
         BottomEdge,
@@ -141,7 +141,7 @@ private:
     void stopEdgePaging();
     [[nodiscard]] TouchMode touchModeAt(const QPointF &position) const;
     void updateTouchGesture();
-    void finishCardLineGesture(const QPointF &start, const QPointF &end);
+    void finishSpreadGesture(const QPointF &start, const QPointF &end);
     void finishTouchGesture();
     void resetTouch();
 

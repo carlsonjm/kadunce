@@ -3,7 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-#include "CardLineModel.h"
+#include "SpreadModel.h"
 
 #include <algorithm>
 #include <array>
@@ -24,7 +24,7 @@ void require(bool condition, const char *message)
 int main()
 {
     for (int active = 0; active < 4; ++active) {
-        Kadunce::CardLineModel lifted(4);
+        Kadunce::SpreadModel lifted(4);
         require(lifted.stackSelectedWith(2), "Four-face seed failed");
         for (int id = 3; id <= 4; ++id) {
             lifted.page(1);
@@ -49,7 +49,7 @@ int main()
     // can then browse to the newly placed member without rewriting order.
     for (int active = 0; active < 3; ++active) {
         for (int slot = 0; slot <= 3; ++slot) {
-            Kadunce::CardLineModel placed(4);
+            Kadunce::SpreadModel placed(4);
             require(placed.stackSelectedWith(2, 0), "Placement setup A,B failed");
             placed.page(1);
             require(placed.stackSelectedWith(1), "Placement setup A,B,C failed");
@@ -57,7 +57,7 @@ int main()
             const int face = placed.selectedId();
             placed.page(1); // D
             require(placed.stackSelectedWith(1, slot,
-                Kadunce::CardLineModel::InsertionSelection::DestinationCard), "Placement commit failed");
+                Kadunce::SpreadModel::InsertionSelection::DestinationCard), "Placement commit failed");
             std::vector<int> expected{1,2,3};
             expected.insert(expected.begin() + slot, 4);
             require(placed.stackMembersForId(4) == expected && placed.selectedId() == face,
@@ -74,16 +74,16 @@ int main()
                 "Canceled regrab lost placed order");
         }
     }
-    Kadunce::CardLineModel oneCard(1);
-    require(oneCard.count() == 1, "One-card line was padded with fake cards");
+    Kadunce::SpreadModel oneCard(1);
+    require(oneCard.count() == 1, "One-spread was padded with fake cards");
     oneCard.page(99);
     require(oneCard.selectedId() == 1 && oneCard.invariantHolds(),
-            "One-card line did not remain stable");
+            "One-spread did not remain stable");
 
-    Kadunce::CardLineModel twoCards(2);
+    Kadunce::SpreadModel twoCards(2);
     for (int side : {-1, 1}) {
         for (int selected : {0, 1}) {
-            Kadunce::CardLineModel incoming(2);
+            Kadunce::SpreadModel incoming(2);
             incoming.selectIndex(selected);
             incoming.setPairNeighborSide(side);
             const int primary = incoming.selectedId();
@@ -95,7 +95,7 @@ int main()
                     "Centered arrival displaced the old shoulder or failed to move old primary aside");
         }
     }
-    Kadunce::CardLineModel firstPair(1);
+    Kadunce::SpreadModel firstPair(1);
     firstPair.appendCenteredCard();
     require(firstPair.selectedId() == 2 && firstPair.visibleNeighborhood() == std::array<int,3>{1,2,0},
             "Second app did not become primary with the old app to its left");
@@ -110,7 +110,7 @@ int main()
                 "Reverse pair swipe did not return its partner to the right");
     }
     for (int side : {-1, 1}) {
-        Kadunce::CardLineModel pair(2);
+        Kadunce::SpreadModel pair(2);
         pair.setPairNeighborSide(side);
         pair.appendCard(true);
         require(pair.selectedId() == 1 && pair.count() == 3 && pair.invariantHolds(),
@@ -121,15 +121,15 @@ int main()
                     && pair.selectedId() == 1 && pair.invariantHolds(),
                 "Third departure moved the surviving shoulder");
     }
-    Kadunce::CardLineModel groupedPair(3);
+    Kadunce::SpreadModel groupedPair(3);
     require(groupedPair.stackSelectedWith(2) && groupedPair.count() == 2
                 && groupedPair.cardCount() == 3,
             "Pair handling must count groups, not member windows");
-    require(twoCards.count() == 2, "Two-card line was padded with fake cards");
+    require(twoCards.count() == 2, "Two-spread was padded with fake cards");
     twoCards.selectIndex(1);
     require(twoCards.selectedId() == 2, "Explicit selection chose the wrong card");
 
-    Kadunce::CardLineModel admitted(3);
+    Kadunce::SpreadModel admitted(3);
     require(admitted.appendCard() == 4
                 && admitted.cardCount() == 4
                 && admitted.count() == 4
@@ -141,10 +141,10 @@ int main()
                 && admitted.count() == 3
                 && admitted.selectedId() == 3
                 && admitted.invariantHolds(),
-            "Closing a helper window rebuilt or corrupted the live Card Line");
+            "Closing a helper window rebuilt or corrupted the live Spread");
     require(twoCards.invariantHolds(), "Two-card selection broke invariants");
 
-    Kadunce::CardLineModel line(20);
+    Kadunce::SpreadModel line(20);
 
     require(line.count() == 20, "Card count changed at construction");
     require(line.selectedId() == 1, "Initial card is not card 1");
@@ -199,11 +199,11 @@ int main()
     require(line.selectedId() == 1,
             "Wrapped reorder changed the grabbed card identity");
     require(line.visibleNeighborhood() == std::array<int, 3>{19, 1, 20},
-            "Wrapped reorder did not cross the Card Line seam cleanly");
+            "Wrapped reorder did not cross the Spread seam cleanly");
     require(line.count() == 20 && line.invariantHolds(),
-            "Reordering changed Card Line membership");
+            "Reordering changed Spread membership");
 
-    Kadunce::CardLineModel threeCards(3);
+    Kadunce::SpreadModel threeCards(3);
     require(threeCards.detachedNeighborhood(0)
                 == std::array<int, 3>{3, 2, 0},
             "Three-card detached row duplicated a destination");
@@ -211,7 +211,7 @@ int main()
                 == std::array<int, 3>{2, 3, 0},
             "Three-card edge page did not remain deterministic");
 
-    Kadunce::CardLineModel stacks(5);
+    Kadunce::SpreadModel stacks(5);
     require(stacks.stackSelectedWith(2),
             "A standalone card could not join its destination stack");
     require(stacks.count() == 4 && stacks.cardCount() == 5,
@@ -280,7 +280,7 @@ int main()
                 && stacks.count() == 5 && stacks.invariantHolds(),
             "Committing a stack lift did not leave one standalone card");
 
-    Kadunce::CardLineModel threeMemberStack(3);
+    Kadunce::SpreadModel threeMemberStack(3);
     require(threeMemberStack.stackSelectedWith(2),
             "Three-member lift test could not create its first pair");
     threeMemberStack.page(1);
@@ -300,7 +300,7 @@ int main()
                 && threeMemberStack.selectedId() == 1,
             "A cancelled middle-face lift did not restore its exact position");
 
-    Kadunce::CardLineModel insertedStack(4);
+    Kadunce::SpreadModel insertedStack(4);
     require(insertedStack.stackSelectedWith(2),
             "Insertion test could not create its destination stack");
     insertedStack.page(1);
@@ -310,7 +310,7 @@ int main()
                 && insertedStack.stackActivePositionForId(3) == 1,
             "An explicit insertion seam did not place the carried card in order");
 
-    Kadunce::CardLineModel largeStack(20);
+    Kadunce::SpreadModel largeStack(20);
     require(largeStack.stackSelectedWith(2),
             "Large-stack seed failed");
     for (int cardId = 3; cardId <= 20; ++cardId) {
@@ -323,7 +323,7 @@ int main()
     require(largeStack.count() == 1 && largeStack.cardCount() == 20
                 && largeStack.stackSizeForId(1) == 20
                 && largeStack.invariantHolds(),
-            "Card Line imposed a four- or five-card stack limit");
+            "Spread imposed a four- or five-card stack limit");
     require(largeStack.stackPaintOrderForId(largeStack.selectedId())
                 == std::vector<int>({17, 18, 19, 20}),
             "A large fan did not expose a deterministic back-to-front deck");
@@ -343,6 +343,6 @@ int main()
     require(largeStack.selectedId() == beforeAdmission,
             "Guest-time admission must preserve the selected stack member");
 
-    std::cout << "Card Line group and vertical stack paging are deterministic\n";
+    std::cout << "Spread group and vertical stack paging are deterministic\n";
     return EXIT_SUCCESS;
 }

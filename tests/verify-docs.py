@@ -107,6 +107,31 @@ def check_swarm() -> None:
             )
 
 
+def check_retired_vocabulary() -> None:
+    """Catch the retired workspace term across a line break.
+
+    tests/verify-source.sh greps line by line, so a wrapped "Card\nLine" reads
+    as two innocent words. This check joins wrapped lines before matching.
+    Layer 3 keeps three installed spellings that Block 10b retires together.
+    """
+    frozen = re.compile(r"showCardLine|cardLine|Kadunce Card Line")
+    retired = re.compile(r"card\s+line", re.IGNORECASE)
+    for path in tracked_documents():
+        if path.startswith("docs/archive/") or path == "docs/TERMINOLOGY.md":
+            continue
+        text = (ROOT / path).read_text()
+        for match in retired.finditer(text):
+            if "\n" not in match.group(0):
+                continue  # already covered, case-sensitively, by verify-source.sh
+            line = text.count("\n", 0, match.start()) + 1
+            context = text[max(0, match.start() - 40):match.end() + 40]
+            if frozen.search(context):
+                continue
+            errors.append(
+                f"{path}:{line} carries the retired workspace term across a line break"
+            )
+
+
 def check_current_state() -> None:
     path = ROOT / "docs" / "CURRENT_STATE.md"
     text = path.read_text()
@@ -125,6 +150,7 @@ def check_current_state() -> None:
 check_index_coverage()
 check_archive_authority()
 check_swarm()
+check_retired_vocabulary()
 check_current_state()
 
 if errors:

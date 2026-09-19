@@ -15,7 +15,7 @@ probe ownershipEvidence
 test "$result" = true
 sleep .4
 test "$(probe ownershipRestored)" = true
-echo 'PASS: shared Card Line entry owns every origin without Active visits or entry sizing; visits and release retain original geometry'
+echo 'PASS: shared Spread entry owns every origin without Active visits or entry sizing; visits and release retain original geometry'
 test "$(probe ownershipTransferPrepare)" = true
 sleep .4
 result=$(probe ownershipTransfer)

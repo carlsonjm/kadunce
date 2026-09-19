@@ -390,7 +390,7 @@ private:
         setBusy(false);
         m_notifier.showMessage(
             QStringLiteral("Kadunce enabled"),
-            QStringLiteral("Card Line and Bento are ready."),
+            QStringLiteral("Spread and Bento are ready."),
             QStringLiteral("dialog-information"));
     }
 

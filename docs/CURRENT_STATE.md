@@ -13,12 +13,12 @@ Current implementation differences are limitations, not alternate behavior.
 
 ## Accepted behavior
 
-- Active, Card Line, ordered stacks, and output-local Bento are implemented.
-- Card Line is compositor presentation and does not park clients at off-screen
+- Active, Spread, ordered stacks, and output-local Bento are implemented.
+- Spread is compositor presentation and does not park clients at off-screen
   coordinates. Bento uses reversible real geometry.
 - Transfers prepare and validate the destination before removing the source.
 - Constrained new windows enter the Bento solver or prepared Active ownership.
-- Touch Card Line preserves a Bento composition as one logical group card. Its
+- Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
   clearance. Painting reconstructs each pane from the transferred normalized rect,
@@ -29,7 +29,7 @@ Current implementation differences are limitations, not alternate behavior.
   panes and all group paint state retires before exact resume exposes native Bento.
   The group has no member paging, fan, or member carry; activation resumes the exact
   Bento session without a layout solve.
-  Ordinary Card Line cards retain their accepted presentation.
+  Ordinary Spread cards retain their accepted presentation.
 - Other outputs keep their own Bento sessions when the tablet changes presentation.
 - Native carries preserve input ownership, exact restore records, dock clearance,
   cancellation, and output-local admission rules.
@@ -46,7 +46,7 @@ ownership, constrained-launch correction, and physically accepted Bento group-ca
 presentation. Revalidate source, package, control, and live provenance before the
 next installation.
 
-The current local `main` adds physically accepted Card Line application labels without changing
+The current local `main` adds physically accepted Spread application labels without changing
 card geometry or input. Ordinary cards resolve their human application name from
 desktop service metadata with window metadata and caption fallbacks, keep it
 centered below the card, and put pageable stack position at the row's right edge.
@@ -56,7 +56,7 @@ duplicates, while excluding overflow and omitting stack position.
 ## Open limitations
 
 - The current implementation still retains Bento overflow and restores unrelated
-  Card Line neighbors when a projected Bento group resumes. Both behaviors are
+  Spread neighbors when a projected Bento group resumes. Both behaviors are
   superseded by the approved visible-pane ownership contract and require a protected
   ownership refactor before top-edge extraction can be promoted.
 - Pulling a member back from a stack and reorder intent zones still need product

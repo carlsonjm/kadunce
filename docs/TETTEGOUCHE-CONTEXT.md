@@ -9,7 +9,7 @@ The workspace snapshot is deliberately read-only. Tettegouche requests it when
 its launcher opens, on workspaceContextChanged signals, and before selection;
 it does not poll raw KWin state or mutate Kadunce's models.
 An independent, explicitly versioned guest-session protocol lets a compatible
-launcher temporarily occupy Card Line's center without becoming a real card.
+launcher temporarily occupy Spread's center without becoming a real card.
 
 ## Endpoint
 
@@ -50,7 +50,7 @@ must reject unknown major versions instead of guessing at fields.
 - `applications`: current-desktop application windows, including minimized
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
   identity, title, output, focus/minimize state, and current card membership.
-- `cardStage`: whether Card Stage is active, its `inactive`, `cardLine`, or
+- `cardStage`: whether Card Stage is active, its `inactive`, `spread`, or
   `active` presentation, the selected card UUID, and ordered selected-stack
   member UUIDs.
 - `desktopStage`: whether any output currently owns a Bento session.
@@ -94,15 +94,15 @@ An accepted begin reply contains `protocol: 3`, `accepted: true`, the target
 `output`, and `card` and `active` geometries. Kadunce reserves a centered guest
 footprint that is six percent of the work area narrower than a normal card, and
 moves both real neighbors inward by the matching three-percent inset. It does
-not insert the launcher into `CardLineModel`; real cards remain its sole mutable
+not insert the launcher into `SpreadModel`; real cards remain its sole mutable
 model state. Tettegouche owns and renders the interactive center card, while
 Kadunce mirrors its horizontal drag onto the adjacent real cards.
 
-Kadunce watches the launcher's unique session-bus owner and restores Card Line
+Kadunce watches the launcher's unique session-bus owner and restores Spread
 if that process disappears. A committed handoff selects the incoming real card,
-and a press on either visible neighbor is consumed as Card Line navigation:
+and a press on either visible neighbor is consumed as Spread navigation:
 Kadunce asks Tettegouche to animate toward the opposite edge, moves that
-neighbor into center, and remains in Card Line. The original press and release
+neighbor into center, and remains in Spread. The original press and release
 never reach the underlying application, so they cannot accidentally promote it
 to Active. Any rejected begin request leaves both applications in their
 existing standalone behavior.

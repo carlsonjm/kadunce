@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "CardLineModel.h"
-#include "CardLineLayout.h"
+#include "SpreadModel.h"
+#include "SpreadLayout.h"
 #include "ActiveSettings.h"
 #include "CardWorkspaceSnapshot.h"
 #include "CardWorkspaceState.h"
@@ -33,7 +33,7 @@ namespace Kadunce
 {
 
 enum class CardPresentation {
-    CardLine,
+    Spread,
     Active,
 };
 
@@ -81,12 +81,12 @@ public:
 
     [[nodiscard]] bool isActive() const;
     [[nodiscard]] CardPresentation presentation() const;
-    [[nodiscard]] const CardLineModel &model() const;
+    [[nodiscard]] const SpreadModel &model() const;
     [[nodiscard]] CardWorkspaceSnapshot workspaceSnapshot() const;
     [[nodiscard]] const QList<QPointer<KWin::EffectWindow>> &liveCards() const;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
-    // Presentation provenance only. These windows entered Card Line while their
+    // Presentation provenance only. These windows entered Spread while their
     // live surfaces still had Bento pane dimensions; membership and restoration
     // remain entirely in the ordinary workspace/restore owners.
     [[nodiscard]] bool usesBentoProjectionAperture(
@@ -236,7 +236,7 @@ private:
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     int m_activeSettleRemaining = 0;
-    CardPresentation m_presentation = CardPresentation::CardLine;
+    CardPresentation m_presentation = CardPresentation::Spread;
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
     KWin::Rect m_cardGrabTarget;
