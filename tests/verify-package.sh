@@ -7,11 +7,16 @@ build_dir="$(mktemp -d /tmp/kadunce-native-build.XXXXXX)"
 stage_dir="$(mktemp -d /tmp/kadunce-native-stage.XXXXXX)"
 
 cleanup() {
+    # Preserve the checks' own result: this trap runs on every exit, so a
+    # cleanup hiccup must not turn a passed run into a reported failure, and a
+    # racing delete of a temporary tree is not a packaging defect.
+    local status=$?
     for directory in "${build_dir}" "${stage_dir}"; do
         if [[ -d "${directory}" ]]; then
-            find "${directory}" -depth -delete
+            find "${directory}" -depth -delete 2>/dev/null || true
         fi
     done
+    return "${status}"
 }
 trap cleanup EXIT
 
@@ -24,9 +29,14 @@ DESTDIR="${stage_dir}" cmake --install "${build_dir}" --prefix /usr \
 
 plugin="${stage_dir}/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"
 test -f "${plugin}"
-file "${plugin}" | rg -q 'shared object'
-ldd "${plugin}" | rg -q 'libkwin\.so'
-if ldd "${plugin}" | rg -q 'not found'; then
+# Match against captured output, not through a pipe. `rg -q` exits on its first
+# match and closes the pipe, so under `pipefail` the producer can lose a
+# SIGPIPE race and fail a check that actually passed.
+plugin_kind="$(file "${plugin}")"
+rg -q 'shared object' <<<"${plugin_kind}"
+plugin_links="$(ldd "${plugin}")"
+rg -q 'libkwin\.so' <<<"${plugin_links}"
+if rg -q 'not found' <<<"${plugin_links}"; then
     echo "Native Scene Gate has unresolved runtime libraries" >&2
     exit 1
 fi
