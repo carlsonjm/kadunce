@@ -182,7 +182,7 @@ int main()
     }
     const std::vector<BentoCandidate> monitorFour(4, {600,600,900,700,false});
     for (bool right : {false,true}) {
-        const auto plan = chooseBentoSideAdmission({right,true},2540,1410,monitorFour,0,true);
+        const auto plan = chooseBentoSideAdmission({right,true},2540,1410,monitorFour,0);
         require(plan && plan->candidateIndices.size() == 4,
             "Monitor edge preference hid a fourth window that fits normal Bento");
     }
@@ -191,23 +191,159 @@ int main()
             ? std::vector<BentoRect>{{0,0,2.0/3,1},{2.0/3,0,1.0/3,1}}
             : std::vector<BentoRect>{{1.0/3,0,2.0/3,1},{0,0,1.0/3,1}};
         const std::vector<BentoCandidate> small(3,{100,100,400,400,false});
-        const auto split = splitBentoColumn(pair,small,2,{right,false},1463,885,false);
+        const auto split = splitBentoColumn(pair,small,2,{right,false},1463,885);
         require(split && (*split)[0].x == pair[0].x && (*split)[0].width == pair[0].width
             && (*split)[1].y == 0 && (*split)[1].height == .5
             && (*split)[2].y == .5 && (*split)[2].width == pair[1].width,
             "Occupied small column did not preserve opposite pane and split downward");
         auto tooTall = small; tooTall[2].minimumHeight = 800;
-        require(!splitBentoColumn(pair,tooTall,2,{right,false},1463,885,false),
+        require(!splitBentoColumn(pair,tooTall,2,{right,false},1463,885),
             "Column split ignored native minimum heights");
-        require(!splitBentoColumn(pair,small,2,{!right,false},1463,885,false)
-            && splitBentoColumn(pair,small,2,{!right,false},2560,1440,true),
-            "Large column split should be monitor-only");
+        require(!splitBentoColumn(pair,small,2,{!right,false},1463,885)
+            && splitBentoColumn(pair,small,2,{!right,false},2560,1440),
+            "Splitting a larger-than-half column belongs to the curated cap only");
     }
     const auto regroup = splitBentoColumn({{0,0,1.0/3,1},{1.0/3,0,1.0/3,1},{2.0/3,0,1.0/3,1}},
-        std::vector<BentoCandidate>(3,{100,100,400,400,false}),0,{true,false},1463,885,false);
+        std::vector<BentoCandidate>(3,{100,100,400,400,false}),0,{true,false},1463,885);
     require(regroup && (*regroup)[0].y == .5 && (*regroup)[2].height == .5
         && (*regroup)[1].x == 0 && std::abs((*regroup)[1].width-2.0/3) < .001,
         "Moving a third column left a hole instead of filling the surviving pane");
+
+    // CARD-LIFECYCLE.md section 5 grammar: one cap per display, orientation
+    // from the work area, two three-pane shapes, and a contact that names the
+    // shape. 1443x894 is the measured tablet work area.
+    constexpr int tabletWidth = 1443;
+    constexpr int tabletHeight = 894;
+    constexpr int monitorWidth = 2540;
+    constexpr int monitorHeight = 1410;
+    require(bentoPaneCap(tabletWidth, tabletHeight) == 3
+        && bentoPaneCap(monitorWidth, monitorHeight) == 8,
+        "The tablet work area does not cap at three panes, or a monitor lost the library");
+    require(bentoLandscapeArea(tabletWidth, tabletHeight)
+        && !bentoLandscapeArea(tabletHeight, tabletWidth),
+        "Layout orientation did not follow the work area's own proportions");
+
+    const std::vector<BentoCandidate> fiveSmall(5, {200, 200, 600, 400, false});
+    require(chooseBentoAdmission(fiveSmall, tabletWidth, tabletHeight)
+            .candidateIndices.size() == 3,
+        "Ordinary admission did not read the display's pane cap");
+    const auto cappedSide = chooseBentoSideAdmission({false, false},
+        tabletWidth, tabletHeight, fiveSmall);
+    require(cappedSide && cappedSide->candidateIndices.size() == 3,
+        "Edge admission read a different pane cap from ordinary admission");
+    const auto monitorSide = chooseBentoSideAdmission({false, false},
+        monitorWidth, monitorHeight, fiveSmall);
+    require(chooseBentoAdmission(fiveSmall, monitorWidth, monitorHeight)
+            .candidateIndices.size() == 5
+        && monitorSide && monitorSide->candidateIndices.size() == 5,
+        "A larger display lost panes to the compact cap");
+
+    // Both permitted three-pane shapes exist, cover the area and do not overlap.
+    for (bool landscape : {false, true}) {
+        const std::vector<BentoRect> shapes[2]{makeBentoLayout(3, landscape),
+                                               makeAlternateThreePaneBentoLayout(landscape)};
+        for (const auto &shape : shapes) {
+            require(shape.size() == 3, "A permitted three-pane shape is missing");
+            const auto pixels = makePixelBentoLayout(shape, 0, 0, 1600, 1000);
+            for (size_t i = 0; i < pixels.size(); ++i)
+                for (size_t j = i + 1; j < pixels.size(); ++j)
+                    require(!overlaps(pixels[i], pixels[j]), "Three-pane shape overlaps");
+        }
+        require((std::abs(shapes[1][0].height - 1.0) < .001) == landscape
+            && (std::abs(shapes[1][0].width - 1.0) < .001) == !landscape,
+            "The second three-pane shape ignored the work area's long axis");
+        int wholeHeight = 0;
+        for (const auto &r : shapes[0])
+            if (std::abs(r.y) < .01 && std::abs(r.height - 1.0) < .01) ++wholeHeight;
+        require((wholeHeight == 1) == landscape,
+            "The first three-pane shape is not one pane beside a split");
+    }
+
+    // Three windows too tall for a stacked half now reach the other three-pane
+    // shape instead of dropping a pane.
+    const std::vector<BentoCandidate> tallThree(3, {300, 800, 900, 800, false});
+    const auto alternateThree = chooseBentoAdmission(tallThree, tabletWidth, tabletHeight);
+    require(alternateThree.candidateIndices.size() == 3,
+        "The second three-pane shape was not offered to ordinary admission");
+    for (const auto &r : alternateThree.rects)
+        require(std::abs(r.height - 1.0) < .01,
+            "Three tall windows did not take the three-panes-across shape");
+
+    // Preserving unrelated panes is not a way around the cap: a fourth pane is
+    // a monitor arrangement and the compact display declines it here too.
+    const std::vector<BentoRect> threeColumns = makeAlternateThreePaneBentoLayout(true);
+    const std::vector<BentoCandidate> fourSmall(4, {100, 100, 400, 400, false});
+    require(!splitBentoColumn(threeColumns, fourSmall, 3, {true, false},
+                tabletWidth, tabletHeight)
+        && splitBentoColumn(threeColumns, fourSmall, 3, {true, false},
+                monitorWidth, monitorHeight),
+        "A column split grew a compact display past its own pane cap");
+
+    const auto fullHeightPanes = [](const std::vector<BentoRect> &rects) {
+        int panes = 0;
+        for (const auto &r : rects)
+            if (std::abs(r.y) < .01 && std::abs(r.height - 1.0) < .01) ++panes;
+        return panes;
+    };
+    const std::vector<BentoCandidate> tabletThree(3, {200, 200, 700, 500, false});
+    // A tablet side snap is answered by a column split when one is available
+    // and by whole-display side admission otherwise. Both must give the shape
+    // the contact asked for, so four different layout histories agree.
+    const std::vector<std::vector<BentoRect>> histories{
+        {{0, 0, 1.0/3, 1}, {1.0/3, 0, 2.0/3, 1}},
+        {{0, 0, 2.0/3, 1}, {2.0/3, 0, 1.0/3, 1}},
+        makeAlternateTwoPaneBentoLayout(true),
+        makeBentoLayout(2, true)};
+    for (bool right : {false, true}) {
+        for (const auto &history : histories) {
+            for (bool large : {false, true}) {
+                const auto split = splitBentoColumn(history, tabletThree, 2,
+                    {right, large}, tabletWidth, tabletHeight);
+                const auto admission = chooseBentoSideAdmission({right, large},
+                    tabletWidth, tabletHeight, tabletThree);
+                require(admission && admission->candidateIndices.size() == 3,
+                    "A tablet side snap did not reach three panes");
+                const std::vector<BentoRect> &rects = split ? *split : admission->rects;
+                require(fullHeightPanes(rects) == (large ? 3 : 1),
+                    "A tablet side snap produced the shape the other half asked for");
+            }
+        }
+    }
+    for (bool right : {false, true}) {
+        const auto lower = chooseBentoSideAdmission({right, false},
+            tabletWidth, tabletHeight, tabletThree);
+        require(lower && lower->candidateIndices.size() == 3
+            && std::abs(lower->rects[0].y - 0.5) < .05
+            && std::abs(lower->rects[0].height - 0.5) < .05,
+            "The arriving window did not take the lower stacked pane");
+        require((lower->rects[0].x > 0.5) == right,
+            "The stacked pair did not sit on the contacted edge");
+        const auto upper = chooseBentoSideAdmission({right, true},
+            tabletWidth, tabletHeight, tabletThree);
+        require(upper && upper->candidateIndices.size() == 3
+            && std::abs(upper->rects[0].height - 1.0) < .01
+            && std::abs(upper->rects[0].width - 1.0/3.0) < .02,
+            "An upper-half tablet snap did not give the arrival a full-height third");
+        require((upper->rects[0].x > 0.5) == right,
+            "The arrival did not keep the contacted edge");
+    }
+    // Where the minimums forbid the requested shape the other three-pane shape
+    // is used, and where neither fits the layout stays at two panes.
+    const std::vector<BentoCandidate> tallTablet(3, {300, 800, 700, 800, false});
+    const auto forced = chooseBentoSideAdmission({false, false},
+        tabletWidth, tabletHeight, tallTablet);
+    require(forced && forced->candidateIndices.size() == 3
+        && fullHeightPanes(forced->rects) == 3,
+        "A forbidden stack did not fall back to the other three-pane shape");
+    const std::vector<BentoCandidate> wideTablet{{200, 200, 700, 500, false},
+                                                 {760, 200, 700, 500, false},
+                                                 {760, 200, 700, 500, false}};
+    for (bool large : {false, true}) {
+        const auto pair = chooseBentoSideAdmission({false, large},
+            tabletWidth, tabletHeight, wideTablet);
+        require(pair && pair->candidateIndices.size() == 2,
+            "Neither three-pane shape fitting did not leave the layout at two panes");
+    }
     std::cout << "Bento layout/admission checks passed\n";
     return 0;
 }

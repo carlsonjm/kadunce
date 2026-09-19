@@ -877,7 +877,7 @@ bool DesktopStageController::planSession(Session &session,
         const auto splitArea = stageArea(output);
         const auto split = validSplitInputs ? splitBentoColumn(session.rects, splitCandidates,
             existingIndex < 0 ? session.windows.size() : existingIndex, *session.side,
-            splitArea.width(), splitArea.height(), !m_host->isTabletOutputForDesktopStage(output))
+            splitArea.width(), splitArea.height())
             : std::nullopt;
         if (split && (!requirePreferred || splitWindows.contains(preferred))) {
             session.windows = splitWindows;
@@ -898,8 +898,7 @@ bool DesktopStageController::planSession(Session &session,
         for (int i = 0; i < std::min(10, int(owned.size())); ++i)
             candidates.push_back(candidate(owned[i]));
         const auto admission = chooseBentoSideAdmission(*session.side, area.width(), area.height(),
-            candidates, requirePreferred ? owned.indexOf(preferred) : 0,
-            !m_host->isTabletOutputForDesktopStage(output));
+            candidates, requirePreferred ? owned.indexOf(preferred) : 0);
         if (!admission) return false;
         session.windows.clear();
         session.overflow = owned;
@@ -912,10 +911,10 @@ bool DesktopStageController::planSession(Session &session,
     }
     // The curated library has eight panes. Two alternate candidates are
     // enough to resolve minimum-size conflicts without making the bounded
-    // subset search grow with a desktop's entire window history.
+    // subset search grow with a desktop's entire window history. How many of
+    // them this display shows is bentoPaneCap, which the edge path reads too.
     const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
     const KWin::Rect area = stageArea(output);
-    const bool compact = area.width() < 1800 || area.height() < 1000;
     std::vector<BentoCandidate> candidates;
     candidates.reserve(considered.size());
     for (int index = 0; index < considered.size(); ++index) {
@@ -928,11 +927,11 @@ bool DesktopStageController::planSession(Session &session,
     }
     const auto required = requirePreferred
         ? chooseBentoTransferAdmission(candidates, considered.indexOf(preferred),
-            area.width(), area.height(), compact ? 2 : 8)
+            area.width(), area.height())
         : std::optional<BentoAdmission>{};
     if (requirePreferred && !required) return false;
     const BentoAdmission admission = required ? *required : chooseBentoAdmission(
-        candidates, area.width(), area.height(), compact ? 2 : 8);
+        candidates, area.width(), area.height());
     session.windows.clear();
     session.overflow.clear();
     session.rects = admission.rects;

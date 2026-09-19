@@ -42,22 +42,50 @@ struct BentoAdmission
     std::vector<BentoRect> rects;
 };
 
+// One maximum visible pane count per display, read by every admission path.
+// A work area this small has room for the three-pane grammar only; a larger
+// one uses the curated library. The bound is the work area, never the
+// hardware the work area belongs to.
+inline constexpr int BentoCompactAreaWidth = 1800;
+inline constexpr int BentoCompactAreaHeight = 1000;
+inline constexpr int BentoCompactPaneCap = 3;
+inline constexpr int BentoCuratedPaneCap = 8;
+
+[[nodiscard]] constexpr int bentoPaneCap(int areaWidth, int areaHeight)
+{
+    return areaWidth < BentoCompactAreaWidth || areaHeight < BentoCompactAreaHeight
+        ? BentoCompactPaneCap : BentoCuratedPaneCap;
+}
+
+// Orientation is a proportion of the work area. A landscape-shaped work area
+// is landscape on every path that lays panes out inside it.
+[[nodiscard]] constexpr bool bentoLandscapeArea(int areaWidth, int areaHeight)
+{
+    return areaWidth >= areaHeight;
+}
+
 [[nodiscard]] std::vector<BentoRect> makeBentoLayout(
     int count, bool landscape);
 [[nodiscard]] std::vector<BentoRect> makeAlternateTwoPaneBentoLayout(
+    bool landscape);
+// The second permitted three-pane shape: three panes across the long axis,
+// beside the one column and top/bottom split that makeBentoLayout(3) gives.
+[[nodiscard]] std::vector<BentoRect> makeAlternateThreePaneBentoLayout(
     bool landscape);
 [[nodiscard]] std::vector<BentoPixelRect> makePixelBentoLayout(
     const std::vector<BentoRect> &rects,
     int areaX, int areaY, int areaWidth, int areaHeight,
     int gap = 14);
+// maximumVisible is the caller's own further limit; the display's pane cap
+// bounds it either way.
 [[nodiscard]] BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
-    int areaWidth, int areaHeight, int maximumVisible = 8);
+    int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
 
 // A transfer is accepted only if the arriving candidate has a visible pane.
 // Unlike ordinary reflow, silently parking this candidate is rejection.
 [[nodiscard]] std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
-    int areaWidth, int areaHeight, int maximumVisible = 8);
+    int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
 
 } // namespace Kadunce

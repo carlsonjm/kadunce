@@ -218,6 +218,18 @@ std::vector<BentoRect> makeAlternateTwoPaneBentoLayout(bool landscape)
                                  {0.50, 0.0, 0.50, 1.0}};
 }
 
+std::vector<BentoRect> makeAlternateThreePaneBentoLayout(bool landscape)
+{
+    const double third = 1.0 / 3.0;
+    return landscape
+        ? std::vector<BentoRect>{{0.0, 0.0, third, 1.0},
+                                 {third, 0.0, third, 1.0},
+                                 {2.0 * third, 0.0, third, 1.0}}
+        : std::vector<BentoRect>{{0.0, 0.0, 1.0, third},
+                                 {0.0, third, 1.0, third},
+                                 {0.0, 2.0 * third, 1.0, third}};
+}
+
 std::vector<BentoPixelRect> makePixelBentoLayout(
     const std::vector<BentoRect> &rects,
     int areaX, int areaY, int areaWidth, int areaHeight, int gap)
@@ -245,14 +257,18 @@ BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
     int areaWidth, int areaHeight, int maximumVisible)
 {
-    const int visible = std::min({maximumVisible, 8,
+    const int visible = std::min({maximumVisible,
+                                  bentoPaneCap(areaWidth, areaHeight),
                                   static_cast<int>(candidates.size())});
-    const bool landscape = areaWidth >= areaHeight;
+    const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
     for (int count = visible; count >= 1; --count) {
         std::vector<std::vector<BentoRect>> layouts{
             makeBentoLayout(count, landscape)};
         if (count == 2) {
             layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
+        }
+        if (count == 3) {
+            layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
         }
         for (const std::vector<BentoRect> &layout : layouts) {
             std::vector<int> assignment;
@@ -278,10 +294,12 @@ std::optional<BentoAdmission> chooseBentoTransferAdmission(
             || candidate.minimumWidth < 0 || candidate.minimumHeight < 0
             || candidate.width <= 0 || candidate.height <= 0) return std::nullopt;
     }
-    const bool landscape = areaWidth >= areaHeight;
-    for (int count = std::min({maximumVisible, 8, static_cast<int>(candidates.size())}); count >= 1; --count) {
+    const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
+    for (int count = std::min({maximumVisible, bentoPaneCap(areaWidth, areaHeight),
+                               static_cast<int>(candidates.size())}); count >= 1; --count) {
         std::vector<std::vector<BentoRect>> layouts{makeBentoLayout(count, landscape)};
         if (count == 2) layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
+        if (count == 3) layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
         for (const auto &layout : layouts) {
             std::vector<int> assignment;
             if (findSubsetAssignment(candidates, count, layout, areaWidth, areaHeight,
