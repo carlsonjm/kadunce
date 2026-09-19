@@ -89,8 +89,8 @@ promotion evidence.
 
 ## Ordering rationale
 
-Four findings changed the order. They are recorded in
-`OWNERSHIP-AUDIT-20260919.md`. Findings 1 and 2 are closed by Block 2 and finding
+Four findings changed the order. They came from the 19 September ownership
+review; its evidence is archived. Findings 1 and 2 are closed by Block 2 and finding
 3 by Block 1a; they are kept here because they explain why the blocks are shaped
 the way they are. Finding 4 still stands.
 
