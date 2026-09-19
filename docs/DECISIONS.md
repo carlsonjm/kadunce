@@ -50,6 +50,58 @@ cannot see is a window they will look for somewhere else, and a retained
 association would have to be reconciled on every minimize, displace and overflow.
 Scoping to visible panes removes that reconciliation instead of automating it.
 
+### A prepared ticket carries intent, not a model
+
+Preparation proves a membership, order and grouping delta against a throwaway
+model and keeps only the delta; commit re-derives the result from the live one.
+A ticket that instead carried a model copy would write selection, page offset,
+stack face and neighbour side back into the state that issued it, discarding
+whatever the user browsed to while it was held.
+
+### Two revisions, because a ticket and a preview fear different changes
+
+`revision()` counts every state command and keeps its meaning for preview and
+carry-provenance owners. `ownershipRevision()` counts only membership, order and
+grouping. Admission and removal bind to ownership, so a reservation survives the
+user's own paging and selection while a membership change still voids it. Stack
+insertion keeps the stricter binding because its delta names the selected source
+card and a visible stack face: paging changes what that ticket means, not merely
+when it was issued. Splitting the counter is safe only because tickets no longer
+transport presentation; it was tried before that and rejected for converting a
+conservative refusal into silent view corruption.
+
+### Ownership is a value that can see all three owners
+
+`CARD-LIFECYCLE.md` §1 defines three owners, but individual cards live in the
+card stage, Bento panes in the desktop stage's per-output sessions, and Native
+only as absence from both. No object could evaluate §14's first invariant, so
+every transition maintained two containers by hand. `CardOwnership.h` reduces
+both containers to identities and evaluates the invariant in one place.
+
+It observes and never repairs. A violation it reports is a pre-existing defect
+in the caller, not a reason to refuse the caller's work, so it logs a shape once
+rather than failing a transition. Making it authoritative is a separate step.
+
+### Ownership changes only by one of six directed transitions
+
+`CARD-LIFECYCLE.md` §1 defines three owners, so there are exactly six directed
+moves between them and no seventh. `CardOwnershipLedger` is the authority for
+who owns a window and accepts only those six; a move to the owner a window
+already has is refused rather than absorbed, so a caller cannot use the ledger
+to paper over a container it failed to update. It reports where the stages'
+containers disagree with it and never repairs them, because a disagreement is a
+defect to fix rather than a difference to average away.
+
+### A prepared type is not always an ownership transition
+
+Of the five prepared types, only admission and removal change an owner, and
+those name which of the six they perform. Stack insertion is grouping inside
+card ownership, prepared drops carry destination geometry and intent, and a
+prepared carry source is read-only provenance that removes no membership.
+Expressing those three as ownership transitions would put placement and
+provenance back inside ownership tickets, which is exactly what narrowing the
+ticket payload removed.
+
 ### Admission is value-first and idempotent
 
 New-window and transfer admission is prepared on value copies, checked against

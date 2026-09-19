@@ -292,6 +292,14 @@ Effect::Effect()
         static_cast<CardStageHost *>(this));
     m_desktopStage = std::make_unique<DesktopStageController>(
         static_cast<DesktopStageHost *>(this));
+    // Assertion-only §14 observation. Both stage controllers exist now, so this
+    // is the first point that can see all three owners at once. It reports and
+    // never repairs: a violation it finds is a pre-existing defect.
+    // Window lifecycle alone is not enough: workspaceContextChanged is emitted
+    // on add, close and activate, never on a Bento or Spread transition, so the
+    // observer is also called directly from each transition below.
+    connect(this, &Effect::workspaceContextChanged, this,
+            &Effect::observeCardOwnership);
 
     if (KWin::effects->isOpenGLCompositing()
         && KWin::OffscreenEffect::supported()) {
@@ -1760,7 +1768,9 @@ void Effect::endLauncherGuest()
 
 bool Effect::toggleBentoOnOutput(const QString &outputName)
 {
-    return m_desktopStage->toggleOnOutput(outputName);
+    const bool toggled = m_desktopStage->toggleOnOutput(outputName);
+    observeCardOwnership();
+    return toggled;
 }
 
 bool Effect::handoffBentoLeadToOutput(
@@ -1954,12 +1964,18 @@ void Effect::toggle()
                 [this](const auto &projection, const auto &commit) {
                     return m_cardStage->admitBentoStack(projection, commit);
                 });
-            return; // Rejection retains Bento; never fall through to rediscovery.
+            // Rejection retains Bento; never fall through to rediscovery.
+            observeCardOwnership();
+            return;
         }
     }
     if (m_cardStage->selectedIsBentoProjection()
-        && m_cardStage->resumeSelectedBentoProjection()) return;
+        && m_cardStage->resumeSelectedBentoProjection()) {
+        observeCardOwnership();
+        return;
+    }
     m_cardStage->toggle();
+    observeCardOwnership();
 }
 
 void Effect::release()
@@ -1977,6 +1993,7 @@ void Effect::release()
         qInfo() << "Kadunce" << Revision
                 << "released output-local Bento";
     }
+    observeCardOwnership();
 }
 
 void Effect::pageLeft()
@@ -2228,6 +2245,60 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingOutput = nullptr;
 }
 
+void Effect::observeCardOwnership()
+{
+    std::vector<quintptr> cards;
+    const auto &live = m_cardStage->liveCards();
+    cards.reserve(static_cast<std::size_t>(live.size()));
+    for (const auto &window : live) {
+        if (window) cards.push_back(reinterpret_cast<quintptr>(window.data()));
+    }
+    const auto sessions = m_desktopStage->ownershipView();
+
+    // Every window whose owner changed is put to the ledger as a transition.
+    // The ledger accepts only the six the contract defines, so a change it
+    // refuses is a change §14 does not permit, reported from this one place.
+    std::vector<OwnershipViolation> reported;
+    QSet<quintptr> present;
+    const auto put = [&](quintptr window, CardOwner observed, const QString &output) {
+        present.insert(window);
+        if (m_ownership.ownerOf(window) == observed) return;
+        if (!m_ownership.transfer(window, observed, output)) {
+            reported.push_back({window, OwnershipViolation::Rule::TwoOwners, output});
+        }
+    };
+    for (const auto &session : sessions) {
+        for (const auto pane : session.panes) {
+            if (pane) put(pane, CardOwner::BentoPane, session.output);
+        }
+    }
+    for (const auto card : cards) {
+        if (card) put(card, CardOwner::IndividualCard, QString());
+    }
+    // A window that left both containers returned to Plasma.
+    for (const auto known : m_ownership.windowsOwnedAs(CardOwner::IndividualCard)) {
+        if (!present.contains(known)) put(known, CardOwner::Native, QString());
+    }
+    for (const auto known : m_ownership.windowsOwnedAs(CardOwner::BentoPane)) {
+        if (!present.contains(known)) put(known, CardOwner::Native, QString());
+    }
+
+    auto violations = m_ownership.reconcile(cards, sessions);
+    violations.insert(violations.end(), reported.cbegin(), reported.cend());
+
+    // Report a shape once. The observer runs on every published change, and a
+    // standing defect must not bury the next new one in repetition.
+    if (violations == m_observedOwnershipViolations) return;
+    for (const auto &violation : violations) {
+        if (std::find(m_observedOwnershipViolations.cbegin(),
+                      m_observedOwnershipViolations.cend(), violation)
+            != m_observedOwnershipViolations.cend()) continue;
+        qWarning() << "Kadunce card ownership:"
+                   << describeOwnershipViolation(violation);
+    }
+    m_observedOwnershipViolations = std::move(violations);
+}
+
 KWin::EffectWindow *Effect::selectedWindow() const
 {
     return m_cardStage->selectedWindow();
@@ -2260,6 +2331,9 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
+    // A destroyed window leaves ownership without a transition: it no longer
+    // exists to own, and its identity may be reused by the next allocation.
+    m_ownership.forget(reinterpret_cast<quintptr>(window));
     if (window == m_settlingWindow) clearDropSettle();
     if (window == m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     m_activationOrder.remove(windowIdentity(window));

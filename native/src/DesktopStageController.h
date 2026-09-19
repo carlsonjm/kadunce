@@ -8,6 +8,7 @@
 #include "BentoLayout.h"
 #include "BentoSidePlacement.h"
 #include "BentoProjectionSession.h"
+#include "CardOwnership.h"
 #include "DeferredCommandGuard.h"
 #include "PreparedCarrySource.h"
 #include "RestoredMinimization.h"
@@ -84,6 +85,10 @@ public:
         const std::function<void()> &releaseSource);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
+
+    // Read-only §14 observation. Reduces each live session to the identities
+    // that decide ownership; it never exposes or mutates session state.
+    [[nodiscard]] std::vector<BentoOwnershipView> ownershipView() const;
 
     [[nodiscard]] QStringList outputStageState() const;
     bool toggleOnOutput(const QString &outputName);

@@ -116,6 +116,17 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 **Status:** Complete. Block 2 is unblocked.
 
+### 1d. Make an installed candidate actually run
+
+**Status:** Ready. Found while validating Block 2 live.
+
+- [ ] `install.sh` finishes with the effect unloaded: its unload/re-enable and
+  `reconfigure` do not reload it, so the workspace is left without Kadunce until
+  something loads it. Reload it explicitly and verify the object is back.
+- [ ] KWin keeps the previous plugin image mapped across an unload, so loading
+  after an install can re-instantiate the previous build. Detect that and say so
+  rather than leaving the installer's advice to restart Plasma as the only hint.
+
 ### 1a. Free the checks from implementation shape
 
 **Status:** Complete. No check now asserts the position of an ownership symbol.
@@ -182,19 +193,41 @@ outside the three frozen layer-3 identities.
 
 ## Block 2 — Ownership foundation
 
-**Status:** Blocked by Block 1. Domain-layer; headless-verifiable.
+**Status:** Complete. Block 3 is unblocked.
 
-- [ ] Narrow prepared tickets to the membership, order and grouping delta they
+- [x] Narrow prepared tickets to the membership, order and grouping delta they
   intend. A ticket must not transport selection, page offset or neighbor side.
-- [ ] Separate ownership and presentation revisions once tickets no longer carry
+  Preparation now proves the delta against a throwaway model and keeps only the
+  intent; commit re-derives the result from the live model.
+- [x] Separate ownership and presentation revisions once tickets no longer carry
   presentation. `revision()` keeps its current meaning for preview and
   carry-provenance owners; transactions bind to the ownership revision.
-- [ ] Introduce the ownership value as an assertion-only observer across both
+  Admission and removal bind to `ownershipRevision()`, which is what Finding 2
+  reproduced. Stack insertion still binds to `revision()`: its delta names a
+  visible stack face and the selected source card, so paging changes what it
+  means rather than merely when it was issued.
+- [x] Introduce the ownership value as an assertion-only observer across both
   stage controllers, recording Native, individual card and Bento pane without
   changing behavior. Every §14 violation it reports is a pre-existing defect.
-- [ ] Make it authoritative and collapse the roughly twenty `prepare*` entry
-  points and five prepared types onto the six directed transitions the contract
-  defines.
+  `CardOwnership.h` holds the value and the audit; `DesktopStageController`
+  exposes a read-only view of each session's pane and overflow identities, and
+  `Effect` runs the audit on every published workspace change, reporting a
+  shape once so a standing defect cannot bury the next new one.
+- [x] Make it authoritative. `CardOwnershipLedger` is the authority for who owns
+  a window: a stage's observed owner is put to it as a transition, it accepts
+  only the six the contract defines, and it reports every change it refuses and
+  every container that disagrees with it. §14 is evaluated in that one place.
+- [x] Collapse the prepared types onto the six directed transitions, as far as
+  that premise holds. Only two of the five are ownership transitions, and they
+  now name which of the six they perform. `PreparedStackInsertion` is grouping
+  inside card ownership and changes no owner; `PreparedDrop` carries destination
+  geometry and drop intent; `PreparedCarrySource` is read-only source provenance
+  that removes no membership. Folding those three into ownership transitions
+  would put placement and provenance back inside ownership tickets, which is the
+  conflation Finding 3 removed in the other direction. The remaining `prepare*`
+  surface spans card membership, Bento session planning, drop placement and
+  carry provenance; consolidating the Bento half belongs to Block 3, which
+  rewrites those paths for visible-pane ownership.
 
 **Exit gate:** A held reservation survives ordinary paging and selection; a
 membership change still voids it; §14 is enforced in one place; headless and full
@@ -207,7 +240,9 @@ block requested, now expressible.
 
 - [ ] Bento owns only its visible pane combination; minimized, displaced,
   overflowed and extracted windows become independent cards with no retained
-  association.
+  association. Measured: a five-window tablet Bento yields two panes and three
+  overflow windows owned by nobody, which is three §14 violations and the
+  defect this item removes.
 - [ ] First Card or Bento entry atomically adopts every eligible window on that
   display and current virtual desktop.
 - [ ] Atomic prepared admission and removal for one logical group: selecting a

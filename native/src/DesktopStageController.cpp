@@ -114,6 +114,27 @@ bool DesktopStageController::nativeCarrySourceValid(const PreparedCarrySource &s
         && current->m_restore.output == source.m_restore.output;
 }
 
+std::vector<BentoOwnershipView> DesktopStageController::ownershipView() const
+{
+    std::vector<BentoOwnershipView> views;
+    views.reserve(static_cast<std::size_t>(m_sessions.size()));
+    const auto identity = [](const QPointer<KWin::EffectWindow> &window) {
+        return reinterpret_cast<quintptr>(window.data());
+    };
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        BentoOwnershipView view;
+        view.output = it.key();
+        for (const auto &window : it.value().windows) {
+            if (window) view.panes.push_back(identity(window));
+        }
+        for (const auto &window : it.value().overflow) {
+            if (window) view.overflow.push_back(identity(window));
+        }
+        views.push_back(std::move(view));
+    }
+    return views;
+}
+
 QStringList DesktopStageController::outputStageState() const
 {
     QStringList state;

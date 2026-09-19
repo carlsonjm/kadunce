@@ -180,24 +180,21 @@ int main() {
         && state.invariantHolds(), "Accepted removal failed");
     require(!state.commitRemoval(duplicate), "Duplicate removal committed");
 
-    // Every semantic command invalidates prepared source state, even when
-    // it happens to leave the same visible selection (ABA protection).
-    const std::vector<std::function<void()>> changes{
+    // Every membership, order or grouping command invalidates prepared source
+    // state, even when it happens to leave the same visible selection (ABA
+    // protection).
+    const std::vector<std::function<void()>> ownershipChanges{
         [&] { state.clear(); },
         [&] { state.reset({u"a"_s, u"b"_s, u"c"_s}, 0); },
         [&] { state.append(u"d"_s, true); },
         [&] { state.removeAt(2); },
-        [&] { state.page(1); state.page(-1); },
-        [&] { state.pageStack(1); },
-        [&] { state.selectIndex(0); },
         [&] { state.moveSelected(1); },
-        [&] { state.setPairNeighborSide(-1); },
         [&] { state.stackSelectedWith(2); },
         [&] { state.detachSelectedMember(); },
         [&] { state.restoreDetachedMember(); },
         [&] { state.commitDetachedMember(); },
     };
-    for (const auto &change : changes) {
+    for (const auto &change : ownershipChanges) {
         state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
         auto pending = state.prepareRemoval(u"a"_s);
         auto incoming = state.prepareAdmission(u"incoming"_s, true);
@@ -210,6 +207,101 @@ int main() {
             && sourceCalls == 0 && state.windows() == current,
             "Stale destination touched source or replaced state");
     }
+
+    // A reservation is held across the user's own browsing. Paging, selecting a
+    // face and changing the neighbour side are presentation, so they must not
+    // void a ticket, and committing one afterwards must leave the view the user
+    // is looking at exactly as they left it.
+    const std::vector<std::function<void()>> presentationChanges{
+        [&] { state.page(1); },
+        [&] { state.page(1); state.page(-1); },
+        [&] { state.pageStack(1); },
+        [&] { state.selectIndex(2); },
+        [&] { state.setPairNeighborSide(-1); },
+    };
+    for (const auto &change : presentationChanges) {
+        // Admission held across the user's browsing.
+        state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
+        require(state.stackSelectedWith(2), "Presentation setup stack failed");
+        auto incoming = state.prepareAdmission(u"incoming"_s, false);
+        require(incoming.has_value(), "Admission reservation was not prepared");
+        change();
+        // The browsing state the held ticket must not disturb: the grouped
+        // stack's order and visible face, plus the neighbour side.
+        int grouped = state.indexOf(u"a"_s) + 1;
+        const auto members = state.stackMembersForId(grouped);
+        const int face = state.stackActivePositionForId(grouped);
+        int side = state.pairNeighborSide();
+        const auto ownership = state.ownershipRevision();
+        require(state.commitAdmission(*incoming, [] { return true; }),
+            "Ordinary paging or selection voided a held admission");
+        require(state.indexOf(u"incoming"_s) >= 0 && state.invariantHolds(),
+            "Committed admission did not publish the newcomer");
+        require(state.ownershipRevision() != ownership,
+            "Committed admission did not advance the ownership revision");
+        // A snapshot payload would have written the prepare-time model back and
+        // discarded the browsing above. An intent payload cannot.
+        grouped = state.indexOf(u"a"_s) + 1;
+        require(state.stackMembersForId(grouped) == members
+            && state.stackActivePositionForId(grouped) == face
+            && state.pairNeighborSide() == side,
+            "Committed admission reverted the live stack face or neighbour side");
+
+        // Removal held across the same browsing, against its own reservation.
+        state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
+        require(state.stackSelectedWith(2), "Presentation setup stack failed");
+        auto pending = state.prepareRemoval(u"c"_s);
+        require(pending.has_value(), "Removal reservation was not prepared");
+        change();
+        side = state.pairNeighborSide();
+        require(state.commitRemoval(*pending) && state.indexOf(u"c"_s) < 0
+            && state.invariantHolds(),
+            "Ordinary paging or selection voided a held removal");
+        require(state.pairNeighborSide() == side,
+            "Committed removal reverted the live neighbour side");
+    }
+
+    // A presentation change does not license a stale ticket: the membership
+    // guard still applies underneath it.
+    state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
+    {
+        auto pending = state.prepareRemoval(u"a"_s);
+        state.page(1);
+        state.append(u"d"_s, false);
+        state.page(-1);
+        const auto current = state.windows();
+        require(!state.commitRemoval(*pending) && state.windows() == current,
+            "Paging concealed a membership change from a held removal");
+    }
+    // A membership ticket names which of the six directed transitions it
+    // performs, so the owner a commit produces is stated rather than inferred.
+    // Grouping is not one of them: a card joining a stack stays a card.
+    {
+        state.reset({u"a"_s, u"b"_s, u"c"_s}, 0);
+        const auto release = state.prepareRemoval(u"a"_s);
+        require(release && release->transition() == OwnershipTransition::ReleaseCard,
+            "A removal did not default to releasing a card to Plasma");
+        const auto toBento = state.prepareRemoval(u"a"_s, OwnershipTransition::CardToBento);
+        require(toBento && toBento->transition() == OwnershipTransition::CardToBento,
+            "A removal into Bento did not carry its transition");
+
+        const auto admit = state.prepareAdmission(u"incoming"_s, false);
+        require(admit && admit->transition() == OwnershipTransition::AdmitToCard,
+            "An admission did not default to adopting a native window");
+        const auto fromBento = state.prepareAdmission(u"incoming"_s, false,
+            OwnershipTransition::BentoToCard);
+        require(fromBento && fromBento->transition() == OwnershipTransition::BentoToCard,
+            "An admission from Bento did not carry its transition");
+        // A whole Bento composition entering Spread is the same directed step.
+        CardWorkspaceState<QString> importer;
+        const auto imported = importer.prepareStackAdmission({u"p"_s, u"q"_s});
+        require(imported && imported->transition() == OwnershipTransition::BentoToCard,
+            "A Bento import did not carry the BentoToCard transition");
+        // Naming the transition changes nothing about what a commit does.
+        require(state.commitRemoval(*release) && state.indexOf(u"a"_s) < 0,
+            "A transition-typed removal stopped committing");
+    }
+
     state.reset({u"only"_s}, 0);
     auto last = state.prepareRemoval(u"only"_s);
     require(state.commitRemoval(*last) && state.windows().isEmpty()

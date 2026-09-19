@@ -60,6 +60,12 @@ duplicates, while excluding overflow and omitting stack position.
   Spread neighbors when a projected Bento group resumes. Both behaviors are
   superseded by the approved visible-pane ownership contract and require a protected
   ownership refactor before top-edge extraction can be promoted.
+  Measured on a live two-output session: entering Bento on the tablet with five
+  eligible windows produced two visible panes and three overflow windows, and
+  none of the three held individual-card ownership. `CARD-LIFECYCLE.md` §14
+  gives every window outside the visible combination to the card stage, so each
+  is one violation. The same measurement found no window with two owners, no
+  display with two Bento layouts, and no effect on the other output.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
 - Native-to-stack admission is not one atomic destination transaction.
@@ -90,6 +96,13 @@ Physical review has accepted ownership, constrained launch routing, stack retent
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
+
+Installing a candidate does not by itself put it in the running compositor.
+`install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the
+previous plugin image mapped across an unload, so a freshly loaded effect can
+still be the previous build. A compositor restart is what replaces the image,
+and until one happens an installed candidate is unexercised. The ownership
+observer is therefore not yet live-verified.
 
 ## Safety
 

@@ -269,6 +269,12 @@ private:
     QAction *m_stackPreviousAction = nullptr;
     QAction *m_stackNextAction = nullptr;
     QAction *m_bentoAction = nullptr;
+    void observeCardOwnership();
+    // The authority for who owns a window. Both stages' containers are checked
+    // against it; it is never repaired from them.
+    CardOwnershipLedger m_ownership;
+    std::vector<OwnershipViolation> m_observedOwnershipViolations;
+
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
