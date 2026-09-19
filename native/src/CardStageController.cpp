@@ -167,6 +167,25 @@ bool CardStageController::selectedIsBentoProjection() const
         && usesBentoProjectionAperture(selectedWindow());
 }
 
+// Whether the user has the Bento group selected, which is not the same question
+// as whether the selected window is itself a painted pane. The group is admitted
+// as one stack holding its panes and the windows retained beside them, so paging
+// inside that stack, or a card inserted into it, moves the selection off a pane
+// without moving it off the group. Resume asks this; the callers that suppress
+// per-card behavior keep asking the narrower question.
+bool CardStageController::selectedIsBentoGroup() const
+{
+    if (!m_bentoProjectionSession || !selectedWindow()) return false;
+    if (usesBentoProjectionAperture(selectedWindow())) return true;
+    const int selected = m_workspace.selectedId();
+    for (const auto &pane : m_bentoProjectionPaneWindows) {
+        if (!pane) continue;
+        const int id = m_workspace.indexOf(pane) + 1;
+        if (id > 0 && m_workspace.sameStack(id, selected)) return true;
+    }
+    return false;
+}
+
 QList<QPointer<KWin::EffectWindow>> CardStageController::bentoProjectionPanes() const
 {
     return m_bentoProjectionPaneWindows;
@@ -1458,7 +1477,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
 bool CardStageController::resumeSelectedBentoProjection()
 {
     if (!m_active || m_presentation != CardPresentation::Spread
-        || !selectedIsBentoProjection() || !m_bentoProjectionSession
+        || !selectedIsBentoGroup() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
     const BentoProjectionSession projection = *m_bentoProjectionSession;
     const auto allWindows = m_workspace.windows();
@@ -1478,7 +1497,7 @@ bool CardStageController::resumeSelectedBentoProjection()
         [this, projectionWindows, &committed] {
             committed = commitResumeHandback(
                 [&] {
-                    if (!m_active || !selectedIsBentoProjection()) return false;
+                    if (!m_active || !selectedIsBentoGroup()) return false;
                     m_transferGuard.invalidate();
                     m_host->cancelInputForCardStage();
                     clearCardTransition();

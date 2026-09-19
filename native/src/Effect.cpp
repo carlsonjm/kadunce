@@ -1993,7 +1993,16 @@ void Effect::activateSelectedFromInput()
             && !nativeWindowInteractionForInput() && !m_cardStage->cardGrabActive()
             && !m_cardStage->launcherGuestActive() && m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::Spread) {
-            if (!m_cardStage->resumeSelectedBentoProjection()) {
+            // CARD-LIFECYCLE.md section 6: selecting the Bento group resumes
+            // the group. A refused resume is not an invitation to try the
+            // individual-card path on it, which cannot admit a pane and leaves
+            // the selection doing nothing at all.
+            if (m_cardStage->selectedIsBentoGroup()) {
+                if (!m_cardStage->resumeSelectedBentoProjection()) {
+                    qWarning() << "Kadunce" << Revision
+                               << "declined to resume the selected Bento group";
+                }
+            } else {
                 toggle();
             }
         }
@@ -2017,8 +2026,11 @@ void Effect::toggle()
             return;
         }
     }
-    if (m_cardStage->selectedIsBentoProjection()
-        && m_cardStage->resumeSelectedBentoProjection()) {
+    if (m_cardStage->selectedIsBentoGroup()) {
+        if (!m_cardStage->resumeSelectedBentoProjection()) {
+            qWarning() << "Kadunce" << Revision
+                       << "declined to resume the selected Bento group";
+        }
         observeCardOwnership();
         return;
     }
