@@ -30,7 +30,8 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `../SWARM.md` | live cross-worker dependencies only |
 | `README.md` | document classification and routing |
 | `CURRENT_STATE.md` | current behavior, limitations, provenance boundary, validation |
-| `NEXT-ROADMAP.md` | sole execution plan |
+| `ROADMAP-CC.md` | execution plan: block order, dependencies and open product decisions |
+| `NEXT-ROADMAP.md` | per-component task detail consumed by `ROADMAP-CC.md` |
 | `ARCHITECTURE.md` | subsystem ownership and invariants |
 | `DECISIONS.md` | durable subsystem-grouped decision ledger |
 | `PRODUCT-CONTRACT.md` | accepted Kadunce product behavior |
