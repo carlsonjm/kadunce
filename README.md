@@ -157,6 +157,12 @@ Run the repository checks before proposing a build:
 ./tests/verify-control.sh
 ```
 
+`./tests/verify-headless.sh` builds and runs the native domain tests that do not
+link KWin. It needs only a C++20 compiler and Qt6Core, so it also runs where the
+Plasma development stack is unavailable. Use it as a fast pre-check; it does not
+replace the full suite, the KWin-linked tests, package and control checks, or
+physical review.
+
 Changes to the compositor also require a clean login session and physical testing. See `docs/KNOWN-ISSUES.md` and `docs/TEST-ENVIRONMENT-PROCEDURE.md`.
 
 ## License
