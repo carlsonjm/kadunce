@@ -102,8 +102,10 @@ python3 -m json.tool "${metadata_file}" >/dev/null
 bash -n "${install_script}"
 
 retired_brand='web''os|pa''lm|ghostie''post|chrome''os'
+# TERMINOLOGY.md is the document that defines these as retired, so it must name
+# them, exactly as this guard names them without matching itself.
 if rg -ni "${retired_brand}" "${project_dir}" \
-        --glob '!.git/**'; then
+        --glob '!.git/**' --glob '!docs/TERMINOLOGY.md'; then
     echo "Kadunce contains retired product or development-machine branding" >&2
     exit 1
 fi

@@ -88,33 +88,40 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 - [ ] Keep the packaging, service-name and plugin-identity greps; they assert
   installed facts rather than implementation shape.
 
-### 1b. Normalize terminology to Spread
+### 1b. Apply the terminology contract
 
-Card Line is prototype vocabulary; Spread is the accepted product term and the
-READMEs already use it. This runs after 1a because the current checks match
-symbol text, and before Block 2 because Blocks 2 and 3 rewrite exactly the code
-that carries the old name. Renaming afterwards would touch those lines twice and
-would let new ownership code be written in retired vocabulary.
+`TERMINOLOGY.md` holds the approved and retired language and the three-layer
+rule. This step applies layers 1 and 2 only; layer 3, package and interface
+identity, is Block 10b.
 
-Measured scope: 248 occurrences across 27 Kadunce source files, 6 filenames,
-15 live Kadunce documents and 4 Tettegouche documents. No Tettegouche or
-Temperance source depends on the term.
+This runs after 1a because the current checks match symbol text, and before
+Block 2 because Blocks 2 and 3 rewrite exactly the code that carries the retired
+name. Renaming afterwards would touch those lines twice and would let new
+ownership code be written in retired vocabulary.
+
+Measured scope for Card Line to Spread: 248 occurrences across 27 Kadunce source
+files, 6 filenames, 15 live Kadunce documents and 4 Tettegouche documents. No
+Tettegouche or Temperance source depends on the term.
 
 - [ ] Rename code symbols, filenames and live documentation in one mechanical
   commit with no behavior change, reviewable and bisectable on its own.
-- [ ] Leave `docs/archive/` unchanged. Archived evidence preserves the language
-  of its own candidate.
-- [ ] Leave the published `cardLine` context value alone. It is a wire string,
-  not vocabulary; `WorkspaceContext.cpp` parses only `schema`, `version`,
-  `applications`, `appId`, `title`, `windowId`, `focused`, `selected`,
-  `lastActivated` and `focus`, so nothing consumes it today. Retire it in a
-  coordinated schema version when that schema next changes for another reason.
+- [ ] Confirm consumer-facing text uses Workspace, Spread, Search, Status Bar and
+  Ambient as the contract defines them.
+- [ ] Leave `docs/archive/` unchanged.
+- [ ] Leave every identifier in layer 3 unchanged, including the `Q_SCRIPTABLE`
+  `showCardLine` method and the `cardLine` context value. Both are on the public
+  surface; retiring them is a versioned protocol change, not a vocabulary pass.
+- [ ] Extend the retired-identity guard from `tettegouche/tests/verify-source.sh`
+  to Kadunce and Temperance, then add retired vocabulary to its pattern so the
+  rename cannot regress.
 
 ### 1c. Retire duplicated invariant text
 
 - [ ] Reduce the duplicated invariant text across `ARCHITECTURE.md`,
   `DECISIONS.md`, `PRODUCT-CONTRACT.md` and `CURRENT_STATE.md` to one owner per
   invariant, so a later ownership change cannot leave four documents disagreeing.
+- [ ] Decide whether `NEXT-ROADMAP.md` is retired into this file or kept as
+  component task detail, and make the index say which.
 
 **Exit gate:** The full suite passes, no check fails purely because a symbol
 moved, and no live document or source symbol still says Card Line.
@@ -175,28 +182,34 @@ stuck input, broken restoration, cross-output leak, or failed disable control.
 **Exit gate:** Physical review accepts manipulation on supported hardware, and
 user-facing terminology matches the contract.
 
-## Block 5 — Shuffle dock
+## Block 5 — Bottom Surface
 
 **Status:** Parallel with Blocks 1–4; different repository and disjoint physical
 checks. Requires Block 10a first.
 
-The dock is a paid product feature and lives in the private Shuffle repository.
+Bottom Surface is the single layout authority for the Status Bar, Shuffle Dock,
+Ambient and the Keyboard boundary. Treating it as one authority is the point:
+today those surfaces negotiate width independently, which is why Ambient and the
+ticker sit asymmetrically against a third-party dock.
+
+It is a paid product feature and lives in the private Shuffle repository.
 Tettegouche and Temperance must remain fully functional without it: the dock
 optimizes their composition, and is never a dependency of it. An open-source
 installation that lacks the dock is a supported configuration, not a degraded
 one.
 
 - [ ] Complete Block 10a so the private repository exists to hold it.
-- [ ] Establish the dock's reserved geometry and work-area contract, including
-  what Kadunce's dock clearance and Tettegouche's responsive composition consume.
-- [ ] Resolve the asymmetric Ambient and ticker width caused by the third-party
-  dock.
-- [ ] Define the keyboard mount region as part of the same geometry contract, so
-  Block 8 inherits it rather than negotiating it.
+- [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
+  Kadunce's dock clearance and Tettegouche's responsive composition consume.
+- [ ] Implement Shuffle Dock as minimal task and application presentation inside
+  that surface.
+- [ ] Resolve the asymmetric Ambient and ticker width.
+- [ ] Define the Keyboard boundary in the same contract, so Block 9 inherits it
+  rather than negotiating it.
 
-**Exit gate:** Ambient, ticker and task dock are physically symmetric at tablet
-and monitor widths, and the keyboard mount region is specified without a keyboard
-existing.
+**Exit gate:** Status Bar, Ambient and Shuffle Dock are physically symmetric at
+tablet and monitor widths, and the Keyboard boundary is specified without a
+keyboard existing.
 
 ## Block 6 — Tettegouche completion
 
@@ -264,6 +277,27 @@ latency, wrong keymaps, focus loss or unreliable show and hide block release.
 If no system-backed base proves viable, this block returns a scope decision to J
 rather than a custom input engine.
 
+## Block 9b — Shuffle Lock
+
+**Status:** Blocked by Block 9. No contract, concept document or implementation
+exists anywhere in the three repositories; the term appears in zero files. This
+is the largest undocumented 1.0 commitment.
+
+Shuffle Lock is a privacy-first presentation over the trusted system lock and
+authentication. It depends on the Keyboard, because authenticating on a tablet
+without physical peripherals requires it.
+
+- [ ] Author the product contract: what is concealed, what is shown, and what
+  the user can do before authenticating.
+- [ ] Confirm KDE's screen locker remains the authentication authority. Shuffle
+  presents; it never handles credentials or replaces the lock.
+- [ ] Prove the Keyboard is available and correct on the lock surface.
+- [ ] Define behavior on failure, interruption, timeout and multiple displays.
+
+**Exit gate:** The lock surface conceals workspace content, authenticates
+through the system locker, accepts Keyboard input reliably, and a failure in
+Shuffle presentation never leaves a session unlocked or unrecoverable.
+
 ## Block 10a — Private repository
 
 **Status:** Ready. Pulled ahead of the rest of Block 10 because Block 5 lives
@@ -287,6 +321,26 @@ below.
 **Exit gate:** A fresh supported machine installs, updates, rolls back and
 uninstalls Shuffle without repository knowledge, with the disable control
 functional at every step.
+
+## Block 10b — Package and interface identity
+
+**Status:** Blocked by Block 10a. Coordinated across all three repositories.
+
+Layer 3 of `TERMINOLOGY.md`. Two namespaces are in use, `studio.warbler.*` and
+`io.github.carlsonjm.*`, neither reflecting the publisher, and Tettegouche
+hard-codes `studio.warbler.Kadunce` in seven call sites.
+
+- [ ] Choose the Good Input reverse-DNS namespace.
+- [ ] Rename service, interface, plugin and desktop-entry identifiers together,
+  including the `showCardLine` method and the `cardLine` context value.
+- [ ] Bump the workspace-context schema and launcher-guest protocol versions, and
+  update Tettegouche's supported versions in the same release.
+- [ ] Document the migration. Temperance 1.1.0 already showed that a package
+  identity change forces users to remove and re-add the widget.
+
+**Exit gate:** One namespace across the suite, no retired vocabulary on any
+public surface, and a clean install and upgrade path on a machine that has the
+previous identities installed.
 
 ## Block 11 — Host and public site
 
@@ -315,15 +369,19 @@ These block later work and are not engineering calls.
    toolchain on every consumer installation, which is a developer workaround
    rather than a consumer mechanism.
 
-   Recommendation: distribute the plugin as a package from a Good Input pacman
-   repository, built per KWin release in CI, so the user receives a corrected
-   plugin through ordinary system updates. One supported distribution makes this
-   cheap, and it centralizes maintenance in one pipeline instead of making every
-   user's machine a build environment. Keep the guided repair as the bridge for
-   the window between a Plasma update and a published rebuild, not as the
-   primary path. Decide before Block 10.
-2. **Roadmap authority.** Whether `NEXT-ROADMAP.md` is retired in favor of this
-   file or kept as the component task detail it now supplies. Retained for now.
+   **Approved direction:** distribute the plugin as a package from a Good Input
+   pacman repository, built per KWin release in CI, so the user receives a
+   corrected plugin through ordinary system updates. One supported distribution
+   makes this cheap and centralizes maintenance in one pipeline instead of making
+   every user's machine a build environment.
+
+   **Scheduled in Block 10**, not before. Until the consumer bundle exists there
+   is no repository to publish to and no consumer to protect; the guided repair
+   is adequate for development machines, where the toolchain is present anyway.
+
+2. **Shuffle Lock scope.** Block 9b has no contract yet. What the lock surface
+   conceals and what remains usable before authentication is a product decision
+   that must precede its feasibility work.
 
 ## Progress update rule
 

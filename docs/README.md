@@ -49,6 +49,7 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `OWNERSHIP-AUDIT-20260919.md` | card ownership representation findings gating the ownership block |
 | `TEST-ENVIRONMENT-PROCEDURE.md` | private/live test separation and failure classification |
 | `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
+| `TERMINOLOGY.md` | suite-wide approved and retired language, and the rules for applying it |
 | `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |
 | `KADUNCE-TABLE-1.1-CONCEPT.md` | required Table product contract and feasibility gate |
 | `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` | required keyboard product contract and feasibility gate |
