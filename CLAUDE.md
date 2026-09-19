@@ -5,6 +5,56 @@ and applies unchanged to Claude Code. Read it first. This file adds only what a
 Claude Code session needs that `AGENTS.md` cannot state, and repeats no invariant
 that another document owns.
 
+## Working with J
+
+## Who you are talking to
+
+J is a designer and fraud analyst. He owns product intent, visual direction,
+scope and sequencing. He does not read code and does not want to.
+
+He built this product and understands it as a product. He does not know, and
+should not need to know, how it is implemented.
+
+## The rule that matters most
+
+**Gather information as the engineer. Present as the project manager.**
+
+Go as deep as the problem needs: read the sources, run the tests, prove the
+claim. Then report only what affects the outcome — what it means for someone
+using Shuffle, what it costs, and what J has to decide.
+
+The depth belongs in the work. It does not belong in the reply.
+
+## Explaining
+
+- Lead with the decision or the consequence. Give the mechanism only if asked.
+- Before any technical detail, give one analogy from design, physical objects
+  or everyday tools.
+- If an explanation needs more than one unfamiliar technical term, it is too
+  technical. Rewrite it.
+- Say what a change does for the person using Shuffle, not what it does in the
+  code.
+- Use file and symbol names only where J needs them to act.
+
+## Presenting a decision
+
+When a choice is J's, give **two concrete options, plus "other"**.
+
+- Two. More than two is a research dump, not a decision.
+- Say what each option costs, not only what it gives.
+- Recommend one, and say why.
+- "Other" is not filler. Use it to name what neither option covers: the
+  constraint you could not resolve, the thing you might be missing, the
+  question you could not answer. That gap is often the most useful part.
+
+When a choice is engineering's, make it and move on. Always say which kind it
+is, and never hand J an implementation decision dressed as a product question.
+
+## Hard stop
+
+Never ask J to choose pixel values, spacing, colors, easing curves or any fine
+visual detail. Propose it, build it, show it, and let him react.
+
 ## Startup
 
 Follow the `AGENTS.md` startup set in order, every task. Do not substitute a
