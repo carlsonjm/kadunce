@@ -77,7 +77,9 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** Ready. No product decision required.
+**Status:** Ready. No product decision required. Steps are strictly ordered.
+
+### 1a. Free the checks from implementation shape
 
 - [ ] Convert the six source-order assertions in `tests/verify-source.sh` to
   behavioral coverage of the same invariants: destination acceptance before
@@ -85,12 +87,37 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
   before resume commits.
 - [ ] Keep the packaging, service-name and plugin-identity greps; they assert
   installed facts rather than implementation shape.
+
+### 1b. Normalize terminology to Spread
+
+Card Line is prototype vocabulary; Spread is the accepted product term and the
+READMEs already use it. This runs after 1a because the current checks match
+symbol text, and before Block 2 because Blocks 2 and 3 rewrite exactly the code
+that carries the old name. Renaming afterwards would touch those lines twice and
+would let new ownership code be written in retired vocabulary.
+
+Measured scope: 248 occurrences across 27 Kadunce source files, 6 filenames,
+15 live Kadunce documents and 4 Tettegouche documents. No Tettegouche or
+Temperance source depends on the term.
+
+- [ ] Rename code symbols, filenames and live documentation in one mechanical
+  commit with no behavior change, reviewable and bisectable on its own.
+- [ ] Leave `docs/archive/` unchanged. Archived evidence preserves the language
+  of its own candidate.
+- [ ] Leave the published `cardLine` context value alone. It is a wire string,
+  not vocabulary; `WorkspaceContext.cpp` parses only `schema`, `version`,
+  `applications`, `appId`, `title`, `windowId`, `focused`, `selected`,
+  `lastActivated` and `focus`, so nothing consumes it today. Retire it in a
+  coordinated schema version when that schema next changes for another reason.
+
+### 1c. Retire duplicated invariant text
+
 - [ ] Reduce the duplicated invariant text across `ARCHITECTURE.md`,
   `DECISIONS.md`, `PRODUCT-CONTRACT.md` and `CURRENT_STATE.md` to one owner per
   invariant, so a later ownership change cannot leave four documents disagreeing.
 
-**Exit gate:** The full suite passes, and no check in the repository fails purely
-because a symbol moved.
+**Exit gate:** The full suite passes, no check fails purely because a symbol
+moved, and no live document or source symbol still says Card Line.
 
 ## Block 2 — Ownership foundation
 
@@ -150,10 +177,16 @@ user-facing terminology matches the contract.
 
 ## Block 5 — Shuffle dock
 
-**Status:** Ready in parallel with Blocks 1–4; different repository and disjoint
-physical checks. Requires a product decision on ownership and placement.
+**Status:** Parallel with Blocks 1–4; different repository and disjoint physical
+checks. Requires Block 10a first.
 
-- [ ] Decide which repository owns the custom panel and centered applet dock.
+The dock is a paid product feature and lives in the private Shuffle repository.
+Tettegouche and Temperance must remain fully functional without it: the dock
+optimizes their composition, and is never a dependency of it. An open-source
+installation that lacks the dock is a supported configuration, not a degraded
+one.
+
+- [ ] Complete Block 10a so the private repository exists to hold it.
 - [ ] Establish the dock's reserved geometry and work-area contract, including
   what Kadunce's dock clearance and Tettegouche's responsive composition consume.
 - [ ] Resolve the asymmetric Ambient and ticker width caused by the third-party
@@ -231,12 +264,19 @@ latency, wrong keymaps, focus loss or unreliable show and hide block release.
 If no system-backed base proves viable, this block returns a scope decision to J
 rather than a custom input engine.
 
-## Block 10 — Private assembly and installation
+## Block 10a — Private repository
 
-**Status:** Blocked by Block 9. Requires the compatibility decision below.
+**Status:** Ready. Pulled ahead of the rest of Block 10 because Block 5 lives
+here.
 
 - [ ] Establish the Good Input organization and private Shuffle repository.
-- [ ] Document the public component and private product boundary.
+- [ ] Document the public component and private product boundary, including the
+  rule that components never depend on private features.
+
+## Block 10 — Private assembly and installation
+
+**Status:** Blocked by Blocks 9 and 10a. Requires the compatibility decision
+below.
 - [ ] Consume pinned component versions with provenance; give the product a
   version identity distinct from component versions.
 - [ ] Provide one Fish-safe installer with dependency detection.
@@ -264,16 +304,26 @@ provides a complete supported installation path.
 
 These block later work and are not engineering calls.
 
-1. **Compatibility policy.** Kadunce's plugin requires a rebuild after a KWin ABI
-   change, and the tray's on-disk check cannot prove a running pre-upgrade
-   compositor will load a rebuilt plugin. A rolling distribution can ship a
-   Plasma update between sessions. Decide what a paying user experiences on that
-   day before Block 10.
-2. **Dock ownership.** Whether the custom panel and dock live in a component
-   repository or the private product repository determines whether Block 5 can
-   proceed before Block 10 exists.
-3. **Roadmap authority.** Whether `NEXT-ROADMAP.md` is retired in favor of this
-   file or kept as the component task detail it now supplies.
+1. **Compatibility policy.** KDE publishes no stable KWin effect ABI, so a
+   Plasma update can leave the installed plugin unloadable. The failure is
+   already safe: KWin declines the plugin, the tray switch persists, and the
+   desktop keeps working. What remains is how a paying user gets a working
+   plugin back.
+
+   The current guided repair rebuilds a retained source snapshot on the user's
+   machine. That requires a full C++, Qt, KDE Frameworks and KWin development
+   toolchain on every consumer installation, which is a developer workaround
+   rather than a consumer mechanism.
+
+   Recommendation: distribute the plugin as a package from a Good Input pacman
+   repository, built per KWin release in CI, so the user receives a corrected
+   plugin through ordinary system updates. One supported distribution makes this
+   cheap, and it centralizes maintenance in one pipeline instead of making every
+   user's machine a build environment. Keep the guided repair as the bridge for
+   the window between a Plasma update and a published rebuild, not as the
+   primary path. Decide before Block 10.
+2. **Roadmap authority.** Whether `NEXT-ROADMAP.md` is retired in favor of this
+   file or kept as the component task detail it now supplies. Retained for now.
 
 ## Progress update rule
 
