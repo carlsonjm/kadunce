@@ -45,6 +45,7 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `INTEGRATION-RELEASE-GATE.md` | candidate promotion evidence |
 | `REFACTOR-REGRESSION-GATE.md` | behavior preserved across structural change |
 | `KNOWN-ISSUES.md` | current limitations and compatibility constraints |
+| `OWNERSHIP-AUDIT-20260919.md` | card ownership representation findings gating the ownership block |
 | `TEST-ENVIRONMENT-PROCEDURE.md` | private/live test separation and failure classification |
 | `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
 | `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |
