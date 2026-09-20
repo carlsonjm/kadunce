@@ -317,6 +317,13 @@ contract rather than the one it replaced, so a green run is evidence about the
 implementation instead of evidence that the old behavior survived. They remain
 automated coverage and do not stand in for physical review.
 
+Top-edge extraction has since landed on the same branch, together with the rule
+that gives it a destination: a layout that falls to one visible pane ends into
+card ownership rather than into Plasma. On the tablet, whose maximum is two
+panes, extracting one therefore ends the layout and leaves two individual cards,
+the carried one Active. `./verify.sh`, which runs the full native CTest, passes,
+and `active-admission-session.sh` is live again.
+
 One property is worth carrying into the physical checks, because automated
 coverage cannot reach it: a gesture that needs a pane to yield must leave the
 display unchanged when it is refused. An adversarial review found every
@@ -437,8 +444,13 @@ source-order assertions with behavioral coverage.
   line 38 and did so before this block. Its second snap asserts a quarter pane
   and line 39 asserts three panes on a display whose cap Block 3b set to two, so
   it states the grammar 3b deliberately left dormant rather than a defect. It is
-  3b's record to settle, not this block's, and it is the one isolated probe that
-  does not gate this one.
+  3b's record to settle, not this block's.
+- [ ] Settle `tablet-entry-runtime`, which fails at its line 31 both on this
+  branch and on the commit before this work, so it reports something older than
+  either item here: after `showCardLine` a press on the display starts neither a
+  native carry nor a Spread grab, and the probe never reaches an edge to test.
+  Together with `column-runtime` these are the two isolated probes that do not
+  gate this block.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread
@@ -483,8 +495,9 @@ source-order assertions with behavioral coverage.
   window fails `Effect::isCardWindow`, so `admitTransferredWindowToTablet`
   refuses it and the session keeps its record instead, carrying it as a sleeping
   projection member. Making §7's sleeping card real means letting card ownership
-  hold a sleeping window, which is card-stage admission work and reaches §5's
-  one-remaining-pane rule below.
+  hold a sleeping window, which is card-stage admission work. It is also what
+  the one-remaining-pane rule waits on: a session still holding a sleeping
+  window does not end, because ending it would have nowhere to put that window.
 - [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
   is the one holding the side the card was released into, per §5. No interaction
   history decides it, so the user can see which pane will yield while dragging.
@@ -508,9 +521,21 @@ source-order assertions with behavioral coverage.
   display and current virtual desktop.
 - [ ] Atomic prepared admission and removal for one logical group: selecting a
   group transfers only that group; selecting an individual preserves the group.
-- [ ] Rebuild top-edge Active extraction on that contract, covering both
+- [x] Rebuild top-edge Active extraction on that contract, covering both
   selection paths, rollback, repeated transitions, release, unload and
-  other-output isolation.
+  other-output isolation. §5's top-edge departure and §10's top edge are one
+  answer, so the edge decision now reads the same whether the carried window is
+  a card or a live pane, and only the source differs. The carry seam no longer
+  declines the whole decision on a display with a layout; it declines the snaps
+  §5 owns, which is every one but the top edge. A pane gives up Bento ownership
+  in the same published step that makes it a card, so the layout it left is
+  never observed still naming it, and `tests/unload-probe/active-admission-session.sh`
+  is live again on the two `BentoProbe` methods it was parked for.
+  What that probe cannot reach is the seam itself: no display the harness
+  creates is an internal panel, so none of them can own cards, and the gesture
+  decision only exists where one can. The departure, the ending and both
+  selection paths are covered; the gesture that triggers them is owed physical
+  review like the rest of the branch.
 - [x] Give the Bento shortcut an entry rule of its own, since it carries no
   window and contacts no edge. It now follows `PRODUCT-CONTRACT.md` and targets
   the external display while one is attached, otherwise the tablet; targeting
@@ -519,10 +544,17 @@ source-order assertions with behavioral coverage.
   does, with the Active card on the left and its partner the nearest eligible
   card to its right, so it composes two named windows rather than the display.
   The pointer-targeted path is removed rather than left as a second rule.
-- [ ] End a layout into card ownership, not into Plasma. Ending a session now
-  tells Card Stage to stop presenting Bento, but the panes themselves still
-  restore as ordinary desktop windows, so §5's one-remaining-pane rule has
-  nothing to hand a card to.
+- [x] End a layout into card ownership, not into Plasma. §5's
+  one-remaining-pane rule now has a destination: a layout that falls to one
+  visible pane hands that pane to card ownership by the same eviction a window
+  the layout cannot show uses, so the card keeps its pre-Bento record and §13
+  keeps the native desktop for release and disable alone. Closure, shedding and
+  a pane leaving for another display all reach the rule; a display that cannot
+  own cards keeps its single pane, because §5's destination does not exist
+  there. `DECISIONS.md` § A layout ends into card ownership records both, and
+  the one case left out: a session still holding a §7 sleeping window does not
+  end, because card ownership cannot yet hold one. That is the same gap as the
+  minimized-pane item above and closes with it.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
 repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
@@ -531,8 +563,9 @@ an installed candidate. Two symptoms measured on the installed candidate must
 be gone: activating a window the layout could not show brings it forward from the
 Plasma task manager instead of being re-minimized by the next solve, and a pane
 dragged to the top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of
-returning to it. The first is no longer reachable in source, since nothing
-minimizes a window for not being a pane; the second waits on top-edge extraction.
+returning to it. Neither is reachable in source any longer: nothing minimizes a
+window for not being a pane, and the top edge takes a pane out of the layout it
+is in. Both still need the measurement on an installed candidate.
 No missing window, stuck input, broken restoration, cross-output leak, or failed
 disable control.
 

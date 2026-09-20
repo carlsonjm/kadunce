@@ -90,15 +90,29 @@ int main()
             "Top edge answered the Active card differently");
     }
 
-    // §5 owns what a live layout does with a snap. Entry declines it rather
-    // than solving a second layout or a second entry for the display.
-    for (const auto edge : Admitting) {
+    // §5 owns what a live layout does with a side snap. Entry declines it
+    // rather than solving a second layout or a second entry for the display.
+    for (const auto edge : Sides) {
         auto request = carried(edge);
         request.ownsDisplay = true;
         request.hasBentoLayout = true;
         request.partnerNamed = true;
         require(planEdgeEntry(request) == EdgeEntryOutcome::Refuse,
-            "Entry answered a display that already has a Bento layout");
+            "Entry answered a side snap on a display that already has a Bento layout");
+    }
+
+    // §5's top-edge departure and §10's top edge give the same answer, so a
+    // pane carried there becomes one independent Active card. Nothing about
+    // the layout changes that, including a partner a side snap could have used.
+    {
+        auto request = carried(CarryEdge::Top);
+        request.ownsDisplay = true;
+        request.hasBentoLayout = true;
+        require(planEdgeEntry(request) == EdgeEntryOutcome::MakeActive,
+            "A pane carried to the top edge did not leave for one Active card");
+        request.partnerNamed = true;
+        require(planEdgeEntry(request) == EdgeEntryOutcome::MakeActive,
+            "A pane carried to the top edge paired instead of leaving");
     }
 
     // A display that cannot own cards reaches neither pairing rule, so an edge
@@ -112,6 +126,8 @@ int main()
             require(planEdgeEntry(request) == EdgeEntryOutcome::ComposeDisplayBento,
                 "A display that cannot own cards did not compose Bento");
             request.hasBentoLayout = true;
+            // Including the top edge: there is no card for a pane to become,
+            // so the departure §5 describes has no destination here.
             require(planEdgeEntry(request) == EdgeEntryOutcome::Refuse,
                 "A live layout did not take priority over composing a new one");
         }

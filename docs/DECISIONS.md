@@ -131,6 +131,42 @@ A window leaves while it is still owned here, which is what gives the card it
 becomes the record it had before Bento placed it rather than the pane rectangle
 it is sitting in.
 
+### A layout ends into card ownership, never into Plasma
+
+`CARD-LIFECYCLE.md` §5 ends Bento when it falls to one visible pane and makes
+that pane an individual card. Ending it by restoring the pane to the desktop
+would have been the smaller change and is wrong: §13 reserves the native desktop
+for explicit release and disable, so a rule that returns a window there on its
+own puts Kadunce back in the state §14 exists to forbid. The remaining pane
+therefore leaves by the same eviction a window the layout cannot show uses,
+which is what gives the card it becomes the record it had before Bento placed
+it rather than the pane rectangle it was sitting in.
+
+Ending is asked of a display that can own cards. Where none can, §5's
+destination does not exist, so the session keeps its single pane exactly as
+before rather than shedding a window with no owner to become — the same answer
+§5 already gives a layout that cannot place what it sheds.
+
+One case is deliberately left out. A session still holding a §7 sleeping window
+does not end, because ending it would have to give that window to card
+ownership too and card ownership cannot yet hold a sleeping window. That is the
+same gap that keeps a minimized pane inside its session, and closing it closes
+both.
+
+### The top edge means the same thing from a pane as from a card
+
+`CARD-LIFECYCLE.md` §5 sends a pane dragged to the top edge out of Bento and §10
+makes a window carried to the top edge one independent Active card. Those are
+one answer, not two, so the edge decision reads the same for a live layout as
+for an owned display and only the source differs: a pane gives up Bento
+ownership where a card gives up card ownership. Every other snap into a live
+layout is §5's displacement, which the entry decision still declines.
+
+Giving the two edges different rules was the alternative, and it is what made
+the symptom: a live layout refused the whole entry decision, so a pane carried
+to the top edge fell through to the ordinary placement reservation and was put
+back into the layout it was trying to leave.
+
 ### Two cases the contract does not answer
 
 `CARD-LIFECYCLE.md` §5 says nothing leaves where no display can hold a card,

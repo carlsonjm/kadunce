@@ -176,6 +176,8 @@ private:
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForDesktopStage()
         const override;
+    [[nodiscard]] bool outputCanOwnCards(
+        const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const override;
     void retireOutputFromDesktopStage(KWin::LogicalOutput *output) override;

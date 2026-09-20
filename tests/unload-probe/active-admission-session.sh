@@ -2,10 +2,10 @@
 # Bento-to-Active extraction: repeated extraction, last-member teardown, rollback,
 # exact restore and output isolation.
 #
-# Absent from verify-unload-isolated.sh's session allowlist, so the runner refuses
-# it by name: it calls BentoProbe methods bentoActiveAdmission and
-# bentoActiveEvidence, neither of which exists.
+# Two private outputs: the tablet holds the pair being extracted, the other one
+# its own layout, so §11's isolation is witnessed rather than assumed.
 set -euo pipefail
+trap 'echo "FAIL: Bento-to-Active line $LINENO" >&2' ERR
 : "${KADUNCE_UNLOAD_PROBE_BUILD:?}"
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 tr '\0' '\n' < "/proc/${PPID}/cmdline" | rg -q '^--virtual$'
@@ -26,6 +26,9 @@ qdbus6 studio.warbler.UnloadClient /Client companion
 sleep .5
 test "$(probe entryClientsOnTablet)" = true
 sleep .3
-test "$(probe bentoActiveAdmission)" = true
+# Print the evidence before asserting, so a failure names which rule broke
+# instead of stopping the script before it can be read.
+admission=$(probe bentoActiveAdmission)
 probe bentoActiveEvidence
-echo 'PASS: Bento-to-Active retains the reduced Bento as one Spread neighbor; repeated extraction, last-member teardown, rollback, exact restore and output isolation'
+test "$admission" = true
+echo 'PASS: a pane carried to the top edge becomes the Active card and the pane it leaves behind becomes its Spread neighbor; repeated extraction, rollback, exact restore and other-display isolation'

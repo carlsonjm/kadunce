@@ -49,6 +49,23 @@ int main() {
         && accepted->destination.windows.contains(1)
         && accepted->source.snapshots.size() == 1
         && accepted->destination.snapshots.size() == 2, "Card lost/duplicated");
+    // CARD-LIFECYCLE.md §5: Bento ends when it falls to one visible pane. Two
+    // panes is still a layout; one is not, and a departure that empties the
+    // session ends it as well.
+    require(!bentoEndsAtOnePane(source), "A two-pane layout was ended");
+    require(bentoEndsAtOnePane(Session{QStringLiteral("left"), {2}, {{2}},
+        makeBentoLayout(1,true)}), "A layout that fell to one pane did not end");
+    require(bentoEndsAtOnePane(Session{QStringLiteral("left"), {}, {}, {}}),
+        "An emptied layout did not end");
+    // §7's sleeping window keeps the session, because ending would have to hand
+    // that window to card ownership and it cannot hold a sleeping one yet.
+    require(!bentoEndsAtOnePane(Session{QStringLiteral("left"), {2},
+        {{2},{1,true,0,true}}, makeBentoLayout(1,true)}),
+        "A layout still holding a sleeping window ended");
+    // A session holding an awake window it is not showing is stranded, not
+    // ended: ending would drop that window rather than give it an owner.
+    require(!bentoEndsAtOnePane(Session{QStringLiteral("left"), {}, {{1}}, {}}),
+        "A layout ended on a window it was not showing");
     calls = 0;
     auto reject = [&](Session &,int,bool) { ++calls; return false; };
     auto departure = prepareBentoDeparture(source,1,planner);

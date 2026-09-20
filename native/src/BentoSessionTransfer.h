@@ -21,6 +21,19 @@ bool showsEveryAwakeSnapshot(const Session &session)
     return session.windows.size() == awake;
 }
 
+// CARD-LIFECYCLE.md §5: Bento ends when it falls to one visible pane, and the
+// pane it ends on becomes an individual card. Ending gives everything the
+// session holds to card ownership, so a session holding anything it is not
+// showing is not one that can end: §7's sleeping window has no card to become
+// yet, and any other unshown snapshot is the stranded state applySession
+// reports rather than one to discard by ending.
+template<class Session>
+bool bentoEndsAtOnePane(const Session &session)
+{
+    return session.windows.size() <= 1
+        && session.snapshots.size() == session.windows.size();
+}
+
 // Prepare first activation from a caller-collected display-owned batch. The
 // collector owns eligibility/output policy and captures restore records before
 // calling this. The planner changes placement only, never snapshots/native state.

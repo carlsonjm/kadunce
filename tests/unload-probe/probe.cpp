@@ -549,6 +549,8 @@ public Q_SLOTS:
     bool a2Release() { return ownershipTransitions.release(); }
     bool a2Restored() { return ownershipTransitions.restored(); }
     QString a2Evidence() const { return ownershipTransitions.evidence; }
+    bool bentoActiveAdmission() { return bento.bentoActiveAdmission(); }
+    QString bentoActiveEvidence() const { return bento.extractionEvidence; }
     bool ownershipEntry() { return bento.ownershipEntry(); }
     bool ownershipRestored() { return bento.ownershipRestored(); }
     bool ownershipTransferPrepare() { return bento.ownershipTransferPrepare(); }

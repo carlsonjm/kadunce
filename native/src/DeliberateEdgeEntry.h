@@ -56,8 +56,14 @@ struct EdgeEntryRequest {
     if (!request.carriedEligible) return EdgeEntryOutcome::Refuse;
     // §10 gives the bottom edge to Plasma. It never admits anything.
     if (request.edge == CarryEdge::Bottom) return EdgeEntryOutcome::Refuse;
-    // §5 owns what a live layout does with a snap; §3 does not answer it.
-    if (request.hasBentoLayout) return EdgeEntryOutcome::Refuse;
+    // §5 owns what a live layout does with a snap, with one exception: §5's
+    // top-edge departure and §10's top edge agree on the answer, so a pane
+    // carried there leaves for one independent Active card exactly as a card
+    // would. Where the display cannot own cards there is no card to become,
+    // and every other snap into a live layout is §5's displacement.
+    if (request.hasBentoLayout
+        && !(request.edge == CarryEdge::Top && request.canOwnCards))
+        return EdgeEntryOutcome::Refuse;
     if (!request.canOwnCards) return EdgeEntryOutcome::ComposeDisplayBento;
     // §3: the first deliberate action on a display adopts it, whichever of the
     // three admitting edges was used. Adoption produces individual cards only.

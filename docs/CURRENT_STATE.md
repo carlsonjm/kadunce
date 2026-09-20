@@ -26,6 +26,15 @@ not alternate behavior, and where wording conflicts the owning document governs.
 - Admitting a Bento group parks the restore record of an individual Active card
   the stage already presents instead of discarding it, so a window displaced
   into card ownership still returns where it began when Kadunce releases.
+- A layout ends into card ownership. When it falls to one visible pane, that
+  pane becomes an individual card carrying its pre-Bento record, and only
+  explicit release or disable returns a managed window to the desktop. A pane
+  carried to the top edge leaves the layout it is in and becomes the Active
+  card, so on a display whose maximum is two panes an extraction ends the
+  layout and leaves two individual cards. A display that cannot own cards has
+  no destination for the rule and keeps its single pane. This holds in source
+  and under the isolated probes; the gesture itself has not been reviewed on
+  hardware.
 - Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
@@ -69,8 +78,9 @@ duplicates, and omits stack position.
   stage cannot adopt one; the session keeps its restore record instead and
   carries it across the Spread round trip as a sleeping member. It is the only
   window a session owns without showing, and `applySession` reports any other.
-  §5's one-remaining-pane rule is also not implemented, so a two-pane layout
-  losing a pane holds one rather than ending into card ownership.
+  It is also the one case §5's one-remaining-pane rule skips: a session still
+  holding a sleeping window keeps its combination, because ending it would have
+  nowhere to put that window.
 - Resuming a projected Bento group leaves every card beside it owned by the card
   stage, which then presents Bento and keeps them hidden behind the panes rather
   than returning them to the desktop. The stage stops presenting only when the
@@ -133,8 +143,17 @@ group resume leaves the cards beside it owned rather than returning them to the
 desktop. `column-runtime` fails at its placement check and asserts a three-pane
 column split on a display whose pane cap is two; that grammar is dormant by
 design, so the failure states a stale expectation rather than a defect.
-`active-admission-session.sh` is preserved but not runnable: two of the probe
-methods it calls do not exist, so the runner refuses it by name.
+`tablet-entry-runtime` fails before it reaches an edge, because a press after
+`showCardLine` starts neither a native carry nor a Spread grab; it fails
+identically on the commit before the current ownership work, so it is not
+evidence about that work.
+`active-admission-session.sh` runs and passes; it asserts Bento-to-Active
+extraction over both selection paths, a refused extraction that leaves the
+layout unchanged, repeated extraction, last-pane teardown, exact restore and
+other-display isolation. It drives the controllers directly. No display the
+harness creates is an internal panel, so no display there can own cards, and
+the carry seam that decides a top-edge gesture is reachable only on hardware:
+that half waits on physical review.
 
 Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the

@@ -701,6 +701,11 @@ KWin::LogicalOutput *Effect::tabletOutputForDesktopStage() const
     return tabletOutput();
 }
 
+bool Effect::outputCanOwnCards(const KWin::LogicalOutput *output) const
+{
+    return m_cardStage->canOwnCards(output);
+}
+
 KWin::Rect Effect::activeTargetForDesktopStage(
     KWin::LogicalOutput *output) const
 {
@@ -1309,14 +1314,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             });
         return;
     }
-    // CARD-LIFECYCLE.md §3 and §10 decide what a tablet edge action means before
-    // any layout is reserved. The same question is asked of the Spread grab, so
-    // a side snap cannot mean one thing carried from the desktop and another
-    // carried from Spread.
     // CARD-LIFECYCLE.md §3 and §10 decide what an edge action means before any
     // layout is reserved. The Spread grab asks the same question, so a side snap
     // cannot mean one thing carried from the desktop and another from Spread.
-    if (local && edge && !m_desktopStage->hasSessionOnOutput(target->name())) {
+    const bool liveLayout = m_desktopStage->hasSessionOnOutput(target->name());
+    // §5: a pane carried to the top edge leaves the layout it is in, which is
+    // the one edge action a live layout answers by giving a window up. Every
+    // other snap into one is §5's displacement and is reserved below.
+    const bool extractingPane = liveLayout && edge && *edge == CarryEdge::Top
+        && m_desktopStage->managesWindow(m_carriedWindow)
+        && m_cardStage->canOwnCards(target);
+    if (local && edge && (!liveLayout || extractingPane)) {
         const bool leftEdge = *edge == CarryEdge::Left;
         const bool sideEdge = leftEdge || *edge == CarryEdge::Right;
         // §3 names the partner from Spread order. Naming is read-only: the
@@ -1326,9 +1334,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge) : nullptr;
         const auto outcome = planEdgeEntry({
             .edge = *edge,
-            .ownsDisplay = m_cardStage->ownsDisplay(target),
+            // §3: a display with a live layout is owned, whether or not this
+            // stage also holds individual cards on it.
+            .ownsDisplay = m_cardStage->ownsDisplay(target) || liveLayout,
             .canOwnCards = m_cardStage->canOwnCards(target),
-            .hasBentoLayout = false,
+            .hasBentoLayout = liveLayout,
             .carriedEligible = isCardWindow(m_carriedWindow),
             .partnerNamed = partner != nullptr,
             .carriedIsActive = m_cardStage->activeCardIdentity() == m_carriedWindow,
@@ -1384,15 +1394,22 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     return carried && !carried->isDeleted() && output
                         && KWin::effects->screens().contains(output.data())
                         && isCardWindow(carried) && carried->screen() == output
-                        && m_cardStage->ownsDisplay(output) != adopt;
+                        && (m_cardStage->ownsDisplay(output)
+                            || m_desktopStage->hasSessionOnOutput(output->name())) != adopt;
                 },
-                [this, carried, adopt, bento](const PreparedCarrySource &source) {
+                [this, carried, adopt, bento, extractingPane](const PreparedCarrySource &source) {
                     const auto sourceValid = [this, &source, bento] {
                         return bento ? m_desktopStage->nativeCarrySourceValid(source)
                                      : m_cardStage->nativeCarrySourceValid(source);
                     };
                     if (adopt) return m_cardStage->adoptDisplayWithActive(carried, sourceValid);
-                    if (!admitTransferredWindowToTablet(carried, sourceValid)) return false;
+                    // §5: a pane gives up Bento ownership in the same published
+                    // step that makes it a card, so the layout it left is never
+                    // observed still naming it. Everything else arrives without
+                    // a layout to leave.
+                    if (extractingPane
+                        ? !m_desktopStage->extractPaneToCards(carried, sourceValid)
+                        : !admitTransferredWindowToTablet(carried, sourceValid)) return false;
                     (void)m_cardStage->promoteToActive(carried);
                     return true;
                 });
@@ -2070,11 +2087,14 @@ void Effect::updateCardGrab(const QPointF &position)
             const bool sideEdge = leftEdge || *edge == CarryEdge::Right;
             auto *partner = sideEdge
                 ? m_cardStage->partnerForSideSnap(grabbed, leftEdge) : nullptr;
+            const bool liveLayout = m_desktopStage->hasSessionOnOutput(output->name());
             const auto outcome = planEdgeEntry({
                 .edge = *edge,
-                .ownsDisplay = m_cardStage->ownsDisplay(output),
+                // §3: a display with a live layout is owned, whether or not
+                // this stage also holds individual cards on it.
+                .ownsDisplay = m_cardStage->ownsDisplay(output) || liveLayout,
                 .canOwnCards = true,
-                .hasBentoLayout = m_desktopStage->hasSessionOnOutput(output->name()),
+                .hasBentoLayout = liveLayout,
                 .carriedEligible = isCardWindow(grabbed),
                 .partnerNamed = partner != nullptr,
                 .carriedIsActive = m_cardStage->activeCardIdentity() == grabbed,

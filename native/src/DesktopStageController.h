@@ -47,6 +47,13 @@ public:
         const KWin::EffectWindow *window) const = 0;
     [[nodiscard]] virtual KWin::LogicalOutput *tabletOutputForDesktopStage()
         const = 0;
+    // Whether this display can hold individual cards at all. CARD-LIFECYCLE.md
+    // §5 ends Bento into one, so the rule needs the capability rather than the
+    // display's hardware identity; PRODUCT-CONTRACT.md gives an external output
+    // ordinary windows or per-output Bento, never cards.
+    [[nodiscard]] virtual bool outputCanOwnCards(const KWin::LogicalOutput *) const {
+        return false;
+    }
     [[nodiscard]] virtual KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const = 0;
     virtual void prepareOutputForDesktopStage(
@@ -91,6 +98,12 @@ public:
     bool resumeProjectedSession(const BentoProjectionSession &projection,
         const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource);
+    // CARD-LIFECYCLE.md §5 and §10: the carried pane leaves Bento for card
+    // ownership in one published step, and §5's one-remaining-pane rule then
+    // ends a layout with nothing left to compose. `sourceValid` is the carry's
+    // own last refusal; a false answer publishes nothing.
+    bool extractPaneToCards(KWin::EffectWindow *window,
+        const std::function<bool()> &sourceValid);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 
@@ -307,7 +320,14 @@ private:
     // publisher's work and never the solve's. A refusal changes nothing: §5
     // keeps the combination rather than shedding a window with no owner to
     // become, which is the case with no card-owning display attached.
-    bool evictToTablet(const QString &sourceKey, KWin::EffectWindow *window);
+    bool evictToTablet(const QString &sourceKey, KWin::EffectWindow *window,
+                       const std::function<bool()> &sourceValid = {});
+    // CARD-LIFECYCLE.md §5: Bento ends at one visible pane, and that pane
+    // becomes an individual card rather than an ordinary desktop window. Call
+    // it after a shortening has published, never inside one: ending is itself
+    // a cross-stage transfer. A display that cannot own cards has nowhere for
+    // the pane to go, so its session keeps the combination it has.
+    void endLayoutIntoCardOwnership(const QString &key);
     // CARD-LIFECYCLE.md §5: a layout shows its whole combination or it is not
     // that layout. `probe` is the value the caller is about to ask for,
     // including any arrival it is adding; one solve names what that value

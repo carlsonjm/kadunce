@@ -1119,7 +1119,8 @@ bool DesktopStageController::planSession(Session &session,
 }
 
 bool DesktopStageController::evictToTablet(const QString &sourceKey,
-                                           KWin::EffectWindow *window)
+                                           KWin::EffectWindow *window,
+                                           const std::function<bool()> &sourceValid)
 {
     if (m_restoring || !window || window->isDeleted() || !window->window()
         || window->isUserMove() || window->isUserResize()
@@ -1142,7 +1143,8 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
         if (committed || !m_applicationGuard.accepts(token) || m_restoring
             || !arrival || arrival->isDeleted() || !arrival->window()
             || arrival->isUserMove() || arrival->isUserResize()
-            || !m_sessions.contains(sourceKey)) return false;
+            || !m_sessions.contains(sourceKey)
+            || (sourceValid && !sourceValid())) return false;
         if (departure->snapshots.isEmpty()) m_sessions.remove(sourceKey);
         else m_sessions[sourceKey] = *departure;
         committed = true;
@@ -1227,6 +1229,63 @@ void DesktopStageController::settleParticipation(const QString &key)
     QList<QPointer<KWin::EffectWindow>> unshowable;
     if (!reflowSession(session.value(), nullptr, false, true, &unshowable)) return;
     session->participationDirty = false;
+    // §5: shedding can leave one visible pane, and Bento ends there.
+    endLayoutIntoCardOwnership(key);
+}
+
+void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
+{
+    if (m_restoring || m_interactionWindow || m_railDrag) return;
+    const auto session = m_sessions.constFind(key);
+    if (session == m_sessions.cend() || session->applying
+        || !bentoEndsAtOnePane(session.value())) return;
+    KWin::LogicalOutput *output = outputForKey(key);
+    // CARD-LIFECYCLE.md §5 hands the remaining pane to card ownership. Where
+    // the display cannot hold one there is nothing for Bento to end into, so
+    // the session keeps its combination rather than returning it to Plasma:
+    // §13 reserves that for release and disable.
+    if (!output || !m_host->outputCanOwnCards(output)) return;
+    const QPointer<KWin::EffectWindow> remaining =
+        session->windows.isEmpty() ? nullptr : session->windows.first();
+    if (remaining && !evictToTablet(key, remaining)) return;
+    // Eviction removes the session as it empties, and adopting reenters this
+    // controller, so anything found under the key now was put there after the
+    // departure and is not the layout that ended.
+    const auto ended = m_sessions.constFind(key);
+    if (ended != m_sessions.cend()) {
+        if (!ended->snapshots.isEmpty()) return;
+        m_sessions.remove(key);
+    }
+    // The display no longer has a layout for anything else to present behind.
+    m_host->retireOutputFromDesktopStage(output);
+    KWin::effects->addRepaintFull();
+}
+
+bool DesktopStageController::extractPaneToCards(KWin::EffectWindow *window,
+    const std::function<bool()> &sourceValid)
+{
+    if (m_restoring || !window) return false;
+    QString sourceKey;
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        if (std::any_of(it->snapshots.cbegin(), it->snapshots.cend(),
+                [window](const auto &saved) { return saved.window == window; })) {
+            sourceKey = it.key();
+            break;
+        }
+    }
+    KWin::LogicalOutput *output = outputForKey(sourceKey);
+    if (sourceKey.isEmpty() || !output || !m_host->outputCanOwnCards(output)) return false;
+    // The departure is prepared and published by the same eviction §5 uses for
+    // a window a layout cannot show, so a refused extraction leaves the layout
+    // exactly as it was and an accepted one carries the pre-Bento record.
+    if (!evictToTablet(sourceKey, window, sourceValid)) return false;
+    // §5 may end what is left before it is laid out again, so only a layout
+    // that survives the departure is asked to place its panes.
+    endLayoutIntoCardOwnership(sourceKey);
+    auto shortened = m_sessions.find(sourceKey);
+    if (shortened != m_sessions.end() && applySession(shortened.value(), false))
+        scheduleSettle();
+    return true;
 }
 
 bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
@@ -1762,6 +1821,8 @@ bool DesktopStageController::handoffWindowToOutput(
             if (!resident || resident->isDeleted() || !resident->window()) continue;
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });
         }
+        // §5: the display the pane left may now hold one, which ends its Bento.
+        endLayoutIntoCardOwnership(sourceKey);
         return true;
     }
     if (detach || !m_host->isTabletOutputForDesktopStage(destination)) {
@@ -1796,6 +1857,9 @@ bool DesktopStageController::handoffWindowToOutput(
         auto source = m_sessions.find(sourceKey);
         if (source != m_sessions.end() && !applySession(source.value(), false)) return true;
         scheduleSettle();
+        // §13 released only the carried window. §5 then ends a layout the
+        // departure left with one pane.
+        endLayoutIntoCardOwnership(sourceKey);
         return true;
     }
     const auto departure = prepareBentoDeparture(m_sessions.value(sourceKey),
@@ -1876,7 +1940,12 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         return;
     }
     reflowSession(source.value());
-    if (applySession(source.value(), false)) scheduleSettle();
+    // CARD-LIFECYCLE.md §12: a closure that leaves one pane ends Bento, and
+    // that pane becomes an individual card rather than being laid out again.
+    endLayoutIntoCardOwnership(sourceKey);
+    auto surviving = m_sessions.find(sourceKey);
+    if (surviving != m_sessions.end() && applySession(surviving.value(), false))
+        scheduleSettle();
 }
 
 void DesktopStageController::handleWindowMoveResizeStarted(KWin::EffectWindow *window)

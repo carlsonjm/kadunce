@@ -18,6 +18,11 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
         return w && !w->isDeleted() && w->isNormalWindow() && w->window();
     }
     KWin::LogicalOutput *tabletOutputForDesktopStage() const override { return tablet; }
+    // Matches Effect, which answers this from CardStageController::canOwnCards:
+    // the one display that can hold cards is the one card ownership is bound to.
+    bool outputCanOwnCards(const KWin::LogicalOutput *o) const override {
+        return tablet && o == tablet;
+    }
     KWin::Rect activeTargetForDesktopStage(KWin::LogicalOutput *o) const override { return o->geometry(); }
     void prepareOutputForDesktopStage(KWin::LogicalOutput *o) override { if (prepare) prepare(o); }
     std::optional<Kadunce::NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *w) const override {
@@ -147,6 +152,179 @@ struct BentoProbe {
         ownershipCards->release();
         return native->moveResizeGeometry() == saved->geometry;
     }
+    // CARD-LIFECYCLE.md §5 and §10: a pane carried to the top edge leaves Bento
+    // for card ownership as one independent Active card, and §5 ends a layout
+    // that falls to one visible pane by giving that pane to card ownership too.
+    // Both selection paths, rollback, repeated transitions, release and the
+    // other display's isolation are asserted against the production controllers.
+    BentoProbeHost extractionDesktopHost;
+    TabletProbeHost extractionCardHost;
+    std::unique_ptr<Kadunce::DesktopStageController> extractionDesktop;
+    std::unique_ptr<Kadunce::CardStageController> extractionCards;
+    QPointer<KWin::LogicalOutput> extractionTablet, extractionMonitor;
+    QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> extractionOrigins;
+    QString extractionEvidence = QStringLiteral("not started");
+    bool extractionFail(const QString &message) { extractionEvidence = message; return false; }
+
+    bool bentoActiveWire() {
+        const auto outputs = KWin::effects->screens();
+        if (outputs.size() != 2) return extractionFail("Expected two private outputs");
+        // The card-owning display is the one the session script gathered the
+        // clients onto, so the two names must agree.
+        for (auto *output : outputs) {
+            if (output->name() == QStringLiteral("Virtual-0")) extractionTablet = output;
+            else extractionMonitor = output;
+        }
+        if (!extractionTablet || !extractionMonitor)
+            return extractionFail("Private outputs are not the expected pair");
+        extractionDesktopHost.tablet = extractionTablet;
+        extractionCardHost.tablet = extractionTablet;
+        extractionDesktop = std::make_unique<Kadunce::DesktopStageController>(&extractionDesktopHost);
+        extractionCards = std::make_unique<Kadunce::CardStageController>(&extractionCardHost);
+        // A sweep of the display releases whatever card ownership holds on it
+        // first, exactly as Effect::prepareOutputForDesktopStage does.
+        extractionDesktopHost.prepare = [this](auto *output) {
+            if (output == extractionTablet) extractionCards->release();
+        };
+        extractionDesktopHost.restore = [this](auto *w) { return extractionCards->managedRestore(w); };
+        extractionDesktopHost.admission = [this](KWin::EffectWindow *window,
+            const std::function<bool()> &commit,
+            const Kadunce::NativeMoveSnapshot *restore) {
+            const auto source = restore ? std::nullopt
+                : extractionDesktop->prepareNativeCarrySource(window);
+            const auto derived = source
+                ? std::optional<Kadunce::NativeMoveSnapshot>(source->restoreSnapshot())
+                : std::nullopt;
+            if (!restore && derived) restore = &*derived;
+            return extractionCards->admitTransferredWindowToTablet(window, commit, QRectF(), restore);
+        };
+        return true;
+    }
+
+    // Whatever the tablet's live session is currently showing.
+    QList<QPointer<KWin::EffectWindow>> extractionPanes() const {
+        QList<QPointer<KWin::EffectWindow>> panes;
+        for (auto *w : KWin::effects->stackingOrder())
+            if (w->screen() == extractionTablet && extractionDesktop->managesWindow(w))
+                panes.append(w);
+        return panes;
+    }
+
+    bool bentoActivePair() {
+        // The sweep releases card ownership on this display for itself, through
+        // the same hook Effect::prepareOutputForDesktopStage uses. Restoring
+        // every session instead would take the other display's layout with it.
+        if (extractionDesktop->hasSessionOnOutput(extractionTablet->name()))
+            return extractionFail("The tablet still had a layout to pair into");
+        if (!extractionDesktop->toggleOnOutput(extractionTablet->name()))
+            return extractionFail("Tablet Bento activation failed");
+        if (extractionPanes().size() != 2)
+            return extractionFail(QStringLiteral("Expected two tablet panes, found %1")
+                .arg(extractionPanes().size()));
+        return true;
+    }
+
+    bool bentoActiveAdmission() {
+        if (!bentoActiveWire()) return false;
+        QList<KWin::EffectWindow *> windows;
+        for (auto *w : KWin::effects->stackingOrder())
+            if (extractionDesktopHost.isManagedWindowForDesktopStage(w)) windows.append(w);
+        if (windows.size() != 3)
+            return extractionFail(QStringLiteral("Expected three clients, found %1").arg(windows.size()));
+        // One client keeps the other display so its own layout can witness that
+        // nothing here reaches across §11's independent ownership sessions.
+        QPointer<KWin::EffectWindow> isolated = windows.last();
+        isolated->window()->sendToOutput(extractionMonitor);
+        for (auto *w : windows) extractionOrigins.append({w, w->window()->moveResizeGeometry()});
+        if (!extractionDesktop->toggleOnOutput(extractionMonitor->name())
+            || !extractionDesktop->managesWindow(isolated))
+            return extractionFail("Monitor layout did not take its own window");
+        const auto isolatedTile = isolated->window()->moveResizeGeometry();
+
+        // Two transitions, so a second extraction is proved to work on a layout
+        // the first one already tore down and rebuilt.
+        for (int round = 0; round < 2; ++round) {
+            if (!bentoActivePair()) return false;
+            const auto panes = extractionPanes();
+            QPointer<KWin::EffectWindow> carried = panes.first();
+            QPointer<KWin::EffectWindow> remaining = panes.last();
+            const auto carriedTile = carried->window()->moveResizeGeometry();
+            const auto remainingTile = remaining->window()->moveResizeGeometry();
+
+            // §14: a refused gesture preserves the exact prior state. The carry
+            // is the last thing that can refuse, so nothing may be published.
+            if (extractionDesktop->extractPaneToCards(carried, [] { return false; }))
+                return extractionFail("A refused extraction reported success");
+            if (extractionPanes() != panes
+                || carried->window()->moveResizeGeometry() != carriedTile
+                || remaining->window()->moveResizeGeometry() != remainingTile
+                || extractionCards->managedRestore(carried))
+                return extractionFail("A refused extraction changed the layout");
+
+            if (!extractionDesktop->extractPaneToCards(carried, [] { return true; }))
+                return extractionFail("Extraction to card ownership was refused");
+            if (!extractionCards->promoteToActive(carried))
+                return extractionFail("The extracted window did not become Active");
+
+            // §5: the layout fell to one visible pane, so Bento ended and that
+            // pane became an individual card rather than a desktop window.
+            if (extractionDesktop->hasSessionOnOutput(extractionTablet->name()))
+                return extractionFail("The tablet kept a layout after its last pane was extracted");
+            for (const auto &window : {carried, remaining}) {
+                if (!extractionCards->managedRestore(window)
+                    || extractionCards->liveCardIndex(window) < 0)
+                    return extractionFail(QStringLiteral("%1 did not reach card ownership")
+                        .arg(window ? window->caption() : "deleted"));
+                if (window->isMinimized())
+                    return extractionFail("Leaving Bento put a window to sleep");
+            }
+            if (extractionCards->presentation() != Kadunce::CardPresentation::Active
+                || extractionCards->selectedWindow() != carried)
+                return extractionFail("§6: selecting the extracted card did not present it Active");
+
+            // §6's other selection path: the neighbour is its own entry, and
+            // choosing it leaves the extracted card owned and hidden.
+            if (!extractionCards->promoteToActive(remaining)
+                || extractionCards->selectedWindow() != remaining
+                || extractionCards->liveCardIndex(carried) < 0
+                || !extractionCards->managedRestore(carried))
+                return extractionFail("§6: selecting the neighbour released the extracted card");
+
+            // §11: the other display kept its own session and its own geometry.
+            if (!extractionDesktop->hasSessionOnOutput(extractionMonitor->name())
+                || !extractionDesktop->managesWindow(isolated)
+                || isolated->window()->moveResizeGeometry() != isolatedTile)
+                return extractionFail("Extraction reached the other display");
+        }
+
+        // A window no layout holds has no pane to give up.
+        if (extractionDesktop->extractPaneToCards(extractionOrigins.first().first,
+                [] { return true; }))
+            return extractionFail("Extraction accepted a window no layout owns");
+
+        // §13: release and unload return every window exactly once, to the
+        // record it had before any of this, on both displays.
+        extractionCards->release();
+        extractionDesktop->restoreAllSessions();
+        extractionDesktop.reset();
+        extractionCards.reset();
+        for (const auto &[window, geometry] : extractionOrigins) {
+            if (!window || window->isDeleted() || !window->window())
+                return extractionFail("Release lost a window");
+            if (window->isMinimized() || window->window()->moveResizeGeometry() != geometry)
+                return extractionFail(QStringLiteral("Release differs for %1: %2,%3 %4x%5 expected %6,%7 %8x%9")
+                    .arg(window->caption())
+                    .arg(window->window()->moveResizeGeometry().x())
+                    .arg(window->window()->moveResizeGeometry().y())
+                    .arg(window->window()->moveResizeGeometry().width())
+                    .arg(window->window()->moveResizeGeometry().height())
+                    .arg(geometry.x()).arg(geometry.y())
+                    .arg(geometry.width()).arg(geometry.height()));
+        }
+        extractionEvidence = QStringLiteral("Bento-to-Active extraction, teardown, rollback and isolation held");
+        return true;
+    }
+
     TabletProbeHost reservationHost;
     std::unique_ptr<Kadunce::CardStageController> reservationCards;
     std::optional<Kadunce::PreparedCarrySource> reservation;
