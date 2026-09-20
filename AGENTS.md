@@ -44,8 +44,13 @@ For sandbox, D-Bus, private compositor, or startup failures, follow
 `docs/TEST-ENVIRONMENT-PROCEDURE.md`. A transport denial is not evidence that the
 kill switch is missing. Preserve private/live bus separation.
 
-For Kadunce changes, run `./verify.sh`. After an authorized live
-installation, run `bash tests/verify-live-control.sh` in the graphical session and
-confirm the controller is wanted by `graphical-session.target`. Do not log out the
-user, stop the graphical session, toggle the live effect, install, or publish unless
-the task explicitly authorizes it. A safety-control failure blocks promotion.
+For Kadunce changes, run `./verify.sh`. After a live installation, run
+`bash tests/verify-live-control.sh` in the graphical session and confirm the
+controller is wanted by `graphical-session.target`.
+
+Installing, restarting the graphical session and logging the user out are the
+user's to perform. An agent prepares the candidate and hands the installation
+over as one exact command; no task packet authorizes it to run one itself.
+`docs/TEST-ENVIRONMENT-PROCEDURE.md` § Handing over an installation states what
+that handover carries. Do not toggle the live effect or publish unless the task
+explicitly authorizes it. A safety-control failure blocks promotion.

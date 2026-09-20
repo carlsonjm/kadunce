@@ -13,9 +13,11 @@ behavior defect or a missing live safety control.
 | Live read-only safety | Reads registration, installed provenance, and startup wiring |
 | Live mutation | Installs, toggles, injects input, restarts, logs out, or changes the real session |
 
-Live mutation requires explicit authorization. A request to test source or private
-runtime behavior does not authorize installation, effect toggling, session restart,
-logout, or input injection.
+Live mutation requires explicit authorization, and the three that cost the user
+their session — installation, session restart and logout — are never an agent's to
+perform however the task is worded; see § Handing over an installation. A request
+to test source or private runtime behavior does not authorize effect toggling or
+input injection either.
 
 ## Preflight
 
@@ -66,6 +68,28 @@ private KWin executable, build directory, and whitelisted probe session. Do not
 export those values globally or point them at the live session. Exit 124 means the
 harness timed out; it does not diagnose the cause.
 
+## Reading a probe run
+
+The runner compiles the production controllers out of the working tree for every
+run, so a tree edited while a probe is running, or a runtime build written to
+while one is running, yields a result that describes neither the old code nor the
+new. Both failure modes produce an empty or truncated log, which reads like a
+quiet pass rather than a failure. Let a run finish before editing or building.
+
+Read verdicts from `session.log` in the evidence directory the runner names on
+its first line, never from the runner's own output: it aborts before printing its
+summary as soon as a probe fails, so a failing run prints no verdict at all.
+
+A probe session the whitelist does not name is refused by name before anything
+starts. That is the intended way to park a probe that cannot run yet; it can
+never half-run and report a pass.
+
+Every virtual output the harness creates is 1280x800, which is below the compact
+threshold, so each caps at two Bento panes and the larger pane of a two-pane
+landscape shape is roughly 780 pixels wide. A probe asserting three panes, or a
+share wider than that, is asserting a grammar no display in the harness has.
+Check that arithmetic before reading such a failure as a regression.
+
 ## Evidence classification
 
 | First failure | Classification and next action |
@@ -92,6 +116,42 @@ user-reported pass remains user-reported; it does not establish unrelated routes
 If another manual run is necessary, provide one exact reviewed command, identify
 whether it targets private or live state, and state what output should be returned.
 Do not hide installation, restart, effect toggling, or live input inside a test.
+
+## Handing over an installation
+
+Installing a candidate, restarting the graphical session and logging the user out
+are never an agent's to perform, and no task packet makes them so. An agent builds
+and verifies the candidate, then hands the installation over as one exact command.
+This is not a permissions workaround: the user is the only party who can judge when
+losing their session is acceptable, and a physical result is worthless if the
+gestures ran against a build the compositor was not using.
+
+The handover is written so the user can act on it without coming back to ask. It
+carries all six:
+
+1. The exact command and the directory it runs from, with the branch and commit it
+   installs.
+2. That the installer asks once for a password, and that it restores the previous
+   effect configuration by itself if it stops early.
+3. Which line to read at the end. `install.sh` asks the running compositor which
+   plugin image it is actually using and reports it; "still running the PREVIOUS
+   build" is the expected answer after an in-session install, not a fault.
+4. That the restart logs the user out, and that no gesture before it tests the
+   candidate that was just installed.
+5. The safety check to run first after logging back in, and that a failure there
+   ends the pass before any gesture is attempted.
+6. The checks themselves, written as gestures rather than contract language, and
+   the ones already expected to fail, so a known gap is not reported as a defect.
+
+Give the user a place to record the results that survives the logout; a terminal
+session does not. For a pass carrying more than two or three checks, that place is
+a published test sheet: the numbered setup, the gestures, the failures already
+expected, and per check a verdict, a free note, or both, saved on the sheet itself
+so a later session reads them back rather than asking. The note is not only for a
+failure: the answer to a gesture is often neither pass nor fail, and a sheet that
+offers only the two loses exactly the observation worth having. It costs little beyond deciding the checks,
+which the pass needs anyway, and it is what stops a result depending on the user
+remembering a dozen outcomes across a restart. A single check needs no sheet.
 
 ## Retry and reporting
 
