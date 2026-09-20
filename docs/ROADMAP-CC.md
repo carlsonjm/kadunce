@@ -245,7 +245,7 @@ unblocked.
   stage controllers, recording Native, individual card and Bento pane without
   changing behavior. Every §14 violation it reports is a pre-existing defect.
   `CardOwnership.h` holds the value and the audit; `DesktopStageController`
-  exposes a read-only view of each session's pane and overflow identities, and
+  exposes a read-only view of each session's pane identities, and
   `Effect` runs the audit on every published workspace change, reporting a
   shape once so a standing defect cannot bury the next new one.
 - [x] Make it authoritative. `CardOwnershipLedger` is the authority for who owns
@@ -281,6 +281,12 @@ branch must be corrected to that grammar before physical review; nothing has bee
 installed. Block 2's ledger is live-verified, so a violation it reports now names
 a real defect rather than a solver decision. `CARD-LIFECYCLE.md` carries the
 approved model this block implements.
+
+Overflow deletion has since landed on the same branch, together with growth-only
+admission and the projection round trip it forced. Ownership now holds at three
+owners, six transitions and two violation rules. Physical review is owed for the
+whole branch and nothing has been installed, so none of it is promotion
+evidence.
 
 Order within the block matters. Deliberate snapping comes first because it is the
 smallest change that makes the system testable: while the solver decides pane
@@ -377,7 +383,7 @@ source-order assertions with behavioral coverage.
   Bento group always is one — it selects a different entry than the window it was
   asked to promote. Adoption does the same and is safe only because a rebuild
   leaves the two parallel at that instant.
-- [ ] Delete Bento overflow rather than reconcile it. `Session::overflow`,
+- [x] Delete Bento overflow rather than reconcile it. `Session::overflow`,
   `BentoOwnershipView::overflow`, `BentoProjectionSession::overflow` and its
   card-stage carriers, the `prepareOverflow` path through `applySession`, and the
   loop that minimizes every non-pane all go. `CARD-LIFECYCLE.md` §5 already says
@@ -389,29 +395,48 @@ source-order assertions with behavioral coverage.
   §5, so every remainder has an owner and nothing is left for the container to
   hold. J approved that on 20 September, replacing the scoped answer of the day
   before.
-- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` with the container,
+  Implemented by inverting the conservation law rather than by deleting the
+  field first: a solve that cannot show every awake snapshot is refused, callers
+  shorten their batch, and `evictToTablet` gives what they drop to card
+  ownership while the window is still owned and still has its pre-Bento record.
+  `DECISIONS.md` § A refusal is how a layout stays honest records why
+  displacement is spelled as caller shortening, and § Two cases the contract
+  does not answer records the two the contract left open.
+- [x] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` with the container,
   so the state becomes unrepresentable rather than merely unreported. Ownership
   then holds at three owners, six transitions and two violation rules, both
   checkable in the one place Block 2 built. A rule that still needs reporting
   means the container was relocated, not removed.
 - [ ] Bento owns only its visible pane combination; minimized, displaced and
-  extracted windows become independent cards with no retained association. A
-  displaced pane becomes a nonselected individual card, not a minimized one:
-  leaving Bento is not minimizing, and only the user minimizing makes a card
-  sleeping under §7. That distinction is what `userMinimized` already records,
-  and it is why activating a displaced window from the task manager currently
-  fails. The resume half is done: §6's neighbours keep their ownership and their
-  restore records instead of returning to Plasma. What a pane becomes when it
-  leaves a live layout is still open.
+  extracted windows become independent cards with no retained association. The
+  displaced half is done: a window a layout cannot show becomes an awake
+  individual card, and §7's sleeping window stays distinguishable because
+  `userMinimized` decides membership of `owned` and now survives the Spread
+  round trip, which previously erased it. The minimized half is not. A minimized
+  window fails `Effect::isCardWindow`, so `admitTransferredWindowToTablet`
+  refuses it and the session keeps its record instead, carrying it as a sleeping
+  projection member. Making §7's sleeping card real means letting card ownership
+  hold a sleeping window, which is card-stage admission work and reaches §5's
+  one-remaining-pane rule below.
 - [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
   is the one holding the side the card was released into, per §5. No interaction
   history decides it, so the user can see which pane will yield while dragging.
-- [ ] Keep new-window admission and make it growth-only, per the rewritten §8. A
+  The mechanism exists: a full layout now yields rather than parks, and the
+  publisher evicts whichever pane the solve leaves out. Which pane that is still
+  comes from `chooseBentoSideAdmission`'s resident order rather than from the
+  contacted side, so the rule §5 states is still unimplemented.
+- [x] Keep new-window admission and make it growth-only, per the rewritten §8. A
   launching application joins Bento when the layout can grow to show it and
   becomes an individual Active card when it cannot. It never displaces a pane and
   is never parked, so admission cannot reintroduce overflow and a background event
   cannot rearrange a layout the user placed. This is what makes Bento feel
   seamless at a monitor and is deliberately kept.
+  Growth is checked as an empty remainder, not as a successful solve:
+  `chooseBentoTransferAdmission` searches any subset containing the arrival, so
+  a solve can place the launch by dropping a pane the user put there. Requiring
+  the solve to place every owned window is what forbids that. A refused launch
+  is left unowned and awake, and `Effect::handleWindowAdded` already hands it to
+  the card stage's own new-window path.
 - [ ] First Card or Bento entry atomically adopts every eligible window on that
   display and current virtual desktop.
 - [ ] Atomic prepared admission and removal for one logical group: selecting a
@@ -434,11 +459,14 @@ source-order assertions with behavioral coverage.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
 repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
-holds two rules, not three, on every display. Two symptoms measured on the installed candidate must
-be gone: activating an overflow window from the Plasma task manager brings it
-forward instead of being re-minimized by the next solve, and a pane dragged to the
-top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of returning to it. No
-missing window, stuck input, broken restoration, cross-output leak, or failed
+holds two rules, not three, on every display — met in source; not yet measured on
+an installed candidate. Two symptoms measured on the installed candidate must
+be gone: activating a window the layout could not show brings it forward from the
+Plasma task manager instead of being re-minimized by the next solve, and a pane
+dragged to the top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of
+returning to it. The first is no longer reachable in source, since nothing
+minimizes a window for not being a pane; the second waits on top-edge extraction.
+No missing window, stuck input, broken restoration, cross-output leak, or failed
 disable control.
 
 ## Block 3b — Bento layout grammar

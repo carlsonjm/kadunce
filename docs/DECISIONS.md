@@ -111,6 +111,44 @@ user meets it in Spread rather than losing it. The rejected alternative left it
 Native, which reads tidy until a native window is sitting inside a display
 Kadunce is composing — the nameless state this rule exists to remove.
 
+### A refusal is how a layout stays honest
+
+A solve that cannot place every window its session owns awake is refused, and
+the caller shortens its batch and gives what it drops to card ownership before
+asking again. The rejected alternative was to let the solve succeed and report
+the remainder, which is the container's shape with a different name: the
+remainder is rebuilt from the session's own restore records on every later
+solve, and nothing in the ownership view can see it.
+
+Displacement is therefore spelled as caller shortening. The value layer states
+one law and knows nothing about sides or gestures; the publisher removes the
+yielding window before asking, which puts §5's rule at the one place that knows
+the contacted side. It also keeps "a solve reports, it never moves an owner"
+true, because the shortening is a value operation and the eviction is a
+published cross-stage transaction.
+
+A window leaves while it is still owned here, which is what gives the card it
+becomes the record it had before Bento placed it rather than the pane rectangle
+it is sitting in.
+
+### Two cases the contract does not answer
+
+`CARD-LIFECYCLE.md` §5 says nothing leaves where no display can hold a card,
+which is a rule about a live layout shedding. It has no twin for first entry.
+A display with more eligible windows than its layout can show, on a system with
+no card-owning display at all, therefore adopts what it can show and leaves the
+rest where they are. Refusing the whole entry would take the product away from
+that hardware entirely, and adopting a window the layout cannot show is the
+state this block removes.
+
+§5 puts the user in Spread to find an evicted window, and the adoption that
+gives it card ownership is the one a carried card already uses, so a card stage
+that was not presenting begins presenting Spread. §8 asks for an Active card
+instead, and a launch it refuses gets one, because the host hands a refused
+launch to the card stage's own new-window path rather than to that adoption.
+Both are recorded rather than designed around; a different answer changes which
+entry point an eviction uses, not the ownership it produces.
+
 ### A layout is rearranged only by a deliberate gesture
 
 A launching application may grow Bento into a free pane, but it never evicts one.
@@ -157,8 +195,14 @@ substitute for the pre-presentation restore record.
 `CARD-LIFECYCLE.md` states the rule and its transitions. The decision is to scope
 ownership to what is visible rather than to a remembered group: a window the user
 cannot see is a window they will look for somewhere else, and a retained
-association would have to be reconciled on every minimize, displace and overflow.
+association would have to be reconciled on every minimize and every displacement.
 Scoping to visible panes removes that reconciliation instead of automating it.
+
+One window a session owns is not a visible pane: one §7 put to sleep. It stays
+because a minimized window is not an eligible card window, so card ownership
+cannot take it, and dropping it would lose the record release needs. That is a
+named state with a rule of its own, not a remainder, and it is the only snapshot
+a session may hold without showing.
 
 Scoping to visible panes also settles what a pairing may name: the group is one
 Spread entry, and neither it nor a window inside it passes the partner test, so a

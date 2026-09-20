@@ -18,7 +18,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
 - Active, Spread, ordered stacks, and output-local Bento are implemented.
 - `ARCHITECTURE.md` invariants 1-10 hold in the accepted sources except where
   `Open limitations` records otherwise.
-- Constrained new windows enter the Bento solver or prepared Active ownership.
+- A Bento layout shows every window it owns awake. A solve that cannot place
+  one is refused rather than parking it, and the window becomes an awake
+  individual card on the display that can hold one. A launching application
+  joins a layout that can grow to show it beside its existing panes, and is
+  left to card ownership otherwise.
 - Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
@@ -52,27 +56,27 @@ card geometry or input. Ordinary cards resolve their human application name from
 desktop service metadata with window metadata and caption fallbacks, keep it
 centered below the card, and put pageable stack position at the row's right edge.
 A Bento group lists every visible pane application in pane order, including
-duplicates, while excluding overflow and omitting stack position.
+duplicates, and omits stack position.
 
 ## Open limitations
 
-- The current implementation still retains Bento overflow and restores unrelated
-  Spread neighbors when a projected Bento group resumes. Both behaviors are
-  superseded by the approved visible-pane ownership contract and require a protected
-  ownership refactor before top-edge extraction can be promoted.
-  Measured live on the installed candidate, two outputs attached: entering Bento
-  on the tablet with six eligible windows produced three visible panes and three
-  overflow windows, and none of the three held individual-card ownership.
-  `CARD-LIFECYCLE.md` §14 gives every window outside the visible combination to
-  the card stage, so each is one violation. The same measurement found no window
-  with two owners, no display with two Bento layouts, and no effect on the other
-  output, and it held unchanged across a tray disable and re-enable.
-  Two user-visible symptoms follow. Activating an overflow window from the Plasma
-  task manager does not bring it forward: un-minimizing re-solves the session and
-  the solver minimizes it again. A pane dragged to the top edge returns to Bento,
-  and ownership never records it leaving, so §5's departure and one-remaining-pane
-  rules never run.
-
+- A pane the user minimizes stays owned by its Bento session rather than
+  becoming a sleeping individual card. `CARD-LIFECYCLE.md` §7 gives it to card
+  ownership, but a minimized window is not an eligible card window, so the card
+  stage cannot adopt one; the session keeps its restore record instead and
+  carries it across the Spread round trip as a sleeping member. It is the only
+  window a session owns without showing, and `applySession` reports any other.
+  §5's one-remaining-pane rule is also not implemented, so a two-pane layout
+  losing a pane holds one rather than ending into card ownership.
+- A projected Bento group resumes by restoring unrelated Spread neighbors. This
+  is superseded by the approved visible-pane ownership contract and requires the
+  same ownership work as top-edge extraction before that can be promoted.
+- Where no display can hold a card, a window a layout cannot show is not
+  adopted at first entry and keeps its own place on the desktop. Where one can,
+  a window leaving a live layout reaches it through the same adoption a carried
+  card uses, so the card stage presents Spread when it was not already
+  presenting. Neither is stated by the contract; both are recorded in
+  `DECISIONS.md`.
 - Card ownership is structurally single-display. One card workspace exists and it
   is bound to one output, resolved as the internal panel, so
   `CARD-LIFECYCLE.md` §11's independent per-display ownership session holds on
@@ -105,7 +109,7 @@ The accepted labels additionally have focused name precedence, Bento aggregation
 duplicate preservation, and stack-position coverage; their full verification passes.
 The Bento group-card implementation has focused full-work-area, rounded
 pane-aperture and repeated-projection geometry, translucent backdrop, session-contract,
-no-member-paging, overflow-minimization, residue-free repeated exact resume,
+no-member-paging, sleeping-member, residue-free repeated exact resume,
 first-snap refresh, and private two-output ownership lifecycle coverage. Physical
 review accepted its geometry, tint, gutters, container-level rounded clipping,
 exact resume, and repeated-entry behavior.
@@ -120,10 +124,12 @@ previous plugin image mapped across an unload, so a freshly loaded effect can
 still be the previous build. A compositor restart is what replaces the image,
 and until one happens an installed candidate is unexercised.
 
-The ownership observer has since been live-verified on a restarted compositor
-running the installed candidate. It reported the overflow violations above and
-no others, suppressed an unchanged shape, and reported nothing during tray
-disable, release and re-enable.
+The ownership observer has been live-verified on a restarted compositor
+running the installed candidate. On that candidate it reported the retained
+Bento remainder and no other violation, suppressed an unchanged shape, and
+reported nothing during tray disable, release and re-enable. The remainder it
+reported no longer exists in source and the rule that named it is retired, so
+the observer now holds two rules; that has not been measured live.
 
 ## Safety
 

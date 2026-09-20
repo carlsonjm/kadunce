@@ -2,13 +2,13 @@
 
 ## Bento-derived Spread presentation
 
-Bento-owned windows keep correct ownership, restore records, pane geometry, and
-overflow when the tablet returns to Spread. The current candidate presents the
+Bento-owned windows keep correct ownership, restore records and pane geometry
+when the tablet returns to Spread. The current candidate presents the
 visible composition as one proportional live desktop view with a translucent-black
 work-area backdrop, then resumes the exact Bento session on activation. Composite
 geometry includes live-frame drift, scaled rounded pane apertures, authoritative
 pane-frame clipping, and repeated-projection guards. Session validation,
-no-member-paging, overflow
+no-member-paging, sleeping-member
 retention, successful-resume paint retirement, rejected-resume preservation, and
 private two-output lifecycle are automated; physical appearance and interaction
 review remain open.
