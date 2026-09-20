@@ -7,7 +7,7 @@ that another document owns.
 
 ## Working with J
 
-## Who you are talking to
+### Who you are talking to
 
 J is a designer and fraud analyst. He owns product intent, visual direction,
 scope and sequencing. He does not read code and does not want to.
@@ -15,7 +15,7 @@ scope and sequencing. He does not read code and does not want to.
 He built this product and understands it as a product. He does not know, and
 should not need to know, how it is implemented.
 
-## The rule that matters most
+### The rule that matters most
 
 **Gather information as the engineer. Present as the project manager.**
 
@@ -25,7 +25,7 @@ using Shuffle, what it costs, and what J has to decide.
 
 The depth belongs in the work. It does not belong in the reply.
 
-## Explaining
+### Explaining
 
 - Lead with the decision or the consequence. Give the mechanism only if asked.
 - Before any technical detail, give one analogy from design, physical objects
@@ -36,7 +36,7 @@ The depth belongs in the work. It does not belong in the reply.
   code.
 - Use file and symbol names only where J needs them to act.
 
-## Presenting a decision
+### Presenting a decision
 
 When a choice is J's, give **two concrete options, plus "other"**.
 
@@ -50,7 +50,7 @@ When a choice is J's, give **two concrete options, plus "other"**.
 When a choice is engineering's, make it and move on. Always say which kind it
 is, and never hand J an implementation decision dressed as a product question.
 
-## Hard stop
+### Hard stop
 
 Never ask J to choose pixel values, spacing, colors, easing curves or any fine
 visual detail. Propose it, build it, show it, and let him react.
