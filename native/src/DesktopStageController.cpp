@@ -901,6 +901,23 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
         }
         snapshots.append(saved);
     }
+    // Releasing Card Stage can change a window's current size, and the solve
+    // ranks candidates by it, so ask again with the batch that is actually
+    // being published. Shortening until it fits is what keeps a late change
+    // from refusing here, which would leave the display with neither owner.
+    for (int pass = 0; pass < snapshots.size(); ++pass) {
+        Session recheck;
+        recheck.outputName = session.outputName;
+        recheck.snapshots = snapshots;
+        if (side) { recheck.side = side; recheck.sideWindow = preferred; }
+        QList<QPointer<KWin::EffectWindow>> late;
+        if (!planSession(recheck, preferred, false, &late) || late.isEmpty()) break;
+        for (const auto &window : std::as_const(late)) {
+            if (!window || unshowable.contains(window)) continue;
+            unshowable.append(window);
+            snapshots.removeIf([&window](const auto &saved) { return saved.window == window; });
+        }
+    }
     if (snapshots.isEmpty()) return false;
     auto prepared = prepareBentoActivation(session, snapshots,
         QPointer<KWin::EffectWindow>(preferred), false,

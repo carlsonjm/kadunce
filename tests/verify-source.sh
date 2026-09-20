@@ -49,6 +49,21 @@ route = effect.split('void Effect::toggle()', 1)[1].split('void Effect::release(
 assert 'transferTabletSessionToSpread' in route and 'admitBentoStack' in route
 assert 'toggleOnOutput' not in route, 'Spread entry must not discard Bento ownership'
 PY_A2
+# CARD-LIFECYCLE.md §5: a window a layout cannot show becomes an AWAKE card.
+# Publishing a layout is therefore the one place that must never minimize, which
+# is what the deleted overflow container made it do.
+python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_PUBLISH'
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+publish = source.split('bool DesktopStageController::applySession(', 1)[1].split(
+    'void DesktopStageController::scheduleSettle()', 1)[0]
+assert 'setMinimized(' not in publish, 'Publishing a layout must not minimize a window'
+assert 'make_unique<RestoredMinimization>' not in publish, 'Publishing a layout must not defer a minimize'
+shed = source.split('bool DesktopStageController::shedUnshowable(', 1)[1].split(
+    'bool DesktopStageController::applySession(', 1)[0]
+assert 'evictToTablet(' in shed, 'Shedding must hand the window to card ownership'
+assert 'm_sessions.constFind(' in shed, 'Shedding must re-find its session between evictions'
+PY_PUBLISH
 python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
