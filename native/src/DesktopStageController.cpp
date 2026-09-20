@@ -1261,9 +1261,15 @@ void DesktopStageController::settleSessions()
     // Placement is requested once. Observe asynchronous results without issuing
     // more resizes; reconcile unresolved sessions once after the bounded grace.
     for (const QString &key : keys) {
-        auto pending = m_sessions.find(key);
-        if (pending != m_sessions.end() && pending->participationDirty) {
-            if (applySession(pending.value(), false)) scheduleSettle();
+        if (m_sessions.contains(key) && m_sessions.value(key).participationDirty) {
+            // CARD-LIFECYCLE.md §5: a wake deferred past an interaction can ask
+            // for a pane the layout has no room for, so shed before applying.
+            // From a value copy and re-found by key, because adopting reenters
+            // this controller and can remove or replace the session.
+            shedUnshowable(key, m_sessions.value(key), nullptr, false);
+            auto pending = m_sessions.find(key);
+            if (pending != m_sessions.end() && applySession(pending.value(), false))
+                scheduleSettle();
             continue; // Give the new configure its own acknowledgement grace.
         }
         const auto session = m_sessions.constFind(key);
