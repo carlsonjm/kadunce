@@ -208,7 +208,6 @@ private:
         std::optional<BentoSidePlacement> side;
         QString outputName;
         QList<QPointer<KWin::EffectWindow>> windows;
-        QList<QPointer<KWin::EffectWindow>> overflow;
         QList<RestoreSnapshot> snapshots;
         std::vector<BentoRect> rects;
         bool applying = false;

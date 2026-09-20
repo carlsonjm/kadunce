@@ -41,7 +41,7 @@ sleep 1
 mapfile -t active_stages < <(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.outputStageState)
 printf '%s\n' "${active_stages[@]}"
-printf '%s\n' "${active_stages[@]}" | rg -q '^Virtual-0\|external\|.*\|2\|0$'
+printf '%s\n' "${active_stages[@]}" | rg -q '^Virtual-0\|external\|.*\|2$'
 
 # Carry one Bento member to an ordinary destination. The source reflows from
 # two panes to one and the destination remains an ordinary, independent stage.
@@ -51,8 +51,8 @@ test "$(qdbus6 org.kde.KWin /Kadunce \
 sleep .7 # Source reflow must survive the reconcile-once observation.
 mapfile -t first_handoff < <(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.outputStageState)
-printf '%s\n' "${first_handoff[@]}" | rg -q '^Virtual-0\|external\|.*\|1\|0$'
-printf '%s\n' "${first_handoff[@]}" | rg -q '^Virtual-1\|external\|.*\|0\|0$'
+printf '%s\n' "${first_handoff[@]}" | rg -q '^Virtual-0\|external\|.*\|1$'
+printf '%s\n' "${first_handoff[@]}" | rg -q '^Virtual-1\|external\|.*\|0$'
 
 # Activate the destination around the transferred window, then carry the
 # remaining source member into that live Bento transaction.
@@ -65,15 +65,15 @@ test "$(qdbus6 org.kde.KWin /Kadunce \
 mapfile -t second_handoff < <(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.outputStageState)
 printf '%s\n' "${second_handoff[@]}"
-printf '%s\n' "${second_handoff[@]}" | rg -q '^Virtual-0\|external\|.*\|0\|0$'
-printf '%s\n' "${second_handoff[@]}" | rg -q '^Virtual-1\|external\|.*\|2\|0$'
+printf '%s\n' "${second_handoff[@]}" | rg -q '^Virtual-0\|external\|.*\|0$'
+printf '%s\n' "${second_handoff[@]}" | rg -q '^Virtual-1\|external\|.*\|2$'
 
 test "$(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.toggleBentoOnOutput \
     "${second_output}")" = "true"
 mapfile -t restored_stages < <(qdbus6 org.kde.KWin /Kadunce \
     studio.warbler.Kadunce.outputStageState)
-printf '%s\n' "${restored_stages[@]}" | rg -q '\|0\|0$'
+printf '%s\n' "${restored_stages[@]}" | rg -q '^Virtual-[01]\|external\|.*\|0$'
 
 kill "${first_client}" "${second_client}" >/dev/null 2>&1 || true
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \

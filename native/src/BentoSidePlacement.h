@@ -278,9 +278,10 @@ inline std::optional<std::vector<BentoRect>> splitBentoColumn(
     return result;
 }
 
-// Keep the edge-selected card visible; park only the residents that cannot fit.
-// The display's own pane cap bounds the search, preserve resident order, prefer
-// more panes.
+// Keep the edge-selected card visible and report the rest as unplaced. The
+// display's own pane cap bounds the search, preserve resident order, prefer more
+// panes. A resident this leaves out is not retained anywhere: CARD-LIFECYCLE.md
+// §5 makes it an individual card, and the publisher is what gives it one.
 inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement choice,
     int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0)
 {

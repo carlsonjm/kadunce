@@ -36,7 +36,7 @@ client companion
 sleep .6
 snap 1275 600
 jq -e '.x > 800 and .y > 300 and .height < 450' <<<"$expected"
-kad outputStageState | rg '^Virtual-0\|.*\|3\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|3$'
 echo 'PASS: occupied column splits below, matching its reserved drop footprint'
 before=$(probe windowGeometry "$main")
 read -r x y <<<"$(jq -r '[.x+.width*.15,.y-7] | map(floor) | @tsv' <<<"$before")"

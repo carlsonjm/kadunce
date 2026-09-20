@@ -18,14 +18,14 @@ main=$(kad workspaceContext | jq -r '.applications[0].windowId')
 original=$(probe windowGeometry "$main")
 test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep .3
-kad outputStageState | rg '^Virtual-0\|.*\|1\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|1$'
 client companion
 sleep .5
-kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|2$'
 kad workspaceContext | jq -e '[.applications[] | select(.output=="Virtual-0" and (.minimized|not))] | length==2'
 test "$(probe releaseRuntime)" = true
 sleep .4
-kad outputStageState | rg '^Virtual-0\|.*\|0\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|0$'
 probe windowGeometry "$main" | jq -e --argjson original "$original" '. == $original'
 kad workspaceContext | jq -e '[.applications[] | select(.minimized)] | length==0'
 echo 'PASS: new app expands single-card Bento to two visible members; release restores the original window'

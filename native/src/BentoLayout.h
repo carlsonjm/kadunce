@@ -89,7 +89,9 @@ inline constexpr int BentoCuratedPaneCap = 8;
     int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
 
 // A transfer is accepted only if the arriving candidate has a visible pane.
-// Unlike ordinary reflow, silently parking this candidate is rejection.
+// Leaving any candidate out is not a private matter either way: the caller
+// compares the result against what it owned, and CARD-LIFECYCLE.md §8 makes an
+// admission that would drop a resident a refusal rather than a rearrangement.
 [[nodiscard]] std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
     int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);

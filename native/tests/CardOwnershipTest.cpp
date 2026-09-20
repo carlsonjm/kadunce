@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <type_traits>
 
 using namespace Kadunce;
 using namespace Qt::StringLiterals;
@@ -30,12 +31,22 @@ int main()
     const QString tablet = u"tablet"_s;
     const QString monitor = u"monitor"_s;
 
+    // A session is its visible pane combination and nothing else. CARD-LIFECYCLE.md
+    // §5 leaves no second list for a window to be retained in, so the view has
+    // exactly two members and a three-part arrangement is not expressible.
+    static_assert(std::is_constructible_v<BentoOwnershipView,
+                      QString, std::vector<quintptr>>,
+        "A Bento session must be one output and its visible panes");
+    static_assert(!std::is_constructible_v<BentoOwnershipView,
+                      QString, std::vector<quintptr>, std::vector<quintptr>>,
+        "A Bento session must not hold a second list of windows");
+
     // A contract-clean arrangement: panes owned by Bento, everything else an
-    // individual card, overflow retained but independently owned.
+    // individual card, including a window this layout cannot show.
     {
         const std::vector<quintptr> cards{10, 11, 40};
         const std::vector<BentoOwnershipView> sessions{
-            {tablet, {20, 21}, {40}},
+            {tablet, {20, 21}},
         };
         require(auditCardOwnership(cards, sessions).empty(),
             "A contract-clean arrangement reported a violation");
@@ -49,11 +60,11 @@ int main()
             "A null identity was not Native");
     }
 
-    // §14: one window has one owner. The two containers are maintained by hand,
-    // so a window can appear in both.
+    // §14: one window has one owner. Card membership and pane membership are
+    // kept by different stages, so a window can appear in both.
     {
         const std::vector<quintptr> cards{10, 20};
-        const std::vector<BentoOwnershipView> sessions{{tablet, {20, 21}, {}}};
+        const std::vector<BentoOwnershipView> sessions{{tablet, {20, 21}}};
         const auto found = auditCardOwnership(cards, sessions);
         require(found.size() == 1 && reports(found, 20, OwnershipViolation::Rule::TwoOwners),
             "A window owned as both a card and a pane was not reported");
@@ -66,7 +77,7 @@ int main()
     // §14: one window has one owner, across displays too.
     {
         const std::vector<BentoOwnershipView> sessions{
-            {tablet, {20}, {}}, {monitor, {20}, {}}};
+            {tablet, {20}}, {monitor, {20}}};
         const auto found = auditCardOwnership({}, sessions);
         require(found.size() == 1 && reports(found, 20, OwnershipViolation::Rule::TwoOwners),
             "The same window as a pane on two displays was not reported");
@@ -75,7 +86,7 @@ int main()
     // §14: one display has at most one Bento layout.
     {
         const std::vector<BentoOwnershipView> sessions{
-            {tablet, {20}, {}}, {tablet, {21}, {}}};
+            {tablet, {20}}, {tablet, {21}}};
         const auto found = auditCardOwnership({}, sessions);
         require(found.size() == 1
             && found.front().rule == OwnershipViolation::Rule::DuplicateBentoLayout
@@ -83,27 +94,16 @@ int main()
             "Two Bento layouts on one display were not reported");
     }
 
-    // §14: a window outside the visible combination is an individual card.
-    // This is the pre-existing defect the audit recorded: the implementation
-    // retains overflow beside the session without giving it card ownership.
+    // §14 read forward rather than as a defect: a window the layout could not
+    // show is an individual card beside the session, and that arrangement is
+    // silent. This is the shape an eviction produces.
     {
-        const std::vector<quintptr> cards{10};
-        const std::vector<BentoOwnershipView> sessions{{tablet, {20}, {41}}};
-        const auto found = auditCardOwnership(cards, sessions);
-        require(found.size() == 1
-            && reports(found, 41, OwnershipViolation::Rule::OverflowWithoutOwner),
-            "Retained overflow with no owner was not reported");
-        require(ownerOf(41, cards, sessions) == CardOwner::Native,
-            "Unowned overflow did not resolve to Native");
-    }
-
-    // Overflow that is also a visible pane of the same session is two owners,
-    // not merely unowned overflow.
-    {
-        const std::vector<BentoOwnershipView> sessions{{tablet, {20}, {20}}};
-        const auto found = auditCardOwnership({}, sessions);
-        require(found.size() == 1 && reports(found, 20, OwnershipViolation::Rule::TwoOwners),
-            "A window both visible and overflowed was not reported as two owners");
+        const std::vector<quintptr> cards{10, 41};
+        const std::vector<BentoOwnershipView> sessions{{tablet, {20}}};
+        require(auditCardOwnership(cards, sessions).empty(),
+            "A window the layout cannot show, owned as a card, reported a violation");
+        require(ownerOf(41, cards, sessions) == CardOwner::IndividualCard,
+            "An evicted window did not resolve to an individual card");
     }
 
     // Several independent defects are reported independently rather than
@@ -111,11 +111,10 @@ int main()
     {
         const std::vector<quintptr> cards{20, 30};
         const std::vector<BentoOwnershipView> sessions{
-            {tablet, {20}, {41}}, {monitor, {30}, {}}};
+            {tablet, {20}}, {monitor, {30}}};
         const auto found = auditCardOwnership(cards, sessions);
-        require(found.size() == 3
+        require(found.size() == 2
             && reports(found, 20, OwnershipViolation::Rule::TwoOwners)
-            && reports(found, 41, OwnershipViolation::Rule::OverflowWithoutOwner)
             && reports(found, 30, OwnershipViolation::Rule::TwoOwners),
             "Independent violations were not reported independently");
     }
@@ -124,7 +123,7 @@ int main()
     require(auditCardOwnership({}, {}).empty(), "An empty workspace reported a violation");
     require(auditCardOwnership({1, 2, 3}, {}).empty(),
         "Cards without any Bento session reported a violation");
-    require(auditCardOwnership({}, {{tablet, {}, {}}}).empty(),
+    require(auditCardOwnership({}, {{tablet, {}}}).empty(),
         "An empty session reported a violation");
 
     // The transition grammar: exactly six, and nothing else is expressible.
@@ -207,7 +206,7 @@ int main()
         require(ledger.transfer(10, CardOwner::IndividualCard).has_value(), "Admission failed");
         require(ledger.transfer(20, CardOwner::BentoPane, tablet).has_value(), "Admission failed");
         const std::vector<quintptr> cards{10};
-        const std::vector<BentoOwnershipView> sessions{{tablet, {20}, {}}};
+        const std::vector<BentoOwnershipView> sessions{{tablet, {20}}};
         require(ledger.reconcile(cards, sessions).empty(),
             "Agreeing containers reported a disagreement");
 
@@ -224,34 +223,46 @@ int main()
             "A pane the ledger recorded as a card was not reported");
     }
 
-    // The measured live defect: a five-window tablet Bento leaves two panes and
-    // three overflow windows that no owner claims. The ledger records what is
-    // true rather than pretending the overflow is owned, and reconciliation
-    // keeps reporting it until Block 3 removes the retention.
+    // The shape a five-window tablet Bento used to leave — two panes and three
+    // windows no owner claimed — resolved. The three are individual cards, the
+    // session is its two panes, and nothing is reported.
     {
         CardOwnershipLedger ledger;
         const std::vector<quintptr> panes{20, 21};
-        const std::vector<quintptr> overflow{41, 42, 43};
+        const std::vector<quintptr> evicted{41, 42, 43};
         for (const auto pane : panes) {
             require(ledger.transfer(pane, CardOwner::BentoPane, tablet).has_value(),
                 "Pane admission failed");
         }
-        const std::vector<BentoOwnershipView> sessions{{tablet, panes, overflow}};
-        const auto found = ledger.reconcile({}, sessions);
-        require(found.size() == 3, "The measured overflow shape changed shape");
-        for (const auto window : overflow) {
-            require(reports(found, window, OwnershipViolation::Rule::OverflowWithoutOwner),
-                "A retained overflow window was not reported as unowned");
-            require(ledger.ownerOf(window) == CardOwner::Native,
-                "Unowned overflow was recorded as owned");
+        for (const auto window : evicted) {
+            require(ledger.transfer(window, CardOwner::IndividualCard).has_value(),
+                "Eviction to card ownership failed");
         }
+        const std::vector<BentoOwnershipView> sessions{{tablet, panes}};
+        require(ledger.reconcile(evicted, sessions).empty(),
+            "The resolved five-window shape reported a violation");
+        for (const auto window : evicted) {
+            require(ledger.ownerOf(window) == CardOwner::IndividualCard,
+                "An evicted window was not recorded as an individual card");
+        }
+        // The remainder coming back as a pane while it is still a card is the
+        // one way the deleted container could return, so it is reported.
+        const std::vector<BentoOwnershipView> stranded{{tablet, {20, 21, 41}}};
+        require(reports(ledger.reconcile(evicted, stranded), 41,
+                        OwnershipViolation::Rule::TwoOwners),
+            "A card the session also shows as a pane was not reported");
     }
 
-    // A description exists for every rule, so a report is readable in a log.
-    for (const auto rule : {OwnershipViolation::Rule::TwoOwners,
-                            OwnershipViolation::Rule::DuplicateBentoLayout,
-                            OwnershipViolation::Rule::OverflowWithoutOwner}) {
-        require(!describeOwnershipViolation({7, rule, tablet}).isEmpty(),
-            "An ownership violation had no description");
+    // Ownership holds at two violation rules, each with a description so a
+    // report is readable in a log. A third would mean a state was relocated.
+    {
+        int described = 0;
+        for (const auto rule : {OwnershipViolation::Rule::TwoOwners,
+                                OwnershipViolation::Rule::DuplicateBentoLayout}) {
+            require(!describeOwnershipViolation({7, rule, tablet}).isEmpty(),
+                "An ownership violation had no description");
+            ++described;
+        }
+        require(described == 2, "Ownership must hold exactly two violation rules");
     }
 }

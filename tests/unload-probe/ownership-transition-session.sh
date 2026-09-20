@@ -24,8 +24,8 @@ qdbus6 studio.warbler.UnloadClient /Client oversizedCompanion
 sleep .4
 check a2Arrival true
 sleep .6
-check a2Prepared
-echo 'PASS: constrained tablet launch receives large pane; oversized launch retains ownership and acknowledges Active geometry before minimizing'
+check a2Refused
+echo 'PASS: constrained tablet launch receives large pane; oversized launch is refused awake and unowned, leaving the layout intact'
 qdbus6 studio.warbler.UnloadClient /Client crossCompanion
 sleep .4
 check a2CrossPrepare
@@ -47,7 +47,7 @@ sleep .6
 check a2Release
 sleep .6
 check a2Restored
-echo 'PASS: Bento group exact resume preserves rejected source state, ordinary neighbors, pane/overflow ownership, origins and monitor isolation'
+echo 'PASS: Bento group exact resume preserves rejected source state, ordinary neighbors, pane ownership, origins and monitor isolation'
 check a2Reactivate
 sleep .6
 qdbus6 studio.warbler.UnloadClient /Client immediateCompanion

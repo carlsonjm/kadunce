@@ -38,7 +38,7 @@ import pathlib, sys
 card, effect = (pathlib.Path(p).read_text() for p in sys.argv[1:])
 projection = card.split('bool CardStageController::admitBentoStack(', 1)[1].split('void CardStageController::release()', 1)[0]
 assert 'enterActive(' not in projection and 'moveResize(' not in projection
-assert 'setMinimized(false)' not in projection, 'Projection must not unminimize retained overflow'
+assert 'setMinimized(false)' not in projection, "Projection must not change a member's minimization"
 resume = pathlib.Path(sys.argv[1]).read_text().split('bool CardStageController::resumeSelectedBentoProjection()', 1)[1].split('void CardStageController::release()', 1)[0]
 assert all(call not in resume for call in ('moveResize(', 'setMinimized(', 'enterActive('))
 retire = effect.split('void Effect::retireBentoProjectionForCardStage(', 1)[1].split('bool Effect::admitCardToDesktopStage(', 1)[0]

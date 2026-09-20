@@ -537,7 +537,7 @@ public Q_SLOTS:
     bool a2Setup() { return ownershipTransitions.setup(); }
     bool a2Begin() { return ownershipTransitions.begin(); }
     bool a2Arrival(bool oversized) { return ownershipTransitions.arrival(oversized); }
-    bool a2Prepared() { return ownershipTransitions.prepared(); }
+    bool a2Refused() { return ownershipTransitions.refused(); }
     bool a2CrossPrepare() { return ownershipTransitions.crossPrepare(); }
     bool a2CrossAdmit() { return ownershipTransitions.crossAdmit(); }
     bool a2Project() { return ownershipTransitions.project(); }

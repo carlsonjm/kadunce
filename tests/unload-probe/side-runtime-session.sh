@@ -77,13 +77,13 @@ sleep .6
 probe windowGeometry "$main" | jq -e '.width < 600 and .x < 30'
 echo 'PASS: single card fills and restores requested side/share when companion returns'
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
-    client overflowCompanion
+    client widerCompanion
     sleep .6
     incoming=$(kad workspaceContext | jq -r '.applications[] | select(.title == "Large admission probe") | .windowId')
     test -n "$incoming"
     test "$(probe windowMinimized "$incoming")" = false
     probe windowGeometry "$incoming" | jq -e '.width > 1200 and .height > 750'
-    kad outputStageState | rg '^Virtual-0\|.*\|1\|2$'
+    kad outputStageState | rg '^Virtual-0\|.*\|1$'
     echo 'PASS: constrained new launch gets Bento space when remembered split cannot fit'
 fi
 test "$(probe releaseRuntime)" = true
@@ -105,14 +105,17 @@ if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
         if [[ $kind == pointer ]]; then probe contactButton false; else probe up 63; fi
         sleep .6
         probe windowGeometry "$main" | jq -e --argjson target "$expected" '. == $target'
-        test "$(probe windowMinimized "$incoming")" = true
+        # CARD-LIFECYCLE.md §5: the resident the two-pane layout cannot keep
+        # yields to card ownership awake. Nothing is parked, so it is never
+        # minimized and release has nothing to wake.
+        test "$(probe windowMinimized "$incoming")" = false
         test "$(probe windowMinimized "$other")" = false
-        kad outputStageState | rg '^Virtual-0\|.*\|2\|1$'
+        kad outputStageState | rg '^Virtual-0\|.*\|2$'
         test "$(probe releaseRuntime)" = true
         sleep .6
         test "$(probe windowMinimized "$incoming")" = false
     done
-    echo 'PASS: ordinary edge snap parks oversized resident, retains two panes, and release restores overflow'
+    echo 'PASS: an edge snap evicts the resident it cannot show as an awake card and keeps two panes'
 fi
 if [[ ${KADUNCE_SIDE_TABLET:-0} == 1 ]]; then
     probe pointer 500 350

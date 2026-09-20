@@ -23,13 +23,12 @@ enum class CardOwner {
 };
 
 // One output's Bento session, reduced to the identities that decide ownership.
-// `panes` is the visible combination. `overflow` is what the implementation
-// still retains alongside it; the contract gives those windows to the card
-// stage, so every overflow identity must also appear as an individual card.
+// It is the visible pane combination and nothing else: CARD-LIFECYCLE.md §5
+// gives a window the layout cannot show to card ownership, so there is no
+// second list here for one to be retained in.
 struct BentoOwnershipView {
     QString output;
     std::vector<quintptr> panes;
-    std::vector<quintptr> overflow;
 };
 
 struct OwnershipViolation {
@@ -38,8 +37,6 @@ struct OwnershipViolation {
         TwoOwners,
         // "One display has at most one Bento layout."
         DuplicateBentoLayout,
-        // "A window outside the visible Bento combination is an individual card."
-        OverflowWithoutOwner,
     };
     quintptr window = 0;
     Rule rule = Rule::TwoOwners;
@@ -138,21 +135,6 @@ enum class OwnershipTransition {
                                       session.output});
             }
             claimed.insert(pane);
-        }
-        for (const auto window : session.overflow) {
-            if (window == 0) continue;
-            if (claimed.contains(window)) {
-                violations.push_back({window, OwnershipViolation::Rule::TwoOwners,
-                                      session.output});
-                continue;
-            }
-            // Retained beside a session but owned by nobody: it is not a
-            // visible pane, so the contract makes it an individual card.
-            if (!cards.contains(window)) {
-                violations.push_back({window,
-                                      OwnershipViolation::Rule::OverflowWithoutOwner,
-                                      session.output});
-            }
         }
     }
     return violations;
@@ -282,10 +264,6 @@ private:
     case OwnershipViolation::Rule::DuplicateBentoLayout:
         return QStringLiteral("display %1 has more than one Bento layout")
             .arg(violation.output);
-    case OwnershipViolation::Rule::OverflowWithoutOwner:
-        return QStringLiteral("window %1 is retained beside the %2 Bento session "
-                              "but is not an individual card")
-            .arg(violation.window).arg(violation.output);
     }
     return QStringLiteral("unknown ownership violation");
 }

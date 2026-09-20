@@ -22,18 +22,18 @@ for id in "$main" "$second"; do
     survivor=$main; [[ $id != "$main" ]] || survivor=$second
     test "$(probe minimizeWindow "$id" true)" = true
     sleep .6
-    kad outputStageState | rg '^Virtual-0\|.*\|1\|0$'
+    kad outputStageState | rg '^Virtual-0\|.*\|1$'
     test "$(probe windowGeometry "$survivor")" = "$full"
     kad workspaceContext | jq -e --arg id "$id" '.applications[] | select(.windowId == $id) | .minimized'
     test "$(probe minimizeWindow "$id" false)" = true
     sleep .6
-    kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'
+    kad outputStageState | rg '^Virtual-0\|.*\|2$'
 done
 echo 'PASS: either minimized pane yields full space; restore rejoins'
 probe minimizeWindow "$main" true
 probe minimizeWindow "$second" true
 sleep .6
-kad outputStageState | rg '^Virtual-0\|.*\|0\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|0$'
 kad workspaceContext | jq -e '[.applications[] | select(.minimized)] | length == 2'
 probe minimizeWindow "$main" false
 sleep .6
@@ -41,19 +41,23 @@ test "$(probe windowGeometry "$main")" = "$full"
 echo 'PASS: empty Bento retains restore membership and accepts restoration'
 client companion
 sleep .6
-kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|2$'
 kad workspaceContext | jq -e --arg id "$second" '.applications[] | select(.windowId == $id) | .minimized'
 echo 'PASS: new launch joins without resurrecting user-minimized card'
 client companion
 sleep .6
-kad outputStageState | rg '^Virtual-0\|.*\|2\|1$'
+# CARD-LIFECYCLE.md §8: the layout is already at its cap, so the third launch
+# is refused rather than parked. It stays awake and the two panes stay put.
+kad outputStageState | rg '^Virtual-0\|.*\|2$'
+third=$(kad workspaceContext | jq -r '[.applications[] | select(.minimized|not)][-1].windowId')
+test "$(probe windowMinimized "$third")" = false
 visible=$(kad workspaceContext | jq -r '[.applications[] | select(.minimized|not)][0].windowId')
 probe minimizeWindow "$visible" true
 sleep .6
-kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'
+kad outputStageState | rg '^Virtual-0\|.*\|[12]$'
 test "$(probe windowMinimized "$second")" = true
 test "$(probe windowMinimized "$visible")" = true
-echo 'PASS: overflow fills a vacancy without reopening user-minimized cards'
+echo 'PASS: a launch the layout cannot show stays awake, and a vacancy does not reopen user-minimized cards'
 test "$(probe releaseRuntime)" = true
 sleep .6
 kad_state=$(probe windowGeometry "$second")

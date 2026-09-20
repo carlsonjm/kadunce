@@ -77,21 +77,34 @@ struct OwnershipTransitionProbe {
         origins.append({arrival, arrival->window()->moveResizeGeometry()});
         QObject::connect(arrival->window(), &KWin::Window::minimizedChanged, arrival,
             [this, arrival] { desktop.handleWindowMinimizedChanged(arrival); });
+        if (tooLarge) {
+            // CARD-LIFECYCLE.md §8: a layout that cannot grow to show a launch
+            // refuses it and leaves it for card ownership. Refusal takes
+            // nothing, so it is idempotent the way admission is.
+            if (desktop.handleWindowAdded(arrival) || desktop.ownsWindow(arrival))
+                return fail("Bento admitted a launch it cannot show");
+            if (desktop.handleWindowAdded(arrival))
+                return fail("Refusing an unshowable launch was not idempotent");
+            oversized = arrival;
+            return true;
+        }
         if (!desktop.handleWindowAdded(arrival) || !desktop.ownsWindow(arrival))
             return fail("Bento reported handled without owning arrival");
         if (!desktop.handleWindowAdded(arrival)) return fail("Duplicate arrival not idempotent");
-        if (tooLarge) oversized = arrival;
-        else if (arrival->isMinimized() || arrival->window()->moveResizeGeometry().width() < 1000)
+        if (arrival->isMinimized() || arrival->window()->moveResizeGeometry().width() < 1000)
             return fail("Constrained arrival did not receive large pane");
         return true;
     }
-    bool prepared() {
-        if (!oversized || !oversized->isMinimized() || !desktop.ownsWindow(oversized))
-            return fail("Oversized arrival did not become owned prepared overflow");
-        const auto accepted = oversized->window()->moveResizeGeometry();
-        if (accepted != KWin::RectF(desktopHost.activeTargetForDesktopStage(tablet))
-            || oversized->frameGeometry() != accepted)
-            return fail("Prepared overflow did not acknowledge the established Active target");
+    bool refused() {
+        if (!oversized) return fail("Oversized arrival missing");
+        // §8 forbids parking: the window stays awake and unowned here, which is
+        // what lets the host give it to card ownership as an Active card.
+        if (oversized->isMinimized())
+            return fail("A launch Bento cannot show was minimized rather than left awake");
+        if (desktop.ownsWindow(oversized) || desktop.managesWindow(oversized))
+            return fail("A launch Bento cannot show was retained beside the session");
+        if (!desktop.hasSessionOnOutput(tablet->name()))
+            return fail("A refused launch ended the layout it could not join");
         return true;
     }
     bool crossPrepare() {
@@ -132,7 +145,7 @@ struct OwnershipTransitionProbe {
                 transferred = projection;
                 if (cross) {
                     QList<Kadunce::BentoProjectionMember> members = projection.panes;
-                    members.append(projection.overflow);
+                    members.append(projection.sleeping);
                     const auto incoming = std::find_if(members.cbegin(), members.cend(),
                         [this](const auto &s) { return s.window == cross; });
                     if (incoming == members.cend() || incoming->restore.output != tablet
@@ -148,13 +161,13 @@ struct OwnershipTransitionProbe {
             || monitorWindow->window()->moveResizeGeometry() != monitorTile)
             return fail("Projection retained duplicate owner or changed monitor");
         if (cards.model().count() != 1
-            || cards.liveCards().size() != transferred.panes.size() + transferred.overflow.size()
+            || cards.liveCards().size() != transferred.panes.size() + transferred.sleeping.size()
             || cards.selectedWindow() != transferred.lead
             || cards.selectedWindow() != expectedLead)
             return fail("Projection lost membership/large-pane selection");
         projectedLead = transferred.lead;
         QList<Kadunce::BentoProjectionMember> members = transferred.panes;
-        members.append(transferred.overflow);
+        members.append(transferred.sleeping);
         currentProjectionWindows.clear();
         for (const auto &saved : members) {
             currentProjectionWindows.append(saved.window);
@@ -165,7 +178,7 @@ struct OwnershipTransitionProbe {
                 || retained->minimized != saved.restore.minimized)
                 return fail("Projection replaced authoritative restore record");
             if (saved.window->isMinimized() != saved.minimized)
-                return fail("Projection changed pane/overflow minimization");
+                return fail("Projection changed a member's minimization");
         }
         for (const auto &[w, geometry] : origins) {
             if (w == monitorWindow || w == ordinary) continue;

@@ -165,17 +165,17 @@ int main()
         require(plan && std::find(plan->candidateIndices.begin(), plan->candidateIndices.end(), incoming)
             != plan->candidateIndices.end(), "Required non-leading candidate missing");
     }
-    const std::vector<BentoCandidate> sideOverflow{
+    const std::vector<BentoCandidate> sideCrowd{
         {300, 240, 900, 700, true}, {1000, 700, 1000, 700, false},
         {300, 240, 900, 700, false}};
     for (bool right : {false, true}) for (bool large : {false, true}) {
-        const auto fitted = chooseBentoSideAdmission({right, large}, 1200, 800, sideOverflow);
+        const auto fitted = chooseBentoSideAdmission({right, large}, 1200, 800, sideCrowd);
         require(fitted && fitted->candidateIndices == std::vector<int>({0, 2}),
             "Infeasible resident blocked edge admission or displaced dragged card");
-        require(!chooseBentoSideAdmission({right, large}, 1200, 800, sideOverflow, 1),
+        require(!chooseBentoSideAdmission({right, large}, 1200, 800, sideCrowd, 1),
             "Required newcomer was silently parked");
         const auto alone = chooseBentoSideAdmission({right, large}, 1200, 800,
-            std::vector<BentoCandidate>{sideOverflow[1], sideOverflow[0]});
+            std::vector<BentoCandidate>{sideCrowd[1], sideCrowd[0]});
         require(alone && alone->candidateIndices == std::vector<int>{0}
             && alone->rects[0].width == 1 && alone->rects[0].height == 1,
             "Only fitting card did not fill Active space");

@@ -65,7 +65,7 @@ for scenario in edge edge-refresh edge-refresh-reject external withdrawn unload 
         active=$(kad workspaceContext | jq '[.displayContext.displays[] | select(.bentoActive)] | length')
         if [[ $scenario == edge || $scenario == edge-refresh || $scenario == edge-refresh-reject || $scenario == external ]]; then kad nativeMoveTrace; fi
         if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external ]]; then test "$active" = 1; else test "$active" = 0; fi
-        if [[ $scenario == edge || $scenario == edge-refresh ]]; then kad outputStageState | rg '^Virtual-0\|.*\|2\|0$'; fi
+        if [[ $scenario == edge || $scenario == edge-refresh ]]; then kad outputStageState | rg '^Virtual-0\|.*\|2$'; fi
         if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external || $scenario == withdrawn || ( $scenario == dock && $tablet == 0 ) ]]; then
             probe windowGeometry "$main" | jq -e --argjson target "$destination" '. == $target'
         fi

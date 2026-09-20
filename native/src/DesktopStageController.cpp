@@ -129,9 +129,6 @@ std::vector<BentoOwnershipView> DesktopStageController::ownershipView() const
         for (const auto &window : it.value().windows) {
             if (window) view.panes.push_back(identity(window));
         }
-        for (const auto &window : it.value().overflow) {
-            if (window) view.overflow.push_back(identity(window));
-        }
         views.push_back(std::move(view));
     }
     return views;
@@ -143,15 +140,14 @@ QStringList DesktopStageController::outputStageState() const
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         const Session *session = sessionForOutput(output);
         const KWin::Rect geometry = output->geometry();
-        state.append(QStringLiteral("%1|%2|%3,%4 %5x%6|%7|%8")
+        state.append(QStringLiteral("%1|%2|%3,%4 %5x%6|%7")
             .arg(output->name(),
                  m_host->isTabletOutputForDesktopStage(output)
                      ? QStringLiteral("tablet")
                      : QStringLiteral("external"))
             .arg(geometry.x()).arg(geometry.y())
             .arg(geometry.width()).arg(geometry.height())
-            .arg(session ? session->windows.size() : 0)
-            .arg(session ? session->overflow.size() : 0));
+            .arg(session ? session->windows.size() : 0));
     }
     return state;
 }
@@ -1704,7 +1700,6 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         removedSnapshot = *snapshot;
         session.snapshots.erase(snapshot);
         session.windows.removeAll(window);
-        session.overflow.removeAll(window);
         break;
     }
     if (sourceKey.isEmpty()) {
