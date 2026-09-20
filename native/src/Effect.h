@@ -172,6 +172,7 @@ private:
         const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const override;
+    void retireOutputFromDesktopStage(KWin::LogicalOutput *output) override;
     void prepareOutputForDesktopStage(
         KWin::LogicalOutput *output) override;
     [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
@@ -292,6 +293,11 @@ private:
     QRectF m_carryPickup;
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
     std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
+    // A tablet edge action that admits to Card Stage has no Bento reservation
+    // to hold: its destination is the Active card target on this output.
+    // CARD-LIFECYCLE.md §3 and §10 decide which of the two a gesture is.
+    QPointer<KWin::LogicalOutput> m_carryCardEntryOutput;
+    QPointer<KWin::LogicalOutput> m_lineCardEntryOutput;
     QPointer<KWin::EffectWindow> m_lineDestinationWindow;
     QPointF m_lineDestinationContact;
     DeferredCommandGuard m_inputActivationGuard;

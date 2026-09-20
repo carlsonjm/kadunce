@@ -368,4 +368,54 @@ int main() {
     }
     require(!state.commitAdmission(*expiredAdmission, [&] { ++foreignCalls; return true; })
         && foreignCalls == 0, "Destroyed destination ticket touched source");
+
+    // CARD-LIFECYCLE.md §2 and §6: a Bento group is one Spread entry beside the
+    // individual cards, and selecting it resumes only the group. Both halves are
+    // membership, so both are decided here: a group must be able to arrive while
+    // the stage already holds cards, and to leave without taking them along.
+    {
+        CardWorkspaceState<QString> stage;
+        const QList<QString> neighbours{u"a"_s, u"b"_s, u"c"_s};
+        stage.reset(neighbours, 1);
+        const QList<QString> group{u"pane"_s, u"second pane"_s};
+        const auto arrival = stage.prepareStackAdmission(group);
+        require(arrival && arrival->transition() == OwnershipTransition::BentoToCard,
+            "A Bento group could not join a stage that already owns cards");
+        require(!stage.commitAdmission(*arrival, [] { return false; })
+            && stage.windows() == neighbours, "Refused group arrival changed membership");
+        require(stage.commitAdmission(*arrival, [] { return true; }),
+            "Group arrival beside existing cards failed");
+        require(stage.invariantHolds() && stage.cardCount() == 5 && stage.count() == 4,
+            "The arriving group was not one Spread entry beside three cards");
+        require(stage.sameStack(4, 5) && !stage.sameStack(1, 4),
+            "The group's panes did not arrive as one entry");
+        require(stage.stackSizeForId(4) == 2 && stage.windows().mid(0, 3) == neighbours,
+            "Group arrival disturbed the cards already owned");
+
+        const auto departure = stage.prepareGroupRemoval(group);
+        require(departure && departure->transition() == OwnershipTransition::CardToBento,
+            "The group could not be prepared to leave");
+        require(stage.windows().size() == 5, "Preparing the departure changed membership");
+        require(stage.commitGroupRemoval(*departure), "The group could not leave");
+        require(stage.windows() == neighbours && stage.count() == 3
+            && stage.cardCount() == 3 && stage.invariantHolds(),
+            "Resuming the group released the cards around it");
+        require(!stage.commitGroupRemoval(*departure),
+            "A committed group departure could be replayed");
+    }
+    {
+        // A departure naming anything the stage does not own changes nothing.
+        CardWorkspaceState<QString> stage;
+        const QList<QString> members{u"a"_s, u"b"_s};
+        stage.reset(members, 0);
+        require(!stage.prepareGroupRemoval({u"a"_s, u"stranger"_s}),
+            "A departure naming an unowned window was prepared");
+        require(!stage.prepareGroupRemoval({u"a"_s, u"a"_s}),
+            "A departure naming the same window twice was prepared");
+        require(stage.windows() == members, "A refused departure changed membership");
+        const auto departure = stage.prepareGroupRemoval(members);
+        require(departure && stage.commitGroupRemoval(*departure)
+            && stage.windows().isEmpty() && stage.invariantHolds(),
+            "A whole-stage departure left membership behind");
+    }
 }

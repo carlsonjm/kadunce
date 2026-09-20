@@ -270,7 +270,8 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** Ready, and the current implementation priority once 1e lands. Block
+**Status:** In progress on `wip/deliberate-entry-20260919`. Deliberate entry is
+implemented there and physical review is owed; nothing has been installed. Block
 2's ledger is live-verified, so a violation it reports now names a real defect
 rather than a solver decision. `CARD-LIFECYCLE.md` carries the approved model
 this block implements.
@@ -283,7 +284,7 @@ container can be removed by subtraction rather than by behavior change. Write th
 failing headless assertion before each, the way Block 1a replaced source-order
 assertions with behavioral coverage.
 
-- [ ] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
+- [x] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
   §3. One window dragged to the top, left or right edge becomes exactly one
   individual Active card; a side snap no longer starts a layout. Bento begins
   only when a second window is snapped while a card is Active, pairing those two
@@ -292,6 +293,13 @@ assertions with behavioral coverage.
   desktop, but adoption produces individual cards and never fills an unrequested
   pane. This removes overflow at its source: a window is a pane only because it
   was put there.
+  `DeliberateEdgeEntry.h` decides what a tablet edge action means before any
+  layout is reserved, and both carry seams ask it the same question, so a side
+  snap cannot mean one thing carried from the desktop and another carried from
+  Spread. The display-wide sweep is no longer reachable from either seam.
+  Making the pair leave the rest of the display alone needed the same change §6
+  needed: both stages own windows on one display at once. `DECISIONS.md` records
+  it, and the third card presentation it introduced.
 - [ ] Delete Bento overflow rather than reconcile it. `Session::overflow`,
   `BentoOwnershipView::overflow`, `BentoProjectionSession::overflow` and its
   card-stage carriers, the `prepareOverflow` path through `applySession`, and the
@@ -310,7 +318,9 @@ assertions with behavioral coverage.
   leaving Bento is not minimizing, and only the user minimizing makes a card
   sleeping under §7. That distinction is what `userMinimized` already records,
   and it is why activating a displaced window from the task manager currently
-  fails.
+  fails. The resume half is done: §6's neighbours keep their ownership and their
+  restore records instead of returning to Plasma. What a pane becomes when it
+  leaves a live layout is still open.
 - [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
   is the one holding the side the card was released into, per §5. No interaction
   history decides it, so the user can see which pane will yield while dragging.
@@ -327,6 +337,14 @@ assertions with behavioral coverage.
 - [ ] Rebuild top-edge Active extraction on that contract, covering both
   selection paths, rollback, repeated transitions, release, unload and
   other-output isolation.
+- [ ] Give the tablet's Bento shortcut the same entry rule. `toggleUnderPointer`
+  still reaches `activate()`, which releases Card Stage and sweeps the display
+  into panes. Edge actions no longer do, so the two entry paths disagree about
+  what starting Bento on the tablet means.
+- [ ] End a layout into card ownership, not into Plasma. Ending a session now
+  tells Card Stage to stop presenting Bento, but the panes themselves still
+  restore as ordinary desktop windows, so §5's one-remaining-pane rule has
+  nothing to hand a card to.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
 repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`

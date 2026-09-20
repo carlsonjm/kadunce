@@ -105,6 +105,13 @@ CardPresentation CardStageController::presentation() const
     return m_presentation;
 }
 
+KWin::EffectWindow *CardStageController::activeCardIdentity() const
+{
+    // Only an individual card this stage still owns can be the Active card.
+    return m_active && m_presentedActive && !m_presentedActive->isDeleted()
+        && liveCardIndex(m_presentedActive) >= 0 ? m_presentedActive.data() : nullptr;
+}
+
 const SpreadModel &CardStageController::model() const
 {
     return m_workspace.model();
@@ -245,6 +252,10 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
                 liveCardIndex(m_launcherGuestSecondaryWindow) + 1)) {
             return -m_launcherGuestPrimarySide;
         }
+        return 99;
+    }
+    if (m_presentation == CardPresentation::Bento) {
+        // The panes are the display. Individual cards stay owned and hidden.
         return 99;
     }
     if (m_presentation == CardPresentation::Active) {
@@ -1396,7 +1407,10 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     const std::function<bool()> &commitSource)
 {
     auto *tablet = m_host->tabletOutputForCardStage();
-    if (m_active || !tablet || projection.output != tablet
+    // §2: the group is one Spread entry beside whatever individual cards this
+    // stage already owns, so an active stage is not a reason to refuse it.
+    if (m_cardGrabActive || m_launcherGuestActive
+        || !tablet || projection.output != tablet
         || projection.outputName != tablet->name()
         || !tablet->geometry().contains(projection.workspaceArea)
         || !validBentoProjectionShape(projectionShape(projection))) return false;
@@ -1443,7 +1457,11 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     if (!publishOwnershipThenRecord(
             [&] { return m_workspace.commitAdmission(*admission, commitSource); },
             [&] {
-                m_parkedRestores = snapshots;
+                for (const auto &snapshot : std::as_const(snapshots)) {
+                    m_parkedRestores.removeIf([&](const auto &existing) {
+                        return !existing.window || existing.window == snapshot.window; });
+                    m_parkedRestores.append(snapshot);
+                }
                 m_bentoProjectionWindows = windows;
                 m_bentoProjectionPaneWindows.clear();
                 for (const auto &member : projection.panes)
@@ -1451,8 +1469,12 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
                 m_bentoProjectionSession = projection;
                 ++m_restoreGeneration;
                 m_active = true;
+                m_activeRestore = {};
                 m_presentation = CardPresentation::Spread;
-                m_originalCardStackingOrder = projection.stackingOrder;
+                for (const auto &window : std::as_const(projection.stackingOrder)) {
+                    m_originalCardStackingOrder.removeAll(window);
+                    m_originalCardStackingOrder.append(window);
+                }
                 m_restoredMinimizations.clear();
             })) {
         return false;
@@ -1483,34 +1505,42 @@ bool CardStageController::resumeSelectedBentoProjection()
     const auto allWindows = m_workspace.windows();
     const auto projectionWindows = m_bentoProjectionWindows;
     const auto originalStackingOrder = m_originalCardStackingOrder;
-    QList<ActiveRestoreSnapshot> ordinaryRestores;
-    for (const auto &snapshot : std::as_const(m_parkedRestores)) {
-        if (!m_bentoProjectionWindows.contains(snapshot.window))
-            ordinaryRestores.append(snapshot);
-    }
-    if (m_activeRestore.valid
-        && !m_bentoProjectionWindows.contains(m_activeRestore.window)) {
-        ordinaryRestores.append(m_activeRestore);
-    }
+    // CARD-LIFECYCLE.md §6: selecting the group resumes the group. Only its own
+    // members leave this stage; the cards around it keep their ownership and
+    // their parked restore records, so none of them reaches the native desktop.
+    const auto departure = m_workspace.prepareGroupRemoval(projectionWindows,
+        OwnershipTransition::CardToBento);
+    if (!departure) return false;
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
-        [this, projectionWindows, &committed] {
+        [this, projectionWindows, &departure, &committed] {
             committed = commitResumeHandback(
                 [&] {
-                    if (!m_active || !selectedIsBentoGroup()) return false;
+                    if (!m_active || !selectedIsBentoGroup()
+                        || !m_workspace.commitGroupRemoval(*departure)) return false;
                     m_transferGuard.invalidate();
                     m_host->cancelInputForCardStage();
                     clearCardTransition();
                     m_activeSettleTimer.stop();
                     m_activeSettleRemaining = 0;
-                    m_active = false;
-                    m_presentation = CardPresentation::Spread;
-                    m_workspace.clear();
                     m_activeRestore = {};
-                    m_parkedRestores.clear();
+                    for (const auto &window : projectionWindows) {
+                        retireActiveIdentity(window);
+                        m_parkedRestores.removeIf([&](const auto &saved) {
+                            return !saved.window || saved.window == window; });
+                        m_originalCardStackingOrder.removeAll(window);
+                    }
                     m_bentoProjectionWindows.clear();
                     m_bentoProjectionPaneWindows.clear();
-                    m_originalCardStackingOrder.clear();
+                    // §2: the display now presents Bento. Whatever this stage
+                    // still owns stays owned and hidden behind it.
+                    m_presentation = CardPresentation::Bento;
+                    m_host->setPagingShortcutsForCardStage(false);
+                    if (m_workspace.windows().isEmpty()) {
+                        m_active = false;
+                        m_presentation = CardPresentation::Spread;
+                        m_originalCardStackingOrder.clear();
+                    }
                     return true;
                 },
                 [&] {
@@ -1524,7 +1554,7 @@ bool CardStageController::resumeSelectedBentoProjection()
                 [] {});
             return committed;
         },
-        [this, allWindows, originalStackingOrder, ordinaryRestores, &committed] {
+        [this, allWindows, projectionWindows, originalStackingOrder, &committed] {
             if (!committed) return;
             for (const auto &window : allWindows) {
                 if (window && !window->isDeleted()) {
@@ -1534,26 +1564,14 @@ bool CardStageController::resumeSelectedBentoProjection()
             }
             QScopedValueRollback<bool> applying(m_applyingWindowState, true);
             m_restoredMinimizations.clear();
-            for (const auto &snapshot : ordinaryRestores) {
-                if (!snapshot.valid || !snapshot.window
-                    || snapshot.window->isDeleted() || !snapshot.window->window()) continue;
-                auto *client = snapshot.window->window();
-                restoreWindowState(client, snapshot, snapshot.geometry,
-                    true, true, false);
-                if (snapshot.minimized && snapshot.window
-                    && !snapshot.window->isDeleted()) {
-                    m_restoredMinimizations.push_back(
-                        std::make_unique<RestoredMinimization>(client,
-                            RestoredMinimization::Target{
-                                client->moveResizeGeometry(), snapshot.maximizeMode,
-                                snapshot.quickTileMode, snapshot.fullScreen}));
-                }
-            }
+            // Raise only what resumed. A retained card is hidden rather than
+            // restored, so leaving it above the panes would occlude them in
+            // KWin's own stacking while Kadunce paints nothing for it.
             for (const auto &window : originalStackingOrder) {
-                if (window && !window->isDeleted() && window->window())
+                if (window && !window->isDeleted() && window->window()
+                    && projectionWindows.contains(window))
                     KWin::workspace()->raiseWindow(window->window());
             }
-            m_host->setPagingShortcutsForCardStage(false);
             KWin::effects->addRepaintFull();
         });
 }
@@ -1596,6 +1614,7 @@ void CardStageController::release()
     }
     m_host->setPagingShortcutsForCardStage(false);
     m_workspace.clear();
+    m_presentedActive = nullptr;
     m_bentoProjectionWindows.clear();
     m_bentoProjectionPaneWindows.clear();
     m_bentoProjectionSession.reset();
@@ -1604,9 +1623,132 @@ void CardStageController::release()
     qInfo() << "Kadunce" << Revision << "released";
 }
 
+bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
+    const std::function<bool()> &commitSource)
+{
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (m_active || !commitSource || !tablet || !carried || carried->isDeleted()
+        || !carried->window() || carried->screen() != tablet
+        || carried->isUserResize() || carried->isMinimized()
+        || !m_host->isManagedWindowForCardStage(carried)
+        || !KWin::effects->screens().contains(tablet)) return false;
+    // CARD-LIFECYCLE.md §3: the first deliberate action adopts the display as
+    // one batch. Nothing is published until the carry commits, so a refusal
+    // leaves every window Native rather than half of them owned.
+    if (!commitSource()) return false;
+    m_restoredMinimizations.clear();
+    rebuildLiveCards();
+    const int carriedIndex = liveCardIndex(carried);
+    if (carriedIndex < 0) {
+        m_workspace.clear();
+        m_presentedActive = nullptr;
+        m_parkedRestores.clear();
+        m_originalCardStackingOrder.clear();
+        return false;
+    }
+    m_active = true;
+    m_presentation = CardPresentation::Spread;
+    m_host->setPagingShortcutsForCardStage(true);
+    m_workspace.selectIndex(carriedIndex);
+    // Adoption produces individual cards only. The carried window is Active and
+    // every other eligible window is a nonselected card; no pane is filled.
+    if (!enterActive()) m_presentation = CardPresentation::Spread;
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "adopted the display as"
+            << m_workspace.windows().size() << "individual cards; Active is"
+            << carried->caption();
+    return true;
+}
+
+void CardStageController::leaveBentoPresentation()
+{
+    if (!m_active || m_presentation != CardPresentation::Bento) return;
+    m_presentation = CardPresentation::Spread;
+    m_host->setPagingShortcutsForCardStage(true);
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+}
+
+bool CardStageController::promoteToActive(KWin::EffectWindow *window)
+{
+    if (!m_active || m_launcherGuestActive || !window || window->isDeleted()
+        || !window->window() || m_presentation == CardPresentation::Bento) return false;
+    finishCardGrab(false);
+    const int index = liveCardIndex(window);
+    if (index < 0) return false;
+    if (m_presentation == CardPresentation::Active) {
+        if (selectedWindow() == window) return true;
+        parkActiveSnapshot();
+    }
+    m_workspace.selectIndex(index);
+    if (!enterActive()) {
+        m_presentation = CardPresentation::Spread;
+        return false;
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
+                                             KWin::EffectWindow *partner)
+{
+    if (!m_active || m_launcherGuestActive || !carried || !partner
+        || carried == partner || m_presentation == CardPresentation::Bento
+        || liveCardIndex(partner) < 0) return false;
+    finishCardGrab(false);
+    QList<QPointer<KWin::EffectWindow>> pair{partner};
+    // A window the user snapped in from the desktop is not a card yet, so it
+    // has no individual ownership here to give up; the destination admits it.
+    if (liveCardIndex(carried) >= 0) pair.append(carried);
+    // §3: exactly these leave individual card ownership, in one step, so the
+    // destination can publish two panes and nothing else.
+    const auto departure = m_workspace.prepareGroupRemoval(pair,
+        OwnershipTransition::CardToBento);
+    if (!departure) return false;
+    if (!publishOwnershipThenRecord(
+            [&] { return m_workspace.commitGroupRemoval(*departure); },
+            [&] {
+                ++m_restoreGeneration;
+                m_activeSettleTimer.stop();
+                m_activeSettleRemaining = 0;
+                for (const auto &window : pair) {
+                    retireActiveIdentity(window);
+                    if (m_activeRestore.window == window) m_activeRestore = {};
+                    m_parkedRestores.removeIf([&](const auto &saved) {
+                        return !saved.window || saved.window == window; });
+                    m_originalCardStackingOrder.removeAll(window);
+                }
+                // §2: the display presents Bento; the remaining cards stay
+                // owned and hidden behind it.
+                m_presentation = CardPresentation::Bento;
+                m_host->setPagingShortcutsForCardStage(false);
+                if (m_workspace.windows().isEmpty()) {
+                    m_active = false;
+                    m_presentation = CardPresentation::Spread;
+                    m_originalCardStackingOrder.clear();
+                }
+            })) return false;
+    m_transferGuard.invalidate();
+    m_host->cancelInputForCardStage();
+    clearCardTransition();
+    for (const auto &window : pair) {
+        if (window && !window->isDeleted()) {
+            KWin::effects->setElevatedWindow(window, false);
+            m_host->unredirectForCardStage(window);
+        }
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "paired two cards into Bento;"
+            << m_workspace.windows().size() << "individual cards remain";
+    return true;
+}
+
 void CardStageController::pageHorizontal(int delta)
 {
-    if (!m_active) {
+    if (!m_active || m_presentation == CardPresentation::Bento) {
         return;
     }
     m_host->cancelInputForCardStage();
@@ -1787,6 +1929,7 @@ void CardStageController::rebuildLiveCards()
 {
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     m_workspace.clear();
+    m_presentedActive = nullptr;
     m_bentoProjectionWindows.clear();
     m_bentoProjectionPaneWindows.clear();
     m_bentoProjectionSession.reset();
@@ -1906,6 +2049,7 @@ bool CardStageController::enterActive()
     // windowActivated signal is synchronous on some Plasma versions and must
     // not be mistaken for a second task-manager request.
     m_presentation = CardPresentation::Active;
+    m_presentedActive = effectWindow;
     // All entry paths must retire Spread's temporary compositor elevation.
     // Active is a native window; panel popups must retain their normal layers.
     syncSelectedElevation();
@@ -1949,8 +2093,14 @@ void CardStageController::parkActiveSnapshot()
     m_activeRestore = {};
 }
 
+void CardStageController::retireActiveIdentity(const KWin::EffectWindow *window)
+{
+    if (m_presentedActive == window) m_presentedActive = nullptr;
+}
+
 void CardStageController::forgetManagedRestore(KWin::EffectWindow *window)
 {
+    retireActiveIdentity(window);
     if (m_activeRestore.window == window) m_activeRestore = {};
     m_parkedRestores.removeIf([window](const auto &s) { return !s.window || s.window == window; });
     m_bentoProjectionWindows.removeIf(

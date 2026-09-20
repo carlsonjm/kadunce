@@ -110,6 +110,44 @@ public:
         ++m_ownershipRevision; // Also rejects duplicate commits/copies of the ticket.
         return true;
     }
+    // One logical group leaves in one step. Selecting the Bento group used to
+    // clear the whole stage, which released every unrelated card to Plasma and
+    // broke §6: the neighbours are not part of the entry being resumed. This
+    // removes exactly the group's members and leaves the rest owned.
+    class PreparedGroupRemoval {
+        friend class CardWorkspaceState;
+        std::weak_ptr<const int> source;
+        quint64 ownershipRevision = 0;
+        QList<Handle> members;
+        OwnershipTransition step = OwnershipTransition::CardToBento;
+    public:
+        [[nodiscard]] OwnershipTransition transition() const { return step; }
+    };
+    std::optional<PreparedGroupRemoval> prepareGroupRemoval(const QList<Handle> &members,
+        OwnershipTransition step = OwnershipTransition::CardToBento) const {
+        if (members.isEmpty() || !invariantHolds()) return std::nullopt;
+        SpreadModel model = m_model;
+        QList<Handle> windows = m_windows;
+        if (!applyGroupRemoval(model, windows, members)) return std::nullopt;
+        PreparedGroupRemoval result;
+        result.source = m_identity;
+        result.ownershipRevision = m_ownershipRevision;
+        result.members = members;
+        result.step = step;
+        return result;
+    }
+    bool commitGroupRemoval(const PreparedGroupRemoval &prepared) {
+        if (prepared.source.lock() != m_identity
+            || prepared.ownershipRevision != m_ownershipRevision) return false;
+        SpreadModel model = m_model;
+        QList<Handle> windows = m_windows;
+        if (!applyGroupRemoval(model, windows, prepared.members)) return false;
+        m_model = std::move(model);
+        m_windows = std::move(windows);
+        ++m_revision;
+        ++m_ownershipRevision;
+        return true;
+    }
     // Admission is a value plan, not ownership. It preserves the current
     // grouping and uses the same append operation as ordinary admissions.
     class PreparedAdmission {
@@ -142,7 +180,8 @@ public:
     // its selected face; the remaining identities keep deterministic order.
     std::optional<PreparedAdmission> prepareStackAdmission(const QList<Handle> &windows,
         OwnershipTransition step = OwnershipTransition::BentoToCard) const {
-        if (!m_windows.isEmpty() || windows.isEmpty()) return std::nullopt;
+        if (windows.isEmpty() || !invariantHolds() || hasDetachedMember())
+            return std::nullopt;
         PreparedAdmission result;
         result.destination = m_identity;
         result.ownershipRevision = m_ownershipRevision;
@@ -282,6 +321,13 @@ private:
         windows.removeAt(index);
         return true;
     }
+    bool applyGroupRemoval(SpreadModel &model, QList<Handle> &windows,
+                           const QList<Handle> &members) const {
+        for (const auto &window : members) {
+            if (!applyRemoval(model, windows, window)) return false;
+        }
+        return true;
+    }
     bool applyAdmission(const PreparedAdmission &prepared, SpreadModel &model,
                         QList<Handle> &windows) const {
         if (prepared.incoming.isEmpty()) return false;
@@ -291,15 +337,17 @@ private:
             appendTo(model, windows, window, prepared.centered);
             return true;
         }
-        if (!windows.isEmpty()) return false;
+        // The group's first identity is its face; the rest stack onto that card
+        // rather than onto card 1, so a group can arrive beside existing cards.
+        int face = 0;
         for (const auto &window : prepared.incoming) {
             if (windows.contains(window)) return false;
             const int id = appendTo(model, windows, window, false);
-            if (id > 1) {
-                model.selectIndex(model.count() - 1);
-                if (!model.stackSelectedWith(1, -1,
-                        SpreadModel::InsertionSelection::DestinationCard)) return false;
-            }
+            if (id <= 0) return false;
+            if (face == 0) { face = id; continue; }
+            model.selectIndex(model.count() - 1);
+            if (!model.stackSelectedWith(face, -1,
+                    SpreadModel::InsertionSelection::DestinationCard)) return false;
         }
         return true;
     }

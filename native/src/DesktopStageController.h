@@ -51,6 +51,9 @@ public:
         KWin::LogicalOutput *output) const = 0;
     virtual void prepareOutputForDesktopStage(
         KWin::LogicalOutput *output) = 0;
+    // The display no longer has a Bento layout. Whatever else owns windows on
+    // it can no longer be presenting one behind these panes.
+    virtual void retireOutputFromDesktopStage(KWin::LogicalOutput *) {}
     virtual QRectF bentoPresentationRect(KWin::EffectWindow *window) const {
         return window && !window->isMinimized() ? QRectF(window->frameGeometry()) : QRectF{};
     }
@@ -142,6 +145,10 @@ public:
         bool hadSession = false;
         bool leavingBento = false;
         QPointer<KWin::EffectWindow> localTarget;
+        // CARD-LIFECYCLE.md §3: a side snap that pairs names the one card it
+        // pairs with, so solving, preview and revalidation all see exactly two
+        // windows instead of everything the display happens to own.
+        QPointer<KWin::EffectWindow> pairPartner;
         QList<QPointer<KWin::EffectWindow>> residents;
         QList<QSizeF> minimumSizes;
         QList<KWin::RectF> sourceGeometries;
@@ -149,14 +156,20 @@ public:
     [[nodiscard]] std::optional<PreparedDrop> prepareCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, CardDropIntent intent = CardDropIntent::OpenSpace,
-        std::optional<BentoSidePlacement> side = {}) const;
+        std::optional<BentoSidePlacement> side = {},
+        KWin::EffectWindow *pairPartner = nullptr) const;
     [[nodiscard]] bool cardDropValid(const PreparedDrop &drop) const;
     [[nodiscard]] std::optional<PreparedDrop> prepareLocalCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, QPointF contact) const;
     // Read-only layout solve: no placement, source removal or application token.
     [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop);
-    bool activatePreparedTabletDrop(const PreparedDrop &drop);
+    // §3: Bento begins by pairing the carried window with the Active card. The
+    // source gives both up in `commitSource`, after the pair layout is proven
+    // and before it is published.
+    bool activatePreparedTabletDrop(const PreparedDrop &drop,
+        const NativeMoveSnapshot *restore,
+        const std::function<bool()> &commitSource);
     bool transferNativeCarryToDesktop(const PreparedCarrySource &source,
                                      const PreparedDrop &drop);
     bool transferPreparedCard(const PreparedDrop &drop,
@@ -215,7 +228,8 @@ private:
     [[nodiscard]] std::optional<Session> prepareCardAdmission(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr,
-        std::optional<BentoSidePlacement> side = {});
+        std::optional<BentoSidePlacement> side = {},
+        KWin::EffectWindow *pairPartner = nullptr);
     [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;

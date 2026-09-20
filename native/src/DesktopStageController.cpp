@@ -287,7 +287,8 @@ bool DesktopStageController::admitCardWindow(
 
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
-    CardDropIntent intent, std::optional<BentoSidePlacement> side) const
+    CardDropIntent intent, std::optional<BentoSidePlacement> side,
+    KWin::EffectWindow *pairPartner) const
 {
     if (m_restoring || !window || window->isDeleted() || !window->window()
         || !output || m_retiredOutputs.contains(output)
@@ -318,7 +319,17 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
     drop.side = side;
     drop.hadSession = sessionForOutput(output) != nullptr;
     drop.leavingBento = managesWindow(window);
-    drop.residents = collectWindows(output, window);
+    // §3: a pairing names its partner, so nothing else on the display is an
+    // input to the solve, the preview or the revalidation.
+    if (pairPartner && !drop.hadSession) {
+        if (pairPartner == window || pairPartner->isDeleted() || !pairPartner->window()
+            || pairPartner->screen() != output || pairPartner->isMinimized()
+            || !m_host->isManagedWindowForDesktopStage(pairPartner)) return std::nullopt;
+        drop.pairPartner = pairPartner;
+        drop.residents = {QPointer<KWin::EffectWindow>(pairPartner)};
+    } else {
+        drop.residents = collectWindows(output, window);
+    }
     auto inputs = drop.residents;
     if (!inputs.contains(window)) inputs.append(window);
     for (const auto &input : inputs) {
@@ -392,8 +403,10 @@ bool DesktopStageController::cardDropValid(const PreparedDrop &drop) const
 {
     if (!drop.consumed || *drop.consumed || drop.owner.lock() != m_carrySourceIdentity)
         return false;
-    const auto current = prepareCardDrop(drop.window, drop.output, drop.geometry, drop.intent, drop.side);
+    const auto current = prepareCardDrop(drop.window, drop.output, drop.geometry,
+        drop.intent, drop.side, drop.pairPartner);
     if (!current || current->generation != drop.generation
+        || current->pairPartner != drop.pairPartner
         || current->outputGeometry != drop.outputGeometry || current->area != drop.area
         || current->hadSession != drop.hadSession
         || current->leavingBento != drop.leavingBento
@@ -472,7 +485,8 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
     const bool local = drop.localTarget || (drop.side && managesWindow(drop.window)
         && drop.window->screen() == drop.output);
     const auto plan = local ? prepareLocalPlacement(drop)
-        : prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr, drop.side);
+        : prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr,
+                               drop.side, drop.pairPartner);
     if (!plan) return std::nullopt;
     const auto index = plan->windows.indexOf(drop.window);
     const auto pixels = makePixelBentoLayout(plan->rects, drop.area.x(), drop.area.y(),
@@ -482,23 +496,43 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
     return KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height);
 }
 
-bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop)
+bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop,
+    const NativeMoveSnapshot *restore, const std::function<bool()> &commitSource)
 {
-    if (!cardDropValid(drop) || !m_host->isTabletOutputForDesktopStage(drop.output)
+    if (m_restoring || !commitSource || !cardDropValid(drop)
+        || !m_host->isTabletOutputForDesktopStage(drop.output)
         || drop.intent != CardDropIntent::ActivateBento || drop.hadSession
-        || !prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr, drop.side)) return false;
-    // Same-display presentation change: the shortcut's existing transition
-    // releases Card Stage restoration before collecting authoritative snapshots.
-    // This is not a transfer of just the selected member to a second owner.
-    const auto output = drop.output;
-    const auto window = drop.window;
+        || !drop.side || !drop.pairPartner || drop.localTarget) return false;
+    // CARD-LIFECYCLE.md §3: Bento begins with the carried window on the side it
+    // was released into and the Active card opposite it. No other window joins,
+    // so the plan is solved from exactly those two and is refused if it is not
+    // two panes. Nothing else on the display is read, moved or minimized.
+    // A window arriving from the desktop brings its own record; a card already
+    // owned here has one the card stage holds, which `makeSnapshot` reads.
+    const auto plan = prepareCardAdmission(drop.window, drop.output, drop.geometry,
+        restore, drop.side, drop.pairPartner);
+    if (!plan || plan->windows.size() != 2 || !plan->overflow.isEmpty()
+        || !plan->windows.contains(drop.window)
+        || !plan->windows.contains(drop.pairPartner)) return false;
+    std::erase_if(m_restoredMinimizations, [&drop](const auto &pending) {
+        return pending->output() == drop.output
+            || pending->result() != RestoredMinimization::Result::Pending;
+    });
     *drop.consumed = true;
-    return activate(output, window, drop.side);
+    // Destination acceptance is complete before the source gives the pair up,
+    // and publication follows with no callback in between.
+    if (!commitSource()) return false;
+    m_sessions.insert(plan->outputName, *plan);
+    Session &stored = m_sessions[plan->outputName];
+    if (applySession(stored, true)) scheduleSettle();
+    qInfo() << "Kadunce" << Revision << "paired two cards into output-local Bento";
+    return true;
 }
 
 std::optional<DesktopStageController::Session> DesktopStageController::prepareCardAdmission(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
-    const NativeMoveSnapshot *restore, std::optional<BentoSidePlacement> side)
+    const NativeMoveSnapshot *restore, std::optional<BentoSidePlacement> side,
+    KWin::EffectWindow *pairPartner)
 {
     const QString key = outputKey(output);
     const auto managed = m_host->activeRestoreForDesktopStage(window);
@@ -525,7 +559,10 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     Session empty;
     empty.outputName = key;
     QList<RestoreSnapshot> owned;
-    for (const auto &resident : collectWindows(output, window)) owned.append(makeSnapshot(resident));
+    // §3: first entry pairs the arrival with one named card and fills no other
+    // pane. Without a partner this is an ordinary display-wide activation.
+    if (pairPartner) owned.append(makeSnapshot(pairPartner));
+    else for (const auto &resident : collectWindows(output, window)) owned.append(makeSnapshot(resident));
     return prepareBentoActivationWithArrival(empty, owned,
         QPointer<KWin::EffectWindow>(window), incoming, planner);
 }
@@ -1180,6 +1217,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         if (result == RestoreResult::OutputLost)
             qWarning() << "Kadunce restore has no surviving candidate output; leaving placement to KWin";
     }
+    m_host->retireOutputFromDesktopStage(fallbackOutput.data());
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "restored output-local Bento on"
             << key << "during removal" << outputRemoving;

@@ -35,6 +35,10 @@ namespace Kadunce
 enum class CardPresentation {
     Spread,
     Active,
+    // The display's Bento pane combination is shown. Card Stage still owns its
+    // individual cards and keeps them hidden, per CARD-LIFECYCLE.md §2: Bento
+    // owns its panes, not the rest of the display.
+    Bento,
 };
 
 // Product-wide operations stay explicit. Card Stage owns the logical card
@@ -81,6 +85,11 @@ public:
 
     [[nodiscard]] bool isActive() const;
     [[nodiscard]] CardPresentation presentation() const;
+    // Presentation and navigation context, never a fourth owner: which
+    // individual card is Active. It survives Spread so a side snap can find the
+    // card to pair with, and retires as soon as that card stops being an
+    // individual card.
+    [[nodiscard]] KWin::EffectWindow *activeCardIdentity() const;
     [[nodiscard]] const SpreadModel &model() const;
     [[nodiscard]] CardWorkspaceSnapshot workspaceSnapshot() const;
     [[nodiscard]] const QList<QPointer<KWin::EffectWindow>> &liveCards() const;
@@ -164,6 +173,21 @@ public:
     bool admitTransferredWindowToTablet(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const QRectF &carriedOrigin = {}, const NativeMoveSnapshot *restore = nullptr);
+    // CARD-LIFECYCLE.md §3: the first deliberate edge action on the display
+    // adopts every eligible window as an individual card and presents the
+    // carried one as Active. No layout is solved and no pane is filled.
+    bool adoptDisplayWithActive(KWin::EffectWindow *carried,
+        const std::function<bool()> &commitSource);
+    // §3: the Active card gives up individual ownership so the destination can
+    // publish it and the carried window as the display's only two panes. The
+    // carried window may still be Native, in which case this stage has nothing
+    // of its own to give up. Membership only; the destination is already proven.
+    bool releasePairToBento(KWin::EffectWindow *carried, KWin::EffectWindow *partner);
+    // §10: a carried window with nothing to pair with becomes the Active card.
+    bool promoteToActive(KWin::EffectWindow *window);
+    // The display's Bento layout ended, so this stage cannot still be
+    // presenting one. §12: what this stage owns returns to Spread.
+    void leaveBentoPresentation();
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
     void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
@@ -197,6 +221,7 @@ private:
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
     void forgetManagedRestore(KWin::EffectWindow *window);
+    void retireActiveIdentity(const KWin::EffectWindow *window);
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
     void syncSelectedStackingOrder();
     void restoreOriginalStackingOrder();
@@ -232,6 +257,7 @@ private:
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     ActiveRestoreSnapshot m_activeRestore;
+    QPointer<KWin::EffectWindow> m_presentedActive;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     bool m_applyingWindowState = false;

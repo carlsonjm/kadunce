@@ -101,6 +101,31 @@ cannot see is a window they will look for somewhere else, and a retained
 association would have to be reconciled on every minimize, displace and overflow.
 Scoping to visible panes removes that reconciliation instead of automating it.
 
+### Both stages own windows on the same display
+
+Card Stage owns individual cards and Desktop Stage owns the display's Bento panes
+at the same time, and neither releases the other's windows. The two were
+previously alternate whole-display owners: starting Bento released every card to
+Plasma, and resuming a projected group restored its Spread neighbours. That made
+`CARD-LIFECYCLE.md` §6's "individual cards remain independently owned and hidden"
+unimplementable, and it is why a deliberate pair could not leave the rest of the
+display alone.
+
+A third card presentation names what Card Stage is doing while the panes are on
+screen. It is presentation, not ownership: the stage keeps its membership and its
+restore records, hides every card it owns, and gives its paging gestures back to
+the display. Ownership still has exactly three owners and six transitions.
+
+### The Active card is remembered as presentation context
+
+Which individual card is Active survives entering Spread, because §3's pairing
+names it as the partner while Spread selection chooses only what is carried. It
+is one window identity and nothing more: no parked snapshot, no second
+membership, no fourth owner. It retires the moment that window stops being an
+individual card, so a pane or a released window can never be offered as a
+partner, and a card carried to the edge while it is itself Active has nothing
+distinct to pair with.
+
 ### A prepared ticket carries intent, not a model
 
 Preparation proves a membership, order and grouping delta against a throwaway
