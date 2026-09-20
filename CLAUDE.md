@@ -97,8 +97,10 @@ and `CURRENT_STATE.md` hygiene. A new tracked document must be added to
 
 ## Stop conditions
 
-Unless the assigned task authorizes it in words, do not install, publish, log the
-user out, stop the graphical session, or toggle the live effect.
+Installing, restarting the graphical session and logging the user out are handed
+to J, never performed here; `AGENTS.md` owns that rule and
+`docs/TEST-ENVIRONMENT-PROCEDURE.md` states what the handover carries. Unless the
+assigned task authorizes it in words, do not publish or toggle the live effect.
 
 The tray enable/disable control is release-critical. A safety-control failure
 blocks promotion and is never waived by passing effect tests. A sandbox or D-Bus
