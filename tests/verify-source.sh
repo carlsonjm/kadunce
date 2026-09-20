@@ -8,6 +8,14 @@ sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect Card
 rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# ripgrep anchors a --glob containing a slash to the working directory rather
+# than to the path being searched, so the exclusions below only held when this
+# script happened to be run from the project root. Run from anywhere else --- an
+# installer is normally launched from the user's home --- every one of them
+# silently stopped matching and the guard failed on the documents it exists to
+# permit. Standing in the project makes the globs mean what they say, whoever
+# calls this and from wherever.
+cd "${project_dir}"
 native_dir="${project_dir}/native"
 effect_cpp="${native_dir}/src/Effect.cpp"
 effect_header="${native_dir}/src/Effect.h"
