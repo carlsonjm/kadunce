@@ -101,6 +101,10 @@ public Q_SLOTS:
     Q_SCRIPTABLE void showCardLine();
     Q_SCRIPTABLE void showActive();
     Q_SCRIPTABLE QStringList outputStageState() const;
+    // Which plugin image this compositor actually has open. An installer runs
+    // outside KWin and, under a restricted-ptrace kernel, cannot read its maps;
+    // KWin can always read its own. Reported as "<inode> present|deleted".
+    Q_SCRIPTABLE QString loadedPluginProvenance() const;
     Q_SCRIPTABLE QString workspaceContext() const;
     Q_SCRIPTABLE QString nativeCarryState() const;
     Q_SCRIPTABLE QStringList nativeMoveTrace() const { return m_nativeMoveTrace; }

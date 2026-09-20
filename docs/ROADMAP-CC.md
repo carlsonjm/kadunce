@@ -122,10 +122,10 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** 1a, 1b and 1c are complete and unblocked Blocks 2 and 3. Two items
-remain, both about an installed candidate behaving as installed. 1e is the
-current priority because it decides whether physical evidence can be trusted at
-all.
+**Status:** 1a, 1b and 1c are complete and unblocked Blocks 2 and 3. 1d and 1e
+are implemented and both await the same thing: one cold boot followed by one
+live install. Until that runs, a physical result still cannot be attributed to
+the build it was meant to test.
 
 ### 1e. Give the effect its input backend on a cold boot
 
@@ -152,14 +152,28 @@ journal.
 
 ### 1d. Make an installed candidate actually run
 
-**Status:** Ready. Found while validating Block 2 live.
+**Status:** Implemented; awaiting a live install. Both parts are covered in
+source and the report path is proven in a nested compositor, but neither has run
+against the graphical session.
 
-- [ ] `install.sh` finishes with the effect unloaded: its unload/re-enable and
+- [x] `install.sh` finishes with the effect unloaded: its unload/re-enable and
   `reconfigure` do not reload it, so the workspace is left without Kadunce until
-  something loads it. Reload it explicitly and verify the object is back.
-- [ ] KWin keeps the previous plugin image mapped across an unload, so loading
-  after an install can re-instantiate the previous build. Detect that and say so
-  rather than leaving the installer's advice to restart Plasma as the only hint.
+  something loads it. It now loads the effect by name and waits for the Kadunce
+  object to answer, because a plugin that loaded but failed to build its
+  controllers still reports itself loaded.
+- [x] KWin keeps the previous plugin image mapped across an unload, so loading
+  after an install can re-instantiate the previous build. Replacing the file
+  gives it a new inode, so the mapping KWin holds answers the question — but the
+  installer cannot read it. This kernel restricts ptrace to descendants, and KWin
+  is not one of the installer's, so `/proc/<kwin>/maps` is unreadable even as the
+  same user. Only KWin can read its own, so `loadedPluginProvenance` reports the
+  mapped inode and whether it is still linked, and the installer compares it with
+  what it just placed. An empty answer is itself conclusive: only a build older
+  than this method can give one. `provenance-runtime-session.sh` proves the
+  report names the file a real compositor loaded.
+
+**Exit gate:** A live install ends by naming which build KWin is running, and
+says so plainly when that is not the one just placed.
 
 ### 1a. Free the checks from implementation shape
 
