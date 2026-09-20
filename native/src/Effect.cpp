@@ -5,6 +5,8 @@
 
 #include "Effect.h"
 #include <QScopeGuard>
+#include <fstream>
+#include <string>
 #include "LaunchIdentity.h"
 #include "SpreadLayout.h"
 #include "BentoCompositeGeometry.h"
@@ -1663,6 +1665,46 @@ bool Effect::isTabletPoint(const QPointF &position) const
 QStringList Effect::outputStageState() const
 {
     return m_desktopStage->outputStageState();
+}
+
+QString Effect::loadedPluginProvenance() const
+{
+    // Replacing the plugin file gives it a new inode. A KWin that kept the
+    // previous image mapped across an unload re-instantiates the earlier build
+    // under the same effect id, and the only place that is visible is this
+    // process's own map of itself. An unlinked mapping is reported rather than
+    // hidden: it is the clearest form of the same answer.
+    // Read with a plain stream: procfs reports a size of zero, so QFile's
+    // end-of-file and bytes-available answers are derived from a length that
+    // does not exist and a QFile loop reads nothing at all.
+    std::ifstream maps("/proc/self/maps");
+    if (!maps.is_open()) {
+        return {};
+    }
+    std::string raw;
+    while (std::getline(maps, raw)) {
+        const QString line = QString::fromStdString(raw).trimmed();
+        const qsizetype pathStart = line.indexOf(QLatin1Char('/'));
+        if (pathStart < 0) {
+            continue;
+        }
+        QString path = line.mid(pathStart);
+        const bool deleted = path.endsWith(QLatin1String(" (deleted)"));
+        if (deleted) {
+            path.chop(QLatin1String(" (deleted)").size());
+        }
+        if (!path.endsWith(QLatin1String("/kwin4_effect_kadunce.so"))) {
+            continue;
+        }
+        const QStringList fields = line.left(pathStart).split(QLatin1Char(' '),
+                                                              Qt::SkipEmptyParts);
+        if (fields.size() < 5) {
+            continue;
+        }
+        return QStringLiteral("%1 %2").arg(fields.at(4),
+            deleted ? QStringLiteral("deleted") : QStringLiteral("present"));
+    }
+    return {};
 }
 
 QString Effect::workspaceContext() const

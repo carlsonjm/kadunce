@@ -122,44 +122,68 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** 1a, 1b and 1c are complete and unblocked Blocks 2 and 3. Two items
-remain, both about an installed candidate behaving as installed. 1e is the
-current priority because it decides whether physical evidence can be trusted at
-all.
+**Status:** Complete. 1e closed on the 20 September cold boot and 1d on the
+install and reboot that followed it, so a physical result can now be attributed
+both to a backend and to a build. Block 3's physical review no longer has to
+assume either.
 
 ### 1e. Give the effect its input backend on a cold boot
 
-**Status:** Implemented; awaiting the cold-boot check. The effect now watches
-the runtime directory for the kit and adopts the direct router when it appears,
-handing each edge back from Plasma first. The current session loaded with the kit
-already present, so only a cold boot exercises the path.
+**Status:** Complete. The effect watches the runtime directory for the kit and
+adopts the direct router when it appears, handing each edge back from Plasma
+first. Measured on the 20 September cold boot of the installed candidate: the
+system booted at 15:34:01, the effect constructed at 15:34:10 reporting
+Plasma-native edges because the kit was not yet there, and at 15:34:21 it
+reported adopting the direct router. Nothing loaded, unloaded or released the
+effect between those lines, so the direct router was reached without a reload.
 
-- [ ] `Effect.cpp` latches `m_usesDirectSystemEdges = z13TabletKitAvailable()`
+- [x] `Effect.cpp` latched `m_usesDirectSystemEdges = z13TabletKitAvailable()`
   once in its constructor, testing for `$XDG_RUNTIME_DIR/z13-tablet-kit/posture`.
   Measured 19 September: `plasma-kwin_wayland.service` became active at 13:56:43
-  and `z13-tablet-switch.service` at 13:56:55, so a cold boot latches the absent
-  file and delegates top and bottom gestures to Plasma touch borders. Only an
-  effect reload recovers the direct four-edge router. One-shot check, no retry,
-  no signal on the service appearing.
-- [ ] Until this is fixed, a physical gesture result depends on which backend won
-  the boot race. One live session already ran its first checks on the
-  Plasma-native path and a later one on the direct router, leaving them not
-  comparable.
+  and `z13-tablet-switch.service` at 13:56:55, so a cold boot latched the absent
+  file and delegated top and bottom gestures to Plasma touch borders. The
+  constructor's answer is no longer final: when the kit is absent the effect
+  watches for it and adopts the direct router on arrival.
+- [x] A physical gesture result no longer depends on which backend won the boot
+  race. Both paths converge on the direct router within seconds of boot, so
+  sessions started before and after the kit appears are comparable.
 
-**Exit gate:** A cold boot reports `direct Z13 system edges` with no reload. The
-banner distinguishes the two backends, so the check is a single line of the
-journal.
+**Exit gate:** A cold boot reaches the direct router with no reload. The original
+wording expected the construction banner itself to name the direct backend; that
+is unreachable rather than merely unmet, because KWin starts before the posture
+service every time, so the kit is absent at construction by design. The
+adoption line is therefore the evidence, and the check is still a single line of
+the journal: either a construction banner naming direct edges, or a
+Plasma-native banner followed by `adopted direct Z13 system edges`.
 
 ### 1d. Make an installed candidate actually run
 
-**Status:** Ready. Found while validating Block 2 live.
+**Status:** Complete. Measured across the 20 September install and the reboot
+that followed. The install at 15:52:10 replaced the plugin under a compositor
+running since 15:34, and the installer reported that KWin was still running the
+older build rather than the one just placed --- the stale-image case, named
+instead of left to a guess. After the restart the effect reported the installed
+file itself, matching what the install had written, so both answers were
+produced against the graphical session.
 
-- [ ] `install.sh` finishes with the effect unloaded: its unload/re-enable and
+- [x] `install.sh` finishes with the effect unloaded: its unload/re-enable and
   `reconfigure` do not reload it, so the workspace is left without Kadunce until
-  something loads it. Reload it explicitly and verify the object is back.
-- [ ] KWin keeps the previous plugin image mapped across an unload, so loading
-  after an install can re-instantiate the previous build. Detect that and say so
-  rather than leaving the installer's advice to restart Plasma as the only hint.
+  something loads it. It now loads the effect by name and waits for the Kadunce
+  object to answer, because a plugin that loaded but failed to build its
+  controllers still reports itself loaded.
+- [x] KWin keeps the previous plugin image mapped across an unload, so loading
+  after an install can re-instantiate the previous build. Replacing the file
+  gives it a new inode, so the mapping KWin holds answers the question — but the
+  installer cannot read it. This kernel restricts ptrace to descendants, and KWin
+  is not one of the installer's, so `/proc/<kwin>/maps` is unreadable even as the
+  same user. Only KWin can read its own, so `loadedPluginProvenance` reports the
+  mapped inode and whether it is still linked, and the installer compares it with
+  what it just placed. An empty answer is itself conclusive: only a build older
+  than this method can give one. `provenance-runtime-session.sh` proves the
+  report names the file a real compositor loaded.
+
+**Exit gate:** Met. A live install ends by naming which build KWin is running,
+and says so plainly when that is not the one just placed.
 
 ### 1a. Free the checks from implementation shape
 

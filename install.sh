@@ -131,14 +131,64 @@ if ! qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure \
         >/dev/null 2>&1 || true
 fi
 
+# Enabling the plugin and reconfiguring does not bring the effect back: KWin
+# reads the flag but does not instantiate an effect that was unloaded in this
+# session. Without this the install finishes with the workspace carrying no
+# Kadunce at all until something else loads it. Ask for it by name, then prove
+# the effect constructed by talking to the object it registers, because a
+# loaded plugin that failed to build its controllers still reports loaded.
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
+    "${native_effect_id}" >/dev/null 2>&1 || true
+effect_loaded=false
+for _ in $(seq 1 20); do
+    if [[ "$(qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded \
+            "${native_effect_id}" 2>/dev/null)" == true ]] \
+       && qdbus6 org.kde.KWin /Kadunce >/dev/null 2>&1; then
+        effect_loaded=true
+        break
+    fi
+    sleep 0.1
+done
+
 # Qt keeps a native plugin library mapped for the lifetime of KWin. Unloading
 # the effect removes its instance but a same-ID replacement can still create
-# the old cached factory. Therefore every native Kadunce binary update
-# has one honest completion condition: restart the Plasma session after copy.
+# the old cached factory, so loading after an install can re-instantiate the
+# previous build. Replacing the file gives it a new inode, so the mapping KWin
+# holds is the evidence. This script cannot read it: under a restricted-ptrace
+# kernel a process may only read the maps of its own descendants, and KWin is
+# not one. The effect reads its own and reports it, so ask the effect. An empty
+# answer means the running effect has no such method, which is itself the
+# answer: it is an older build than the one just installed.
+installed_inode="$(stat -c %i "${native_plugin_system_target}")"
+live_provenance="$(qdbus6 org.kde.KWin /Kadunce loadedPluginProvenance \
+    2>/dev/null || true)"
+live_inode="${live_provenance%% *}"
+live_state="${live_provenance##* }"
+
 echo "Kadunce installed and enabled."
 echo "All six installation steps completed. It is now safe to restart Plasma."
 echo "Receipt: ${install_receipt}"
-echo "Restart Plasma once to replace KWin's cached native plugin image."
+if [[ "${effect_loaded}" != true ]]; then
+    live_summary="Restart Plasma: the workspace has no Kadunce running."
+    echo "WARNING: the effect did not come back after this install." >&2
+    echo "The plugin is in place and enabled, but KWin is not running it," >&2
+    echo "so the workspace currently has no Kadunce. Restart Plasma." >&2
+elif [[ -z "${live_provenance}" ]]; then
+    live_summary="Restart Plasma: KWin is running an older build."
+    echo "WARNING: KWin is running an OLDER Kadunce build." >&2
+    echo "The effect that answered cannot report which plugin image it is," >&2
+    echo "which only older builds do, so it is not the one just installed." >&2
+    echo "Restart Plasma once, then test." >&2
+elif [[ "${live_inode}" == "${installed_inode}" && "${live_state}" == present ]]; then
+    live_summary="KWin is running the build just installed."
+    echo "KWin is running the build this install just placed."
+else
+    live_summary="Restart Plasma: KWin still has the previous build mapped."
+    echo "WARNING: KWin is still running the PREVIOUS Kadunce build." >&2
+    echo "It kept the earlier plugin image mapped across the unload, so what" >&2
+    echo "you are about to test is not what was just installed." >&2
+    echo "Restart Plasma once, then test." >&2
+fi
 echo "Lift after 300 ms; hold over a destination for 350 ms, then release to stack."
 echo "Edge paging starts at 300 ms and repeats every 350 ms."
 echo "Ctrl+Left/Right pages groups; Ctrl+Up/Down pages stack members."
@@ -149,5 +199,5 @@ echo "Ctrl+S toggles; Ctrl+Esc releases."
 echo "The Kadunce tray icon exposes one persistent enable/disable switch."
 command -v notify-send >/dev/null 2>&1 \
     && notify-send "Kadunce ready" \
-        "All six steps passed. Restart Plasma to load the refactored plugin." \
+        "All six steps passed. ${live_summary}" \
     || true
