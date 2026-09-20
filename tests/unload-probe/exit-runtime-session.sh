@@ -121,7 +121,7 @@ for scenario in ${KADUNCE_EXIT_SCENARIOS:-detach multi withdrawn dock release}; 
         sleep .4
         mapfile -t stages < <(kad outputStageState)
         expected=1; if [[ $scenario == multi ]]; then expected=2; fi
-        printf '%s\n' "${stages[@]}" | rg -q "^Virtual-0\\|${output_role}\\|.*\\|${expected}\\|0$"
+        printf '%s\n' "${stages[@]}" | rg -q "^Virtual-0\\|${output_role}\\|.*\\|${expected}$"
         kad nativeCarryState | jq -e '(.carrying|not) and (.inputBusy|not) and (.destinationPreview|not)'
     fi
     test "$(probe releaseRuntime)" = true
