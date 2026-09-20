@@ -57,7 +57,10 @@ std::optional<PreparedCarrySource> DesktopStageController::prepareNativeCarrySou
         || !KWin::effects->screens().contains(window->screen())
         || m_retiredOutputs.contains(window->screen())) return std::nullopt;
     const auto *session = sessionForOutput(window->screen());
-    if ((!session || !managesWindow(window)) && m_host->isManagedWindowForDesktopStage(window)
+    // Ownership here is the restore record, not pane membership: a window on
+    // its way out of a layout is still owned and must hand over the record it
+    // had before Bento placed it, not the pane rectangle it is sitting in.
+    if (!ownsWindow(window) && m_host->isManagedWindowForDesktopStage(window)
         && m_host->allowsDesktopStageOnOutput(window->screen())) {
         const auto saved = makeSnapshot(window);
         PreparedCarrySource source;
@@ -73,8 +76,7 @@ std::optional<PreparedCarrySource> DesktopStageController::prepareNativeCarrySou
             saved.quickTileMode, saved.fullScreen, saved.minimized};
         return source;
     }
-    if (!session || session->applying || !session->applicationToken
-        || !session->windows.contains(window)) return std::nullopt;
+    if (!session || session->applying || !session->applicationToken) return std::nullopt;
     for (const auto &saved : session->snapshots) {
         if (saved.window != window || !saved.valid) continue;
         PreparedCarrySource source;
@@ -205,25 +207,28 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     }
     for (const auto &snapshot : std::as_const(session->snapshots))
         if (snapshot.window == window) return true;
-    // Keep ordinary monitor admission unchanged. Tablet launches must remain
-    // owned even when no curated pane can satisfy the native minimum size.
+    // CARD-LIFECYCLE.md §8: a launching application joins Bento only when the
+    // layout can grow to show it beside everything it already shows. An empty
+    // remainder is what says that: every owned window was placed, so no pane
+    // the user put there yielded to a background event. A layout that cannot
+    // grow refuses, and the window is left to card ownership.
+    const auto grows = [&](Session &candidate) {
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        return reflowSession(candidate, window, true, false, &unshowable)
+            && unshowable.isEmpty();
+    };
     Session candidate = *session;
     candidate.snapshots.append(makeSnapshot(window));
-    bool visible = reflowSession(candidate, window, true, false);
+    bool visible = grows(candidate);
     if (!visible && candidate.side) {
         candidate.side.reset();
         candidate.sideWindow.clear();
-        visible = reflowSession(candidate, window, true, false);
+        visible = grows(candidate);
     }
-    if (!visible) {
-        if (!m_host->isTabletOutputForDesktopStage(window->screen())) return true;
-        candidate = *session;
-        candidate.snapshots.append(makeSnapshot(window));
-        candidate.overflow.append(window);
-    }
+    if (!visible) return false;
     m_applicationGuard.invalidate();
     *session = std::move(candidate);
-    if (applySession(*session, visible, visible ? nullptr : window)) scheduleSettle();
+    if (applySession(*session, true)) scheduleSettle();
     return true;
 }
 
@@ -235,22 +240,30 @@ void DesktopStageController::handleWindowClosed(KWin::EffectWindow *window)
 void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *window)
 {
     if (m_restoring || !window || !window->window()) return;
+    QString key;
     for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
         auto &session = it.value();
-        // Placement/overflow minimization is not a user participation change.
+        // Kadunce's own placement is not a user participation change.
         if (session.applying) continue;
-        // Deferred preparation minimizes only an already-owned overflow card.
-        if (window->isMinimized() && session.overflow.contains(window)) continue;
         auto saved = std::find_if(session.snapshots.begin(), session.snapshots.end(),
             [window](const auto &s) { return s.window == window; });
         if (saved == session.snapshots.end()) continue;
         saved->userMinimized = window->isMinimized();
         session.participationDirty = true;
         m_applicationGuard.invalidate();
-        if (m_interactionWindow) return;
-        if (applySession(session, false)) scheduleSettle();
-        return;
+        key = it.key();
+        break;
     }
+    if (key.isEmpty() || m_interactionWindow) return;
+    // CARD-LIFECYCLE.md §7 leaves a sleeping window owned without showing it,
+    // so waking one asks for a pane the layout may have no room for. §5 gives
+    // such a window to card ownership rather than to a hidden remainder. This
+    // runs after the loop because adopting reenters this controller.
+    if (!m_sessions.value(key).snapshots.isEmpty())
+        shedUnshowable(key, m_sessions.value(key), nullptr, false);
+    auto session = m_sessions.find(key);
+    if (session == m_sessions.end()) return;
+    if (applySession(session.value(), false)) scheduleSettle();
 }
 
 bool DesktopStageController::admitCardWindow(
@@ -275,11 +288,23 @@ bool DesktopStageController::admitCardWindow(
         .minimized = false,
         .valid = true,
     };
+    const QString key = outputKey(output);
     Session candidate = *session;
     candidate.snapshots.append(snapshot);
-    // Solve on a value copy: rejection must not park the arrival or disturb
-    // the destination's existing windows, restore records or geometry.
-    if (!reflowSession(candidate, window, true)) return false;
+    // CARD-LIFECYCLE.md §5: a full layout yields a pane to the arrival instead
+    // of parking it. The yield leaves for card ownership first, while this
+    // session still holds its record, so the card it becomes keeps the
+    // geometry it had before Bento placed it.
+    if (!shedUnshowable(key, candidate, window, true)) return false;
+    session = sessionForOutput(output);
+    if (!session) return false;
+    candidate = *session;
+    candidate.snapshots.append(snapshot);
+    // Solve on a value copy: rejection must not disturb the destination's
+    // existing windows, restore records or geometry.
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!reflowSession(candidate, window, true, true, &unshowable)
+        || !unshowable.isEmpty()) return false;
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
     return true;
@@ -511,7 +536,7 @@ bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop
     // owned here has one the card stage holds, which `makeSnapshot` reads.
     const auto plan = prepareCardAdmission(drop.window, drop.output, drop.geometry,
         restore, drop.side, drop.pairPartner);
-    if (!plan || plan->windows.size() != 2 || !plan->overflow.isEmpty()
+    if (!plan || plan->windows.size() != 2
         || !plan->windows.contains(drop.window)
         || !plan->windows.contains(drop.pairPartner)) return false;
     std::erase_if(m_restoredMinimizations, [&drop](const auto &pending) {
@@ -554,8 +579,30 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
         if (side) { plan.side = side; plan.sideWindow = window; }
         return reflowSession(plan, preferred, required, false);
     };
-    if (const auto *session = sessionForOutput(output))
-        return prepareBentoAdmission(*session, QPointer<KWin::EffectWindow>(window), incoming, planner);
+    if (const auto *session = sessionForOutput(output)) {
+        // CARD-LIFECYCLE.md §5: a full layout yields the pane the solve cannot
+        // keep. Shortening the value copy is what makes the admission one the
+        // layout can show in full. Publishing that yield belongs to the caller,
+        // which sheds first, so on a committing path nothing is left to shorten
+        // here and a preview still reports the rect the commit will produce.
+        Session shortened = *session;
+        Session probe = shortened;
+        probe.snapshots.append(incoming);
+        if (side) { probe.side = side; probe.sideWindow = window; }
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (planSession(probe, window, true, &unshowable)) {
+            for (const auto &yielding : std::as_const(unshowable)) {
+                const int index = shortened.windows.indexOf(yielding);
+                if (index >= 0 && index < static_cast<int>(shortened.rects.size()))
+                    shortened.rects.erase(shortened.rects.begin() + index);
+                shortened.windows.removeAll(yielding);
+                shortened.snapshots.removeIf(
+                    [&yielding](const auto &saved) { return saved.window == yielding; });
+            }
+        }
+        return prepareBentoAdmission(shortened, QPointer<KWin::EffectWindow>(window),
+                                     incoming, planner);
+    }
     Session empty;
     empty.outputName = key;
     QList<RestoreSnapshot> owned;
@@ -802,10 +849,28 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     // Capture every retained card restore before releasing Card Stage. Native
     // configure acknowledgement may lag behind that release.
     QHash<KWin::EffectWindow *, NativeMoveSnapshot> cardRestores;
-    for (const auto &window : collectWindows(output, preferred)) {
+    const QList<QPointer<KWin::EffectWindow>> eligible =
+        collectWindows(output, preferred);
+    for (const auto &window : eligible) {
         if (const auto saved = m_host->activeRestoreForDesktopStage(window))
             cardRestores.insert(window, *saved);
     }
+    if (eligible.isEmpty()) {
+        qInfo() << "Kadunce" << Revision
+                << "found no monitor windows for Bento on" << output->name();
+        return false;
+    }
+    // CARD-LIFECYCLE.md §5: Bento takes the combination it can show and nothing
+    // else. One solve on a throwaway value names what it cannot show, and it
+    // happens before Card Stage is released: a batch found unshowable after
+    // that release would leave the display with no owner at all.
+    Session probe;
+    probe.outputName = outputKey(output);
+    for (const auto &window : eligible) probe.snapshots.append(makeSnapshot(window));
+    if (side) { probe.side = side; probe.sideWindow = preferred; }
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!planSession(probe, preferred, false, &unshowable)) return false;
+
     m_host->prepareOutputForDesktopStage(output);
     const QList<QPointer<KWin::EffectWindow>> owned =
         collectWindows(output, preferred);
@@ -819,6 +884,9 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     session.outputName = outputKey(output);
     QList<RestoreSnapshot> snapshots;
     for (const QPointer<KWin::EffectWindow> &window : owned) {
+        // §5 gives a window this layout cannot show to card ownership instead,
+        // so it is never adopted here and has nothing to give up if it stays.
+        if (unshowable.contains(window)) continue;
         auto saved = makeSnapshot(window);
         const auto retained = cardRestores.constFind(window);
         const auto activeRestore = retained == cardRestores.cend()
@@ -837,6 +905,7 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
         }
         snapshots.append(saved);
     }
+    if (snapshots.isEmpty()) return false;
     auto prepared = prepareBentoActivation(session, snapshots,
         QPointer<KWin::EffectWindow>(preferred), false,
         [this, side, preferred](Session &candidate, const auto &lead, bool required) {
@@ -850,6 +919,21 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     Session &stored = m_sessions[session.outputName];
     if (applySession(stored, true)) scheduleSettle();
     qInfo() << "Kadunce" << Revision << "activated output-local Bento";
+    // §5: every window the layout could not show becomes an awake individual
+    // card on the display that can hold one. These were never adopted here, so
+    // there is no source membership to give up; where the card stage held one
+    // already, the release above restored its own record before this adopts it.
+    // Where no display can hold a card, nothing leaves and they stay put.
+    for (const auto &window : std::as_const(unshowable)) {
+        if (!window || window->isDeleted() || !window->window()) continue;
+        bool adopted = false;
+        m_host->admitTransferredWindowToTablet(window, [&] { adopted = true; return true; });
+        if (!adopted) {
+            qInfo() << "Kadunce" << Revision
+                    << "left a window the layout cannot show where it is;"
+                    << "no display can hold it as a card";
+        }
+    }
     return true;
 }
 
@@ -870,8 +954,9 @@ bool DesktopStageController::planSession(Session &session,
     if (!output) {
         return false;
     }
-    // Report every owned window the solve could not place. The caller decides
-    // whether to act on it: a preview must not move an owner.
+    // CARD-LIFECYCLE.md §5: report every owned window the solve could not
+    // place. Nothing retains it; the caller gives it to card ownership, and a
+    // preview passes nullptr because a solve never moves an owner.
     const auto report = [evicted](const QList<QPointer<KWin::EffectWindow>> &windows) {
         if (!evicted) return;
         for (const auto &window : windows)
@@ -908,9 +993,9 @@ bool DesktopStageController::planSession(Session &session,
         if (split && (!requirePreferred || splitWindows.contains(preferred))) {
             session.windows = splitWindows;
             session.rects = *split;
-            session.overflow = owned;
-            for (const auto &w : splitWindows) session.overflow.removeAll(w);
-            report(session.overflow);
+            QList<QPointer<KWin::EffectWindow>> remainder = owned;
+            for (const auto &w : splitWindows) remainder.removeAll(w);
+            report(remainder);
             session.side.reset(); session.sideWindow.clear();
             return true;
         }
@@ -928,13 +1013,13 @@ bool DesktopStageController::planSession(Session &session,
             candidates, requirePreferred ? owned.indexOf(preferred) : 0);
         if (!admission) return false;
         session.windows.clear();
-        session.overflow = owned;
+        QList<QPointer<KWin::EffectWindow>> remainder = owned;
         for (const int index : admission->candidateIndices) {
             session.windows.append(owned[index]);
-            session.overflow.removeAll(owned[index]);
+            remainder.removeAll(owned[index]);
         }
         session.rects = admission->rects;
-        report(session.overflow);
+        report(remainder);
         return true;
     }
     // The curated library has eight panes. Two alternate candidates are
@@ -961,7 +1046,6 @@ bool DesktopStageController::planSession(Session &session,
     const BentoAdmission admission = required ? *required : chooseBentoAdmission(
         candidates, area.width(), area.height());
     session.windows.clear();
-    session.overflow.clear();
     session.rects = admission.rects;
     QSet<KWin::EffectWindow *> admitted;
     for (const int index : admission.candidateIndices) {
@@ -970,12 +1054,11 @@ bool DesktopStageController::planSession(Session &session,
             admitted.insert(considered.at(index));
         }
     }
+    QList<QPointer<KWin::EffectWindow>> remainder;
     for (const QPointer<KWin::EffectWindow> &window : owned) {
-        if (!admitted.contains(window)) {
-            session.overflow.append(window);
-        }
+        if (!admitted.contains(window)) remainder.append(window);
     }
-    report(session.overflow);
+    report(remainder);
     return true;
 }
 
@@ -1014,8 +1097,29 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     return committed && accepted;
 }
 
-bool DesktopStageController::applySession(Session &session, bool activateLead,
-    KWin::EffectWindow *prepareOverflow)
+bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
+    KWin::EffectWindow *preferred, bool requirePreferred)
+{
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!planSession(probe, preferred, requirePreferred, &unshowable)) return false;
+    for (const auto &window : std::as_const(unshowable)) {
+        if (!window) continue;
+        // Re-found by key on every pass: adopting reenters this controller and
+        // can remove, replace or repopulate the session between evictions.
+        const auto session = m_sessions.constFind(key);
+        if (session == m_sessions.cend()) return false;
+        const auto &snapshots = session->snapshots;
+        // An arrival the caller has not published yet owns nothing here, so
+        // there is nothing for it to leave; only a window this session holds
+        // can be handed on.
+        if (std::none_of(snapshots.cbegin(), snapshots.cend(),
+                [&window](const auto &saved) { return saved.window == window; })) continue;
+        if (!evictToTablet(key, window)) return false;
+    }
+    return true;
+}
+
+bool DesktopStageController::applySession(Session &session, bool activateLead)
 {
     if (session.participationDirty) {
         if (!reflowSession(session)) return false;
@@ -1025,6 +1129,18 @@ bool DesktopStageController::applySession(Session &session, bool activateLead,
     const QString key = plan.outputName;
     QPointer<KWin::LogicalOutput> output = outputForKey(key);
     if (!output) return false;
+    // CARD-LIFECYCLE.md §5 and §14: a session shows every window it owns awake.
+    // A snapshot with no pane and no §7 sleep is the state the deleted overflow
+    // container used to hold, and `owned` is rebuilt from snapshots on every
+    // solve, so it would come back forever while appearing nowhere in the
+    // ownership view. Report it here rather than let it go unnamed.
+    for (const auto &saved : plan.snapshots) {
+        if (!saved.valid || saved.userMinimized || plan.windows.contains(saved.window))
+            continue;
+        qWarning() << "Kadunce" << Revision << "Bento on" << key
+                   << "owns a window it neither shows nor put to sleep";
+        break;
+    }
     std::erase_if(m_restoredMinimizations, [output](const auto &pending) {
         return pending->output() == output || pending->result() != RestoredMinimization::Result::Pending;
     });
@@ -1067,27 +1183,6 @@ bool DesktopStageController::applySession(Session &session, bool activateLead,
         const BentoPixelRect &pixel = pixels.at(index);
         const KWin::RectF target(pixel.x, pixel.y, pixel.width, pixel.height);
         if (!applyNativePlacement(client.data(), output.data(), target, valid)) return false;
-    }
-    for (const QPointer<KWin::EffectWindow> &window :
-         plan.overflow) {
-        if (!current()) return false;
-        if (window && !window->isDeleted() && window->window()) {
-            if (window == prepareOverflow) {
-                const QPointer<KWin::Window> client = window->window();
-                const auto valid = [&] {
-                    return current() && client && window && !window->isDeleted()
-                        && window->window() == client && !window->isUserMove() && !window->isUserResize();
-                };
-                if (!applyNativePlacement(client.data(), output.data(),
-                        KWin::RectF(m_host->activeTargetForDesktopStage(output)), valid)) return false;
-                // Observe KWin's accepted Active target, then minimize once;
-                // the arrival's minimum already ruled out the curated panes.
-                m_restoredMinimizations.push_back(std::make_unique<RestoredMinimization>(client,
-                    RestoredMinimization::Target{client->moveResizeGeometry(), KWin::MaximizeRestore,
-                        KWin::QuickTileMode{}, false}));
-            } else window->window()->setMinimized(true);
-            if (!current()) return false;
-        }
     }
     const QPointer<KWin::EffectWindow> lead = plan.windows.value(0);
     if (activateLead && current() && lead && !lead->isDeleted() && lead->window()) {
@@ -1404,26 +1499,6 @@ void DesktopStageController::cancelRestoredMinimizations()
     m_restoredMinimizations.clear();
 }
 
-void DesktopStageController::addWindow(KWin::EffectWindow *window,
-                              KWin::LogicalOutput *output,
-                              const RestoreSnapshot &snapshot)
-{
-    Session *session = sessionForOutput(output);
-    if (!session || !window || !window->window()) {
-        return;
-    }
-    for (const RestoreSnapshot &existing :
-         std::as_const(session->snapshots)) {
-        if (existing.window == window) {
-            return;
-        }
-    }
-    session->snapshots.append(snapshot.valid
-        ? snapshot : makeSnapshot(window));
-    reflowSession(*session, window);
-    if (applySession(*session, true)) scheduleSettle();
-}
-
 bool DesktopStageController::handoffWindowToOutput(
     KWin::EffectWindow *window, KWin::LogicalOutput *destination,
     const KWin::RectF &requestedGeometry, CardDropIntent intent,
@@ -1477,7 +1552,17 @@ bool DesktopStageController::handoffWindowToOutput(
                 return reflowSession(session, preferred, required, false);
             };
         std::optional<BentoSessionTransfer<Session>> transfer;
+        QList<QPointer<KWin::EffectWindow>> unadopted;
         if (m_sessions.contains(destinationKey)) {
+            // CARD-LIFECYCLE.md §5: the destination yields a pane to the
+            // arrival rather than parking it, and the yield leaves for card
+            // ownership before either session publishes.
+            Session probe = m_sessions.value(destinationKey);
+            probe.snapshots.append(snapshot);
+            if (side) { probe.side = side; probe.sideWindow = window; }
+            if (!shedUnshowable(destinationKey, probe, window, true)) return false;
+            if (!m_sessions.contains(sourceKey) || !m_sessions.contains(destinationKey))
+                return false;
             transfer = prepareBentoSessionTransfer(m_sessions.value(sourceKey),
                 m_sessions.value(destinationKey), QPointer<KWin::EffectWindow>(window), snapshot, planner);
         } else {
@@ -1486,6 +1571,19 @@ bool DesktopStageController::handoffWindowToOutput(
             QList<RestoreSnapshot> residents;
             for (const auto &resident : collectWindows(destination, window))
                 residents.append(makeSnapshot(resident));
+            // §5 again, for a first layout: a resident this layout cannot show
+            // is not adopted here at all. It is still Native, so it has nothing
+            // to give up, and card ownership takes it once both sessions are
+            // published.
+            Session probe = empty;
+            probe.snapshots = residents;
+            probe.snapshots.append(snapshot);
+            if (side) { probe.side = side; probe.sideWindow = window; }
+            if (planSession(probe, window, true, &unadopted)) {
+                residents.removeIf([&unadopted](const auto &resident) {
+                    return unadopted.contains(resident.window);
+                });
+            }
             const auto admission = prepareBentoActivationWithArrival(empty, residents,
                 QPointer<KWin::EffectWindow>(window), snapshot, planner);
             const auto departure = prepareBentoDeparture(m_sessions.value(sourceKey),
@@ -1504,6 +1602,11 @@ bool DesktopStageController::handoffWindowToOutput(
         auto target = m_sessions.find(destinationKey);
         if (target == m_sessions.end() || !applySession(target.value(), true)) return true;
         scheduleSettle();
+        for (const auto &resident : std::as_const(unadopted)) {
+            if (!resident || resident->isDeleted() || !resident->window()) continue;
+            bool adopted = false;
+            m_host->admitTransferredWindowToTablet(resident, [&] { adopted = true; return true; });
+        }
         return true;
     }
     if (detach || !m_host->isTabletOutputForDesktopStage(destination)) {

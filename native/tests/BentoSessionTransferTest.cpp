@@ -5,10 +5,11 @@
 #include <cstdlib>
 #include <iostream>
 using namespace Kadunce;
-struct Snapshot { int window; bool valid = true; int restoreMarker = 0; };
+struct Snapshot { int window; bool valid = true; int restoreMarker = 0;
+                  bool userMinimized = false; };
 struct Session {
     QString outputName;
-    QList<int> windows, overflow;
+    QList<int> windows;
     QList<Snapshot> snapshots;
     std::vector<BentoRect> rects;
 };
@@ -16,24 +17,27 @@ void require(bool condition, const char *message) {
     if (!condition) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main() {
-    const Session source{QStringLiteral("left"), {1,2}, {}, {{1},{2}}, makeBentoLayout(2,true)};
-    const Session destination{QStringLiteral("right"), {3}, {}, {{3}}, makeBentoLayout(1,true)};
+    const Session source{QStringLiteral("left"), {1,2}, {{1},{2}}, makeBentoLayout(2,true)};
+    const Session destination{QStringLiteral("right"), {3}, {{3}}, makeBentoLayout(1,true)};
     int calls = 0;
     auto planner = [&](Session &session, int required, bool mandatory) {
         ++calls;
         std::vector<BentoCandidate> candidates;
+        QList<int> awake;
         int arriving = -1;
-        for (int i = 0; i < session.snapshots.size(); ++i) {
-            candidates.push_back({100,100,500,500,session.snapshots[i].window == required});
-            if (session.snapshots[i].window == required) arriving = i;
+        // §7's sleeping windows stay owned without being offered a pane, which
+        // is what planSession's own membership filter does.
+        for (const auto &snapshot : session.snapshots) {
+            if (snapshot.userMinimized) continue;
+            if (snapshot.window == required) arriving = int(awake.size());
+            candidates.push_back({100,100,500,500,snapshot.window == required});
+            awake.append(snapshot.window);
         }
         auto admission = mandatory ? chooseBentoTransferAdmission(candidates, arriving, 1920,1080)
             : std::optional<BentoAdmission>{chooseBentoAdmission(candidates,1920,1080)};
         if (!admission) return false;
-        session.windows.clear(); session.overflow.clear();
-        for (int index : admission->candidateIndices) session.windows.append(session.snapshots[index].window);
-        for (const auto &snapshot : session.snapshots)
-            if (!session.windows.contains(snapshot.window)) session.overflow.append(snapshot.window);
+        session.windows.clear();
+        for (int index : admission->candidateIndices) session.windows.append(awake[index]);
         session.rects = admission->rects;
         return true;
     };
@@ -57,9 +61,9 @@ int main() {
     calls = 0;
     require(!prepareBentoSessionTransfer(source,destination,1,Snapshot{1},reject)
         && calls == 1, "Source prepared before destination rejection");
-    auto overflow = [](Session &session,int,bool) { session.windows.clear(); return true; };
-    require(!prepareBentoSessionTransfer(source,destination,1,Snapshot{1},overflow),
-        "Overflow mistaken for acceptance");
+    auto showsNothing = [](Session &session,int,bool) { session.windows.clear(); return true; };
+    require(!prepareBentoSessionTransfer(source,destination,1,Snapshot{1},showsNothing),
+        "A plan that shows nothing was mistaken for acceptance");
     auto rejectSource = [&](Session &session,int window,bool mandatory) {
         return mandatory ? planner(session,window,true) : false;
     };
@@ -85,7 +89,7 @@ int main() {
         "Repeated transfer accepted");
 
     // First layout: solve a value containing only the explicitly arriving card.
-    const Session first{QStringLiteral("empty-monitor"), {}, {}, {}, {}};
+    const Session first{QStringLiteral("empty-monitor"), {}, {}, {}};
     calls = 0;
     auto firstAdmission = prepareBentoAdmission(first, 1, Snapshot{1}, planner);
     require(firstAdmission && calls == 1 && first.snapshots.isEmpty()
@@ -93,7 +97,7 @@ int main() {
         && firstAdmission->rects.size() == 1 && source.windows == QList<int>({1,2}),
         "First layout changed live state or adopted unrelated cards");
     require(!prepareBentoAdmission(first, 1, Snapshot{1}, reject)
-        && !prepareBentoAdmission(first, 1, Snapshot{1}, overflow),
+        && !prepareBentoAdmission(first, 1, Snapshot{1}, showsNothing),
         "Rejected/hidden first card accepted");
     require(!prepareBentoAdmission(Session{}, 1, Snapshot{1}, planner)
         && !prepareBentoAdmission(first, 1, Snapshot{2}, planner)
@@ -110,6 +114,7 @@ int main() {
     calls = 0;
     const auto batch = prepareBentoActivation(first, monitor, 1, true, planner);
     require(batch && calls == 1 && batch->snapshots.size() == 3
+        && batch->windows.size() == batch->snapshots.size()
         && batch->windows.contains(1) && batch->windows.contains(3) && batch->windows.contains(4)
         && first.snapshots.isEmpty() && source.windows == QList<int>({1,2})
         && monitor.size() == 3, "Batch must prepare once without source/destination mutation");
@@ -125,7 +130,7 @@ int main() {
         && !prepareBentoActivation(first, monitor, 9, true, planner),
         "Invalid activation batch accepted");
     require(!prepareBentoActivation(first, monitor, 1, true, reject)
-        && !prepareBentoActivation(first, monitor, 1, true, overflow),
+        && !prepareBentoActivation(first, monitor, 1, true, showsNothing),
         "Rejected or hidden arrival published");
     auto lostMember = [&](Session &s, int lead, bool required) {
         if (!planner(s, lead, required)) return false;
@@ -135,17 +140,47 @@ int main() {
         "Batch silently lost a display-owned member");
     auto duplicateMember = [&](Session &s, int lead, bool required) {
         if (!planner(s, lead, required)) return false;
-        s.overflow.append(lead); return true;
+        s.windows.append(lead); return true;
     };
     require(!prepareBentoActivation(first, monitor, 1, true, duplicateMember),
-        "Batch duplicated a member across visibility states");
+        "Batch duplicated a member");
+    // A batch the planner cannot show in full is refused rather than parked:
+    // twelve windows against a curated cap of eight has no hidden remainder to
+    // put the other four in. The caller shortens the batch and gives what it
+    // drops to card ownership, and the shortened batch shows in full.
     QList<Snapshot> crowded;
     for (int i = 1; i <= 12; ++i) crowded.append(Snapshot{i});
-    const auto crowd = prepareBentoActivation(first, crowded, 12, true, planner);
-    require(crowd && crowd->snapshots.size() == 12 && crowd->windows.contains(12)
-        && !crowd->overflow.isEmpty()
-        && crowd->windows.size() + crowd->overflow.size() == 12,
-        "Batch lost overflow membership or hid mandatory arrival");
+    require(!prepareBentoActivation(first, crowded, 12, true, planner),
+        "A batch the layout cannot show in full was accepted");
+    QList<Snapshot> shortened;
+    for (int i = 1; i <= BentoCuratedPaneCap; ++i) shortened.append(Snapshot{i});
+    const auto fitted = prepareBentoActivation(first, shortened, BentoCuratedPaneCap,
+        true, planner);
+    require(fitted && fitted->windows.size() == fitted->snapshots.size()
+        && fitted->windows.size() == BentoCuratedPaneCap
+        && fitted->windows.contains(BentoCuratedPaneCap),
+        "Pre-shortened batch refused or lost a member");
+
+    // §7: a sleeping window is owned without being shown, so it is the one
+    // thing the visible combination may omit, and it is not an eviction.
+    QList<Snapshot> withSleeper{{1},{2},{3,true,0,true}};
+    const auto sleeping = prepareBentoActivation(first, withSleeper, 1, true, planner);
+    require(sleeping && sleeping->snapshots.size() == 3
+        && sleeping->windows == QList<int>({1,2}),
+        "A sleeping window was mistaken for a member of the visible combination");
+
+    // §8: admission grows the layout or refuses. A destination already at the
+    // cap cannot take a ninth window, and the caller makes it a card instead.
+    require(fitted && !prepareBentoAdmission(*fitted, 99, Snapshot{99}, planner),
+        "Growth-only admission accepted a window the layout cannot show");
+    auto yielded = *fitted;
+    yielded.windows.removeAll(BentoCuratedPaneCap);
+    yielded.snapshots.removeIf([](const auto &saved) {
+        return saved.window == BentoCuratedPaneCap; });
+    const auto grown = prepareBentoAdmission(yielded, 99, Snapshot{99}, planner);
+    require(grown && grown->windows.size() == grown->snapshots.size()
+        && grown->windows.contains(99),
+        "Admission refused a batch the caller had already shortened");
     require(prepareBentoActivation(first, monitor, 9, false, planner).has_value(),
         "Shortcut activation incorrectly requires an off-output preferred window");
     const QList<Snapshot> residents{{3,true,30},{4,true,40}};

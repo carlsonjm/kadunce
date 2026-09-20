@@ -5,6 +5,22 @@
 #include <utility>
 
 namespace Kadunce {
+// CARD-LIFECYCLE.md §5: a Bento session holds exactly the combination it
+// shows. There is no hidden remainder, so a solve either shows every window
+// the session owns awake or it is not a session. §7's sleeping windows stay
+// owned without being shown and are the one thing the visible set may omit.
+template<class Session>
+bool showsEveryAwakeSnapshot(const Session &session)
+{
+    decltype(session.windows.size()) awake = 0;
+    for (const auto &snapshot : session.snapshots) {
+        const int shown = snapshot.userMinimized ? 0 : 1;
+        if (session.windows.count(snapshot.window) != shown) return false;
+        awake += shown;
+    }
+    return session.windows.size() == awake;
+}
+
 // Prepare first activation from a caller-collected display-owned batch. The
 // collector owns eligibility/output policy and captures restore records before
 // calling this. The planner changes placement only, never snapshots/native state.
@@ -15,7 +31,7 @@ std::optional<Session> prepareBentoActivation(const Session &empty,
     const Snapshots &snapshots, const Handle &preferred, bool requirePreferred, Planner plan)
 {
     if (empty.outputName.isEmpty() || !empty.snapshots.isEmpty()
-        || !empty.windows.isEmpty() || !empty.overflow.isEmpty() || !empty.rects.empty()
+        || !empty.windows.isEmpty() || !empty.rects.empty()
         || snapshots.isEmpty()) return std::nullopt;
     for (const auto &snapshot : snapshots) {
         if (!snapshot.valid || !snapshot.window
@@ -30,12 +46,9 @@ std::optional<Session> prepareBentoActivation(const Session &empty,
     if (!plan(result, preferred, requirePreferred) || result.windows.isEmpty()
         || result.rects.size() != static_cast<size_t>(result.windows.size())
         || (requirePreferred && !result.windows.contains(preferred))) return std::nullopt;
-    // Every promoted card must remain represented, including existing overflow.
-    if (result.windows.size() + result.overflow.size() != snapshots.size()) return std::nullopt;
-    for (const auto &snapshot : snapshots) {
-        if (result.windows.count(snapshot.window) + result.overflow.count(snapshot.window) != 1)
-            return std::nullopt;
-    }
+    // A batch the planner cannot show in full is refused. The caller shortens
+    // it first and gives what it drops to card ownership; nothing is parked.
+    if (!showsEveryAwakeSnapshot(result)) return std::nullopt;
     return result;
 }
 
@@ -72,7 +85,11 @@ std::optional<Session> prepareBentoAdmission(const Session &destination,
         [&window](const auto &item) { return item.window == window; })) return std::nullopt;
     Session result = destination;
     result.snapshots.append(snapshot);
-    if (!plan(result, window, true) || !result.windows.contains(window)) return std::nullopt;
+    // §8: a layout admits by growing to show the arrival beside everything it
+    // already shows. One that cannot grow refuses, and the caller makes the
+    // arrival an individual card rather than displacing a pane the user placed.
+    if (!plan(result, window, true) || !result.windows.contains(window)
+        || !showsEveryAwakeSnapshot(result)) return std::nullopt;
     return result;
 }
 
@@ -86,8 +103,9 @@ std::optional<Session> prepareBentoDeparture(const Session &source, const Handle
     auto &snapshots = result.snapshots;
     snapshots.erase(std::remove_if(snapshots.begin(), snapshots.end(), matches), snapshots.end());
     result.windows.removeAll(window);
-    result.overflow.removeAll(window);
     if (snapshots.isEmpty()) result.rects.clear();
+    // No law here on purpose: a departure is how a session that owes an
+    // eviction gets back under one, and the first of several would refuse.
     else if (!plan(result, Handle{}, false)) return std::nullopt;
     return result;
 }

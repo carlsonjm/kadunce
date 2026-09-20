@@ -74,7 +74,8 @@ public:
 
     [[nodiscard]] bool hasActiveSession() const;
     [[nodiscard]] bool ownsWindow(KWin::EffectWindow *window) const;
-    // Visible native panes only; retained overflow is owned but not a pane.
+    // A session's visible pane combination, which CARD-LIFECYCLE.md §5 makes
+    // everything it owns awake. The two differ only by §7's sleeping windows.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
     void restoreAllSessions();
@@ -103,7 +104,8 @@ public:
     bool handoffLeadToOutput(const QString &sourceName,
                              const QString &destinationName);
 
-    // Returns true when a new window was parked by an existing session.
+    // Returns true when an existing session grew to show the new window as a
+    // pane. False leaves it for card ownership; nothing is ever parked.
     bool handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleWindowMinimizedChanged(KWin::EffectWindow *window);
@@ -247,15 +249,11 @@ private:
                   KWin::EffectWindow *preferred = nullptr,
                   std::optional<BentoSidePlacement> side = {});
     void restoreSession(const QString &key, bool outputRemoving = false);
-    bool applySession(Session &session, bool activateLead,
-                      KWin::EffectWindow *prepareOverflow = nullptr);
+    bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
     void settleSessions();
     bool sessionGeometryMatches(const Session &session) const;
     void removeWindow(KWin::EffectWindow *window, bool restoreSnapshot);
-    void addWindow(KWin::EffectWindow *window,
-                   KWin::LogicalOutput *output,
-                   const RestoreSnapshot &snapshot);
     bool handoffWindowToOutput(KWin::EffectWindow *window,
                                KWin::LogicalOutput *destination,
                                const KWin::RectF &destinationGeometry,
@@ -278,6 +276,13 @@ private:
     // keeps the combination rather than shedding a window with no owner to
     // become, which is the case with no card-owning display attached.
     bool evictToTablet(const QString &sourceKey, KWin::EffectWindow *window);
+    // CARD-LIFECYCLE.md §5: a layout shows its whole combination or it is not
+    // that layout. `probe` is the value the caller is about to ask for,
+    // including any arrival it is adding; one solve names what that value
+    // cannot show, and each of those windows leaves for card ownership while
+    // this session still holds its record. Nothing is published here.
+    bool shedUnshowable(const QString &key, Session probe,
+                        KWin::EffectWindow *preferred, bool requirePreferred);
     void adjustRail(Session &session, KWin::EffectWindow *window,
                     const KWin::RectF &start, const KWin::RectF &finish);
 
