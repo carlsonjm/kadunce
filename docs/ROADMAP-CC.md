@@ -122,33 +122,31 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** 1a, 1b and 1c are complete and unblocked Blocks 2 and 3. 1d and 1e
-are implemented and both await the same thing: one cold boot followed by one
-live install. Until that runs, a physical result still cannot be attributed to
-the build it was meant to test.
+**Status:** 1a, 1b, 1c and 1e are complete. 1e closed on the 20 September cold
+boot, so a physical gesture result can now be attributed to a backend. 1d is
+implemented and awaits one live install, which is what lets a physical result be
+attributed to a build.
 
 ### 1e. Give the effect its input backend on a cold boot
 
-**Status:** Implemented and exercised on a cold boot; awaiting the same check on
-the current build. The effect watches the runtime directory for the kit and
+**Status:** Complete. The effect watches the runtime directory for the kit and
 adopts the direct router when it appears, handing each edge back from Plasma
-first. Measured on the 19 September cold boot: the system booted at 16:31:42,
-the effect constructed at 16:31:51 reporting Plasma-native edges, and at
-16:32:03 it reported adopting the direct router because the kit had appeared. No
-reload happened between those lines, and only a build carrying the watcher can
-emit the second one. The build installed since has not been cold-booted.
+first. Measured on the 20 September cold boot of the installed candidate: the
+system booted at 15:34:01, the effect constructed at 15:34:10 reporting
+Plasma-native edges because the kit was not yet there, and at 15:34:21 it
+reported adopting the direct router. Nothing loaded, unloaded or released the
+effect between those lines, so the direct router was reached without a reload.
 
-- [ ] `Effect.cpp` latches `m_usesDirectSystemEdges = z13TabletKitAvailable()`
+- [x] `Effect.cpp` latched `m_usesDirectSystemEdges = z13TabletKitAvailable()`
   once in its constructor, testing for `$XDG_RUNTIME_DIR/z13-tablet-kit/posture`.
   Measured 19 September: `plasma-kwin_wayland.service` became active at 13:56:43
-  and `z13-tablet-switch.service` at 13:56:55, so a cold boot latches the absent
-  file and delegates top and bottom gestures to Plasma touch borders. Only an
-  effect reload recovers the direct four-edge router. One-shot check, no retry,
-  no signal on the service appearing.
-- [ ] Until this is fixed, a physical gesture result depends on which backend won
-  the boot race. One live session already ran its first checks on the
-  Plasma-native path and a later one on the direct router, leaving them not
-  comparable.
+  and `z13-tablet-switch.service` at 13:56:55, so a cold boot latched the absent
+  file and delegated top and bottom gestures to Plasma touch borders. The
+  constructor's answer is no longer final: when the kit is absent the effect
+  watches for it and adopts the direct router on arrival.
+- [x] A physical gesture result no longer depends on which backend won the boot
+  race. Both paths converge on the direct router within seconds of boot, so
+  sessions started before and after the kit appears are comparable.
 
 **Exit gate:** A cold boot reaches the direct router with no reload. The original
 wording expected the construction banner itself to name the direct backend; that
