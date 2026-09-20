@@ -72,19 +72,23 @@ desktop; `CARD-LIFECYCLE.md` defines what each presentation owns.
 
 All cross-owner transfers follow one order:
 
-1. Input identifies a semantic destination.
+1. Input identifies a semantic destination and every window identity it names.
 2. The source controller creates a reversible, revision-bound transfer value.
 3. The destination validates current output, membership, minimum sizes, visibility,
-   and its own revision, then prepares admission on a value copy.
+   the identities the input named, and its own revision, then prepares admission on
+   a value copy.
 4. The source removes membership only after destination acceptance.
 5. Controllers publish state before guarded native placement.
 6. Rejection or cancellation preserves exact source membership, stack order,
    selection, and restore state.
 
-Existing Bento has priority for an incoming monitor transfer. An invalid existing
-layout rejects instead of falling through to ordinary desktop placement. A deliberate
-new-layout edge destination prepares the complete eligible batch. Open monitor space
-without Bento remains ordinary native desktop space.
+Existing Bento has priority for an incoming transfer. An invalid existing layout
+rejects instead of falling through to ordinary desktop placement. Where a
+deliberate edge destination means a pair, preparation admits exactly the carried
+window and the one partner the gesture named, and a plan that is not exactly
+those two panes is rejected. Open space without an existing Bento remains
+ordinary native desktop space on a display that cannot own cards; on a display
+that can, an arrival there is admitted to the card stage.
 
 Committed monitor placement may retain a short compositor-only settle while KWin's
 requested output and geometry still match the reservation. The input route is already
@@ -115,7 +119,9 @@ The detailed routing table is `INPUT-OWNERSHIP.md`.
 ## Output and dock rules
 
 Spread and Bento are presentations, not display-type restrictions. Bento may run
-on the tablet and monitor. Sessions are output-local; changing or releasing one
+on the tablet and monitor. A deliberate edge destination takes its meaning from
+the state and capability of the display it is released into, never from that
+display's hardware identity. Sessions are output-local; changing or releasing one
 output must not release another output's session.
 
 Dock safety uses the actual work area plus visible bottom dock frames. The bottom

@@ -72,35 +72,73 @@ and current virtual desktop.
 
 Kadunce atomically adopts every eligible open application window on that display.
 
-### Top-edge entry
+Kadunce owns a display from that moment until its session ends, whether what it
+holds is individual cards, stacks or a Bento group. Adoption happens once. Every
+later edge action on that display reads the ownership it already has.
 
-- The dragged window becomes an individual card.
+### First top-edge entry
+
+On a display Kadunce does not yet own:
+
+- The carried window becomes an individual card.
 - It becomes Active.
 - Every other eligible window becomes an individual nonselected card.
 
-### Left/right-edge entry
+### First left/right-edge entry
 
-- The dragged window becomes an individual card.
+On a display Kadunce does not yet own:
+
+- The carried window becomes an individual card.
 - It becomes Active.
 - Every other eligible window becomes an individual nonselected card.
 
-Bento does not begin here. Bento requires at least two paired windows, so one
-side-snapped window is one card and nothing more.
+Bento does not begin here. Bento pairs two named windows, and a first side snap
+names only one, so that window is one card and nothing more.
 
 ### Pairing into Bento
 
-Bento begins when a window is dragged to the left or right edge while an
-individual card is Active.
+On a display Kadunce already owns, with no live Bento layout, a left or right
+snap requests a Bento pair of exactly two named windows. One is the carried
+window. The other is the partner, and one of two rules names it.
 
-- The dragged window takes the side it was released into.
-- The Active card takes the opposite side.
+When the carried window is not the Active card — an individual card, or a window
+still on the native desktop — the partner is the Active card.
+
+When the carried window is the Active card, the partner is the nearest eligible
+card on the contacted side of it in Spread order. The walk begins at the Spread
+entry holding the carried window: its own entry, or the stack it is the selected
+member of. A left snap walks left from that entry, a right snap walks right, and
+the walk is cyclic. When only one other eligible card exists, both sides name it.
+
+Placement comes from the gesture:
+
+- The carried window takes the side it was released into.
+- The partner takes the opposite side.
 - Both become Bento panes.
 - No other window joins. Kadunce never fills an unrequested pane.
 
-If the complete ownership batch cannot be prepared safely, every window remains
-Native.
+Spread order selects which card becomes the partner. It never decides which side
+a pane takes.
+
+Partner eligibility is defined under Eligible windows.
+
+The partner is named when the edge is contacted, and the pair commits with that
+partner. A presentation change during the carry never substitutes another window.
+
+When no eligible partner is named, nothing pairs. The carried window becomes an
+individual Active card, unless it already is the Active card, in which case
+nothing changes.
+
+Only the side edges pair. A top snap on a display Kadunce already owns makes the
+carried window an individual Active card.
+
+An entry commits completely or not at all. If adoption cannot be prepared safely,
+every window remains Native. If a pair cannot be prepared safely, the carried
+window and the partner keep the ownership and presentation they had.
 
 ## 4. Eligible windows
+
+### Eligible for adoption
 
 Kadunce adopts normal top-level application windows on the current display and
 current virtual desktop.
@@ -117,6 +155,31 @@ Kadunce does not create independent cards for:
 A dependent dialog follows its owning application card.
 
 Other displays and virtual desktops remain independent.
+
+### Eligible as a Bento partner
+
+The partner is the card Kadunce pairs with the carried window. It must be:
+
+- On the current display
+- On the current virtual desktop
+- Owned as an individual card
+- Not sleeping
+
+The carried window is never its own partner. The Bento group is never a partner,
+and neither is a live pane. A window on the native desktop is never a partner; it
+can only be the carried window.
+
+The Active card is a partner whether it stands alone in the Spread or is the
+selected member of an ordinary stack. Pairing takes a named stack member out of its
+stack and leaves the rest of the stack unchanged, whether that member is the
+partner or the carried window.
+
+A partner search passes over every Spread entry that fails this test, and over
+every ordinary stack. A card leaves a stack for Bento only when the user named
+it, never because a search walked past it.
+
+This test names the partner only. The carried window is named by the gesture, and
+when it comes from the native desktop it must be eligible for adoption.
 
 ## 5. Bento rules
 
@@ -152,8 +215,9 @@ A side snap carries an intent taken from where the edge was touched. The upper
 half of the side edge asks for the larger placement, the lower half for the
 smaller one. Contact near the midpoint keeps the previous choice.
 
-The arriving window keeps the edge it was released into and takes the share its
-half asked for.
+The carried window keeps the edge it was released into and takes the share its
+half asked for. This holds whether the carried window comes from the native
+desktop, from an individual card, or is itself the Active card.
 
 A three-pane grammar is specified for a display whose maximum is three, and is
 not in effect. Under it a lower-half snap gives one full-height larger pane
@@ -186,9 +250,13 @@ When Bento falls to one visible pane, Bento ends.
 
 The remaining pane becomes an individual card.
 
-### Returning a card to Bento
+### Returning a card to a live Bento
 
-An individual card returns to Bento only through an explicit left/right-edge action.
+A display with a live Bento layout does not begin a new pair. A left or right
+snap targets that layout.
+
+An individual card returns to a live Bento only through an explicit
+left/right-edge action.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
 The pane that yields is the one occupying the side the returning card was
@@ -196,6 +264,17 @@ released into. The user can see which pane will yield while dragging, and no
 interaction history decides it.
 
 ## 6. Spread selection
+
+### Spread order
+
+The Spread has one order, and it is cyclic. Its entries are individual cards,
+ordinary stacks and the display's Bento group. That order is what names a Bento
+partner, and a partner search steps over entries, stopping when it returns to
+where it started.
+
+Which entry is selected, and which side a two-entry Spread draws its neighbour
+on, are presentation. Neither decides which card becomes the partner, nor which
+side a pane takes.
 
 ### Selecting an individual card
 
@@ -289,12 +368,27 @@ A Bento group:
 
 ### Top edge
 
-Make the carried window an independent Active card.
+Make the carried window an independent Active card. The top edge never pairs.
 
 ### Left or right edge
 
-Pair the carried window into Bento with the Active card, or admit it as an
-individual Active card when there is nothing to pair with.
+Pair the carried window into Bento with one partner: the Active card, or, when
+the carried window is itself the Active card, the nearest eligible card on the
+contacted side of it in Spread order. The carried window takes the side it was
+released into and the partner takes the opposite side.
+
+When Kadunce does not yet own the display, the snap adopts it instead. The
+carried window becomes the Active card and every other eligible window becomes an
+individual card.
+
+Admit the carried window as an individual Active card when no eligible partner is
+named and the carried window is not the Active card.
+
+When the carried window is the Active card and no eligible partner is named,
+nothing changes.
+
+When the display has a live Bento layout, the snap targets that layout instead of
+beginning a pair.
 
 ### Bottom edge
 
@@ -310,6 +404,11 @@ An edge action commits only when released inside its valid edge zone.
 ## 11. Multiple displays
 
 Each display has an independent ownership session.
+
+An edge action reads that display's own state and what it can hold: whether
+Kadunce owns it, which card is Active, whether it has a live Bento layout, and
+its maximum visible pane count. The rules are the same on every display; only
+these values differ.
 
 Each display may contain:
 
@@ -367,6 +466,9 @@ Kadunce does not persist card or Bento membership across unload or restart.
 - One display has at most one Bento layout.
 - Bento owns visible panes only.
 - A window outside the visible Bento combination is an individual card.
+- A Bento pair begins as exactly two named windows.
+- An edge gesture decides which side a pane takes; Spread order never does.
+- A pair commits with the partner it was prepared for, or does not commit.
 - Active is a presentation state, not a separate ownership class.
 - Selecting one entry never releases its neighbors.
 - Presentation changes never overwrite restoration records.

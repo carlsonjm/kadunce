@@ -271,35 +271,112 @@ suites pass.
 ## Block 3 — Ownership behavior
 
 **Status:** In progress on `wip/deliberate-entry-20260919`. Deliberate entry is
-implemented there and physical review is owed; nothing has been installed. Block
-2's ledger is live-verified, so a violation it reports now names a real defect
-rather than a solver decision. `CARD-LIFECYCLE.md` carries the approved model
-this block implements.
+implemented there against an answer J has since superseded: a card carried to a
+side edge while it was itself Active was treated as having nothing to pair with,
+so it stayed Active. J inverted that on 19 September. The carried card owns the
+edge it is released into, and Spread direction selects the partner rather than
+the partner's eventual Bento side, so a carried Active card pairs with the
+nearest eligible card on the contacted side of it in cyclic Spread order. The
+branch must be corrected to that grammar before physical review; nothing has been
+installed. Block 2's ledger is live-verified, so a violation it reports now names
+a real defect rather than a solver decision. `CARD-LIFECYCLE.md` carries the
+approved model this block implements.
 
 Order within the block matters. Deliberate snapping comes first because it is the
 smallest change that makes the system testable: while the solver decides pane
 membership, a test cannot separate an ownership defect from a solver decision.
 Overflow deletion follows, because once almost nothing produces overflow the
-container can be removed by subtraction rather than by behavior change. Write the
-failing headless assertion before each, the way Block 1a replaced source-order
-assertions with behavioral coverage.
+container can be removed by subtraction rather than by behavior change. The
+corrected pairing grammar is settled in the contract before either lands, and one
+partner derivation answers both carry seams, so the two cannot drift apart again.
+Write the failing headless assertion before each, the way Block 1a replaced
+source-order assertions with behavioral coverage.
 
-- [x] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
-  §3. One window dragged to the top, left or right edge becomes exactly one
-  individual Active card; a side snap no longer starts a layout. Bento begins
-  only when a second window is snapped while a card is Active, pairing those two
-  and no others, and §5 already ends Bento when it falls back to one pane. First
-  entry still adopts every eligible window on the display and current virtual
-  desktop, but adoption produces individual cards and never fills an unrequested
-  pane. This removes overflow at its source: a window is a pane only because it
-  was put there.
-  `DeliberateEdgeEntry.h` decides what a tablet edge action means before any
-  layout is reserved, and both carry seams ask it the same question, so a side
-  snap cannot mean one thing carried from the desktop and another carried from
-  Spread. The display-wide sweep is no longer reachable from either seam.
+- [ ] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
+  §3. A display Kadunce does not yet own adopts on a top, left or right snap:
+  every eligible window on it and the current virtual desktop becomes an
+  individual card, the carried one is Active, and no layout begins. A display
+  Kadunce already owns answers a left or right snap with a Bento pair of exactly
+  two named windows and no others, and §5 already ends Bento when it falls back
+  to one pane. The carried window pairs with the Active card; when the carried
+  window is itself the Active card it pairs with the nearest eligible card on the
+  contacted side of it in Spread order, walking cyclically. Nothing pairs when no
+  eligible partner is named; the carried window is then the Active card and the
+  rest of the display is untouched. Placement follows the gesture, not the
+  partner's Spread position: the carried window takes the edge it was released
+  into and the partner takes the opposite side. The top edge stays one individual
+  Active card, never a pair. This removes overflow at its source, which is why it
+  precedes the deletion below.
+  `DeliberateEdgeEntry.h` decides what an edge action means before any layout is
+  reserved, and both carry seams ask it the same question, so a side snap cannot
+  mean one thing carried from the desktop and another carried from Spread. On the
+  tablet output the display-wide sweep is no longer reachable from either seam;
+  every other output still reserves a Bento activation that sweeps it, because no
+  other output can own cards. The state-and-capability item below stops both
+  seams branching on hardware; the sweep itself stays wherever cards cannot
+  exist, which `PRODUCT-CONTRACT.md` makes the external display's design rather
+  than a gap.
   Making the pair leave the rest of the display alone needed the same change §6
   needed: both stages own windows on one display at once. `DECISIONS.md` records
   it, and the third card presentation it introduced.
+
+- [ ] Consolidate one partner-eligibility predicate that every pairing path
+  calls. §4's "Eligible as a Bento partner" is that predicate: current display,
+  current virtual desktop, owned as an individual card, and awake, which is where
+  §7 keeps a minimized card from silently returning to Bento. Adoption
+  eligibility is a different question asked of native windows and never stands in
+  for it. A Bento
+  group entry and any live Bento pane are never partners, so a pair cannot
+  implicitly extract a pane from a layout. Three checks decide this today and
+  none decides all of it; the reservation's own partner check never asks whether
+  the card stage owns the partner as a card, and that is tested only at commit. A
+  Spread that shows a Bento group has a live layout, so §5 and §10 route the snap
+  to that layout and no pair begins beside it; the predicate still excludes the
+  group entry and its panes, so no other path can reach them.
+- [ ] Derive the partner once, on `CardStageController`, and have both carry
+  seams call it. Given the carried window and the contacted side it returns the
+  Active card when the carried window is not that card and that card passes the
+  predicate, otherwise the nearest eligible partner in canonical Spread order,
+  walking cyclically from the entry that holds the carried window and stopping
+  where it started, and nothing when neither exists. The walk passes over every
+  ordinary stack, so no search breaks a composed group; a stacked card reaches
+  Bento only as the Active card the user named, and pairing extracts that member
+  and leaves the rest of its stack unchanged. When exactly one other card is
+  eligible both sides resolve to it: there is one possible pair, and the two
+  snaps differ only in which side each window takes. Eligible cards decide that,
+  not entry count.
+  The drawn neighbourhood's side field stays presentation and must not reach
+  partner identity or pane placement. Spread order is used as it stands,
+  reordering being separate work, and showing the partner before release is not
+  required here. `DeliberateEdgeEntryTest.cpp` encodes the superseded rule and
+  inverts with this item.
+- [ ] Commit a pair against the partner its reservation named. Release re-reads
+  the Active card instead, so a selection or activation between preparation and
+  release can surrender one window's ownership while the layout publishes
+  another. The named partner is validated when the reservation is prepared and
+  again at commit; a partner that has stopped being eligible cancels the pair
+  rather than being replaced. A pairing request that reaches a display with a
+  live session currently drops its named partner and falls through to the
+  display-wide sweep. Beginning a pair there must be refused; the gesture is not,
+  because §5 sends it to the live layout.
+- [ ] Decide both edge seams by state and capability, not by output identity.
+  Both branch on the tablet output today, which is why the corrected grammar
+  would reach the tablet while the monitor kept the display-wide sweep. What each
+  seam needs to ask is whether Kadunce owns the display and whether it can own
+  it; the same grammar then answers a snap wherever that holds. With a live
+  layout on the display the two seams still disagree — one reserves nothing and
+  the other displaces a pane — and §5 owns that answer.
+- [ ] Leave a refused side snap exactly as it found the Spread. A release the
+  entry rule refuses is not handled by the card stage, so the router commits the
+  grab: a stacked member is extracted and the card moves one position in Spread
+  order. §14 requires a refused gesture to preserve the exact prior state, and §3
+  now states that a carried Active card with no eligible partner leaves
+  everything unchanged.
+- [ ] Promote to Active by the entry that holds the window. Promotion selects by
+  a card index in a model indexed by entry, so once any stack exists — and a
+  Bento group always is one — it selects a different entry than the window it was
+  asked to promote. Adoption does the same and is safe only because a rebuild
+  leaves the two parallel at that instant.
 - [ ] Delete Bento overflow rather than reconcile it. `Session::overflow`,
   `BentoOwnershipView::overflow`, `BentoProjectionSession::overflow` and its
   card-stage carriers, the `prepareOverflow` path through `applySession`, and the
@@ -307,11 +384,19 @@ assertions with behavioral coverage.
   Bento does not own hidden overflow; the container is what made a state nothing
   could name. Measured: a six-window tablet Bento yields three panes and three
   overflow windows owned by nobody, which is three §14 violations.
-- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` with the container,
-  so the state becomes unrepresentable rather than merely unreported. Ownership
-  then holds at three owners, six transitions and two violation rules, both
-  checkable in the one place Block 2 built. A rule that still needs reporting
-  means the container was relocated, not removed.
+  Scoped to displays that can own cards, per J's 19 September answer. A display
+  that cannot hold cards reaches neither pairing rule, so its first side snap
+  still sweeps the display and can still exceed the pane cap; deleting the
+  container there would leave those windows owned by nobody with nothing to
+  become. `PRODUCT-CONTRACT.md` gives the external display Bento rather than
+  cards, so the sweep and its overflow stay there by design, not pending.
+- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` where the container
+  is gone, so the state becomes unrepresentable rather than merely unreported on
+  a display that can own cards. Ownership then holds at three owners, six
+  transitions and two violation rules there, checkable in the one place Block 2
+  built. The rule survives only for a display that cannot own cards, and reporting
+  it anywhere else means the container was relocated, not removed. It retires
+  outright only if an external output ever presents cards.
 - [ ] Bento owns only its visible pane combination; minimized, displaced and
   extracted windows become independent cards with no retained association. A
   displaced pane becomes a nonselected individual card, not a minimized one:
@@ -347,8 +432,9 @@ assertions with behavioral coverage.
   nothing to hand a card to.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
-repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
-holds two rules, not three. Two symptoms measured on the installed candidate must
+repeated-selection, cold-start and multi-display checks pass. A display that can
+own cards reports two violation rules, not three; a display that cannot still
+reports the third, and `CURRENT_STATE.md` records why. Two symptoms measured on the installed candidate must
 be gone: activating an overflow window from the Plasma task manager brings it
 forward instead of being re-minimized by the next solve, and a pane dragged to the
 top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of returning to it. No
@@ -360,8 +446,9 @@ disable control.
 **Status:** Implemented; physical review owed. Separated from Block 3 on 19
 September because it is different work: layout selection sitting on top of the
 ownership paths, not ownership itself. It stalled behind them for that reason.
-Headless and KWin-linked suites pass. The tablet's maximum moves from two panes
-to three, which physical review has not yet seen.
+Headless and KWin-linked suites pass. The tablet keeps a two-pane maximum, so
+what physical review has not yet seen is the contact mapping and rail behavior
+within two panes.
 
 `BentoLayout.h` and `BentoSidePlacement.h` are pure value code covered by the
 headless suite, so this block can be prepared in a cloud session and needs no
@@ -377,7 +464,7 @@ minimums. What is missing is a stated mapping from intent to shape.
 - [x] Give each display one pane cap that both admission paths read. They
   currently disagree: the edge-snap path passes no maximum at all, while
   `chooseBentoAdmission` passes `compact ? 2 : 8` with `compact` true for the
-  tablet's 1443x894 work area. The tablet's cap is three; larger displays keep
+  tablet's 1443x894 work area. The tablet's cap is two; larger displays keep
   eight.
 - [x] Derive layout orientation from the work area, not from `isTabletOutput`.
   `chooseBentoAdmission` already uses `areaWidth >= areaHeight`; the side path
@@ -419,6 +506,12 @@ display read by every path, orientation from the work area, no shape decision
 reading `isTabletOutput`, and a pane bound on the column split. The tablet's edge
 path was previously uncapped, which is how a side snap reached three panes while
 ordinary admission stopped at two; it now stops at two as well.
+
+The corrected edge grammar does not reopen this block. Contact and pane count
+alone choose the shape, and §5 already gives the carried window the edge it was
+released into, which is the rule the corrected grammar states. What changes is
+only which window can be the arrival: a carried card that is itself Active now
+reserves a pair rather than staying Active.
 
 **Exit gate:** The same side contact yields the same shape regardless of layout
 history, on the displays the grammar governs. No shape decision reads `isTabletOutput`. Headless
@@ -631,7 +724,8 @@ provides a complete supported installation path.
 
 ## Open product decisions
 
-These block later work and are not engineering calls.
+These block later work and are not engineering calls. A decision stays here once
+it is made, with its resolution, so later work does not reopen it.
 
 1. **Compatibility policy.** KDE publishes no stable KWin effect ABI, so a
    Plasma update can leave the installed plugin unloadable. The failure is
@@ -657,6 +751,56 @@ These block later work and are not engineering calls.
 2. **Shuffle Lock scope.** Block 9b has no contract yet. What the lock surface
    conceals and what remains usable before authentication is a product decision
    that must precede its feasibility work.
+
+3. **Edge pairing grammar.** Decided 19 September 2026, superseding the earlier
+   answer that a card carried to a side edge while it was itself Active had
+   nothing to pair with. The carried card owns the edge it is released into, and
+   Spread direction selects the partner, not the partner's eventual Bento side.
+
+   **Cyclic walk: cyclic.** Spread is cyclic, so partner selection stays cyclic.
+   Inventing ends for Bento alone would give one gesture two meanings depending
+   on where the carried card sat in the order.
+
+   **Two cards: both edges resolve to the same partner.** There is one possible
+   pair, so the two snaps name the same window and differ only in which side each
+   takes. The drawn neighbourhood's side field remains presentation and never
+   reaches partner identity or placement.
+
+   **Bento projection: excluded.** Pairing operates on individual cards only, so
+   a pair cannot implicitly extract a pane from a live layout.
+
+   **Stacks: explicit yes, derived no.** The Active card is an eligible partner
+   even when it is an ordinary stack's selected member, because the user named it
+   Active, and pairing with that named face extracts the member and leaves the
+   rest of the stack unchanged. A derived walk passes over stacks entirely, so a
+   search never breaks a composed group.
+
+   **Open within it:** a stack reduced to one member. §9 defines a stack as
+   having members to page, and releasing a member already leaves a one-member
+   entry, so this predates the correction. The partner walk makes it answerable
+   either way — it passes over ordinary stacks, so a one-member entry that is
+   still a stack is never a partner, while one that has become an individual card
+   is. Needs a product answer before the walk is built.
+
+   **Eligibility: one predicate.** Current display, current virtual desktop and
+   individual card ownership are all required, and one predicate answers for
+   every pairing path.
+
+   **Overflow deletion: scoped to displays that can own cards.** A display that
+   cannot hold cards reaches neither pairing rule, so its first side snap still
+   activates Bento across the display and can still produce overflow. Deleting
+   the container there would leave those windows owned by nobody, so the
+   deletion follows the capability: where cards can exist, the container goes and
+   ownership holds at two violation rules; elsewhere the sweep and its overflow
+   remain, which `PRODUCT-CONTRACT.md` makes the external display's design rather
+   than a gap: an external output presents ordinary Plasma windows or per-output
+   Bento, never cards.
+
+   Settled with them: a window carried from the native desktop still pairs with
+   the Active card; the grammar applies to every display by state and capability
+   rather than by output identity; showing the partner before release is not
+   required; and Spread reordering remains separate work. `DECISIONS.md` records
+   the decision and what the rejected reading cost. **Scheduled in Block 3.**
 
 ## Progress update rule
 

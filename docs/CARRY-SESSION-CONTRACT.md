@@ -12,7 +12,8 @@ A carry session is a one-shot, revision-bound value that identifies:
 - the initiating input device/contact and pickup pose;
 - source membership, stack order, selection, and generation;
 - current topology/output generation;
-- a semantic destination and any prepared destination plan.
+- a semantic destination, every window identity that destination names, and any
+  prepared destination plan.
 
 The session contains no independent mutable window model. Presentation may derive a
 carried pose from it but cannot commit membership or geometry.
@@ -21,8 +22,10 @@ carried pose from it but cannot commit membership or geometry.
 
 1. Prove the exact source and initiating native/card interaction.
 2. Create a reversible source reservation without removing membership.
-3. Recognize a semantic destination and prepare it on a value copy.
-4. Revalidate source, destination, topology, visibility, and generations.
+3. Recognize a semantic destination, including every window identity it names, and
+   prepare it on a value copy.
+4. Revalidate source, destination, named identities, topology, visibility, and
+   generations.
 5. Commit source removal only after destination acceptance.
 6. Publish destination state, release input ownership, then apply guarded native
    placement when the destination uses real geometry.
@@ -47,16 +50,25 @@ placement.
 
 ### New Bento
 
-A deliberate new-layout edge destination prepares the complete eligible resident
-batch plus the arrival. It does not invoke a mutating shortcut path during planning.
-Unrelated clients, panels, other outputs, and companion guests are not recruited.
+Where a deliberate edge destination means a pair, a new layout begins only from
+the pair the gesture named. Preparation admits exactly the carried window and
+that one partner, so no resident batch is collected: nothing else on the display is an input to the solve, the preview, or
+the revalidation, and a prepared plan that is not exactly those two panes is
+rejected. A display the pairing grammar does not reach still prepares the
+eligible resident batch plus the arrival. Which windows may be named is
+`CARD-LIFECYCLE.md`; this document does not restate it.
 
-### Tablet Spread
+Preparation does not invoke a mutating shortcut path. Unrelated clients, panels,
+other outputs, and companion guests are not recruited.
 
-Successful admission publishes membership before placement/presentation cleanup.
-The arrival may seed the existing Spread center/expand sequence from its released
-pose. Native-to-stack admission remains incomplete until membership and exact stack
-insertion can be accepted atomically.
+### Spread
+
+A top, left or right edge destination on a display Kadunce does not yet own
+adopts the display instead of beginning a layout; `CARD-LIFECYCLE.md` governs
+what adoption takes. Successful admission publishes membership before
+placement/presentation cleanup. The arrival may seed the existing Spread
+center/expand sequence from its released pose. Native-to-stack admission remains
+incomplete until membership and exact stack insertion can be accepted atomically.
 
 ### Ordinary desktop
 
@@ -77,6 +89,9 @@ the settle owns no input and performs no native writes.
 - Preparation is read-only; commit publishes at most once.
 - Destination acceptance precedes source removal.
 - All generation and topology checks repeat at commit.
+
+- Commit admits the exact identities the reservation named and revalidated; no
+  destination identity is re-read at release.
 - Rejection preserves membership, order, selection, and restore state.
 - Native geometry is never written repeatedly during motion.
 - Paint and preview cannot make acceptance decisions.

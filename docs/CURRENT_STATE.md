@@ -72,6 +72,15 @@ duplicates, while excluding overflow and omitting stack position.
   the solver minimizes it again. A pane dragged to the top edge returns to Bento,
   and ownership never records it leaving, so §5's departure and one-remaining-pane
   rules never run.
+
+- Card ownership is structurally single-display. One card workspace exists and it
+  is bound to one output, resolved as the internal panel, so
+  `CARD-LIFECYCLE.md` §11's independent per-display ownership session holds on
+  that output only. Another display can hold its own Bento session, but it cannot
+  hold individual cards, Spread or an Active card; a card carried onto one
+  becomes a Bento pane or an ordinary desktop window there. `PRODUCT-CONTRACT.md` owns whether an
+  external output ever presents cards; this entry records only what the current
+  structure does.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
 - Native-to-stack admission is not one atomic destination transaction.

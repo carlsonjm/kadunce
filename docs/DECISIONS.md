@@ -22,22 +22,68 @@ Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
 dimensions and require an explicit integration design.
 
-### A side snap admits one card; Bento needs a pair
+### A side snap admits one card; Bento needs two named windows
 
-A window dragged to the left or right edge becomes an individual Active card and
-nothing more. Bento begins only when a second window is snapped to join it.
+A side snap onto a display Kadunce does not yet own starts ownership without
+starting a layout: the carried window becomes an individual Active card. Bento
+begins only on a display Kadunce already owns, and then the snap names exactly
+two windows, the carried one and one partner. No third window joins.
 
-The rejected alternative let one side snap create the layout and fill the
-remaining panes from other eligible windows. That made the solver, not the user,
+The rejected alternative let one side snap fill every remaining pane from
+whatever other windows were eligible. That made the solver, not the user,
 decide membership, and every window it could not place became retained overflow
 that `CARD-LIFECYCLE.md` §14 gives to the card stage but the implementation kept
 inside the session. Requiring a deliberate pair removes that class of defect at
 its source rather than reconciling it afterwards: a window is a pane only because
-someone put it there.
+a gesture named it — the window carried to the edge and the one partner that
+gesture selects — never because a solver found room for it.
 
-A lone side-snapped window therefore presents as an ordinary Active card rather
-than holding its requested half, because a one-window Bento state must not exist
-at all.
+A side snap that pairs with nothing therefore presents its window as an ordinary
+Active card rather than holding its requested half, because a one-window Bento
+state must not exist at all.
+
+### Spread order selects the partner; the gesture places it
+
+A side snap that begins a layout pairs two named windows. When the carried window
+is not the Active card — another individual card, or a window still on the native
+desktop — the partner is the Active card. When the carried window is the Active
+card itself, the partner is the nearest eligible card on the contacted side of it
+in Spread order, passing over entries that are not eligible. The walk is cyclic,
+because Spread is cyclic: paging runs off one side of the order and returns on
+the other, so there is no first or last entry to stop at, and the walk visits
+every other entry once. Where exactly one other card is eligible, both sides reach
+it, and that is the one pair available; a second entry the walk passes over, an
+ordinary stack or the Bento group, leaves no pair at all. If no eligible card is found,
+nothing pairs and Active is unchanged.
+
+Placement does not follow from the partner's position. The carried window takes
+the edge it was released into and the partner takes the opposite side, whichever
+side of the order it came from. The rejected alternative let the partner keep the
+side it sat on in Spread, which reads well until the two disagree: the user drags
+to the right edge and their window lands on the left because the order said so.
+The gesture is what the user just performed; the order describes a view they may
+not have open. So the order answers who and the gesture answers where.
+
+The side a two-entry Spread draws its second entry on is presentation. It flips
+as the user pages, it describes the view, and it reaches neither partner identity
+nor pane placement. The other rejected alternative was to give the cyclic order
+ends, a first and a last entry, so that a neighbour search could stop at a
+boundary. That invents structure the user cannot see to answer a question cyclic
+paging already answers.
+
+Partner eligibility is one question asked in one place. The window is on the
+current display and the current virtual desktop, Kadunce owns it as an individual
+card, and it is awake. Which windows a display adopts is a different question,
+asked of native windows, and neither answer stands in for the other. The Bento
+group entry and every window inside a live layout fail the partner question, so a
+pairing cannot begin a layout by taking a pane out of the live one. A sleeping
+card fails it too, because a minimized card enters Bento only when the user puts
+it there. Both pairing cases ask this one question, the Active card
+included, so neither can drift into its own idea of who may be paired with. They
+differ in one place only. The Active card qualifies whether it stands
+alone or is a stack's selected member, because the user made it Active; a search
+walking the order passes over stacks entirely. A composed group is broken only by
+a partner the user named, never by one a walk found.
 
 ### Overflow is deleted, not reconciled
 
@@ -53,9 +99,16 @@ was meant to remove and grows with every new transition.
 
 Removing the container removes the state. Bento never takes a window it cannot
 show, so a full Bento displaces rather than parks, and displacement is one of the
-six directed transitions. The violation rule that reported the state retires with
-it; a rule still worth reporting would mean the container had moved rather than
-gone.
+six directed transitions.
+
+The deletion follows what a display can hold, not what it is called. Where cards
+can exist the container goes and the violation rule that reported the state
+retires with it, so a rule still worth reporting there would mean the container
+had moved rather than gone. An external output presents Bento rather than cards,
+so its first side snap still composes across the display; deleting the container
+there would leave those windows owned by nobody with nothing to become, and the
+sweep, its overflow and that rule stay until the product contract says an
+external output presents cards.
 
 ### A layout is rearranged only by a deliberate gesture
 
@@ -72,6 +125,11 @@ The rejected alternative scoped auto-admission to external displays. That would
 have keyed product behavior to `isTabletOutput`, a name-prefix guess at hardware,
 when the property that actually matters is whether the work area has room. A
 tablet at its cap and a monitor with no free pane should behave the same way.
+
+The rejection is general, not local to auto-admission. What a display owns and
+what it can hold decide what a gesture means; what the display is called decides
+nothing. A display Kadunce already owns answers a side snap the same way whether
+it is a tablet or a monitor.
 
 ### Release is a command
 
@@ -101,6 +159,10 @@ cannot see is a window they will look for somewhere else, and a retained
 association would have to be reconciled on every minimize, displace and overflow.
 Scoping to visible panes removes that reconciliation instead of automating it.
 
+Scoping to visible panes also settles what a pairing may name: the group is one
+Spread entry, and neither it nor a window inside it passes the partner test, so a
+new layout cannot begin by taking a pane out of the live one.
+
 ### Both stages own windows on the same display
 
 Card Stage owns individual cards and Desktop Stage owns the display's Bento panes
@@ -119,12 +181,14 @@ the display. Ownership still has exactly three owners and six transitions.
 ### The Active card is remembered as presentation context
 
 Which individual card is Active survives entering Spread, because §3's pairing
-names it as the partner while Spread selection chooses only what is carried. It
-is one window identity and nothing more: no parked snapshot, no second
-membership, no fourth owner. It retires the moment that window stops being an
-individual card, so a pane or a released window can never be offered as a
-partner, and a card carried to the edge while it is itself Active has nothing
-distinct to pair with.
+reads it in two ways while Spread selection chooses only what is carried. When
+the carried window is something else, the Active card is the partner. When the
+carried window is the Active card itself, that identity is the position the
+partner is measured from: the search for a neighbour starts where that window
+sits in Spread order. Both readings name one window identity and nothing more: no
+parked snapshot, no second membership, no fourth owner. It retires the moment
+that window stops being an individual card, so a pane or a released window can
+never be offered as a partner and can never be where a search begins.
 
 ### A prepared ticket carries intent, not a model
 
@@ -133,6 +197,12 @@ model and keeps only the delta; commit re-derives the result from the live one.
 A ticket that instead carried a model copy would write selection, page offset,
 stack face and neighbour side back into the state that issued it, discarding
 whatever the user browsed to while it was held.
+
+A delta that names a partner names a window, not a role. Commit re-derives the
+result by applying that name to the live model; it never asks the live model again
+which card is Active. A reservation deliberately survives the user's own paging
+and selection, so re-reading the role at release would let a pairing approved for
+one window act on another.
 
 ### Two revisions, because a ticket and a preview fear different changes
 
@@ -205,9 +275,11 @@ controller may be restructured without weakening the invariant.
 
 ### Existing Bento has destination priority
 
-An incoming monitor card first targets an existing Bento session. Invalid existing
+An incoming card first targets the existing Bento session on the display it
+arrives at, whichever display that is. Invalid existing
 admission rejects; it does not silently fall through to ordinary desktop placement.
-A deliberate new-layout edge target prepares the eligible destination batch.
+A deliberate edge target that starts a new layout prepares exactly the two
+windows the gesture names and recruits nothing else on the display.
 
 ### Settling is presentation only
 
@@ -217,8 +289,9 @@ and ends when the native request diverges or the environment changes.
 
 ### Minimum sizes are hard constraints
 
-Bento never forces a client below its useful minimum. It may use the small pane when
-the minimum fits or park overflow when it does not.
+Bento never forces a client below its useful minimum. It may use the small pane
+when the minimum fits. Where cards can exist, a window whose minimum it cannot
+satisfy is an individual card rather than parked overflow.
 
 ## Input and gesture ownership
 
