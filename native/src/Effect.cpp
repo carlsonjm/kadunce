@@ -969,10 +969,63 @@ bool Effect::hasActiveDesktopStage() const
     return m_desktopStage && m_desktopStage->hasActiveSession();
 }
 
+KWin::LogicalOutput *Effect::externalDesktopOutput() const
+{
+    // The largest output that is not the tablet. PRODUCT-CONTRACT.md makes the
+    // external display the desktop stage, so a Bento action belongs to it while
+    // one is attached.
+    KWin::LogicalOutput *largest = nullptr;
+    double largestArea = 0.0;
+    for (auto *output : KWin::effects->screens()) {
+        if (!output || isTabletOutput(output)) continue;
+        const auto geometry = output->geometry();
+        const double area = double(geometry.width()) * double(geometry.height());
+        if (area > largestArea) { largestArea = area; largest = output; }
+    }
+    return largest;
+}
+
+bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output)
+{
+    auto *active = m_cardStage->activeCardIdentity();
+    if (!output || !active) return false;
+    // CARD-LIFECYCLE.md §3 places by the gesture, and this gesture contacts no
+    // edge, so the side is stated rather than read: the Active card keeps the
+    // left pane and its partner is named by walking right from it.
+    const BentoSidePlacement side{false, true};
+    auto *partner = m_cardStage->partnerForSideSnap(active, false);
+    if (!partner) return false;
+    const auto reserved = m_desktopStage->prepareCardDrop(active, output,
+        KWin::RectF(active->frameGeometry()),
+        DesktopStageController::CardDropIntent::ActivateBento, side, partner);
+    if (!reserved) return false;
+    QPointer<KWin::EffectWindow> carried = active;
+    QPointer<KWin::EffectWindow> named = reserved->namedPartner();
+    return m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
+        [this, carried, named] { return m_cardStage->releasePairToBento(carried, named); });
+}
+
 void Effect::toggleBento()
 {
     if (m_carryRuntime) m_carryRuntime->cancel();
-    m_desktopStage->toggleUnderPointer();
+    // PRODUCT-CONTRACT.md: external Bento while docked, tablet Bento while
+    // undocked. This read the pointer before, which on a touch tablet is
+    // wherever the pointer was last left rather than where the user is working.
+    KWin::LogicalOutput *target = externalDesktopOutput();
+    if (!target) target = tabletOutput();
+    if (!target) return;
+    // §3 names a pair on a display that can own cards, so a Bento action there
+    // composes two named windows rather than sweeping the display. A display
+    // that cannot own cards reaches neither pairing rule and composes across
+    // itself, which is what an external desktop stage is for.
+    if (!m_desktopStage->hasSessionOnOutput(target->name())
+        && m_cardStage->canOwnCards(target)) {
+        (void)pairActiveCardIntoBento(target);
+        observeCardOwnership();
+        return;
+    }
+    (void)m_desktopStage->toggleOnOutput(target->name());
+    observeCardOwnership();
 }
 
 void Effect::connectManagedWindow(KWin::EffectWindow *window)

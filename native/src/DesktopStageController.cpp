@@ -853,26 +853,6 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     return true;
 }
 
-void DesktopStageController::toggleUnderPointer()
-{
-    KWin::LogicalOutput *output = KWin::effects->screenAt(
-        KWin::effects->cursorPos().toPoint());
-    if (!output) {
-        return;
-    }
-    const QString key = outputKey(output);
-    if (m_sessions.contains(key)) {
-        restoreSession(key);
-        return;
-    }
-    if (!m_host->allowsDesktopStageOnOutput(output)) {
-        qInfo() << "Kadunce" << Revision
-                << "kept the tablet attention stage while an external composition stage exists";
-        return;
-    }
-    activate(output, KWin::effects->activeWindow());
-}
-
 bool DesktopStageController::reflowSession(Session &session,
                                 KWin::EffectWindow *preferred, bool requirePreferred,
                                 bool invalidateApplication)

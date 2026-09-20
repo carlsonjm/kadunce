@@ -422,10 +422,14 @@ source-order assertions with behavioral coverage.
 - [ ] Rebuild top-edge Active extraction on that contract, covering both
   selection paths, rollback, repeated transitions, release, unload and
   other-output isolation.
-- [ ] Give the tablet's Bento shortcut the same entry rule. `toggleUnderPointer`
-  still reaches `activate()`, which releases Card Stage and sweeps the display
-  into panes. Edge actions no longer do, so the two entry paths disagree about
-  what starting Bento on the tablet means.
+- [x] Give the Bento shortcut an entry rule of its own, since it carries no
+  window and contacts no edge. It now follows `PRODUCT-CONTRACT.md` and targets
+  the external display while one is attached, otherwise the tablet; targeting
+  read the pointer before, which on a touch tablet is wherever the pointer was
+  last left. On a display that can own cards it names a pair as a side snap
+  does, with the Active card on the left and its partner the nearest eligible
+  card to its right, so it composes two named windows rather than the display.
+  The pointer-targeted path is removed rather than left as a second rule.
 - [ ] End a layout into card ownership, not into Plasma. Ending a session now
   tells Card Stage to stop presenting Bento, but the panes themselves still
   restore as ordinary desktop windows, so §5's one-remaining-pane rule has

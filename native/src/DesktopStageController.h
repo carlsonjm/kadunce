@@ -77,7 +77,6 @@ public:
     // Visible native panes only; retained overflow is owned but not a pane.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
-    void toggleUnderPointer();
     void restoreAllSessions();
     // Synchronous ownership transfer; no restoration or placement on success.
     bool transferTabletSessionToSpread(KWin::LogicalOutput *output,

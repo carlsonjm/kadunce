@@ -136,6 +136,21 @@ An entry commits completely or not at all. If adoption cannot be prepared safely
 every window remains Native. If a pair cannot be prepared safely, the carried
 window and the partner keep the ownership and presentation they had.
 
+### The Bento action
+
+A Bento action is a request without a carried window or a contacted edge. It
+belongs to the display the product contract gives the desktop stage: the
+external display while one is attached, otherwise the tablet.
+
+On a display Kadunce owns that can own cards, it names a pair the way a side
+snap does. The Active card keeps the left side and its partner is the nearest
+eligible card to its right in Spread order. With no Active card, or no eligible
+card to pair with, nothing happens.
+
+On a display that cannot own cards, it composes across the display.
+
+A Bento action on a display that already has a live layout ends that layout.
+
 ## 4. Eligible windows
 
 ### Eligible for adoption

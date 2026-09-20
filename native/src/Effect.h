@@ -96,6 +96,8 @@ private Q_SLOTS:
     void pageStackUp();
     void pageStackDown();
     void toggleBento();
+    [[nodiscard]] KWin::LogicalOutput *externalDesktopOutput() const;
+    bool pairActiveCardIntoBento(KWin::LogicalOutput *output);
 
 public Q_SLOTS:
     Q_SCRIPTABLE void showCardLine();
