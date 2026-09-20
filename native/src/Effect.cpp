@@ -1590,18 +1590,22 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
 }
 
 bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window,
-    const std::function<bool()> &commitSource)
+    const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore)
 {
     // Copy before guest/source cleanup can retire NativeCarryRuntime's pose.
     const QRectF carriedOrigin = window == m_carriedWindow && m_carryRuntime
         ? QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size())
         : QRectF();
     if (m_cardStage->launcherGuestActive()) endLauncherGuest();
-    const auto source = m_desktopStage->prepareNativeCarrySource(window);
-    const auto restore = source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot())
+    // A caller that still held the window's session record supplies it. Asking
+    // the desktop stage afterwards would read the pane rectangle instead, since
+    // by then the session has published a plan that no longer names the window.
+    const auto source = restore ? std::nullopt : m_desktopStage->prepareNativeCarrySource(window);
+    const auto derived = source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot())
         : std::nullopt;
+    if (!restore && derived) restore = &*derived;
     return m_cardStage->admitTransferredWindowToTablet(window, commitSource, carriedOrigin,
-        restore ? &*restore : nullptr);
+        restore);
 }
 
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)

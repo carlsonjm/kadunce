@@ -269,7 +269,8 @@ private:
     [[nodiscard]] bool hasActiveDesktopStage() const;
     void connectManagedWindow(KWin::EffectWindow *window);
     bool admitTransferredWindowToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; }) override;
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; },
+        const NativeMoveSnapshot *restore = nullptr) override;
 
     QAction *m_toggleAction = nullptr;
     QAction *m_releaseAction = nullptr;

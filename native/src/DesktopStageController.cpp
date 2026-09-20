@@ -252,11 +252,9 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
     }
     if (key.isEmpty() || m_interactionWindow) return;
     // CARD-LIFECYCLE.md §7 leaves a sleeping window owned without showing it,
-    // so waking one asks for a pane the layout may have no room for. §5 gives
-    // such a window to card ownership rather than to a hidden remainder. This
-    // runs after the loop because adopting reenters this controller.
-    if (!m_sessions.value(key).snapshots.isEmpty())
-        shedUnshowable(key, m_sessions.value(key), nullptr, false);
+    // so waking one can ask for a pane the layout has no room for. This runs
+    // after the loop because adopting reenters this controller.
+    settleParticipation(key);
     auto session = m_sessions.find(key);
     if (session == m_sessions.end()) return;
     if (applySession(session.value(), false)) scheduleSettle();
@@ -284,25 +282,23 @@ bool DesktopStageController::admitCardWindow(
         .minimized = false,
         .valid = true,
     };
-    const QString key = outputKey(output);
-    Session candidate = *session;
-    candidate.snapshots.append(snapshot);
     // CARD-LIFECYCLE.md §5: a full layout yields a pane to the arrival instead
-    // of parking it. The yield leaves for card ownership first, while this
-    // session still holds its record, so the card it becomes keeps the
-    // geometry it had before Bento placed it.
-    if (!shedUnshowable(key, candidate, window, true)) return false;
-    session = sessionForOutput(output);
-    if (!session) return false;
-    candidate = *session;
+    // of parking it. Which pane yields is decided on a value copy and nothing
+    // leaves until this admission has published, so a rejection disturbs
+    // neither the destination's windows nor its restore records.
+    const Session live = *session;
+    Session candidate = live;
+    if (!shortenToShowable(candidate, snapshot, {}, nullptr)) return false;
     candidate.snapshots.append(snapshot);
-    // Solve on a value copy: rejection must not disturb the destination's
-    // existing windows, restore records or geometry.
     QList<QPointer<KWin::EffectWindow>> unshowable;
     if (!reflowSession(candidate, window, true, true, &unshowable)
         || !unshowable.isEmpty()) return false;
+    const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
+    // Last, because adopting reenters this controller: nothing below may hold
+    // a session reference or expect this one to still be here.
+    publishEvictions(pending);
     return true;
 }
 
@@ -388,8 +384,17 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
         Session plan = *session;
         plan.side = drop.side;
         plan.sideWindow = drop.window;
-        return planSession(plan, drop.window, true)
-            ? std::optional<Session>(plan) : std::nullopt;
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (!planSession(plan, drop.window, true, &unshowable)) return std::nullopt;
+        // CARD-LIFECYCLE.md §5: a resident this shape cannot keep leaves rather
+        // than staying owned and unshown. Dropping its snapshot here is what
+        // makes the plan nameable; the publisher hands the window over after.
+        if (!unshowable.isEmpty() && !canPlaceEvictedCard()) return std::nullopt;
+        for (const auto &yielding : std::as_const(unshowable)) {
+            plan.snapshots.removeIf(
+                [&yielding](const auto &saved) { return saved.window == yielding; });
+        }
+        return plan;
     }
     if (!drop.localTarget) return std::nullopt;
     const int from = session->windows.indexOf(drop.window);
@@ -483,8 +488,11 @@ bool DesktopStageController::transferNativeCarryToDesktop(
         *drop.consumed = true;
         if (!drop.side && drop.localTarget == drop.window) return true; // Already physically home.
         auto *session = sessionForOutput(drop.output);
+        if (!session) return false;
+        const auto pending = captureEvictions(*session, *placement);
         *session = *placement; // Publish before native callbacks can intervene.
         if (applySession(*session, false)) scheduleSettle();
+        publishEvictions(pending);
         return true; // Publication cannot become a stale source rollback.
     }
     if (drop.localTarget) return false;
@@ -578,24 +586,11 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     if (const auto *session = sessionForOutput(output)) {
         // CARD-LIFECYCLE.md §5: a full layout yields the pane the solve cannot
         // keep. Shortening the value copy is what makes the admission one the
-        // layout can show in full. Publishing that yield belongs to the caller,
-        // which sheds first, so on a committing path nothing is left to shorten
-        // here and a preview still reports the rect the commit will produce.
+        // layout can show in full; the caller publishes it and then hands the
+        // yielded window over, so a preview reports the rect a commit would
+        // produce without any owner moving to find that out.
         Session shortened = *session;
-        Session probe = shortened;
-        probe.snapshots.append(incoming);
-        if (side) { probe.side = side; probe.sideWindow = window; }
-        QList<QPointer<KWin::EffectWindow>> unshowable;
-        if (planSession(probe, window, true, &unshowable)) {
-            for (const auto &yielding : std::as_const(unshowable)) {
-                const int index = shortened.windows.indexOf(yielding);
-                if (index >= 0 && index < static_cast<int>(shortened.rects.size()))
-                    shortened.rects.erase(shortened.rects.begin() + index);
-                shortened.windows.removeAll(yielding);
-                shortened.snapshots.removeIf(
-                    [&yielding](const auto &saved) { return saved.window == yielding; });
-            }
-        }
+        if (!shortenToShowable(shortened, incoming, side, window)) return std::nullopt;
         return prepareBentoAdmission(shortened, QPointer<KWin::EffectWindow>(window),
                                      incoming, planner);
     }
@@ -659,22 +654,20 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     const QString key = outputKey(output);
     std::optional<Session> candidate;
     QList<QPointer<KWin::EffectWindow>> unadopted;
+    QList<PendingEviction> pending;
     if (intent != CardDropIntent::NativeDesktop
         && (sessionForOutput(output) || intent == CardDropIntent::ActivateBento)) {
         // CARD-LIFECYCLE.md §5: a full destination yields a pane to the arrival
-        // rather than parking it. The yield leaves for card ownership while the
-        // destination still holds its record, and before the source is asked to
-        // give anything up; where nothing can take it, nothing leaves and this
-        // drop is refused rather than publishing a layout short one owner.
-        if (const auto *existing = sessionForOutput(output)) {
-            Session probe = *existing;
-            probe.snapshots.append(makeSnapshot(window));
-            if (side) { probe.side = side; probe.sideWindow = window; }
-            if (!shedUnshowable(key, probe, window, true)) return false;
-        }
+        // rather than parking it. The yield is chosen while solving on a value
+        // copy and only leaves once both owners have published, so a refusal
+        // here — including this caller's own revalidation below — finds the
+        // destination exactly as it was.
+        const auto *existing = sessionForOutput(output);
+        const Session live = existing ? *existing : Session{};
         candidate = prepareCardAdmission(window, output, geometry, restore, side,
                                          nullptr, &unadopted);
         if (!candidate) return false;
+        if (existing) pending = captureEvictions(live, *candidate);
     }
     // Existing Bento takes priority. Its rejection must never become a native
     // desktop fallback. Neither source nor destination is mutated during solve.
@@ -713,8 +706,10 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         }
         auto session = m_sessions.find(key);
         if (session != m_sessions.end() && applySession(session.value(), true)) scheduleSettle();
-        // §5: the residents this first layout could not show were never adopted,
-        // so card ownership takes them outright once it is published.
+        // §5, last because adopting reenters this controller: the pane that
+        // yielded leaves with the record the destination held for it, and the
+        // residents a first layout never adopted are taken as they stand.
+        publishEvictions(pending);
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });
@@ -976,8 +971,14 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     // Where no display can hold a card, nothing leaves and they stay put.
     for (const auto &window : std::as_const(unshowable)) {
         if (!window || window->isDeleted() || !window->window()) continue;
+        // The record captured before Card Stage was released is the
+        // authoritative one: a client may still report Active bounds after
+        // that release, so reading its live geometry now would hand card
+        // ownership the size Kadunce gave it rather than the one it began on.
+        const auto saved = cardRestores.constFind(window.data());
         bool adopted = false;
-        m_host->admitTransferredWindowToTablet(window, [&] { adopted = true; return true; });
+        m_host->admitTransferredWindowToTablet(window, [&] { adopted = true; return true; },
+            saved == cardRestores.cend() ? nullptr : &saved.value());
         if (!adopted) {
             qInfo() << "Kadunce" << Revision
                     << "left a window the layout cannot show where it is;"
@@ -1147,6 +1148,82 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     return committed && accepted;
 }
 
+bool DesktopStageController::canPlaceEvictedCard() const
+{
+    return m_host->tabletOutputForDesktopStage() != nullptr;
+}
+
+QList<DesktopStageController::PendingEviction> DesktopStageController::captureEvictions(
+    const Session &live, const Session &published) const
+{
+    QList<PendingEviction> pending;
+    for (const auto &saved : live.snapshots) {
+        if (!saved.valid || !saved.window) continue;
+        if (std::any_of(published.snapshots.cbegin(), published.snapshots.cend(),
+                [&saved](const auto &kept) { return kept.window == saved.window; })) continue;
+        pending.append({saved.window,
+            {saved.window->window(), outputForKey(saved.outputName), saved.geometry,
+             saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
+             saved.quickTileMode, saved.fullScreen, saved.minimized}});
+    }
+    return pending;
+}
+
+void DesktopStageController::publishEvictions(const QList<PendingEviction> &pending)
+{
+    for (const auto &eviction : pending) {
+        const auto window = eviction.window;
+        if (!window || window->isDeleted() || !window->window()) continue;
+        // The plan that stopped naming this window is already published, so
+        // there is no source membership left to give up and nothing that a
+        // refusal here could roll back. The record travels with it because the
+        // session that held it no longer does.
+        if (!m_host->admitTransferredWindowToTablet(window, [] { return true; },
+                &eviction.record)) {
+            qWarning() << "Kadunce" << Revision
+                       << "could not give a window the layout cannot show to card ownership";
+        }
+    }
+}
+
+bool DesktopStageController::shortenToShowable(Session &session, const RestoreSnapshot &arrival,
+    std::optional<BentoSidePlacement> side, KWin::EffectWindow *sideWindow) const
+{
+    Session probe = session;
+    probe.snapshots.append(arrival);
+    if (side) { probe.side = side; probe.sideWindow = sideWindow; }
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!planSession(probe, arrival.window, true, &unshowable) || unshowable.isEmpty())
+        return true;
+    // §5: the yield needs somewhere to go. Where nothing can hold it, nothing
+    // leaves, and refusing here is what keeps the combination the layout has.
+    if (!canPlaceEvictedCard()) return false;
+    for (const auto &yielding : std::as_const(unshowable)) {
+        if (!yielding || yielding == arrival.window) continue;
+        const int index = session.windows.indexOf(yielding);
+        if (index >= 0 && index < static_cast<int>(session.rects.size()))
+            session.rects.erase(session.rects.begin() + index);
+        session.windows.removeAll(yielding);
+        session.snapshots.removeIf(
+            [&yielding](const auto &saved) { return saved.window == yielding; });
+    }
+    return true;
+}
+
+void DesktopStageController::settleParticipation(const QString &key)
+{
+    if (!m_sessions.contains(key) || !m_sessions.value(key).participationDirty) return;
+    // §5: a wake can ask for a pane the layout has no room for. Shedding uses
+    // the live session because nothing else is in flight here, and it is
+    // re-found by key afterwards because adopting reenters this controller.
+    shedUnshowable(key, m_sessions.value(key), nullptr, false);
+    auto session = m_sessions.find(key);
+    if (session == m_sessions.end()) return;
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!reflowSession(session.value(), nullptr, false, true, &unshowable)) return;
+    session->participationDirty = false;
+}
+
 bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
     KWin::EffectWindow *preferred, bool requirePreferred)
 {
@@ -1172,6 +1249,11 @@ bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
 bool DesktopStageController::applySession(Session &session, bool activateLead)
 {
     if (session.participationDirty) {
+        // §7's participation change is settled by whoever observed it, because
+        // it can owe an eviction and this is already committed to placing
+        // panes. Re-solving here is a last resort, and it says so.
+        qWarning() << "Kadunce" << Revision << "publishing" << session.outputName
+                   << "with an unsettled participation change";
         if (!reflowSession(session)) return false;
         session.participationDirty = false;
     }
@@ -1263,10 +1345,8 @@ void DesktopStageController::settleSessions()
     for (const QString &key : keys) {
         if (m_sessions.contains(key) && m_sessions.value(key).participationDirty) {
             // CARD-LIFECYCLE.md §5: a wake deferred past an interaction can ask
-            // for a pane the layout has no room for, so shed before applying.
-            // From a value copy and re-found by key, because adopting reenters
-            // this controller and can remove or replace the session.
-            shedUnshowable(key, m_sessions.value(key), nullptr, false);
+            // for a pane the layout has no room for, so settle before applying.
+            settleParticipation(key);
             auto pending = m_sessions.find(key);
             if (pending != m_sessions.end() && applySession(pending.value(), false))
                 scheduleSettle();
@@ -1616,18 +1696,18 @@ bool DesktopStageController::handoffWindowToOutput(
             };
         std::optional<BentoSessionTransfer<Session>> transfer;
         QList<QPointer<KWin::EffectWindow>> unadopted;
+        QList<PendingEviction> pending;
         if (m_sessions.contains(destinationKey)) {
             // CARD-LIFECYCLE.md §5: the destination yields a pane to the
-            // arrival rather than parking it, and the yield leaves for card
-            // ownership before either session publishes.
-            Session probe = m_sessions.value(destinationKey);
-            probe.snapshots.append(snapshot);
-            if (side) { probe.side = side; probe.sideWindow = window; }
-            if (!shedUnshowable(destinationKey, probe, window, true)) return false;
-            if (!m_sessions.contains(sourceKey) || !m_sessions.contains(destinationKey))
-                return false;
+            // arrival rather than parking it. The yield is chosen on a value
+            // copy, so the two checks below can still refuse this transfer and
+            // leave the destination exactly as it was.
+            const Session live = m_sessions.value(destinationKey);
+            Session shortened = live;
+            if (!shortenToShowable(shortened, snapshot, side, window)) return false;
             transfer = prepareBentoSessionTransfer(m_sessions.value(sourceKey),
-                m_sessions.value(destinationKey), QPointer<KWin::EffectWindow>(window), snapshot, planner);
+                shortened, QPointer<KWin::EffectWindow>(window), snapshot, planner);
+            if (transfer) pending = captureEvictions(live, transfer->destination);
         } else {
             Session empty;
             empty.outputName = destinationKey;
@@ -1665,10 +1745,12 @@ bool DesktopStageController::handoffWindowToOutput(
         auto target = m_sessions.find(destinationKey);
         if (target == m_sessions.end() || !applySession(target.value(), true)) return true;
         scheduleSettle();
+        // Last, because adopting reenters this controller and can remove or
+        // replace either session.
+        publishEvictions(pending);
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
-            bool adopted = false;
-            m_host->admitTransferredWindowToTablet(resident, [&] { adopted = true; return true; });
+            m_host->admitTransferredWindowToTablet(resident, [] { return true; });
         }
         return true;
     }

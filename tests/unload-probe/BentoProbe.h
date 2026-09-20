@@ -10,7 +10,8 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     QPointer<KWin::LogicalOutput> tablet;
     std::function<void(KWin::LogicalOutput *)> prepare;
     std::function<std::optional<Kadunce::NativeMoveSnapshot>(KWin::EffectWindow *)> restore;
-    std::function<bool(KWin::EffectWindow *, const std::function<bool()> &)> admission;
+    std::function<bool(KWin::EffectWindow *, const std::function<bool()> &,
+        const Kadunce::NativeMoveSnapshot *)> admission;
     bool isTabletOutputForDesktopStage(const KWin::LogicalOutput *o) const override { return tablet && o == tablet; }
     bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *) const override { return true; }
     bool isManagedWindowForDesktopStage(const KWin::EffectWindow *w) const override {
@@ -22,8 +23,9 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     std::optional<Kadunce::NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *w) const override {
         return restore ? restore(w) : std::nullopt;
     }
-    bool admitTransferredWindowToTablet(KWin::EffectWindow *w, const std::function<bool()> &commit) override {
-        return admission && admission(w, commit);
+    bool admitTransferredWindowToTablet(KWin::EffectWindow *w, const std::function<bool()> &commit,
+        const Kadunce::NativeMoveSnapshot *restore = nullptr) override {
+        return admission && admission(w, commit, restore);
     }
 };
 struct TabletProbeHost final : Kadunce::CardStageHost {
@@ -489,8 +491,8 @@ struct BentoProbe {
             if (w == client) ordered = !controller.managesWindow(w)
                 && cards.liveCardIndex(w) >= 0 && w->screen() == origin;
         };
-        host.admission = [&](auto *w, const auto &commit) {
-            return cards.admitTransferredWindowToTablet(w, commit);
+        host.admission = [&](auto *w, const auto &commit, const auto *record) {
+            return cards.admitTransferredWindowToTablet(w, commit, {}, record ? record : restore);
         };
         const bool accepted = controller.handoffLeadToOutput(origin->name(), host.tablet->name());
         expectedTablet = host.tablet;

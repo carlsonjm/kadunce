@@ -61,8 +61,13 @@ public:
         const QList<QPointer<KWin::EffectWindow>> &, const QList<QRectF> &, const QList<QRectF> &) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
+    // `restore` is the record the window had while a Bento session still held
+    // it. CARD-LIFECYCLE.md §5 keeps that record so release still returns the
+    // window where it began, and after the session has published its shortened
+    // plan the host can no longer find it for itself.
     virtual bool admitTransferredWindowToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource) = 0;
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) = 0;
 };
 
 class DesktopStageController final
@@ -237,6 +242,29 @@ private:
         KWin::EffectWindow *pairPartner = nullptr,
         QList<QPointer<KWin::EffectWindow>> *unadopted = nullptr);
     [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
+    // CARD-LIFECYCLE.md §5: the windows a published plan no longer names, with
+    // the records this session still holds for them. Captured before the plan
+    // is published and handed over after it, so a gesture that fails changes
+    // nothing and a gesture that commits never loses a record.
+    struct PendingEviction {
+        QPointer<KWin::EffectWindow> window;
+        NativeMoveSnapshot record;
+    };
+    [[nodiscard]] QList<PendingEviction> captureEvictions(
+        const Session &live, const Session &published) const;
+    void publishEvictions(const QList<PendingEviction> &pending);
+    // §5: a window leaves for the display that can hold it as a card. Where
+    // none can, nothing leaves and the layout keeps the combination it has.
+    [[nodiscard]] bool canPlaceEvictedCard() const;
+    // §5: shorten a value copy by what one solve cannot show, so the layout
+    // asked for is one it can show in full. Nothing is published and no owner
+    // moves. False is §5's no-card-display case: the caller keeps what it had.
+    [[nodiscard]] bool shortenToShowable(Session &session, const RestoreSnapshot &arrival,
+        std::optional<BentoSidePlacement> side, KWin::EffectWindow *sideWindow) const;
+    // §7: a minimize or wake changes what a layout owns awake, so it re-solves
+    // before publishing. Settled by whoever observed it, because it can owe an
+    // eviction and applySession is already committed to placing panes.
+    void settleParticipation(const QString &key);
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;
