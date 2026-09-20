@@ -129,10 +129,14 @@ the build it was meant to test.
 
 ### 1e. Give the effect its input backend on a cold boot
 
-**Status:** Implemented; awaiting the cold-boot check. The effect now watches
-the runtime directory for the kit and adopts the direct router when it appears,
-handing each edge back from Plasma first. The current session loaded with the kit
-already present, so only a cold boot exercises the path.
+**Status:** Implemented and exercised on a cold boot; awaiting the same check on
+the current build. The effect watches the runtime directory for the kit and
+adopts the direct router when it appears, handing each edge back from Plasma
+first. Measured on the 19 September cold boot: the system booted at 16:31:42,
+the effect constructed at 16:31:51 reporting Plasma-native edges, and at
+16:32:03 it reported adopting the direct router because the kit had appeared. No
+reload happened between those lines, and only a build carrying the watcher can
+emit the second one. The build installed since has not been cold-booted.
 
 - [ ] `Effect.cpp` latches `m_usesDirectSystemEdges = z13TabletKitAvailable()`
   once in its constructor, testing for `$XDG_RUNTIME_DIR/z13-tablet-kit/posture`.
@@ -146,9 +150,13 @@ already present, so only a cold boot exercises the path.
   Plasma-native path and a later one on the direct router, leaving them not
   comparable.
 
-**Exit gate:** A cold boot reports `direct Z13 system edges` with no reload. The
-banner distinguishes the two backends, so the check is a single line of the
-journal.
+**Exit gate:** A cold boot reaches the direct router with no reload. The original
+wording expected the construction banner itself to name the direct backend; that
+is unreachable rather than merely unmet, because KWin starts before the posture
+service every time, so the kit is absent at construction by design. The
+adoption line is therefore the evidence, and the check is still a single line of
+the journal: either a construction banner naming direct edges, or a
+Plasma-native banner followed by `adopted direct Z13 system edges`.
 
 ### 1d. Make an installed candidate actually run
 
