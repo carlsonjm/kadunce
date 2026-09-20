@@ -1513,7 +1513,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     ordered.append(projection.lead);
     for (const auto &member : projection.panes)
         if (member.window != projection.lead) ordered.append(member.window);
-    for (const auto &member : projection.overflow) ordered.append(member.window);
+    for (const auto &member : projection.sleeping) ordered.append(member.window);
     for (const auto &window : std::as_const(ordered)) {
         const auto pane = std::find_if(projection.panes.cbegin(), projection.panes.cend(),
             [&](const auto &member) { return member.window == window; });
@@ -1521,9 +1521,9 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             if (!append(*pane, true)) return false;
             continue;
         }
-        const auto overflow = std::find_if(projection.overflow.cbegin(), projection.overflow.cend(),
+        const auto sleeping = std::find_if(projection.sleeping.cbegin(), projection.sleeping.cend(),
             [&](const auto &member) { return member.window == window; });
-        if (overflow == projection.overflow.cend() || !append(*overflow, false)) return false;
+        if (sleeping == projection.sleeping.cend() || !append(*sleeping, false)) return false;
     }
     const auto admission = m_workspace.prepareStackAdmission(windows);
     if (!admission) return false;
@@ -1560,8 +1560,8 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
         if (!m_active) return true;
         if (window && !window->isDeleted() && window->window()) {
             m_host->connectManagedWindowForCardStage(window);
-            // Pane and overflow visibility is part of the transferred session.
-            // Spread never unmimizes overflow merely to present the group.
+            // Each member's own visibility is part of the transferred session.
+            // Spread never wakes a sleeping member merely to present the group.
         }
     }
     if (!m_active) return true;
@@ -2194,7 +2194,7 @@ void CardStageController::forgetManagedRestore(KWin::EffectWindow *window)
                     projection.rects.erase(projection.rects.begin() + index);
             }
         }
-        projection.overflow.removeIf(
+        projection.sleeping.removeIf(
             [window](const auto &member) { return !member.window || member.window == window; });
         projection.stackingOrder.removeIf(
             [window](const auto &member) { return !member || member == window; });

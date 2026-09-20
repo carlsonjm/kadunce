@@ -1360,8 +1360,13 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
     for (int i = 1; i < int(session->rects.size()); ++i)
         if (session->rects[i].width * session->rects[i].height
             > session->rects[lead].width * session->rects[lead].height) lead = i;
+    // §5: the group carries the visible combination. §7's sleeping windows ride
+    // with it because the session owns their records and nothing else can hold
+    // them; any other unshown snapshot is the stranded state applySession
+    // reports, and it must not be rebuilt into a group member here.
     for (const auto &saved : session->snapshots)
-        if (!ordered.contains(saved.window)) ordered.append(saved.window);
+        if (saved.userMinimized && !ordered.contains(saved.window))
+            ordered.append(saved.window);
     BentoProjectionSession projection;
     projection.output = output;
     projection.outputName = outputKey(output);
@@ -1380,7 +1385,7 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
             saved->fullScreen, saved->minimized || saved->userMinimized},
             window->isMinimized()};
         if (session->windows.contains(window)) projection.panes.append(member);
-        else projection.overflow.append(member);
+        else projection.sleeping.append(member);
     }
     projection.lead = session->windows.value(lead);
     for (auto *stacked : KWin::effects->stackingOrder()) {
@@ -1433,7 +1438,6 @@ bool DesktopStageController::resumeProjectedSession(
             return false;
         }
         if (pane) candidate.windows.append(member.window);
-        else candidate.overflow.append(member.window);
         candidate.snapshots.append({
             .window = member.window,
             .geometry = member.restore.geometry,
@@ -1445,13 +1449,16 @@ bool DesktopStageController::resumeProjectedSession(
             .fullScreen = member.restore.fullScreen,
             .minimized = member.restore.minimized,
             .valid = true,
+            // §7's intent crosses back with the window. Without it the next
+            // solve would offer a sleeping window a pane, which §7 forbids.
+            .userMinimized = !pane,
         });
         return true;
     };
     for (const auto &member : projection.panes) {
         if (member.minimized || !append(member, true)) return false;
     }
-    for (const auto &member : projection.overflow) {
+    for (const auto &member : projection.sleeping) {
         if (!member.minimized || !append(member, false)) return false;
     }
     if (workspaceArea(projection.output) != projection.workspaceArea) return false;

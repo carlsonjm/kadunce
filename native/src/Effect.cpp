@@ -2984,7 +2984,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             qRound(pane->targetClip.y), qRound(pane->targetClip.width),
             qRound(pane->targetClip.height));
     } else if (bentoProjection) {
-        return; // Retained Bento overflow remains owned and minimized, never painted.
+        return; // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
+                // minimized, so the group shows its panes and not this window.
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
     bool paintProjectionBackdrop = false;

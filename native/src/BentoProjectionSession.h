@@ -28,7 +28,11 @@ struct BentoProjectionSession {
     QString outputName;
     KWin::Rect workspaceArea;
     QList<BentoProjectionMember> panes;
-    QList<BentoProjectionMember> overflow;
+    // CARD-LIFECYCLE.md §7: windows the user put to sleep. The session owns
+    // them without showing them, so they cross with it and keep their restore
+    // records. There is no third list: a window a layout cannot show is not
+    // here, it is an individual card.
+    QList<BentoProjectionMember> sleeping;
     QList<QPointer<KWin::EffectWindow>> stackingOrder;
     std::vector<BentoRect> rects;
     QPointer<KWin::EffectWindow> lead;
@@ -39,7 +43,7 @@ struct BentoProjectionSession {
 struct BentoProjectionShape {
     KWin::Rect workspaceArea;
     std::vector<quintptr> panes;
-    std::vector<quintptr> overflow;
+    std::vector<quintptr> sleeping;
     std::vector<quintptr> stackingOrder;
     std::vector<BentoRect> rects;
     quintptr lead = 0;
@@ -71,7 +75,7 @@ struct BentoProjectionShape {
     if (!identities.contains(shape.lead)) {
         return false;
     }
-    for (const auto identity : shape.overflow) {
+    for (const auto identity : shape.sleeping) {
         if (identity == 0 || identities.contains(identity)) {
             return false;
         }
@@ -100,8 +104,8 @@ struct BentoProjectionShape {
     for (const auto &member : session.panes) {
         shape.panes.push_back(reinterpret_cast<quintptr>(member.window.data()));
     }
-    for (const auto &member : session.overflow) {
-        shape.overflow.push_back(reinterpret_cast<quintptr>(member.window.data()));
+    for (const auto &member : session.sleeping) {
+        shape.sleeping.push_back(reinterpret_cast<quintptr>(member.window.data()));
     }
     for (const auto &window : session.stackingOrder) {
         shape.stackingOrder.push_back(reinterpret_cast<quintptr>(window.data()));
