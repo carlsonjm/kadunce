@@ -8,7 +8,9 @@ struct OwnershipTransitionProbe {
     Kadunce::DesktopStageController desktop{&desktopHost};
     Kadunce::CardStageController cards{&cardHost};
     QPointer<KWin::LogicalOutput> tablet, monitor;
-    QPointer<KWin::EffectWindow> monitorWindow, oversized, cross, immediate, ordinary, projectedLead;
+    QPointer<KWin::EffectWindow> monitorWindow, tabletResident, oversized, cross, immediate, ordinary, projectedLead;
+    QPointer<KWin::EffectWindow> displaced;
+    int entriesWithGroup = 0;
     QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> origins;
     QList<QPointer<KWin::EffectWindow>> currentProjectionWindows, lastRetiredProjection;
     int projectionRetirements = 0;
@@ -24,6 +26,23 @@ struct OwnershipTransitionProbe {
         desktopHost.tablet = tablet; cardHost.tablet = tablet;
         desktopHost.prepare = [this](auto *output) { if (output == tablet) cards.release(); };
         desktopHost.restore = [this](auto *w) { return cards.managedRestore(w); };
+        // Without this the host refuses every eviction, which reads as §5's
+        // "where no display can hold a card, nothing leaves" and makes a full
+        // layout untestable. Effect::admitTransferredWindowToTablet resolves
+        // the restore record the same way: a caller still holding the window's
+        // session record supplies it, and otherwise the desktop stage is asked
+        // before it publishes a plan that no longer names the window.
+        desktopHost.admission = [this](KWin::EffectWindow *window,
+            const std::function<bool()> &commit,
+            const Kadunce::NativeMoveSnapshot *restore) {
+            const auto source = restore ? std::nullopt
+                : desktop.prepareNativeCarrySource(window);
+            const auto derived = source
+                ? std::optional<Kadunce::NativeMoveSnapshot>(source->restoreSnapshot())
+                : std::nullopt;
+            if (!restore && derived) restore = &*derived;
+            return cards.admitTransferredWindowToTablet(window, commit, QRectF(), restore);
+        };
         cardHost.projectionResume = [this](const auto &projection,
             const auto &commit, const auto &release) {
             return desktop.resumeProjectedSession(projection, commit, release);
@@ -43,7 +62,15 @@ struct OwnershipTransitionProbe {
         monitorWindow = windows.last();
         for (int i = 0; i < windows.size(); ++i) {
             auto *client = windows[i]->window();
-            auto *output = i == 2 ? monitor.data() : tablet.data();
+            // CARD-LIFECYCLE.md §8 admits a launch only where the layout can
+            // grow to show it. The tablet's maximum is two panes, so one
+            // resident leaves exactly one pane for growth: the constrained
+            // launch is admitted and the oversized one is refused, which is
+            // §8 in both directions against one layout. Two residents would
+            // put the tablet at its maximum before either launch arrived and
+            // admitting one would mean displacing the other.
+            auto *output = i == 0 ? tablet.data() : monitor.data();
+            if (i == 0) tabletResident = windows[i];
             client->sendToOutput(output);
             client->maximize(KWin::MaximizeRestore);
             client->moveResize(KWin::RectF(output->geometry().x() + 80 + i * 25, 90, 500, 400));
@@ -71,7 +98,7 @@ struct OwnershipTransitionProbe {
     bool arrival(bool tooLarge) {
         KWin::EffectWindow *arrival = nullptr;
         for (auto *w : KWin::effects->stackingOrder()) {
-            if (w->caption().contains(tooLarge ? "Oversized ownership" : "Large admission")) arrival = w;
+            if (w->caption().contains(tooLarge ? "Oversized ownership" : "Pane admission")) arrival = w;
         }
         if (!arrival || !arrival->window() || arrival->screen() != tablet) return fail("Arrival missing/wrong output");
         origins.append({arrival, arrival->window()->moveResizeGeometry()});
@@ -88,11 +115,26 @@ struct OwnershipTransitionProbe {
             oversized = arrival;
             return true;
         }
+        // §8 the other way: the layout has one pane and a cap of two, so it can
+        // grow to show this launch beside the resident. Growth is the whole
+        // claim, so the resident must still be a pane afterwards.
         if (!desktop.handleWindowAdded(arrival) || !desktop.ownsWindow(arrival))
-            return fail("Bento reported handled without owning arrival");
+            return fail("Bento refused a launch the layout could grow to show");
         if (!desktop.handleWindowAdded(arrival)) return fail("Duplicate arrival not idempotent");
-        if (arrival->isMinimized() || arrival->window()->moveResizeGeometry().width() < 1000)
-            return fail("Constrained arrival did not receive large pane");
+        if (!tabletResident || !desktop.ownsWindow(tabletResident))
+            return fail("Growth displaced the resident instead of growing beside it");
+        if (arrival->isMinimized() || tabletResident->isMinimized())
+            return fail("Growth put a pane to sleep rather than showing both");
+        const auto grown = arrival->window()->moveResizeGeometry();
+        const auto resident = tabletResident->window()->moveResizeGeometry();
+        // Taking the display is what displacement looked like before §8 became
+        // growth-only, so the pane must be narrower than the output it sits on.
+        if (grown.width() >= tablet->geometry().width())
+            return fail("Constrained arrival took the display instead of a pane");
+        // Only the larger pane satisfies this launch's minimum, so assignment
+        // followed the minimum rather than arrival order.
+        if (grown.width() <= resident.width())
+            return fail("Constrained arrival did not receive the larger pane");
         return true;
     }
     bool refused() {
@@ -123,9 +165,27 @@ struct OwnershipTransitionProbe {
                 Kadunce::DesktopStageController::CardDropIntent::OpenSpace, &saved)
             || cross->screen() != monitor || cross->window()->moveResizeGeometry() != saved.geometry
             || desktop.ownsWindow(cross)) return fail("Rejected cross admission mutated source");
+        // The layout is at its two-pane cap, so §5's displacement is what this
+        // arrival exercises. Record the panes first; the one that stops being
+        // owned afterwards is the pane that yielded.
+        QList<QPointer<KWin::EffectWindow>> paneesBefore;
+        for (auto *w : KWin::effects->stackingOrder())
+            if (w->screen() == tablet && desktop.ownsWindow(w)) paneesBefore.append(w);
         const auto drop = desktop.prepareCardDrop(cross, tablet, target);
         if (!drop || !desktop.transferNativeCarryToDesktop(*source, *drop)
             || !desktop.ownsWindow(cross)) return fail("Committed cross admission failed");
+        for (const auto &w : paneesBefore) {
+            if (!w || desktop.ownsWindow(w)) continue;
+            if (displaced) return fail("A full layout displaced more than one pane");
+            displaced = w;
+        }
+        if (!displaced) return fail("Arriving at a full layout displaced nothing");
+        // §5: leaving Bento is not a minimize, and the pane that yields becomes
+        // an individual card rather than an unowned desktop window.
+        if (displaced->isMinimized())
+            return fail("A displaced pane was minimized rather than left awake");
+        if (!cards.managedRestore(displaced))
+            return fail("A displaced pane did not reach card ownership");
         return true;
     }
     bool project() {
@@ -140,6 +200,13 @@ struct OwnershipTransitionProbe {
             const double area = frame.width() * frame.height();
             if (area > largest) { largest = area; expectedLead = w; }
         }
+        // §5 already gave the displaced pane to card ownership, so the card
+        // stage holds individual cards before the group card arrives. Each is
+        // ungrouped, so its entry count and live-card count agree, and the
+        // projection must add exactly one entry on top of them.
+        const int individualsBefore = cards.model().count();
+        if (cards.liveCards().size() != individualsBefore)
+            return fail("Displaced panes did not reach card ownership as ungrouped cards");
         Kadunce::BentoProjectionSession transferred;
         if (!desktop.transferTabletSessionToSpread(tablet, [this, &transferred](const auto &projection, const auto &commit) {
                 transferred = projection;
@@ -160,11 +227,13 @@ struct OwnershipTransitionProbe {
         if (desktop.hasSessionOnOutput(tablet->name()) || !desktop.hasSessionOnOutput(monitor->name())
             || monitorWindow->window()->moveResizeGeometry() != monitorTile)
             return fail("Projection retained duplicate owner or changed monitor");
-        if (cards.model().count() != 1
-            || cards.liveCards().size() != transferred.panes.size() + transferred.sleeping.size()
+        if (cards.model().count() != individualsBefore + 1
+            || cards.liveCards().size() != individualsBefore + transferred.panes.size()
+                + transferred.sleeping.size()
             || cards.selectedWindow() != transferred.lead
             || cards.selectedWindow() != expectedLead)
             return fail("Projection lost membership/large-pane selection");
+        entriesWithGroup = cards.model().count();
         projectedLead = transferred.lead;
         QList<Kadunce::BentoProjectionMember> members = transferred.panes;
         members.append(transferred.sleeping);
@@ -180,10 +249,31 @@ struct OwnershipTransitionProbe {
             if (saved.window->isMinimized() != saved.minimized)
                 return fail("Projection changed a member's minimization");
         }
+        // §5 keeps a restore record so release returns a window where it began.
+        // Only what card ownership holds carries one: the projected members and
+        // the pane the cross arrival displaced. A launch Bento refused and the
+        // monitor's own panes are not card-owned, and a tablet projection that
+        // gave either one a record would be reaching across the boundary.
         for (const auto &[w, geometry] : origins) {
             if (w == monitorWindow || w == ordinary) continue;
             const auto retained = cards.managedRestore(w);
-            if (!retained || retained->geometry != geometry) return fail("Round trip lost ordinary origin");
+            const bool cardOwned = currentProjectionWindows.contains(w) || w == displaced;
+            if (!cardOwned) {
+                if (retained)
+                    return fail(QStringLiteral("Card ownership retained %1, which it does not own")
+                        .arg(w ? w->caption() : "deleted"));
+                continue;
+            }
+            if (!retained)
+                return fail(QStringLiteral("Round trip lost the origin of %1")
+                    .arg(w ? w->caption() : "deleted"));
+            if (retained->geometry != geometry)
+                return fail(QStringLiteral("Round trip changed %1's origin to %2,%3 %4x%5 from %6,%7 %8x%9")
+                    .arg(w ? w->caption() : "deleted")
+                    .arg(retained->geometry.x()).arg(retained->geometry.y())
+                    .arg(retained->geometry.width()).arg(retained->geometry.height())
+                    .arg(geometry.x()).arg(geometry.y())
+                    .arg(geometry.width()).arg(geometry.height()));
         }
         const auto selectedBeforeBrowse = cards.selectedWindow();
         cards.pageStack(1);
@@ -198,7 +288,7 @@ struct OwnershipTransitionProbe {
         if (!ordinary || !ordinary->window() || ordinary->screen() != tablet)
             return fail("Ordinary Spread neighbor missing/wrong output");
         origins.append({ordinary, ordinary->window()->moveResizeGeometry()});
-        if (!cards.handleWindowAdded(ordinary) || cards.model().count() != 2)
+        if (!cards.handleWindowAdded(ordinary) || cards.model().count() != entriesWithGroup + 1)
             return fail("Ordinary neighbor did not coexist with Bento group card");
         if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(-1);
         if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(1);
@@ -214,7 +304,7 @@ struct OwnershipTransitionProbe {
             return desktop.resumeProjectedSession(projection, [] { return false; }, release);
         };
         if (cards.resumeSelectedBentoProjection() || !cards.isActive()
-            || cards.model().count() != 2 || !cards.managedRestore(ordinary)
+            || cards.model().count() != entriesWithGroup + 1 || !cards.managedRestore(ordinary)
             || cards.managedRestore(ordinary)->geometry != ordinaryRestore->geometry
             || desktop.hasSessionOnOutput(tablet->name())
             || projectionRetirements != retirementCount
@@ -231,8 +321,20 @@ struct OwnershipTransitionProbe {
     }
     bool returnToBento() {
         const int retirementCount = projectionRetirements;
-        if (!cards.resumeSelectedBentoProjection() || cards.isActive()
-            || !desktop.hasSessionOnOutput(tablet->name())) return fail("Return to Bento failed");
+        if (!cards.resumeSelectedBentoProjection())
+            return fail("Selecting the Bento group did not resume it");
+        if (!desktop.hasSessionOnOutput(tablet->name()))
+            return fail("Resume did not return the layout to the tablet");
+        // §6: only the group's own members leave this stage. Cards beside it
+        // keep their ownership, so the stage stops presenting only when the
+        // group was all it held. §2 then hides what remains behind Bento
+        // rather than painting it over the resumed panes.
+        const bool holdsCards = cards.model().count() > 0;
+        if (cards.isActive() != holdsCards)
+            return fail(QStringLiteral("Card stage presentation did not follow what it still owns; entries %1 active %2")
+                .arg(cards.model().count()).arg(cards.isActive()));
+        if (holdsCards && cards.presentation() != Kadunce::CardPresentation::Bento)
+            return fail("Cards beside the group kept presenting Spread over the resumed panes");
         if (projectionRetirements != retirementCount + 1
             || !projectionStateClearedAtRetirement
             || lastRetiredProjection.size() != currentProjectionWindows.size()
@@ -243,9 +345,26 @@ struct OwnershipTransitionProbe {
             return fail("Successful exact resume did not retire every projected paint source");
         }
         for (const auto &[w, geometry] : origins) {
-            if (w == ordinary) {
-                if (desktop.ownsWindow(w) || w->frameGeometry() != geometry)
-                    return fail("Exact Bento resume consumed or displaced ordinary neighbor");
+            // §6 keeps a card beside the group owned by this stage, with its
+            // parked record intact, rather than returning it to the desktop.
+            // §5 additionally gives a displaced pane no retained association
+            // with the group, so a resume must not pull it back into Bento.
+            if (w == ordinary || w == displaced) {
+                if (desktop.ownsWindow(w))
+                    return fail(QStringLiteral("Exact Bento resume reclaimed %1")
+                        .arg(w ? w->caption() : "deleted"));
+                if (!cards.managedRestore(w))
+                    return fail(QStringLiteral("%1 lost its card restore record across the resume")
+                        .arg(w ? w->caption() : "deleted"));
+                continue;
+            }
+            // §8 left the refused launch awake and unowned. Resuming a layout
+            // is not an admission, so nothing here may sweep it in.
+            if (w == oversized) {
+                if (desktop.ownsWindow(w))
+                    return fail("Exact Bento resume adopted the launch the layout refused");
+                if (w->isMinimized())
+                    return fail("The refused launch was put to sleep by a later transition");
                 continue;
             }
             if (!desktop.ownsWindow(w)) return fail("Return dropped an owned member");
@@ -269,9 +388,24 @@ struct OwnershipTransitionProbe {
     bool immediateRelease() {
         const auto ordinary = immediate->window()->moveResizeGeometry();
         origins.append({immediate, ordinary});
-        if (!desktop.handleWindowAdded(immediate) || !desktop.ownsWindow(immediate))
-            return fail("Immediate arrival unowned");
+        // This launch's minimum is larger than the display, so no layout can
+        // grow to show it and §8 refuses it. What made release dangerous here
+        // was the parking minimize that used to follow such an arrival: it was
+        // scheduled against a session that release was about to retire. With
+        // overflow deleted nothing schedules one, so the window must be awake
+        // both before and after a release that lands immediately after it.
+        if (desktop.handleWindowAdded(immediate) || desktop.ownsWindow(immediate))
+            return fail("Bento admitted a launch larger than the display");
+        if (immediate->isMinimized())
+            return fail("A refused launch was minimized rather than left awake");
+        // Reactivating swept a display holding more windows than its two-pane
+        // cap, so §5 gave the remainder to card ownership. Both owners hold
+        // windows here, and only releasing both returns the display, in the
+        // order Effect::release uses.
         desktop.restoreAllSessions();
+        cards.release();
+        if (immediate->isMinimized())
+            return fail("A delayed minimize outlived the session that scheduled it");
         return true;
     }
     bool reactivate() { return desktop.toggleOnOutput(tablet->name()); }

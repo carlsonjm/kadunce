@@ -288,12 +288,10 @@ owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
 Physical review is owed for the whole branch and nothing has been installed, so
-none of it is promotion evidence. The isolated probes are not a substitute and
-are not currently a gate: two were already failing before this work, and several
-assert the parking this block deletes. Reworking them so their growth and
-refusal cases are real on a two-pane display is the next step before any
-candidate, because until then a green probe run would only mean the old
-contract still held.
+none of it is promotion evidence. The isolated probes now assert this block's
+contract rather than the one it replaced, so a green run is evidence about the
+implementation instead of evidence that the old behavior survived. They remain
+automated coverage and do not stand in for physical review.
 
 One property is worth carrying into the physical checks, because automated
 coverage cannot reach it: a gesture that needs a pane to yield must leave the
@@ -388,22 +386,35 @@ source-order assertions with behavioral coverage.
   it; the same grammar then answers a snap wherever that holds. With a live
   layout on the display the two seams still disagree — one reserves nothing and
   the other displaces a pane — and §5 owns that answer.
-- [ ] Make the isolated probes gate this block instead of the contract it
-  replaced. Measured on the branch against `ea2bf3e`: `membership-runtime`,
-  `launch-runtime`, `desktop-runtime` and `exit-runtime` pass on both;
-  `column-runtime` fails at its line 38 placement check on both and is
-  untouched by this work; `ownership-transition` failed at `a2Return` before it
-  and now stops earlier. Two probes asserted the displacement §8 forbids — a
-  launch taking a pane from a resident on a display whose cap is two — so they
-  invert with the contract rather than reporting a regression:
-  `OwnershipTransitionProbe::arrival(false)` and `side-runtime` line 85. Both
-  need the growth case made real, which means a tablet that starts with one
-  pane rather than two: `OwnershipTransitionProbe::setup` currently sends two
-  of its three clients there. `desktopHost.admission` is also unset, so every
-  eviction in that probe refuses as §5's no-card-display case; wiring it to the
-  card stage the way `Effect::admitTransferredWindowToTablet` does is what lets
-  the probe exercise an eviction at all. Until this lands a green probe run
-  would only mean the old contract still held.
+- [x] Make the isolated probes gate this block instead of the contract it
+  replaced. `ownership-transition` and `side-runtime` now assert growth-only
+  admission and §5 displacement and pass; `membership-runtime`,
+  `launch-runtime`, `desktop-runtime` and `exit-runtime` still pass.
+  Four assertions stated the replaced contract rather than reporting a
+  regression: a launch taking a pane from a resident, an arrival larger than
+  the display being parked instead of refused, a group resume returning the
+  cards beside it to the native desktop, and a round trip expecting a card
+  restore record for windows card ownership never held.
+  Starting the tablet below its cap is necessary but not sufficient. Every
+  1280x800 output caps at two panes, and the larger pane of a two-pane shape is
+  0.62 of a 1260-wide stage, so `largeCompanion`'s 1000-pixel minimum cannot
+  share the display at all and could only ever have been admitted by taking the
+  whole of it. `paneCompanion` has a minimum that the larger pane fits and the
+  smaller one does not, so admission must grow the layout and the arrival must
+  land in the larger pane; the refusal case keeps a minimum no shape satisfies.
+  Wiring `desktopHost.admission` to the card stage is what lets an eviction
+  happen at all, and the probe now names the pane §5 displaces rather than
+  inferring it.
+  Reaching that displacement exposed a defect nothing could see before:
+  admitting a Bento group while an individual Active card exists discarded that
+  card's restore record instead of parking it, so release could no longer return
+  a displaced window where it began. Every other departure from Active parks it.
+- [ ] Revive or retire `column-runtime`'s three-pane column grammar. It fails at
+  line 38 and did so before this block. Its second snap asserts a quarter pane
+  and line 39 asserts three panes on a display whose cap Block 3b set to two, so
+  it states the grammar 3b deliberately left dormant rather than a defect. It is
+  3b's record to settle, not this block's, and it is the one isolated probe that
+  does not gate this one.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread

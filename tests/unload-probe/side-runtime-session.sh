@@ -77,14 +77,22 @@ sleep .6
 probe windowGeometry "$main" | jq -e '.width < 600 and .x < 30'
 echo 'PASS: single card fills and restores requested side/share when companion returns'
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
+    # CARD-LIFECYCLE.md §8 is growth-only. This launch asks for more width than
+    # the larger pane of any two-pane shape fits, and the display is already at
+    # its two-pane maximum, so no layout can grow to show it. It is refused and
+    # left awake, and the panes the user placed do not move.
+    resident_main=$(probe windowGeometry "$main")
+    resident_other=$(probe windowGeometry "$other")
+    panes_before=$(kad outputStageState | rg '^Virtual-0\|')
     client widerCompanion
     sleep .6
     incoming=$(kad workspaceContext | jq -r '.applications[] | select(.title == "Large admission probe") | .windowId')
     test -n "$incoming"
     test "$(probe windowMinimized "$incoming")" = false
-    probe windowGeometry "$incoming" | jq -e '.width > 1200 and .height > 750'
-    kad outputStageState | rg '^Virtual-0\|.*\|1$'
-    echo 'PASS: constrained new launch gets Bento space when remembered split cannot fit'
+    test "$(probe windowGeometry "$main")" = "$resident_main"
+    test "$(probe windowGeometry "$other")" = "$resident_other"
+    test "$(kad outputStageState | rg '^Virtual-0\|')" = "$panes_before"
+    echo 'PASS: a launch the layout cannot grow for is refused awake and leaves the placed panes untouched'
 fi
 test "$(probe releaseRuntime)" = true
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then

@@ -16,7 +16,7 @@ check a2Setup
 sleep .4
 check a2Begin
 sleep .6
-qdbus6 studio.warbler.UnloadClient /Client largeCompanion
+qdbus6 studio.warbler.UnloadClient /Client paneCompanion
 sleep .4
 check a2Arrival false
 sleep .6
@@ -25,7 +25,7 @@ sleep .4
 check a2Arrival true
 sleep .6
 check a2Refused
-echo 'PASS: constrained tablet launch receives large pane; oversized launch is refused awake and unowned, leaving the layout intact'
+echo 'PASS: a launch the tablet layout can grow for becomes its larger pane beside the resident; one it cannot is refused awake and unowned, leaving the layout intact'
 qdbus6 studio.warbler.UnloadClient /Client crossCompanion
 sleep .4
 check a2CrossPrepare
@@ -57,4 +57,4 @@ sleep .4
 check a2ImmediateRelease
 sleep .6
 check a2Restored
-echo 'PASS: release retires pending preparation; no delayed minimize can escape ownership lifetime'
+echo 'PASS: a launch larger than the display is refused awake, and a release immediately after leaves it exactly as it was'

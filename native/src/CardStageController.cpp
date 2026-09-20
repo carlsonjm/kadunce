@@ -1544,7 +1544,12 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
                 m_bentoProjectionSession = projection;
                 ++m_restoreGeneration;
                 m_active = true;
-                m_activeRestore = {};
+                // The stage can already present an individual Active card here:
+                // §5 gives a displaced pane to card ownership, and the group is
+                // admitted beside it. Discarding the record instead of parking
+                // it would leave that window with the geometry Bento gave it,
+                // so release could no longer return it where it began.
+                parkActiveSnapshot();
                 m_presentation = CardPresentation::Spread;
                 for (const auto &window : std::as_const(projection.stackingOrder)) {
                     m_originalCardStackingOrder.removeAll(window);

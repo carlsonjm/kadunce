@@ -23,6 +23,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   individual card on the display that can hold one. A launching application
   joins a layout that can grow to show it beside its existing panes, and is
   left to card ownership otherwise.
+- Admitting a Bento group parks the restore record of an individual Active card
+  the stage already presents instead of discarding it, so a window displaced
+  into card ownership still returns where it began when Kadunce releases.
 - Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
@@ -68,9 +71,11 @@ duplicates, and omits stack position.
   window a session owns without showing, and `applySession` reports any other.
   §5's one-remaining-pane rule is also not implemented, so a two-pane layout
   losing a pane holds one rather than ending into card ownership.
-- A projected Bento group resumes by restoring unrelated Spread neighbors. This
-  is superseded by the approved visible-pane ownership contract and requires the
-  same ownership work as top-edge extraction before that can be promoted.
+- Resuming a projected Bento group leaves every card beside it owned by the card
+  stage, which then presents Bento and keeps them hidden behind the panes rather
+  than returning them to the desktop. The stage stops presenting only when the
+  group was all it held. This is measured in source and by the isolated probes,
+  not on an installed candidate.
 - Where no display can hold a card, a window a layout cannot show is not
   adopted at first entry and keeps its own place on the desktop. Where one can,
   a window leaving a live layout reaches it through the same adoption a carried
@@ -119,14 +124,17 @@ model. Automated and private-compositor checks do not replace physical appearanc
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor probes under `tests/unload-probe/` are the
-closest automated evidence to physical behavior, and two of them were already
-failing before the overflow work began: `ownership-transition` stops at
-`a2Return` and `column-runtime` at its placement check. Several others assert
-the behavior this block deletes — a background launch taking a pane from a
-resident, and an edge snap parking the resident it cannot show. Those
-assertions state the old contract, so they invert with it rather than reporting
-a regression, and the probes still need the rework that makes their growth and
-refusal cases real on a display whose pane cap is two.
+closest automated evidence to physical behavior. `ownership-transition`,
+`side-runtime`, `membership-runtime`, `launch-runtime`, `desktop-runtime` and
+`exit-runtime` pass and assert the accepted ownership contract: a launch joins
+only where the layout can grow to show it, one it cannot is refused awake and
+unowned, a full layout's displaced pane becomes an awake individual card, and a
+group resume leaves the cards beside it owned rather than returning them to the
+desktop. `column-runtime` fails at its placement check and asserts a three-pane
+column split on a display whose pane cap is two; that grammar is dormant by
+design, so the failure states a stale expectation rather than a defect.
+`active-admission-session.sh` is preserved but not runnable: two of the probe
+methods it calls do not exist, so the runner refuses it by name.
 
 Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the

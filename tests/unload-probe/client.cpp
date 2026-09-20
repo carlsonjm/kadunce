@@ -54,6 +54,10 @@ public Q_SLOTS:
  }
  void companion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->resize(500,400); w->show(); }
  void largeCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1000,700); w->resize(1000,700); w->show(); }
+ // Fits the 0.62 pane of a two-pane landscape layout on a 1280x800 output and
+ // nothing smaller, so it can only be admitted by growing the layout and can
+ // only land in the larger pane.
+ void paneCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Pane admission probe"); w->setMinimumSize(700,600); w->resize(700,600); w->show(); }
  void widerCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); w->resize(400,300); w->show(); }
