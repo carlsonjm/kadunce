@@ -66,6 +66,28 @@ private KWin executable, build directory, and whitelisted probe session. Do not
 export those values globally or point them at the live session. Exit 124 means the
 harness timed out; it does not diagnose the cause.
 
+## Reading a probe run
+
+The runner compiles the production controllers out of the working tree for every
+run, so a tree edited while a probe is running, or a runtime build written to
+while one is running, yields a result that describes neither the old code nor the
+new. Both failure modes produce an empty or truncated log, which reads like a
+quiet pass rather than a failure. Let a run finish before editing or building.
+
+Read verdicts from `session.log` in the evidence directory the runner names on
+its first line, never from the runner's own output: it aborts before printing its
+summary as soon as a probe fails, so a failing run prints no verdict at all.
+
+A probe session the whitelist does not name is refused by name before anything
+starts. That is the intended way to park a probe that cannot run yet; it can
+never half-run and report a pass.
+
+Every virtual output the harness creates is 1280x800, which is below the compact
+threshold, so each caps at two Bento panes and the larger pane of a two-pane
+landscape shape is roughly 780 pixels wide. A probe asserting three panes, or a
+share wider than that, is asserting a grammar no display in the harness has.
+Check that arithmetic before reading such a failure as a regression.
+
 ## Evidence classification
 
 | First failure | Classification and next action |
