@@ -226,11 +226,16 @@ private:
     bool m_railRevealed = false;
     bool railValid() const;
 
+    // `unadopted` reports the display's own windows a first layout cannot show.
+    // They are still Native, so nothing is taken from them; CARD-LIFECYCLE.md §5
+    // has the caller give them to card ownership once the layout is published.
+    // A preview passes nullptr and ignores them.
     [[nodiscard]] std::optional<Session> prepareCardAdmission(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr,
         std::optional<BentoSidePlacement> side = {},
-        KWin::EffectWindow *pairPartner = nullptr);
+        KWin::EffectWindow *pairPartner = nullptr,
+        QList<QPointer<KWin::EffectWindow>> *unadopted = nullptr);
     [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;

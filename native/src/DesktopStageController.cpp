@@ -553,7 +553,7 @@ bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop
 std::optional<DesktopStageController::Session> DesktopStageController::prepareCardAdmission(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
     const NativeMoveSnapshot *restore, std::optional<BentoSidePlacement> side,
-    KWin::EffectWindow *pairPartner)
+    KWin::EffectWindow *pairPartner, QList<QPointer<KWin::EffectWindow>> *unadopted)
 {
     const QString key = outputKey(output);
     const auto managed = m_host->activeRestoreForDesktopStage(window);
@@ -604,8 +604,26 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     QList<RestoreSnapshot> owned;
     // §3: first entry pairs the arrival with one named card and fills no other
     // pane. Without a partner this is an ordinary display-wide activation.
-    if (pairPartner) owned.append(makeSnapshot(pairPartner));
-    else for (const auto &resident : collectWindows(output, window)) owned.append(makeSnapshot(resident));
+    if (pairPartner) {
+        owned.append(makeSnapshot(pairPartner));
+    } else {
+        for (const auto &resident : collectWindows(output, window)) owned.append(makeSnapshot(resident));
+        // §5: a resident this first layout cannot show is not adopted at all.
+        // It is still Native, so nothing is taken from it, and the caller gives
+        // it to card ownership once the layout is published.
+        Session probe = empty;
+        probe.snapshots = owned;
+        probe.snapshots.append(incoming);
+        if (side) { probe.side = side; probe.sideWindow = window; }
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (planSession(probe, window, true, &unshowable)) {
+            for (const auto &resident : std::as_const(unshowable)) {
+                if (!resident || resident == window) continue;
+                if (unadopted && !unadopted->contains(resident)) unadopted->append(resident);
+                owned.removeIf([&resident](const auto &saved) { return saved.window == resident; });
+            }
+        }
+    }
     return prepareBentoActivationWithArrival(empty, owned,
         QPointer<KWin::EffectWindow>(window), incoming, planner);
 }
@@ -640,9 +658,22 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
             || !m_host->isManagedWindowForDesktopStage(window))) return false;
     const QString key = outputKey(output);
     std::optional<Session> candidate;
+    QList<QPointer<KWin::EffectWindow>> unadopted;
     if (intent != CardDropIntent::NativeDesktop
         && (sessionForOutput(output) || intent == CardDropIntent::ActivateBento)) {
-        candidate = prepareCardAdmission(window, output, geometry, restore, side);
+        // CARD-LIFECYCLE.md §5: a full destination yields a pane to the arrival
+        // rather than parking it. The yield leaves for card ownership while the
+        // destination still holds its record, and before the source is asked to
+        // give anything up; where nothing can take it, nothing leaves and this
+        // drop is refused rather than publishing a layout short one owner.
+        if (const auto *existing = sessionForOutput(output)) {
+            Session probe = *existing;
+            probe.snapshots.append(makeSnapshot(window));
+            if (side) { probe.side = side; probe.sideWindow = window; }
+            if (!shedUnshowable(key, probe, window, true)) return false;
+        }
+        candidate = prepareCardAdmission(window, output, geometry, restore, side,
+                                         nullptr, &unadopted);
         if (!candidate) return false;
     }
     // Existing Bento takes priority. Its rejection must never become a native
@@ -682,6 +713,12 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         }
         auto session = m_sessions.find(key);
         if (session != m_sessions.end() && applySession(session.value(), true)) scheduleSettle();
+        // §5: the residents this first layout could not show were never adopted,
+        // so card ownership takes them outright once it is published.
+        for (const auto &resident : std::as_const(unadopted)) {
+            if (!resident || resident->isDeleted() || !resident->window()) continue;
+            m_host->admitTransferredWindowToTablet(resident, [] { return true; });
+        }
     } else {
         if (!applyNativePlacement(client.data(), target.data(), geometry, valid)) return true;
         KWin::workspace()->raiseWindow(client);
