@@ -20,9 +20,15 @@ not alternate behavior, and where wording conflicts the owning document governs.
   `Open limitations` records otherwise.
 - A Bento layout shows every window it owns awake. A solve that cannot place
   one is refused rather than parking it, and the window becomes an awake
-  individual card on the display that can hold one. A launching application
-  joins a layout that can grow to show it beside its existing panes, and is
-  left to card ownership otherwise.
+  individual card on the display that can hold one.
+- A display presenting its layout answers every arrival with the layout, and
+  never shows a window on top of live panes. A new window or a card the user
+  calls forward grows the layout where it can, takes a pane where it cannot, and
+  becomes an individual Active card only where no slot fits its minimum size, at
+  which point the layout becomes a Spread group rather than staying behind it.
+  The pane that yields is one the arrival's minimum size leaves room for, and
+  among those the one activated longest ago. A side release still overrides that
+  where the gesture exists.
 - Admitting a Bento group parks the restore record of an individual Active card
   the stage already presents instead of discarding it, so a window displaced
   into card ownership still returns where it began when Kadunce releases.
@@ -136,11 +142,10 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 The isolated nested-compositor probes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior. `ownership-transition`,
 `side-runtime`, `membership-runtime`, `launch-runtime`, `desktop-runtime` and
-`exit-runtime` pass and assert the accepted ownership contract: a launch joins
-only where the layout can grow to show it, one it cannot is refused awake and
-unowned, a full layout's displaced pane becomes an awake individual card, and a
-group resume leaves the cards beside it owned rather than returning them to the
-desktop. `column-runtime` fails at its placement check and asserts a three-pane
+`exit-runtime` pass and assert the accepted ownership contract: a launch joins a
+layout that can grow for it, one no slot fits is refused awake and unowned, a
+full layout's displaced pane becomes an awake individual card, and a group resume
+leaves the cards beside it owned rather than returning them to the desktop. `column-runtime` fails at its placement check and asserts a three-pane
 column split on a display whose pane cap is two; that grammar is dormant by
 design, so the failure states a stale expectation rather than a defect.
 `tablet-entry-runtime` fails before it reaches an edge, because a press after
@@ -150,10 +155,12 @@ evidence about that work.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and
-other-display isolation. It drives the controllers directly. No display the
-harness creates is an internal panel, so no display there can own cards, and
-the carry seam that decides a top-edge gesture is reachable only on hardware:
-that half waits on physical review.
+other-display isolation. It drives the controllers directly, and it now prepares
+a real carry source and validates it the way the gesture does, rather than
+supplying a stub that always agrees. That stub is why it passed for a week while
+the gesture it stood for refused every time. No display the harness creates is an
+internal panel, so no display there can own cards, and the gesture that reaches
+the seam is still hardware-only: that half waits on physical review.
 
 Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the

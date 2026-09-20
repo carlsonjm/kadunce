@@ -203,28 +203,39 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     }
     for (const auto &snapshot : std::as_const(session->snapshots))
         if (snapshot.window == window) return true;
-    // CARD-LIFECYCLE.md §8: a launching application joins Bento only when the
-    // layout can grow to show it beside everything it already shows. An empty
-    // remainder is what says that: every owned window was placed, so no pane
-    // the user put there yielded to a background event. A layout that cannot
-    // grow refuses, and the window is left to card ownership.
-    const auto grows = [&](Session &candidate) {
+    // CARD-LIFECYCLE.md §8: a display showing a live layout answers an arrival
+    // with that layout. Where the layout can grow it grows; where it cannot, a
+    // pane yields, because the arrival shown on top of live panes is the one
+    // state §2 does not name. Which pane yields is decided by fit first --
+    // only a slot the arrival's minimum size satisfies can hold it -- and by
+    // how recently the resident was used second, which planSession expresses
+    // as candidate order. The whole decision runs on a value copy: nothing
+    // leaves until this admission has published.
+    const RestoreSnapshot snapshot = makeSnapshot(window);
+    const auto admits = [&](Session &probe) {
+        if (!shortenToShowable(probe, snapshot, {}, nullptr)) return false;
+        probe.snapshots.append(snapshot);
         QList<QPointer<KWin::EffectWindow>> unshowable;
-        return reflowSession(candidate, window, true, false, &unshowable)
+        return reflowSession(probe, window, true, false, &unshowable)
             && unshowable.isEmpty();
     };
-    Session candidate = *session;
-    candidate.snapshots.append(makeSnapshot(window));
-    bool visible = grows(candidate);
-    if (!visible && candidate.side) {
+    const Session live = *session;
+    Session candidate = live;
+    bool visible = admits(candidate);
+    if (!visible && live.side) {
+        candidate = live;
         candidate.side.reset();
         candidate.sideWindow.clear();
-        visible = grows(candidate);
+        visible = admits(candidate);
     }
     if (!visible) return false;
     m_applicationGuard.invalidate();
+    const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
+    // Last, because adopting reenters this controller: nothing below may hold
+    // a session reference or expect this one to still be here.
+    publishEvictions(pending);
     return true;
 }
 
@@ -293,6 +304,42 @@ bool DesktopStageController::admitCardWindow(
     QList<QPointer<KWin::EffectWindow>> unshowable;
     if (!reflowSession(candidate, window, true, true, &unshowable)
         || !unshowable.isEmpty()) return false;
+    const auto pending = captureEvictions(live, candidate);
+    *session = std::move(candidate);
+    if (applySession(*session, true)) scheduleSettle();
+    // Last, because adopting reenters this controller: nothing below may hold
+    // a session reference or expect this one to still be here.
+    publishEvictions(pending);
+    return true;
+}
+
+bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
+    const std::function<bool()> &commitSource)
+{
+    if (m_restoring || !commitSource || !window || window->isDeleted()
+        || !window->window() || window->isUserMove() || window->isUserResize()
+        || m_interactionWindow || m_railDrag) return false;
+    Session *session = sessionForOutput(window->screen());
+    if (!session || session->applying) return false;
+    for (const auto &existing : std::as_const(session->snapshots))
+        if (existing.window == window) return session->windows.contains(window);
+    // makeSnapshot reads the record card ownership is still holding, so the
+    // card keeps the geometry it had before any of this and release returns it
+    // there. §5 decides which pane yields on a value copy; nothing leaves and
+    // no ownership moves until the whole plan is proved.
+    const RestoreSnapshot snapshot = makeSnapshot(window);
+    if (!snapshot.valid) return false;
+    const Session live = *session;
+    Session candidate = live;
+    if (!shortenToShowable(candidate, snapshot, {}, nullptr)) return false;
+    candidate.snapshots.append(snapshot);
+    QList<QPointer<KWin::EffectWindow>> unshowable;
+    if (!reflowSession(candidate, window, true, true, &unshowable)
+        || !unshowable.isEmpty()) return false;
+    // OwnershipHandoff: destination acceptance precedes source removal. The
+    // plan above is the acceptance; card ownership gives the window up here,
+    // and only a published plan follows, so no window is ever named by both.
+    if (!commitSource()) return false;
     const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
@@ -1025,6 +1072,15 @@ bool DesktopStageController::planSession(Session &session,
             owned.append(snapshot.window);
         }
     }
+    // §8: the subset search keeps the earliest candidates it can, so candidate
+    // order is where retention preference is stated. Most recently used first,
+    // which makes the pane that yields the one the user worked in longest ago
+    // among those the arrival's minimum size lets go.
+    std::stable_sort(owned.begin(), owned.end(),
+        [this](const QPointer<KWin::EffectWindow> &a, const QPointer<KWin::EffectWindow> &b) {
+            return m_host->activationRankForDesktopStage(a)
+                > m_host->activationRankForDesktopStage(b);
+        });
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
@@ -1125,12 +1181,21 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     if (m_restoring || !window || window->isDeleted() || !window->window()
         || window->isUserMove() || window->isUserResize()
         || !m_sessions.contains(sourceKey)) return false;
+    // A live carry's source identity is stamped with the application guard's
+    // generation, so every advance of it reads as a carry that has gone stale.
+    // Read the carry first, before this eviction touches the guard at all, or
+    // it invalidates the very carry it is committing and refuses its own
+    // window. The token below covers the rest of the span: anything that
+    // advances the generation between here and commit fails accepts(token)
+    // where a re-read of the carry would have failed.
+    const bool carrySourceHeld = !sourceValid || sourceValid();
     // Prove the source can give the window up before the destination is asked.
-    // The departure re-plans on a value copy; nothing is published by it.
+    // The departure re-plans on a value copy; nothing is published by it, so it
+    // does not invalidate anything either. Planning is not a workspace change.
     const auto departure = prepareBentoDeparture(m_sessions.value(sourceKey),
         QPointer<KWin::EffectWindow>(window),
         [this](Session &session, const auto &preferred, bool required) {
-            return reflowSession(session, preferred, required);
+            return reflowSession(session, preferred, required, false);
         });
     if (!departure) return false;
     QPointer<KWin::EffectWindow> arrival = window;
@@ -1139,12 +1204,11 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     // The host reads this window's authoritative pre-Bento record while it is
     // still a pane, so the card it becomes still releases to the display and
     // geometry it began on.
-    const bool accepted = m_host->admitTransferredWindowToTablet(window, [&] {
+    const bool accepted = carrySourceHeld && m_host->admitTransferredWindowToTablet(window, [&] {
         if (committed || !m_applicationGuard.accepts(token) || m_restoring
             || !arrival || arrival->isDeleted() || !arrival->window()
             || arrival->isUserMove() || arrival->isUserResize()
-            || !m_sessions.contains(sourceKey)
-            || (sourceValid && !sourceValid())) return false;
+            || !m_sessions.contains(sourceKey)) return false;
         if (departure->snapshots.isEmpty()) m_sessions.remove(sourceKey);
         else m_sessions[sourceKey] = *departure;
         committed = true;

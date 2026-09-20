@@ -196,6 +196,16 @@ public:
     // carried window may still be Native, in which case this stage has nothing
     // of its own to give up. Membership only; the destination is already proven.
     bool releasePairToBento(KWin::EffectWindow *carried, KWin::EffectWindow *partner);
+    // §8: a card the user calls forward while the display presents its layout
+    // joins that layout. This stage gives up exactly that card's individual
+    // ownership and keeps presenting Bento; the destination has already proved
+    // it can show the card and is publishing around this.
+    bool releaseCardToLiveBento(KWin::EffectWindow *card);
+    // Whether this stage is presenting the display's Bento layout rather than
+    // its own cards, so a caller can route an activation to the layout.
+    [[nodiscard]] bool presentsBento() const {
+        return m_active && m_presentation == CardPresentation::Bento;
+    }
     // §10: a carried window with nothing to pair with becomes the Active card.
     bool promoteToActive(KWin::EffectWindow *window);
     // The display's Bento layout ended, so this stage cannot still be

@@ -297,6 +297,35 @@ int main()
                 "The contacted half did not choose the arrival's share");
         }
     }
+    // CARD-LIFECYCLE.md §8: a full layout yields a pane to an arrival, and
+    // candidate order is where the caller states which resident it would
+    // rather keep. The search takes the earliest candidates that work, so a
+    // caller ordering residents most-recently-used first gets the least
+    // recently used one back as the remainder.
+    const std::vector<BentoCandidate> benchOrder{
+        {300, 240, 900, 700, true},   // the arrival
+        {300, 240, 900, 700, false},  // used more recently
+        {300, 240, 900, 700, false},  // used longest ago
+    };
+    const auto keepsRecent = chooseBentoTransferAdmission(benchOrder, 0,
+        tabletWidth, tabletHeight);
+    require(keepsRecent && keepsRecent->candidateIndices == std::vector<int>{0, 1},
+        "A full layout dropped a resident the caller ranked higher");
+
+    // Fit outranks that preference: a resident the arrival's shape leaves no
+    // slot for cannot be kept however recently it was used. Here the arrival
+    // and the first resident both need the wide pane, so the one that fits
+    // beside the arrival is the one that stays.
+    const std::vector<BentoCandidate> benchFit{
+        {700, 240, 900, 700, true},   // the arrival, wide pane only
+        {700, 240, 900, 700, false},  // used more recently, wide pane only
+        {300, 240, 900, 700, false},  // used longest ago, fits either pane
+    };
+    const auto fitWins = chooseBentoTransferAdmission(benchFit, 0,
+        tabletWidth, tabletHeight);
+    require(fitWins && fitWins->candidateIndices == std::vector<int>{0, 2},
+        "Retention preference kept a resident the arrival left no room for");
+
     std::cout << "Bento layout/admission checks passed\n";
     return 0;
 }

@@ -68,6 +68,13 @@ public:
         const QList<QPointer<KWin::EffectWindow>> &, const QList<QRectF> &, const QList<QRectF> &) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
+    // How recently the user last activated this window; larger is more recent,
+    // and a window never activated answers 0. CARD-LIFECYCLE.md §8 breaks a tie
+    // between panes that could each yield by keeping the one the user was last
+    // working in. It decides nothing on its own: fit rules a pane out first,
+    // and this only orders the panes that remain.
+    [[nodiscard]] virtual quint64 activationRankForDesktopStage(
+        const KWin::EffectWindow *) const { return 0; }
     // `restore` is the record the window had while a Bento session still held
     // it. CARD-LIFECYCLE.md §5 keeps that record so release still returns the
     // window where it began, and after the session has published its shortened
@@ -139,6 +146,12 @@ public:
     [[nodiscard]] bool admitCardWindow(KWin::EffectWindow *window,
                                        KWin::LogicalOutput *output,
                                        const KWin::RectF &geometry);
+    // CARD-LIFECYCLE.md §8: a card the user calls forward on a display that is
+    // presenting its layout joins that layout. `commitSource` is card
+    // ownership giving the card up, and it is asked only after this session has
+    // proved on a value copy that it can show the card.
+    [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
+                                            const std::function<bool()> &commitSource);
 
     enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
     // Opaque receiver reservation. Copies share consumption: a preview cannot

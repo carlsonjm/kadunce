@@ -1828,6 +1828,46 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
     return true;
 }
 
+bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
+{
+    if (!m_active || m_launcherGuestActive || !card || card->isDeleted()
+        || !card->window() || m_presentation != CardPresentation::Bento
+        || liveCardIndex(card) < 0) return false;
+    finishCardGrab(false);
+    // §8: exactly this card leaves individual ownership, in one step, so the
+    // layout never publishes a pane this stage still names as a card.
+    const QList<QPointer<KWin::EffectWindow>> leaving{card};
+    const auto departure = m_workspace.prepareGroupRemoval(leaving,
+        OwnershipTransition::CardToBento);
+    if (!departure) return false;
+    if (!publishOwnershipThenRecord(
+            [&] { return m_workspace.commitGroupRemoval(*departure); },
+            [&] {
+                ++m_restoreGeneration;
+                m_activeSettleTimer.stop();
+                m_activeSettleRemaining = 0;
+                retireActiveIdentity(card);
+                if (m_activeRestore.window == card) m_activeRestore = {};
+                m_parkedRestores.removeIf([&](const auto &saved) {
+                    return !saved.window || saved.window == card; });
+                m_originalCardStackingOrder.removeAll(card);
+                // The display was already presenting Bento and still is; only
+                // the membership behind it changed. An empty card stage still
+                // has a live layout in front of it, so this stage stays active
+                // rather than releasing the display it no longer draws.
+            })) return false;
+    m_transferGuard.invalidate();
+    m_host->cancelInputForCardStage();
+    clearCardTransition();
+    KWin::effects->setElevatedWindow(card, false);
+    m_host->unredirectForCardStage(card);
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "admitted a called card into live Bento;"
+            << m_workspace.windows().size() << "individual cards remain";
+    return true;
+}
+
 void CardStageController::pageHorizontal(int delta)
 {
     if (!m_active || m_presentation == CardPresentation::Bento) {
@@ -2482,6 +2522,11 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
         return;
     }
     if (window == m_arrivalWindow) return; // Let its center/expand sequence finish.
+    // §2: this stage keeps its cards hidden while the display presents its
+    // Bento layout. An activation reaching here was not routed into the
+    // layout, and drawing a card over live panes is the state §2 does not
+    // name, so the presentation stands.
+    if (m_presentation == CardPresentation::Bento) return;
     if (m_arrivalWindow) clearCardTransition(); // An explicit different activation wins.
     const int targetIndex = liveCardIndex(window);
     if (targetIndex < 0) {

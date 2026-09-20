@@ -185,16 +185,43 @@ launch to the card stage's own new-window path rather than to that adoption.
 Both are recorded rather than designed around; a different answer changes which
 entry point an eviction uses, not the ownership it produces.
 
-### A layout is rearranged only by a deliberate gesture
+### A display presenting a layout answers every arrival with the layout
 
-A launching application may grow Bento into a free pane, but it never evicts one.
-When the layout cannot grow, the new window becomes an individual Active card.
+A window is never shown on top of live panes. An arrival at a live Bento joins
+the layout: it grows into a free pane, or takes a pane and hands that pane's
+window back to card ownership. Only an arrival no slot can hold becomes an
+individual Active card, and the layout then leaves the screen as a Spread group
+rather than staying behind it.
 
-Auto-admission is what makes Bento seamless at a monitor, and removing it would
-hide a window the user just opened behind a layout. Keeping it is safe because
-growth-only admission produces a pane or a card and never a parked window, so it
-cannot reintroduce the overflow state. Displacement stays with the deliberate
-edge gesture, where the user chooses the side and can see which pane yields.
+This replaces growth-only admission, which answered a full layout by putting the
+arrival in front of it. That answer produced the one state `CARD-LIFECYCLE.md` §2
+does not name: a card drawn over live panes, with the layout visible in the
+margins around it and still running underneath. A user who wants one window alone
+has Spread and ordinary stacks; the display presenting a layout is not the place
+for it.
+
+The cost is accepted deliberately. A window that opens on its own can now take a
+pane, which growth-only existed to prevent. On a display with room the layout
+simply grows and nothing is displaced; on a two-pane display the exchange is
+visible and the displaced window is one Spread entry away. Hiding a called window
+behind a layout was judged worse than moving a pane the user can see leave.
+
+### Fit decides which pane yields; recency breaks the tie
+
+An arrival can only occupy a slot its minimum size permits, and a resident can
+only stay in a slot that permits it. That constraint usually decides a two-pane
+display on its own, because most application windows fit only the larger pane —
+which is why the larger pane is the one observed to yield.
+
+Where fit leaves a choice, the pane that yields is the one whose window was
+activated longest ago, so the window the user is working in is the one that stays.
+Recency is a preference expressed as candidate order and never a constraint: it
+cannot keep a resident the arrival leaves no room for.
+
+The side gesture still outranks both, because a stated intent beats an inferred
+one. It is not available everywhere: the tablet has no way to drag a card into a
+screen edge, so every tablet exchange is decided by fit. A rule that only a
+gesture could answer would have left the tablet with no answer at all.
 
 The rejected alternative scoped auto-admission to external displays. That would
 have keyed product behavior to `isTabletOutput`, a name-prefix guess at hardware,
@@ -344,6 +371,28 @@ transfer is a destination-led transaction rather than a source-led move, because
 only the destination can evaluate output, minimum size and its own revision. A
 source-led move would have to undo itself after a rejection, and an undo that
 runs after native geometry has changed is not reliably reversible.
+
+### Planning is not a workspace change, and a transaction reads before it claims
+
+A live carry's source identity is stamped with the desktop stage's deferred-command
+generation, so every advance of that generation reads as a carry that has gone
+stale. Two things advanced it for no workspace change: issuing a transaction's own
+token, and re-planning a departure on a value copy that publishes nothing.
+
+Both made an eviction refuse the carry it was committing. The visible effect was a
+pane dragged to the top edge showing its Active preview and then returning to its
+slot, with nothing logged, because a refusal at that point is silent and
+indistinguishable from a gesture that never reached the edge.
+
+So a value-copy plan does not invalidate, and a transaction reads the carry before
+claiming the guard. Its token then covers the rest of the span: anything that
+advances the generation between the read and the commit fails the token check,
+which is where a re-read of the carry would have failed.
+
+Automated coverage did not see any of this. Every test of the extraction path
+supplied a source-validity stub that always agreed, so the one check that failed in
+the field was the one check no test made. The probe now prepares a real carry
+source and validates it the way the gesture does.
 
 ### Handoff order is carried by a shared sequence, not by source order
 

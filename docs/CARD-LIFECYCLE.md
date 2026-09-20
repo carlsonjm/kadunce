@@ -282,13 +282,17 @@ The remaining pane becomes an individual card.
 A display with a live Bento layout does not begin a new pair. A left or right
 snap targets that layout.
 
-An individual card returns to a live Bento only through an explicit
-left/right-edge action.
+An individual card returns to a live Bento either through an explicit
+left/right-edge action or by the user calling it forward. A display presenting
+its layout has no third answer, because §8 does not allow a card over live panes.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
-The pane that yields is the one occupying the side the returning card was
-released into. The user can see which pane will yield while dragging, and no
-interaction history decides it.
+Where the return was a side release, the pane that yields is the one occupying
+the side the card was released into. The user can see which pane will yield while
+dragging, and no interaction history decides it.
+
+A card called forward releases into no side, so §8 decides which pane yields.
+Every display answers a call forward; not every display offers the side gesture.
 
 ## 6. Spread selection
 
@@ -345,19 +349,37 @@ Changing presentation never consumes restoration data.
 
 A minimized card never silently returns to Bento.
 
-## 8. New windows
+## 8. Arrivals at a live Bento
 
-### While Bento is presented
+A display presenting its Bento layout answers every arrival with that layout. An
+arrival is a new window, or an individual card the user calls forward. Nothing is
+ever shown on top of live panes.
 
-Kadunce admits the new window into the visible Bento combination when the layout
-can grow to show it.
+### Admitting an arrival
 
-- If it fits, Bento recomposes and the new window becomes a pane.
-- If it does not fit, the new window becomes an individual Active card, and the
-  existing Bento remains a separate hidden group.
+- If the layout can grow to show it, Bento recomposes and the arrival becomes a
+  pane.
+- If the layout is full, a pane yields and becomes an individual card, and the
+  arrival takes its place.
+- If no pane the layout can offer satisfies the arrival's minimum size, the
+  arrival becomes an individual Active card and the layout becomes a separate
+  Spread group. It does not remain on screen behind the card.
 
-A new window never displaces a pane and is never parked. Only a deliberate edge
-gesture rearranges a layout the user placed.
+An arrival is never parked.
+
+### Which pane yields
+
+Fit decides first. Only a slot the arrival's minimum size permits can hold it,
+and only a resident that fits one of the remaining slots can stay. On a display
+whose panes differ in size this is usually the whole answer, because most windows
+fit only the larger one.
+
+Where more than one arrangement satisfies fit, the pane that yields is the one
+whose window the user activated longest ago.
+
+A stated intent outranks both. Where the user releases a card into a side edge,
+§5 gives the yielding pane to that side. An arrival that states no side is
+decided by the rule above.
 
 ### While an individual card is Active
 

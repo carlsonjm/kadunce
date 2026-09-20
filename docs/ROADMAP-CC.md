@@ -301,21 +301,36 @@ so it stayed Active. J inverted that on 19 September. The carried card owns the
 edge it is released into, and Spread direction selects the partner rather than
 the partner's eventual Bento side, so a carried Active card pairs with the
 nearest eligible card on the contacted side of it in cyclic Spread order. The
-branch must be corrected to that grammar before physical review; nothing has been
-installed. Block 2's ledger is live-verified, so a violation it reports now names
-a real defect rather than a solver decision. `CARD-LIFECYCLE.md` carries the
-approved model this block implements.
+branch must be corrected to that grammar before physical review. Block 2's ledger
+is live-verified, so a violation it reports now names a real defect rather than a
+solver decision. `CARD-LIFECYCLE.md` carries the approved model this block
+implements.
+
+The branch has now had one physical review, on the 20 September install. It
+reported no ownership violation at all for the whole session, and deliberate
+entry, deliberate pairing and external activation all behaved as written. Two
+findings came out of it, both since answered: top-edge extraction never ran
+because the eviction invalidated its own carry, and a card called forward was
+drawn on top of a live layout. The second is what produced §8's rewrite and J's
+Option C. Neither is promotion evidence yet; both are owed a physical check on
+the next candidate.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
 owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
-Physical review is owed for the whole branch and nothing has been installed, so
-none of it is promotion evidence. The isolated probes now assert this block's
-contract rather than the one it replaced, so a green run is evidence about the
-implementation instead of evidence that the old behavior survived. They remain
-automated coverage and do not stand in for physical review.
+Physical review is owed for the whole branch, so none of it is promotion
+evidence. The isolated probes now assert this block's contract rather than the
+one it replaced, so a green run is evidence about the implementation instead of
+evidence that the old behavior survived. They remain automated coverage and do
+not stand in for physical review.
+
+A probe that supplies a stub where the gesture supplies a real check is not
+coverage of that check. `active-admission-session.sh` passed for a week on a
+source-validity lambda that always agreed, while the gesture it stood for
+refused every time. It now prepares a real carry source and validates it the way
+the seam does. Prefer the real collaborator wherever a probe can reach one.
 
 Top-edge extraction has since landed on the same branch, together with the rule
 that gives it a destination: a layout that falls to one visible pane ends into
@@ -505,18 +520,43 @@ source-order assertions with behavioral coverage.
   publisher evicts whichever pane the solve leaves out. Which pane that is still
   comes from `chooseBentoSideAdmission`'s resident order rather than from the
   contacted side, so the rule §5 states is still unimplemented.
-- [x] Keep new-window admission and make it growth-only, per the rewritten §8. A
-  launching application joins Bento when the layout can grow to show it and
-  becomes an individual Active card when it cannot. It never displaces a pane and
-  is never parked, so admission cannot reintroduce overflow and a background event
-  cannot rearrange a layout the user placed. This is what makes Bento feel
-  seamless at a monitor and is deliberately kept.
-  Growth is checked as an empty remainder, not as a successful solve:
-  `chooseBentoTransferAdmission` searches any subset containing the arrival, so
-  a solve can place the launch by dropping a pane the user put there. Requiring
-  the solve to place every owned window is what forbids that. A refused launch
-  is left unowned and awake, and `Effect::handleWindowAdded` already hands it to
-  the card stage's own new-window path.
+  This is now the narrower of the two yield rules rather than the only one.
+  §8 answers an arrival that states no side, which is every arrival on the
+  tablet, and that rule is implemented. This item is what a side release adds on
+  top of it where the gesture exists at all.
+- [x] Keep new-window admission and make it growth-only, per §8 as it then read.
+  Superseded by the item below on 20 September, after physical review found the
+  state it left behind. Growth-only answered a full layout by putting the arrival
+  in front of it, and the arrival then sat over live panes with the layout showing
+  in the margins. Its useful half survives: an arrival is still never parked, and
+  growth is still checked as an empty remainder rather than a successful solve,
+  because `chooseBentoTransferAdmission` searches any subset containing the
+  arrival and would otherwise place it by silently dropping a pane.
+- [x] Answer every arrival at a live Bento with the layout, per the rewritten §8.
+  A display presenting panes never shows a window on top of them. An arrival --
+  a new window, or a card the user calls forward -- grows the layout where it
+  can, takes a pane and hands that pane's window to card ownership where it
+  cannot, and becomes an individual Active card only where no slot fits it, at
+  which point the layout leaves the screen as a Spread group instead of staying
+  behind it. Which pane yields is fit first and activation recency second;
+  `DECISIONS.md` § Fit decides which pane yields records why, and why the side
+  rule below cannot be the whole answer on a display with no side gesture.
+  `shortenToShowable` already expressed the yield, so admission reuses it rather
+  than growing a second displacement path. Candidate order is where retention
+  preference is stated, so `planSession` sorts by the host's activation rank and
+  the existing subset search does the rest.
+  Card Stage additionally refuses to leave its Bento presentation on an
+  activation it did not route, so no future path can reintroduce a card drawn
+  over live panes by accident.
+- [x] Let an eviction commit the carry it is committing. A live carry's source
+  identity is stamped with the deferred-command generation, and both a
+  transaction's own token and a value-copy re-plan advanced it, so the eviction
+  invalidated its own carry and refused. This is what made a pane dragged to the
+  top edge show its Active preview and then return to its slot, silently, on
+  every candidate for a week: the rule was built and correct and never once ran.
+  Planning no longer invalidates, and a transaction reads the carry before
+  claiming the guard. `DECISIONS.md` § Planning is not a workspace change records
+  the ordering and why no test caught it.
 - [ ] First Card or Bento entry atomically adopts every eligible window on that
   display and current virtual desktop.
 - [ ] Atomic prepared admission and removal for one logical group: selecting a
@@ -558,14 +598,29 @@ source-order assertions with behavioral coverage.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
 repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
-holds two rules, not three, on every display — met in source; not yet measured on
-an installed candidate. Two symptoms measured on the installed candidate must
-be gone: activating a window the layout could not show brings it forward from the
-Plasma task manager instead of being re-minimized by the next solve, and a pane
-dragged to the top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of
-returning to it. Neither is reachable in source any longer: nothing minimizes a
-window for not being a pane, and the top edge takes a pane out of the layout it
-is in. Both still need the measurement on an installed candidate.
+holds two rules, not three, on every display — met in source, and measured clean
+across the whole 20 September session on the installed candidate.
+
+Four symptoms must be gone on an installed candidate. The first was measured gone
+on 20 September; the other three are owed the next one.
+
+1. Activating a window the layout could not show brings it forward from the
+   Plasma task manager instead of being re-minimized by the next solve. Measured
+   gone: three windows were brought forward during the session and all three
+   stayed.
+2. A pane dragged to the top edge leaves Bento under `CARD-LIFECYCLE.md` §5
+   instead of returning to it. Measured present on 20 September, with the Active
+   preview shown and the pane returned on release; the eviction was invalidating
+   its own carry. Fixed in source and now covered by a probe that validates a
+   real carry source.
+3. A card called forward while the display presents a layout joins that layout,
+   per §8. Measured present on 20 September as the opposite: an Active card drawn
+   over live panes, with the layout showing in the margins and still running
+   underneath.
+4. Where the layout is full, the pane that yields is one the arrival's minimum
+   size leaves no room for, or failing that the one used longest ago — and the
+   window that yields is still one Spread entry away.
+
 No missing window, stuck input, broken restoration, cross-output leak, or failed
 disable control.
 
@@ -654,6 +709,14 @@ rail behavior within them.
 - [ ] Make stack extraction reliable; native-to-stack arrival becomes one atomic
   membership and insertion transaction.
 - [ ] Give reordering a usable intent zone without accidental paging.
+- [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
+  is drawn as a live picture of the layout with its panes in position, so it is
+  already a map; dropping a card onto a half of it states the side the tablet has
+  no screen edge for, and the user sees the target before releasing. Shelved from
+  Block 3 by J on 20 September: §8's automatic rule answers every arrival without
+  it, and aiming at a half of a small group picture is its own physical review
+  that would have muddied two findings still being confirmed. Pick this up once
+  MVP criteria are met and the plan is back on feature work.
 - [ ] Complete arrival, displacement, cancellation and neighbor motion.
 - [ ] Make custom compositor motion follow platform animation scaling and
   reduced-motion preferences.

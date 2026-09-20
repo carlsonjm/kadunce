@@ -185,6 +185,8 @@ private:
         KWin::LogicalOutput *output) override;
     [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *window) const override;
+    [[nodiscard]] quint64 activationRankForDesktopStage(
+        const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
     [[nodiscard]] bool isTabletOutputForCardStage(
@@ -255,6 +257,11 @@ private:
     void handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleWindowActivated(KWin::EffectWindow *window);
+    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the
+    // user calls forward joins that layout. True means the activation was
+    // answered here; false leaves it to Card Stage, which by then is no longer
+    // presenting Bento.
+    [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);

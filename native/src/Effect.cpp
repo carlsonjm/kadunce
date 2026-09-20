@@ -729,6 +729,11 @@ std::optional<NativeMoveSnapshot> Effect::activeRestoreForDesktopStage(KWin::Eff
     return m_cardStage->managedRestore(window);
 }
 
+quint64 Effect::activationRankForDesktopStage(const KWin::EffectWindow *window) const
+{
+    return m_activationOrder.value(windowIdentity(window));
+}
+
 KWin::LogicalOutput *Effect::tabletOutputForCardStage() const
 {
     return tabletOutput();
@@ -2706,7 +2711,40 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         if (!m_launcherGuestLaunchApps.isEmpty()) return; // Completion is already settling.
         dismissLauncherGuestFromInput();
     }
+    if (admitActivatedCardToLiveBento(window)) return;
     m_cardStage->handleWindowActivated(window);
+}
+
+bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
+{
+    // §8: a display presenting its layout answers a called card with the
+    // layout. §2 names three presentations and none of them is a card drawn
+    // over live panes, so where the layout cannot show the card the layout
+    // stops being what the display presents rather than being covered.
+    if (!window || window->isDeleted() || !isCardWindow(window)
+        || !m_cardStage->presentsBento()
+        || m_cardStage->liveCardIndex(window) < 0) return false;
+    KWin::LogicalOutput *output = window->screen();
+    if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
+    if (m_desktopStage->admitCardToLiveBento(window,
+            [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
+        observeCardOwnership();
+        return true;
+    }
+    // No slot the card's minimum size fits, so §8's other answer applies: the
+    // layout becomes a Spread group and the card can be Active beside it.
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (output != tablet) return true;
+    if (!m_desktopStage->transferTabletSessionToSpread(tablet,
+            [this](const auto &projection, const auto &commit) {
+                return m_cardStage->admitBentoStack(projection, commit);
+            })) {
+        // Rejection retains Bento. Answering here is what keeps the refusal
+        // from falling through to a card drawn over it.
+        return true;
+    }
+    observeCardOwnership();
+    return false;
 }
 
 void Effect::handleLaunchWindowChanged()

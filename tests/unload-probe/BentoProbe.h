@@ -261,8 +261,19 @@ struct BentoProbe {
                 || extractionCards->managedRestore(carried))
                 return extractionFail("A refused extraction changed the layout");
 
-            if (!extractionDesktop->extractPaneToCards(carried, [] { return true; }))
-                return extractionFail("Extraction to card ownership was refused");
+            // The real seam validates a prepared carry source, whose identity
+            // is stamped with the application guard's generation. Emulating it
+            // here is what makes this an assertion about extraction rather
+            // than about a stub: an eviction that claims the guard before
+            // reading the carry invalidates the very carry it is committing,
+            // which is exactly how a top-edge drag refused itself in the field
+            // while this probe passed on a lambda that always agreed.
+            const auto prepared = extractionDesktop->prepareNativeCarrySource(carried);
+            if (!prepared)
+                return extractionFail("No carry source for a live pane");
+            if (!extractionDesktop->extractPaneToCards(carried,
+                    [&] { return extractionDesktop->nativeCarrySourceValid(*prepared); }))
+                return extractionFail("Extraction refused the carry it was committing");
             if (!extractionCards->promoteToActive(carried))
                 return extractionFail("The extracted window did not become Active");
 
