@@ -388,6 +388,22 @@ source-order assertions with behavioral coverage.
   it; the same grammar then answers a snap wherever that holds. With a live
   layout on the display the two seams still disagree — one reserves nothing and
   the other displaces a pane — and §5 owns that answer.
+- [ ] Make the isolated probes gate this block instead of the contract it
+  replaced. Measured on the branch against `ea2bf3e`: `membership-runtime`,
+  `launch-runtime`, `desktop-runtime` and `exit-runtime` pass on both;
+  `column-runtime` fails at its line 38 placement check on both and is
+  untouched by this work; `ownership-transition` failed at `a2Return` before it
+  and now stops earlier. Two probes asserted the displacement §8 forbids — a
+  launch taking a pane from a resident on a display whose cap is two — so they
+  invert with the contract rather than reporting a regression:
+  `OwnershipTransitionProbe::arrival(false)` and `side-runtime` line 85. Both
+  need the growth case made real, which means a tablet that starts with one
+  pane rather than two: `OwnershipTransitionProbe::setup` currently sends two
+  of its three clients there. `desktopHost.admission` is also unset, so every
+  eviction in that probe refuses as §5's no-card-display case; wiring it to the
+  card stage the way `Effect::admitTransferredWindowToTablet` does is what lets
+  the probe exercise an eviction at all. Until this lands a green probe run
+  would only mean the old contract still held.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread
