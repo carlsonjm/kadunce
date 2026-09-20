@@ -672,7 +672,13 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     // Existing Bento takes priority. Its rejection must never become a native
     // desktop fallback. Neither source nor destination is mutated during solve.
     if (!commitSource()) return false;
-    if (candidate) m_sessions[key] = std::move(*candidate);
+    // Once the shortened plan is published the yielded pane has no owner until
+    // card ownership takes it, and several paths below return early on an
+    // invalidation. Tie the hand-over to publication rather than to reaching
+    // the end of this function.
+    bool publishedPlan = false;
+    const auto handOver = qScopeGuard([&] { if (publishedPlan) publishEvictions(pending); });
+    if (candidate) { m_sessions[key] = std::move(*candidate); publishedPlan = true; }
     const auto token = m_applicationGuard.issue();
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
@@ -706,10 +712,9 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         }
         auto session = m_sessions.find(key);
         if (session != m_sessions.end() && applySession(session.value(), true)) scheduleSettle();
-        // §5, last because adopting reenters this controller: the pane that
-        // yielded leaves with the record the destination held for it, and the
-        // residents a first layout never adopted are taken as they stand.
-        publishEvictions(pending);
+        // §5: the residents a first layout never adopted are taken as they
+        // stand. The pane that yielded leaves through the scope guard above,
+        // which runs on every exit that published the plan.
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });
@@ -1736,18 +1741,23 @@ bool DesktopStageController::handoffWindowToOutput(
         if (!transfer) return false;
         // No native calls or callbacks between these publications. Destination
         // feasibility was established while both original sessions were intact.
+        // Both sessions are published together; the yielded pane is owned by
+        // neither until card ownership takes it, and the two applySession
+        // checks below can return before the end of this function.
+        bool publishedPlan = false;
+        const auto handOver = qScopeGuard([&] { if (publishedPlan) publishEvictions(pending); });
         m_sessions[destinationKey] = transfer->destination;
         if (transfer->source.snapshots.isEmpty()) m_sessions.remove(sourceKey);
         else m_sessions[sourceKey] = transfer->source;
+        publishedPlan = true;
         // Re-fetch after every native application; it can emit lifecycle signals.
         auto source = m_sessions.find(sourceKey);
         if (source != m_sessions.end() && !applySession(source.value(), false)) return true;
         auto target = m_sessions.find(destinationKey);
         if (target == m_sessions.end() || !applySession(target.value(), true)) return true;
         scheduleSettle();
-        // Last, because adopting reenters this controller and can remove or
-        // replace either session.
-        publishEvictions(pending);
+        // The yielded pane leaves through the scope guard above, which runs on
+        // every exit that published. These were never adopted at all.
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });

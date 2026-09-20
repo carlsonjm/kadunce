@@ -492,7 +492,7 @@ struct BentoProbe {
                 && cards.liveCardIndex(w) >= 0 && w->screen() == origin;
         };
         host.admission = [&](auto *w, const auto &commit, const auto *record) {
-            return cards.admitTransferredWindowToTablet(w, commit, {}, record ? record : restore);
+            return cards.admitTransferredWindowToTablet(w, commit, {}, record);
         };
         const bool accepted = controller.handoffLeadToOutput(origin->name(), host.tablet->name());
         expectedTablet = host.tablet;
@@ -519,11 +519,11 @@ struct BentoProbe {
                 w->window()->sendToOutput(host.tablet);
         if (!controller.toggleOnOutput(origin->name())) return false;
         const QString source = origin->name(), target = host.tablet->name();
-        host.admission = [](auto *, const auto &) { return false; };
+        host.admission = [](auto *, const auto &, const auto *) { return false; };
         const bool rejected = !controller.handoffLeadToOutput(source, target)
             && controller.managesWindow(client) && client->screen() == origin;
         bool staleRejected = false;
-        host.admission = [&](auto *, const auto &commit) {
+        host.admission = [&](auto *, const auto &commit, const auto *) {
             controller.stopPendingSettle();
             staleRejected = !commit();
             return false;
@@ -531,7 +531,7 @@ struct BentoProbe {
         const bool stale = !controller.handoffLeadToOutput(source, target)
             && staleRejected && controller.managesWindow(client);
         bool ordered = false;
-        host.admission = [&](auto *w, const auto &commit) {
+        host.admission = [&](auto *w, const auto &commit, const auto *) {
             if (!commit()) return false;
             ordered = !controller.managesWindow(w) && !commit();
             w->window()->sendToOutput(host.tablet);
