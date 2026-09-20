@@ -118,6 +118,16 @@ large-pane selection, monitor isolation, lifecycle, and the current live-renderi
 model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
+The isolated nested-compositor probes under `tests/unload-probe/` are the
+closest automated evidence to physical behavior, and two of them were already
+failing before the overflow work began: `ownership-transition` stops at
+`a2Return` and `column-runtime` at its placement check. Several others assert
+the behavior this block deletes — a background launch taking a pane from a
+resident, and an edge snap parking the resident it cannot show. Those
+assertions state the old contract, so they invert with it rather than reporting
+a regression, and the probes still need the rework that makes their growth and
+refusal cases real on a display whose pane cap is two.
+
 Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the
 previous plugin image mapped across an unload, so a freshly loaded effect can

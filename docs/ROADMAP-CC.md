@@ -284,9 +284,25 @@ approved model this block implements.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
-owners, six transitions and two violation rules. Physical review is owed for the
-whole branch and nothing has been installed, so none of it is promotion
-evidence.
+owners, six transitions and two violation rules. `./verify.sh`, which runs the
+full native CTest, passes.
+
+Physical review is owed for the whole branch and nothing has been installed, so
+none of it is promotion evidence. The isolated probes are not a substitute and
+are not currently a gate: two were already failing before this work, and several
+assert the parking this block deletes. Reworking them so their growth and
+refusal cases are real on a two-pane display is the next step before any
+candidate, because until then a green probe run would only mean the old
+contract still held.
+
+One property is worth carrying into the physical checks, because automated
+coverage cannot reach it: a gesture that needs a pane to yield must leave the
+display unchanged when it is refused. An adversarial review found every
+yielding path publishing the yield before its own gesture had committed, so a
+drop that bounced still took a pane with it. The fix makes shortening a value
+operation and hands the window over only after publication; physical review
+should exercise a refused side snap into a full layout and confirm the layout
+is exactly as it was.
 
 Order within the block matters. Deliberate snapping comes first because it is the
 smallest change that makes the system testable: while the solver decides pane
