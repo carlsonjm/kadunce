@@ -122,10 +122,10 @@ contracts. Proving input plumbing against a shell that does not yet satisfy
 
 ## Block 1 — Refactor enablement
 
-**Status:** 1a, 1b, 1c and 1e are complete. 1e closed on the 20 September cold
-boot, so a physical gesture result can now be attributed to a backend. 1d is
-implemented and awaits one live install, which is what lets a physical result be
-attributed to a build.
+**Status:** Complete. 1e closed on the 20 September cold boot and 1d on the
+install and reboot that followed it, so a physical result can now be attributed
+both to a backend and to a build. Block 3's physical review no longer has to
+assume either.
 
 ### 1e. Give the effect its input backend on a cold boot
 
@@ -158,9 +158,13 @@ Plasma-native banner followed by `adopted direct Z13 system edges`.
 
 ### 1d. Make an installed candidate actually run
 
-**Status:** Implemented; awaiting a live install. Both parts are covered in
-source and the report path is proven in a nested compositor, but neither has run
-against the graphical session.
+**Status:** Complete. Measured across the 20 September install and the reboot
+that followed. The install at 15:52:10 replaced the plugin under a compositor
+running since 15:34, and the installer reported that KWin was still running the
+older build rather than the one just placed --- the stale-image case, named
+instead of left to a guess. After the restart the effect reported the installed
+file itself, matching what the install had written, so both answers were
+produced against the graphical session.
 
 - [x] `install.sh` finishes with the effect unloaded: its unload/re-enable and
   `reconfigure` do not reload it, so the workspace is left without Kadunce until
@@ -178,8 +182,8 @@ against the graphical session.
   than this method can give one. `provenance-runtime-session.sh` proves the
   report names the file a real compositor loaded.
 
-**Exit gate:** A live install ends by naming which build KWin is running, and
-says so plainly when that is not the one just placed.
+**Exit gate:** Met. A live install ends by naming which build KWin is running,
+and says so plainly when that is not the one just placed.
 
 ### 1a. Free the checks from implementation shape
 
