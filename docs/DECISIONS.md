@@ -101,14 +101,15 @@ Removing the container removes the state. Bento never takes a window it cannot
 show, so a full Bento displaces rather than parks, and displacement is one of the
 six directed transitions.
 
-The deletion follows what a display can hold, not what it is called. Where cards
-can exist the container goes and the violation rule that reported the state
-retires with it, so a rule still worth reporting there would mean the container
-had moved rather than gone. An external output presents Bento rather than cards,
-so its first side snap still composes across the display; deleting the container
-there would leave those windows owned by nobody with nothing to become, and the
-sweep, its overflow and that rule stay until the product contract says an
-external output presents cards.
+The violation rule that reported the state retires with the container; a rule
+still worth reporting would mean the container had moved rather than gone.
+
+A window a layout cannot show is an awake individual card, which is an owner the
+contract already had. Card ownership lives on one display, so a window leaving a
+layout on a display that cannot hold cards moves to the one that can, and the
+user meets it in Spread rather than losing it. The rejected alternative left it
+Native, which reads tidy until a native window is sitting inside a display
+Kadunce is composing — the nameless state this rule exists to remove.
 
 ### A layout is rearranged only by a deliberate gesture
 

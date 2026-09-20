@@ -78,9 +78,11 @@ duplicates, while excluding overflow and omitting stack position.
   `CARD-LIFECYCLE.md` §11's independent per-display ownership session holds on
   that output only. Another display can hold its own Bento session, but it cannot
   hold individual cards, Spread or an Active card; a card carried onto one
-  becomes a Bento pane or an ordinary desktop window there. `PRODUCT-CONTRACT.md` owns whether an
-  external output ever presents cards; this entry records only what the current
-  structure does.
+  becomes a Bento pane or an ordinary desktop window there.
+  `PRODUCT-CONTRACT.md` owns whether an external output ever presents cards; this
+  entry records only what the current structure does. It is also why a window a
+  layout cannot show moves to the display that can hold it as a card rather than
+  staying where it was.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
 - Native-to-stack admission is not one atomic destination transaction.

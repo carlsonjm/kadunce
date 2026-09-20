@@ -384,19 +384,16 @@ source-order assertions with behavioral coverage.
   Bento does not own hidden overflow; the container is what made a state nothing
   could name. Measured: a six-window tablet Bento yields three panes and three
   overflow windows owned by nobody, which is three §14 violations.
-  Scoped to displays that can own cards, per J's 19 September answer. A display
-  that cannot hold cards reaches neither pairing rule, so its first side snap
-  still sweeps the display and can still exceed the pane cap; deleting the
-  container there would leave those windows owned by nobody with nothing to
-  become. `PRODUCT-CONTRACT.md` gives the external display Bento rather than
-  cards, so the sweep and its overflow stay there by design, not pending.
-- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` where the container
-  is gone, so the state becomes unrepresentable rather than merely unreported on
-  a display that can own cards. Ownership then holds at three owners, six
-  transitions and two violation rules there, checkable in the one place Block 2
-  built. The rule survives only for a display that cannot own cards, and reporting
-  it anywhere else means the container was relocated, not removed. It retires
-  outright only if an external output ever presents cards.
+  The container goes everywhere, not scoped. A window a layout cannot show
+  becomes an awake individual card on the display that can hold one, per §3 and
+  §5, so every remainder has an owner and nothing is left for the container to
+  hold. J approved that on 20 September, replacing the scoped answer of the day
+  before.
+- [ ] Retire `OwnershipViolation::Rule::OverflowWithoutOwner` with the container,
+  so the state becomes unrepresentable rather than merely unreported. Ownership
+  then holds at three owners, six transitions and two violation rules, both
+  checkable in the one place Block 2 built. A rule that still needs reporting
+  means the container was relocated, not removed.
 - [ ] Bento owns only its visible pane combination; minimized, displaced and
   extracted windows become independent cards with no retained association. A
   displaced pane becomes a nonselected individual card, not a minimized one:
@@ -436,9 +433,8 @@ source-order assertions with behavioral coverage.
   nothing to hand a card to.
 
 **Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
-repeated-selection, cold-start and multi-display checks pass. A display that can
-own cards reports two violation rules, not three; a display that cannot still
-reports the third, and `CURRENT_STATE.md` records why. Two symptoms measured on the installed candidate must
+repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
+holds two rules, not three, on every display. Two symptoms measured on the installed candidate must
 be gone: activating an overflow window from the Plasma task manager brings it
 forward instead of being re-minimized by the next solve, and a pane dragged to the
 top edge leaves Bento under `CARD-LIFECYCLE.md` §5 instead of returning to it. No
@@ -784,6 +780,12 @@ it is made, with its resolution, so later work does not reopen it.
    walk offers it. §9 never stated it and now does; releasing a member already
    left such an entry, so this predates the correction and changes nothing that
    is built.
+
+   **Revisit at Table.** A window a layout cannot show moves to the display that
+   can hold it as a card, which is the only settling place this build has. J
+   accepted that on 20 September for this version and expects Table to offer
+   further places to settle a misplaced card, since it organizes real virtual
+   desktops above this level. Reopen the choice then rather than now.
 
    **Eligibility: one predicate.** Current display, current virtual desktop and
    individual card ownership are all required, and one predicate answers for

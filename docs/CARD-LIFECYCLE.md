@@ -76,6 +76,10 @@ Kadunce owns a display from that moment until its session ends, whether what it
 holds is individual cards, stacks or a Bento group. Adoption happens once. Every
 later edge action on that display reads the ownership it already has.
 
+A window arriving from another display starts ownership the same way, whether it
+was carried there or left a layout that could not show it. It arrives as one
+card; arrival adopts nothing else.
+
 ### First top-edge entry
 
 On a display Kadunce does not yet own:
@@ -258,6 +262,11 @@ It retains no saved Bento position or group association.
 
 Leaving Bento is not by itself a minimize. Unless the user minimized it, the
 window becomes an ordinary nonselected individual card and stays presentable.
+
+A window leaves for the display that can hold it as a card. Where its own
+display cannot own cards, it becomes a card on the display that can, keeping its
+restore record so release still returns it where it began. The user finds it in
+Spread there, and may keep working with it or carry it back into the layout.
 
 ### One remaining pane
 
