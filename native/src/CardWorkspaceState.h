@@ -1,6 +1,7 @@
 #pragma once
 #include "CardOwnership.h"
 #include "SpreadModel.h"
+#include "SpreadPartnerWalk.h"
 #include <QList>
 #include <optional>
 #include <memory>
@@ -261,6 +262,8 @@ public:
     int stackPositionForId(int cardId) const { return m_model.stackPositionForId(cardId); }
     int stackActivePositionForId(int cardId) const { return m_model.stackActivePositionForId(cardId); }
     std::vector<int> stackMembersForId(int cardId) const { return m_model.stackMembersForId(cardId); }
+    int faceAtStepsFrom(int cardId, int steps) const { return spreadFaceAtStepsFrom(m_model, cardId, steps); }
+    Handle windowForId(int cardId) const { return m_windows.value(cardId - 1); }
     std::vector<int> stackPaintOrderForId(int cardId) const { return m_model.stackPaintOrderForId(cardId); }
     bool selectedIsStandalone() const { return m_model.selectedIsStandalone(); }
     bool hasDetachedMember() const { return m_model.hasDetachedMember(); }

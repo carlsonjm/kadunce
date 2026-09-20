@@ -90,6 +90,19 @@ public:
     // card to pair with, and retires as soon as that card stops being an
     // individual card.
     [[nodiscard]] KWin::EffectWindow *activeCardIdentity() const;
+    // CARD-LIFECYCLE.md §4 "Eligible as a Bento partner", asked in one place.
+    // Adoption eligibility is a different question and never stands in for it.
+    [[nodiscard]] bool isEligiblePartner(const KWin::EffectWindow *window) const;
+    // §3 names the partner: the Active card when something else is carried,
+    // otherwise the nearest eligible card on the contacted side of the carried
+    // card in Spread order. Read-only — a prepared carry embeds the workspace
+    // revision, so naming a partner must not move selection or the pair side.
+    [[nodiscard]] KWin::EffectWindow *partnerForSideSnap(
+        const KWin::EffectWindow *carried, bool leftEdge) const;
+    // Whether this display can hold cards at all. State and capability decide
+    // the grammar; the display's hardware identity never does.
+    [[nodiscard]] bool canOwnCards(const KWin::LogicalOutput *output) const;
+    [[nodiscard]] bool ownsDisplay(const KWin::LogicalOutput *output) const;
     [[nodiscard]] const SpreadModel &model() const;
     [[nodiscard]] CardWorkspaceSnapshot workspaceSnapshot() const;
     [[nodiscard]] const QList<QPointer<KWin::EffectWindow>> &liveCards() const;
@@ -222,6 +235,7 @@ private:
     void parkActiveSnapshot();
     void forgetManagedRestore(KWin::EffectWindow *window);
     void retireActiveIdentity(const KWin::EffectWindow *window);
+    bool selectCardEntry(KWin::EffectWindow *window);
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
     void syncSelectedStackingOrder();
     void restoreOriginalStackingOrder();

@@ -354,6 +354,7 @@ A stack:
 - Remains separate from Bento
 - Can page through its members
 - Can release a member back into the Spread
+- Becomes an individual card when one member remains
 - Shows its active position in the label row
 
 A Bento group:

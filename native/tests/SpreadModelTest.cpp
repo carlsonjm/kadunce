@@ -4,6 +4,7 @@
 */
 
 #include "SpreadModel.h"
+#include "SpreadPartnerWalk.h"
 
 #include <algorithm>
 #include <array>
@@ -342,6 +343,66 @@ int main()
     largeStack.selectIndex(selectionBeforeAdmission);
     require(largeStack.selectedId() == beforeAdmission,
             "Guest-time admission must preserve the selected stack member");
+
+    // CARD-LIFECYCLE.md §3 names a Bento partner by walking entry order from
+    // the entry holding the carried card. The order is cyclic and the walk
+    // steps over entries, so a stack is one step however many members it holds.
+    {
+        Kadunce::SpreadModel order(5);
+        // Five standalone entries, ids 1..5 in entry order. A lower entry index
+        // is drawn to the left, so negative steps walk toward the left shoulder.
+        require(order.count() == 5, "Entry order lost a card");
+        require(spreadFaceAtStepsFrom(order, 3, -1) == 2 && spreadFaceAtStepsFrom(order, 3, 1) == 4,
+                "A single step did not reach the adjacent entry");
+        require(spreadFaceAtStepsFrom(order, 3, -2) == 1 && spreadFaceAtStepsFrom(order, 3, 2) == 5,
+                "A second step did not reach the next entry outward");
+        // Cyclic: walking off one side returns on the other, and a full lap
+        // comes back to where it started.
+        require(spreadFaceAtStepsFrom(order, 1, -1) == 5 && spreadFaceAtStepsFrom(order, 5, 1) == 1,
+                "Entry order did not wrap");
+        require(spreadFaceAtStepsFrom(order, 3, 5) == 3 && spreadFaceAtStepsFrom(order, 3, -5) == 3,
+                "A full lap did not return to the starting entry");
+        require(spreadFaceAtStepsFrom(order, 0, 1) == 0 && spreadFaceAtStepsFrom(order, 99, 1) == 0,
+                "An unknown card named an entry");
+    }
+    {
+        // A stack is one entry. The walk offers its selected face, and the
+        // same face however deep the stack is paged.
+        Kadunce::SpreadModel stacked(4);
+        stacked.selectIndex(2);
+        require(stacked.stackSelectedWith(2), "Stack setup failed");
+        require(stacked.count() == 3, "Stacking did not collapse two entries");
+        const int face = spreadFaceAtStepsFrom(stacked, 1, 1);
+        require(face == 2 || face == 3, "The walk did not offer the stack's face");
+        require(stacked.stackSizeForId(face) == 2,
+                "The walk offered a face the caller cannot recognise as a stack");
+        require(spreadFaceAtStepsFrom(stacked, 1, 2) == 4,
+                "A two-member stack cost the walk two steps instead of one");
+        // Stacking leaves the new stack selected, so it can be paged directly.
+        stacked.pageStack(1);
+        require(spreadFaceAtStepsFrom(stacked, 1, 1) == stacked.selectedId(),
+                "Paging a stack did not change the face the walk offers");
+    }
+    {
+        // Exactly two entries: both directions name the same one, which is the
+        // one pair available. The two-entry neighbour side is presentation and
+        // must not change which entry the walk names.
+        Kadunce::SpreadModel pair(2);
+        require(spreadFaceAtStepsFrom(pair, 1, -1) == 2 && spreadFaceAtStepsFrom(pair, 1, 1) == 2,
+                "Two entries did not resolve both sides to the same partner");
+        pair.setPairNeighborSide(-1);
+        const int left = spreadFaceAtStepsFrom(pair, 1, -1);
+        const int right = spreadFaceAtStepsFrom(pair, 1, 1);
+        pair.setPairNeighborSide(1);
+        require(spreadFaceAtStepsFrom(pair, 1, -1) == left && spreadFaceAtStepsFrom(pair, 1, 1) == right,
+                "The drawn neighbour side reached the partner walk");
+    }
+    {
+        // One entry: the walk has nowhere to go and names only itself.
+        Kadunce::SpreadModel alone(1);
+        require(spreadFaceAtStepsFrom(alone, 1, -1) == 1 && spreadFaceAtStepsFrom(alone, 1, 1) == 1,
+                "A lone card named a partner");
+    }
 
     std::cout << "Spread group and vertical stack paging are deterministic\n";
     return EXIT_SUCCESS;

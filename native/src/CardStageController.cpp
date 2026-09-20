@@ -112,6 +112,81 @@ KWin::EffectWindow *CardStageController::activeCardIdentity() const
         && liveCardIndex(m_presentedActive) >= 0 ? m_presentedActive.data() : nullptr;
 }
 
+bool CardStageController::canOwnCards(const KWin::LogicalOutput *output) const
+{
+    // One workspace exists and it is bound to one output. PRODUCT-CONTRACT.md
+    // gives an external output ordinary windows or per-output Bento, never
+    // cards, so this is the product's shape rather than a temporary limit.
+    return output && m_host->isTabletOutputForCardStage(output);
+}
+
+bool CardStageController::ownsDisplay(const KWin::LogicalOutput *output) const
+{
+    // CARD-LIFECYCLE.md §3: Kadunce owns a display from its first Card or Bento
+    // action, whether what it holds is individual cards, stacks or a group.
+    return m_active && canOwnCards(output) && !m_workspace.windows().isEmpty();
+}
+
+bool CardStageController::selectCardEntry(KWin::EffectWindow *window)
+{
+    // Selection is an entry index; membership is a card index. They coincide
+    // only while every entry is standalone, so a stack or a Bento group makes
+    // selecting by card index land on a different entry.
+    const int cardId = liveCardIndex(window) + 1;
+    if (cardId <= 0) return false;
+    const int offset = spreadEntryOffset(m_workspace.model(), cardId);
+    if (offset < 0) return false;
+    m_workspace.page(offset);
+    for (int step = 0; step < m_workspace.stackSizeForId(cardId)
+         && m_workspace.selectedId() != cardId; ++step) {
+        m_workspace.pageStack(1);
+    }
+    return m_workspace.selectedId() == cardId;
+}
+
+bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) const
+{
+    if (!m_active || !window || window->isDeleted() || !window->window()) return false;
+    auto *output = m_host->tabletOutputForCardStage();
+    // On the current display and current virtual desktop, owned as an
+    // individual card, and awake. isManagedWindowForCardStage carries the
+    // desktop and activity test and excludes a minimized window, so §7 keeps a
+    // sleeping card from silently returning to Bento.
+    if (!output || window->screen() != output
+        || !m_host->isManagedWindowForCardStage(window)
+        || liveCardIndex(window) < 0) return false;
+    // The Bento group is never a partner, and neither is a live pane.
+    return !usesBentoProjectionAperture(window) && !isBentoProjectionPane(window);
+}
+
+KWin::EffectWindow *CardStageController::partnerForSideSnap(
+    const KWin::EffectWindow *carried, bool leftEdge) const
+{
+    if (!m_active || !carried || carried->isDeleted()) return nullptr;
+    auto *active = activeCardIdentity();
+    // §3: when the carried window is not the Active card, the Active card is
+    // the partner. It qualifies whether it stands alone or is a stack's
+    // selected member, because the user named it Active.
+    if (active != carried) return isEligiblePartner(active) ? active : nullptr;
+    // §3: the Active card was carried, so the partner is the nearest eligible
+    // card on the contacted side of it. The walk begins at the entry holding
+    // that card and is cyclic, stopping where it started.
+    const int carriedId = liveCardIndex(carried) + 1;
+    if (carriedId <= 0) return nullptr;
+    const int direction = leftEdge ? -1 : 1;
+    for (int step = 1; step < m_workspace.count(); ++step) {
+        const int face = m_workspace.faceAtStepsFrom(carriedId, direction * step);
+        if (face <= 0 || face == carriedId) break;
+        // §4: a search passes over every ordinary stack, so no walk breaks a
+        // composed group. A stacked card reaches Bento only as the Active card.
+        if (m_workspace.stackSizeForId(face) > 1) continue;
+        auto *candidate = m_workspace.windowForId(face).data();
+        if (candidate && candidate != carried && isEligiblePartner(candidate))
+            return candidate;
+    }
+    return nullptr;
+}
+
 const SpreadModel &CardStageController::model() const
 {
     return m_workspace.model();
@@ -1627,7 +1702,9 @@ bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
     const std::function<bool()> &commitSource)
 {
     auto *tablet = m_host->tabletOutputForCardStage();
-    if (m_active || !commitSource || !tablet || !carried || carried->isDeleted()
+    // §3 adopts a display Kadunce does not yet own. The plan tests the same
+    // thing, so both must read ownership rather than the stage's active flag.
+    if (ownsDisplay(tablet) || !commitSource || !tablet || !carried || carried->isDeleted()
         || !carried->window() || carried->screen() != tablet
         || carried->isUserResize() || carried->isMinimized()
         || !m_host->isManagedWindowForCardStage(carried)
@@ -1649,7 +1726,7 @@ bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
     m_active = true;
     m_presentation = CardPresentation::Spread;
     m_host->setPagingShortcutsForCardStage(true);
-    m_workspace.selectIndex(carriedIndex);
+    (void)selectCardEntry(carried);
     // Adoption produces individual cards only. The carried window is Active and
     // every other eligible window is a nonselected card; no pane is filled.
     if (!enterActive()) m_presentation = CardPresentation::Spread;
@@ -1681,7 +1758,7 @@ bool CardStageController::promoteToActive(KWin::EffectWindow *window)
         if (selectedWindow() == window) return true;
         parkActiveSnapshot();
     }
-    m_workspace.selectIndex(index);
+    if (!selectCardEntry(window)) return false;
     if (!enterActive()) {
         m_presentation = CardPresentation::Spread;
         return false;

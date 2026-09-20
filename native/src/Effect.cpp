@@ -1258,22 +1258,37 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // any layout is reserved. The same question is asked of the Spread grab, so
     // a side snap cannot mean one thing carried from the desktop and another
     // carried from Spread.
-    if (local && tablet && edge
-        && !m_desktopStage->hasSessionOnOutput(target->name())) {
-        auto *partner = m_cardStage->activeCardIdentity();
+    // CARD-LIFECYCLE.md §3 and §10 decide what an edge action means before any
+    // layout is reserved. The Spread grab asks the same question, so a side snap
+    // cannot mean one thing carried from the desktop and another from Spread.
+    if (local && edge && !m_desktopStage->hasSessionOnOutput(target->name())) {
+        const bool leftEdge = *edge == CarryEdge::Left;
+        const bool sideEdge = leftEdge || *edge == CarryEdge::Right;
+        // §3 names the partner from Spread order. Naming is read-only: the
+        // prepared carry embeds the workspace revision, so it must not move
+        // selection or the pair side.
+        auto *partner = sideEdge
+            ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge) : nullptr;
         const auto outcome = planEdgeEntry({
             .edge = *edge,
-            .ownsDisplay = m_cardStage->isActive(),
+            .ownsDisplay = m_cardStage->ownsDisplay(target),
+            .canOwnCards = m_cardStage->canOwnCards(target),
             .hasBentoLayout = false,
             .carriedEligible = isCardWindow(m_carriedWindow),
-            .activeCardPresent = partner != nullptr,
-            .activeCardIsCarried = partner == m_carriedWindow,
+            .partnerNamed = partner != nullptr,
+            .carriedIsActive = m_cardStage->activeCardIdentity() == m_carriedWindow,
         });
-        const auto destination = monitorDropIntent(target->name(), 0, std::nullopt, edge);
-        if (!destination) return;
         QPointer<KWin::EffectWindow> carried = m_carriedWindow;
-        if (outcome == EdgeEntryOutcome::PairIntoBento) {
-            if (!side) return;
+        QPointer<KWin::LogicalOutput> output = target;
+        const auto destination = monitorDropIntent(target->name(), 0, std::nullopt, edge);
+        switch (outcome) {
+        case EdgeEntryOutcome::Refuse:
+        case EdgeEntryOutcome::Unchanged:
+            return;
+        case EdgeEntryOutcome::ComposeDisplayBento:
+            break; // A display that cannot own cards reserves below as before.
+        case EdgeEntryOutcome::PairIntoBento: {
+            if (!side || !destination) return;
             const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
                 KWin::RectF(QRectF(handoff.carry().position(), m_carryPickup.size())),
                 DesktopStageController::CardDropIntent::ActivateBento, side, partner);
@@ -1281,50 +1296,54 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
             if (!m_carryPreview) return;
             m_carryDestination = reserved;
-            QPointer<KWin::EffectWindow> active = partner;
             handoff.previewDrop(*destination,
                 [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
-                [this, reserved, carried, active, bento](const PreparedCarrySource &source) {
+                [this, reserved, carried, bento](const PreparedCarrySource &source) {
+                    // Commit against the identity the reservation named, never
+                    // a partner re-read after preparation.
+                    QPointer<KWin::EffectWindow> named = reserved->namedPartner();
                     return (bento ? m_desktopStage->nativeCarrySourceValid(source)
                                   : m_cardStage->nativeCarrySourceValid(source))
                         && m_desktopStage->activatePreparedTabletDrop(*reserved,
                             &source.restoreSnapshot(),
-                            [this, carried, active] {
-                                return m_cardStage->releasePairToBento(carried, active);
+                            [this, carried, named] {
+                                return m_cardStage->releasePairToBento(carried, named);
                             });
                 });
             return;
         }
-        // The Active card carried back to its own edge has nothing to pair
-        // with, so it reserves nothing and the cancelled carry returns it.
-        if (outcome != EdgeEntryOutcome::AdoptDisplay
-            && (outcome != EdgeEntryOutcome::MakeActive
-                || m_cardStage->liveCardIndex(carried) >= 0))
+        case EdgeEntryOutcome::AdoptDisplay:
+        case EdgeEntryOutcome::MakeActive: {
+            // §10: a card that is already owned and not Active cannot be carried
+            // natively, so only adoption and a native arrival reach here.
+            if (!destination) return;
+            const bool adopt = outcome == EdgeEntryOutcome::AdoptDisplay;
+            if (!adopt && m_cardStage->liveCardIndex(carried) >= 0) return;
+            // The destination is Card Stage: the carried window lands as the
+            // Active card, and adoption makes every other eligible window a
+            // nonselected individual card.
+            m_carryCardEntryOutput = target;
+            m_carryPreview = KWin::RectF(m_cardStage->activeTarget(target));
+            handoff.previewDrop(*destination,
+                [this, carried, output, adopt] {
+                    return carried && !carried->isDeleted() && output
+                        && KWin::effects->screens().contains(output.data())
+                        && isCardWindow(carried) && carried->screen() == output
+                        && m_cardStage->ownsDisplay(output) != adopt;
+                },
+                [this, carried, adopt, bento](const PreparedCarrySource &source) {
+                    const auto sourceValid = [this, &source, bento] {
+                        return bento ? m_desktopStage->nativeCarrySourceValid(source)
+                                     : m_cardStage->nativeCarrySourceValid(source);
+                    };
+                    if (adopt) return m_cardStage->adoptDisplayWithActive(carried, sourceValid);
+                    if (!admitTransferredWindowToTablet(carried, sourceValid)) return false;
+                    (void)m_cardStage->promoteToActive(carried);
+                    return true;
+                });
             return;
-        // The destination is Card Stage: the carried window lands as the Active
-        // card and every other eligible window is adopted as a nonselected card.
-        const bool adopt = outcome == EdgeEntryOutcome::AdoptDisplay;
-        QPointer<KWin::LogicalOutput> output = target;
-        m_carryCardEntryOutput = target;
-        m_carryPreview = KWin::RectF(m_cardStage->activeTarget(target));
-        handoff.previewDrop(*destination,
-            [this, carried, output, adopt] {
-                return carried && !carried->isDeleted() && output
-                    && KWin::effects->screens().contains(output.data())
-                    && isCardWindow(carried) && carried->screen() == output
-                    && m_cardStage->isActive() != adopt;
-            },
-            [this, carried, adopt, bento](const PreparedCarrySource &source) {
-                const auto sourceValid = [this, &source, bento] {
-                    return bento ? m_desktopStage->nativeCarrySourceValid(source)
-                                 : m_cardStage->nativeCarrySourceValid(source);
-                };
-                if (adopt) return m_cardStage->adoptDisplayWithActive(carried, sourceValid);
-                if (!admitTransferredWindowToTablet(carried, sourceValid)) return false;
-                (void)m_cardStage->promoteToActive(carried);
-                return true;
-            });
-        return;
+        }
+        }
     }
     const bool stayNative = desktopWindow && !edge
         && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
@@ -1339,7 +1358,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         ? m_desktopStage->prepareLocalCardDrop(m_carriedWindow, target, geometry, contact)
         : m_desktopStage->prepareCardDrop(m_carriedWindow, target, geometry,
         stayNative ? DesktopStageController::CardDropIntent::NativeDesktop
-        : edge && !tablet ? DesktopStageController::CardDropIntent::ActivateBento
+        : edge && !m_cardStage->canOwnCards(target)
+             ? DesktopStageController::CardDropIntent::ActivateBento
              : DesktopStageController::CardDropIntent::OpenSpace, side);
     if (!reserved) return;
     m_carryDestination = reserved;
@@ -1939,23 +1959,26 @@ void Effect::updateCardGrab(const QPointF &position)
                 QRectF(output->geometry()).center().y(), previousDestination
                     && previousDestination->destinationOutput() == output
                     ? previousDestination->sidePlacement() : std::nullopt);
-        if (isTabletOutput(output) && !edge) continue;
+        if (m_cardStage->canOwnCards(output) && !edge) continue;
         const KWin::RectF geometry(QRectF(m_cardStage->cardGrabTarget())
             .translated(m_cardStage->cardGrabOffset()));
-        if (isTabletOutput(output)) {
-            // CARD-LIFECYCLE.md §3 and §10: a card carried out of Spread to an
-            // edge pairs with the Active card, or becomes Active itself when
-            // there is nothing distinct to pair with. Spread selection chooses
-            // what is carried, never who it pairs with.
+        if (m_cardStage->canOwnCards(output)) {
+            // CARD-LIFECYCLE.md §3 and §10, asked exactly as the native carry
+            // seam asks it. Spread selection chooses what is carried; §3 names
+            // who it pairs with.
             auto *grabbed = selectedWindow();
-            auto *partner = m_cardStage->activeCardIdentity();
+            const bool leftEdge = *edge == CarryEdge::Left;
+            const bool sideEdge = leftEdge || *edge == CarryEdge::Right;
+            auto *partner = sideEdge
+                ? m_cardStage->partnerForSideSnap(grabbed, leftEdge) : nullptr;
             const auto outcome = planEdgeEntry({
                 .edge = *edge,
-                .ownsDisplay = m_cardStage->isActive(),
+                .ownsDisplay = m_cardStage->ownsDisplay(output),
+                .canOwnCards = true,
                 .hasBentoLayout = m_desktopStage->hasSessionOnOutput(output->name()),
                 .carriedEligible = isCardWindow(grabbed),
-                .activeCardPresent = partner != nullptr,
-                .activeCardIsCarried = partner == grabbed,
+                .partnerNamed = partner != nullptr,
+                .carriedIsActive = m_cardStage->activeCardIdentity() == grabbed,
             });
             if (outcome == EdgeEntryOutcome::MakeActive) {
                 m_lineCardEntryOutput = output;
@@ -2017,10 +2040,14 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
         (void)m_cardStage->promoteToActive(grabbed);
         return true;
     }
-    if (m_lineDestination && isTabletOutput(m_lineDestination->destinationOutput())) {
+    if (m_lineDestination
+        && m_cardStage->canOwnCards(m_lineDestination->destinationOutput())) {
         const auto reserved = *m_lineDestination;
         QPointer<KWin::EffectWindow> carried = m_lineDestinationWindow;
-        QPointer<KWin::EffectWindow> partner = m_cardStage->activeCardIdentity();
+        // The partner the reservation was prepared and validated against, never
+        // one re-read at release: a selection between the two can otherwise
+        // surrender one window's ownership while the layout publishes another.
+        QPointer<KWin::EffectWindow> partner = reserved.namedPartner();
         if (!m_desktopStage->activatePreparedTabletDrop(reserved, nullptr,
                 [this, carried, partner] {
                     return m_cardStage->releasePairToBento(carried, partner);

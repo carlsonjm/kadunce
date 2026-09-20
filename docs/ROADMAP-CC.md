@@ -292,7 +292,7 @@ partner derivation answers both carry seams, so the two cannot drift apart again
 Write the failing headless assertion before each, the way Block 1a replaced
 source-order assertions with behavioral coverage.
 
-- [ ] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
+- [x] Make edge snapping deliberate, against the rewritten `CARD-LIFECYCLE.md`
   §3. A display Kadunce does not yet own adopts on a top, left or right snap:
   every eligible window on it and the current virtual desktop becomes an
   individual card, the carried one is Active, and no layout begins. A display
@@ -320,7 +320,7 @@ source-order assertions with behavioral coverage.
   needed: both stages own windows on one display at once. `DECISIONS.md` records
   it, and the third card presentation it introduced.
 
-- [ ] Consolidate one partner-eligibility predicate that every pairing path
+- [x] Consolidate one partner-eligibility predicate that every pairing path
   calls. §4's "Eligible as a Bento partner" is that predicate: current display,
   current virtual desktop, owned as an individual card, and awake, which is where
   §7 keeps a minimized card from silently returning to Bento. Adoption
@@ -333,7 +333,7 @@ source-order assertions with behavioral coverage.
   Spread that shows a Bento group has a live layout, so §5 and §10 route the snap
   to that layout and no pair begins beside it; the predicate still excludes the
   group entry and its panes, so no other path can reach them.
-- [ ] Derive the partner once, on `CardStageController`, and have both carry
+- [x] Derive the partner once, on `CardStageController`, and have both carry
   seams call it. Given the carried window and the contacted side it returns the
   Active card when the carried window is not that card and that card passes the
   predicate, otherwise the nearest eligible partner in canonical Spread order,
@@ -350,7 +350,7 @@ source-order assertions with behavioral coverage.
   reordering being separate work, and showing the partner before release is not
   required here. `DeliberateEdgeEntryTest.cpp` encodes the superseded rule and
   inverts with this item.
-- [ ] Commit a pair against the partner its reservation named. Release re-reads
+- [x] Commit a pair against the partner its reservation named. Release re-reads
   the Active card instead, so a selection or activation between preparation and
   release can surrender one window's ownership while the layout publishes
   another. The named partner is validated when the reservation is prepared and
@@ -359,7 +359,7 @@ source-order assertions with behavioral coverage.
   live session currently drops its named partner and falls through to the
   display-wide sweep. Beginning a pair there must be refused; the gesture is not,
   because §5 sends it to the live layout.
-- [ ] Decide both edge seams by state and capability, not by output identity.
+- [x] Decide both edge seams by state and capability, not by output identity.
   Both branch on the tablet output today, which is why the corrected grammar
   would reach the tablet while the monitor kept the display-wide sweep. What each
   seam needs to ask is whether Kadunce owns the display and whether it can own
@@ -372,7 +372,7 @@ source-order assertions with behavioral coverage.
   order. §14 requires a refused gesture to preserve the exact prior state, and §3
   now states that a carried Active card with no eligible partner leaves
   everything unchanged.
-- [ ] Promote to Active by the entry that holds the window. Promotion selects by
+- [x] Promote to Active by the entry that holds the window. Promotion selects by
   a card index in a model indexed by entry, so once any stack exists — and a
   Bento group always is one — it selects a different entry than the window it was
   asked to promote. Adoption does the same and is safe only because a rebuild
@@ -775,12 +775,11 @@ it is made, with its resolution, so later work does not reopen it.
    rest of the stack unchanged. A derived walk passes over stacks entirely, so a
    search never breaks a composed group.
 
-   **Open within it:** a stack reduced to one member. §9 defines a stack as
-   having members to page, and releasing a member already leaves a one-member
-   entry, so this predates the correction. The partner walk makes it answerable
-   either way — it passes over ordinary stacks, so a one-member entry that is
-   still a stack is never a partner, while one that has become an individual card
-   is. Needs a product answer before the walk is built.
+   **Settled within it:** a stack reduced to one member is an individual card,
+   which is what the Spread model has always meant by a standalone entry, so the
+   walk offers it. §9 never stated it and now does; releasing a member already
+   left such an entry, so this predates the correction and changes nothing that
+   is built.
 
    **Eligibility: one predicate.** Current display, current virtual desktop and
    individual card ownership are all required, and one predicate answers for
