@@ -271,6 +271,13 @@ private:
     bool planSession(Session &session, KWin::EffectWindow *preferred,
                      bool requirePreferred,
                      QList<QPointer<KWin::EffectWindow>> *evicted = nullptr) const;
+    // CARD-LIFECYCLE.md §5: a window the layout cannot show becomes an awake
+    // individual card on the display that can hold one. That is the same
+    // destination-first transfer a deliberate carry makes, so it is the
+    // publisher's work and never the solve's. A refusal changes nothing: §5
+    // keeps the combination rather than shedding a window with no owner to
+    // become, which is the case with no card-owning display attached.
+    bool evictToTablet(const QString &sourceKey, KWin::EffectWindow *window);
     void adjustRail(Session &session, KWin::EffectWindow *window,
                     const KWin::RectF &start, const KWin::RectF &finish);
 

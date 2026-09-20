@@ -979,6 +979,41 @@ bool DesktopStageController::planSession(Session &session,
     return true;
 }
 
+bool DesktopStageController::evictToTablet(const QString &sourceKey,
+                                           KWin::EffectWindow *window)
+{
+    if (m_restoring || !window || window->isDeleted() || !window->window()
+        || window->isUserMove() || window->isUserResize()
+        || !m_sessions.contains(sourceKey)) return false;
+    // Prove the source can give the window up before the destination is asked.
+    // The departure re-plans on a value copy; nothing is published by it.
+    const auto departure = prepareBentoDeparture(m_sessions.value(sourceKey),
+        QPointer<KWin::EffectWindow>(window),
+        [this](Session &session, const auto &preferred, bool required) {
+            return reflowSession(session, preferred, required);
+        });
+    if (!departure) return false;
+    QPointer<KWin::EffectWindow> arrival = window;
+    const auto token = m_applicationGuard.issue();
+    bool committed = false;
+    // The host reads this window's authoritative pre-Bento record while it is
+    // still a pane, so the card it becomes still releases to the display and
+    // geometry it began on.
+    const bool accepted = m_host->admitTransferredWindowToTablet(window, [&] {
+        if (committed || !m_applicationGuard.accepts(token) || m_restoring
+            || !arrival || arrival->isDeleted() || !arrival->window()
+            || arrival->isUserMove() || arrival->isUserResize()
+            || !m_sessions.contains(sourceKey)) return false;
+        if (departure->snapshots.isEmpty()) m_sessions.remove(sourceKey);
+        else m_sessions[sourceKey] = *departure;
+        committed = true;
+        return true;
+    });
+    // Acceptance is permission to commit, not proof of placement. Never report
+    // failure after the source has published, or a caller replays a stale plan.
+    return committed && accepted;
+}
+
 bool DesktopStageController::applySession(Session &session, bool activateLead,
     KWin::EffectWindow *prepareOverflow)
 {
