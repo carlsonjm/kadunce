@@ -268,6 +268,9 @@ display cannot own cards, it becomes a card on the display that can, keeping its
 restore record so release still returns it where it began. The user finds it in
 Spread there, and may keep working with it or carry it back into the layout.
 
+Where no display can hold a card, nothing leaves. The layout keeps the
+combination it has rather than shedding a window with no owner to become.
+
 ### One remaining pane
 
 When Bento falls to one visible pane, Bento ends.

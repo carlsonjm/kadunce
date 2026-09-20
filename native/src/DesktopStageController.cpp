@@ -855,19 +855,28 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
 
 bool DesktopStageController::reflowSession(Session &session,
                                 KWin::EffectWindow *preferred, bool requirePreferred,
-                                bool invalidateApplication)
+                                bool invalidateApplication,
+                                QList<QPointer<KWin::EffectWindow>> *evicted)
 {
     if (invalidateApplication) m_applicationGuard.invalidate();
-    return planSession(session, preferred, requirePreferred);
+    return planSession(session, preferred, requirePreferred, evicted);
 }
 
 bool DesktopStageController::planSession(Session &session,
-    KWin::EffectWindow *preferred, bool requirePreferred) const
+    KWin::EffectWindow *preferred, bool requirePreferred,
+    QList<QPointer<KWin::EffectWindow>> *evicted) const
 {
     KWin::LogicalOutput *output = outputForKey(session.outputName);
     if (!output) {
         return false;
     }
+    // Report every owned window the solve could not place. The caller decides
+    // whether to act on it: a preview must not move an owner.
+    const auto report = [evicted](const QList<QPointer<KWin::EffectWindow>> &windows) {
+        if (!evicted) return;
+        for (const auto &window : windows)
+            if (window && !evicted->contains(window)) evicted->append(window);
+    };
     QList<QPointer<KWin::EffectWindow>> owned;
     for (const RestoreSnapshot &snapshot : std::as_const(session.snapshots)) {
         if (snapshot.valid && !snapshot.userMinimized && snapshot.window && !snapshot.window->isDeleted()
@@ -901,6 +910,7 @@ bool DesktopStageController::planSession(Session &session,
             session.rects = *split;
             session.overflow = owned;
             for (const auto &w : splitWindows) session.overflow.removeAll(w);
+            report(session.overflow);
             session.side.reset(); session.sideWindow.clear();
             return true;
         }
@@ -924,6 +934,7 @@ bool DesktopStageController::planSession(Session &session,
             session.overflow.removeAll(owned[index]);
         }
         session.rects = admission->rects;
+        report(session.overflow);
         return true;
     }
     // The curated library has eight panes. Two alternate candidates are
@@ -964,6 +975,7 @@ bool DesktopStageController::planSession(Session &session,
             session.overflow.append(window);
         }
     }
+    report(session.overflow);
     return true;
 }
 

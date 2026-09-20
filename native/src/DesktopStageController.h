@@ -261,11 +261,16 @@ private:
                                const KWin::RectF &destinationGeometry,
                                CardDropIntent intent = CardDropIntent::OpenSpace,
                                std::optional<BentoSidePlacement> side = {});
+    // A solve reports what it cannot show; it never moves an owner. CARD-LIFECYCLE.md
+    // §5 gives such a window to card ownership, which is a cross-stage transaction
+    // and therefore the publisher's work, not the solve's. A preview passes nullptr.
     bool reflowSession(Session &session,
                        KWin::EffectWindow *preferred = nullptr, bool requirePreferred = false,
-                       bool invalidateApplication = true);
+                       bool invalidateApplication = true,
+                       QList<QPointer<KWin::EffectWindow>> *evicted = nullptr);
     bool planSession(Session &session, KWin::EffectWindow *preferred,
-                     bool requirePreferred) const;
+                     bool requirePreferred,
+                     QList<QPointer<KWin::EffectWindow>> *evicted = nullptr) const;
     void adjustRail(Session &session, KWin::EffectWindow *window,
                     const KWin::RectF &start, const KWin::RectF &finish);
 

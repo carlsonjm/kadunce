@@ -791,15 +791,12 @@ it is made, with its resolution, so later work does not reopen it.
    individual card ownership are all required, and one predicate answers for
    every pairing path.
 
-   **Overflow deletion: scoped to displays that can own cards.** A display that
-   cannot hold cards reaches neither pairing rule, so its first side snap still
-   activates Bento across the display and can still produce overflow. Deleting
-   the container there would leave those windows owned by nobody, so the
-   deletion follows the capability: where cards can exist, the container goes and
-   ownership holds at two violation rules; elsewhere the sweep and its overflow
-   remain, which `PRODUCT-CONTRACT.md` makes the external display's design rather
-   than a gap: an external output presents ordinary Plasma windows or per-output
-   Bento, never cards.
+   **Overflow deletion: everywhere.** Superseded the same question's scoped
+   answer of 19 September. A display that cannot hold cards still composes across
+   itself, but a window its layout cannot show no longer stays there: it moves to
+   the display that can hold it as a card, so every remainder has an owner and
+   the container goes on every display. §3 and §5 carry the rule; the user meets
+   the window in Spread and may carry it back.
 
    Settled with them: a window carried from the native desktop still pairs with
    the Active card; the grammar applies to every display by state and capability
