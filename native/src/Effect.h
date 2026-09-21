@@ -185,8 +185,9 @@ private:
         KWin::LogicalOutput *output) override;
     [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *window) const override;
-    [[nodiscard]] quint64 activationRankForDesktopStage(
-        const KWin::EffectWindow *window) const override;
+    bool admitDisplacedPaneToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
     [[nodiscard]] bool isTabletOutputForCardStage(

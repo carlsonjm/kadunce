@@ -206,22 +206,30 @@ simply grows and nothing is displaced; on a two-pane display the exchange is
 visible and the displaced window is one Spread entry away. Hiding a called window
 behind a layout was judged worse than moving a pane the user can see leave.
 
-### Fit decides which pane yields; recency breaks the tie
+### The arrival claims one slot, and only its occupant leaves
 
-An arrival can only occupy a slot its minimum size permits, and a resident can
-only stay in a slot that permits it. That constraint usually decides a two-pane
-display on its own, because most application windows fit only the larger pane —
-which is why the larger pane is the one observed to yield.
+A full layout is not re-solved around an arrival. The arrival takes the smallest
+slot its minimum size permits and that slot's occupant becomes a card; every
+other pane keeps its window, its size and its place.
 
-Where fit leaves a choice, the pane that yields is the one whose window was
-activated longest ago, so the window the user is working in is the one that stays.
-Recency is a preference expressed as candidate order and never a constraint: it
-cannot keep a resident the arrival leaves no room for.
+The first attempt re-solved instead, keeping whichever resident had been
+activated most recently and letting the solver rebuild the shape around the
+arrival. It satisfied fit and it was wrong to use. Physical review on 20
+September: with a wide window and a narrow one live, calling a third window that
+needed the wide pane evicted the *narrow* one and squeezed the survivor from the
+wide pane into the narrow one — two windows moved when the user had asked for
+one, and the survivor changed both size and side. Keeping the most recently used
+window is not worth rearranging the panes around it.
 
-The side gesture still outranks both, because a stated intent beats an inferred
-one. It is not available everywhere: the tablet has no way to drag a card into a
-screen edge, so every tablet exchange is decided by fit. A rule that only a
-gesture could answer would have left the tablet with no answer at all.
+Fit alone also answers what recency was there for. A window that fits only the
+wide pane takes the wide pane; one that fits either takes the narrower and leaves
+the wide pane alone. So a small tool never evicts the large window, which was the
+case recency was introduced to protect.
+
+What fit does not answer is a small window the user wants in the *wide* pane.
+There is no way to say so on the tablet, which has no side-edge drag. The side
+gesture outranks the rule wherever it exists, and letting a Spread drop name the
+pane it replaces is the shelved Block 4 item that would give the tablet one.
 
 The rejected alternative scoped auto-admission to external displays. That would
 have keyed product behavior to `isTabletOutput`, a name-prefix guess at hardware,
@@ -363,6 +371,27 @@ identity and revision, and published once. Failure leaves the client native and 
 not partially mutate a session.
 
 ## Transfer and native placement
+
+### A displaced pane arrives through a different door than a carried window
+
+`admitTransferredWindowToTablet` exists to make an arriving window the Active
+card: it applies Active geometry, leaves Bento presentation and selects the new
+member. A pane that yielded its slot needs none of that. §5 makes it a
+*nonselected* card, and §2 keeps it hidden because the display is still
+presenting the panes it just left.
+
+Sending it through the transfer door is what produced the state physical review
+found on 20 September: the displaced window inflated to full screen on top of the
+live layout, and the stage left Bento presentation, so every window on the
+display collapsed into one group. The journal shows it as two consecutive lines —
+the called card joins the layout, then the displaced one is announced as the
+Active card.
+
+`admitDisplacedPaneAsHiddenCard` takes membership and the pre-Bento record and
+nothing else. No geometry, no selection, no change of presentation. The host
+routes to it while the card stage presents Bento and falls back to the transfer
+door elsewhere, where there is no layout in front of the window and an ordinary
+arrival is right.
 
 ### Destination acceptance precedes source removal
 

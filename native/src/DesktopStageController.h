@@ -68,13 +68,16 @@ public:
         const QList<QPointer<KWin::EffectWindow>> &, const QList<QRectF> &, const QList<QRectF> &) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
-    // How recently the user last activated this window; larger is more recent,
-    // and a window never activated answers 0. CARD-LIFECYCLE.md §8 breaks a tie
-    // between panes that could each yield by keeping the one the user was last
-    // working in. It decides nothing on its own: fit rules a pane out first,
-    // and this only orders the panes that remain.
-    [[nodiscard]] virtual quint64 activationRankForDesktopStage(
-        const KWin::EffectWindow *) const { return 0; }
+    // CARD-LIFECYCLE.md §5: a displaced pane becomes a nonselected individual
+    // card. While the display presents its layout that card is owned and
+    // hidden, so it must not arrive through the path that makes a transferred
+    // window the Active card. A host that cannot tell the difference may
+    // forward this to `admitTransferredWindowToTablet`.
+    virtual bool admitDisplacedPaneToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) {
+        return admitTransferredWindowToTablet(window, commitSource, restore);
+    }
     // `restore` is the record the window had while a Bento session still held
     // it. CARD-LIFECYCLE.md §5 keeps that record so release still returns the
     // window where it began, and after the session has published its shortened
@@ -282,6 +285,18 @@ private:
     // §5: a window leaves for the display that can hold it as a card. Where
     // none can, nothing leaves and the layout keeps the combination it has.
     [[nodiscard]] bool canPlaceEvictedCard() const;
+    // CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one
+    // slot. The slot is the smallest whose pixel size satisfies the arrival's
+    // minimum, so a window that only fits the wide pane takes the wide pane;
+    // `nullopt` when no slot does, which is the arrival §8 answers with a card
+    // instead.
+    [[nodiscard]] std::optional<int> slotForArrival(const Session &session,
+                                                    KWin::EffectWindow *arrival) const;
+    // Put the arrival in that slot on a value copy. The layout keeps its shape
+    // and every other pane keeps its place, so exactly one window changes and
+    // the panes the user did not touch do not move.
+    [[nodiscard]] bool takeSlotAtCap(Session &candidate, int slot,
+                                     const RestoreSnapshot &arrival) const;
     // §5: shorten a value copy by what one solve cannot show, so the layout
     // asked for is one it can show in full. Nothing is published and no owner
     // moves. False is §5's no-card-display case: the caller keeps what it had.

@@ -729,9 +729,15 @@ std::optional<NativeMoveSnapshot> Effect::activeRestoreForDesktopStage(KWin::Eff
     return m_cardStage->managedRestore(window);
 }
 
-quint64 Effect::activationRankForDesktopStage(const KWin::EffectWindow *window) const
+bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
+    const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore)
 {
-    return m_activationOrder.value(windowIdentity(window));
+    // §5: while the display presents its layout, the pane that yielded becomes
+    // a nonselected card behind it. Anywhere else there is no layout in front
+    // of it, and an ordinary transfer is the right arrival.
+    if (m_cardStage->admitDisplacedPaneAsHiddenCard(window, commitSource, restore))
+        return true;
+    return admitTransferredWindowToTablet(window, commitSource, restore);
 }
 
 KWin::LogicalOutput *Effect::tabletOutputForCardStage() const

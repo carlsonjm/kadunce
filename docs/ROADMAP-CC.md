@@ -306,14 +306,20 @@ is live-verified, so a violation it reports now names a real defect rather than 
 solver decision. `CARD-LIFECYCLE.md` carries the approved model this block
 implements.
 
-The branch has now had one physical review, on the 20 September install. It
-reported no ownership violation at all for the whole session, and deliberate
-entry, deliberate pairing and external activation all behaved as written. Two
-findings came out of it, both since answered: top-edge extraction never ran
-because the eviction invalidated its own carry, and a card called forward was
-drawn on top of a live layout. The second is what produced §8's rewrite and J's
-Option C. Neither is promotion evidence yet; both are owed a physical check on
-the next candidate.
+The branch has had two physical reviews, both on 20 September.
+
+The afternoon one reported no ownership violation for the whole session, and
+deliberate entry, deliberate pairing and external activation behaved as written.
+It found two things: top-edge extraction never ran because the eviction
+invalidated its own carry, and a card called forward was drawn on top of a live
+layout. The second produced §8's rewrite and J's Option C.
+
+The evening one closed the first of those — **top-edge extraction was accepted,
+the first time that gesture has ever run** — and the tray control was accepted
+with it. It found the other two items above: a displaced pane arriving through
+the Active-card door, and a full layout being re-solved rather than giving up one
+slot. Both are fixed and neither has been measured, so the next candidate owes a
+check on §8's two halves and nothing else has changed under them.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
@@ -539,15 +545,29 @@ source-order assertions with behavioral coverage.
   cannot, and becomes an individual Active card only where no slot fits it, at
   which point the layout leaves the screen as a Spread group instead of staying
   behind it. Which pane yields is fit first and activation recency second;
-  `DECISIONS.md` § Fit decides which pane yields records why, and why the side
-  rule below cannot be the whole answer on a display with no side gesture.
-  `shortenToShowable` already expressed the yield, so admission reuses it rather
-  than growing a second displacement path. Candidate order is where retention
-  preference is stated, so `planSession` sorts by the host's activation rank and
-  the existing subset search does the rest.
   Card Stage additionally refuses to leave its Bento presentation on an
   activation it did not route, so no future path can reintroduce a card drawn
   over live panes by accident.
+  Physical review on 20 September accepted the joining half and produced the two
+  items below.
+- [x] Take one slot, not a re-solve. The first attempt answered a full layout by
+  re-solving it, keeping the most recently used resident and rebuilding the shape
+  around the arrival. Measured: a third window needing the wide pane evicted the
+  *narrow* resident and squeezed the survivor from the wide pane into the narrow
+  one, so two windows moved and the survivor changed both size and side. The
+  arrival now claims the smallest slot its minimum permits and only that slot's
+  occupant leaves; `bentoSlotForArrival` is the whole rule and the layout keeps
+  its shape. Activation recency is removed rather than left dormant.
+  `DECISIONS.md` § The arrival claims one slot records why fit alone also covers
+  what recency was introduced to protect.
+- [x] Give a displaced pane its own arrival. It was handed back through
+  `admitTransferredWindowToTablet`, which exists to make a window the Active
+  card: it applies Active geometry, leaves Bento presentation and selects the new
+  member, so the displaced window inflated over the live layout and collapsed the
+  display into one group. `admitDisplacedPaneAsHiddenCard` takes membership and
+  the pre-Bento record and nothing else, and the host routes to it only while the
+  card stage presents Bento. `DECISIONS.md` § A displaced pane arrives through a
+  different door records the split.
 - [x] Let an eviction commit the carry it is committing. A live carry's source
   identity is stamped with the deferred-command generation, and both a
   transaction's own token and a value-copy re-plan advanced it, so the eviction
@@ -606,20 +626,19 @@ on 20 September; the other three are owed the next one.
 
 1. Activating a window the layout could not show brings it forward from the
    Plasma task manager instead of being re-minimized by the next solve. Measured
-   gone: three windows were brought forward during the session and all three
-   stayed.
+   gone.
 2. A pane dragged to the top edge leaves Bento under `CARD-LIFECYCLE.md` §5
-   instead of returning to it. Measured present on 20 September, with the Active
-   preview shown and the pane returned on release; the eviction was invalidating
-   its own carry. Fixed in source and now covered by a probe that validates a
-   real carry source.
+   instead of returning to it. **Measured gone on the 20 September evening
+   candidate**, which is the first time this gesture has ever run.
 3. A card called forward while the display presents a layout joins that layout,
-   per §8. Measured present on 20 September as the opposite: an Active card drawn
-   over live panes, with the layout showing in the margins and still running
-   underneath.
-4. Where the layout is full, the pane that yields is one the arrival's minimum
-   size leaves no room for, or failing that the one used longest ago — and the
-   window that yields is still one Spread entry away.
+   per §8, and the pane it replaces becomes a nonselected card behind the layout
+   rather than an Active card drawn over it. The joining half was measured
+   working; the displaced half was measured wrong and is fixed but unmeasured.
+4. Where the layout is full, the arrival takes the slot its minimum size needs
+   and **only that slot's window leaves**. Every other pane keeps its size and
+   its side. Measured wrong on 20 September and fixed; unmeasured.
+
+The tray enable/disable control was measured clean on the same candidate.
 
 No missing window, stuck input, broken restoration, cross-output leak, or failed
 disable control.

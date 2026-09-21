@@ -201,6 +201,15 @@ public:
     // ownership and keeps presenting Bento; the destination has already proved
     // it can show the card and is publishing around this.
     bool releaseCardToLiveBento(KWin::EffectWindow *card);
+    // §5: the other direction. A pane that yielded its slot becomes a
+    // nonselected individual card while the display is still presenting the
+    // layout it left, so it takes membership and its pre-Bento record and
+    // nothing else: no Active geometry, no selection, no change of
+    // presentation. `admitTransferredWindowToTablet` cannot serve this — it
+    // exists to make an arriving window the Active card.
+    bool admitDisplacedPaneAsHiddenCard(KWin::EffectWindow *window,
+        const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore);
     // Whether this stage is presenting the display's Bento layout rather than
     // its own cards, so a caller can route an activation to the layout.
     [[nodiscard]] bool presentsBento() const {

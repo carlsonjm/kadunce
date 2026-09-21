@@ -96,4 +96,14 @@ inline constexpr int BentoCuratedPaneCap = 8;
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
     int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
 
+// CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one slot,
+// and only that slot's occupant leaves. The slot is the smallest whose pixel
+// size satisfies the arrival's minimum, so a window that fits only the wide
+// pane takes the wide pane and a small one leaves the wide pane alone. Fit is
+// the whole rule: no interaction history is consulted, and the slots the
+// arrival does not take keep their windows, their size and their places.
+// Returns -1 when no slot fits, which is the arrival §8 answers with a card.
+[[nodiscard]] int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
+                                      double minimumWidth, double minimumHeight);
+
 } // namespace Kadunce

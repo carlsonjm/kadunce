@@ -212,8 +212,7 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     // as candidate order. The whole decision runs on a value copy: nothing
     // leaves until this admission has published.
     const RestoreSnapshot snapshot = makeSnapshot(window);
-    const auto admits = [&](Session &probe) {
-        if (!shortenToShowable(probe, snapshot, {}, nullptr)) return false;
+    const auto grows = [&](Session &probe) {
         probe.snapshots.append(snapshot);
         QList<QPointer<KWin::EffectWindow>> unshowable;
         return reflowSession(probe, window, true, false, &unshowable)
@@ -221,14 +220,22 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     };
     const Session live = *session;
     Session candidate = live;
-    bool visible = admits(candidate);
+    bool visible = grows(candidate);
     if (!visible && live.side) {
         candidate = live;
         candidate.side.reset();
         candidate.sideWindow.clear();
-        visible = admits(candidate);
+        visible = grows(candidate);
     }
-    if (!visible) return false;
+    if (!visible) {
+        // Full: the arrival takes the one slot it fits, and the rest of the
+        // layout keeps its shape and its places.
+        const auto slot = slotForArrival(live, window);
+        if (!slot) return false;
+        candidate = live;
+        if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
+        visible = true;
+    }
     m_applicationGuard.invalidate();
     const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
@@ -313,6 +320,44 @@ bool DesktopStageController::admitCardWindow(
     return true;
 }
 
+std::optional<int> DesktopStageController::slotForArrival(
+    const Session &session, KWin::EffectWindow *arrival) const
+{
+    KWin::LogicalOutput *output = outputForKey(session.outputName);
+    if (!output || !arrival || arrival->isDeleted() || !arrival->window()
+        || session.windows.isEmpty()
+        || session.windows.size() != int(session.rects.size())) return std::nullopt;
+    const KWin::Rect area = stageArea(output);
+    const auto pixels = makePixelBentoLayout(session.rects, area.x(), area.y(),
+                                             area.width(), area.height());
+    if (pixels.size() != session.rects.size()) return std::nullopt;
+    const QSizeF minimum = arrival->window()->minSize();
+    const int slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
+    if (slot < 0 || slot >= session.windows.size() || !session.windows.at(slot))
+        return std::nullopt;
+    return slot;
+}
+
+bool DesktopStageController::takeSlotAtCap(Session &candidate, int slot,
+                                           const RestoreSnapshot &arrival) const
+{
+    if (slot < 0 || slot >= candidate.windows.size() || !arrival.valid
+        || !arrival.window) return false;
+    const QPointer<KWin::EffectWindow> yielding = candidate.windows.at(slot);
+    if (!yielding || yielding == arrival.window) return false;
+    candidate.windows[slot] = arrival.window;
+    candidate.snapshots.removeIf(
+        [&yielding](const auto &saved) { return saved.window == yielding; });
+    candidate.snapshots.append(arrival);
+    // The shape is kept, so a side intent naming the window that just left no
+    // longer describes anything on this display.
+    if (candidate.sideWindow == yielding) {
+        candidate.side.reset();
+        candidate.sideWindow.clear();
+    }
+    return true;
+}
+
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     const std::function<bool()> &commitSource)
 {
@@ -330,12 +375,22 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     const RestoreSnapshot snapshot = makeSnapshot(window);
     if (!snapshot.valid) return false;
     const Session live = *session;
+    // §8: grow first. A layout with room takes the arrival beside everything it
+    // already shows, and an empty remainder is what says so.
     Session candidate = live;
-    if (!shortenToShowable(candidate, snapshot, {}, nullptr)) return false;
     candidate.snapshots.append(snapshot);
     QList<QPointer<KWin::EffectWindow>> unshowable;
-    if (!reflowSession(candidate, window, true, true, &unshowable)
-        || !unshowable.isEmpty()) return false;
+    const bool grew = reflowSession(candidate, window, true, true, &unshowable)
+        && unshowable.isEmpty();
+    if (!grew) {
+        // The layout is full, so the arrival takes one slot and only that
+        // slot's occupant leaves. Re-solving instead would move the panes the
+        // user did not touch, which is the rearrangement §8 is avoiding.
+        const auto slot = slotForArrival(live, window);
+        if (!slot) return false;
+        candidate = live;
+        if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
+    }
     // OwnershipHandoff: destination acceptance precedes source removal. The
     // plan above is the acceptance; card ownership gives the window up here,
     // and only a published plan follows, so no window is ever named by both.
@@ -1072,15 +1127,6 @@ bool DesktopStageController::planSession(Session &session,
             owned.append(snapshot.window);
         }
     }
-    // §8: the subset search keeps the earliest candidates it can, so candidate
-    // order is where retention preference is stated. Most recently used first,
-    // which makes the pane that yields the one the user worked in longest ago
-    // among those the arrival's minimum size lets go.
-    std::stable_sort(owned.begin(), owned.end(),
-        [this](const QPointer<KWin::EffectWindow> &a, const QPointer<KWin::EffectWindow> &b) {
-            return m_host->activationRankForDesktopStage(a)
-                > m_host->activationRankForDesktopStage(b);
-        });
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
@@ -1249,7 +1295,9 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
         // there is no source membership left to give up and nothing that a
         // refusal here could roll back. The record travels with it because the
         // session that held it no longer does.
-        if (!m_host->admitTransferredWindowToTablet(window, [] { return true; },
+        // §5 makes this a nonselected card, never the Active one: the display
+        // is still presenting the panes this window just left.
+        if (!m_host->admitDisplacedPaneToTablet(window, [] { return true; },
                 &eviction.record)) {
             qWarning() << "Kadunce" << Revision
                        << "could not give a window the layout cannot show to card ownership";

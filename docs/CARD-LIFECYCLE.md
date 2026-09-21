@@ -369,17 +369,20 @@ An arrival is never parked.
 
 ### Which pane yields
 
-Fit decides first. Only a slot the arrival's minimum size permits can hold it,
-and only a resident that fits one of the remaining slots can stay. On a display
-whose panes differ in size this is usually the whole answer, because most windows
-fit only the larger one.
+The arrival claims one slot, and only that slot's occupant leaves. Every other
+pane keeps its window, its size and its place. One window changes.
 
-Where more than one arrangement satisfies fit, the pane that yields is the one
-whose window the user activated longest ago.
+The slot is the smallest one whose size the arrival's minimum size permits. A
+window that fits only the wide pane takes the wide pane; one that fits either
+takes the narrower and leaves the wide pane alone. Nothing else is consulted:
+not interaction history, not the order the panes were added.
 
-A stated intent outranks both. Where the user releases a card into a side edge,
-§5 gives the yielding pane to that side. An arrival that states no side is
-decided by the rule above.
+The layout does not reshape to make room. Where no slot can hold the arrival,
+Bento does not take it at all and the rule above for an arrival that fits
+nothing applies instead.
+
+A stated intent outranks this. Where the user releases a card into a side edge,
+§5 gives the yielding pane to that side.
 
 ### While an individual card is Active
 

@@ -1868,6 +1868,62 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
     return true;
 }
 
+bool CardStageController::admitDisplacedPaneAsHiddenCard(
+    KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+    const NativeMoveSnapshot *restore)
+{
+    QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_presentation != CardPresentation::Bento || m_cardGrabActive
+        || m_launcherGuestActive || !tablet || !window || window->isDeleted()
+        || !window->window() || !window->isNormalWindow()
+        || !m_host->isManagedWindowForCardStage(window)
+        || window->isUserMove() || window->isUserResize()
+        || liveCardIndex(window) >= 0) return false;
+    QPointer<KWin::EffectWindow> arrival = window;
+    QPointer<KWin::Window> client = window->window();
+    const auto ticket = m_transferGuard.issue();
+    // §5 keeps the record the window had before Bento placed it, so release
+    // still returns it where it began rather than to a pane rectangle. The
+    // caller supplies it because the session that held it has already
+    // published a plan that no longer names this window.
+    const ActiveRestoreSnapshot incoming{
+        .window = window,
+        .geometry = restore ? restore->geometry : client->moveResizeGeometry(),
+        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
+        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry
+                                             : client->fullscreenGeometryRestore(),
+        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
+        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
+        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
+        .minimized = restore ? restore->minimized : client->isMinimized(),
+        .valid = true,
+    };
+    const auto admission = m_workspace.prepareAdmission(arrival, false);
+    if (!admission) return false;
+    if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
+    m_originalCardStackingOrder.append(arrival);
+    const auto valid = [&] {
+        return m_transferGuard.accepts(ticket)
+            && arrival && !arrival->isDeleted() && client && arrival->window() == client
+            && tablet && m_host->tabletOutputForCardStage() == tablet
+            && KWin::effects->screens().contains(tablet.data());
+    };
+    // Membership is published. Everything below is presentation cleanup, so an
+    // invalidation stops it rather than failing a transfer that already
+    // happened.
+    if (!valid()) return true;
+    m_host->connectManagedWindowForCardStage(arrival);
+    if (!valid()) return true;
+    if (!managedRestore(arrival)) m_parkedRestores.append(incoming);
+    // §2: the panes are the display and this card is one of the ones behind
+    // them. It is given no geometry of its own and does not become selected.
+    KWin::effects->setElevatedWindow(arrival, false);
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "took a displaced pane as a hidden card;"
+            << m_workspace.windows().size() << "individual cards remain";
+    return true;
+}
+
 void CardStageController::pageHorizontal(int delta)
 {
     if (!m_active || m_presentation == CardPresentation::Bento) {
