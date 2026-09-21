@@ -74,6 +74,10 @@ not alternate behavior, and where wording conflicts the owning document governs.
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
   would not take a rect; §13 keeps that for release and disable.
+- An ordinary stack releases a member that is lifted and pulled up out of it,
+  into the Spread where the stack stands, and rejoins one that never rose out.
+  Sideways travel reorders instead, and the same upward gesture carried to the
+  top edge is the edge action that makes the card Active.
 - Minimizing a Bento pane hands it to card ownership as a sleeping individual
   card, and the layout keeps nothing it does not show. Waking it is an ordinary
   card waking and never returns it to Bento. Where no display can own a card
@@ -119,8 +123,9 @@ duplicates, and omits stack position.
   entry records only what the current structure does. It is also why a window a
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
-- Pulling a member back from a stack and reorder intent zones still need product
-  completion.
+- Reorder intent zones still need product completion. A reorder commits at 82%
+  of a card's pitch, which is about half the tablet's width, so the travel a
+  deliberate reorder needs is the same travel an accidental one avoids.
 - Native-to-stack admission is not one atomic destination transaction.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or

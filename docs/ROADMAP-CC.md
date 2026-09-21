@@ -851,8 +851,22 @@ rail behavior within them. Met on 21 September.
   settle returns a session to Plasma. `DECISIONS.md` § A placement that does not
   settle sheds records why one retry separates the two cases, and
   `settle-runtime` gates both halves.
-- [ ] Make stack extraction reliable; native-to-stack arrival becomes one atomic
-  membership and insertion transaction.
+- [x] Make stack extraction reliable. Measured before it was changed: the
+  release committed at 82% of a card's pitch, about half the tablet's width of
+  sideways travel, and the gesture a hand reaches for --- lifting the member and
+  pulling it up out of the stack --- returned it every time, however far it rose,
+  until the top edge took it out of Spread entirely. The model underneath was
+  already correct; only the release could not be reached. J approved pulling up
+  and out on 21 September, so a member that rises out of the stack is released
+  into the Spread where the stack stands, one that does not rejoins it, and
+  sideways travel keeps meaning reorder. `CARD-LIFECYCLE.md` §9 states it and
+  `stack-runtime` gates all three answers.
+- [ ] Give a carried window a way into a stack, and make that arrival one
+  membership and insertion transaction. Nothing routes one there today: a
+  window carried in from the desktop becomes an individual Active card, and the
+  stack seam is reachable only by a card already in Spread. The transaction
+  shape is the easy half; the gesture is a product decision and has to come
+  first.
 - [ ] Give reordering a usable intent zone without accidental paging.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
   is drawn as a live picture of the layout with its panes in position, so it is

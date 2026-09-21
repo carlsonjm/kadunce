@@ -417,6 +417,18 @@ A Bento group:
 - Cannot retain removed panes
 - Shows the names of its currently visible applications
 
+### Releasing a member
+
+Lift the member and pull it up out of the stack. It becomes an individual card
+where the stack stands, and the rest of the stack keeps its membership, its
+order and its face.
+
+A release that never rose out of the stack rejoins it, unchanged.
+
+Sideways travel still reorders, so no release has to mean both at once. The same
+upward gesture carried to the top edge is §10's edge action, which takes the
+card out of Spread and makes it Active.
+
 ## 10. Edge actions
 
 ### Top edge

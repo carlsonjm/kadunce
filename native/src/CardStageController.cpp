@@ -39,6 +39,11 @@ constexpr int ArrivalExpandDuration = 220;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr int LauncherGuestTransitionDuration = 220;
 constexpr double LauncherGuestDragPreview = 0.18;
+// CARD-LIFECYCLE.md §9: how far a stacked card rises before it has left the
+// stack. Held-card height rather than a pixel count, so the gesture is the same
+// proportion of the card on every display, and far enough above the 48px slop a
+// browse gesture carries that a card cannot leave a stack by being nudged.
+constexpr double StackReleaseRise = 0.30;
 }
 
 CardStageController::CardStageController(CardStageHost *host)
@@ -1188,8 +1193,16 @@ void CardStageController::finishCardGrab(bool commit)
         }
     }
 
+    // CARD-LIFECYCLE.md §9: a stacked card pulled up out of the stack is
+    // released into the Spread where it stood, and one that never rose out of
+    // the stack rejoins it. Sideways travel keeps meaning reorder, so the two
+    // answers cannot compete for the same release; §10's top edge is further
+    // up the same gesture and takes the card out of Spread entirely.
+    const bool pulledFromStack = commit && !stacked
+        && m_workspace.hasDetachedMember()
+        && m_cardGrabOffset.y() <= -m_cardGrabTarget.height() * StackReleaseRise;
     const bool restoreDetached = m_workspace.hasDetachedMember()
-        && (!commit || (!stacked && movement == 0));
+        && (!commit || (!stacked && movement == 0 && !pulledFromStack));
     if (restoreDetached) {
         m_workspace.restoreDetachedMember();
     } else {
