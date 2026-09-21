@@ -603,6 +603,35 @@ separates the two without guessing. `settle-runtime` gates both halves: a
 one-shot self-move keeps its layout, and a client that keeps moving loses its
 pane rather than the display losing the layout.
 
+### Gestures split by distance need the band between them
+
+Reordering and stacking are told apart by how far a held card travels. Stacking
+is available up to 48% of a card's width and the reorder committed at 82% of the
+row's pitch, which left a band of roughly a third of a card in which neither
+fired. That band is not slack. It is the part a hand can feel.
+
+A shorter reorder was built to remove the long sweep, at a quarter of the pitch,
+with the row paging under the held card so the result was visible before the
+release. It passed every gate it had --- its own runtime probe, the route
+matrix, `./verify.sh` --- and physical review rejected it, because the new
+distance sat inside the stacking window and closed the band to nothing. The
+router then had to suppress stacking outright once the row moved, which is a
+correct rule and an unfeelable one: two adjacent thresholds with no gap read as
+one ambiguous region.
+
+So the rule is not "the reorder distance was wrong". It is that this row cannot
+hold a third distance. Two gestures already spend the travel a card has, and
+anything placed between them takes the band from one of them.
+
+A held card compounds it by being drawn from its slot rather than from under the
+finger, so identical travel shows a different picture depending on where the
+card was picked up. Physical review found that before it found the thresholds.
+
+Block 7b answers this by removing the question: a row that follows the finger
+continuously has no thresholds to separate. `wip/reorder-push-20260921` keeps
+the attempt and its measurements; it is not promoted, and it should not be
+rebuilt as a variant.
+
 ### A stack takes no arrival from the desktop
 
 A window carried in from the native desktop becomes an individual card. It never

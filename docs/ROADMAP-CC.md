@@ -869,24 +869,37 @@ product decisions J has not been asked yet.
   sideways travel keeps meaning reorder. `CARD-LIFECYCLE.md` §9 states it and
   `stack-runtime` gates all three answers.
 - [ ] Give reordering a usable intent zone without accidental paging. A reorder
-  commits at 82% of a card's pitch, which on the tablet's 1443-wide work area is
-  705px of sideways travel against an 860px pitch, and paging is armed by a
-  300ms dwell inside a 115px edge zone. The two collide by construction: a
-  reorder sweep started near the middle of the centre card ends around x=1436,
-  inside the right edge zone, so the pause a user takes to check the result
-  before releasing is the same input that pages the row. Shortening the reorder
-  distance is what separates them; a smaller threshold ends the sweep short of
-  the zone.
+  commits at 82% of a card's pitch, 705px of sideways travel against an 860px
+  pitch on the tablet's work area, and paging arms on a 300ms dwell inside a
+  115px edge zone. A sweep that long ends inside that zone, so the pause a user
+  takes to check the result before releasing is the same input that pages.
 
-  J approved the nudge on 21 September and scoped it as a stopgap: a short,
-  deliberate push, with the neighbour parting live so the new order is visible
-  before the finger lifts, and a push back under the threshold un-parting. The
-  trigger cannot be geometric overlap. These cards are 54% of the work area and
-  the pitch is 60% of it, so every rule phrased as passing the neighbour lands
-  back near half a screen; a nudge is an intent distance that the row then
-  answers with motion. Edge-dwell paging stays for now — with three cards
-  visible it is still how a distant slot is reached — and must not arm during a
-  nudge. Block 7b owns the deck that makes both obsolete.
+  A short push was built against this and physically rejected on 21 September.
+  `wip/reorder-push-20260921` carries it and is not promoted. One position cost
+  a quarter of the pitch and the row paged under the held card as each position
+  was reached, so the release committed what the user had already been shown.
+  Every gate passed --- `reorder-runtime`, the route matrix, `./verify.sh` ---
+  and J still found it worse than what it replaced. Do not rebuild it.
+
+  What the attempt proved is a constraint, not a tuning value. Stacking owns
+  travel up to 48% of a card, 374px, and the old reorder began at 705px, so the
+  two gestures were separated by a 331px band in which neither fired. Moving the
+  reorder to 215px put it inside the stacking window and closed that band to
+  nothing; the router had to suppress stacking outright once the row moved,
+  which is why the thresholds stopped being tellable apart by hand. A
+  distance-split vocabulary needs the dead band, and this row has no room left
+  to give one to a third distance.
+
+  The grab point compounds it. A held card is drawn from its slot rather than
+  from under the finger, so the same travel shows a different picture depending
+  on where the card was picked up: from one edge the finger ends over the
+  neighbour, from the other it is still over the card it lifted. The trigger
+  does not change; what the user sees does.
+
+  Block 7b owns the answer. A row that follows the finger has no thresholds to
+  separate, so it dissolves this item rather than tuning it. Until then
+  reordering keeps the long sweep, which J has not reported hitting the edge
+  zone in practice.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
   is drawn as a live picture of the layout with its panes in position, so it is
   already a map; dropping a card onto a half of it states the side the tablet has
@@ -1043,8 +1056,21 @@ cause.
 - [ ] Retire edge-dwell paging once a throw reaches a distant card, and keep the
   wrap handling `RowPageMotion.h` proved: a shoulder leaves and re-enters at the
   edges rather than flying across the centre card.
-- [ ] Re-derive Block 4's nudge on the continuous offset, or retire it if the
-  deck answers reordering by itself.
+- [ ] Answer reordering with the deck rather than a third distance. Block 4's
+  push was built and physically rejected on 21 September, and what it proved is
+  a constraint on this block: stacking owns travel up to 48% of a card and the
+  long reorder begins at 82% of the pitch, so the two are told apart by a band
+  in which neither fires. A third distance between them has no room, and
+  removing the band is what made the gestures stop being tellable apart. A row
+  that follows the finger has no thresholds to separate, which is the point.
+- [ ] Draw a held card from under the finger, not from its slot. The same
+  travel currently shows a different picture depending on where the card was
+  picked up, which physical review identified before any threshold was blamed.
+- [ ] Give the row something that reports its order. `rowPositionForId` was
+  added on the rejected branch because nothing did: the index `workspaceContext`
+  reports is stable metadata that does not move when the order does, so no
+  reordering change has ever been observable to an automated check. Recover it
+  from `wip/reorder-push-20260921` rather than rediscovering it.
 
 Input routing is local-session work. Physical review is the gate that matters
 here: the whole item is a hand judgment, and no automated check substitutes for
