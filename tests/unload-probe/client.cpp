@@ -61,6 +61,14 @@ public Q_SLOTS:
  void widerCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); w->resize(400,300); w->show(); }
+ // A client whose own minimum grows while its layout is not live, the way one
+ // does on a font or scale change. The rect its session stored is then a size
+ // the client will not take, and the compositor clamps the placement to what
+ // it will. Zero puts the minimum back.
+ void companionMinimumSize(const QString &title, int width, int height) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title)) w->setMinimumSize(width, height);
+ }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or

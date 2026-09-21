@@ -836,14 +836,21 @@ rail behavior within them. Met on 21 September.
 
 **Status:** Unblocked. Block 3 closed on 21 September.
 
-- [ ] Let a resumed layout survive a pane that will not take its stored rect
-  back. Resume places a drifted pane onto the stored rect, and the settle check
-  then requires every pane to match that rect exactly within its grace or
-  restores the whole session to the desktop. Observed live once on 21 September,
-  on the one resume that had a drifted pane: the pair reopened and the layout
-  ended by itself moments later. Reproduce it before changing anything, and
-  measure what the client does with the stored size the second time it is asked
-  for it.
+- [x] Let a resumed layout survive a pane that will not take its stored rect
+  back. Reproduced in the nested compositor before anything was changed: a
+  client that moves its own frame once while a placement is arriving took the
+  whole layout to the native desktop, which is what the tablet did on 21
+  September. The controlling properties were measured rather than assumed. The
+  grace is 450ms and the match is exact, so a client that had merely moved
+  itself read the same as one refusing the rect, and a settle only ever runs
+  after a placement, which is why a live layout never notices a drift at all.
+  A placement is now asked for once more before anything is concluded from it,
+  bounded by the token it was published with, and a pane that still will not
+  take its rect leaves for card ownership under §5 while the panes that settled
+  keep theirs. §13 keeps the native desktop for release and disable, so no
+  settle returns a session to Plasma. `DECISIONS.md` § A placement that does not
+  settle sheds records why one retry separates the two cases, and
+  `settle-runtime` gates both halves.
 - [ ] Make stack extraction reliable; native-to-stack arrival becomes one atomic
   membership and insertion transaction.
 - [ ] Give reordering a usable intent zone without accidental paging.

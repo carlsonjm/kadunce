@@ -582,6 +582,27 @@ On unload, Kadunce first cancels and destroys input routes, then restores manage
 windows while controllers still exist, then unregisters the effect. No callback may
 outlive its owner.
 
+### A placement that does not settle sheds; it does not go back to Plasma
+
+A layout asks for its rects once and then reads what arrived. What it used to do
+when the reading disagreed was return every window in the session to the native
+desktop, which `CARD-LIFECYCLE.md` §13 reserves for release and disable, and
+which a user reads as the layout vanishing.
+
+Two things can make the reading disagree, and they deserve different answers. A
+client that moves itself while the placement is arriving -- a terminal
+reflowing, a scale change re-rounding an edge -- has not refused anything, so
+the layout asks for its rects once more and that client settles. A client that
+will not take the rect however often it is asked is a window the layout cannot
+show, which §5 already answers: it leaves for card ownership, the panes that did
+settle keep theirs, and a layout that falls to one pane ends into a card. Where
+no display can own a card nothing leaves, which is §5's own answer.
+
+One retry, bounded by the token the session was published with, is what
+separates the two without guessing. `settle-runtime` gates both halves: a
+one-shot self-move keeps its layout, and a client that keeps moving loses its
+pane rather than the display losing the layout.
+
 ### Persistent membership is not promised across unload
 
 The public context endpoint and live registry disappear with the effect. Do not add

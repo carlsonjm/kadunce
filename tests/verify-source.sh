@@ -72,6 +72,24 @@ shed = source.split('bool DesktopStageController::shedUnshowable(', 1)[1].split(
 assert 'evictToTablet(' in shed, 'Shedding must hand the window to card ownership'
 assert 'm_sessions.constFind(' in shed, 'Shedding must re-find its session between evictions'
 PY_PUBLISH
+# CARD-LIFECYCLE.md §13 keeps the native desktop for release and disable, and §5
+# sends a window the layout cannot show to card ownership. A placement that does
+# not settle is therefore answered by shedding the panes that would not take
+# their rects, never by returning the session to Plasma.
+python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_SETTLE'
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+settle = source.split('void DesktopStageController::settleSessions(', 1)[1].split(
+    'void DesktopStageController::shedUnsettledPanes(', 1)[0]
+assert 'restoreSession(' not in settle, 'A settle must not return a session to Plasma'
+assert 'shedUnsettledPanes(' in settle, 'A settle must answer an unplaced pane by shedding it'
+assert 'm_settleRetries' in settle, 'A placement must be asked for once more before it is judged'
+shed = source.split('void DesktopStageController::shedUnsettledPanes(', 1)[1].split(
+    'bool DesktopStageController::sessionGeometryMatches(', 1)[0]
+assert 'extractPaneToCards(' in shed, 'An unplaced pane must leave for card ownership'
+assert 'restoreSession(' not in shed, 'Shedding must not return the session to Plasma'
+assert 'isMinimized()' in shed, 'A sleeping pane belongs to §7, not to the settle'
+PY_SETTLE
 python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()

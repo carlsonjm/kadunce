@@ -1564,8 +1564,63 @@ void DesktopStageController::settleSessions()
         }
         const auto session = m_sessions.constFind(key);
         if (session == m_sessions.cend() || sessionGeometryMatches(session.value())) continue;
-        qWarning() << "Kadunce Bento geometry did not settle; restoring output" << key;
-        restoreSession(key, !outputForKey(key));
+        // A client can change its own frame while the grace runs, so the first
+        // unsettled reading asks for the layout once more instead of deciding
+        // on it. The token the session was published with bounds that to one
+        // retry per placement, and a later placement earns its own.
+        auto pending = m_sessions.find(key);
+        if (pending == m_sessions.end()) continue;
+        if (m_settleRetries.value(key) != pending->applicationToken) {
+            if (applySession(pending.value(), false)) {
+                const auto placed = m_sessions.constFind(key);
+                if (placed != m_sessions.cend())
+                    m_settleRetries.insert(key, placed->applicationToken);
+                scheduleSettle();
+            }
+            continue;
+        }
+        shedUnsettledPanes(key);
+    }
+}
+
+// CARD-LIFECYCLE.md §5: a window the layout cannot show leaves it for card
+// ownership, and a pane that would not take its rect twice is one. The panes
+// that did settle keep theirs, and §5 ends a layout that falls to one. §13
+// reserves the native desktop for release and disable, so a settle never
+// returns a session to Plasma however little of it arrived. Where no display
+// can own a card nothing leaves, which is §5's own answer, and the layout
+// keeps the combination it has.
+void DesktopStageController::shedUnsettledPanes(const QString &key)
+{
+    const auto session = m_sessions.constFind(key);
+    auto *output = outputForKey(key);
+    if (session == m_sessions.cend() || session->applying || !output
+        || session->windows.size() != static_cast<int>(session->rects.size())) return;
+    const auto area = stageArea(output);
+    const auto pixels = makePixelBentoLayout(session->rects, area.x(), area.y(),
+        area.width(), area.height());
+    QList<QPointer<KWin::EffectWindow>> unsettled;
+    for (int index = 0; index < session->windows.size(); ++index) {
+        const auto &window = session->windows.at(index);
+        if (!window || window->isDeleted() || !window->window()) continue;
+        // §7 owns a minimized pane and has its own door for it. Nothing is
+        // read here as the layout failing to place a window that is asleep.
+        if (window->isMinimized()) continue;
+        const auto &pixel = pixels.at(std::size_t(index));
+        if (window->screen() == output
+            && window->frameGeometry().toRect()
+                == KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height)) continue;
+        unsettled.append(window);
+    }
+    for (const auto &window : std::as_const(unsettled)) {
+        // Re-found by key on every pass: a departure reenters this controller
+        // and can end the layout, or empty it, under this loop.
+        if (!m_sessions.contains(key) || !window || window->isDeleted()) return;
+        if (!extractPaneToCards(window, {})) {
+            qWarning() << "Kadunce" << Revision << "could not place a pane on"
+                       << key << "and has nowhere to send it";
+            return;
+        }
     }
 }
 
