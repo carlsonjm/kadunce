@@ -108,7 +108,8 @@ the way they are. Finding 4 still stands.
    reject correct code and must be converted before, not during, that work.
 4. The Shuffle dock is infrastructure, not packaging. It resolves Tettegouche's
    asymmetric Ambient and ticker width and supplies the Keyboard's mount
-   geometry, so it gates two later blocks and cannot sit inside private assembly.
+   geometry, so it gates two later blocks and cannot sit downstream of the
+   components.
 
 Live validation on 19 September added two more. Physical gesture evidence is not
 trustworthy while the edge backend is decided by a boot race, which is why 1e
@@ -838,8 +839,8 @@ purpose: it does not reopen stable architecture for style.
 - [ ] Audit timers, model lifetime, responsive calculations and resource paths.
 - [ ] Confirm protected custom icons remain unchanged.
 
-**Exit gate:** The three components are lifecycle-safe and ready for private
-product consumption without duplicated state ownership.
+**Exit gate:** The three components are lifecycle-safe and ready for downstream
+consumption without duplicated state ownership.
 
 ## Block 7 — Temperance event boundary
 
@@ -923,7 +924,7 @@ here.
   downstream of them, including the rule that components never depend on
   anything downstream.
 
-## Block 10 — Private assembly and installation
+## Block 10 — Downstream assembly and installation
 
 **Status:** Blocked by Blocks 9 and 10a. Requires the compatibility decision
 below.
