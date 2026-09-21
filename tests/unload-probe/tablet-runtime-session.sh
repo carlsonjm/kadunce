@@ -55,7 +55,7 @@ for kind in pointer touch; do
     # rather than only native arrival onto an empty/inactive tablet.
     kad showCardLine
     sleep .3
-    kad workspaceContext | jq -e '.cardStage.presentation == "spread"'
+    kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
     probe pointer 1800 380
     client armMove
     if [[ $kind == pointer ]]; then probe contactButton true; else probe down 48 1800 380; fi

@@ -147,6 +147,27 @@ if rg -ni "${retired_vocabulary}" "${project_dir}" \
     exit 1
 fi
 
+# `cardLine` is a frozen wire value, not vocabulary, so the guard above cannot
+# protect it: that one only watches for the retired word coming back, and a
+# vocabulary pass moves in the opposite direction. Block 1b's mechanical pass
+# rewrote the value to `spread` inside three probe assertions, which then
+# asserted a presentation the effect never reports. All three failed silently
+# from that day and one sat inside the integrated carry gate. Check the wire in
+# both directions instead: the effect must still report the frozen value, and
+# every presentation a test asserts must be one the effect can report.
+rg -q 'QStringLiteral\("cardLine"\)' "${project_dir}/native/src/Effect.cpp" || {
+    echo "Effect no longer reports the frozen cardLine presentation" >&2
+    exit 1
+}
+# Keep in step with the presentations Effect::workspaceContext reports.
+reported_presentations='inactive|cardLine|bento|active'
+if rg -o --no-filename 'presentation"?\s*(?:==|:)\s*"([A-Za-z]+)"' \
+        "${project_dir}/tests" -r '$1' \
+        | sort -u | rg -v "^(${reported_presentations})$"; then
+    echo "A test asserts a cardStage presentation the effect never reports" >&2
+    exit 1
+fi
+
 # Installation is transactional: validation/build and the privileged,
 # byte-verified copy must finish before the accepted live effect is disabled.
 native_build_line="$(rg -n 'cmake --build "\$\{native_build_dir\}"' \

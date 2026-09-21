@@ -567,6 +567,21 @@ Private KWin sessions use isolated display, runtime, and D-Bus state. Their succ
 does not establish live control availability, physical touch behavior, frame pacing,
 or installed provenance.
 
+### A frozen identity needs a guard that watches both directions
+
+`tests/verify-source.sh` rejects retired vocabulary returning and names the three
+layer-3 identities as the only permitted occurrences. That catches a regression
+and cannot catch a rename, because a vocabulary pass moves the other way: it
+takes the frozen spelling out. Block 1b's mechanical pass rewrote the `cardLine`
+presentation to `spread` inside three probe assertions, which then asserted a
+value `Effect::workspaceContext` never reports. All three failed from that day,
+one of them inside `verify-integrated-carry.sh`, where it made the route matrix
+unpassable.
+
+A frozen wire value is checked on the wire: the source must still report it, and
+every value a test asserts must be one the source can report. Naming a permitted
+spelling protects the word, not the interface.
+
 ### Native KWin patches are version-bound
 
 The touch-lifetime correction binds a saved touch identity to one window and one

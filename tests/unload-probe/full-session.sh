@@ -29,7 +29,7 @@ for delay in .05 .45; do
     test "$(effect loadEffect)" = true
     rg -Fq "$KADUNCE_FULL_FIXTURE_BUILD/bin/kwin/effects/plugins/kwin4_effect_kadunce.so" "/proc/${PPID}/maps"
     qdbus6 org.kde.KWin /Kadunce studio.warbler.Kadunce.showCardLine
-    qdbus6 org.kde.KWin /Kadunce studio.warbler.Kadunce.workspaceContext | rg -q '"presentation":"spread"'
+    qdbus6 org.kde.KWin /Kadunce studio.warbler.Kadunce.workspaceContext | rg -q '"presentation":"cardLine"'
     sleep .1
     probe down 2 500 300
     sleep "$delay"

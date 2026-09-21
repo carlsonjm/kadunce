@@ -45,7 +45,7 @@ probe motion 72 640 735
 probe motion 72 640 680
 probe up 72
 sleep .3
-kad workspaceContext | jq -e '.cardStage.presentation == "spread"'
+kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
 test "$(probe windowGeometry "$main")" = "$active"
 echo 'PASS: bottom edge swipe enters Spread without native resize'
 kad showActive
