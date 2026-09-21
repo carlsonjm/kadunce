@@ -295,19 +295,18 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** In progress on `wip/deliberate-entry-20260919`. Deliberate entry is
-implemented there against an answer J has since superseded: a card carried to a
-side edge while it was itself Active was treated as having nothing to pair with,
-so it stayed Active. J inverted that on 19 September. The carried card owns the
-edge it is released into, and Spread direction selects the partner rather than
-the partner's eventual Bento side, so a carried Active card pairs with the
-nearest eligible card on the contacted side of it in cyclic Spread order. The
-branch must be corrected to that grammar before physical review. Block 2's ledger
-is live-verified, so a violation it reports now names a real defect rather than a
-solver decision. `CARD-LIFECYCLE.md` carries the approved model this block
-implements.
+**Status:** In progress on `wip/deliberate-entry-20260919`. Deliberate entry was
+first implemented against an answer J superseded on 19 September: a card carried
+to a side edge while it was itself Active was treated as having nothing to pair
+with, so it stayed Active. The corrected grammar is now in the contract and in
+the branch. The carried card owns the edge it is released into, and Spread
+direction selects the partner rather than the partner's eventual Bento side, so a
+carried Active card pairs with the nearest eligible card on the contacted side of
+it in cyclic Spread order. Block 2's ledger is live-verified, so a violation it
+reports now names a real defect rather than a solver decision.
+`CARD-LIFECYCLE.md` carries the approved model this block implements.
 
-The branch has had two physical reviews, both on 20 September.
+The branch has had four physical reviews, all on 20 September.
 
 The afternoon one reported no ownership violation for the whole session, and
 deliberate entry, deliberate pairing and external activation behaved as written.
@@ -340,8 +339,8 @@ admission and the projection round trip it forced. Ownership now holds at three
 owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
-Physical review is owed for the whole branch, so none of it is promotion
-evidence. The isolated probes now assert this block's contract rather than the
+Physical review is owed for what those four reviews did not reach, so the branch
+as a whole is not yet promotion evidence. The isolated probes now assert this block's contract rather than the
 one it replaced, so a green run is evidence about the implementation instead of
 evidence that the old behavior survived. They remain automated coverage and do
 not stand in for physical review.
