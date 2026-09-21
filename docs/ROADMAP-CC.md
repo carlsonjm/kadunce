@@ -883,8 +883,9 @@ user-facing terminology matches the contract.
 
 ## Block 5 — Bottom Surface
 
-**Status:** Requires Block 10a first, which is the repository that holds it.
-Unblocked for testing on 21 September: the Keyboard exists and is accepted as
+**Status:** Ready, and the first work the downstream repository owes. Block 10a
+closed on 21 September, so the repository that holds it exists.
+Unblocked for testing the same day: the Keyboard exists and is accepted as
 working, so the dock's pull and hide actions have a real surface to be tested
 against instead of a described one. Its first integration is therefore known
 before the contract is written --- the Keyboard asks Plasma's bottom panel to
@@ -906,7 +907,7 @@ optimizes their composition, and is never a dependency of it. An open-source
 installation that lacks the dock is a supported configuration, not a degraded
 one.
 
-- [ ] Complete Block 10a so the integration repository exists to hold it.
+- [x] Complete Block 10a so the integration repository exists to hold it.
 - [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
@@ -1054,14 +1055,17 @@ Shuffle presentation never leaves a session unlocked or unrecoverable.
 
 ## Block 10a — Integration repository
 
-**Status:** Ready. Pulled ahead of the rest of Block 10 because Block 5 lives
-here.
+**Status:** Complete, 21 September. `carlsonjm/shuffle`, private, holding the
+boundary and nothing else. Pulled ahead of the rest of Block 10 because Block 5
+lives here, and that is now unblocked.
 
-- [ ] Establish the downstream integration repository that consumes pinned
+- [x] Establish the downstream integration repository that consumes pinned
   component releases.
-- [ ] Document the boundary between the public components and anything
+- [x] Document the boundary between the public components and anything
   downstream of them, including the rule that components never depend on
-  anything downstream.
+  anything downstream. `docs/BOUNDARY.md` there states the one-way rule, why an
+  installation without the dock is supported rather than degraded, and what the
+  Keyboard's licence does and does not reach once a bundle ships.
 
 ## Block 10 — Downstream assembly and installation
 
