@@ -44,9 +44,8 @@ not alternate behavior, and where wording conflicts the owning document governs.
   carried to the top edge leaves the layout it is in and becomes the Active
   card, so on a display whose maximum is two panes an extraction ends the
   layout and leaves two individual cards. A display that cannot own cards has
-  no destination for the rule and keeps its single pane. This holds in source
-  and under the isolated probes; the gesture itself has not been reviewed on
-  hardware.
+  no destination for the rule and keeps its single pane. The gesture is
+  physically accepted.
 - Touch Spread preserves a Bento composition as one logical group card. Its
   pane-visible live surfaces keep their native work-area positions and proportions
   inside one centered desktop view, including outer gutters, pane gaps, and dock
@@ -140,7 +139,9 @@ no-member-paging, sleeping-member, residue-free repeated exact resume,
 first-snap refresh, and private two-output ownership lifecycle coverage. Physical
 review accepted its geometry, tint, gutters, container-level rounded clipping,
 exact resume, and repeated-entry behavior.
-Physical review has accepted ownership, constrained launch routing, stack retention,
+Physical review has accepted `CARD-LIFECYCLE.md` §8 on both branches, §5's
+one-remaining-pane rule and §10's top edge, across four candidates on 20
+September. It has also accepted ownership, constrained launch routing, stack retention,
 large-pane selection, monitor isolation, lifecycle, and the current live-rendering
 model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.

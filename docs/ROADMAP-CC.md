@@ -323,8 +323,16 @@ A third review the same night accepted both of those fixes: calling a card
 forward exchanged one pane repeatedly, and the window that left was the one whose
 slot the arrival needed. It found the gap they shared, which is that only the
 activation path retired a layout it could not take from, so a *launched*
-application was still drawn over running panes. That is fixed and unmeasured, and
-it is what the next candidate owes.
+application was still drawn over running panes.
+
+A fourth review accepted that too, and with it both halves of §8. The journal
+carries each: a launch that fits takes a slot and the pane it replaces becomes a
+hidden card, and a launch that fits nothing retires the layout into a Spread
+group first --- which is the only way a new card can be published at all while
+the display presents Bento, because Card Stage now refuses that path outright.
+§8, §5's one-remaining-pane rule and §10's top edge are physically accepted. The
+items still open in this block are listed below and none of them was reached by
+these four reviews.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
@@ -659,7 +667,7 @@ on 20 September; the other three are owed the next one.
    below.
 5. A *launched* application is answered the same way as a called one, and one no
    slot can hold retires the layout into a Spread group instead of being drawn
-   over it. Measured wrong on the second candidate and fixed; unmeasured.
+   over it. **Measured gone**, both branches, on the fourth candidate.
 
 The tray enable/disable control was measured clean on both candidates.
 
