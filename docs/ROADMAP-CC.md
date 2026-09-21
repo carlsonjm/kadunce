@@ -509,12 +509,22 @@ source-order assertions with behavioral coverage.
   face and a deeper slot leaves it. `line-runtime` passes end to end, three runs
   in three. It is listed here because this gate is what would certify the branch
   for `main`, not because it belongs to ownership.
-- [ ] Leave a refused side snap exactly as it found the Spread. A release the
-  entry rule refuses is not handled by the card stage, so the router commits the
-  grab: a stacked member is extracted and the card moves one position in Spread
-  order. §14 requires a refused gesture to preserve the exact prior state, and §3
-  now states that a carried Active card with no eligible partner leaves
-  everything unchanged.
+- [x] Leave a refused side snap exactly as it found the Spread. A release the
+  entry rule refused was not handled by the card stage, so the router committed
+  the grab: a stacked member was extracted and the card moved one position in
+  Spread order. §14 requires a refused gesture to preserve the exact prior state,
+  and §3 states that a carried Active card with no eligible partner leaves
+  everything unchanged. §10 gives the answer: an edge action commits only when
+  released inside its valid edge zone, so a release inside one is an edge action
+  whether or not it was admitted, and the ordinary Spread drop is not where it
+  belongs. A release in an edge zone that no branch claimed now cancels the
+  grab, which returns the card to the membership it was lifted from.
+  Reproduced before it was fixed. With the carried card Active and its only peer
+  sleeping, so §4 names no partner, a right-edge release took the carried member
+  out of its two-card stack and left one. The same gesture now leaves membership,
+  order and face unchanged, and `line-runtime` gates it. The right edge is what
+  proves it: a Spread commit only reorders past a card's own pitch, and no
+  nearer edge is that far from the held card.
 - [x] Promote to Active by the entry that holds the window. Promotion selects by
   a card index in a model indexed by entry, so once any stack exists — and a
   Bento group always is one — it selects a different entry than the window it was

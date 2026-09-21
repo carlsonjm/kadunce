@@ -115,6 +115,12 @@ duplicates, and omits stack position.
   staying where it was.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
+- A minimized Bento pane is still owned by its layout. §7 makes it a sleeping
+  individual card immediately, and §5 says Bento retains no minimized pane;
+  the session instead keeps its record, carries it as a sleeping projection
+  member, and returns it to Bento when the user restores it. §5's
+  one-remaining-pane rule waits on the same gap, because a session still
+  holding a sleeping window has nowhere to put it.
 - Native-to-stack admission is not one atomic destination transaction.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or

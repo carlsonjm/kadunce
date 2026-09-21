@@ -2194,6 +2194,23 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
         m_lineDestination.reset(); m_lineDestinationWindow.clear();
         return true;
     }
+    // §10: an edge action commits only when released inside its valid edge
+    // zone, and a release inside one is an edge action whether or not it was
+    // admitted. Neither branch above claimed this release, so the entry rule
+    // refused it: §3's Active card with no eligible partner, a pair that could
+    // not be prepared, or a side snap §5 gives to a live layout. Handing it to
+    // the ordinary Spread drop instead would move the card one place in Spread
+    // order and take a named member out of its stack, which §14 forbids a
+    // refused gesture from doing. Cancelling the grab restores the membership
+    // the card was lifted from.
+    if (auto *edgeOutput = KWin::effects->screenAt(position.toPoint());
+        edgeOutput && QRectF(edgeOutput->geometry()).contains(position)
+        && m_cardStage->canOwnCards(edgeOutput) && !isPanelPoint(position)
+        && monitorCarryEdge(QRectF(edgeOutput->geometry()), position)) {
+        m_cardStage->finishCardGrab(false);
+        m_lineDestinationWindow.clear();
+        return true;
+    }
     const bool result = m_cardStage->finishCardGrabOnOutput(position);
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     return result;

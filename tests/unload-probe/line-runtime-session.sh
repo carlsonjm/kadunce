@@ -146,6 +146,32 @@ sleep .32
 test "$(kad workspaceContext | jq -c '.cardStage.selectedStack')" = "$before"
 echo 'PASS: leaving stack target disarms it; no-target release restores original stack order'
 echo 'PASS: stack join and return interpolate the held face rotation without retaining input'
+# CARD-LIFECYCLE.md §3 and §14: a side snap the entry rule refuses leaves the
+# Spread exactly as it found it. The carried card is the Active card and its
+# only peer is sleeping, which §4 never names as a partner, so nothing pairs
+# and nothing is admitted. Committing the grab instead would take the carried
+# member out of its stack, which is what a declined gesture must not do.
+# The right edge is the one that proves it: a Spread commit only reorders past
+# a card's own pitch, and only that edge is that far from the held card.
+kad showActive
+sleep .5
+kad showCardLine
+sleep .5
+sleeper=$(kad workspaceContext | jq -r '.cardStage as $c | [$c.selectedStack[] | select(. != $c.selectedCardId)] | .[0]')
+probe minimizeWindow "$sleeper" true
+sleep .5
+refused_before=$(kad workspaceContext | jq -c '{stack:.cardStage.selectedStack,face:.cardStage.selectedCardId}')
+probe down 55 500 350
+sleep .4
+probe motion 55 1275 350
+sleep .2
+jq -e '.lineCarrying and (.lineDestination|not)' <<<"$(kad nativeCarryState)"
+probe up 55
+sleep .45
+test "$(kad workspaceContext | jq -c '{stack:.cardStage.selectedStack,face:.cardStage.selectedCardId}')" = "$refused_before"
+probe minimizeWindow "$sleeper" false
+sleep .5
+echo 'PASS: a refused tablet side snap leaves Spread membership, order and face unchanged'
 # Both seams of the same stack stay reachable without releasing the held card,
 # and the seam the page reached is the one the release commits. Insertion depth
 # is front-first: depth 0 puts the carried card in front, and a deeper slot
