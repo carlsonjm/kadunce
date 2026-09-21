@@ -883,8 +883,17 @@ user-facing terminology matches the contract.
 
 ## Block 5 — Bottom Surface
 
-**Status:** Parallel with Blocks 1–4; different repository and disjoint physical
-checks. Requires Block 10a first.
+**Status:** Requires Block 10a first, which is the repository that holds it.
+Unblocked for testing on 21 September: the Keyboard exists and is accepted as
+working, so the dock's pull and hide actions have a real surface to be tested
+against instead of a described one. Its first integration is therefore known
+before the contract is written --- the Keyboard asks Plasma's bottom panel to
+yield and restores its hiding mode afterwards, and the Bottom Surface has to
+take that over.
+Tettegouche is not optimized for a virtual keyboard, which J confirmed the same
+day; the Keyboard's Meta key already resolves the user's live bare-Meta binding
+through KDE's global-shortcut service, so the seam between them exists and it is
+Tettegouche's composition that has to answer a keyboard, not the plumbing.
 
 Bottom Surface is the single layout authority for the Status Bar, Shuffle Dock,
 Ambient and the Keyboard boundary. Treating it as one authority is the point:
@@ -917,6 +926,12 @@ keyboard existing.
 ## Block 6 — Tettegouche completion
 
 **Status:** Width work blocked by Block 5; the rest is ready.
+
+- [ ] Answer a virtual keyboard. J confirmed on 21 September that Tettegouche is
+  not optimized for one: its composition assumes the work area a keyboard takes
+  half of. The Keyboard reserves workspace as its height changes, so this is
+  Tettegouche responding to a smaller area rather than either side negotiating,
+  and it belongs with the width work Block 5 gates.
 
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`: MPRIS, Plasma
   jobs, Tette operations, Downloads arrivals, concurrent density.
@@ -975,7 +990,8 @@ membership without regressing normal KDE switching or display ownership.
 
 ## Block 9 — Shuffle Keyboard feasibility and implementation
 
-**Status:** An implementation exists and J typed on it on 21 September. It was
+**Status:** J accepted the current build on 21 September as working, not
+finished. An implementation exists and he typed on it that day. It was
 built outside this plan's order, so the blocks it was waiting on did not gate it
 after all, and the residual risk this block carried is largely spent. It lives
 in `shuffle-keyboard/`, a fourth repository and a fork of KDE's
