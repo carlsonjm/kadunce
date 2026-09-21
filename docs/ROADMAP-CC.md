@@ -834,7 +834,14 @@ rail behavior within them. Met on 21 September.
 
 ## Block 4 — Kadunce manipulation
 
-**Status:** Unblocked. Block 3 closed on 21 September.
+**Status:** Unblocked, and in progress on `wip/deliberate-entry`'s successor
+`wip/manipulation-20260921`. Two items are implemented there and gated by
+`settle-runtime` and `stack-runtime`: a placement a client moves out of no
+longer costs the layout, and a stacked card is released by pulling it up out of
+the stack. `./verify.sh` and the route matrix pass on that branch, and a
+candidate carrying both was installed on the tablet on 21 September. It owes its
+physical pass, which is what would promote the branch; the work is not on `main`
+until it has one.
 
 - [ ] Let a resumed layout survive a pane that will not take its stored rect
   back. Resume places a drifted pane onto the stored rect, and the settle check
