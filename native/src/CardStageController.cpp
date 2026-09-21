@@ -44,6 +44,20 @@ constexpr double LauncherGuestDragPreview = 0.18;
 // proportion of the card on every display, and far enough above the 48px slop a
 // browse gesture carries that a card cannot leave a stack by being nudged.
 constexpr double StackReleaseRise = 0.30;
+
+// CARD-LIFECYCLE.md §6: how far a carried card travels sideways to move one
+// position. A fraction of the row's pitch rather than a pixel count, so the
+// push is the same proportion of the row on every display.
+//
+// The trigger cannot be geometric overlap. A card is 54% of the work area and
+// the pitch 60% of it, so every rule phrased as passing the neighbour costs
+// most of a screen, which is what the old 0.82 threshold was. A push is an
+// intent distance the row answers with motion instead.
+//
+// The two comparisons in the accumulator sit a whole pitch fraction apart, so
+// a card that has moved one position must travel the same distance back before
+// it moves again. That is the hysteresis; there is no separate slop term.
+constexpr double ReorderPushFraction = 0.25;
 }
 
 CardStageController::CardStageController(CardStageHost *host)
@@ -386,6 +400,11 @@ QPointF CardStageController::cardGrabOffset() const
 int CardStageController::cardGrabPageOffset() const
 {
     return m_cardGrabPageOffset;
+}
+
+int CardStageController::cardGrabReorderSteps() const
+{
+    return m_cardGrabReorderSteps;
 }
 
 KWin::Rect CardStageController::cardGrabTarget() const
@@ -1095,6 +1114,7 @@ void CardStageController::beginCardGrab(const QPointF &position)
                                      work.height() * HeldCardFraction);
     m_cardGrabScaleTimer.start();
     m_cardGrabPageOffset = 0;
+    m_cardGrabReorderSteps = 0;
     m_cardGrabMoved = false;
     m_cardStackPreviewTarget = 0;
     m_stackInsertion.reset();
@@ -1124,7 +1144,54 @@ void CardStageController::updateCardGrab(const QPointF &position)
     if (std::hypot(m_cardGrabOffset.x(), m_cardGrabOffset.y()) >= 36.0) {
         m_cardGrabMoved = true;
     }
+    updateCardGrabReorder();
     KWin::effects->addRepaintFull();
+}
+
+double CardStageController::reorderPushDistance() const
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) {
+        return 0.0;
+    }
+    const KWin::RectF work = KWin::effects->clientArea(
+        KWin::MaximizeArea, tablet);
+    const SpreadLayout layout = makeSpreadLayout(
+        work.x(), work.y(), work.width(), work.height());
+    return (layout.cards[1].width + layout.gutter) * ReorderPushFraction;
+}
+
+// CARD-LIFECYCLE.md §6: a carried card is moved by pushing it sideways, and the
+// row answers each push by paging under it, so the new order is visible before
+// the finger lifts. The release commits what the row is already showing.
+void CardStageController::updateCardGrabReorder()
+{
+    // A card being aimed at a stack is not being reordered, and one rising out
+    // of a stack is answering §9. Neither release may also carry a move.
+    if (!m_cardGrabActive || m_cardStackPreviewArmed
+        || m_workspace.count() < 2
+        || std::abs(m_cardGrabOffset.y())
+            > m_cardGrabTarget.height() * 0.48) {
+        return;
+    }
+    const double push = reorderPushDistance();
+    if (push <= 0.0) {
+        return;
+    }
+    const int limit = m_workspace.count() - 1;
+    const double travelled = m_cardGrabOffset.x() / push;
+    int steps = m_cardGrabReorderSteps;
+    while (steps < limit && travelled >= steps + 1.0) ++steps;
+    while (steps > -limit && travelled <= steps - 1.0) --steps;
+    // pageCardGrab owns both counters, so the painted row and the move the
+    // release commits cannot disagree. Bound the walk by the distance asked
+    // for rather than by the counter reaching a value, since a clamped page
+    // legitimately leaves it where it was.
+    const int direction = steps > m_cardGrabReorderSteps ? 1 : -1;
+    for (int remaining = std::abs(steps - m_cardGrabReorderSteps);
+         remaining > 0; --remaining) {
+        pageCardGrab(direction);
+    }
 }
 
 void CardStageController::updateCardGrabDestination(const QPointF &position)
@@ -1141,7 +1208,19 @@ void CardStageController::updateCardGrabDestination(const QPointF &position)
 
 void CardStageController::pageCardGrab(int direction)
 {
-    if (!m_cardGrabActive || m_workspace.count() <= 2 || direction == 0) {
+    if (!m_cardGrabActive || direction == 0) {
+        return;
+    }
+    // One counter for both ways of asking for a move. A sideways push drives
+    // this, and so does an edge dwell, so the row can never show a placement
+    // the release will not honour.
+    const int limit = std::max(0, m_workspace.count() - 1);
+    m_cardGrabReorderSteps = std::clamp(
+        m_cardGrabReorderSteps + (direction < 0 ? -1 : 1), -limit, limit);
+    if (m_workspace.count() <= 2) {
+        // Two cards leave one destination and nothing to page between. The
+        // swap the release commits is the whole of the answer.
+        KWin::effects->addRepaintFull();
         return;
     }
     const int destinations = m_workspace.count() - 1;
@@ -1154,8 +1233,9 @@ void CardStageController::pageCardGrab(int direction)
     syncSelectedStackingOrder();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision
-            << "edge-dwell paged detached row"
-            << m_cardGrabPageOffset + 1 << "of" << destinations;
+            << "paged detached row"
+            << m_cardGrabPageOffset + 1 << "of" << destinations
+            << "move" << m_cardGrabReorderSteps;
 }
 
 void CardStageController::finishCardGrab(bool commit)
@@ -1181,16 +1261,10 @@ void CardStageController::finishCardGrab(bool commit)
         stacked = m_stackInsertion && m_workspace.commitStackInsertion(*m_stackInsertion);
     } else if (commit && m_cardGrabMoved && tablet
                && std::abs(m_cardGrabOffset.y()) <= m_cardGrabTarget.height() * 0.48) {
-        const KWin::RectF work = KWin::effects->clientArea(
-            KWin::MaximizeArea, tablet);
-        const SpreadLayout layout = makeSpreadLayout(
-            work.x(), work.y(), work.width(), work.height());
-        const double pitch = layout.cards[1].width + layout.gutter;
-        if (m_cardGrabOffset.x() <= -pitch * 0.82) {
-            movement = -1;
-        } else if (m_cardGrabOffset.x() >= pitch * 0.82) {
-            movement = 1;
-        }
+        // The row paged to this move while the finger was still down, so the
+        // release has nothing left to decide. Measuring the offset again here
+        // is what let a release commit something the user was never shown.
+        movement = m_cardGrabReorderSteps;
     }
 
     // CARD-LIFECYCLE.md §9: a stacked card pulled up out of the stack is
@@ -1234,6 +1308,7 @@ void CardStageController::resetCardGrabState(
     m_cardGrabDestinationSize = {};
     m_cardGrabScaleTimer.invalidate();
     m_cardGrabPageOffset = 0;
+    m_cardGrabReorderSteps = 0;
     m_cardGrabMoved = false;
     m_cardStackPreviewTarget = 0;
     m_stackInsertion.reset();

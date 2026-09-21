@@ -307,6 +307,20 @@ Which entry is selected, and which side a two-entry Spread draws its neighbour
 on, are presentation. Neither decides which card becomes the partner, nor which
 side a pane takes.
 
+### Moving a card in the order
+
+Lift the card and push it sideways. One position costs one push distance, a
+fraction of the row's pitch, and the row pages under the held card as each one
+is reached, so the new order is visible before the finger lifts. The release
+commits what the row is showing and measures nothing of its own.
+
+A push that never reached the first position does nothing. A push withdrawn
+back toward where the card started gives its positions back one at a time. A
+card cannot be pushed past the far end of the order in one gesture.
+
+A dwell that never moved the row still aims at a stack, per §9. A push that
+moved it aims at no stack, so the two cannot claim the same release.
+
 ### Selecting an individual card
 
 - That card becomes Active.

@@ -138,6 +138,7 @@ public:
     [[nodiscard]] QPointF cardGrabOffset() const;
     [[nodiscard]] KWin::Rect cardGrabTarget() const;
     [[nodiscard]] int cardGrabPageOffset() const;
+    [[nodiscard]] int cardGrabReorderSteps() const;
     [[nodiscard]] int stackPreviewTarget() const;
     [[nodiscard]] bool stackPreviewArmed() const;
     [[nodiscard]] bool stackInsertionPreviewValid() const;
@@ -276,6 +277,8 @@ private:
     void retireActiveIdentity(const KWin::EffectWindow *window);
     bool selectCardEntry(KWin::EffectWindow *window);
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
+    [[nodiscard]] double reorderPushDistance() const;
+    void updateCardGrabReorder();
     void syncSelectedStackingOrder();
     void restoreOriginalStackingOrder();
 
@@ -324,6 +327,10 @@ private:
     QSizeF m_cardGrabDestinationSize;
     QElapsedTimer m_cardGrabScaleTimer;
     int m_cardGrabPageOffset = 0;
+    // The signed count of positions the carried card will move. The page
+    // offset beside it wraps for painting; this one does not, because it is
+    // what the release commits.
+    int m_cardGrabReorderSteps = 0;
     int m_cardStackPreviewTarget = 0;
     int m_cardStackInsertionIndex = -1;
     int m_cardStackPreviousInsertionIndex = -1;

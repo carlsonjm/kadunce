@@ -1281,7 +1281,11 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("lineDestination"),
             bool(m_lineDestination) || bool(m_lineCardEntryOutput)},
         {QStringLiteral("stackArmed"), m_cardStage->stackPreviewArmed()},
-        {QStringLiteral("stackInsertion"), m_cardStage->stackInsertionIndex()}
+        {QStringLiteral("stackInsertion"), m_cardStage->stackInsertionIndex()},
+        // The move the row is already showing, before the finger lifts. A
+        // release commits this and nothing else, so it is what a check of
+        // reordering has to be able to read.
+        {QStringLiteral("lineReorder"), m_cardStage->cardGrabReorderSteps()}
     }).toJson(QJsonDocument::Compact));
 }
 
@@ -1784,6 +1788,9 @@ QString Effect::workspaceContext() const
             application.insert(QStringLiteral("cardId"),
                                windowIdentity(window));
             application.insert(QStringLiteral("cardIndex"), card->cardIndex);
+            // Where the card sits in the row. cardIndex does not move when the
+            // order does, so reordering had nothing that reported it.
+            application.insert(QStringLiteral("rowPosition"), card->rowPosition);
             application.insert(QStringLiteral("stackId"),
                                card->stackId);
             application.insert(QStringLiteral("stackPosition"),
@@ -2242,6 +2249,11 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
 int Effect::cardStackCandidate() const
 {
     return m_cardStage->cardStackCandidate();
+}
+
+int Effect::cardGrabReorderStepsForInput() const
+{
+    return m_cardStage->cardGrabReorderSteps();
 }
 
 int Effect::cardStackBrowseTarget() const

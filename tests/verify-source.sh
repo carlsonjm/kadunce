@@ -431,6 +431,23 @@ rg -q 'constexpr int CardEdgeRepeatDelay = 350' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(fast \? CardEdgeDwellDelay : delay\)' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
+
+# CARD-LIFECYCLE.md §6: the push owns the move and the release commits what the
+# row is showing. A release that measures the offset again is what let a card
+# land somewhere the user was never shown, so the pitch fraction must not
+# reappear there, and one counter must serve both ways of asking for a move.
+rg -q 'constexpr double ReorderPushFraction = 0\.25' "${card_cpp}"
+push_release=$(sed -n '/^void CardStageController::finishCardGrab(/,/^void CardStageController::resetCardGrabState(/p' "$card_cpp")
+printf '%s\n' "$push_release" | rg -Fq 'movement = m_cardGrabReorderSteps;'
+if printf '%s\n' "$push_release" | rg -q 'ReorderPushFraction|\* 0\.82'; then
+    echo 'A release must commit the move the row showed, not measure travel again' >&2; exit 1
+fi
+push_page=$(sed -n '/^void CardStageController::pageCardGrab(/,/^void CardStageController::finishCardGrab(/p' "$card_cpp")
+printf '%s\n' "$push_page" | rg -Fq 'm_cardGrabReorderSteps = std::clamp('
+# §9 keeps the dwell; distance is what separates the two answers.
+rg -Fq 'm_target->cardGrabReorderStepsForInput() == 0' "${router_cpp}"
+rg -Fq 'model.rowPositionForId(id)' "${native_dir}/src/CardWorkspaceSnapshot.h"
+
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"
 rg -q 'QEasingCurve::InQuart' "${effect_cpp}" "${card_cpp}"
@@ -529,10 +546,12 @@ test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy is covered across all slots/active members
 # in SpreadModelTest; fixed aperture/layout hashes above remain unchanged.
+# Re-pinned when rowPositionForId was added under Block 4: a read-only accessor
+# over the existing stack index, adding no state and no ordering rule.
 test "$(sha256sum "${native_dir}/src/SpreadModel.cpp" | cut -d' ' -f1)" = \
-    "9cc0d5d4463c00265fb947337a35f7fcdf70b3ae0d08283b565cc9294143c15b"
+    "6ad8c97cd58ecdd3e0f4c69d87a101c93e48905b583719f9d821d3a441ac6c49"
 test "$(sha256sum "${native_dir}/src/SpreadModel.h" | cut -d' ' -f1)" = \
-    "e1a6700a718bbb90083874cd7811b139f8419f2ab175d11e89f5ec23c172d75b"
+    "3c903b573611d330f6095a21bc222906529ebcaafa2f706f73615c711bf3b715"
 rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"
 rg -q 'window == m_arrivalWindow' "${card_cpp}"
 rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"

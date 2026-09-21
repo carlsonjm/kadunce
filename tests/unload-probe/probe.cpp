@@ -64,6 +64,7 @@ struct Target final : WorkspaceInputTarget {
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     int cardStackCandidate() const override { return 0; }
+    int cardGrabReorderStepsForInput() const override { return 0; }
     void toggleFromInput() override { ++actions; ++toggles; if (onToggle) onToggle(); }
     void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
     void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }

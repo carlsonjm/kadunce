@@ -840,8 +840,12 @@ costs the layout, and a stacked card is released by pulling it up out of the
 stack. The tablet pass took both, together with the tray control against a
 layout holding a sleeping card. The compositor had the candidate plugin mapped
 while the gestures ran, the session log carries no §14 violation, and
-`./verify.sh` and the route matrix pass. Four items remain, two of which are
-product decisions J has not been asked yet.
+`./verify.sh` and the route matrix pass.
+
+Reordering by a push is implemented on `wip/reorder-push-20260921` and gated by
+`reorder-runtime`. It owes its physical pass, which is what would promote it;
+the work is not on `main` until it has one. Three items remain after it, one of
+them shelved and one a decision deferred with Block 7b.
 
 - [x] Let a resumed layout survive a pane that will not take its stored rect
   back. Reproduced in the nested compositor before anything was changed: a
@@ -868,25 +872,31 @@ product decisions J has not been asked yet.
   into the Spread where the stack stands, one that does not rejoins it, and
   sideways travel keeps meaning reorder. `CARD-LIFECYCLE.md` §9 states it and
   `stack-runtime` gates all three answers.
-- [ ] Give reordering a usable intent zone without accidental paging. A reorder
-  commits at 82% of a card's pitch, which on the tablet's 1443-wide work area is
-  705px of sideways travel against an 860px pitch, and paging is armed by a
-  300ms dwell inside a 115px edge zone. The two collide by construction: a
-  reorder sweep started near the middle of the centre card ends around x=1436,
-  inside the right edge zone, so the pause a user takes to check the result
-  before releasing is the same input that pages the row. Shortening the reorder
-  distance is what separates them; a smaller threshold ends the sweep short of
-  the zone.
+- [x] Give reordering a usable intent zone without accidental paging. The old
+  reorder committed at 82% of a card's pitch, 705px of sideways travel against
+  an 860px pitch on the tablet's work area, while paging armed on a 300ms dwell
+  inside a 115px edge zone. The two collided by construction: a sweep started
+  near the middle of the centre card ended around x=1436, inside the edge zone,
+  so the pause a user takes to check the result before releasing was the same
+  input that paged the row.
 
-  J approved the nudge on 21 September and scoped it as a stopgap: a short,
-  deliberate push, with the neighbour parting live so the new order is visible
-  before the finger lifts, and a push back under the threshold un-parting. The
-  trigger cannot be geometric overlap. These cards are 54% of the work area and
-  the pitch is 60% of it, so every rule phrased as passing the neighbour lands
-  back near half a screen; a nudge is an intent distance that the row then
-  answers with motion. Edge-dwell paging stays for now — with three cards
-  visible it is still how a distant slot is reached — and must not arm during a
-  nudge. Block 7b owns the deck that makes both obsolete.
+  J approved the push on 21 September and scoped it as a stopgap. One position
+  now costs a quarter of the pitch, and the row pages under the held card as
+  each position is reached, so the release commits what the user was already
+  shown rather than measuring the offset again. That is what removes the
+  collision: the push ends nowhere near the edge zone. The trigger could not be
+  geometric overlap, because a card is 54% of the work area and the pitch 60% of
+  it, so every rule phrased as passing the neighbour lands back near half a
+  screen.
+
+  Both ways of asking for a move now advance one counter, so an edge dwell can
+  no longer show a row the release will not honour, and §9 keeps the dwell: a
+  rest that never moved the row still aims at a stack, while a push that moved
+  it arms none. `rowPositionForId` reports a card's place in the row, which
+  nothing did before, so this is the first reorder change any check could
+  observe. `reorder-runtime` gates the push, the withdrawal, the short push and
+  the stack precedence, and fails on the old rule at its first assertion. Block
+  7b owns the deck that makes the edge dwell obsolete.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
   is drawn as a live picture of the layout with its panes in position, so it is
   already a map; dropping a card onto a half of it states the side the tablet has

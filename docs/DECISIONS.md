@@ -603,6 +603,37 @@ separates the two without guessing. `settle-runtime` gates both halves: a
 one-shot self-move keeps its layout, and a client that keeps moving loses its
 pane rather than the display losing the layout.
 
+### A release commits the move the row already showed
+
+Reordering used to be decided at the release, by measuring how far the card had
+travelled. A card had to cross 82% of the row's pitch, and nothing moved until
+the finger lifted, so the user found out where the card landed only afterwards.
+
+That distance is not a tuning mistake, it is what a geometric rule costs here. A
+card is 54% of the work area and the pitch 60% of it, so any rule phrased as
+passing the neighbour asks for most of a screen. It also put the end of a
+deliberate reorder inside the edge zone that pages the row on a 300ms dwell, so
+the pause a user takes to check the result before releasing was the same input
+that paged. Two mechanisms, one gesture, and the user shown neither.
+
+A push replaces it. One position costs a quarter of the pitch, and the row pages
+under the held card as each position is reached, so the answer is visible while
+the finger is still down. The release then commits that and measures nothing of
+its own, which is the part that matters: a release that measures again can
+commit something the row never showed. `verify-source.sh` keeps the pitch
+fraction out of the release for that reason.
+
+Both ways of asking for a move --- the push, and the edge dwell that remains
+until Block 7b --- advance one counter, so neither can show a row the other will
+not honour. §9 keeps its precedence by distance rather than by ordering: a rest
+that never moved the row still aims at a stack, and a push that moved it arms
+none.
+
+`rowPositionForId` was added because nothing reported where a card sits in the
+row. `cardIndex` beside it is stable compatibility metadata that does not move
+when the order does, so every earlier reorder change was unobservable to any
+automated check.
+
 ### A stack takes no arrival from the desktop
 
 A window carried in from the native desktop becomes an individual card. It never

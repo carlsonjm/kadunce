@@ -78,6 +78,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   into the Spread where the stack stands, and rejoins one that never rose out.
   Sideways travel reorders instead, and the same upward gesture carried to the
   top edge is the edge action that makes the card Active.
+- A carried card moves one position per quarter of the row's pitch of sideways
+  travel, and the row pages under it as each position is reached, so a release
+  commits the order the user was shown rather than measuring travel again. A
+  rest that never moved the row still aims at a stack; a push that moved it
+  arms none.
 - Minimizing a Bento pane hands it to card ownership as a sleeping individual
   card, and the layout keeps nothing it does not show. Waking it is an ordinary
   card waking and never returns it to Bento. Where no display can own a card
@@ -123,11 +128,6 @@ duplicates, and omits stack position.
   entry records only what the current structure does. It is also why a window a
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
-- Reorder intent zones still need product completion. A reorder commits at 82%
-  of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
-  edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long
-  ends inside that zone, so a deliberate reorder and an accidental page are
-  reached by the same travel.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
@@ -168,8 +168,8 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 The isolated nested-compositor probes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior. `ownership-transition`,
 `side-runtime`, `sleeping-pane-runtime`, `settle-runtime`, `stack-runtime`,
-`membership-runtime`, `launch-runtime`, `desktop-runtime` and `exit-runtime`
-pass and assert the
+`reorder-runtime`, `membership-runtime`, `launch-runtime`, `desktop-runtime` and
+`exit-runtime` pass and assert the
 accepted ownership contract: a launch joins a layout that can grow for it, one
 no slot fits is refused awake and unowned, a full layout's displaced pane
 becomes an awake individual card, a group resume leaves the cards beside it

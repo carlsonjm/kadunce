@@ -125,6 +125,11 @@ int SpreadModel::stackSizeForId(int cardId) const
         m_stacks.at(static_cast<std::size_t>(index)).cards.size());
 }
 
+int SpreadModel::rowPositionForId(int cardId) const
+{
+    return stackIndexForId(cardId);
+}
+
 int SpreadModel::stackPositionForId(int cardId) const
 {
     const int stackIndex = stackIndexForId(cardId);

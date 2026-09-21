@@ -43,6 +43,7 @@ struct Target : WorkspaceInputTarget {
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     int cardStackCandidate() const override { return 0; }
+    int cardGrabReorderStepsForInput() const override { return 0; }
     void toggleFromInput() override { ++actions; ++toggles; if (onToggle) onToggle(); }
     void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
     void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }
@@ -69,7 +70,7 @@ struct Target : WorkspaceInputTarget {
 struct StackTarget final : Target {
     CardWorkspaceState<QString> workspace;
     std::optional<CardWorkspaceState<QString>::PreparedStackInsertion> insertion;
-    int slot = 0, pages = 0, steps = 0;
+    int slot = 0, pages = 0, steps = 0, reorderSteps = 0;
     bool armed = false, valid = true, geometryValid = true;
     WorkspaceInputGeometry geometryForInput() const override {
         return geometryValid ? Target::geometryForInput() : WorkspaceInputGeometry{};
@@ -82,6 +83,7 @@ struct StackTarget final : Target {
     bool stackPreviewArmedForInput() const override { return armed; }
     int stackPreviewTargetForInput() const override { return armed ? 1 : 0; }
     int cardStackCandidate() const override { return grabbed && valid ? 1 : 0; }
+    int cardGrabReorderStepsForInput() const override { return reorderSteps; }
     void setCardStackPreview(int) override {
         armed = true;
         insertion = workspace.prepareStackInsertionAtDepth(QStringLiteral("A"), slot);

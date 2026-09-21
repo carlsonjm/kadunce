@@ -251,6 +251,7 @@ private:
     [[nodiscard]] bool finishCardGrabOnOutput(
         const QPointF &position) override;
     [[nodiscard]] int cardStackCandidate() const override;
+    [[nodiscard]] int cardGrabReorderStepsForInput() const override;
     void setCardStackPreview(int destinationId) override;
     void clearCardStackPreview() override;
     [[nodiscard]] bool pageCardStackInsertion(int direction) override;

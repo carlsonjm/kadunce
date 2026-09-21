@@ -740,7 +740,12 @@ void WorkspaceInputRouter::updateStackTarget()
         updateStackInsertion(holdCurrent());
         return;
     }
+    // A card that has already moved the row is being reordered, not aimed at
+    // a stack, and one browsing at the edge is not aiming either. Distance is
+    // what separates the two: a dwell that never moved the row stacks, and a
+    // push far enough to page it reorders.
     const int target = m_edgePageDirection == 0
+            && m_target->cardGrabReorderStepsForInput() == 0
         ? m_target->cardStackCandidate() : 0;
     if (target == m_stackTargetId) {
         updateStackInsertion(holdCurrent());

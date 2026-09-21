@@ -28,6 +28,9 @@ public:
     [[nodiscard]] bool sameStack(int firstId, int secondId) const;
     [[nodiscard]] int stackSizeForId(int cardId) const;
     [[nodiscard]] int stackPositionForId(int cardId) const;
+    // Where the card's stack sits in the row, left to right. Reordering is
+    // the only thing that changes it, and nothing else reports it.
+    [[nodiscard]] int rowPositionForId(int cardId) const;
     [[nodiscard]] int stackActivePositionForId(int cardId) const;
     [[nodiscard]] std::vector<int> stackMembersForId(int cardId) const;
     [[nodiscard]] std::vector<int> stackPaintOrderForId(int cardId) const;

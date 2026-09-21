@@ -11,6 +11,9 @@ namespace Kadunce {
 struct WorkspaceCard {
     QString windowId;
     int cardIndex = 0;
+    // The card's place in the row. cardIndex beside it is stable
+    // compatibility metadata and does not move when the order does.
+    int rowPosition = 0;
     QString stackId;
     int stackPosition = 0;
     int stackSize = 0;
@@ -40,6 +43,7 @@ inline CardWorkspaceSnapshot makeCardWorkspaceSnapshot(
         const int id = index + 1;
         const auto members = model.stackMembersForId(id);
         result.cards.append({identities[index], id,
+            model.rowPositionForId(id),
             members.empty() ? QString() : identity(members.front()),
             model.stackPositionForId(id) + 1, model.stackSizeForId(id),
             model.selectedId() == id});

@@ -204,6 +204,29 @@ int main()
     require(line.count() == 20 && line.invariantHolds(),
             "Reordering changed Spread membership");
 
+    // A reorder is the only thing that moves a card in the row, and nothing
+    // else reported it, so a check of reordering had nothing to read. Ids stay
+    // put; row positions are what move.
+    Kadunce::SpreadModel order(4);
+    const int firstId = order.selectedId();
+    const int firstRow = order.rowPositionForId(firstId);
+    const int neighborId = order.idAtOffset(1);
+    const int neighborRow = order.rowPositionForId(neighborId);
+    require(firstRow != neighborRow,
+            "Two cards in the row reported the same position");
+    order.moveSelected(1);
+    require(order.rowPositionForId(firstId) == neighborRow
+                && order.rowPositionForId(neighborId) == firstRow,
+            "Moving a card right did not exchange the two row positions");
+    require(order.selectedId() == firstId,
+            "Moving a card right changed which card is selected");
+    order.moveSelected(-1);
+    require(order.rowPositionForId(firstId) == firstRow
+                && order.rowPositionForId(neighborId) == neighborRow,
+            "Moving the card back did not restore both row positions");
+    require(order.invariantHolds(),
+            "Exchanging row positions duplicated or lost a card");
+
     Kadunce::SpreadModel threeCards(3);
     require(threeCards.detachedNeighborhood(0)
                 == std::array<int, 3>{3, 2, 0},

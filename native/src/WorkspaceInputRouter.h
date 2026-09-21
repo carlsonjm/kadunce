@@ -67,6 +67,7 @@ public:
     [[nodiscard]] virtual bool selectedStackContains(
         const QPointF &position) const = 0;
     [[nodiscard]] virtual int cardStackCandidate() const = 0;
+    [[nodiscard]] virtual int cardGrabReorderStepsForInput() const = 0;
 
     virtual void toggleFromInput() = 0;
     virtual void dismissLauncherGuestFromInput() = 0;
