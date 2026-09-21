@@ -2,10 +2,10 @@
 
 ## Product
 
-Kadunce is the open-source spatial-window component used by Good Input's Shuffle
-for Plasma product. KWin owns real windows and virtual desktops. Kadunce owns the
-touch interaction model, card membership, output-local Bento sessions, input
-routing, and compositor presentation. Table and Shuffle Keyboard are required
+Kadunce is the open-source spatial-window component of Shuffle for Plasma. KWin
+owns real windows and virtual desktops. Kadunce owns the touch interaction
+model, card membership, output-local Bento sessions, input routing, and
+compositor presentation. Table and Shuffle Keyboard are required
 Shuffle capabilities; their technical feasibility remains open.
 
 `CARD-LIFECYCLE.md` is the approved canonical ownership and presentation contract

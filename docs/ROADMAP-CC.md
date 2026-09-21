@@ -7,10 +7,10 @@ and still-open task detail are carried below; Git holds that file's history.
 
 ## Product boundary
 
-- Good Input publishes Shuffle for Plasma.
 - Kadunce, Tettegouche and Temperance remain open-source component repositories.
-- A private Shuffle repository owns consumer assembly, private assets, release
-  packaging, product naming and support material.
+- A downstream integration repository consumes pinned component releases and
+  owns assembly, packaging and support material. Nothing in a component
+  repository depends on it.
 - Table and Shuffle Keyboard are required 1.0 capabilities.
 - KWin, Plasma and the system input stack remain authoritative for windows,
   virtual desktops and text delivery.
@@ -219,9 +219,9 @@ strings carry it.
 - [x] Rename code symbols, filenames and live documentation in one mechanical
   commit with no behavior change, reviewable and bisectable on its own.
 - [x] Confirm consumer-facing text uses Workspace, Spread, Search, Status Bar and
-  Ambient as the contract defines them. Kadunce ships no consumer product term:
-  `Good Input` and `Shuffle*` appear in documentation only, never in source,
-  packaging or a user-visible string.
+  Ambient as the contract defines them. Kadunce ships no suite-level term:
+  `Shuffle*` appears in documentation only, never in source, packaging or a
+  user-visible string.
 - [x] Leave `docs/archive/` unchanged.
 - [x] Leave every identifier in layer 3 unchanged, including the `Q_SCRIPTABLE`
   `showCardLine` method, the `cardLine` context value and the persisted
@@ -791,13 +791,13 @@ Ambient and the Keyboard boundary. Treating it as one authority is the point:
 today those surfaces negotiate width independently, which is why Ambient and the
 ticker sit asymmetrically against a third-party dock.
 
-It is a paid product feature and lives in the private Shuffle repository.
+It lives in the downstream integration repository rather than in any component.
 Tettegouche and Temperance must remain fully functional without it: the dock
 optimizes their composition, and is never a dependency of it. An open-source
 installation that lacks the dock is a supported configuration, not a degraded
 one.
 
-- [ ] Complete Block 10a so the private repository exists to hold it.
+- [ ] Complete Block 10a so the integration repository exists to hold it.
 - [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
@@ -912,14 +912,16 @@ without physical peripherals requires it.
 through the system locker, accepts Keyboard input reliably, and a failure in
 Shuffle presentation never leaves a session unlocked or unrecoverable.
 
-## Block 10a — Private repository
+## Block 10a — Integration repository
 
 **Status:** Ready. Pulled ahead of the rest of Block 10 because Block 5 lives
 here.
 
-- [ ] Establish the Good Input organization and private Shuffle repository.
-- [ ] Document the public component and private product boundary, including the
-  rule that components never depend on private features.
+- [ ] Establish the downstream integration repository that consumes pinned
+  component releases.
+- [ ] Document the boundary between the public components and anything
+  downstream of them, including the rule that components never depend on
+  anything downstream.
 
 ## Block 10 — Private assembly and installation
 
@@ -941,10 +943,10 @@ functional at every step.
 **Status:** Blocked by Block 10a. Coordinated across all three repositories.
 
 Layer 3 of `TERMINOLOGY.md`. Two namespaces are in use, `studio.warbler.*` and
-`io.github.carlsonjm.*`, neither reflecting the publisher, and Tettegouche
+`io.github.carlsonjm.*`, neither shared across the suite, and Tettegouche
 hard-codes `studio.warbler.Kadunce` in seven call sites.
 
-- [ ] Choose the Good Input reverse-DNS namespace.
+- [ ] Choose the suite's single reverse-DNS namespace.
 - [ ] Rename service, interface, plugin and desktop-entry identifiers together,
   including the `showCardLine` method, the `cardLine` context value and the
   persisted `Kadunce Card Line` global-shortcut identity.
@@ -977,15 +979,14 @@ it is made, with its resolution, so later work does not reopen it.
 1. **Compatibility policy.** KDE publishes no stable KWin effect ABI, so a
    Plasma update can leave the installed plugin unloadable. The failure is
    already safe: KWin declines the plugin, the tray switch persists, and the
-   desktop keeps working. What remains is how a paying user gets a working
-   plugin back.
+   desktop keeps working. What remains is how a user gets a working plugin back.
 
    The current guided repair rebuilds a retained source snapshot on the user's
    machine. That requires a full C++, Qt, KDE Frameworks and KWin development
    toolchain on every consumer installation, which is a developer workaround
    rather than a consumer mechanism.
 
-   **Approved direction:** distribute the plugin as a package from a Good Input
+   **Approved direction:** distribute the plugin as a package from a project
    pacman repository, built per KWin release in CI, so the user receives a
    corrected plugin through ordinary system updates. One supported distribution
    makes this cheap and centralizes maintenance in one pipeline instead of making

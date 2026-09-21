@@ -1,15 +1,13 @@
 # Shuffle terminology
 
-Suite-wide language contract. Product terms are approved by J; this document
-records them and the rules for applying them. It covers Kadunce, Tettegouche and
-Temperance.
+Shuffle is the suite these three repositories form, and this is its suite-wide
+language contract. Terms are approved by J; this document records them and the
+rules for applying them. It covers Kadunce, Tettegouche and Temperance.
 
 ## Approved language
 
 | Term | Meaning | Status |
 | --- | --- | --- |
-| Good Input | Publisher | Locked |
-| Shuffle | Consumer product | Locked |
 | Shuffle for Plasma | Public product descriptor | Locked |
 | Workspace | Consumer-facing Kadunce system; the spatial working environment | Locked |
 | Card | A normal application window managed spatially by Workspace | Locked |
@@ -74,7 +72,7 @@ entry ids, and any scriptable method name. Changing these breaks installed
 packages and cross-component calls, so they change only in a coordinated,
 versioned release, never as part of a vocabulary pass.
 
-Current identity is inconsistent and does not reflect the publisher:
+Current identity is inconsistent and is not shared across the suite:
 
 - `studio.warbler.*` — Kadunce, Temperance and the Tettegouche plugin
 - `io.github.carlsonjm.*` — the Tettegouche desktop entry
@@ -82,9 +80,8 @@ Current identity is inconsistent and does not reflect the publisher:
   retired term on the public surface
 - Tettegouche hard-codes `studio.warbler.Kadunce` in seven call sites
 
-Unifying these under a Good Input namespace is a single coordinated change
-across all three repositories, with a protocol version bump and a documented
-migration. Temperance already demonstrated the cost when its package identity
+Unifying these under one namespace is a single coordinated change across all
+three repositories, with a protocol version bump and a documented migration. Temperance already demonstrated the cost when its package identity
 changed in 1.1.0 and existing panel widgets had to be removed and re-added.
 
 ## Enforcement
