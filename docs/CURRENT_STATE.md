@@ -179,6 +179,16 @@ itself was running and is measured doing so. Its two stack-seam assertions
 inverted the front-first insertion depth and reused one carried identity across
 two gestures, although the first release changes which card is the stack's
 face. `line-runtime` now passes end to end.
+
+Reaching past it exposed two more, both invisible for the same reason.
+`tablet-desktop-runtime` crashed the compositor: the destination outline is
+drawn for a Bento reservation or for a Card Stage entry, and only the first has
+a reservation, but the detach label asked the empty one whether it detaches. A
+native carry to a tablet side edge reaches that every time. The same session
+then asserted the superseded entry contract --- a first side snap composing
+Bento on the tablet rather than adopting it into cards --- and expected the
+tablet to answer the dock band differently from an ordinary display, which it
+no longer does now that both seams read capability rather than output identity.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and

@@ -2598,7 +2598,12 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
             if (!blended) glDisable(GL_BLEND);
         }
-        if (reservation->detachesToDesktop()) m_detachLabel.render(renderTarget, viewport, box);
+        // The outline above is drawn for a Bento reservation or for a Card
+        // Stage entry, and only the first has a reservation to ask. §10 gives
+        // the bottom edge the only detaching release, and an entry is never
+        // one, so a card entry simply has no label to draw here.
+        if (reservation && !cardEntry && reservation->detachesToDesktop())
+            m_detachLabel.render(renderTarget, viewport, box);
     }
     // Text-only feedback uses the same validated slot as release. It owns no
     // input or geometry and vanishes as soon as insertion is no longer valid.

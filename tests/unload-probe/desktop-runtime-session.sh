@@ -52,8 +52,11 @@ for scenario in edge edge-refresh edge-refresh-reject external withdrawn unload 
     fi
     destination=$(kad nativeCarryState | jq -c '.destinationRect')
     if [[ $scenario == dock ]]; then
-        if [[ $tablet == 0 ]]; then kad nativeCarryState | jq -e '.destination and (.placementOutline|not)';
-        else kad nativeCarryState | jq -e '(.destination|not)'; fi
+        # The bottom band belongs to the dock on every display. Both seams now
+        # read state and capability rather than which output this is, so the
+        # tablet answers it exactly as an ordinary display does: a destination,
+        # and no placement outline over the band.
+        kad nativeCarryState | jq -e '.destination and (.placementOutline|not)'
     fi
     if [[ $scenario == unload ]]; then
         qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
@@ -64,8 +67,22 @@ for scenario in edge edge-refresh edge-refresh-reject external withdrawn unload 
         kad nativeCarryState | jq -e '(.carrying|not) and (.inputBusy|not)'
         active=$(kad workspaceContext | jq '[.displayContext.displays[] | select(.bentoActive)] | length')
         if [[ $scenario == edge || $scenario == edge-refresh || $scenario == edge-refresh-reject || $scenario == external ]]; then kad nativeMoveTrace; fi
-        if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external ]]; then test "$active" = 1; else test "$active" = 0; fi
-        if [[ $scenario == edge || $scenario == edge-refresh ]]; then kad outputStageState | rg '^Virtual-0\|.*\|2$'; fi
+        # CARD-LIFECYCLE.md §3: the first side snap on a display Kadunce does
+        # not own adopts it into individual cards and begins no layout, so on a
+        # display that can own cards an edge release leaves no Bento and makes
+        # the carried window Active. A display that cannot own cards reaches no
+        # such rule, and the same release composes Bento across it. The
+        # external scenario releases on the other output in both fixtures.
+        if [[ $tablet == 1 && $scenario != external ]]; then test "$active" = 0
+        elif [[ $scenario == edge || $scenario == edge-refresh || $scenario == external ]]; then test "$active" = 1
+        else test "$active" = 0; fi
+        if [[ $scenario == edge || $scenario == edge-refresh ]]; then
+            if [[ $tablet == 1 ]]; then
+                kad outputStageState | rg '^Virtual-0\|tablet\|.*\|0$'
+                kad workspaceContext | jq -e --arg main "$main" \
+                    '.cardStage.active and .cardStage.selectedCardId == $main'
+            else kad outputStageState | rg '^Virtual-0\|.*\|2$'; fi
+        fi
         if [[ $scenario == edge || $scenario == edge-refresh || $scenario == external || $scenario == withdrawn || ( $scenario == dock && $tablet == 0 ) ]]; then
             probe windowGeometry "$main" | jq -e --argjson target "$destination" '. == $target'
         fi
