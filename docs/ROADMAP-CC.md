@@ -489,6 +489,15 @@ source-order assertions with behavioral coverage.
   drove by hand. It has never passed on any commit, so retiring it gives up no
   coverage the suite currently has, and it removes the one permanently failing
   member of `verify-integrated-carry.sh`'s route matrix.
+- [ ] Settle `line-runtime`'s release assertion so `verify-integrated-carry.sh`
+  can pass. Not a defect this block introduced: it fails identically on `main`,
+  and it stayed invisible because the matrix stops at its first failure and
+  `tablet-runtime` failed four sessions ahead of it. A released Spread row is
+  expected to still report an animation in flight; `animationsRunning()` answers
+  from elapsed-time windows and the probe reads it three D-Bus round trips after
+  the release, so measure whether the settle is missing or the probe was always
+  losing that race before changing either. It is listed here because this gate is
+  what would certify the branch for `main`, not because it belongs to ownership.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread

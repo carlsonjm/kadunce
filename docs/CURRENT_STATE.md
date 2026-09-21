@@ -157,9 +157,18 @@ two probes that never passed were retired on 20 September: `column-runtime`
 asserted a three-pane column on a display capped at two, which is the grammar
 Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because
 the harness could not start a carry from a press, a limit of the harness rather
-than of the gesture. Neither retirement changes what the suite covers, and
-`verify-integrated-carry.sh`'s route matrix no longer carries a member that
-cannot pass.
+than of the gesture. Neither retirement changes what the suite covers.
+
+`verify-integrated-carry.sh` has not passed since 19 September, and the reasons
+were stacked: each one hid the next, because the matrix stops at its first
+failure. Two are fixed. `tablet-runtime` asserted the `cardLine` presentation
+under the name `spread`, which `Effect::workspaceContext` never reports, and
+`full-session` and `lifetime-runtime` carried the same rewrite. `line-runtime`
+still fails at its release assertion, where a settled Spread row should still
+report an animation in flight; it fails identically on `main`, so it is not
+evidence about the ownership work, and whether the settle is missing or the
+probe loses a race across three D-Bus round trips is unmeasured. The matrix
+cannot pass until it is settled.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and
