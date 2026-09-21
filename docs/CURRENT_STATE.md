@@ -131,6 +131,17 @@ duplicates, and omits stack position.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
+- Kadunce does not know a virtual keyboard exists. Nothing in the sources reads
+  the input panel, so the Active card's height follows the work area alone:
+  1443x832 while something reserves at the bottom of the output, 1443x894 when
+  nothing does. The Keyboard asks Plasma's bottom panels to yield as it raises,
+  which stops that reservation, so the card grows 62px downward into the space
+  the keyboard is about to occupy rather than moving clear of it. The settle log
+  shows it thrashing: one session re-placed the same card to 832 and then to 894
+  inside the same second. `makeActiveTarget` already carries a comment about
+  avoiding a dock-visibility resize loop; this is that loop. An input panel is a
+  compositor fact, so the fix is Kadunce reading it directly and does not depend
+  on any downstream surface.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted
