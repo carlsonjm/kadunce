@@ -1023,8 +1023,9 @@ The Spread row is discrete in both directions. Browsing classifies a swipe only
 once the finger lifts, then plays a fixed 220ms page; a carried card tracks the
 finger while the row behind it stays still. Nothing follows the hand, so there is
 no speed, no coasting and no sense of touching the deck rather than instructing
-it. The webOS card deck is the stated model, and its vertical half is already
-built: §9's pull-up out of a stack and §10's top edge are the same throw.
+it. A deck that is thrown rather than instructed is the stated model, named by J
+from an earlier tablet product on 21 September. Its vertical half is already
+built: §9's pull-up out of a stack and §10's top edge are that throw.
 
 Both of Block 4's reorder problems are consequences of this. The long reorder
 sweep and the edge-dwell strip each exist to compensate for a row that cannot be
@@ -1035,9 +1036,9 @@ cause.
 - [ ] Give the row a continuous offset that tracks input, with velocity, coasting
   and snap to the nearest card on release.
 - [ ] Rebuild browsing on that offset, replacing lift-time classification.
-- [ ] Decide the row's shape. It wraps today, so it has no beginning or end;
-  webOS had two ends and a spring at each, which is how a hand knows where it is
-  without looking. Unasked and undecided — it was put to J on 21 September and
+- [ ] Decide the row's shape. It wraps today, so it has no beginning or end; the
+  named model had two ends and a spring at each, which is how a hand knows where
+  it is without looking. Undecided — it was put to J on 21 September and
   deferred with the block.
 - [ ] Retire edge-dwell paging once a throw reaches a distant card, and keep the
   wrap handling `RowPageMotion.h` proved: a shoulder leaves and re-enters at the
