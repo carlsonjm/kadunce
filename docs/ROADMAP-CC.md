@@ -960,9 +960,55 @@ optimizes their composition, and is never a dependency of it. An open-source
 installation that lacks the dock is a supported configuration, not a degraded
 one.
 
+### What it owns, and what it does not
+
+J settled this on 21 September. A full Shuffle installation has no separate KDE
+panel at the bottom; the Bottom Surface owns that presentation region outright.
+That is not a licence to reimplement what a panel did. Ownership splits three
+ways and the surface takes the smallest of the three:
+
+- **Temperance** owns system and status presentation. It already replaces stock
+  System Tray presentation and embeds a StatusNotifierItem host, which is why
+  Kadunce's disable control survives the panel's removal: it is a
+  StatusNotifierItem and reaches Temperance's tray by the mechanism it uses
+  today. Battery, network and Control Center are already there. Clock and
+  calendar move to it, which is new work in Temperance.
+- **Tettegouche** owns Ambient.
+- **Bottom Surface** owns their allocation, the centred app dock, the Keyboard
+  boundary, and the visual treatment of the shared region. It does not
+  reimplement the tray, and must host Temperance so that the disable control is
+  present at all times.
+
+### Resting presentation
+
+The resting design keeps the effect of today's floating, popped-out dock without
+changing reservation geometry. With nothing conflicting the surface is
+effectively transparent: the app dock is visible, the Keyboard's drag handle
+hovers immediately above it, and the visible dock footprint grows and shrinks
+with running and pinned applications. When application content reaches the
+region and would compromise contrast, the shared backing becomes solid black.
+
+Transparency is presentation, not absence of authority. Geometry and reservation
+stay stable underneath it; only the treatment changes. A reading that lets the
+reservation follow the visible footprint is wrong and reintroduces exactly the
+independent negotiation this block exists to end.
+
+Temperance, Tettegouche and Kadunce must each continue to work normally on an
+ordinary Plasma panel with no Bottom Surface present.
+
 - [x] Complete Block 10a so the integration repository exists to hold it.
 - [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
+- [ ] Settle what hosts Temperance once no Plasma panel exists. Temperance is a
+  Plasma containment, so the cheap answer is that the Bottom Surface is itself a
+  panel Shuffle configures and controls, which keeps Temperance and Ambient
+  working unchanged and keeps the tray for free. Whether a panel can also carry
+  the resting presentation above --- transparent at rest, solid black on
+  contrast, a footprint that grows with the dock --- is an engineering question
+  to answer before the contract is written, not a product choice to hand over.
+  If it cannot, the alternative costs Temperance a standalone mode, which is
+  component work in the open and not a downstream reach.
+- [ ] Give Temperance clock and calendar presentation.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
   that surface.
 - [ ] Resolve the asymmetric Ambient and ticker width.
