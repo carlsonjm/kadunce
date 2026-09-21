@@ -903,8 +903,12 @@ one.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
   that surface.
 - [ ] Resolve the asymmetric Ambient and ticker width.
-- [ ] Define the Keyboard boundary in the same contract, so Block 9 inherits it
-  rather than negotiating it.
+- [ ] Define the Keyboard boundary in the same contract, and take over the one
+  the Keyboard already negotiated. It does not inherit a boundary any more: its
+  `bottomsurfacecoordinator` asks Plasma's bottom panel to yield and restores
+  its hiding mode afterwards, which is the job the Bottom Surface exists to
+  own. The contract has to replace that arrangement rather than describe one
+  the Keyboard is not using.
 
 **Exit gate:** Status Bar, Ambient and Shuffle Dock are physically symmetric at
 tablet and monitor widths, and the Keyboard boundary is specified without a
@@ -971,16 +975,36 @@ membership without regressing normal KDE switching or display ownership.
 
 ## Block 9 — Shuffle Keyboard feasibility and implementation
 
-**Status:** Blocked by Blocks 4, 5 and 8. Highest residual product risk.
-Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`.
+**Status:** An implementation exists and J typed on it on 21 September. It was
+built outside this plan's order, so the blocks it was waiting on did not gate it
+after all, and the residual risk this block carried is largely spent. It lives
+in `shuffle-keyboard/`, a fourth repository and a fork of KDE's
+`plasma-keyboard` 6.7.5, private at `carlsonjm/shuffle-keyboard` and carrying
+KDE's licence with it: whatever ships from it ships under that licence, which
+the downstream repository's paid-feature assumption has to answer.
+Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
+`docs/FEASIBILITY.md` and `docs/PHYSICAL_ACCEPTANCE.md`.
 
-- [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
-  Fcitx5. Select a system-backed base or document why none is viable.
+- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
+  Fcitx5. Select a system-backed base or document why none is viable. Plasma
+  Keyboard plus KWin is the base: a touched key reaches Qt Virtual Keyboard's
+  input engine, its input-method-v1 client hands the result to KWin, and KWin
+  delivers it through the application's own text-input path. Shuffle owns the
+  layout, gestures, height, panel handoff and presentation and adds no input
+  engine, so the scope decision this block reserved is not needed.
+  `docs/FEASIBILITY.md` in that repository records why Qt Virtual Keyboard
+  alone, Fcitx5 and synthetic per-application input were not taken.
 - [ ] Prove the four-row layout, cascading controls, adjustable height, and the
-  keyboard to precision-surface transition against the Block 5 dock geometry.
+  keyboard to precision-surface transition. All four are implemented and in
+  daily use, but against Plasma's own bottom panel, which the keyboard asks to
+  yield and then restores. The Block 5 dock geometry they were meant to be
+  proven against does not exist yet, so this reopens when it does.
 - [ ] Verify locale and keymap correctness, focus, latency and loss-free input
-  across Qt/KDE, GTK, browsers, Electron and terminals.
-- [ ] Reserve usable workspace correctly as height changes.
+  across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
+  `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against
+  the suite checkout.
+- [ ] Reserve usable workspace correctly as height changes. Implemented with
+  live KWin workspace updates; verification belongs to the pass above.
 - [ ] Keep autocorrect, prediction, swipe typing, dictation and custom IME work
   out of 1.0.
 
