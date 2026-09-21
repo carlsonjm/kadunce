@@ -124,9 +124,10 @@ duplicates, and omits stack position.
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
 - Reorder intent zones still need product completion. A reorder commits at 82%
-  of a card's pitch, which is about half the tablet's width, so the travel a
-  deliberate reorder needs is the same travel an accidental one avoids.
-- Native-to-stack admission is not one atomic destination transaction.
+  of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
+  edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long
+  ends inside that zone, so a deliberate reorder and an accidental page are
+  reached by the same travel.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.

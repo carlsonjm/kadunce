@@ -408,6 +408,8 @@ A stack:
 - Can release a member back into the Spread
 - Becomes an individual card when one member remains
 - Shows its active position in the label row
+- Takes no arrival from the native desktop; a carried window becomes an
+  individual card under §8, and joining a stack is a separate act on that card
 
 A Bento group:
 

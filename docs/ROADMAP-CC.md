@@ -868,13 +868,16 @@ product decisions J has not been asked yet.
   into the Spread where the stack stands, one that does not rejoins it, and
   sideways travel keeps meaning reorder. `CARD-LIFECYCLE.md` §9 states it and
   `stack-runtime` gates all three answers.
-- [ ] Give a carried window a way into a stack, and make that arrival one
-  membership and insertion transaction. Nothing routes one there today: a
-  window carried in from the desktop becomes an individual Active card, and the
-  stack seam is reachable only by a card already in Spread. The transaction
-  shape is the easy half; the gesture is a product decision and has to come
-  first.
-- [ ] Give reordering a usable intent zone without accidental paging.
+- [ ] Give reordering a usable intent zone without accidental paging. A reorder
+  commits at 82% of a card's pitch, which on the tablet's 1443-wide work area is
+  705px of sideways travel against an 860px pitch, and paging is armed by a
+  300ms dwell inside a 115px edge zone. The two collide by construction: a
+  reorder sweep started near the middle of the centre card ends around x=1436,
+  inside the right edge zone, so the pause a user takes to check the result
+  before releasing is the same input that pages the row. Shortening the reorder
+  distance is what separates them; a smaller threshold ends the sweep short of
+  the zone. The remaining product question is whether the Spread displaces live
+  under the finger, and whether reorder stays one step per gesture.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
   is drawn as a live picture of the layout with its panes in position, so it is
   already a map; dropping a card onto a half of it states the side the tablet has

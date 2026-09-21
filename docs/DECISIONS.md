@@ -603,6 +603,24 @@ separates the two without guessing. `settle-runtime` gates both halves: a
 one-shot self-move keeps its layout, and a client that keeps moving loses its
 pane rather than the display losing the layout.
 
+### A stack takes no arrival from the desktop
+
+A window carried in from the native desktop becomes an individual card. It never
+lands in a stack, and no gesture will be built to put it there.
+
+The plan had carried this as an open product decision, on the reasoning that the
+stack seam is reachable only by a card already in Spread and that an arrival
+therefore had a destination it could not ask for. J ruled on 21 September that
+this is the intended shape, not a gap: what an arriving window needs is card
+status, and edge snapping into one or two panes already grants it. Organizing
+cards into a stack is a second, separate act the user performs once the window
+is a card like any other.
+
+This keeps arrival's destination rules in §8 and stack membership in §9 rather
+than letting one gesture decide both, and it removes the atomic
+membership-and-insertion transaction that an arrival into a stack would have
+required.
+
 ### Persistent membership is not promised across unload
 
 The public context endpoint and live registry disappear with the effect. Do not add
