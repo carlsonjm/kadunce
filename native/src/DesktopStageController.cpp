@@ -1812,13 +1812,19 @@ bool DesktopStageController::resumeProjectedSession(
     const auto pixels = makePixelBentoLayout(candidate.rects,
         area.x(), area.y(), area.width(), area.height());
     if (pixels.size() != std::size_t(candidate.windows.size())) return false;
-    for (int index = 0; index < candidate.windows.size(); ++index) {
+    // A pane's client can change its own frame while the group is projected, so
+    // requiring every pane to already sit on the layout turned a pixel of drift
+    // into a permanent refusal. CARD-LIFECYCLE.md §6 resumes the group whatever
+    // the panes did meanwhile. The stored rects stay authoritative and no
+    // layout is solved; a pane that left is put back on the rect it left, and
+    // only after the handback commits, so a refused resume still writes nothing.
+    bool panesOnLayout = true;
+    for (int index = 0; index < candidate.windows.size() && panesOnLayout; ++index) {
         const auto &pixel = pixels[std::size_t(index)];
-        if (candidate.windows[index]->frameGeometry().toRect()
-            != KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height)) {
-            return false;
-        }
+        panesOnLayout = candidate.windows[index]->frameGeometry().toRect()
+            == KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height);
     }
+    const QString resumedKey = candidate.outputName;
     if (!commitResumeHandback(
             [&] { return commitSource && commitSource(); },
             [&] {
@@ -1827,6 +1833,17 @@ bool DesktopStageController::resumeProjectedSession(
             },
             [&] { if (releaseSource) releaseSource(); })) {
         return false;
+    }
+    if (!panesOnLayout) {
+        qWarning() << "Kadunce" << Revision << "placing" << resumedKey
+                   << "back on its stored layout; a pane had left it";
+        const auto resumed = m_sessions.find(resumedKey);
+        // Placement here is the stored layout and never a solve: a session just
+        // rebuilt from its projection has no participation change owing, and
+        // applySession is the one path that writes exactly session.rects.
+        if (resumed != m_sessions.end() && !resumed->participationDirty
+            && applySession(resumed.value(), false))
+            scheduleSettle();
     }
     if (projection.lead && !projection.lead->isDeleted()
         && projection.lead->window()) {

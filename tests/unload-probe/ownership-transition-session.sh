@@ -42,8 +42,15 @@ check a2Return
 sleep .6
 check a2Project
 sleep .4
+qdbus6 studio.warbler.UnloadClient /Client resizeCompanion "Cross ownership" 1
+sleep .6
+check a2PaneDrift
+sleep .4
 check a2Return
 sleep .6
+check a2PanesReplaced
+echo 'PASS: a pane whose client changed its own frame still resumes the group, and is placed back on the layout it left'
+sleep .4
 check a2Release
 sleep .6
 check a2Restored

@@ -56,7 +56,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   workspace gutters. One translucent-black field replaces wallpaper behind the
   panes and all group paint state retires before exact resume exposes native Bento.
   The group has no member paging, fan, or member carry; activation resumes the exact
-  Bento session without a layout solve.
+  Bento session without a layout solve. A pane whose own client changed its frame
+  while the group was projected is placed back on the stored rect as the session
+  resumes, rather than refusing the resume and leaving the group unopenable.
   Ordinary Spread cards retain their accepted presentation.
 - Other outputs keep their own Bento sessions when the tablet changes presentation.
 - Native carries preserve input ownership, exact restore records, dock clearance,
@@ -142,7 +144,8 @@ duplicate preservation, and stack-position coverage; their full verification pas
 The Bento group-card implementation has focused full-work-area, rounded
 pane-aperture and repeated-projection geometry, translucent backdrop, session-contract,
 no-member-paging, sleeping-member, residue-free repeated exact resume,
-first-snap refresh, and private two-output ownership lifecycle coverage. Physical
+drifted-pane resume, first-snap refresh, and private two-output ownership
+lifecycle coverage. Physical
 review accepted its geometry, tint, gutters, container-level rounded clipping,
 exact resume, and repeated-entry behavior.
 Physical review has accepted `CARD-LIFECYCLE.md` §8 on both branches, §5's

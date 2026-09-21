@@ -544,10 +544,15 @@ provenance, offscreen sources, and per-frame aperture state before native Bento 
 repaint; rejection retains all projection presentation.
 
 The transfer carries visible pane order and rects, lead, side metadata, stacking,
-and authoritative restore records. Activating the group
-validates current native geometry, commits the reverse ownership transfer, and
-publishes the same Bento session without a solver or native geometry write.
-Rejection leaves the group card and neighboring Spread ownership intact.
+and authoritative restore records. Activating the group validates ownership,
+membership and shape, commits the reverse ownership transfer, and publishes the
+same Bento session without a solve. A pane whose own client changed its frame
+while the group was projected no longer refuses the resume: the stored rects
+remain authoritative, and after the transfer commits the pane is placed back on
+the rect it left. Placement is the stored layout only, and only for a session
+with no participation change owing; resume still writes no geometry of its own
+and puts nothing to sleep. Rejection leaves the group card and neighboring
+Spread ownership intact.
 On success, non-group Spread neighbors remain owned and hidden; they do not
 restore as ordinary desktop windows. Ordinary Spread rendering and layout remain
 unchanged.

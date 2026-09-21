@@ -76,8 +76,15 @@ python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
 resume = source.split('bool DesktopStageController::resumeProjectedSession(', 1)[1].split('void DesktopStageController::restoreAllSessions()', 1)[0]
-for forbidden in ('applySession(', 'reflowSession(', 'moveResize(', 'setMinimized('):
+# CARD-LIFECYCLE.md §6 resumes the group whatever its panes did meanwhile, so a
+# pane whose client changed its own frame is placed back on the stored rect
+# rather than refused. What resume must still never do is solve a new layout,
+# put a window to sleep, or write geometry of its own: its only placement is the
+# stored one applySession publishes, and only for a settled session.
+for forbidden in ('reflowSession(', 'moveResize(', 'setMinimized('):
     assert forbidden not in resume, f'exact projection resume must not call {forbidden}'
+assert '!resumed->participationDirty' in resume, \
+    'resume must place only a session with no participation change owing'
 PY_RESUME
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'

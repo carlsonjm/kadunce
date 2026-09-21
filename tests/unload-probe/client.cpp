@@ -63,6 +63,13 @@ public Q_SLOTS:
  void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); w->resize(400,300); w->show(); }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
+ // A client that changes its own frame, the way a terminal does on a font or
+ // scale change. The window it names is a pane whose layout is not live, so
+ // nothing is holding the frame and the request lands.
+ void resizeCompanion(const QString &title, int delta) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title)) w->resize(w->width(), w->height() + delta);
+ }
  void clickTarget() {
   auto *button = new QPushButton("Unload safety target");
   button->setAttribute(Qt::WA_DeleteOnClose);

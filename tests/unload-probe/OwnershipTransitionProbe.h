@@ -13,6 +13,7 @@ struct OwnershipTransitionProbe {
     int entriesWithGroup = 0;
     QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> origins;
     QList<QPointer<KWin::EffectWindow>> currentProjectionWindows, lastRetiredProjection;
+    QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> projectedPaneFrames;
     int projectionRetirements = 0;
     bool projectionStateClearedAtRetirement = false;
     KWin::RectF monitorTile;
@@ -237,6 +238,9 @@ struct OwnershipTransitionProbe {
         projectedLead = transferred.lead;
         QList<Kadunce::BentoProjectionMember> members = transferred.panes;
         members.append(transferred.sleeping);
+        projectedPaneFrames.clear();
+        for (const auto &pane : transferred.panes)
+            projectedPaneFrames.append({pane.window, pane.window->frameGeometry()});
         currentProjectionWindows.clear();
         for (const auto &saved : members) {
             currentProjectionWindows.append(saved.window);
@@ -317,6 +321,42 @@ struct OwnershipTransitionProbe {
             const auto &commit, const auto &release) {
             return desktop.resumeProjectedSession(projection, commit, release);
         };
+        return true;
+    }
+    // A pane's own client can change its frame while the group is projected: a
+    // terminal reflowing, or a scale change re-rounding one edge. §6 resumes the
+    // group whatever the panes did meanwhile, so this states the drift really
+    // happened before the resume is asked to survive it.
+    bool paneDrift() {
+        if (projectedPaneFrames.isEmpty()) return fail("No projected panes to drift");
+        int moved = 0;
+        for (const auto &[window, frame] : projectedPaneFrames) {
+            if (!window || window->isDeleted()) return fail("Projected pane disappeared");
+            if (window->frameGeometry() != frame) ++moved;
+        }
+        if (moved != 1) {
+            QStringList seen;
+            for (const auto &[window, frame] : projectedPaneFrames)
+                seen.append(QStringLiteral("%1 %2x%3 -> %4x%5").arg(window->caption())
+                    .arg(frame.width()).arg(frame.height())
+                    .arg(window->frameGeometry().width()).arg(window->frameGeometry().height()));
+            return fail(QStringLiteral("Expected one pane to leave the layout; %1 did: %2")
+                .arg(moved).arg(seen.join(QStringLiteral("; "))));
+        }
+        return true;
+    }
+    // Resuming a drifted pane is only worth anything if the pane is also put
+    // back: a session whose panes do not match its rects is torn down by the
+    // next settle, which would trade a refusal for a layout that vanishes.
+    bool panesReplaced() {
+        for (const auto &[window, frame] : projectedPaneFrames) {
+            if (!window || window->isDeleted()) return fail("Resumed pane disappeared");
+            if (window->frameGeometry() != frame)
+                return fail(QStringLiteral("%1 stayed off the layout at %2x%3 instead of %4x%5")
+                    .arg(window->caption())
+                    .arg(window->frameGeometry().width()).arg(window->frameGeometry().height())
+                    .arg(frame.width()).arg(frame.height()));
+        }
         return true;
     }
     bool returnToBento() {
