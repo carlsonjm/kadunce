@@ -156,21 +156,26 @@ one-remaining-pane rule and §10's top edge, across four candidates on 20
 September. The 21 September candidate added deliberate entry and pairing, a
 refused side snap that leaves both the carried card's stack and the Spread
 unchanged, a minimized pane leaving its layout as a sleeping card, and repeated
-resume of a projected group after a pane's own client had moved it. It has also
+resume of a projected group after a pane's own client had moved it. A second
+candidate the same day added a layout that survives a client which keeps moving
+its own pane, and release of a stacked member by pulling it up out of the stack;
+the compositor had that plugin mapped while the gestures ran. It has also
 accepted ownership, constrained launch routing, stack retention, large-pane
 selection, monitor isolation, lifecycle, and the current live-rendering model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor probes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior. `ownership-transition`,
-`side-runtime`, `sleeping-pane-runtime`, `settle-runtime`, `membership-runtime`,
-`launch-runtime`, `desktop-runtime` and `exit-runtime` pass and assert the
+`side-runtime`, `sleeping-pane-runtime`, `settle-runtime`, `stack-runtime`,
+`membership-runtime`, `launch-runtime`, `desktop-runtime` and `exit-runtime`
+pass and assert the
 accepted ownership contract: a launch joins a layout that can grow for it, one
 no slot fits is refused awake and unowned, a full layout's displaced pane
 becomes an awake individual card, a group resume leaves the cards beside it
 owned rather than returning them to the desktop, a minimized pane leaves for a
-sleeping card that waking does not put back, and a placement a client keeps
-moving out of costs that pane rather than the layout. The
+sleeping card that waking does not put back, a placement a client keeps moving
+out of costs that pane rather than the layout, and a stacked member is released
+by rising out of the stack while one that never rose rejoins it. The
 two probes that never passed were retired on 20 September: `column-runtime`
 asserted a three-pane column on a display capped at two, which is the grammar
 Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because

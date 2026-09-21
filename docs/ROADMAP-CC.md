@@ -834,7 +834,14 @@ rail behavior within them. Met on 21 September.
 
 ## Block 4 — Kadunce manipulation
 
-**Status:** Unblocked. Block 3 closed on 21 September.
+**Status:** In progress. Two items closed on a physically accepted candidate on
+21 September and are on `main`: a placement a client moves out of no longer
+costs the layout, and a stacked card is released by pulling it up out of the
+stack. The tablet pass took both, together with the tray control against a
+layout holding a sleeping card. The compositor had the candidate plugin mapped
+while the gestures ran, the session log carries no §14 violation, and
+`./verify.sh` and the route matrix pass. Four items remain, two of which are
+product decisions J has not been asked yet.
 
 - [x] Let a resumed layout survive a pane that will not take its stored rect
   back. Reproduced in the nested compositor before anything was changed: a
@@ -904,8 +911,18 @@ user-facing terminology matches the contract.
 
 ## Block 5 — Bottom Surface
 
-**Status:** Parallel with Blocks 1–4; different repository and disjoint physical
-checks. Requires Block 10a first.
+**Status:** Ready, and the first work the downstream repository owes. Block 10a
+closed on 21 September, so the repository that holds it exists.
+Unblocked for testing the same day: the Keyboard exists and is accepted as
+working, so the dock's pull and hide actions have a real surface to be tested
+against instead of a described one. Its first integration is therefore known
+before the contract is written --- the Keyboard asks Plasma's bottom panel to
+yield and restores its hiding mode afterwards, and the Bottom Surface has to
+take that over.
+Tettegouche is not optimized for a virtual keyboard, which J confirmed the same
+day; the Keyboard's Meta key already resolves the user's live bare-Meta binding
+through KDE's global-shortcut service, so the seam between them exists and it is
+Tettegouche's composition that has to answer a keyboard, not the plumbing.
 
 Bottom Surface is the single layout authority for the Status Bar, Shuffle Dock,
 Ambient and the Keyboard boundary. Treating it as one authority is the point:
@@ -918,14 +935,18 @@ optimizes their composition, and is never a dependency of it. An open-source
 installation that lacks the dock is a supported configuration, not a degraded
 one.
 
-- [ ] Complete Block 10a so the integration repository exists to hold it.
+- [x] Complete Block 10a so the integration repository exists to hold it.
 - [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
   that surface.
 - [ ] Resolve the asymmetric Ambient and ticker width.
-- [ ] Define the Keyboard boundary in the same contract, so Block 9 inherits it
-  rather than negotiating it.
+- [ ] Define the Keyboard boundary in the same contract, and take over the one
+  the Keyboard already negotiated. It does not inherit a boundary any more: its
+  `bottomsurfacecoordinator` asks Plasma's bottom panel to yield and restores
+  its hiding mode afterwards, which is the job the Bottom Surface exists to
+  own. The contract has to replace that arrangement rather than describe one
+  the Keyboard is not using.
 
 **Exit gate:** Status Bar, Ambient and Shuffle Dock are physically symmetric at
 tablet and monitor widths, and the Keyboard boundary is specified without a
@@ -934,6 +955,12 @@ keyboard existing.
 ## Block 6 — Tettegouche completion
 
 **Status:** Width work blocked by Block 5; the rest is ready.
+
+- [ ] Answer a virtual keyboard. J confirmed on 21 September that Tettegouche is
+  not optimized for one: its composition assumes the work area a keyboard takes
+  half of. The Keyboard reserves workspace as its height changes, so this is
+  Tettegouche responding to a smaller area rather than either side negotiating,
+  and it belongs with the width work Block 5 gates.
 
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`: MPRIS, Plasma
   jobs, Tette operations, Downloads arrivals, concurrent density.
@@ -992,16 +1019,37 @@ membership without regressing normal KDE switching or display ownership.
 
 ## Block 9 — Shuffle Keyboard feasibility and implementation
 
-**Status:** Blocked by Blocks 4, 5 and 8. Highest residual product risk.
-Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`.
+**Status:** J accepted the current build on 21 September as working, not
+finished. An implementation exists and he typed on it that day. It was
+built outside this plan's order, so the blocks it was waiting on did not gate it
+after all, and the residual risk this block carried is largely spent. It lives
+in `shuffle-keyboard/`, a fourth repository and a fork of KDE's
+`plasma-keyboard` 6.7.5, private at `carlsonjm/shuffle-keyboard` and carrying
+KDE's licence with it: whatever ships from it ships under that licence, which
+the downstream repository's paid-feature assumption has to answer.
+Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
+`docs/FEASIBILITY.md` and `docs/PHYSICAL_ACCEPTANCE.md`.
 
-- [ ] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
-  Fcitx5. Select a system-backed base or document why none is viable.
+- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
+  Fcitx5. Select a system-backed base or document why none is viable. Plasma
+  Keyboard plus KWin is the base: a touched key reaches Qt Virtual Keyboard's
+  input engine, its input-method-v1 client hands the result to KWin, and KWin
+  delivers it through the application's own text-input path. Shuffle owns the
+  layout, gestures, height, panel handoff and presentation and adds no input
+  engine, so the scope decision this block reserved is not needed.
+  `docs/FEASIBILITY.md` in that repository records why Qt Virtual Keyboard
+  alone, Fcitx5 and synthetic per-application input were not taken.
 - [ ] Prove the four-row layout, cascading controls, adjustable height, and the
-  keyboard to precision-surface transition against the Block 5 dock geometry.
+  keyboard to precision-surface transition. All four are implemented and in
+  daily use, but against Plasma's own bottom panel, which the keyboard asks to
+  yield and then restores. The Block 5 dock geometry they were meant to be
+  proven against does not exist yet, so this reopens when it does.
 - [ ] Verify locale and keymap correctness, focus, latency and loss-free input
-  across Qt/KDE, GTK, browsers, Electron and terminals.
-- [ ] Reserve usable workspace correctly as height changes.
+  across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
+  `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against
+  the suite checkout.
+- [ ] Reserve usable workspace correctly as height changes. Implemented with
+  live KWin workspace updates; verification belongs to the pass above.
 - [ ] Keep autocorrect, prediction, swipe typing, dictation and custom IME work
   out of 1.0.
 
@@ -1035,14 +1083,17 @@ Shuffle presentation never leaves a session unlocked or unrecoverable.
 
 ## Block 10a — Integration repository
 
-**Status:** Ready. Pulled ahead of the rest of Block 10 because Block 5 lives
-here.
+**Status:** Complete, 21 September. `carlsonjm/shuffle`, private, holding the
+boundary and nothing else. Pulled ahead of the rest of Block 10 because Block 5
+lives here, and that is now unblocked.
 
-- [ ] Establish the downstream integration repository that consumes pinned
+- [x] Establish the downstream integration repository that consumes pinned
   component releases.
-- [ ] Document the boundary between the public components and anything
+- [x] Document the boundary between the public components and anything
   downstream of them, including the rule that components never depend on
-  anything downstream.
+  anything downstream. `docs/BOUNDARY.md` there states the one-way rule, why an
+  installation without the dock is supported rather than degraded, and what the
+  Keyboard's licence does and does not reach once a bundle ships.
 
 ## Block 10 — Downstream assembly and installation
 

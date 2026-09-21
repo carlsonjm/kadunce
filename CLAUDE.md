@@ -9,11 +9,11 @@ that another document owns.
 
 ### Who you are talking to
 
-J is a designer and fraud analyst. He owns product intent, visual direction,
-scope and sequencing. He does not read code and does not want to.
+The product owner sets intent, visual direction, scope and sequencing. He does
+not review code, and does not need to.
 
-He built this product and understands it as a product. He does not know, and
-should not need to know, how it is implemented.
+He understands this as a product rather than as an implementation. An
+explanation that assumes otherwise does not land.
 
 ### The rule that matters most
 

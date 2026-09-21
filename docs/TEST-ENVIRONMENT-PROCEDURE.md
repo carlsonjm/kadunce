@@ -153,6 +153,20 @@ offers only the two loses exactly the observation worth having. It costs little 
 which the pass needs anyway, and it is what stops a result depending on the user
 remembering a dozen outcomes across a restart. A single check needs no sheet.
 
+The tray control appears twice in the list above, and only one of the two belongs
+on every pass. `verify-live-control.sh` is the check that is never skipped: it
+proves the control registered and exposes its switch, it costs one command, and a
+failure there ends the pass before any gesture. The by-hand toggle --- switching
+Kadunce off and watching every window, a sleeping one included, arrive on the
+plain desktop --- is a different check, and putting it on a sheet whose candidate
+touched neither release, nor admission, nor minimizing spends the user's
+attention on an answer already known. J asked for it to be dialed back on 21
+September, after it had passed by hand on two candidates the same day. Put it on
+the sheet when the change reaches §7, §13 or the control itself, and leave it off
+otherwise. That narrows how often the user is asked and nothing else: the control
+stays release-critical, and a safety-control failure still blocks promotion and
+is never waived.
+
 ## Retry and reporting
 
 - Capture one minimal failure, correct the environment or obtain the required access,
