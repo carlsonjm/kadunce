@@ -912,11 +912,35 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 {
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, output);
+    // A panel that reserves at the bottom of the output earns the stable extra
+    // clearance; the keyboard earns whatever it actually covers.
+    double clearance = work.bottom() < output->geometry().bottom() - 1
+        ? 10.0 : 0.0;
+    // The Keyboard asks the bottom panels to yield as it raises, so the work
+    // area grows at the very moment the space stops being free. Measuring the
+    // keyboard itself is what stops the card taking that space: without it the
+    // card reads the vacated panel as room and grows down into the keys.
+    if (const auto panelTop = m_host->inputPanelTopForCardStage(output)) {
+        clearance = std::max(clearance, work.bottom() - *panelTop);
+    }
     const CardRect target = makeActiveTarget(
         work.x(), work.y(), work.width(), work.height(), m_settings.gutter(),
-        work.bottom() < output->geometry().bottom() - 1 ? 10.0 : 0.0);
+        clearance);
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
+}
+
+void CardStageController::refreshActivePlacement()
+{
+    if (!m_active || m_presentation != CardPresentation::Active
+        || !m_activeRestore.valid) {
+        return;
+    }
+    // The card did not move; what it is allowed to occupy did. Give the settle
+    // its budget back so the new area is honoured, and let its own guards
+    // decide whether this particular window may be placed at all.
+    m_activeSettleRemaining = 2;
+    m_activeSettleTimer.start();
 }
 
 bool CardStageController::selectedStackContains(const QPointF &position) const

@@ -439,6 +439,12 @@ Effect::Effect()
             this, &Effect::handleScreenRemoved);
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
             [this](KWin::LogicalOutput *output) { m_desktopStage->handleScreenAdded(output); });
+    // The keyboard changes what an Active card may occupy without the card
+    // having moved, and it changes it twice: once raising and once leaving.
+    // KWin also lifts the focused window for the panel; the card stage owns
+    // card geometry, so it places the card itself rather than inheriting that.
+    connect(KWin::effects, &KWin::EffectsHandler::inputPanelChanged, this,
+            [this]() { m_cardStage->refreshActivePlacement(); });
 
     m_carryRuntime = std::make_unique<NativeCarryRuntime>();
     m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
@@ -769,6 +775,26 @@ bool Effect::isManagedWindowForCardStage(
     const KWin::EffectWindow *window) const
 {
     return isCardWindow(window);
+}
+
+std::optional<double> Effect::inputPanelTopForCardStage(
+    KWin::LogicalOutput *output) const
+{
+    // KWin hands every effect the input panel, so the keyboard is readable
+    // without a downstream surface and without the Keyboard telling anyone.
+    // What a placement must never do is infer the keyboard from the panel that
+    // yielded to it: that reads an occupied region as a free one.
+    KWin::EffectWindow *panel = KWin::effects->inputPanel();
+    if (!output || !panel || panel->isDeleted() || !panel->isVisible()) {
+        return std::nullopt;
+    }
+    const KWin::RectF covered =
+        KWin::RectF(panel->frameGeometry()).intersected(
+            KWin::RectF(output->geometry()));
+    if (covered.isEmpty()) {
+        return std::nullopt;
+    }
+    return covered.top();
 }
 
 bool Effect::mayHoldWindowForCardStage(

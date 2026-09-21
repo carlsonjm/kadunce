@@ -431,6 +431,16 @@ rg -q 'constexpr int CardEdgeRepeatDelay = 350' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(fast \? CardEdgeDwellDelay : delay\)' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
+# A placement must read the keyboard, never infer it from the work area. The
+# Keyboard asks the bottom panels to yield as it raises, so the area grows at
+# the moment the space stops being free, and a card that trusts the area grows
+# down into the keys. CURRENT_STATE.md records the measurement.
+rg -Fq 'KWin::effects->inputPanel()' "${effect_cpp}"
+active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^void CardStageController::refreshActivePlacement()/p' "$card_cpp")
+printf '%s\n' "$active_target" | rg -Fq 'inputPanelTopForCardStage(output)'
+printf '%s\n' "$active_target" | rg -Fq 'std::max(clearance, work.bottom() - *panelTop)'
+rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
+
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"
 rg -q 'QEasingCurve::InQuart' "${effect_cpp}" "${card_cpp}"

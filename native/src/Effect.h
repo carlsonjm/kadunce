@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <array>
+#include <optional>
 
 class QAction;
 class QDBusServiceWatcher;
@@ -199,6 +200,8 @@ private:
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool mayHoldWindowForCardStage(
         const KWin::EffectWindow *window) const override;
+    [[nodiscard]] std::optional<double> inputPanelTopForCardStage(
+        KWin::LogicalOutput *output) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(

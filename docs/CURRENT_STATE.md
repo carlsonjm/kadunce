@@ -70,6 +70,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
+- The Active card reads the virtual keyboard directly and sits above it. It
+  does not infer free space from the bottom panel, which yields as the keyboard
+  raises and would otherwise read as room the moment the room is taken.
 - A placement that does not settle is asked for once more, and a pane that still
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
@@ -131,17 +134,11 @@ duplicates, and omits stack position.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
-- Kadunce does not know a virtual keyboard exists. Nothing in the sources reads
-  the input panel, so the Active card's height follows the work area alone:
-  1443x832 while something reserves at the bottom of the output, 1443x894 when
-  nothing does. The Keyboard asks Plasma's bottom panels to yield as it raises,
-  which stops that reservation, so the card grows 62px downward into the space
-  the keyboard is about to occupy rather than moving clear of it. The settle log
-  shows it thrashing: one session re-placed the same card to 832 and then to 894
-  inside the same second. `makeActiveTarget` already carries a comment about
-  avoiding a dock-visibility resize loop; this is that loop. An input panel is a
-  compositor fact, so the fix is Kadunce reading it directly and does not depend
-  on any downstream surface.
+- The keyboard covers Bento panes. The Active card now reads the input panel
+  and sits above it, but a live layout keeps its stored pane rects, and nothing
+  re-places a session when the area changes. A pane the keyboard covers stays
+  covered. Re-solving a live layout for a transient keyboard is a §5 question,
+  because a shortened layout sheds, and is not answered yet.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

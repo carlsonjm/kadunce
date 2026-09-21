@@ -23,6 +23,7 @@
 #include <QStringList>
 #include <QTimer>
 #include <functional>
+#include <optional>
 
 namespace KWin
 {
@@ -63,6 +64,14 @@ public:
     [[nodiscard]] virtual bool mayHoldWindowForCardStage(
         const KWin::EffectWindow *window) const {
         return isManagedWindowForCardStage(window);
+    }
+    // Where the visible virtual keyboard's top edge sits on this display, if
+    // one is up. A keyboard is a compositor fact and reaches every effect, so
+    // reading it here costs no dependency on a downstream surface. A host with
+    // nothing to report answers that nothing is up.
+    [[nodiscard]] virtual std::optional<double> inputPanelTopForCardStage(
+        KWin::LogicalOutput *) const {
+        return std::nullopt;
     }
     virtual void setPagingShortcutsForCardStage(bool active) = 0;
     virtual void cancelInputForCardStage() = 0;
@@ -138,6 +147,9 @@ public:
     [[nodiscard]] QPointF cardGrabOffset() const;
     [[nodiscard]] KWin::Rect cardGrabTarget() const;
     [[nodiscard]] int cardGrabPageOffset() const;
+    // Place the Active card again because the area it may occupy changed
+    // under it, rather than because the card did.
+    void refreshActivePlacement();
     [[nodiscard]] int stackPreviewTarget() const;
     [[nodiscard]] bool stackPreviewArmed() const;
     [[nodiscard]] bool stackInsertionPreviewValid() const;
