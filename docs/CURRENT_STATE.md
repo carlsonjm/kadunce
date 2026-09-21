@@ -161,14 +161,16 @@ than of the gesture. Neither retirement changes what the suite covers.
 
 `verify-integrated-carry.sh` has not passed since 19 September, and the reasons
 were stacked: each one hid the next, because the matrix stops at its first
-failure. Two are fixed. `tablet-runtime` asserted the `cardLine` presentation
-under the name `spread`, which `Effect::workspaceContext` never reports, and
-`full-session` and `lifetime-runtime` carried the same rewrite. `line-runtime`
-still fails at its release assertion, where a settled Spread row should still
-report an animation in flight; it fails identically on `main`, so it is not
-evidence about the ownership work, and whether the settle is missing or the
-probe loses a race across three D-Bus round trips is unmeasured. The matrix
-cannot pass until it is settled.
+failure. `tablet-runtime` asserted the `cardLine` presentation under the name
+`spread`, which `Effect::workspaceContext` never reports, and `full-session` and
+`lifetime-runtime` carried the same rewrite. `line-runtime` then failed at three
+assertions of its own, all of them probe errors rather than defects, and all
+three failed identically on `main`. Its release assertion asked for the held
+card width exactly, which only a read that elapsed no time can see; the settle
+itself was running and is measured doing so. Its two stack-seam assertions
+inverted the front-first insertion depth and reused one carried identity across
+two gestures, although the first release changes which card is the stack's
+face. `line-runtime` now passes end to end.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and

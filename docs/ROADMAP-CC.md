@@ -489,15 +489,26 @@ source-order assertions with behavioral coverage.
   drove by hand. It has never passed on any commit, so retiring it gives up no
   coverage the suite currently has, and it removes the one permanently failing
   member of `verify-integrated-carry.sh`'s route matrix.
-- [ ] Settle `line-runtime`'s release assertion so `verify-integrated-carry.sh`
-  can pass. Not a defect this block introduced: it fails identically on `main`,
+- [x] Settle `line-runtime`'s release assertion so `verify-integrated-carry.sh`
+  can pass. Not a defect this block introduced: it failed identically on `main`,
   and it stayed invisible because the matrix stops at its first failure and
-  `tablet-runtime` failed four sessions ahead of it. A released Spread row is
-  expected to still report an animation in flight; `animationsRunning()` answers
-  from elapsed-time windows and the probe reads it three D-Bus round trips after
-  the release, so measure whether the settle is missing or the probe was always
-  losing that race before changing either. It is listed here because this gate is
-  what would certify the branch for `main`, not because it belongs to ownership.
+  `tablet-runtime` failed four sessions ahead of it. Measured rather than
+  guessed: the settle was running. At the read the card reported an animation in
+  flight and a rectangle already four pixels back toward home, and fifty
+  milliseconds later it was most of the way there. The probe was losing the
+  race, because it asked for the held width exactly, which only a read that
+  elapsed no time can see. Every term of that assertion is now a bound between
+  held and home, as the vertical terms beside it always were.
+  Settling it moved the probe on to two further assertions that had never run,
+  and both stated something the implementation has never done. Insertion depth
+  is front-first, so the depth a leftward page reaches is 1 and not 0. And the
+  carried identity was captured once for two gestures, although the first
+  release changes which card is the stack's face, so the second gesture never
+  carried the card the assertion named. Both now assert the documented rule:
+  the seam the page reached is the one the release commits, depth 0 takes the
+  face and a deeper slot leaves it. `line-runtime` passes end to end, three runs
+  in three. It is listed here because this gate is what would certify the branch
+  for `main`, not because it belongs to ownership.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread

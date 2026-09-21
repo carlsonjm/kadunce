@@ -17,6 +17,10 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunc
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .role == "tablet")] | length == 1'
 # A plain-card no-target drop settles visually while membership and native
 # placement remain unchanged. Both contact types must drain at release.
+# The settle is read one D-Bus round trip after release, so it has already
+# advanced by then: every term is a bound between held and home, never an
+# equality with either. An exact held width could only hold on a read that
+# elapsed no time, which this one cannot.
 for kind in pointer touch; do
     probe pointer 500 350
     kad showCardLine
@@ -30,7 +34,8 @@ for kind in pointer touch; do
     state=$(kad nativeCarryState)
     jq -e --argjson home "$home" --argjson held "$held" \
         '(.lineCarrying|not) and .lineAnimating and .lineRect.y > $home.y
-         and .lineRect.y <= $held.y and .lineRect.width == $held.width' <<<"$state"
+         and .lineRect.y <= $held.y and .lineRect.width >= $held.width
+         and .lineRect.width < $home.width' <<<"$state"
     sleep .35
     kad nativeCarryState | jq -e --argjson home "$home" \
         '(.lineAnimating|not) and .lineRect == $home'
@@ -141,29 +146,45 @@ sleep .32
 test "$(kad workspaceContext | jq -c '.cardStage.selectedStack')" = "$before"
 echo 'PASS: leaving stack target disarms it; no-target release restores original stack order'
 echo 'PASS: stack join and return interpolate the held face rotation without retaining input'
-selected=$(kad workspaceContext | jq -r '.cardStage.selectedCardId')
-# Both ends of the same stack remain reachable without releasing the held card.
+# Both seams of the same stack stay reachable without releasing the held card,
+# and the seam the page reached is the one the release commits. Insertion depth
+# is front-first: depth 0 puts the carried card in front, and a deeper slot
+# leaves the destination's face in front. Each release therefore changes which
+# card is the face, so the carried identity is re-read before each gesture
+# rather than captured once for both.
+# Paging runs on a dwell timer, so each assertion waits for it. Reading
+# immediately after the motion only reports the depth arming chose.
+carried=$(kad workspaceContext | jq -r '.cardStage.selectedCardId')
 probe down 53 500 350
 sleep .4
 probe motion 53 550 350
 sleep .4
+jq -e '.stackArmed and .stackInsertion == 0' <<<"$(kad nativeCarryState)"
 probe motion 53 350 350
 sleep .34
-jq -e '.stackArmed and .stackInsertion == 0' <<<"$(kad nativeCarryState)"
+jq -e '.stackArmed and .stackInsertion == 1' <<<"$(kad nativeCarryState)"
 probe up 53
 sleep .1
-kad workspaceContext | jq -e --arg selected "$selected" '.cardStage.selectedStack[0] == $selected and (.cardStage.selectedStack|length) == 2'
+kad workspaceContext | jq -e --arg carried "$carried" \
+    '(.cardStage.selectedStack|length) == 2
+     and (.cardStage.selectedStack|index($carried)) != null
+     and .cardStage.selectedCardId != $carried'
+carried=$(kad workspaceContext | jq -r '.cardStage.selectedCardId')
 probe pointer 500 350
 probe button true
 sleep .4
 probe pointer 450 350
 sleep .4
-probe pointer 720 350
 jq -e '.stackArmed and .stackInsertion == 1' <<<"$(kad nativeCarryState)"
+probe pointer 720 350
+sleep .34
+jq -e '.stackArmed and .stackInsertion == 0' <<<"$(kad nativeCarryState)"
 probe button false
 sleep .1
-kad workspaceContext | jq -e --arg selected "$selected" '.cardStage.selectedStack[1] == $selected and (.cardStage.selectedStack|length) == 2'
-echo 'PASS: touch left-gap and pointer right-gap stack insertion preserve selected identity'
+kad workspaceContext | jq -e --arg carried "$carried" \
+    '(.cardStage.selectedStack|length) == 2
+     and .cardStage.selectedCardId == $carried'
+echo 'PASS: touch and pointer reach both stack seams; depth 0 takes the face and a deeper slot leaves it'
 kad nativeCarryState | jq -e '.lineAnimating and (.lineCarrying|not)'
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .3
