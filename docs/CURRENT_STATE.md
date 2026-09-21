@@ -152,13 +152,14 @@ closest automated evidence to physical behavior. `ownership-transition`,
 `exit-runtime` pass and assert the accepted ownership contract: a launch joins a
 layout that can grow for it, one no slot fits is refused awake and unowned, a
 full layout's displaced pane becomes an awake individual card, and a group resume
-leaves the cards beside it owned rather than returning them to the desktop. `column-runtime` fails at its placement check and asserts a three-pane
-column split on a display whose pane cap is two; that grammar is dormant by
-design, so the failure states a stale expectation rather than a defect.
-`tablet-entry-runtime` fails before it reaches an edge, because a press after
-`showCardLine` starts neither a native carry nor a Spread grab; it fails
-identically on the commit before the current ownership work, so it is not
-evidence about that work.
+leaves the cards beside it owned rather than returning them to the desktop. The
+two probes that never passed were retired on 20 September: `column-runtime`
+asserted a three-pane column on a display capped at two, which is the grammar
+Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because
+the harness could not start a carry from a press, a limit of the harness rather
+than of the gesture. Neither retirement changes what the suite covers, and
+`verify-integrated-carry.sh`'s route matrix no longer carries a member that
+cannot pass.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and

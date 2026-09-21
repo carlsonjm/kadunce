@@ -330,18 +330,23 @@ carries each: a launch that fits takes a slot and the pane it replaces becomes a
 hidden card, and a launch that fits nothing retires the layout into a Spread
 group first --- which is the only way a new card can be published at all while
 the display presents Bento, because Card Stage now refuses that path outright.
-§8, §5's one-remaining-pane rule and §10's top edge are physically accepted. The
-items still open in this block are listed below and none of them was reached by
-these four reviews.
+§8, §5's one-remaining-pane rule and §10's top edge are physically accepted.
+
+J then reviewed the remaining seven items on 20 September and cut five. Two
+isolated probes were retired, two yield-and-adoption items were suspended into
+Block 4 until they earn priority, and group admission closed on a live resume
+from an Active card. Two items remain, both of them things a tablet user can
+reach: a refused snap that does not put the Spread back, and a minimized pane
+that stays owned by its layout.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
 owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
-Physical review is owed for what those four reviews did not reach, so the branch
-as a whole is not yet promotion evidence. The isolated probes now assert this block's contract rather than the
-one it replaced, so a green run is evidence about the implementation instead of
+Physical review is owed for the two items still open, so the branch as a whole
+is not yet promotion evidence. The isolated probes now assert this block's
+contract rather than the one it replaced, so a green run is evidence about the implementation instead of
 evidence that the old behavior survived. They remain automated coverage and do
 not stand in for physical review.
 
@@ -474,17 +479,16 @@ source-order assertions with behavioral coverage.
   admitting a Bento group while an individual Active card exists discarded that
   card's restore record instead of parking it, so release could no longer return
   a displaced window where it began. Every other departure from Active parks it.
-- [ ] Revive or retire `column-runtime`'s three-pane column grammar. It fails at
-  line 38 and did so before this block. Its second snap asserts a quarter pane
-  and line 39 asserts three panes on a display whose cap Block 3b set to two, so
-  it states the grammar 3b deliberately left dormant rather than a defect. It is
-  3b's record to settle, not this block's.
-- [ ] Settle `tablet-entry-runtime`, which fails at its line 31 both on this
-  branch and on the commit before this work, so it reports something older than
-  either item here: after `showCardLine` a press on the display starts neither a
-  native carry nor a Spread grab, and the probe never reaches an edge to test.
-  Together with `column-runtime` these are the two isolated probes that do not
-  gate this block.
+- [x] Retire the two isolated probes that never gated this block. J cut both on
+  20 September. `column-runtime` asserted a three-pane column on a display whose
+  cap Block 3b set to two, so it stated the grammar 3b deliberately left dormant;
+  its record moves to 3b's deferral, which is where reviving it would start.
+  `tablet-entry-runtime` never reached an edge, because a press after
+  `showCardLine` started neither a native carry nor a Spread grab in the harness
+  --- a limit of the harness, not of the gesture, which four physical reviews
+  drove by hand. It has never passed on any commit, so retiring it gives up no
+  coverage the suite currently has, and it removes the one permanently failing
+  member of `verify-integrated-carry.sh`'s route matrix.
 - [ ] Leave a refused side snap exactly as it found the Spread. A release the
   entry rule refuses is not handled by the card stage, so the router commits the
   grab: a stacked member is extracted and the card moves one position in Spread
@@ -532,17 +536,6 @@ source-order assertions with behavioral coverage.
   hold a sleeping window, which is card-stage admission work. It is also what
   the one-remaining-pane rule waits on: a session still holding a sleeping
   window does not end, because ending it would have nowhere to put that window.
-- [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
-  is the one holding the side the card was released into, per §5. No interaction
-  history decides it, so the user can see which pane will yield while dragging.
-  The mechanism exists: a full layout now yields rather than parks, and the
-  publisher evicts whichever pane the solve leaves out. Which pane that is still
-  comes from `chooseBentoSideAdmission`'s resident order rather than from the
-  contacted side, so the rule §5 states is still unimplemented.
-  This is now the narrower of the two yield rules rather than the only one.
-  §8 answers an arrival that states no side, which is every arrival on the
-  tablet, and that rule is implemented. This item is what a side release adds on
-  top of it where the gesture exists at all.
 - [x] Keep new-window admission and make it growth-only, per §8 as it then read.
   Superseded by the item below on 20 September, after physical review found the
   state it left behind. Growth-only answered a full layout by putting the arrival
@@ -604,10 +597,13 @@ source-order assertions with behavioral coverage.
   Planning no longer invalidates, and a transaction reads the carry before
   claiming the guard. `DECISIONS.md` § Planning is not a workspace change records
   the ordering and why no test caught it.
-- [ ] First Card or Bento entry atomically adopts every eligible window on that
-  display and current virtual desktop.
-- [ ] Atomic prepared admission and removal for one logical group: selecting a
+- [x] Atomic prepared admission and removal for one logical group: selecting a
   group transfers only that group; selecting an individual preserves the group.
+  Every prepared operation in `BentoSessionTransfer.h` already either completes
+  whole or refuses whole, and `BentoSessionTransferTest` covers admission,
+  departure, transfer, batch activation and arrival-with-activation on that
+  property. J closed it on 20 September on a live tablet, resuming a Bento from
+  an Active card.
 - [x] Rebuild top-edge Active extraction on that contract, covering both
   selection paths, rollback, repeated transitions, release, unload and
   other-output isolation. §5's top-edge departure and §10's top edge are one
@@ -643,13 +639,15 @@ source-order assertions with behavioral coverage.
   end, because card ownership cannot yet hold one. That is the same gap as the
   minimized-pane item above and closes with it.
 
-**Exit gate:** Automated ownership coverage plus physical two-pane, three-pane,
-repeated-selection, cold-start and multi-display checks pass. `OwnershipViolation`
+**Exit gate:** Automated ownership coverage plus physical two-pane,
+repeated-selection, cold-start and multi-display checks pass. The three-pane
+check left with the grammar it tested: Block 3b's deferral holds the tablet at
+two panes, so this block has no third pane to review. `OwnershipViolation`
 holds two rules, not three, on every display — met in source, and measured clean
 across the whole 20 September session on the installed candidate.
 
-Four symptoms must be gone on an installed candidate. The first was measured gone
-on 20 September; the other three are owed the next one.
+Five symptoms must be gone on an installed candidate. All five were measured
+gone across the four candidates of 20 September.
 
 1. Activating a window the layout could not show brings it forward from the
    Plasma task manager instead of being re-minimized by the next solve. Measured
@@ -663,13 +661,13 @@ on 20 September; the other three are owed the next one.
    candidate, repeatedly and in both directions.
 4. Where the layout is full, the arrival takes the slot its minimum size needs
    and **only that slot's window leaves**. Every other pane keeps its size and
-   its side. Measured working on the second candidate, with one quirk recorded
+   its side. **Measured gone** on the third candidate, with one quirk recorded
    below.
 5. A *launched* application is answered the same way as a called one, and one no
    slot can hold retires the layout into a Spread group instead of being drawn
    over it. **Measured gone**, both branches, on the fourth candidate.
 
-The tray enable/disable control was measured clean on both candidates.
+The tray enable/disable control was measured clean on every candidate.
 
 One quirk is recorded rather than fixed. Applications that look small often
 declare a large minimum size, so they claim the wide pane even where the user
@@ -738,7 +736,9 @@ pane, what the shapes mean in a portrait work area, and whether the mapping
 extends to the monitor — that were not worth answering to reach an install. The
 shapes and the mapping stay in the source, dormant behind
 `BentoContactGrammarPaneCap`, which no display's cap reaches. Raising the compact
-cap to three revives them and reopens those questions.
+cap to three revives them and reopens those questions. `column-runtime` asserted
+that dormant grammar and was retired on 20 September rather than carried red, so
+raising the cap means writing its coverage again as well.
 
 What the block still delivers is the part that was never in doubt: one cap per
 display read by every path, orientation from the work area, no shape decision
@@ -773,6 +773,24 @@ rail behavior within them.
   it, and aiming at a half of a small group picture is its own physical review
   that would have muddied two findings still being confirmed. Pick this up once
   MVP criteria are met and the plan is back on feature work.
+- [ ] Displace by side. When a snap arrives at a full Bento, the pane that yields
+  is the one holding the side the card was released into, per §5, so the user can
+  see which pane will yield while dragging. The mechanism exists: a full layout
+  yields rather than parks, and the publisher evicts whichever pane the solve
+  leaves out. Which pane that is still comes from `chooseBentoSideAdmission`'s
+  resident order rather than from the contacted side. Suspended from Block 3 by J
+  on 20 September until it earns priority: §8 answers every arrival that states
+  no side, which is every arrival the tablet can make, and this is only what a
+  side release adds on top of that, on a display where the gesture exists at all.
+- [ ] First Card or Bento entry atomically adopts every eligible window on that
+  display and current virtual desktop. Suspended from Block 3 with the item
+  above. The Card half is already built and needs confirming rather than
+  writing: `adoptDisplayWithActive` commits the carry before publishing
+  anything, so a refused entry leaves every window Native instead of half of
+  them owned, and `isApplicationWindow` already restricts the sweep to the
+  current desktop and activity. The Bento half concerns only a display that
+  cannot own cards, because the tablet's shortcut now names two windows instead
+  of sweeping an output.
 - [ ] Complete arrival, displacement, cancellation and neighbor motion.
 - [ ] Make custom compositor motion follow platform animation scaling and
   reduced-motion preferences.
