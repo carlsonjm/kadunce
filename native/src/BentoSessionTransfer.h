@@ -7,8 +7,10 @@
 namespace Kadunce {
 // CARD-LIFECYCLE.md §5: a Bento session holds exactly the combination it
 // shows. There is no hidden remainder, so a solve either shows every window
-// the session owns awake or it is not a session. §7's sleeping windows stay
-// owned without being shown and are the one thing the visible set may omit.
+// the session owns awake or it is not a session. §7's sleeping window is the
+// one thing the visible set may omit, and only until card ownership takes it:
+// a minimized pane leaves at once wherever a display can hold a card, and
+// stays here only where §5 says nothing leaves because nothing can hold it.
 template<class Session>
 bool showsEveryAwakeSnapshot(const Session &session)
 {
@@ -24,9 +26,11 @@ bool showsEveryAwakeSnapshot(const Session &session)
 // CARD-LIFECYCLE.md §5: Bento ends when it falls to one visible pane, and the
 // pane it ends on becomes an individual card. Ending gives everything the
 // session holds to card ownership, so a session holding anything it is not
-// showing is not one that can end: §7's sleeping window has no card to become
-// yet, and any other unshown snapshot is the stranded state applySession
-// reports rather than one to discard by ending.
+// showing is not one that can end. On a display that can own cards nothing is
+// held unshown, because §7's sleeping pane left as it was minimized; where one
+// stayed, no display could take it and ending would have nowhere to put it.
+// Any other unshown snapshot is the stranded state applySession reports rather
+// than one to discard by ending.
 template<class Session>
 bool bentoEndsAtOnePane(const Session &session)
 {

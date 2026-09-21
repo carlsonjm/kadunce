@@ -78,6 +78,17 @@ public:
         const NativeMoveSnapshot *restore = nullptr) {
         return admitTransferredWindowToTablet(window, commitSource, restore);
     }
+    // CARD-LIFECYCLE.md §7: the user minimized a pane, so it leaves Bento at
+    // once and becomes a sleeping individual card. It is neither presented nor
+    // selected, and it is never offered a pane again until the user wakes it.
+    // A host whose card ownership cannot hold a sleeping window answers false,
+    // and §5 then keeps the window where it is rather than shedding it to
+    // nobody.
+    virtual bool admitSleepingPaneToTablet(
+        KWin::EffectWindow *, const std::function<bool()> &,
+        const NativeMoveSnapshot * = nullptr) {
+        return false;
+    }
     // `restore` is the record the window had while a Bento session still held
     // it. CARD-LIFECYCLE.md §5 keeps that record so release still returns the
     // window where it began, and after the session has published its shortened
@@ -97,7 +108,8 @@ public:
     [[nodiscard]] bool hasActiveSession() const;
     [[nodiscard]] bool ownsWindow(KWin::EffectWindow *window) const;
     // A session's visible pane combination, which CARD-LIFECYCLE.md §5 makes
-    // everything it owns awake. The two differ only by §7's sleeping windows.
+    // everything it owns awake. The two differ only where §5 could not shed a
+    // §7 sleeping window, which is a display with no card owner to shed it to.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
     void restoreAllSessions();
@@ -342,14 +354,19 @@ private:
     bool planSession(Session &session, KWin::EffectWindow *preferred,
                      bool requirePreferred,
                      QList<QPointer<KWin::EffectWindow>> *evicted = nullptr) const;
+    // Which door card ownership opens for an evicted window.
+    enum class EvictedAs { AwakeCard, SleepingCard };
     // CARD-LIFECYCLE.md §5: a window the layout cannot show becomes an awake
     // individual card on the display that can hold one. That is the same
     // destination-first transfer a deliberate carry makes, so it is the
     // publisher's work and never the solve's. A refusal changes nothing: §5
     // keeps the combination rather than shedding a window with no owner to
     // become, which is the case with no card-owning display attached.
+    // `destination` is the only difference between §5's awake remainder and
+    // §7's minimized pane, so the transfer itself is written once.
     bool evictToTablet(const QString &sourceKey, KWin::EffectWindow *window,
-                       const std::function<bool()> &sourceValid = {});
+                       const std::function<bool()> &sourceValid = {},
+                       EvictedAs destination = EvictedAs::AwakeCard);
     // CARD-LIFECYCLE.md §5: Bento ends at one visible pane, and that pane
     // becomes an individual card rather than an ordinary desktop window. Call
     // it after a shortening has published, never inside one: ending is itself

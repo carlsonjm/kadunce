@@ -554,18 +554,28 @@ source-order assertions with behavioral coverage.
   then holds at three owners, six transitions and two violation rules, both
   checkable in the one place Block 2 built. A rule that still needs reporting
   means the container was relocated, not removed.
-- [ ] Bento owns only its visible pane combination; minimized, displaced and
+- [x] Bento owns only its visible pane combination; minimized, displaced and
   extracted windows become independent cards with no retained association. The
-  displaced half is done: a window a layout cannot show becomes an awake
-  individual card, and §7's sleeping window stays distinguishable because
-  `userMinimized` decides membership of `owned` and now survives the Spread
-  round trip, which previously erased it. The minimized half is not. A minimized
-  window fails `Effect::isCardWindow`, so `admitTransferredWindowToTablet`
-  refuses it and the session keeps its record instead, carrying it as a sleeping
-  projection member. Making §7's sleeping card real means letting card ownership
-  hold a sleeping window, which is card-stage admission work. It is also what
-  the one-remaining-pane rule waits on: a session still holding a sleeping
-  window does not end, because ending it would have nowhere to put that window.
+  displaced half was already done: a window a layout cannot show becomes an
+  awake individual card. The minimized half needed card ownership to be able to
+  hold a sleeping window at all. A minimized window fails `Effect::isCardWindow`,
+  which is the right answer to what this effect can present and the wrong one to
+  what card ownership can hold, so §7 gets its own eligibility question and its
+  own door. `admitSleepingPaneAsCard` takes membership and the pre-Bento record
+  and nothing else, in whatever presentation the display already has, because a
+  sleeping card is behind everything by being asleep. Minimizing a pane now
+  hands it through that door, and `DECISIONS.md` § A minimized pane leaves
+  through a third door records the two things that followed: an inactive stage
+  has to own the card without presenting anything, and the record has to be read
+  out of the session, because the request the awake door uses refuses a
+  minimized window and release would otherwise re-minimize a window it had woken.
+  That closes §5's one-remaining-pane rule as well. A session holding a sleeping
+  window could not end, and on the tablet the layout that loses one of its two
+  panes now ends into card ownership as §5 says. Where no display can own a card
+  nothing leaves, which is §5's own answer and is unchanged.
+  `sleeping-pane-runtime` gates all of it on a tablet fixture: two panes, one
+  minimized, the layout ended, the sleeping window still owned, waking it
+  keeping it out of Bento, and release returning both windows awake.
 - [x] Keep new-window admission and make it growth-only, per §8 as it then read.
   Superseded by the item below on 20 September, after physical review found the
   state it left behind. Growth-only answered a full layout by putting the arrival

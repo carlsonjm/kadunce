@@ -273,6 +273,19 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
     // so waking one can ask for a pane the layout has no room for. This runs
     // after the loop because adopting reenters this controller.
     settleParticipation(key);
+    // §7: the window the user just minimized leaves Bento at once, and §5
+    // retains no minimized pane, so it is handed to card ownership asleep.
+    // The reflow above has already stopped showing it, so this gives up a
+    // record rather than a pane. Where card ownership cannot take it the
+    // session keeps it, which is §5's answer when nothing can hold a card.
+    if (window->isMinimized() && m_sessions.contains(key)
+        && !evictToTablet(key, window, {}, EvictedAs::SleepingCard)) {
+        qInfo() << "Kadunce" << Revision
+                << "kept a minimized pane; no display can hold a sleeping card";
+    }
+    // Shedding can leave one visible pane, and §5 ends Bento there. It could
+    // not be reached while a sleeping snapshot stayed behind.
+    endLayoutIntoCardOwnership(key);
     auto session = m_sessions.find(key);
     if (session == m_sessions.end()) return;
     if (applySession(session.value(), false)) scheduleSettle();
@@ -1222,7 +1235,8 @@ bool DesktopStageController::planSession(Session &session,
 
 bool DesktopStageController::evictToTablet(const QString &sourceKey,
                                            KWin::EffectWindow *window,
-                                           const std::function<bool()> &sourceValid)
+                                           const std::function<bool()> &sourceValid,
+                                           EvictedAs destination)
 {
     if (m_restoring || !window || window->isDeleted() || !window->window()
         || window->isUserMove() || window->isUserResize()
@@ -1247,10 +1261,30 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     QPointer<KWin::EffectWindow> arrival = window;
     const auto token = m_applicationGuard.issue();
     bool committed = false;
-    // The host reads this window's authoritative pre-Bento record while it is
-    // still a pane, so the card it becomes still releases to the display and
-    // geometry it began on.
-    const bool accepted = carrySourceHeld && m_host->admitTransferredWindowToTablet(window, [&] {
+    // The awake door reads this window's authoritative pre-Bento record for
+    // itself while it is still a pane, so the card it becomes still releases to
+    // the display and geometry it began on. It reads it by preparing a carry,
+    // which refuses a minimized window, so the sleeping door is handed the same
+    // record out of the session that still holds it. Without it the state §13
+    // restores the window to would be the one the user just asked for, and
+    // release would re-minimize a window it had woken.
+    std::optional<NativeMoveSnapshot> sleepingRecord;
+    if (destination == EvictedAs::SleepingCard) {
+        const auto session = m_sessions.constFind(sourceKey);
+        const auto saved = std::find_if(session->snapshots.cbegin(),
+            session->snapshots.cend(),
+            [window](const auto &s) { return s.window == window && s.valid; });
+        if (saved == session->snapshots.cend()) return false;
+        sleepingRecord = NativeMoveSnapshot{window->window(), outputForKey(saved->outputName),
+            saved->geometry, saved->floatingGeometry, saved->fullscreenRestoreGeometry,
+            saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
+    }
+    const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
+        return destination == EvictedAs::SleepingCard
+            ? m_host->admitSleepingPaneToTablet(departing, commit, &*sleepingRecord)
+            : m_host->admitTransferredWindowToTablet(departing, commit);
+    };
+    const bool accepted = carrySourceHeld && admit(window, [&] {
         if (committed || !m_applicationGuard.accepts(token) || m_restoring
             || !arrival || arrival->isDeleted() || !arrival->window()
             || arrival->isUserMove() || arrival->isUserResize()

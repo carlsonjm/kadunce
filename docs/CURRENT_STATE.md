@@ -68,6 +68,12 @@ not alternate behavior, and where wording conflicts the owning document governs.
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
+- Minimizing a Bento pane hands it to card ownership as a sleeping individual
+  card, and the layout keeps nothing it does not show. Waking it is an ordinary
+  card waking and never returns it to Bento. Where no display can own a card
+  there is nothing for the pane to become, so the layout keeps it instead. A
+  layout that falls to one visible pane ends into card ownership, including
+  when the pane it lost was the minimized one.
 
 The current `main` production sources and installed candidate include the accepted
 ownership, constrained-launch correction, and physically accepted Bento group-card
@@ -115,12 +121,6 @@ duplicates, and omits stack position.
   staying where it was.
 - Pulling a member back from a stack and reorder intent zones still need product
   completion.
-- A minimized Bento pane is still owned by its layout. §7 makes it a sleeping
-  individual card immediately, and §5 says Bento retains no minimized pane;
-  the session instead keeps its record, carries it as a sleeping projection
-  member, and returns it to Bento when the user restores it. §5's
-  one-remaining-pane rule waits on the same gap, because a session still
-  holding a sleeping window has nowhere to put it.
 - Native-to-stack admission is not one atomic destination transaction.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
@@ -154,11 +154,13 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor probes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior. `ownership-transition`,
-`side-runtime`, `membership-runtime`, `launch-runtime`, `desktop-runtime` and
-`exit-runtime` pass and assert the accepted ownership contract: a launch joins a
-layout that can grow for it, one no slot fits is refused awake and unowned, a
-full layout's displaced pane becomes an awake individual card, and a group resume
-leaves the cards beside it owned rather than returning them to the desktop. The
+`side-runtime`, `sleeping-pane-runtime`, `membership-runtime`, `launch-runtime`,
+`desktop-runtime` and `exit-runtime` pass and assert the accepted ownership
+contract: a launch joins a layout that can grow for it, one no slot fits is
+refused awake and unowned, a full layout's displaced pane becomes an awake
+individual card, a group resume leaves the cards beside it owned rather than
+returning them to the desktop, and a minimized pane leaves for a sleeping card
+that waking does not put back. The
 two probes that never passed were retired on 20 September: `column-runtime`
 asserted a three-pane column on a display capped at two, which is the grammar
 Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because

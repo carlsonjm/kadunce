@@ -55,6 +55,15 @@ public:
         const KWin::LogicalOutput *output) const = 0;
     [[nodiscard]] virtual bool isManagedWindowForCardStage(
         const KWin::EffectWindow *window) const = 0;
+    // CARD-LIFECYCLE.md §7 leaves a sleeping window owned as an individual
+    // card, so eligibility for one cannot require being awake. The predicate
+    // above answers what this stage can present; this one answers what it can
+    // hold, awake or asleep. A host that draws no distinction may answer the
+    // same question.
+    [[nodiscard]] virtual bool mayHoldWindowForCardStage(
+        const KWin::EffectWindow *window) const {
+        return isManagedWindowForCardStage(window);
+    }
     virtual void setPagingShortcutsForCardStage(bool active) = 0;
     virtual void cancelInputForCardStage() = 0;
     virtual void connectManagedWindowForCardStage(
@@ -208,6 +217,17 @@ public:
     // presentation. `admitTransferredWindowToTablet` cannot serve this — it
     // exists to make an arriving window the Active card.
     bool admitDisplacedPaneAsHiddenCard(KWin::EffectWindow *window,
+        const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore);
+    // §7: the user minimized a pane, so it leaves Bento at once and becomes a
+    // sleeping individual card. Neither door above can take it. The transfer
+    // door presents it, and the displaced-pane door is for an awake card
+    // hidden behind live panes and asks this stage to be presenting them; a
+    // sleeping card is behind everything by being asleep, so it arrives in
+    // whatever presentation the display already has. It is never woken,
+    // selected, given geometry, or offered a pane again until the user wakes
+    // it, which §7 makes an ordinary card waking to Active.
+    bool admitSleepingPaneAsCard(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore);
     // Whether this stage is presenting the display's Bento layout rather than

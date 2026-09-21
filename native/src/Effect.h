@@ -188,11 +188,16 @@ private:
     bool admitDisplacedPaneToTablet(
         KWin::EffectWindow *window, const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore = nullptr) override;
+    bool admitSleepingPaneToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
     [[nodiscard]] bool isTabletOutputForCardStage(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool isManagedWindowForCardStage(
+        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool mayHoldWindowForCardStage(
         const KWin::EffectWindow *window) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;

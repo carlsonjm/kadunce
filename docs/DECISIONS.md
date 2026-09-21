@@ -402,6 +402,36 @@ routes to it while the card stage presents Bento and falls back to the transfer
 door elsewhere, where there is no layout in front of the window and an ordinary
 arrival is right.
 
+### A minimized pane leaves through a third door, asleep
+
+§7 makes a minimized pane a sleeping individual card at once, and §5 says Bento
+retains no minimized pane. Neither existing door can take one. The transfer door
+presents what it takes as the Active card; the displaced-pane door takes an
+awake card that must hide behind live panes, and asks the card stage to be
+presenting them. A sleeping card is behind everything by being asleep, so it
+arrives in whatever presentation the display already has and is never woken,
+selected or given geometry.
+
+Two things follow from where the door sits. Eligibility for card ownership
+cannot require the window to be awake, because §7 is the section about a window
+that is not: `isCardWindow` answers what this effect can *present* and the
+sleeping door asks a separate question about what card ownership can *hold*.
+And a pair takes both of its cards, so the stage that gave them up owns nothing
+and is not active; the door has to make it active without presenting anything,
+which §2 answers, because the display is showing the panes the window just left.
+
+The record travels differently too. The awake door asks the desktop stage for
+the window's pre-Bento record, and that request refuses a minimized window, so
+the eviction reads the record out of the session itself before the departure
+publishes. Without it the state §13 restores the window to would be the one the
+user just asked for, and release would re-minimize a window it had woken.
+
+What this unblocks is §5's one-remaining-pane rule. A session still holding a
+sleeping window could not end, because ending hands everything to card ownership
+and there was nowhere for that window to go. Where no display can own a card
+there still is not, and §5's own answer applies instead: nothing leaves, and the
+layout keeps the combination it has.
+
 ### Destination acceptance precedes source removal
 
 `ARCHITECTURE.md` § Transfer transaction states the order. The decision is that a

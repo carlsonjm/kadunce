@@ -740,6 +740,20 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
     return admitTransferredWindowToTablet(window, commitSource, restore);
 }
 
+bool Effect::admitSleepingPaneToTablet(KWin::EffectWindow *window,
+    const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore)
+{
+    // Unlike the awake door, this one cannot find the record for itself: it
+    // would prepare a carry, and a carry refuses a minimized window. The caller
+    // still holds the session that has it, so it supplies it, and without it
+    // the state §13 restores the window to would be the one the user just asked
+    // for -- release would re-minimize a window it had woken.
+    if (!restore) return false;
+    // §7: a minimized pane is a sleeping individual card, not an arrival. Both
+    // other doors present what they take, so neither can hold one.
+    return m_cardStage->admitSleepingPaneAsCard(window, commitSource, restore);
+}
+
 KWin::LogicalOutput *Effect::tabletOutputForCardStage() const
 {
     return tabletOutput();
@@ -755,6 +769,15 @@ bool Effect::isManagedWindowForCardStage(
     const KWin::EffectWindow *window) const
 {
     return isCardWindow(window);
+}
+
+bool Effect::mayHoldWindowForCardStage(
+    const KWin::EffectWindow *window) const
+{
+    // §7 keeps a minimized window owned as an individual card, so what card
+    // ownership may hold cannot exclude the one state the section is about.
+    // `isCardWindow` answers what this effect can present, and excludes it.
+    return isApplicationWindow(window) && !window->isHidden();
 }
 
 void Effect::setPagingShortcutsForCardStage(bool active)
