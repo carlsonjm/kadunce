@@ -876,8 +876,17 @@ product decisions J has not been asked yet.
   inside the right edge zone, so the pause a user takes to check the result
   before releasing is the same input that pages the row. Shortening the reorder
   distance is what separates them; a smaller threshold ends the sweep short of
-  the zone. The remaining product question is whether the Spread displaces live
-  under the finger, and whether reorder stays one step per gesture.
+  the zone.
+
+  J approved the nudge on 21 September and scoped it as a stopgap: a short,
+  deliberate push, with the neighbour parting live so the new order is visible
+  before the finger lifts, and a push back under the threshold un-parting. The
+  trigger cannot be geometric overlap. These cards are 54% of the work area and
+  the pitch is 60% of it, so every rule phrased as passing the neighbour lands
+  back near half a screen; a nudge is an intent distance that the row then
+  answers with motion. Edge-dwell paging stays for now — with three cards
+  visible it is still how a distant slot is reached — and must not arm during a
+  nudge. Block 7b owns the deck that makes both obsolete.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces. The group
   is drawn as a live picture of the layout with its panes in position, so it is
   already a map; dropping a card onto a half of it states the side the tablet has
@@ -1005,6 +1014,44 @@ consumption without duplicated state ownership.
 
 **Exit gate:** Events are authoritative and deduplicated; no duplicate ownership
 of a completion.
+
+## Block 7b — Spread deck motion
+
+**Status:** Blocked by Blocks 5, 6 and 7 at J's sequencing on 21 September.
+
+The Spread row is discrete in both directions. Browsing classifies a swipe only
+once the finger lifts, then plays a fixed 220ms page; a carried card tracks the
+finger while the row behind it stays still. Nothing follows the hand, so there is
+no speed, no coasting and no sense of touching the deck rather than instructing
+it. The webOS card deck is the stated model, and its vertical half is already
+built: §9's pull-up out of a stack and §10's top edge are the same throw.
+
+Both of Block 4's reorder problems are consequences of this. The long reorder
+sweep and the edge-dwell strip each exist to compensate for a row that cannot be
+dragged, and a deck that can be thrown needs neither. Block 4 treats the symptom
+so the collision stops costing the user something now; this block removes the
+cause.
+
+- [ ] Give the row a continuous offset that tracks input, with velocity, coasting
+  and snap to the nearest card on release.
+- [ ] Rebuild browsing on that offset, replacing lift-time classification.
+- [ ] Decide the row's shape. It wraps today, so it has no beginning or end;
+  webOS had two ends and a spring at each, which is how a hand knows where it is
+  without looking. Unasked and undecided — it was put to J on 21 September and
+  deferred with the block.
+- [ ] Retire edge-dwell paging once a throw reaches a distant card, and keep the
+  wrap handling `RowPageMotion.h` proved: a shoulder leaves and re-enters at the
+  edges rather than flying across the centre card.
+- [ ] Re-derive Block 4's nudge on the continuous offset, or retire it if the
+  deck answers reordering by itself.
+
+Input routing is local-session work. Physical review is the gate that matters
+here: the whole item is a hand judgment, and no automated check substitutes for
+it.
+
+**Exit gate:** A user moves through the Spread by dragging and throwing the deck,
+it settles where the hand expects, and reordering and paging are never confused
+for one another.
 
 ## Block 8 — Table feasibility and implementation
 
