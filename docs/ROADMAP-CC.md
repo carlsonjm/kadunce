@@ -295,8 +295,9 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** In progress on `wip/deliberate-entry-20260919`. Deliberate entry was
-first implemented against an answer J superseded on 19 September: a card carried
+**Status:** Every item implemented on `wip/deliberate-entry-20260919`; physical
+review owed for the last three, and the branch is not promotion evidence until it
+passes. Deliberate entry was first implemented against an answer J superseded on 19 September: a card carried
 to a side edge while it was itself Active was treated as having nothing to pair
 with, so it stayed Active. The corrected grammar is now in the contract and in
 the branch. The carried card owns the edge it is released into, and Spread
@@ -335,17 +336,17 @@ the display presents Bento, because Card Stage now refuses that path outright.
 J then reviewed the remaining seven items on 20 September and cut five. Two
 isolated probes were retired, two yield-and-adoption items were suspended into
 Block 4 until they earn priority, and group admission closed on a live resume
-from an Active card. Two items remain, both of them things a tablet user can
-reach: a refused snap that does not put the Spread back, and a minimized pane
-that stays owned by its layout.
+from an Active card. The two he kept, both things a tablet user can reach, have
+since been implemented: a refused snap now puts the Spread back, and a minimized
+pane leaves its layout as a sleeping card.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
 owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
-Physical review is owed for the two items still open, so the branch as a whole
-is not yet promotion evidence. The isolated probes now assert this block's
+Physical review is owed for the last three items, so the branch as a whole is
+not yet promotion evidence. The isolated probes now assert this block's
 contract rather than the one it replaced, so a green run is evidence about the implementation instead of
 evidence that the old behavior survived. They remain automated coverage and do
 not stand in for physical review.
@@ -371,6 +372,15 @@ drop that bounced still took a pane with it. The fix makes shortening a value
 operation and hands the window over only after publication; physical review
 should exercise a refused side snap into a full layout and confirm the layout
 is exactly as it was.
+
+The three items closed since then each need a hand on the tablet. Carry a card
+from Spread to a side edge where nothing can pair with it and confirm the Spread
+comes back exactly as it was, including any stack the card came out of. Minimize
+one of two live panes and confirm it becomes a card rather than staying in the
+layout, that the layout ends and leaves the other pane as a card, and that
+restoring the minimized window from the task manager does not put it back in
+Bento. Then disable and re-enable from the tray and confirm both windows come
+back awake and where they began.
 
 Order within the block matters. Deliberate snapping comes first because it is the
 smallest change that makes the system testable: while the solver decides pane
@@ -686,8 +696,8 @@ two panes, so this block has no third pane to review. `OwnershipViolation`
 holds two rules, not three, on every display — met in source, and measured clean
 across the whole 20 September session on the installed candidate.
 
-Five symptoms must be gone on an installed candidate. All five were measured
-gone across the four candidates of 20 September.
+Seven symptoms must be gone on an installed candidate. Five were measured gone
+across the four candidates of 20 September; the last two are owed a candidate.
 
 1. Activating a window the layout could not show brings it forward from the
    Plasma task manager instead of being re-minimized by the next solve. Measured
@@ -707,7 +717,16 @@ gone across the four candidates of 20 September.
    slot can hold retires the layout into a Spread group instead of being drawn
    over it. **Measured gone**, both branches, on the fourth candidate.
 
-The tray enable/disable control was measured clean on every candidate.
+6. A side snap the entry rule refuses leaves the Spread exactly as it was,
+   including the stack the carried card came out of. Reproduced in the nested
+   compositor and gated by `line-runtime`; **owed a candidate**.
+7. Minimizing one of two live panes makes it a sleeping card rather than
+   leaving it in the layout, the layout ends and its other pane becomes a card,
+   and restoring the window from the Plasma task manager does not put it back
+   in Bento. Gated by `sleeping-pane-runtime`; **owed a candidate**.
+
+The tray enable/disable control was measured clean on every candidate, and is
+owed the same check on the next one, with a sleeping card owned at the time.
 
 One quirk is recorded rather than fixed. Applications that look small often
 declare a large minimum size, so they claim the wide pane even where the user
