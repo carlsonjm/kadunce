@@ -753,12 +753,13 @@ disable control.
 
 ## Block 3b — Bento layout grammar
 
-**Status:** Implemented; physical review owed. Separated from Block 3 on 19
+**Status:** Complete. J accepted the contact mapping and rail behavior within
+two panes on 21 September: neither the rails nor a proportion change has
+misbehaved since deliberate edge entry landed. Separated from Block 3 on 19
 September because it is different work: layout selection sitting on top of the
-ownership paths, not ownership itself. It stalled behind them for that reason.
-Headless and KWin-linked suites pass. The tablet keeps a two-pane maximum, so
-what physical review has not yet seen is the contact mapping and rail behavior
-within two panes.
+ownership paths, not ownership itself. Headless and KWin-linked suites pass. The
+tablet keeps a two-pane maximum, so the three-pane shapes stay dormant under the
+deferral below and their review belongs to whatever revives them.
 
 `BentoLayout.h` and `BentoSidePlacement.h` are pure value code covered by the
 headless suite, so this block can be prepared in a cloud session and needs no
@@ -829,7 +830,7 @@ reserves a pair rather than staying Active.
 history, on the displays the grammar governs. No shape decision reads `isTabletOutput`. Headless
 coverage for the cap, the orientation rule, both three-pane shapes and the
 contact mapping passes, and physical review accepts the tablet's two shapes and
-rail behavior within them.
+rail behavior within them. Met on 21 September.
 
 ## Block 4 — Kadunce manipulation
 
