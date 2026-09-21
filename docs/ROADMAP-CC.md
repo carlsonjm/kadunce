@@ -295,9 +295,10 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** Every item implemented on `wip/deliberate-entry-20260919`; physical
-review owed for the last three, and the branch is not promotion evidence until it
-passes. Deliberate entry was first implemented against an answer J superseded on 19 September: a card carried
+**Status:** Every item implemented on `wip/deliberate-entry-20260919`, and
+`verify-integrated-carry.sh` passes for the first time since 19 September.
+Physical review is owed for the last three items and for Block 3b's shapes, and
+the branch is not promotion evidence until that pass lands. Deliberate entry was first implemented against an answer J superseded on 19 September: a card carried
 to a side edge while it was itself Active was treated as having nothing to pair
 with, so it stayed Active. The corrected grammar is now in the contract and in
 the branch. The carried card owns the edge it is released into, and Spread

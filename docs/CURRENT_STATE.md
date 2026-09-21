@@ -167,9 +167,11 @@ Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because
 the harness could not start a carry from a press, a limit of the harness rather
 than of the gesture. Neither retirement changes what the suite covers.
 
-`verify-integrated-carry.sh` has not passed since 19 September, and the reasons
-were stacked: each one hid the next, because the matrix stops at its first
-failure. `tablet-runtime` asserted the `cardLine` presentation under the name
+`verify-integrated-carry.sh` passes: sixteen nested-compositor sessions, the
+candidate check, the source, package and control guards, and a read-only
+session registration check, from a freshly captured source tree. It had not
+passed since 19 September, and the reasons were stacked: each one hid the next,
+because the matrix stops at its first failure. `tablet-runtime` asserted the `cardLine` presentation under the name
 `spread`, which `Effect::workspaceContext` never reports, and `full-session` and
 `lifetime-runtime` carried the same rewrite. `line-runtime` then failed at three
 assertions of its own, all of them probe errors rather than defects, and all
@@ -194,6 +196,9 @@ build the compositor had open. This kernel restricts ptrace to descendants, so
 that file is unreadable even as the same user; the check now asks the effect,
 which is the one process that can read its own map, and compares the inode it
 reports with the candidate's.
+Six failures in a row, one behind another, and only one of them a defect. A
+matrix that stops at its first failure hides everything after it, so the cost of
+leaving one member failing is not one check but every check behind it.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and
