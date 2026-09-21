@@ -1792,10 +1792,17 @@ QString Effect::workspaceContext() const
     const QString selectedCardId = workspace.selectedCardId;
     for (const auto &member : workspace.selectedStack) selectedStack.append(member);
 
+    // §2 has three presentations and this reported two, so the one where the
+    // display shows its panes and Card Stage holds its cards hidden read as
+    // Active -- the state physical review could not tell from a card actually
+    // drawn over the layout. `cardLine` is a frozen interface identity; adding
+    // a value beside it is not a rename.
     const QString presentation = !m_cardStage->isActive()
         ? QStringLiteral("inactive")
         : m_cardStage->presentation() == CardPresentation::Spread
-            ? QStringLiteral("cardLine") : QStringLiteral("active");
+            ? QStringLiteral("cardLine")
+            : m_cardStage->presentation() == CardPresentation::Bento
+                ? QStringLiteral("bento") : QStringLiteral("active");
 
     QJsonArray displays;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
@@ -2669,10 +2676,17 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             return;
         }
         if (m_desktopStage->handleWindowAdded(candidate)) {
+            observeCardOwnership();
             return;
         }
+        // §8: the layout could not take it, so the layout leaves the screen
+        // before the card stage puts a card where the panes were. Without
+        // this the card is drawn over a running layout, which is the one
+        // state §2 does not name.
+        (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
         completeLauncherGuestForWindow(candidate);
+        observeCardOwnership();
     };
     QTimer::singleShot(0, this, admitReadyWindow);
     if (window->window() && !window->window()->readyForPainting())
@@ -2739,18 +2753,27 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     }
     // No slot the card's minimum size fits, so §8's other answer applies: the
     // layout becomes a Spread group and the card can be Active beside it.
-    KWin::LogicalOutput *tablet = tabletOutput();
-    if (output != tablet) return true;
-    if (!m_desktopStage->transferTabletSessionToSpread(tablet,
-            [this](const auto &projection, const auto &commit) {
-                return m_cardStage->admitBentoStack(projection, commit);
-            })) {
+    if (!retireLayoutIntoSpreadGroup(output)) {
         // Rejection retains Bento. Answering here is what keeps the refusal
         // from falling through to a card drawn over it.
         return true;
     }
     observeCardOwnership();
     return false;
+}
+
+bool Effect::retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output)
+{
+    // §8: a layout that cannot take an arrival stops being what the display
+    // presents, rather than staying live behind the card the arrival becomes.
+    // Both arrival paths need this, and the one that did not have it is what
+    // put a launched application on top of a running layout.
+    if (!output || output != tabletOutput() || !m_cardStage->presentsBento()
+        || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
+    return m_desktopStage->transferTabletSessionToSpread(output,
+        [this](const auto &projection, const auto &commit) {
+            return m_cardStage->admitBentoStack(projection, commit);
+        });
 }
 
 void Effect::handleLaunchWindowChanged()

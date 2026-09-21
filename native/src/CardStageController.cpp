@@ -2490,6 +2490,11 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
         || window->screen() != tablet || liveCardIndex(window) >= 0) {
         return false;
     }
+    // §2: the display is presenting its panes, and this path publishes a
+    // Spread presentation and an Active card. Refusing is what makes the
+    // caller retire the layout first rather than remember to; a card drawn
+    // over live panes is the state §2 does not name.
+    if (m_presentation == CardPresentation::Bento) return false;
 
     const bool animateArrival = m_presentation == CardPresentation::Spread
         && !m_launcherGuestActive && !m_cardGrabActive;

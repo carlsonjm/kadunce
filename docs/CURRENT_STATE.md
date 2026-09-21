@@ -29,7 +29,12 @@ not alternate behavior, and where wording conflicts the owning document governs.
   The arrival claims the smallest slot its minimum size permits and only that
   slot's occupant leaves, as a nonselected card behind the layout; every other
   pane keeps its window, its size and its place. A side release still overrides
-  that where the gesture exists, which no tablet gesture does.
+  that where the gesture exists, which no tablet gesture does. An arrival no slot
+  can hold retires the layout into a Spread group before becoming a card, on both
+  the launch and the activation path.
+- `workspaceContext` reports the third presentation as `bento`, distinct from the
+  Active card that would be drawn over it. It reported both as `active` before,
+  which is the distinction two physical reviews turned on.
 - Admitting a Bento group parks the restore record of an individual Active card
   the stage already presents instead of discarding it, so a window displaced
   into card ownership still returns where it began when Kadunce releases.

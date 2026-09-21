@@ -315,11 +315,16 @@ invalidated its own carry, and a card called forward was drawn on top of a live
 layout. The second produced §8's rewrite and J's Option C.
 
 The evening one closed the first of those — **top-edge extraction was accepted,
-the first time that gesture has ever run** — and the tray control was accepted
-with it. It found the other two items above: a displaced pane arriving through
-the Active-card door, and a full layout being re-solved rather than giving up one
-slot. Both are fixed and neither has been measured, so the next candidate owes a
-check on §8's two halves and nothing else has changed under them.
+the first time that gesture has ever run** — and the tray control with it. It
+found a displaced pane arriving through the Active-card door, and a full layout
+being re-solved rather than giving up one slot.
+
+A third review the same night accepted both of those fixes: calling a card
+forward exchanged one pane repeatedly, and the window that left was the one whose
+slot the arrival needed. It found the gap they shared, which is that only the
+activation path retired a layout it could not take from, so a *launched*
+application was still drawn over running panes. That is fixed and unmeasured, and
+it is what the next candidate owes.
 
 Overflow deletion has since landed on the same branch, together with growth-only
 admission and the projection round trip it forced. Ownership now holds at three
@@ -560,6 +565,20 @@ source-order assertions with behavioral coverage.
   its shape. Activation recency is removed rather than left dormant.
   `DECISIONS.md` § The arrival claims one slot records why fit alone also covers
   what recency was introduced to protect.
+- [x] Give both arrival paths the same retirement. A launch the layout could not
+  take was still handed straight to Card Stage, which published a Spread
+  presentation and an Active card over the running panes; only the activation
+  path retired the layout first. Measured on 20 September: with two panes live, a
+  launched application took Active size on top of them. `retireLayoutIntoSpreadGroup`
+  is now shared, and `CardStageController::handleWindowAdded` refuses outright
+  while the display presents Bento, so the order is enforced rather than
+  remembered. `launch-runtime` gained the at-cap case and asserts the arrival
+  occupies a rectangle the layout already had, which a refusal cannot produce.
+- [x] Report the third presentation. `workspaceContext` mapped Spread to
+  `cardLine` and everything else to `active`, so the presentation where the
+  display shows its panes read identically to a card drawn over them — the exact
+  distinction two physical reviews turned on. It now answers `bento`. The frozen
+  `cardLine` identity is unchanged; this is a value beside it, not a rename.
 - [x] Give a displaced pane its own arrival. It was handed back through
   `admitTransferredWindowToTablet`, which exists to make a window the Active
   card: it applies Active geometry, leaves Bento presentation and selects the new
@@ -632,13 +651,23 @@ on 20 September; the other three are owed the next one.
    candidate**, which is the first time this gesture has ever run.
 3. A card called forward while the display presents a layout joins that layout,
    per §8, and the pane it replaces becomes a nonselected card behind the layout
-   rather than an Active card drawn over it. The joining half was measured
-   working; the displaced half was measured wrong and is fixed but unmeasured.
+   rather than an Active card drawn over it. **Measured gone** on the second
+   candidate, repeatedly and in both directions.
 4. Where the layout is full, the arrival takes the slot its minimum size needs
    and **only that slot's window leaves**. Every other pane keeps its size and
-   its side. Measured wrong on 20 September and fixed; unmeasured.
+   its side. Measured working on the second candidate, with one quirk recorded
+   below.
+5. A *launched* application is answered the same way as a called one, and one no
+   slot can hold retires the layout into a Spread group instead of being drawn
+   over it. Measured wrong on the second candidate and fixed; unmeasured.
 
-The tray enable/disable control was measured clean on the same candidate.
+The tray enable/disable control was measured clean on both candidates.
+
+One quirk is recorded rather than fixed. Applications that look small often
+declare a large minimum size, so they claim the wide pane even where the user
+expected the narrow one, and the tablet has no gesture to say otherwise. J
+raised it as a usability observation against a rule that is behaving as written;
+the answers are the shelved Spread-drop item in Block 4 and Table in Block 8.
 
 No missing window, stuck input, broken restoration, cross-output leak, or failed
 disable control.

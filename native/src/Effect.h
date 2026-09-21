@@ -263,6 +263,10 @@ private:
     // answered here; false leaves it to Card Stage, which by then is no longer
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    // §8: retire a layout that cannot take an arrival into a Spread group, so
+    // the card the arrival becomes is not drawn over live panes. Both arrival
+    // paths ask this before handing the window to Card Stage.
+    [[nodiscard]] bool retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output);
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);

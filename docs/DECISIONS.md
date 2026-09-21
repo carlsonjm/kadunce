@@ -200,6 +200,15 @@ margins around it and still running underneath. A user who wants one window alon
 has Spread and ordinary stacks; the display presenting a layout is not the place
 for it.
 
+Both arrival paths ask the same question and need the same answer, including the
+answer for an arrival no slot can hold: the layout retires into a Spread group
+before the card stage puts a card where the panes were. Only the activation path
+had it, so a *launched* application was still drawn over a running layout —
+found by physical review on 20 September after the activation path had already
+been accepted. `retireLayoutIntoSpreadGroup` is that step, and Card Stage's
+new-window path now refuses outright while the display presents Bento, so the
+ordering is enforced by the code rather than remembered by each caller.
+
 The cost is accepted deliberately. A window that opens on its own can now take a
 pane, which growth-only existed to prevent. On a display with room the layout
 simply grows and nothing is displaced; on a two-pane display the exchange is
