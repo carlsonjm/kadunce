@@ -189,6 +189,11 @@ then asserted the superseded entry contract --- a first side snap composing
 Bento on the tablet rather than adopting it into cards --- and expected the
 tablet to answer the dock band differently from an ordinary display, which it
 no longer does now that both seams read capability rather than output identity.
+Past those, `verify-bento-candidate.sh` was asking `/proc/<kwin>/maps` which
+build the compositor had open. This kernel restricts ptrace to descendants, so
+that file is unreadable even as the same user; the check now asks the effect,
+which is the one process that can read its own map, and compares the inode it
+reports with the candidate's.
 `active-admission-session.sh` runs and passes; it asserts Bento-to-Active
 extraction over both selection paths, a refused extraction that leaves the
 layout unchanged, repeated extraction, last-pane teardown, exact restore and

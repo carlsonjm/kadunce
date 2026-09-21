@@ -19,8 +19,14 @@ done
 test "$(qdbus6 org.kde.KWin /Effects \
     org.kde.kwin.Effects.isEffectLoaded \
     kwin4_effect_kadunce)" = "true"
-rg -q "${native_build_dir}/bin/kwin/effects/plugins/kwin4_effect_kadunce\\.so" \
-    "/proc/${PPID}/maps"
+# Which plugin image this compositor actually has open. This kernel restricts
+# ptrace to descendants, so /proc/<kwin>/maps is unreadable from here even as
+# the same user, and only KWin can read its own. It reports the mapped inode,
+# and the candidate's own inode is what that answer is checked against.
+candidate_plugin="${native_build_dir}/bin/kwin/effects/plugins/kwin4_effect_kadunce.so"
+provenance="$(qdbus6 org.kde.KWin /Kadunce loadedPluginProvenance)"
+test "${provenance%% *}" = "$(stat -c %i "${candidate_plugin}")"
+test "${provenance##* }" = present
 
 konsole --separate --title Kadunce-Bento-A >/dev/null 2>&1 &
 first_client=$!
