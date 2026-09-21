@@ -77,10 +77,13 @@ not alternate behavior, and where wording conflicts the owning document governs.
   layout that falls to one visible pane ends into card ownership, including
   when the pane it lost was the minimized one.
 
-The current `main` production sources and installed candidate include the accepted
-ownership, constrained-launch correction, and physically accepted Bento group-card
-presentation. Revalidate source, package, control, and live provenance before the
-next installation.
+The current `main` production sources and installed candidate carry accepted
+ownership behavior through Block 3: deliberate edge entry, no Bento overflow,
+every arrival answered by the layout, a layout that ends into card ownership,
+top-edge extraction, a refused snap that changes nothing, and the sleeping pane.
+They also carry the constrained-launch correction and the physically accepted
+Bento group-card presentation. Revalidate source, package, control, and live
+provenance before the next installation.
 
 The current local `main` adds physically accepted Spread application labels without changing
 card geometry or input. Ordinary cards resolve their human application name from
@@ -91,15 +94,11 @@ duplicates, and omits stack position.
 
 ## Open limitations
 
-- A pane the user minimizes stays owned by its Bento session rather than
-  becoming a sleeping individual card. `CARD-LIFECYCLE.md` §7 gives it to card
-  ownership, but a minimized window is not an eligible card window, so the card
-  stage cannot adopt one; the session keeps its restore record instead and
-  carries it across the Spread round trip as a sleeping member. It is the only
-  window a session owns without showing, and `applySession` reports any other.
-  It is also the one case §5's one-remaining-pane rule skips: a session still
-  holding a sleeping window keeps its combination, because ending it would have
-  nowhere to put that window.
+- A resumed layout can end by itself when a pane will not take its stored rect
+  back. Resume places a drifted pane onto that rect, and the settle check then
+  requires every pane to match it exactly within its grace or restores the whole
+  session to the desktop. Observed live once on 21 September, on the one resume
+  that had a drifted pane.
 - Resuming a projected Bento group leaves every card beside it owned by the card
   stage, which then presents Bento and keeps them hidden behind the panes rather
   than returning them to the desktop. The stage stops presenting only when the
@@ -150,9 +149,12 @@ review accepted its geometry, tint, gutters, container-level rounded clipping,
 exact resume, and repeated-entry behavior.
 Physical review has accepted `CARD-LIFECYCLE.md` §8 on both branches, §5's
 one-remaining-pane rule and §10's top edge, across four candidates on 20
-September. It has also accepted ownership, constrained launch routing, stack retention,
-large-pane selection, monitor isolation, lifecycle, and the current live-rendering
-model. Automated and private-compositor checks do not replace physical appearance,
+September. The 21 September candidate added deliberate entry and pairing, a
+refused side snap that leaves both the carried card's stack and the Spread
+unchanged, a minimized pane leaving its layout as a sleeping card, and repeated
+resume of a projected group after a pane's own client had moved it. It has also
+accepted ownership, constrained launch routing, stack retention, large-pane
+selection, monitor isolation, lifecycle, and the current live-rendering model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor probes under `tests/unload-probe/` are the
@@ -219,17 +221,18 @@ still be the previous build. A compositor restart is what replaces the image,
 and until one happens an installed candidate is unexercised.
 
 The ownership observer has been live-verified on a restarted compositor
-running the installed candidate. On that candidate it reported the retained
-Bento remainder and no other violation, suppressed an unchanged shape, and
-reported nothing during tray disable, release and re-enable. The remainder it
-reported no longer exists in source and the rule that named it is retired, so
-the observer now holds two rules; that has not been measured live.
+running the installed candidate. The retained Bento remainder it first reported
+no longer exists in source and the rule that named it is retired, so the
+observer now holds two rules. On the 21 September candidate it reported no
+violation at any point, including deliberate entry, a refused side snap, group
+resume, a minimized pane leaving its layout, and tray disable.
 
 ## Safety
 
 `AGENTS.md` owns the safety requirements and the checks a change must run.
 Current status: the mandatory control checks pass for the accepted sources and
 again on the installed candidate in the graphical session, where the tray
-enable/disable control released and restored ownership cleanly.
+enable/disable control released and restored ownership cleanly, including a
+disable with a sleeping card owned, which returned that window to the desktop.
 
 Ordering, task detail and open product decisions live only in `ROADMAP-CC.md`.

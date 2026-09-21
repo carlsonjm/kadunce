@@ -295,15 +295,14 @@ suites pass.
 
 ## Block 3 — Ownership behavior
 
-**Status:** Every item implemented on `wip/deliberate-entry-20260919`, and
-`verify-integrated-carry.sh` passes for the first time since 19 September.
-The 21 September pass accepted the minimized pane and the tray cycle; it left
-the refused side snap half exercised and found the group card unopenable, which
-is fixed below. Physical review is owed for that fix, for the stack half of the
-refused snap, and for Block 3b's shapes, and the branch is not promotion
-evidence until that pass lands. Deliberate entry was first implemented against an answer J superseded on 19 September: a card carried
-to a side edge while it was itself Active was treated as having nothing to pair
-with, so it stayed Active. The corrected grammar is now in the contract and in
+**Status:** Complete. Physical review accepted the block on 21 September, on an
+installed candidate of `wip/deliberate-entry-20260919` whose head passes
+`./verify.sh` and `verify-integrated-carry.sh`. Block 3b owns its own physical
+review; that is its gate, not this block's.
+
+Deliberate entry was first implemented against an answer J superseded on 19
+September: a card carried to a side edge while it was itself Active was treated
+as having nothing to pair with, so it stayed Active. The corrected grammar is now in the contract and in
 the branch. The carried card owns the edge it is released into, and Spread
 direction selects the partner rather than the partner's eventual Bento side, so a
 carried Active card pairs with the nearest eligible card on the contacted side of
@@ -349,9 +348,8 @@ admission and the projection round trip it forced. Ownership now holds at three
 owners, six transitions and two violation rules. `./verify.sh`, which runs the
 full native CTest, passes.
 
-Physical review is owed for the resume fix and for the stack half of the
-refused snap, so the branch as a whole is not yet promotion evidence. The isolated probes now assert this block's
-contract rather than the one it replaced, so a green run is evidence about the implementation instead of
+The isolated probes now assert this block's contract rather than the one it
+replaced, so a green run is evidence about the implementation instead of
 evidence that the old behavior survived. They remain automated coverage and do
 not stand in for physical review.
 
@@ -377,18 +375,12 @@ operation and hands the window over only after publication; physical review
 should exercise a refused side snap into a full layout and confirm the layout
 is exactly as it was.
 
-The three items closed since then each needed a hand on the tablet, and the
-21 September pass answered two of them. Minimizing one of two live panes made it
-a card, ended the layout, left the other pane as a card, and restoring it from
-the task manager did not put it back in Bento; it behaved the same way twice.
-The tray disable and re-enable that followed released and restored both windows.
-
-Two gestures still owe a hand. Carry a card from a stack to a side edge where
-nothing can pair with it and confirm the Spread comes back exactly as it was,
-including the stack the card came out of: the pass carried an unstacked card,
-which exercised the refusal but not the stack it is meant to protect. Then put
-two windows side by side, go to Spread, and tap the pair card, which must
-reopen the pair.
+The three items closed since then each needed a hand on the tablet, and two
+passes on 21 September answered all three. Minimizing one of two live panes made
+it a card, ended the layout, left the other pane as a card, and restoring it
+from the task manager did not put it back in Bento. A card pulled out of a stack
+and carried to a side edge that could not pair returned to that stack with the
+Spread unchanged. And the pair card reopened its layout on every selection.
 
 That last gesture is what the pass found. A pane's own client can change its
 frame while the group is projected --- a terminal reflowing, a scale change
@@ -713,7 +705,8 @@ holds two rules, not three, on every display — met in source, and measured cle
 across the whole 20 September session on the installed candidate.
 
 Seven symptoms must be gone on an installed candidate. Five were measured gone
-across the four candidates of 20 September; the last two are owed a candidate.
+across the four candidates of 20 September, and the last two on the 21 September
+candidate.
 
 1. Activating a window the layout could not show brings it forward from the
    Plasma task manager instead of being re-minimized by the next solve. Measured
@@ -735,14 +728,19 @@ across the four candidates of 20 September; the last two are owed a candidate.
 
 6. A side snap the entry rule refuses leaves the Spread exactly as it was,
    including the stack the carried card came out of. Reproduced in the nested
-   compositor and gated by `line-runtime`; **owed a candidate**.
+   compositor, gated by `line-runtime`, and **measured gone** with a stacked
+   card on the 21 September candidate.
 7. Minimizing one of two live panes makes it a sleeping card rather than
    leaving it in the layout, the layout ends and its other pane becomes a card,
    and restoring the window from the Plasma task manager does not put it back
-   in Bento. Gated by `sleeping-pane-runtime`; **owed a candidate**.
+   in Bento. Gated by `sleeping-pane-runtime` and **measured gone** on the
+   21 September candidate.
 
-The tray enable/disable control was measured clean on every candidate, and is
-owed the same check on the next one, with a sleeping card owned at the time.
+The tray enable/disable control was measured clean on every candidate. On the
+21 September candidate the disable ran with a sleeping card owned and returned
+that window to the desktop; earlier cycles on the same candidate released and
+re-adopted awake windows. The ownership observer reported no violation at any
+point in that session.
 
 One quirk is recorded rather than fixed. Applications that look small often
 declare a large minimum size, so they claim the wide pane even where the user
@@ -835,8 +833,16 @@ rail behavior within them.
 
 ## Block 4 — Kadunce manipulation
 
-**Status:** Blocked by Block 3.
+**Status:** Unblocked. Block 3 closed on 21 September.
 
+- [ ] Let a resumed layout survive a pane that will not take its stored rect
+  back. Resume places a drifted pane onto the stored rect, and the settle check
+  then requires every pane to match that rect exactly within its grace or
+  restores the whole session to the desktop. Observed live once on 21 September,
+  on the one resume that had a drifted pane: the pair reopened and the layout
+  ended by itself moments later. Reproduce it before changing anything, and
+  measure what the client does with the stored size the second time it is asked
+  for it.
 - [ ] Make stack extraction reliable; native-to-stack arrival becomes one atomic
   membership and insertion transaction.
 - [ ] Give reordering a usable intent zone without accidental paging.
