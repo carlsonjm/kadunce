@@ -1072,6 +1072,36 @@ push is the hook the components need and is what ends the independent
 negotiation. Both must still compose correctly when no extent is published at
 all, which is the supported no-Bottom-Surface configuration above.
 
+### What Plasma already provides
+
+Read out of the installed Plasma 6.7.5 sources on 22 September, before any
+implementation. It is here because most of the hosting mechanism already exists
+and does not have to be built.
+
+- `X-Plasma-ContainmentType: Panel` is what the stock panel declares in its own
+  plugin metadata, so a Shuffle panel containment is an ordinary supported thing
+  rather than a reach.
+- `PanelView::updateExclusiveZone` reserves exactly the thickness for a panel in
+  its normal hiding mode. That is the contract's load-bearing rule enforced by
+  the shell rather than by us, and a gradient cannot disturb it, because nothing
+  in the reservation path reads what the containment paints.
+- The shell's `Panel.qml` draws no background in any of its four background
+  states for a containment declaring `NoBackground`, so the whole region is the
+  surface's to paint and the approved material has no stock panel behind it to
+  fight.
+- The stock desktop panel containment is C++ and is therefore not the example to
+  copy. Plasma Mobile's `containments/taskpanel` is a QML-only panel containment
+  and is.
+- Contrast has to be decided here. `touchingWindow`, which drives Plasma's own
+  adaptive opacity, is computed inside the shell's `Panel.qml` and is not
+  reachable from a third-party containment. `TasksModel` region filtering is
+  present on this system and is what replaces it.
+
+All of this was read rather than measured. The nested-session probe that first
+asked these questions is withdrawn: it took the machine down on 22 September and
+its evidence did not survive the reboot. Nothing in this block is measured on the
+live session again; `TEST-ENVIRONMENT-PROCEDURE.md` governs.
+
 ### Verification owed
 
 The approved presentation rests on properties a browser mock cannot judge, and
@@ -1133,7 +1163,11 @@ here are unmapped rather than merely unaddressed.
   the surface restores itself if a client exits without releasing, and with no
   surface present the Keyboard's current behavior is unchanged. Kadunce is not
   part of the exchange, because its Active card reads the input panel directly
-  rather than inferring room from a panel that yields.
+  rather than inferring room from a panel that yields. What the present
+  arrangement costs is now read rather than argued: `updateExclusiveZone`
+  reserves nothing in any hiding mode, so switching the panel to autohide
+  vacates the whole reservation for the episode rather than shortening it, which
+  is the same excursion Block 12 recorded from the Kadunce side.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
