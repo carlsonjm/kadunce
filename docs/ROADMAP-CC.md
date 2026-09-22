@@ -1278,10 +1278,12 @@ here are unmapped rather than merely unaddressed.
   gains a one pixel dark hairline, so it reads over a light window without
   having to see what is beneath it; built, unseen. Reach is a pull rather than
   a tap, as easy as an app drawer, and it must never cost an application a
-  tap, so the catch area cannot grow by taking touches above the gutter. What
-  is open is where a pull may start: Kadunce already opens Spread on an upward
-  swipe that starts on the dock or up to 36 pixels above it, which covers the
-  handle, so with both running one pull does both.
+  tap, so the catch area cannot grow by taking touches above the gutter. It
+  stays the pull on the bar that already worked, and Spread is untouched. One
+  collision had to go: Kadunce's bottom swipe starts on the dock or up to 36
+  pixels above it, which covers the handle, so with both running one pull
+  raised the Keyboard and opened Spread. Kadunce now leaves a touch to any
+  layer surface that is not a panel when it starts on one; built, unseen.
 
   J also wants this to be the Keyboard's only handle: the one on the
   Keyboard's top edge is the original placeholder and retires once resizing

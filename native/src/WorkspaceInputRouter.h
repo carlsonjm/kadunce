@@ -62,6 +62,10 @@ public:
 
     [[nodiscard]] virtual bool isTabletPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool isPanelPoint(const QPointF &position) const = 0;
+    // A surface that is neither an application nor a panel keeps a touch that
+    // starts on it, even inside the bottom swipe's starting band. The band
+    // reaches above the dock, where such a surface can have a pull of its own.
+    [[nodiscard]] virtual bool surfaceOwnsTouchAt(const QPointF &) const { return false; }
     [[nodiscard]] virtual bool cancelForwardedTouchForInput() = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool selectedStackContains(

@@ -420,6 +420,9 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
         return true;
     }
     const TouchMode mode = touchModeAt(event->pos);
+    if (mode == TouchMode::BottomEdge && m_target->surfaceOwnsTouchAt(event->pos)) {
+        return false;
+    }
     if (mode == TouchMode::BottomEdge
         && m_target->presentationForInput() != WorkspacePresentation::Spread
         && m_touchId < 0) {

@@ -230,6 +230,7 @@ private:
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;
     [[nodiscard]] bool isTabletPoint(
