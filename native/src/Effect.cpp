@@ -925,7 +925,6 @@ WorkspaceInputGeometry Effect::geometryForInput() const
         QRectF(centerCard),
         double(tabletRect.bottom()),
         double(centerCard.right()),
-        std::max(0.0, double(tabletRect.bottom()) - nativeLandingAreaForOutput(tablet).bottom()),
     };
 }
 

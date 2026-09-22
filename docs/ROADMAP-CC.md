@@ -1303,8 +1303,10 @@ here are unmapped rather than merely unaddressed.
   opening Spread start from the same ground and are hard to tell apart even
   with the handle's touches now left to it. Spread narrows to a swipe that
   starts at the bezel; a swipe that starts on the dock or the gutter is not an
-  edge. Measure first where the panel reports a bezel swipe's first contact,
-  against where a handle pull's lands, before choosing the strip.
+  edge. Measured the same evening with the touchscreen read directly: all five
+  bezel swipes first registered on the output's last row, and handle pulls 60
+  to 70 above it. Built on that: the swipe starts in the bottom 20 pixels and
+  nowhere else. Unseen by hand.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,

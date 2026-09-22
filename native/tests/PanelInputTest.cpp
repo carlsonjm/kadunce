@@ -18,7 +18,6 @@ struct Target : WorkspaceInputTarget {
     WorkspacePresentation presentation = WorkspacePresentation::Spread;
     int cancellations = 0;
     bool canCancel = true;
-    double bottomGestureInset = 0.0;
     int actions = 0;
     int toggles = 0;
     int dismissals = 0;
@@ -32,7 +31,7 @@ struct Target : WorkspaceInputTarget {
     WorkspacePresentation presentationForInput() const override { return presentation; }
     bool nativeWindowInteractionForInput() const override { return nativeInteraction; }
     bool cancelForwardedTouchForInput() override { ++cancellations; return canCancel; }
-    WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799,bottomGestureInset}; }
+    WorkspaceInputGeometry geometryForInput() const override { return {{0,0,1000,800},{200,100,600,500},799,799}; }
     bool cardGrabActiveForInput() const override { return grabbed; }
     bool stackPreviewArmedForInput() const override { return false; }
     int stackPreviewTargetForInput() const override { return 0; }
@@ -563,34 +562,33 @@ int main(int argc, char **argv) {
         require(!router.pointerButton(&button) && target.actions == 0,
                 "External release affected the tablet workspace");
     }
-    for (double inset : {0.0, 60.0})
     for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Inactive}) {
+        // A bezel swipe first registers on the output's last rows.
         Target target; target.presentation = presentation;
-        target.bottomGestureInset = inset;
         WorkspaceInputRouter router(&target);
-        KWin::TouchDownEvent down{10,{500,770-inset},{}};
-        KWin::TouchMotionEvent move{10,{502,762-inset},{}};
+        KWin::TouchDownEvent down{10,{500,795},{}};
+        KWin::TouchMotionEvent move{10,{502,787},{}};
         KWin::TouchUpEvent up{10,{}};
         require(!router.touchDown(&down) && !router.touchMotion(&move)
                     && !router.touchUp(&up), "Bottom tap did not reach the panel");
         require(target.actions == 0 && target.cancellations == 0, "Tap triggered or canceled a gesture");
         require(!router.touchDown(&down), "Swipe's initial contact was stolen");
-        move.pos = {501,720-inset};
+        move.pos = {501,745};
         require(router.touchMotion(&move) && target.toggles == 1 && target.cancellations == 1,
                 "Deliberate upward swipe failed to cancel client delivery before takeover");
         require(router.touchMotion(&move) && router.touchUp(&up) && target.toggles == 1,
                 "Claimed swipe leaked release or triggered twice");
         require(!router.touchDown(&down), "Multitouch first contact stolen");
-        KWin::TouchDownEvent second{11,{520,772-inset},{}};
+        KWin::TouchDownEvent second{11,{520,797},{}};
         KWin::TouchUpEvent secondUp{11,{}};
         require(!router.touchDown(&second) && !router.touchMotion(&move)
                     && !router.touchUp(&secondUp) && !router.touchUp(&up),
                 "Multiple client touches were stolen by bottom-edge candidate");
         require(target.cancellations == 1, "Multitouch canceled the client sequence");
         require(!router.touchDown(&down), "Horizontal gesture contact stolen");
-        move.pos = {560,770};
+        move.pos = {560,795};
         require(!router.touchMotion(&move), "Horizontal panel drag stolen");
-        move.pos = {501,720};
+        move.pos = {501,745};
         require(!router.touchMotion(&move) && !router.touchUp(&up),
                 "Disqualified horizontal drag became an upward swipe");
         require(target.cancellations == 1, "Disqualified drag canceled client delivery");
@@ -602,33 +600,41 @@ int main(int argc, char **argv) {
         router.touchCancel();
         require(!router.touchMotion(&move) && !router.touchUp(&up), "Canceled candidate remained armed");
     }
-    for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Spread}) {
-        // A handle in the gutter above a 60px dock, inside the swipe band.
+    for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Inactive}) {
+        // A swipe that starts on the dock, or in the gutter above it, is not an
+        // edge: that ground is the dock's and the Keyboard handle's.
         Target target; target.presentation = presentation;
-        target.bottomGestureInset = 60.0;
-        target.surface = QRectF(400,730,200,10);
         WorkspaceInputRouter router(&target);
-        KWin::TouchDownEvent down{20,{500,735},{}};
-        KWin::TouchMotionEvent move{20,{501,650},{}};
+        for (double start : {770.0, 745.0, 735.0}) {
+            KWin::TouchDownEvent down{12,{500,start},{}};
+            KWin::TouchMotionEvent move{12,{501,start - 90},{}};
+            KWin::TouchUpEvent up{12,{}};
+            require(!router.touchDown(&down) && !router.touchMotion(&move) && !router.touchUp(&up),
+                    "A swipe that did not start at the bezel was taken as the bottom edge");
+        }
+        require(target.actions == 0 && target.cancellations == 0,
+                "A swipe from the dock or the gutter opened Spread");
+    }
+    for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Spread}) {
+        // A handle is a surface of its own and keeps every touch that starts on
+        // it, even where it could meet a bottom edge.
+        Target target; target.presentation = presentation;
+        target.surface = QRectF(400,785,200,10);
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent down{20,{500,790},{}};
+        KWin::TouchMotionEvent move{20,{501,700},{}};
         KWin::TouchUpEvent up{20,{}};
         require(!router.touchDown(&down) && !router.touchMotion(&move) && !router.touchUp(&up),
                 "A pull on the handle was taken for the bottom swipe");
         require(target.actions == 0 && target.cancellations == 0,
                 "A pull on the handle opened Spread or canceled the handle");
         if (presentation != WorkspacePresentation::Active) continue;
-        KWin::TouchDownEvent beside{21,{200,735},{}};
-        KWin::TouchMotionEvent besideMove{21,{201,650},{}};
-        KWin::TouchUpEvent besideUp{21,{}};
-        require(!router.touchDown(&beside) && router.touchMotion(&besideMove)
-                    && router.touchUp(&besideUp) && target.toggles == 1,
-                "A swipe beside the handle stopped opening Spread");
-        KWin::TouchDownEvent dock{22,{500,770},{}};
-        KWin::TouchMotionEvent dockMove{22,{501,690},{}};
-        KWin::TouchUpEvent dockUp{22,{}};
-        target.presentation = WorkspacePresentation::Active;
-        require(!router.touchDown(&dock) && router.touchMotion(&dockMove)
-                    && router.touchUp(&dockUp) && target.toggles == 2,
-                "A swipe from the dock stopped opening Spread");
+        KWin::TouchDownEvent bezel{21,{500,798},{}};
+        KWin::TouchMotionEvent bezelMove{21,{501,700},{}};
+        KWin::TouchUpEvent bezelUp{21,{}};
+        require(!router.touchDown(&bezel) && router.touchMotion(&bezelMove)
+                    && router.touchUp(&bezelUp) && target.toggles == 1,
+                "A bezel swipe below the handle stopped opening Spread");
     }
     for (bool guest : {false, true}) {
         Target target;

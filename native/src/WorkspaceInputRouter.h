@@ -27,9 +27,6 @@ struct WorkspaceInputGeometry {
     QRectF centerCard;
     double tabletBottomInclusive = 0.0;
     double centerRightInclusive = 0.0;
-    // Dock/work-area depth only broadens the idle swipe's starting band.
-    // It does not move the held-card physical bottom departure target.
-    double bottomGestureInset = 0.0;
 
     [[nodiscard]] bool isValid() const
     {

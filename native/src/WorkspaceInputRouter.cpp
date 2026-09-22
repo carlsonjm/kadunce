@@ -19,6 +19,11 @@ namespace Kadunce
 namespace
 {
 constexpr double SystemEdgeWidth = 36.0;
+// Spread's swipe starts at the bezel. Measured on the tablet on 22 September,
+// every bezel swipe first registered on the output's last row, and a pull on
+// the Keyboard handle 60 to 70 above it; the strip stays well clear of both
+// the handle and most of the dock, whose touches are their own.
+constexpr double BottomBezelWidth = 20.0;
 constexpr double CardHoldMotion = 12.0;
 constexpr int CardHoldDelay = 300;
 constexpr double CardEdgeZoneFraction = 0.08;
@@ -807,7 +812,7 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
     const bool atBottom = position.y()
-        >= geometry.tabletBottomInclusive - geometry.bottomGestureInset - SystemEdgeWidth;
+        >= geometry.tabletBottomInclusive - BottomBezelWidth;
     const bool atTop = position.y()
         < geometry.tablet.y() + SystemEdgeWidth;
     if (atBottom) {
