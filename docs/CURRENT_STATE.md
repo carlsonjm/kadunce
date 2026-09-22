@@ -70,9 +70,15 @@ not alternate behavior, and where wording conflicts the owning document governs.
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
-- The Active card reads the virtual keyboard directly and sits above it. It
-  does not infer free space from the bottom panel, which yields as the keyboard
-  raises and would otherwise read as room the moment the room is taken.
+- The Active card reads the virtual keyboard directly and sits above it, a
+  gutter clear of the keys. It does not infer free space from the bottom panel,
+  which yields as the keyboard raises and would otherwise read as room the
+  moment the room is taken. Physically accepted on 21 September: on the tablet
+  the card is 832 tall at rest and 517 with the keyboard up, and returns.
+  Two settles can still run on a raise, because the panel yields before the
+  keyboard has mapped, so the first briefly targets the full 894 before the
+  second reads the keyboard. The card lands correctly; the overshoot is
+  presentation.
 - A placement that does not settle is asked for once more, and a pane that still
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
