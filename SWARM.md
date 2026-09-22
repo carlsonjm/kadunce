@@ -17,5 +17,5 @@ project history.
 
 ## Active handoffs
 
-- Bottom Surface owner: the Keyboard boundary is built both sides, unverified on hardware. Next is the handle: the Keyboard's own layer-shell surface, 4px centred in Kadunce's 10px gutter, width from the published dock extent, gone while obscured. Prove it nested before it is installed.
+- Bottom Surface owner: the boundary and the handle are built and pass in isolation. Both are unseen by hand and go over together in one install. Do not change the handle's size before that pass; reach is the open question and it is J's to answer.
 - Shuffle Keyboard owner: the 22 September direction is approved and unbuilt. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs and the fork's README lists what it supersedes. Change the height-derives-width rule first; the direction holds width fixed and moves only key height.

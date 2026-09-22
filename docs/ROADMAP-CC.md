@@ -1248,6 +1248,27 @@ here are unmapped rather than merely unaddressed.
   Two gaps remain open and neither blocks the exit gate: the application's own
   jump-list entries, which no model role carries, and the move-to-desktop and
   move-to-activity submenus.
+- [x] Give the Keyboard a handle, so the surface can be raised when nothing
+  has asked for text. Built on 22 September and proven in an isolated
+  compositor; unseen by hand. It is the Keyboard's own layer surface, because
+  the Keyboard's window is an input panel and the compositor unmaps it exactly
+  when the handle is wanted. It reserves nothing: it asks to be placed in what
+  is left after every exclusive zone, which puts it in the gutter above the
+  band and makes it follow the band's height without being told it. Measured
+  in `shuffle-keyboard/tests/verify-handle.sh` against a 60px band on a 915px
+  output, it lands at 845 rather than 905.
+
+  Two things were settled while building it. The surface spans the output and
+  only the bar takes touches, because a surface the width of the bar has to be
+  resized every time an application opens and a layer surface resizes by asking
+  the compositor and waiting --- measured, it spent that wait at the wrong
+  width and sometimes stayed there. And the Keyboard's coordinator is one
+  instance for the process rather than one per window, because two would be two
+  clients each believing they hold the region.
+
+  What is open is reach: the bar is four pixels of paint in a ten pixel gutter,
+  with the dock immediately below it, and whether that can be hit is the one
+  question the isolated run cannot answer.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,
@@ -1302,7 +1323,7 @@ here are unmapped rather than merely unaddressed.
   vacates the whole reservation for the episode rather than shortening it, which
   is the same excursion Block 12 recorded from the Kadunce side.
 
-  Built on both sides on 22 September and not yet seen on hardware. The surface
+  Built on both sides on 22 September. The surface
   answers `yieldRegion` and `releaseRegion`, holds the region for one client,
   tracks that client by bus name so a Keyboard that dies releases it anyway, and
   publishes its blackout state alongside the extent. The Keyboard calls those
@@ -1313,6 +1334,21 @@ here are unmapped rather than merely unaddressed.
   and reservation then presentation coming back, so the region is never visibly
   empty while still occupying space and the dock never arrives into room that
   does not exist yet.
+
+  It was then run, the same day, by `shuffle/tests/verify-boundary.sh`: both
+  production halves on a bus made for the run, with only the compositor's
+  virtual-keyboard object and Plasma's panel scripting stood in for. Six of
+  thirty checks failed first time and were all one defect, and it was on the
+  reading side rather than the half that looked risky. The Keyboard has no
+  output of its own to name and asks with an empty name; the surface keyed its
+  extent by the compositor's name for the panel and found nothing, so every
+  consumer was reading a band height of zero and a dock with no width. An empty
+  name now means the output the surface presents. The half that looked risky
+  held: one holder, a second asker refused, a non-holder unable to release, and
+  a Keyboard killed mid-hold giving the region back. What the run cannot reach
+  is what a strut does to a work area --- that the dock steps aside, that the
+  region is never visibly empty while still holding space, and that it comes
+  back. Those are physical and unseen.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
