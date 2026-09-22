@@ -1302,6 +1302,18 @@ here are unmapped rather than merely unaddressed.
   vacates the whole reservation for the episode rather than shortening it, which
   is the same excursion Block 12 recorded from the Kadunce side.
 
+  Built on both sides on 22 September and not yet seen on hardware. The surface
+  answers `yieldRegion` and `releaseRegion`, holds the region for one client,
+  tracks that client by bus name so a Keyboard that dies releases it anyway, and
+  publishes its blackout state alongside the extent. The Keyboard calls those
+  instead of scripting panels, and keeps its old behavior where no surface
+  answers. J settled what yielding means: the reservation goes, not just the
+  paint, because a surface that only painted itself out would still hold the
+  space the Keyboard asked for. The order is presentation out then reservation,
+  and reservation then presentation coming back, so the region is never visibly
+  empty while still occupying space and the dock never arrives into room that
+  does not exist yet.
+
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
 composing into the space its published extent leaves them. The wording this
