@@ -1296,6 +1296,17 @@ here are unmapped rather than merely unaddressed.
   unlocks the handle for the rest of the session. Confirmed by hand on 22
   September. A mouse or touchpad click never raises it, which is Plasma's
   touch-only setting and correct.
+
+  With Kadunce on, the handle is drawn and a pull on it raises the Keyboard
+  without opening Spread; both passed by hand on 22 September. The hairline did
+  not: J wants the full six pixels with no edge, keeping the translucency that
+  lets the wallpaper through, and since the surface owns the dock, the spacing
+  between row and handle can be rebalanced so the gutter still reads as ten.
+- [ ] Give the Keyboard's arrival motion. The Keyboard now comes all the way
+  down, passed by hand on 22 September, but it arrives at once while the dock
+  steps aside under it, so the wallpaper flashes through in between. J: motion
+  that turns the change into one action is what now stands between this and
+  flagship quality.
 - [ ] Make Spread a bezel swipe on the tablet. Approved by J on 22 September.
   Kadunce's own recognizer, the one the tablet uses, starts the bottom swipe
   anywhere on the dock or up to 36 pixels above it, a reach widened in the 12
@@ -1306,7 +1317,8 @@ here are unmapped rather than merely unaddressed.
   edge. Measured the same evening with the touchscreen read directly: all five
   bezel swipes first registered on the output's last row, and handle pulls 60
   to 70 above it. Built on that: the swipe starts in the bottom 20 pixels and
-  nowhere else. Unseen by hand.
+  nowhere else. Passed by hand the same evening: Spread opens from the bezel,
+  and nothing started below the handle registers as a pull.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,
@@ -1416,7 +1428,8 @@ here are unmapped rather than merely unaddressed.
   `shuffle-keyboard/tests/verify-seat.sh` seats the real Keyboard as a
   compositor's input method over a releasing band: without the signal it stays
   at 855 of 915, with the signal sent before the release has gone out it misses
-  two runs in three, and sent after it comes down every time.
+  two runs in three, and sent after it comes down every time. Passed by hand
+  the same evening: the Keyboard sits flush on the bottom.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
