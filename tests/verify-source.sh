@@ -440,6 +440,19 @@ active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^void 
 printf '%s\n' "$active_target" | rg -Fq 'inputPanelTopForCardStage(output)'
 printf '%s\n' "$active_target" | rg -Fq 'std::max(clearance, work.bottom() - *panelTop)'
 rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
+# A pane the compositor lifted for the keyboard is not a client refusing its
+# rect, so re-asserting the stored layout must never reach §5's shed.
+python3 - "${desktop_cpp}" <<'PY_PANEL'
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+reassert = source.split('void DesktopStageController::reassertPlacementsForInputPanel()', 1)[1].split(
+    'void DesktopStageController::settleSessions()', 1)[0]
+assert 'inputPanelTopForDesktopStage(output)' in reassert, \
+    're-asserting must not run while the keyboard is still up'
+assert 'applySession(' in reassert, 're-asserting must place the stored layout'
+for forbidden in ('shedUnsettledPanes(', 'scheduleSettle(', 'm_settleRetries', 'reflowSession('):
+    assert forbidden not in reassert, f'keyboard re-assert must not call {forbidden}'
+PY_PANEL
 
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"

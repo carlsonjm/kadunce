@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <functional>
+#include <optional>
 
 namespace KWin
 {
@@ -53,6 +54,13 @@ public:
     // ordinary windows or per-output Bento, never cards.
     [[nodiscard]] virtual bool outputCanOwnCards(const KWin::LogicalOutput *) const {
         return false;
+    }
+    // Where the visible virtual keyboard's top edge sits on this display, if
+    // one is up. A keyboard is a compositor fact, so reading it costs no
+    // dependency on a downstream surface.
+    [[nodiscard]] virtual std::optional<double> inputPanelTopForDesktopStage(
+        KWin::LogicalOutput *) const {
+        return std::nullopt;
     }
     [[nodiscard]] virtual KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const = 0;
@@ -126,6 +134,11 @@ public:
     // own last refusal; a false answer publishes nothing.
     bool extractPaneToCards(KWin::EffectWindow *window,
         const std::function<bool()> &sourceValid);
+    // The compositor lifts a focused pane for the keyboard and puts back only
+    // what its own bookkeeping remembers, which two panes and a moving focus
+    // defeat. Bento pane geometry belongs to this controller, so it re-asserts
+    // the stored layout once the keyboard has gone.
+    void reassertPlacementsForInputPanel();
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 

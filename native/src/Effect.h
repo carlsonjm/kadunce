@@ -202,6 +202,8 @@ private:
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] std::optional<double> inputPanelTopForCardStage(
         KWin::LogicalOutput *output) const override;
+    [[nodiscard]] std::optional<double> inputPanelTopForDesktopStage(
+        KWin::LogicalOutput *output) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(

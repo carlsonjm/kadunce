@@ -1544,6 +1544,44 @@ void DesktopStageController::scheduleSettle()
     m_settleTimer.start();
 }
 
+// CARD-LIFECYCLE.md §6: the stored rects are the layout, and only this
+// controller places them. KWin lifts the focused window for the input panel
+// and restores what it remembers, which is right for one window and wrong for
+// a layout: with two panes and a focus that moves between them, the pane left
+// behind keeps a rect nobody owns. Re-asserting the stored layout once the
+// keyboard has gone is what puts it back.
+//
+// This never reaches the shed. A pane the compositor moved is not a client
+// refusing its rect, which is the only thing §5 sheds for, so the placement is
+// applied directly and the settle's own retry budget is left untouched.
+void DesktopStageController::reassertPlacementsForInputPanel()
+{
+    if (m_interactionWindow) {
+        return;
+    }
+    const QStringList keys = m_sessions.keys();
+    for (const QString &key : keys) {
+        KWin::LogicalOutput *output = nullptr;
+        for (KWin::LogicalOutput *screen : KWin::effects->screens()) {
+            if (screen && screen->name() == key) {
+                output = screen;
+                break;
+            }
+        }
+        // While the keyboard is still up the compositor is holding a pane
+        // clear of it on purpose. Putting the stored rect back now would push
+        // that pane under the keys, which is the fault this exists to end.
+        if (!output || m_host->inputPanelTopForDesktopStage(output)) {
+            continue;
+        }
+        auto session = m_sessions.find(key);
+        if (session == m_sessions.end() || sessionGeometryMatches(session.value())) {
+            continue;
+        }
+        (void)applySession(session.value(), false);
+    }
+}
+
 void DesktopStageController::settleSessions()
 {
     if (m_interactionWindow) {

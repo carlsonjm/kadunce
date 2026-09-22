@@ -79,6 +79,13 @@ not alternate behavior, and where wording conflicts the owning document governs.
   keyboard has mapped, so the first briefly targets the full 894 before the
   second reads the keyboard. The card lands correctly; the overshoot is
   presentation.
+- A Bento layout returns to its stored rects once the keyboard has gone. KWin
+  lifts the focused pane for the input panel and restores only what its own
+  bookkeeping remembers, which holds for one pane and breaks once focus has
+  moved between two: the pane left behind keeps a rect nobody owns. This
+  controller owns pane geometry, so it re-asserts the stored layout on the
+  keyboard's departure. That path never reaches §5's shed, because a pane the
+  compositor moved is not a client refusing its rect.
 - A placement that does not settle is asked for once more, and a pane that still
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
@@ -140,11 +147,6 @@ duplicates, and omits stack position.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
-- The keyboard covers Bento panes. The Active card now reads the input panel
-  and sits above it, but a live layout keeps its stored pane rects, and nothing
-  re-places a session when the area changes. A pane the keyboard covers stays
-  covered. Re-solving a live layout for a transient keyboard is a §5 question,
-  because a shortened layout sheds, and is not answered yet.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

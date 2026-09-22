@@ -444,7 +444,10 @@ Effect::Effect()
     // KWin also lifts the focused window for the panel; the card stage owns
     // card geometry, so it places the card itself rather than inheriting that.
     connect(KWin::effects, &KWin::EffectsHandler::inputPanelChanged, this,
-            [this]() { m_cardStage->refreshActivePlacement(); });
+            [this]() {
+                m_cardStage->refreshActivePlacement();
+                m_desktopStage->reassertPlacementsForInputPanel();
+            });
 
     m_carryRuntime = std::make_unique<NativeCarryRuntime>();
     m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
@@ -795,6 +798,12 @@ std::optional<double> Effect::inputPanelTopForCardStage(
         return std::nullopt;
     }
     return covered.top();
+}
+
+std::optional<double> Effect::inputPanelTopForDesktopStage(
+    KWin::LogicalOutput *output) const
+{
+    return inputPanelTopForCardStage(output);
 }
 
 bool Effect::mayHoldWindowForCardStage(
