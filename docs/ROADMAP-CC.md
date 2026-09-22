@@ -1220,7 +1220,7 @@ here are unmapped rather than merely unaddressed.
   is as wide as its contents so the centre does not move, and the surface is
   three zones with each flank taking only what its own side has left. J settled
   the overflow question on 22 September --- the dock grows uncapped, and
-  capping with condensing is deferred to the later debug block, because a cap
+  capping with condensing is deferred to Block 12c, because a cap
   earns nothing at MVP working-set sizes.
 
   It cannot be reviewed outside a panel. KWin grants the window-list protocol
@@ -1288,6 +1288,23 @@ here are unmapped rather than merely unaddressed.
   J also wants this to be the Keyboard's only handle: the one on the
   Keyboard's top edge is the original placeholder and retires once resizing
   moves to the side column, leaving a tap to close.
+
+  Two more came out of the second pass. The handle raises nothing until a text
+  field has been touched once in the session: KWin shows a forced panel only
+  after the panel has been allowed, allows it only on a text-input update while
+  touch was the last input, and never revokes it, so the first text field
+  unlocks the handle for the rest of the session. Confirmed by hand on 22
+  September. A mouse or touchpad click never raises it, which is Plasma's
+  touch-only setting and correct.
+- [ ] Make Spread a bezel swipe on the tablet. Approved by J on 22 September.
+  Kadunce's own recognizer, the one the tablet uses, starts the bottom swipe
+  anywhere on the dock or up to 36 pixels above it, a reach widened in the 12
+  September freeze. The handle lives in that band, so pulling the Keyboard and
+  opening Spread start from the same ground and are hard to tell apart even
+  with the handle's touches now left to it. Spread narrows to a swipe that
+  starts at the bezel; a swipe that starts on the dock or the gutter is not an
+  edge. Measure first where the panel reports a bezel swipe's first contact,
+  against where a handle pull's lands, before choosing the strip.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,
@@ -1676,7 +1693,12 @@ previous identities installed.
 **Exit gate:** The public site accurately demonstrates the released product and
 provides a complete supported installation path.
 
-## Block 12 — Keyboard geometry and the stage gutter
+## Block 12 — Post-MVP debug
+
+Work that is real but does not gate MVP production, held in one place so it is
+not lost between blocks. Each part carries its own status and exit gate.
+
+### 12a. Keyboard geometry and the stage gutter
 
 **Status:** Deferred past MVP production at J's direction on 21 September, after
 two physical passes failed to close it. Its own debug, not a Block 5 dependency.
@@ -1719,6 +1741,38 @@ Add that trace before changing placement again.
 
 **Exit gate:** A keyboard raised over a layout and over a single card keeps the
 stage gutter throughout, moves once, and moves smoothly.
+
+### 12b. Edge gestures on any touchscreen
+
+**Status:** Added by J on 22 September. Shuffle's edge gestures have to work for
+anyone who installs it on a touchscreen, not only on the development tablet.
+
+Kadunce has two recognizers and chooses by device. With no Z13 tablet kit it
+registers Plasma's own touch borders, bottom for Spread and top for Active,
+which is the edge swipe every Plasma touchscreen already has and configures per
+user. When the kit's posture file appears it hands both edges back to Plasma and
+uses its own router instead. The kit supplies no edge detection; its file is
+only the sign that this is the tablet. So the path every other user gets has
+not been exercised since the tablet adopted the direct router within seconds of
+every boot (1e), and the rule that picks between them names one device.
+
+- [ ] Prove Spread and Active open from Plasma's touch borders on a touchscreen
+  with no kit present, including after a reload and on a cold boot.
+- [ ] Decide whether the bezel rule the tablet gets under Block 5 becomes the one
+  rule on every touchscreen, with Plasma's borders as the fallback, or whether
+  Plasma's borders become the rule and the direct router retires.
+- [ ] Confirm a user's own Plasma screen-edge assignment cannot fire alongside
+  Kadunce's on the same swipe.
+
+**Exit gate:** On a touchscreen that is not a Z13 and has no device-specific file,
+a bezel swipe up opens Spread and a bezel swipe down from the top opens Active,
+and nothing else fires on either.
+
+### 12c. Dock overflow
+
+Capping the dock with condensing, deferred here from Block 5 on 22 September: a
+cap earns nothing at MVP working-set sizes, and the dock grows uncapped until it
+does.
 
 ## Open product decisions
 

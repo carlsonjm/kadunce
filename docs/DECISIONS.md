@@ -511,6 +511,15 @@ Kadunce suppresses automatic electric-border tiling/maximize behavior in memory
 while enabled and restores the latest preferences on unload. Explicit Shift custom
 tiling and keyboard/manual operations remain KWin behavior.
 
+### Spread opens from the bezel, not from the dock
+
+Settled by J on 22 September. The bottom swipe that opens Spread is an edge
+swipe: it starts at the bezel. A swipe that starts on the dock or in the gutter
+above it is not an edge, because that ground belongs to the dock's own touches
+and to the Keyboard's handle. The tablet's direct recognizer had widened its
+reach to the dock and 36 pixels above it; that reach is withdrawn rather than
+arbitrated gesture by gesture.
+
 ### Dock input and dock clearance are separate
 
 Panel controls retain their input. Destination recognition may use the physical
@@ -673,7 +682,7 @@ the same at 894 before landing at 832.
 Reading the reservation as real is what produces the excursion. Placement should
 hold the reservation the dock had when the keyboard episode began and re-read it
 only once the episode has closed. Recorded on 21 September against measurements
-from a physical pass; the implementation is deferred with the rest of Block 12.
+from a physical pass; the implementation is deferred with the rest of Block 12a.
 
 ### The compositor has the last word on a focused window it lifts for the keyboard
 
