@@ -1182,7 +1182,14 @@ here are unmapped rather than merely unaddressed.
   measured, with every filter removed, against the running session. A stub
   preview shows the centred growth and nothing about real applications, so
   physical review of the dock's contents needs the containment on a panel.
-- [ ] Resolve the asymmetric Ambient and ticker width. The mechanism is settled
+- [x] Resolve the asymmetric Ambient and ticker width. Built and unreviewed.
+  The surface places each component into the space its own side has left ---
+  Ambient left, the status cluster right, as the study draws them --- and
+  neither flank is told anything about the other, so there is no longer a width
+  for the two of them to agree on. Sides come from the applet's plugin name, so
+  a component that is not installed simply is not there. What remains is the
+  published extent a consumer reads, which the contract defines and nothing
+  consumes yet. The mechanism was settled
   by `Allocation` above --- a dock fixed to the output's centre, publishing its
   extent, with each flank spending the space left on its own side --- and only
   the implementation is owed. The two flanks get equal space and use different
