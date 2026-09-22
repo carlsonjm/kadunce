@@ -440,15 +440,33 @@ active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^void 
 printf '%s\n' "$active_target" | rg -Fq 'inputPanelTopForCardStage(output)'
 printf '%s\n' "$active_target" | rg -Fq 'std::max(clearance, work.bottom() - *panelTop)'
 rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
-# A pane the compositor lifted for the keyboard is not a client refusing its
-# rect, so re-asserting the stored layout must never reach §5's shed.
+# The keyboard changes where panes belong, never how many there are. Placement
+# and the check that panes arrived must read the same shortened area, or a
+# layout drawn correctly above a keyboard reads as one that refused its rects
+# and §5 sheds a pane for it. Composition keeps the full area.
 python3 - "${desktop_cpp}" <<'PY_PANEL'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
-reassert = source.split('void DesktopStageController::reassertPlacementsForInputPanel()', 1)[1].split(
-    'void DesktopStageController::settleSessions()', 1)[0]
-assert 'inputPanelTopForDesktopStage(output)' in reassert, \
-    're-asserting must not run while the keyboard is still up'
+
+def section(start, end):
+    return source.split(start, 1)[1].split(end, 1)[0]
+
+apply_session = section('bool DesktopStageController::applySession(',
+                        'void DesktopStageController::scheduleSettle()')
+assert 'placementArea(output)' in apply_session, 'placement must read the shortened area'
+assert 'stageArea(output)' not in apply_session, 'placement must not read the composing area'
+
+matches = section('bool DesktopStageController::sessionGeometryMatches(',
+                  'void DesktopStageController::restoreSession(')
+assert 'placementArea(output)' in matches, 'the arrival check must read the shortened area'
+assert 'stageArea(output)' not in matches, 'the arrival check must not read the composing area'
+
+placement = section('KWin::Rect DesktopStageController::placementArea(',
+                    'DesktopStageController::Session *DesktopStageController::sessionForOutput(')
+assert 'inputPanelTopForDesktopStage(output)' in placement, 'the shortened area must read the keyboard'
+
+reassert = section('void DesktopStageController::reassertPlacementsForInputPanel()',
+                   'void DesktopStageController::settleSessions()')
 assert 'applySession(' in reassert, 're-asserting must place the stored layout'
 for forbidden in ('shedUnsettledPanes(', 'scheduleSettle(', 'm_settleRetries', 'reflowSession('):
     assert forbidden not in reassert, f'keyboard re-assert must not call {forbidden}'

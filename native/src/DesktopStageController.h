@@ -136,8 +136,9 @@ public:
         const std::function<bool()> &sourceValid);
     // The compositor lifts a focused pane for the keyboard and puts back only
     // what its own bookkeeping remembers, which two panes and a moving focus
-    // defeat. Bento pane geometry belongs to this controller, so it re-asserts
-    // the stored layout once the keyboard has gone.
+    // defeat. Pane geometry belongs to this controller, so it places the whole
+    // layout itself in both directions: above the keyboard while it is up,
+    // back on the full area once it has gone.
     void reassertPlacementsForInputPanel();
     void stopPendingSettle();
     void cancelRestoredMinimizations();
@@ -334,7 +335,13 @@ private:
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;
+    [[nodiscard]] KWin::Rect stageAreaFor(const KWin::Rect &work) const;
+    // What the layout composes into: solving, growing and shedding read this,
+    // so a transient keyboard never decides how many panes a display holds.
     [[nodiscard]] KWin::Rect stageArea(KWin::LogicalOutput *output) const;
+    // Where those panes belong right now, which the keyboard shortens. Both
+    // placement and the check that panes arrived read this one.
+    [[nodiscard]] KWin::Rect placementArea(KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::Rect workspaceArea(KWin::LogicalOutput *output) const;
     [[nodiscard]] Session *sessionForOutput(KWin::LogicalOutput *output);
     [[nodiscard]] const Session *sessionForOutput(

@@ -881,14 +881,39 @@ KWin::LogicalOutput *DesktopStageController::outputForKey(const QString &key) co
     return key.isEmpty() ? nullptr : KWin::effects->findScreen(key);
 }
 
-KWin::Rect DesktopStageController::stageArea(KWin::LogicalOutput *output) const
+KWin::Rect DesktopStageController::stageAreaFor(const KWin::Rect &work) const
 {
-    const KWin::Rect work = workspaceArea(output);
     if (work.isEmpty()) return {};
     const auto stage = makeBentoStageArea({double(work.x()), double(work.y()),
         double(work.width()), double(work.height())});
     return KWin::Rect(qRound(stage.x), qRound(stage.y),
         std::max(1, qRound(stage.width)), std::max(1, qRound(stage.height)));
+}
+
+// What the layout composes into. A transient keyboard must not decide how many
+// panes a display holds, so solving, growing and shedding all read this.
+KWin::Rect DesktopStageController::stageArea(KWin::LogicalOutput *output) const
+{
+    return stageAreaFor(workspaceArea(output));
+}
+
+// Where those panes belong right now. The keyboard takes real space, so the
+// layout is drawn above it, and the gutter is taken from the shortened area
+// rather than from the full one: applying it afterwards would leave the panes
+// flush against the keys. Placement and the check that panes arrived must read
+// the same area, or a layout drawn correctly above a keyboard reads as one
+// that refused its rects.
+KWin::Rect DesktopStageController::placementArea(KWin::LogicalOutput *output) const
+{
+    KWin::Rect work = workspaceArea(output);
+    if (const auto panelTop = m_host->inputPanelTopForDesktopStage(output)) {
+        const int top = qRound(*panelTop);
+        if (top > work.y()) {
+            work = KWin::Rect(work.x(), work.y(), work.width(),
+                std::max(1, top - work.y()));
+        }
+    }
+    return stageAreaFor(work);
 }
 
 KWin::Rect DesktopStageController::workspaceArea(KWin::LogicalOutput *output) const
@@ -1498,7 +1523,7 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
         return m_applicationGuard.accepts(token) && output
             && outputForKey(key) == output && m_sessions.contains(key);
     };
-    const KWin::Rect area = stageArea(output);
+    const KWin::Rect area = placementArea(output);
     const std::vector<BentoPixelRect> pixels = makePixelBentoLayout(
         plan.rects, area.x(), area.y(), area.width(), area.height());
     QList<QRectF> motionFrom, motionTo;
@@ -1568,10 +1593,7 @@ void DesktopStageController::reassertPlacementsForInputPanel()
                 break;
             }
         }
-        // While the keyboard is still up the compositor is holding a pane
-        // clear of it on purpose. Putting the stored rect back now would push
-        // that pane under the keys, which is the fault this exists to end.
-        if (!output || m_host->inputPanelTopForDesktopStage(output)) {
+        if (!output) {
             continue;
         }
         auto session = m_sessions.find(key);
@@ -1666,7 +1688,7 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
 {
     auto *output = outputForKey(session.outputName);
     if (!output || session.windows.size() != static_cast<int>(session.rects.size())) return false;
-    const auto area = stageArea(output);
+    const auto area = placementArea(output);
     const auto pixels = makePixelBentoLayout(session.rects, area.x(), area.y(), area.width(), area.height());
     for (int index = 0; index < session.windows.size(); ++index) {
         const auto &window = session.windows.at(index);
