@@ -17,4 +17,7 @@ project history.
 
 ## Active handoffs
 
-None.
+**Shuffle Keyboard, to its implementation owner.** The 22 September direction is
+approved and unbuilt. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs; the fork's
+README lists what it supersedes. Change the height-derives-width rule first: the
+direction holds width fixed and moves only key height.

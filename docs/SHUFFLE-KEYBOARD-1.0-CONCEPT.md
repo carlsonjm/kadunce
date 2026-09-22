@@ -42,6 +42,13 @@ were approved on 22 September.
   and the user is trading accuracy for screen rather than picking a key size. A
   bright notch marks the default, which is a square key.
 
+  This is the sharpest conflict with the built candidate, which derives the typing
+  block's width from the selected row height so that ordinary keys stay square.
+  Under this direction a key is square only at the default notch, and away from it
+  the key stops being square rather than the keyboard changing width. Whoever
+  builds this changes that derivation first; everything else in the column follows
+  from it.
+
 Neither column is on the top edge. Show and hide owns that edge alone.
 
 The device has no haptics, so a notch is felt two other ways: it holds briefly
@@ -132,15 +139,18 @@ image and this document disagree, this document governs:
 - Retain MaiN Keyboard's open spacing, floating labels, and quiet lower key edges.
 - Use the shared dark surfaces, Ghost White labels, rounded controls, restrained
   borders, and accent only for meaningful state.
+- The built candidate's arrangement supersedes the image and the bullets this
+  replaces, because J has typed on it and accepted it. `123` and Tab take the
+  first two left edges and Shift the third, where a tap is one-shot Shift and a
+  double tap locks Caps. Backspace and Enter share the right edge. The bottom row
+  is `ctrl`, `alt`, a large Space, and the Tette Dot Meta key, which is the
+  protected resting brand mark rather than a text label.
 - Backspace is one ordinary-key width. Enter is approximately 1.5 key widths.
-- The bottom control order is `ctrl`, `alt`, `space`, `shift`, `123`. The pictured
-  Shuffle surface at the lower-right corner, and its gesture hints, are retired
-  with the key itself; the corner returns to ordinary keys.
 - Space is the widest control on the keyboard and is wider still now that it also
   carries the pointer. Sizing the keyboard up serves that directly, because a wider
   space bar is more travel before the gesture has to track beyond it.
-- Shift sits immediately right of Space. It is visually neutral until active and
-  must not read as a second Caps Lock.
+- The pictured Shuffle surface at the lower-right corner, and its gesture hints,
+  are retired with the key itself.
 - The pictured `caps` label is superseded by `shift`; do not implement duplicate
   Shift or Caps controls from the reference image.
 
