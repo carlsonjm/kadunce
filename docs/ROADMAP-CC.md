@@ -1126,6 +1126,26 @@ Neither was cheaper than doing it properly.
 This is downstream work and no component depends on it. It shares Kadunce's
 exposure to a KWin ABI change, and the same rebuild answers both.
 
+**Parked on 22 September**, on `wip/bottom-surface-material-20260922` downstream.
+The region blacked out on three of four passes on hardware, and each fix was
+correct about its own defect while uncovering the next. J's call: a basic working
+dock is worth more than an unproven refinement that can take the desktop down.
+
+What the day established outlives the attempt, and is the entry condition for
+picking it up again. Every time the material was visible, what read was the
+**darkness** --- and the containment's own gradient already draws darkness.
+Nothing yet shows that the blur and the drain are perceptible at all. That
+question, rather than any engineering, is what has to be answered before the
+effect is worth another pass, because if a blurred material cannot be told from
+a plain gradient then no amount of correctness earns it.
+
+The containment draws the material itself, which the contract has always called
+a supported surface rather than a degraded one, and the dock depends on none of
+it. Two things stayed behind deliberately: the seam that lets an effect tell the
+containment to stand down, which costs nothing and would be the expensive half
+to re-derive, and the effect's uninstaller, because removal tooling has to
+outlive the thing it removes.
+
 It ran for the first time on 22 September and was withdrawn the same day. The
 pass enabled alpha blending to lay the material down and then disabled it,
 handing the compositor back a changed drawing state, so every window drawn after
@@ -1147,6 +1167,13 @@ The approved presentation rests on properties a browser mock cannot judge, and
 none of it becomes contract language until a local session on the tablet panel
 answers these. `docs/ROADMAP-CC.md` § Working model places all four on the local
 side.
+
+These were written against the compositor effect. With it parked they fall to the
+containment's gradient, which is what now draws the region, and the first of them
+has already been measured there: on the tablet panel the fade arrives with no
+step and no contour, and the material is indistinguishable from the raw backdrop
+at the reserved line. The band height that waited on these checks is therefore no
+longer blocked by the effect.
 
 - A long dark gradient over a large area bands on an 8-bit panel. The fade has to
   arrive without a visible step, or the treatment loses its whole argument.
