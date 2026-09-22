@@ -17,5 +17,5 @@ project history.
 
 ## Active handoffs
 
-- Bottom Surface owner: the boundary and the handle are built and pass in isolation. Both are unseen by hand and go over together in one install. Do not change the handle's size before that pass; reach is the open question and it is J's to answer.
+- Bottom Surface owner: the boundary and the handle pass in isolation, unseen by hand. One install covers both, and verdicts land on the Keyboard Boundary Pass sheet, claude.ai/artifact/9yxjwgAsNefhxzPzuFQcVz. Read them before changing the handle's size; reach is J's to answer.
 - Shuffle Keyboard owner: the 22 September direction is approved and unbuilt. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs and the fork's README lists what it supersedes. Change the height-derives-width rule first; the direction holds width fixed and moves only key height.
