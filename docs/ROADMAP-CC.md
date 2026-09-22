@@ -1102,38 +1102,29 @@ asked these questions is withdrawn: it took the machine down on 22 September and
 its evidence did not survive the reboot. Nothing in this block is measured on the
 live session again; `TEST-ENVIRONMENT-PROCEDURE.md` governs.
 
-### The material's blur and drain are not settled
+### The material is the suite's own compositor effect
 
-Found while building the dock, from the shell's own sources. The hint that gives
-Shuffle every pixel of the region is the same one that takes the blur away.
+Settled by J on 22 September, against the alternatives. The approved material
+study fades a blur; no compositor can. The blur protocol every Wayland
+compositor implements takes a region --- a shape, on or off per pixel --- and
+Plasma additionally disables blur and background contrast outright for the
+background hint that lets Shuffle paint the region itself. Both were read from
+the installed sources and the installed protocol, not inferred.
 
-A panel declaring `NoBackground` gets no blur and no background contrast: the
-shell disables both outright for that hint, before any mask is considered.
-Neither is reachable from QML. And where they are available --- to a panel that
-keeps a shell-drawn background --- KWin applies them to a region rather than to
-an alpha ramp, so they cannot themselves fall to nothing by the reserved line.
-Draining is the load-bearing part of the approved direction, and Plasma's
-background contrast is the pass that does it, so this is not a detail.
+So the Bottom Surface ships a small KWin effect of its own, downstream, which
+does what the study's `backdrop-filter` and mask do together: blur the
+backdrop, drain its colour, darken it, and multiply all three by one vertical
+ramp. One ramp carried by one pass is the point --- it is what stops a blur
+ending where a tint continues.
 
-Three answers, and J owns the choice because it changes what the region looks
-like:
+The two alternatives are recorded because they were real. Hiding the blur's
+hard edge under a dense enough tint is an approximation, and it still costs a
+Plasma theme, because the hint that frees the pixels is the one that kills the
+blur. Dropping blur and drain costs the thing the study calls the point.
+Neither was cheaper than doing it properly.
 
-1. Keep every pixel, draw the gradient alone. No blur, no drain. The fade is
-   perfectly contained and the region has no top edge anywhere, which is the
-   rule already rejected on sight when broken. The icons lose the drained
-   backdrop that made vanilla Plasma icon colour read as deliberate.
-2. Keep a shell-drawn background so blur and contrast stay on, and give the
-   region a Shuffle theme that draws nothing visible. The approved drain is
-   real, and the treatment stops at the reserved line with a hard edge rather
-   than fading. The solid-on-contact rule hides that edge exactly when detailed
-   content would make it obvious, which is the case for this answer.
-3. Make the blur effect take an alpha ramp. It is the only way to get the
-   approved material exactly, it is component work in KWin rather than
-   configuration, and `Verification owed` already predicted it.
-
-Until this is answered the containment draws the gradient alone, and the
-preview toggles between the two so the difference can be seen rather than
-argued.
+This is downstream work and no component depends on it. It shares Kadunce's
+exposure to a KWin ABI change, and the same rebuild answers both.
 
 ### Verification owed
 
