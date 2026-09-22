@@ -657,6 +657,15 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
     if (window->isDeleted()) {
         return false;
     }
+    // KWin types a layer surface by the scope it asks for, and any scope it
+    // does not recognise becomes a normal window. A layer surface is placed by
+    // its own anchors, so it can be neither moved nor resized as a card, and
+    // treating it as one hides it: it has no card slot to be painted in. The
+    // class is not exported, so it is recognised by name.
+    if (!window->window()
+        || window->window()->inherits("KWin::LayerShellV1Window")) {
+        return false;
+    }
     // Tettegouche's layer-shell surface is interactive, and KWin can expose it
     // as a normal window. It is the guest presentation itself—not an
     // application card—and admitting it here would make its own activation

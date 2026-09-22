@@ -138,6 +138,11 @@ duplicates, and omits stack position.
   ends inside that zone, so a deliberate reorder and an accidental page are
   reached by the same travel.
 - Some arrival and displaced-neighbor transitions remain visually incomplete.
+- One of KWin's own internal windows is held as a card. It has no caption, is
+  marked to skip the taskbar and switcher, and was measured on 22 September
+  sized to the Active card. Which window it is has not been identified, and it
+  is not excluded until it is, because a window Kadunce stops hiding is painted
+  wherever it stands.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
 - The keyboard covers Bento panes. The Active card now reads the input panel

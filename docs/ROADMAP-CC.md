@@ -1267,16 +1267,21 @@ here are unmapped rather than merely unaddressed.
   clients each believing they hold the region.
 
   By hand it raises the keyboard, leaves with it and before the dark, and lets
-  taps beside the bar through to the window beneath. Two findings are open.
-  Reach: a pull always lands and a tap has to be exact. The catch area is the
-  whole ten pixel gutter whatever the paint, about two millimetres on the
-  tablet against a fingertip several times that, so a thicker bar is easier to
-  aim at and no easier to hit. J asked for six pixels of paint to try; hitting
-  it reliably needs the catch area to grow, and above the gutter that area
-  belongs to the window. Contrast: where a window runs under the gutter the
-  light bar disappears over light content, and J asked whether it can invert
-  against what is beneath. A client cannot read the pixels under its own
-  surface, so that is either drawn by the compositor or approximated by the bar.
+  taps beside the bar through to the window beneath. The pass ran with Kadunce
+  switched off, and with it on the handle is not drawn at all: KWin types a
+  layer surface whose scope it does not recognise as a normal window, Kadunce
+  took that for an application with no card, and it paints no application
+  without one. Kadunce now excludes every layer surface from card ownership;
+  built, unseen.
+
+  J settled reach and contrast the same day. The bar stays four pixels and
+  gains a one pixel dark hairline, so it reads over a light window without
+  having to see what is beneath it; built, unseen. Reach is a pull rather than
+  a tap, as easy as an app drawer, and it must never cost an application a
+  tap, so the catch area cannot grow by taking touches above the gutter. What
+  is open is where a pull may start: Kadunce already opens Spread on an upward
+  swipe that starts on the dock or up to 36 pixels above it, which covers the
+  handle, so with both running one pull does both.
 
   J also wants this to be the Keyboard's only handle: the one on the
   Keyboard's top edge is the original placeholder and retires once resizing
@@ -1360,7 +1365,8 @@ here are unmapped rather than merely unaddressed.
   a Keyboard killed mid-hold giving the region back.
 
   Passed by hand on 22 September, including repeated raises across
-  applications, with the tray control verified. The dock was never seen to
+  applications, with the tray control verified and Kadunce switched off for
+  the checks themselves. The dock was never seen to
   leave, because the Keyboard spans the output and covers it, so stepping aside
   is shown by the work area and not yet by sight. It becomes visible when the
   Keyboard takes the side gutter the 22 September direction gives it, and has
@@ -1368,9 +1374,9 @@ here are unmapped rather than merely unaddressed.
   session flashed and did not raise the Keyboard, and the second raised it
   cleanly; not yet reproduced. And the window above stops flush against the
   keys, where J wants a small clearance so the Keyboard reads as pushing the
-  window rather than meeting it. That is Block 12's measured cause --- the
-  compositor sizes the focused window to the Keyboard's top edge --- seen here
-  from the Keyboard's side of the boundary.
+  window rather than meeting it. With Kadunce off that window was an ordinary
+  one, and the compositor sizes an ordinary focused window to the Keyboard's
+  top edge, which is Block 12's measured cause. A card keeps its gutter.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
