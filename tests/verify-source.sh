@@ -443,7 +443,10 @@ rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
 # The keyboard changes where panes belong, never how many there are. Placement
 # and the check that panes arrived must read the same shortened area, or a
 # layout drawn correctly above a keyboard reads as one that refused its rects
-# and §5 sheds a pane for it. Composition keeps the full area.
+# and §5 sheds a pane for it. Composition keeps the full area. The compositor
+# answers the same notification and answers it last, so placing from inside the
+# notification is overwritten on every pane it tracks; the layout is placed one
+# event-loop turn later instead.
 python3 - "${desktop_cpp}" <<'PY_PANEL'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
@@ -465,11 +468,21 @@ placement = section('KWin::Rect DesktopStageController::placementArea(',
                     'DesktopStageController::Session *DesktopStageController::sessionForOutput(')
 assert 'inputPanelTopForDesktopStage(output)' in placement, 'the shortened area must read the keyboard'
 
+ctor = section('DesktopStageController::DesktopStageController(',
+               'void DesktopStageController::stopPendingSettle()')
+assert 'm_inputPanelPlacementTimer.setInterval(0)' in ctor, \
+    'deferred placement must run on the next turn, not later'
+
 reassert = section('void DesktopStageController::reassertPlacementsForInputPanel()',
-                   'void DesktopStageController::settleSessions()')
-assert 'applySession(' in reassert, 're-asserting must place the stored layout'
+                   'void DesktopStageController::applyInputPanelPlacements()')
+assert 'm_inputPanelPlacementTimer.start()' in reassert, 'the keyboard re-assert must defer'
+assert 'applySession(' not in reassert, 'the keyboard re-assert must not place inline'
+
+placements = section('void DesktopStageController::applyInputPanelPlacements()',
+                     'void DesktopStageController::settleSessions()')
+assert 'applySession(' in placements, 're-asserting must place the stored layout'
 for forbidden in ('shedUnsettledPanes(', 'scheduleSettle(', 'm_settleRetries', 'reflowSession('):
-    assert forbidden not in reassert, f'keyboard re-assert must not call {forbidden}'
+    assert forbidden not in placements, f'keyboard re-assert must not call {forbidden}'
 PY_PANEL
 
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"

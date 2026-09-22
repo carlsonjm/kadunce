@@ -42,6 +42,11 @@ DesktopStageController::DesktopStageController(DesktopStageHost *host)
     QObject::connect(&m_settleTimer, &QTimer::timeout, [this]() {
         settleSessions();
     });
+    m_inputPanelPlacementTimer.setSingleShot(true);
+    m_inputPanelPlacementTimer.setInterval(0);
+    QObject::connect(&m_inputPanelPlacementTimer, &QTimer::timeout, [this]() {
+        applyInputPanelPlacements();
+    });
 }
 
 void DesktopStageController::stopPendingSettle()
@@ -1581,18 +1586,17 @@ void DesktopStageController::scheduleSettle()
 // applied directly and the settle's own retry budget is left untouched.
 void DesktopStageController::reassertPlacementsForInputPanel()
 {
+    m_inputPanelPlacementTimer.start();
+}
+
+void DesktopStageController::applyInputPanelPlacements()
+{
     if (m_interactionWindow) {
         return;
     }
     const QStringList keys = m_sessions.keys();
     for (const QString &key : keys) {
-        KWin::LogicalOutput *output = nullptr;
-        for (KWin::LogicalOutput *screen : KWin::effects->screens()) {
-            if (screen && screen->name() == key) {
-                output = screen;
-                break;
-            }
-        }
+        KWin::LogicalOutput *output = outputForKey(key);
         if (!output) {
             continue;
         }

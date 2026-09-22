@@ -357,6 +357,11 @@ private:
     bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
     void settleSessions();
+    // The compositor answers the same keyboard notification we do, and it
+    // answers it after us. Placing from inside the notification hands it the
+    // last word over every pane it tracks, so the layout is placed one turn
+    // later instead.
+    void applyInputPanelPlacements();
     // CARD-LIFECYCLE.md §5: a pane that will not take the rect it was given is
     // a window the layout cannot show, so it leaves for card ownership and the
     // layout keeps the panes that did settle. §13 keeps the native desktop for
@@ -415,6 +420,7 @@ private:
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     QList<QPointer<KWin::LogicalOutput>> m_retiredOutputs;
     QTimer m_settleTimer;
+    QTimer m_inputPanelPlacementTimer;
     // The placement each output has already been given a second grace for. A
     // client that moves itself inside the grace reads as unsettled, so every
     // placement is asked for once more before the layout answers for it.
