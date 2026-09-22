@@ -1001,12 +1001,26 @@ arbitrary wallpaper. Suite chrome stays monochrome per
 `ITASCA-VISUAL-LANGUAGE.md`; the icons are externally owned identity and keep
 their own colour.
 
-A 10 px gutter sits above the Shuffle Dock band, inside the reservation and at
-the thin end of the gradient, so the Keyboard's drag handle floats clear of the
-band rather than on it. The handle is as wide as the application row and
-therefore reports the dock's current extent. It retires before the region
-darkens, so a blackout is announced by something leaving rather than by a
-surface changing colour unprompted.
+The Keyboard's drag handle sits in Kadunce's existing 10 px gutter rather than in
+space the Bottom Surface reserves for it. Kadunce already keeps that gutter
+around every card and pane, and already holds 10 px clear above any bottom panel
+that reserves a strut, so the handle occupies room that exists and is empty by
+design. The reservation is the Shuffle Dock band alone; nothing is added for the
+handle, and the handle is genuinely outside the band rather than at the top of
+it. It also puts the handle on the same rhythm as every other edge in Shuffle.
+
+The handle is as wide as the application row and therefore reports the dock's
+current extent. It retires before the region darkens, so a blackout is announced
+by something leaving rather than by a surface changing colour unprompted.
+
+Borrowing that gutter leaves one case open, and the contract owes it an answer:
+the gutter is Kadunce's, and the tray control can disable Kadunce at any time.
+The Keyboard still has to be draggable when it does, so the handle needs a
+defined home with no card gutter present --- most cheaply by overlaying those
+10 px without reserving them, since the handle is a few pixels tall and the
+region above it is already transparent. Downstream depending on a component is
+allowed; the reverse is not, and nothing here asks Kadunce to know about the
+handle.
 
 When the backdrop would compromise contrast the gradient fills to solid black
 across the whole reservation. One property animates and the region stops being a
