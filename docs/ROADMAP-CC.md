@@ -981,47 +981,168 @@ ways and the surface takes the smallest of the three:
 
 ### Resting presentation
 
-The resting design keeps the effect of today's floating, popped-out dock without
-changing reservation geometry. With nothing conflicting the surface is
-effectively transparent: the app dock is visible, the Keyboard's drag handle
-hovers immediately above it, and the visible dock footprint grows and shrinks
-with running and pinned applications. When application content reaches the
-region and would compromise contrast, the shared backing becomes solid black.
+J approved this direction on 22 September, conditional on the physical checks in
+`Verification owed` below. It is approved visual direction, not accepted
+behavior.
+
+The region is one material with a vertical density gradient rather than a bar
+with a background. It is at full strength against the physical screen edge and
+falls evenly to nothing at the reserved line, so it has no top edge to read as a
+second structure on the screen. It never paints above that line: a fade that
+runs past it dims the bottom of every full-screen window, which was rejected on
+sight.
+
+The material blurs what is behind it, drains that backdrop's colour, and darkens
+it. Draining is the load-bearing part. Plasma's contrast pass exposes saturation
+where the platforms Shuffle is measured against do not, and with the backdrop's
+hue removed the application icons are the only saturated thing in the region, so
+vanilla Plasma icon colour reads as deliberate instead of as noise against an
+arbitrary wallpaper. Suite chrome stays monochrome per
+`ITASCA-VISUAL-LANGUAGE.md`; the icons are externally owned identity and keep
+their own colour.
+
+The Keyboard's drag handle sits in Kadunce's existing 10 px gutter rather than in
+space the Bottom Surface reserves for it. Kadunce already keeps that gutter
+around every card and pane, and already holds 10 px clear above any bottom panel
+that reserves a strut, so the handle occupies room that exists and is empty by
+design. The reservation is the Shuffle Dock band alone; nothing is added for the
+handle, and the handle is genuinely outside the band rather than at the top of
+it. It also puts the handle on the same rhythm as every other edge in Shuffle.
+
+The handle is as wide as the application row and therefore reports the dock's
+current extent. It retires before the region darkens, so a blackout is announced
+by something leaving rather than by a surface changing colour unprompted.
+
+Borrowing that gutter leaves one case open, and the contract owes it an answer:
+the gutter is Kadunce's, and the tray control can disable Kadunce at any time.
+The Keyboard still has to be draggable when it does, so the handle needs a
+defined home with no card gutter present --- most cheaply by overlaying those
+10 px without reserving them, since the handle is a few pixels tall and the
+region above it is already transparent. Downstream depending on a component is
+allowed; the reverse is not, and nothing here asks Kadunce to know about the
+handle.
+
+When the backdrop would compromise contrast the gradient fills to solid black
+across the whole reservation. One property animates and the region stops being a
+fade and becomes the hard bottom edge of the screen, which is what a full-screen
+window wants beneath it. Window contact is one input to that decision and not the
+whole rule: a bright wallpaper with no window near the region is the same
+legibility problem and contact never catches it. The thin end of the gradient
+carries the least material, so this trigger is load-bearing rather than
+defensive.
 
 Transparency is presentation, not absence of authority. Geometry and reservation
 stay stable underneath it; only the treatment changes. A reading that lets the
 reservation follow the visible footprint is wrong and reintroduces exactly the
-independent negotiation this block exists to end.
+independent negotiation this block exists to end. A gradient makes that
+misreading easier, not harder: Kadunce's dock clearance and every consumer's work
+area key off the reservation, never off where the material has become invisible.
 
 Temperance, Tettegouche and Kadunce must each continue to work normally on an
 ordinary Plasma panel with no Bottom Surface present.
 
+### Allocation
+
+J settled this on 22 September, and it answers the asymmetry this block was
+opened for.
+
+The Shuffle Dock is fixed to the true centre of the output and grows outward
+from it symmetrically as applications open. Its centre never moves, because a
+touch target that travels when a song title changes length is a wrong tap, and
+because symmetry the user can see has to be a guarantee rather than an outcome.
+
+Because the centre is fixed, the space left on either side is equal at any
+moment, and it changes as the dock grows. What each flank does with its side is
+its own: Ambient and the Status Bar are already asymmetric-responsive, and they
+reveal and elide independently, so the composed result is visibly asymmetric and
+is meant to be. That satisfies `ITASCA-VISUAL-LANGUAGE.md` § Responsive
+composition, which spends the exact remaining width before eliding, while still
+fixing the dock's centre.
+
+The earlier reading of this as a choice between a fixed centre and full use of
+width was wrong, but not because the allowances are unequal --- a centred dock
+makes them equal by construction. It was wrong because the allowance is not
+fixed: it tracks the dock's live extent, and each flank spends its own side
+without being rationed to a width the other also has to accept.
+
+The extent is therefore pushed, not polled. Tettegouche and Temperance compute
+composition from a published dock extent and a change notification; neither may
+sample it on a timer, and neither may negotiate width against the other. That
+push is the hook the components need and is what ends the independent
+negotiation. Both must still compose correctly when no extent is published at
+all, which is the supported no-Bottom-Surface configuration above.
+
+### Verification owed
+
+The approved presentation rests on properties a browser mock cannot judge, and
+none of it becomes contract language until a local session on the tablet panel
+answers these. `docs/ROADMAP-CC.md` § Working model places all four on the local
+side.
+
+- A long dark gradient over a large area bands on an 8-bit panel. The fade has to
+  arrive without a visible step, or the treatment loses its whole argument.
+- A faded tint over an unfaded blur leaves a smear line where the blur stops.
+  Both have to carry the same mask, which may be a shader change to the blur
+  effect rather than a configuration.
+- Ambient's ticker has to stay legible against a bright wallpaper at the thin end
+  of the gradient. This is the least material and the most light behind it, and
+  J's own background is the case to test.
+- A reduced-transparency accessibility preference must replace the gradient with
+  a solid fill. The platforms that ship uniform translucent chrome all expose
+  such a setting; `ITASCA-VISUAL-LANGUAGE.md` covers reduced motion and does not
+  yet cover this, and the gap is the Bottom Surface's to close.
+
+No prior art carries these answers. Progressive blur is established inside
+application content, and the system chrome Shuffle is measured against uses a
+uniform translucent material rather than a density gradient, so the failure modes
+here are unmapped rather than merely unaddressed.
+
 - [x] Complete Block 10a so the integration repository exists to hold it.
-- [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
+- [x] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
-- [ ] Settle what hosts Temperance once no Plasma panel exists. Temperance is a
-  Plasma containment, so the cheap answer is that the Bottom Surface is itself a
-  panel Shuffle configures and controls, which keeps Temperance and Ambient
-  working unchanged and keeps the tray for free. Whether a panel can also carry
-  the resting presentation above --- transparent at rest, solid black on
-  contrast, a footprint that grows with the dock --- is an engineering question
-  to answer before the contract is written, not a product choice to hand over.
-  If it cannot, the alternative costs Temperance a standalone mode, which is
-  component work in the open and not a downstream reach.
+  Written downstream on 22 September, where the surface lives. It states the
+  strut as the single work-area authority, the dock extent a consumer reads and
+  the Keyboard boundary, and it deliberately describes no presentation. One
+  geometry value is marked pending: the band height waits on the gradient checks
+  in `Verification owed` above, and the interface does not change with it.
+- [x] Settle what hosts Temperance once no Plasma panel exists. Answered by J on
+  22 September: the Bottom Surface is itself a panel Shuffle configures and
+  controls, taken for total ownership of the region. Temperance is a Plasma
+  containment, so this keeps Temperance and Ambient working unchanged and keeps
+  the tray, and with it Kadunce's disable control, for free. Both components are
+  already built to run this way and stay operational without the panel, so the
+  open-source configuration costs Temperance no standalone mode. Whether a panel
+  can carry the approved gradient and its solid fill is no longer a question
+  about the hosting choice; it sits in `Verification owed` above.
 - [ ] Give Temperance clock and calendar presentation.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
   that surface.
-- [ ] Resolve the asymmetric Ambient and ticker width.
-- [ ] Define the Keyboard boundary in the same contract, and take over the one
+- [ ] Resolve the asymmetric Ambient and ticker width. The mechanism is settled
+  by `Allocation` above --- a dock fixed to the output's centre, publishing its
+  extent, with each flank spending the space left on its own side --- and only
+  the implementation is owed. The two flanks get equal space and use different
+  amounts of it, so a visibly asymmetric result is intended rather than a defect
+  to tune out. The interface itself is written down downstream, where the surface
+  lives.
+- [x] Define the Keyboard boundary in the same contract, and take over the one
   the Keyboard already negotiated. It does not inherit a boundary any more: its
   `bottomsurfacecoordinator` asks Plasma's bottom panel to yield and restores
   its hiding mode afterwards, which is the job the Bottom Surface exists to
-  own. The contract has to replace that arrangement rather than describe one
-  the Keyboard is not using.
+  own. The contract replaces that arrangement rather than describing one the
+  Keyboard is not using: the Keyboard asks the surface to yield and releases it,
+  the surface restores itself if a client exits without releasing, and with no
+  surface present the Keyboard's current behavior is unchanged. Kadunce is not
+  part of the exchange, because its Active card reads the input panel directly
+  rather than inferring room from a panel that yields.
 
-**Exit gate:** Status Bar, Ambient and Shuffle Dock are physically symmetric at
-tablet and monitor widths, and the Keyboard boundary is specified without a
-keyboard existing.
+**Exit gate:** the Shuffle Dock is physically centred on the output and grows
+symmetrically at tablet and monitor widths, with Status Bar and Ambient each
+composing into the space its published extent leaves them. The wording this
+replaces asked for the three surfaces to be symmetric with each other, which
+`Allocation` above rejects: the flanks are deliberately unequal and only the
+dock's centre is fixed. Every item in `Verification owed` passes on the tablet
+panel, and the Keyboard boundary is specified against the Keyboard that now
+exists rather than a described one.
 
 ## Block 6 — Tettegouche completion
 
@@ -1153,6 +1274,10 @@ the downstream repository's paid-feature assumption has to answer.
 Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
 `docs/FEASIBILITY.md` and `docs/PHYSICAL_ACCEPTANCE.md`.
 
+The concept was revised on 22 September against what that build taught. It is the
+product contract and the fork's documents are implementation evidence; where the
+two disagree the concept governs, and the fork has not been updated from here.
+
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
   Fcitx5. Select a system-backed base or document why none is viable. Plasma
   Keyboard plus KWin is the base: a touched key reaches Qt Virtual Keyboard's
@@ -1167,6 +1292,27 @@ Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
   daily use, but against Plasma's own bottom panel, which the keyboard asks to
   yield and then restores. The Block 5 dock geometry they were meant to be
   proven against does not exist yet, so this reopens when it does.
+
+  What daily use proved is that four of the contract's hypotheses were wrong,
+  which is a result rather than a delay. The 2x Shuffle key and
+  hold-for-precision made pointing modal and cost the right edge two rows; the
+  10% side touch pads that replaced them fixed the mode and broke the travel;
+  only undo and redo of the tapped edit vocabulary earned their place; and the
+  continuously draggable upper edge loses the one size already known to be
+  right, while sharing an edge with show and hide.
+  `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` § Superseded by use records all four so they
+  are not rebuilt, and carries what J approved on 22 September in their place:
+  the space bar as the pointer, armed by distance rather than a timer; two scrub
+  columns in the width the pads wasted, history left and key height right; and
+  the keyboard on Kadunce's 10 px gutter with a hard edge. Nothing of it is
+  built yet.
+- [ ] Rebuild the interaction against the 22 September direction and put it back
+  in daily use before anything else in this block is judged. The direction is
+  approved and unbuilt, so the two items below are measuring the superseded
+  build until it lands. Pin one open question for that pass: whether the
+  notch hold reads as feedback or as lag without haptics, and whether a density
+  falloff still adds anything once the gutter and the scrub columns are in place.
+  J's reading is that they have likely already solved it.
 - [ ] Verify locale and keymap correctness, focus, latency and loss-free input
   across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
   `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against
