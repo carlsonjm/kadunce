@@ -650,6 +650,31 @@ than letting one gesture decide both, and it removes the atomic
 membership-and-insertion transaction that an arrival into a stack would have
 required.
 
+### A dock that steps aside is not a display that grew
+
+The keyboard asks Plasma's bottom panels to autohide while it is up and restores
+them when it goes. For the length of that round trip the reserved work area is
+the whole output, and a layout placed in that window expands 52px into room the
+dock is about to take back, then settles when it returns. The Active card does
+the same at 894 before landing at 832.
+
+Reading the reservation as real is what produces the excursion. Placement should
+hold the reservation the dock had when the keyboard episode began and re-read it
+only once the episode has closed. Recorded on 21 September against measurements
+from a physical pass; the implementation is deferred with the rest of Block 12.
+
+### The compositor has the last word on a focused window it lifts for the keyboard
+
+KWin lifts the focused window for the keyboard itself, pinning its top to the
+work area and sizing it to the keyboard's top edge, which drops the stage gutter.
+Deferring this controller's own placement by an event-loop turn was built and
+physically tested on 21 September and did not close it, so the adjustment
+re-applies rather than merely arriving late.
+
+Do not treat "place later" as the remedy without evidence that our placement
+survived. Any further attempt starts by logging what was asked for and what
+survived, because two passes produced a verdict and no trace.
+
 ### Persistent membership is not promised across unload
 
 The public context endpoint and live registry disappear with the effect. Do not add
