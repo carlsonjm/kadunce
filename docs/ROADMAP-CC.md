@@ -1051,14 +1051,19 @@ from it symmetrically as applications open. Its centre never moves, because a
 touch target that travels when a song title changes length is a wrong tap, and
 because symmetry the user can see has to be a guarantee rather than an outcome.
 
-The flanks are not equal and are not meant to be. Ambient and the Status Bar are
-already asymmetric-responsive by design, so the dock does not ration equal
-allowances to them: it publishes its own extent, and each flank fits the space
-remaining on its own side. That satisfies
-`ITASCA-VISUAL-LANGUAGE.md` § Responsive composition, which spends the exact
-remaining width before eliding, while still fixing the dock's centre. The
-earlier reading of this as a choice between a fixed centre and full use of width
-was wrong; only equal flanks force that trade.
+Because the centre is fixed, the space left on either side is equal at any
+moment, and it changes as the dock grows. What each flank does with its side is
+its own: Ambient and the Status Bar are already asymmetric-responsive, and they
+reveal and elide independently, so the composed result is visibly asymmetric and
+is meant to be. That satisfies `ITASCA-VISUAL-LANGUAGE.md` § Responsive
+composition, which spends the exact remaining width before eliding, while still
+fixing the dock's centre.
+
+The earlier reading of this as a choice between a fixed centre and full use of
+width was wrong, but not because the allowances are unequal --- a centred dock
+makes them equal by construction. It was wrong because the allowance is not
+fixed: it tracks the dock's live extent, and each flank spends its own side
+without being rationed to a width the other also has to accept.
 
 The extent is therefore pushed, not polled. Tettegouche and Temperance compute
 composition from a published dock extent and a change notification; neither may
@@ -1093,8 +1098,13 @@ uniform translucent material rather than a density gradient, so the failure mode
 here are unmapped rather than merely unaddressed.
 
 - [x] Complete Block 10a so the integration repository exists to hold it.
-- [ ] Author the Bottom Surface contract: reserved geometry, work area, and what
+- [x] Author the Bottom Surface contract: reserved geometry, work area, and what
   Kadunce's dock clearance and Tettegouche's responsive composition consume.
+  Written downstream on 22 September, where the surface lives. It states the
+  strut as the single work-area authority, the dock extent a consumer reads and
+  the Keyboard boundary, and it deliberately describes no presentation. One
+  geometry value is marked pending: the band height waits on the gradient checks
+  in `Verification owed` above, and the interface does not change with it.
 - [x] Settle what hosts Temperance once no Plasma panel exists. Answered by J on
   22 September: the Bottom Surface is itself a panel Shuffle configures and
   controls, taken for total ownership of the region. Temperance is a Plasma
@@ -1109,15 +1119,21 @@ here are unmapped rather than merely unaddressed.
   that surface.
 - [ ] Resolve the asymmetric Ambient and ticker width. The mechanism is settled
   by `Allocation` above --- a dock fixed to the output's centre, publishing its
-  extent, with each flank fitting the space left on its own side --- and only the
-  implementation is owed. Unequal flanks are the intended result, not a defect to
-  tune out.
-- [ ] Define the Keyboard boundary in the same contract, and take over the one
+  extent, with each flank spending the space left on its own side --- and only
+  the implementation is owed. The two flanks get equal space and use different
+  amounts of it, so a visibly asymmetric result is intended rather than a defect
+  to tune out. The interface itself is written down downstream, where the surface
+  lives.
+- [x] Define the Keyboard boundary in the same contract, and take over the one
   the Keyboard already negotiated. It does not inherit a boundary any more: its
   `bottomsurfacecoordinator` asks Plasma's bottom panel to yield and restores
   its hiding mode afterwards, which is the job the Bottom Surface exists to
-  own. The contract has to replace that arrangement rather than describe one
-  the Keyboard is not using.
+  own. The contract replaces that arrangement rather than describing one the
+  Keyboard is not using: the Keyboard asks the surface to yield and releases it,
+  the surface restores itself if a client exits without releasing, and with no
+  surface present the Keyboard's current behavior is unchanged. Kadunce is not
+  part of the exchange, because its Active card reads the input panel directly
+  rather than inferring room from a panel that yields.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
