@@ -1274,6 +1274,10 @@ the downstream repository's paid-feature assumption has to answer.
 Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
 `docs/FEASIBILITY.md` and `docs/PHYSICAL_ACCEPTANCE.md`.
 
+The concept was revised on 22 September against what that build taught. It is the
+product contract and the fork's documents are implementation evidence; where the
+two disagree the concept governs, and the fork has not been updated from here.
+
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing and
   Fcitx5. Select a system-backed base or document why none is viable. Plasma
   Keyboard plus KWin is the base: a touched key reaches Qt Virtual Keyboard's
@@ -1288,6 +1292,27 @@ Reference: `SHUFFLE-KEYBOARD-1.0-CONCEPT.md`, and the fork's own
   daily use, but against Plasma's own bottom panel, which the keyboard asks to
   yield and then restores. The Block 5 dock geometry they were meant to be
   proven against does not exist yet, so this reopens when it does.
+
+  What daily use proved is that four of the contract's hypotheses were wrong,
+  which is a result rather than a delay. The 2x Shuffle key and
+  hold-for-precision made pointing modal and cost the right edge two rows; the
+  10% side touch pads that replaced them fixed the mode and broke the travel;
+  only undo and redo of the tapped edit vocabulary earned their place; and the
+  continuously draggable upper edge loses the one size already known to be
+  right, while sharing an edge with show and hide.
+  `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` § Superseded by use records all four so they
+  are not rebuilt, and carries what J approved on 22 September in their place:
+  the space bar as the pointer, armed by distance rather than a timer; two scrub
+  columns in the width the pads wasted, history left and key height right; and
+  the keyboard on Kadunce's 10 px gutter with a hard edge. Nothing of it is
+  built yet.
+- [ ] Rebuild the interaction against the 22 September direction and put it back
+  in daily use before anything else in this block is judged. The direction is
+  approved and unbuilt, so the two items below are measuring the superseded
+  build until it lands. Pin one open question for that pass: whether the
+  notch hold reads as feedback or as lag without haptics, and whether a density
+  falloff still adds anything once the gutter and the scrub columns are in place.
+  J's reading is that they have likely already solved it.
 - [ ] Verify locale and keymap correctness, focus, latency and loss-free input
   across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
   `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against

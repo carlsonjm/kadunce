@@ -25,8 +25,8 @@ rules for applying them. It covers Kadunce, Tettegouche and Temperance.
 | Control Center | Temperance quick system controls | Current |
 | System Tray | Temperance's organized presentation of Plasma tray entries | Current |
 | Shuffle Keyboard | Touch keyboard, editing surface and precision input | Locked for 1.0 |
-| Shuffle surface | The oversized Keyboard region used for edit hints and precision transition | Working |
-| Precision surface | Full keyboard footprint acting as pointer and scroll input | Locked concept |
+| Scrub column | Near-invisible vertical control on each side of the Keyboard: history left, key height right | Working |
+| Precision surface | Full keyboard footprint acting as pointer and scroll input, entered from the space bar | Locked concept |
 | Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked for 1.0 |
 | Bottom Surface | Single layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Working |
 | Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Working |
