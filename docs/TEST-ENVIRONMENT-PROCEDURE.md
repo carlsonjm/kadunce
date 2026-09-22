@@ -129,8 +129,11 @@ gestures ran against a build the compositor was not using.
 The handover is written so the user can act on it without coming back to ask. It
 carries all six:
 
-1. The exact command and the directory it runs from, with the branch and commit it
-   installs.
+1. The exact command, as one copy-pasteable line carrying its absolute path, with
+   the branch and commit it installs. Naming the directory separately, or linking
+   to it, is not the path: the user runs these from whatever terminal is open, and
+   working out the `cd` is time added to a pass they did not agree to spend. Every
+   other command in the same handover carries its absolute path too.
 2. That the installer asks once for a password, and that it restores the previous
    effect configuration by itself if it stops early.
 3. Which line to read at the end. `install.sh` asks the running compositor which
