@@ -1266,6 +1266,50 @@ previous identities installed.
 **Exit gate:** The public site accurately demonstrates the released product and
 provides a complete supported installation path.
 
+## Block 12 — Keyboard geometry and the stage gutter
+
+**Status:** Deferred past MVP production at J's direction on 21 September, after
+two physical passes failed to close it. Its own debug, not a Block 5 dependency.
+
+A layout loses the stage's top gutter while the keyboard is up: the pane sits
+flush against the top of the display instead of inset, then settles correctly
+once the keyboard goes. J's verdict on the first candidate was "it feels cheap,
+which Shuffle is not". The Active card does not have this defect.
+
+What is already measured, so the next pass does not repeat it:
+
+- The compositor lifts the focused window for the keyboard itself, pinning its
+  top to the work area and sizing it to the keyboard's top edge. On the tablet
+  that is 537 with no inset, against the 507 at y=10 this controller asks for.
+  Two independent readings agree on 537: the Active card's own clearance
+  arithmetic and the pane's live frame.
+- The Active card escapes it because its settle defers by an event-loop turn.
+  Giving the layout the same deferral was built, verified and physically tested
+  on 21 September and **did not close it**, so the compositor's adjustment is
+  not merely later than ours — it re-applies after we place.
+- A second, smaller excursion has the same root as the Active card's accepted
+  overshoot: the keyboard asks Plasma's bottom panels to autohide and restores
+  them afterwards, so for the length of that round trip the work area is the
+  whole output. The layout grows 52px into room the dock is about to take back
+  (832 to 884; the Active card 832 to 894) and settles when the dock returns.
+  A dock that steps aside is not a display that grew.
+
+**Start here:** nothing in the log records what this controller placed or which
+placement survived, which is why two passes produced an opinion and no trace.
+Add that trace before changing placement again.
+
+- [ ] Log the placement this controller asks for and the geometry that survived,
+      on every input-panel transition.
+- [ ] Establish whether the compositor's keyboard adjustment can be declined for
+      a window this controller owns, or only overwritten after the fact.
+- [ ] Hold the dock's reservation across a keyboard episode so neither a pane nor
+      the Active card expands into it.
+- [ ] Give the Active card the motion the panes already have; a keyboard raise is
+      sharp on that path because nothing animates it.
+
+**Exit gate:** A keyboard raised over a layout and over a single card keeps the
+stage gutter throughout, moves once, and moves smoothly.
+
 ## Open product decisions
 
 These block later work and are not engineering calls. A decision stays here once
