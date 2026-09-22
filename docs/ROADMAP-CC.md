@@ -1192,9 +1192,19 @@ here are unmapped rather than merely unaddressed.
   which is correct on an ordinary panel and measures across the dock here,
   because the dock is drawn by the surface and is not an applet it can see. It
   asked for most of the output and left the region. The flank is now the
-  authority on its own width and holds a component to its side. Adapting
-  Temperance to compose into the width it is handed, rather than measuring for
-  it, is Block 7's and is what closes this properly.
+  authority on its own width and holds a component to its side, permanently and
+  regardless of what any component does: it is what protects the region from a
+  client that will never know this dock exists.
+
+  The other half is built. The surface publishes the dock's extent per output
+  on the bus the contract names, and Temperance reads it where it is published
+  and measures to that edge instead of past it. Temperance keeps every
+  measurement it makes about itself and stops inferring the one about a
+  neighbour it cannot see. The path is discovered at run time, acts on the
+  change signal rather than sampling, refuses an unknown major version, and is
+  simply absent on a plain panel, so the standalone configuration is untouched.
+  It is the shape Tettegouche already uses against Kadunce's snapshot. Neither
+  half is retested on hardware yet.
   The surface places each component into the space its own side has left ---
   Ambient left, the status cluster right, as the study draws them --- and
   neither flank is told anything about the other, so there is no longer a width
