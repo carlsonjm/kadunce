@@ -1389,7 +1389,15 @@ here are unmapped rather than merely unaddressed.
   presentation has left, so the nudge lands against a reservation still held
   and nothing nudges it again until typing moves the cursor. The surface does
   not publish when the strut has actually gone, so the Keyboard cannot nudge at
-  the right moment. Found in source; the fix is unbuilt.
+  the right moment. Fixed on both sides the same evening and measured, not yet
+  seen by hand: the surface publishes `reserving` once the release has gone out
+  with a frame, and the Keyboard is placed again when it turns false. The nudge
+  itself had never worked either --- clearing the input region and restoring it
+  at once reaches KWin as no change --- so one frame now goes out a pixel short.
+  `shuffle-keyboard/tests/verify-seat.sh` seats the real Keyboard as a
+  compositor's input method over a releasing band: without the signal it stays
+  at 855 of 915, with the signal sent before the release has gone out it misses
+  two runs in three, and sent after it comes down every time.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
