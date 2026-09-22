@@ -1146,7 +1146,18 @@ here are unmapped rather than merely unaddressed.
   about the hosting choice; it sits in `Verification owed` above.
 - [ ] Give Temperance clock and calendar presentation.
 - [ ] Implement Shuffle Dock as minimal task and application presentation inside
-  that surface.
+  that surface. Built and unreviewed: the row takes the output's true centre,
+  is as wide as its contents so the centre does not move, and the surface is
+  three zones with each flank taking only what its own side has left. J settled
+  the overflow question on 22 September --- the dock grows uncapped, and
+  capping with condensing is deferred to the later debug block, because a cap
+  earns nothing at MVP working-set sizes.
+
+  It cannot be reviewed outside a panel. KWin grants the window-list protocol
+  only to the shell, so a standalone preview window reports no tasks at all;
+  measured, with every filter removed, against the running session. A stub
+  preview shows the centred growth and nothing about real applications, so
+  physical review of the dock's contents needs the containment on a panel.
 - [ ] Resolve the asymmetric Ambient and ticker width. The mechanism is settled
   by `Allocation` above --- a dock fixed to the output's centre, publishing its
   extent, with each flank spending the space left on its own side --- and only
