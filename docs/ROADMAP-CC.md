@@ -1380,6 +1380,17 @@ here are unmapped rather than merely unaddressed.
   one, and the compositor sizes an ordinary focused window to the Keyboard's
   top edge, which is Block 12's measured cause. A card keeps its gutter.
 
+  J's screenshot the same evening showed the Keyboard stopped a band's height
+  short of the bottom, over bare wallpaper where the dock had been. KWin 6.7.5
+  seats the Keyboard on the bottom of the work area and moves it again only
+  when its size or input region changes, the outputs change, or the text cursor
+  moves, never when the work area grows. The Keyboard nudges it right after
+  asking for the region, but the surface gives up the strut only after its
+  presentation has left, so the nudge lands against a reservation still held
+  and nothing nudges it again until typing moves the cursor. The surface does
+  not publish when the strut has actually gone, so the Keyboard cannot nudge at
+  the right moment. Found in source; the fix is unbuilt.
+
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each
 composing into the space its published extent leaves them. The wording this
