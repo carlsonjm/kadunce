@@ -1187,9 +1187,16 @@ here are unmapped rather than merely unaddressed.
   Ambient left, the status cluster right, as the study draws them --- and
   neither flank is told anything about the other, so there is no longer a width
   for the two of them to agree on. Sides come from the applet's plugin name, so
-  a component that is not installed simply is not there. What remains is the
-  published extent a consumer reads, which the contract defines and nothing
-  consumes yet. The mechanism was settled
+  a component that is not installed simply is not there. Temperance's ticker
+  spreads back toward the dock on the space its icon cluster does not use, and
+  that space arrives as a width rather than as a message: the flank is anchored
+  to the dock's edge, so it has already changed by the time anything could have
+  asked what it is. That removes the reason to poll rather than forbidding it.
+
+  It also leaves the published extent with no consumer, because both components
+  are embedded when the surface is present and there is no dock to describe when
+  it is absent. The contract records it as specified but unused. The mechanism
+  was settled
   by `Allocation` above --- a dock fixed to the output's centre, publishing its
   extent, with each flank spending the space left on its own side --- and only
   the implementation is owed. The two flanks get equal space and use different
