@@ -1249,8 +1249,8 @@ here are unmapped rather than merely unaddressed.
   jump-list entries, which no model role carries, and the move-to-desktop and
   move-to-activity submenus.
 - [x] Give the Keyboard a handle, so the surface can be raised when nothing
-  has asked for text. Built on 22 September and proven in an isolated
-  compositor; unseen by hand. It is the Keyboard's own layer surface, because
+  has asked for text. Built on 22 September, proven in an isolated compositor
+  and passed by hand the same day. It is the Keyboard's own layer surface, because
   the Keyboard's window is an input panel and the compositor unmaps it exactly
   when the handle is wanted. It reserves nothing: it asks to be placed in what
   is left after every exclusive zone, which puts it in the gutter above the
@@ -1266,9 +1266,21 @@ here are unmapped rather than merely unaddressed.
   instance for the process rather than one per window, because two would be two
   clients each believing they hold the region.
 
-  What is open is reach: the bar is four pixels of paint in a ten pixel gutter,
-  with the dock immediately below it, and whether that can be hit is the one
-  question the isolated run cannot answer.
+  By hand it raises the keyboard, leaves with it and before the dark, and lets
+  taps beside the bar through to the window beneath. Two findings are open.
+  Reach: a pull always lands and a tap has to be exact. The catch area is the
+  whole ten pixel gutter whatever the paint, about two millimetres on the
+  tablet against a fingertip several times that, so a thicker bar is easier to
+  aim at and no easier to hit. J asked for six pixels of paint to try; hitting
+  it reliably needs the catch area to grow, and above the gutter that area
+  belongs to the window. Contrast: where a window runs under the gutter the
+  light bar disappears over light content, and J asked whether it can invert
+  against what is beneath. A client cannot read the pixels under its own
+  surface, so that is either drawn by the compositor or approximated by the bar.
+
+  J also wants this to be the Keyboard's only handle: the one on the
+  Keyboard's top edge is the original placeholder and retires once resizing
+  moves to the side column, leaving a tap to close.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,
@@ -1345,10 +1357,20 @@ here are unmapped rather than merely unaddressed.
   consumer was reading a band height of zero and a dock with no width. An empty
   name now means the output the surface presents. The half that looked risky
   held: one holder, a second asker refused, a non-holder unable to release, and
-  a Keyboard killed mid-hold giving the region back. What the run cannot reach
-  is what a strut does to a work area --- that the dock steps aside, that the
-  region is never visibly empty while still holding space, and that it comes
-  back. Those are physical and unseen.
+  a Keyboard killed mid-hold giving the region back.
+
+  Passed by hand on 22 September, including repeated raises across
+  applications, with the tray control verified. The dock was never seen to
+  leave, because the Keyboard spans the output and covers it, so stepping aside
+  is shown by the work area and not yet by sight. It becomes visible when the
+  Keyboard takes the side gutter the 22 September direction gives it, and has
+  to be seen then. Two findings are open. The first text field tapped in the
+  session flashed and did not raise the Keyboard, and the second raised it
+  cleanly; not yet reproduced. And the window above stops flush against the
+  keys, where J wants a small clearance so the Keyboard reads as pushing the
+  window rather than meeting it. That is Block 12's measured cause --- the
+  compositor sizes the focused window to the Keyboard's top edge --- seen here
+  from the Keyboard's side of the boundary.
 
 **Exit gate:** the Shuffle Dock is physically centred on the output and grows
 symmetrically at tablet and monitor widths, with Status Bar and Ambient each

@@ -17,5 +17,4 @@ project history.
 
 ## Active handoffs
 
-- Bottom Surface owner: the boundary and the handle pass in isolation, unseen by hand. One install covers both, and verdicts land on the Keyboard Boundary Pass sheet, claude.ai/artifact/9yxjwgAsNefhxzPzuFQcVz. Read them before changing the handle's size; reach is J's to answer.
-- Shuffle Keyboard owner: the 22 September direction is approved and unbuilt. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs and the fork's README lists what it supersedes. Change the height-derives-width rule first; the direction holds width fixed and moves only key height.
+- Shuffle Keyboard owner: the 22 September direction is approved and unbuilt; `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Change height-derives-width first. The boundary pass added three asks, in `ROADMAP-CC.md` Block 5: a side gutter the dock must visibly leave, clearance above the keys, and the top grab handle retired.
