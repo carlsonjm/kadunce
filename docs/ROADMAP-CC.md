@@ -1126,6 +1126,21 @@ Neither was cheaper than doing it properly.
 This is downstream work and no component depends on it. It shares Kadunce's
 exposure to a KWin ABI change, and the same rebuild answers both.
 
+It ran for the first time on 22 September and was withdrawn the same day. The
+pass enabled alpha blending to lay the material down and then disabled it,
+handing the compositor back a changed drawing state, so every window drawn after
+the surface in the frame lost its alpha and its transparent pixels came out
+black. The damage was general rather than confined to the band: application
+windows blacked out and the picture churned with the stacking order. Kadunce's
+effect has always saved and restored that state and is the pattern this one now
+follows. A second defect is still open --- the containment draws its own
+gradient inside the band as the correct fallback for no effect, and with the
+effect loaded the region is painted twice --- so the containment's gradient has
+to stand down when the effect is present, and it has no way to know that yet.
+The effect stays off until both are settled. `BOTTOM-SURFACE-MATERIAL.md`
+downstream carries the approved values, the acceptance and a reference that
+renders them at 1:1 beside a build.
+
 ### Verification owed
 
 The approved presentation rests on properties a browser mock cannot judge, and
@@ -1186,6 +1201,26 @@ here are unmapped rather than merely unaddressed.
   measured, with every filter removed, against the running session. A stub
   preview shows the centred growth and nothing about real applications, so
   physical review of the dock's contents needs the containment on a panel.
+
+  A dock that cannot be pinned to is not a dock, and the first accepted
+  candidate could not be. The row showed running applications only, with no
+  stored list and no way to add to one, which J rejected on 22 September as a
+  non-starter. Three things closed it, and all three are physically accepted
+  the same day. The pinned list is stored with the surface and survives a
+  restart. The row carries the platform's own task menu --- pin and unpin, new
+  window, minimise, maximise, full screen, keep above and below, close --- built
+  from the native menu component the stock task manager uses and driven by the
+  task model's own requests, so a task answers the dock the way it answers any
+  other task list. An application is reordered by carrying it sideways, and the
+  order is stored at each place it crosses rather than on release, because a
+  drag can end without one.
+
+  The first attempt at this invented a hold-to-pin gesture instead. J's
+  correction is the general rule and is recorded in `DECISIONS.md`: where the
+  platform already answers an interaction, Shuffle uses the platform's answer.
+  Two gaps remain open and neither blocks the exit gate: the application's own
+  jump-list entries, which no model role carries, and the move-to-desktop and
+  move-to-activity submenus.
 - [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
   status side was rejected on 22 September and is corrected but unretested.
   Temperance sizes itself by measuring from its nearest neighbour on the left,

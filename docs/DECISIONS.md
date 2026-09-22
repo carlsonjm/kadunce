@@ -516,6 +516,18 @@ tiling and keyboard/manual operations remain KWin behavior.
 Panel controls retain their input. Destination recognition may use the physical
 bottom edge, while landing uses work-area and visible-dock geometry plus clearance.
 
+### The platform's answer wins where it has one
+
+Where the desktop already answers an interaction, Shuffle uses that answer rather
+than inventing its own. A task is reached by the ordinary right-click menu carrying
+the ordinary window actions; an application is pinned, unpinned and reordered the
+way every dock does it. Touch reaches the same menu through a long press rather
+than through a different behavior. Novelty is spent on the interactions Shuffle
+exists to change --- cards, Spread, Bento, the Table --- because a bespoke gesture
+elsewhere makes the user relearn something they already know and quietly drops
+everything the standard route carries. Settled by J on 22 September, against a
+hold-to-pin gesture built for the Shuffle Dock in place of the native menu.
+
 ## Rendering and motion
 
 ### Live textures are the card source
