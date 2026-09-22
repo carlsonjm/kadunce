@@ -1169,8 +1169,12 @@ here are unmapped rather than merely unaddressed.
   can carry the approved gradient and its solid fill is no longer a question
   about the hosting choice; it sits in `Verification owed` above.
 - [ ] Give Temperance clock and calendar presentation.
-- [ ] Implement Shuffle Dock as minimal task and application presentation inside
-  that surface. Built and unreviewed: the row takes the output's true centre,
+- [x] Implement Shuffle Dock as minimal task and application presentation inside
+  that surface. Physically accepted on 22 September, flush to the screen edge:
+  the centre holds as applications open and close, running and active read
+  correctly, and nothing paints above the reserved line. The surface's own
+  install, the tray control against it, and containment all passed in the same
+  pass. Built and unreviewed before that: the row takes the output's true centre,
   is as wide as its contents so the centre does not move, and the surface is
   three zones with each flank taking only what its own side has left. J settled
   the overflow question on 22 September --- the dock grows uncapped, and
@@ -1182,7 +1186,15 @@ here are unmapped rather than merely unaddressed.
   measured, with every filter removed, against the running session. A stub
   preview shows the centred growth and nothing about real applications, so
   physical review of the dock's contents needs the containment on a panel.
-- [x] Resolve the asymmetric Ambient and ticker width. Built and unreviewed.
+- [ ] Resolve the asymmetric Ambient and ticker width. Allocation built; the
+  status side was rejected on 22 September and is corrected but unretested.
+  Temperance sizes itself by measuring from its nearest neighbour on the left,
+  which is correct on an ordinary panel and measures across the dock here,
+  because the dock is drawn by the surface and is not an applet it can see. It
+  asked for most of the output and left the region. The flank is now the
+  authority on its own width and holds a component to its side. Adapting
+  Temperance to compose into the width it is handed, rather than measuring for
+  it, is Block 7's and is what closes this properly.
   The surface places each component into the space its own side has left ---
   Ambient left, the status cluster right, as the study draws them --- and
   neither flank is told anything about the other, so there is no longer a width
