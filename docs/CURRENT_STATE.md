@@ -103,6 +103,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   there pulls the person back. Leaving cancels anything in hand, and coming
   back to a Spread left open finds the Active card. Physically accepted on 23
   September.
+- Cards go on the display a touchscreen drives, found as KWin places the
+  touchscreen, never by the display's name. A machine with no touchscreen has
+  no card display and gets Bento only. With a plain monitor plugged in, cards
+  stay on the tablet. Physically accepted on 23 September on the Z13; no touch
+  monitor has been tried.
 - A carry is not refused because some other window closed during it: a
   notification, tooltip or menu going away leaves an ordinary window's or a
   Bento pane's carry to the edge and its drop. The move trace names the check
@@ -173,6 +178,11 @@ duplicates, and omits stack position.
   cards and leaves the rest plain until Table, which is in 1.0, brings a card
   set per desktop. A card moved
   to another desktop with the window menu is not handled.
+- Nothing answers a display changing place. Plugging in a monitor moves the
+  tablet within the desktop layout, and the Active card keeps a target placed
+  for the old position and the tablet shows black until a new card is
+  admitted. The bottom swipe also stopped opening Spread there, for a reason
+  not yet measured.
 - Reorder intent zones still need product completion. A reorder commits at 82%
   of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
   edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long

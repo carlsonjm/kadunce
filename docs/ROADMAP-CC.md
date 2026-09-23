@@ -6,7 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Put cards on the screen the touchscreen drives (Block 14).
+1. Keep the tablet's cards whole when a monitor is plugged in (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -103,8 +103,10 @@ freshly chosen card, and nothing goes wrong.
       not touch. (audit 8)
 - [x] J rules the display half: one touchscreen holds cards, and a machine
       with none gets Bento and Table only. (audit 11)
-- [ ] **Next:** put cards on the screen the touchscreen drives, not the one
-      named like a laptop panel. (audit 8)
+- [x] Put cards on the screen the touchscreen drives, not the one named like a
+      laptop panel. (audit 8)
+- [ ] **Next:** keep the tablet's cards whole and its bottom swipe working when a
+      monitor is plugged in or out.
 - [ ] Bring J options for the monitor: pair two named windows as the tablet
       does, or keep filling itself and sending what it cannot show to the tablet.
       (audit 10)

@@ -1065,6 +1065,20 @@ bottom swipe or a D-Bus request, and Bento still composing. It passes on the
 earlier build too, because the harness cannot name a display like a built-in
 panel, so it guards the rule rather than proving the change.
 
+J passed it by hand on 23 September: cards arrive on the tablet after signing
+in, and the folio on or off leaves them alone. Plugging in a plain monitor kept
+the cards on the tablet, as the rule says, and the monitor composed Bento, but
+it broke the tablet: its screen went black with the keyboard handle in a
+corner, the bottom swipe stopped opening Spread though the shortcut still did,
+and the dock moved to the monitor. None of that comes from this change; the
+card display was never re-decided. Plugging in the monitor moved the tablet
+down the desktop layout, from y 0 to y 241, and nothing in Kadunce answers a
+display changing place: the Active card kept a target placed for the old
+position until a new card was admitted at 251. Why the bottom swipe stopped is
+not yet measured. The dock follows Plasma's
+primary display, which the monitor became. Carried onto the monitor, a card
+became an ordinary window with no gutter, which the rule expects.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person
