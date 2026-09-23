@@ -1071,11 +1071,14 @@ the cards on the tablet, as the rule says, and the monitor composed Bento, but
 it broke the tablet: its screen went black with the keyboard handle in a
 corner, the bottom swipe stopped opening Spread though the shortcut still did,
 and the dock moved to the monitor. None of that comes from this change; the
-card display was never re-decided. Plugging in the monitor moved the tablet
-down the desktop layout, from y 0 to y 241, and nothing in Kadunce answers a
-display changing place: the Active card kept a target placed for the old
-position until a new card was admitted at 251. Why the bottom swipe stopped is
-not yet measured. The dock follows Plasma's
+card display was never re-decided. J's screenshot shows why the tablet was
+black: the window Kadunce still held as the Active card, with the card stage
+presenting Active on the tablet, was drawn on the monitor. Plugging in the
+monitor also moved the tablet down the desktop layout, from y 0 to y 241, and
+nothing in Kadunce answers a display changing place or a card's window
+changing display. Whether KWin moved the window there when the monitor
+arrived or a drag did is not yet measured, nor why the bottom swipe stopped.
+The dock follows Plasma's
 primary display, which the monitor became. Carried onto the monitor, a card
 became an ordinary window with no gutter, which the rule expects.
 

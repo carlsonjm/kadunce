@@ -178,11 +178,11 @@ duplicates, and omits stack position.
   cards and leaves the rest plain until Table, which is in 1.0, brings a card
   set per desktop. A card moved
   to another desktop with the window menu is not handled.
-- Nothing answers a display changing place. Plugging in a monitor moves the
-  tablet within the desktop layout, and the Active card keeps a target placed
-  for the old position and the tablet shows black until a new card is
-  admitted. The bottom swipe also stopped opening Spread there, for a reason
-  not yet measured.
+- Nothing answers a display changing place or a card's window changing
+  display. With a monitor plugged in, the window held as the Active card was
+  drawn on the monitor while the tablet presented it, so the tablet showed
+  black, and the bottom swipe stopped opening Spread. How the window reached
+  the monitor, and why the swipe stopped, are not yet measured.
 - Reorder intent zones still need product completion. A reorder commits at 82%
   of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
   edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long
