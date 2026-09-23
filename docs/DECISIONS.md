@@ -851,6 +851,10 @@ Table is the workspace level above Spread/Bento. It must manipulate existing KWi
 virtual-desktop membership and preserve current display ownership. Feasibility,
 gesture conflicts, and lifecycle behavior must be proven before implementation.
 
+Table ships in 1.0 (J, 23 September), so 1.0 gives every virtual desktop its own
+cards. Until Table's block, cards and layouts live on the desktop where they
+started and every other desktop is plain Plasma.
+
 ### Shuffle Keyboard is required and uses system input plumbing
 
 Shuffle owns layout, resizing, editing gestures, and its keyboard/precision-surface

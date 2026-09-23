@@ -977,7 +977,11 @@ card workspace, bound to the output whose name starts like a built-in panel
 (`Effect::isTabletOutput` reads `eDP`, `DSI` or `LVDS`), and nothing in the
 effect reacts to a virtual-desktop switch. What a person meets:
 
-- What a desktop switch does while cards are owned has not been measured.
+- A desktop switch was measured on 23 September, by J getting stuck. One card
+  set spanned every desktop: an app opened on desktop two joined it, Spread
+  there paged onto cards that could not be seen, every window that could be a
+  card was hidden there, and with a Bento pair on desktop one, opening an app on
+  desktop two pulled the person back to desktop one.
 - A touch monitor on a desktop computer gets no cards at all, and a laptop with
   a built-in screen that is not touch gets them there rather than on the touch
   monitor.
@@ -994,6 +998,23 @@ carries the choice. The recommendation put to J was to make the 1.0 contract
 say one touchscreen and one desktop at a time, give the desktop switch a defined
 answer, and bring card sets per desktop with Table. Choosing the card screen by
 which screen the touchscreen drives is needed under either answer.
+
+J ruled the desktop half on 23 September: 1.0 includes Table, so every desktop
+gets its own cards, built in Block 8. Until then the desktop switch has an
+interim answer, which J judged stable enough to carry the plan: cards and
+layouts belong to the desktop where they started, and every other desktop is
+plain Plasma, with no admission, carry, Spread, Bento or bottom swipe. Leaving
+the desktop cancels anything in hand, and coming back to a Spread left open
+finds the Active card. Once no card or layout is left, ownership moves to the
+next desktop that starts one. `desktop-switch-runtime` and
+`desktop-switch-bento-runtime` gate it and fail on the build before it. J
+passed it by hand on 23 September: an app on desktop two is an ordinary window,
+the bottom swipe there leaves it alone, a Bento pair no longer pulls anyone back,
+desktop one comes back as it was left with Spread showing only its cards, and
+a Spread left open comes back as Active. A window moved to another desktop with
+the window menu was left out of the pass and is not handled. Keys that did not
+come up on desktop two were the keyboard cover being attached, which puts the
+tablet in laptop mode, not this change.
 
 ## Block 15 — Consumer fundamentals
 
@@ -1828,9 +1849,11 @@ for one another.
 
 ## Block 8 — Table feasibility and implementation
 
-**Status:** Tentatively 1.1, decided by J on 23 September, depending on how long
-integrating the core concepts takes. Waits on Block 14: a destination Spread
-needs a card set per virtual desktop, which the structure does not have.
+**Status:** In 1.0, decided by J on 23 September, replacing the tentative 1.1
+ruled earlier that day. It keeps its place in the order: the one-desktop rule
+Block 14 built is stable enough to carry the plan until then. A destination
+Spread needs a card set per virtual desktop, which the structure does not have,
+so giving each desktop its own cards is this block's work.
 Reference:
 `KADUNCE-TABLE-1.1-CONCEPT.md`.
 
@@ -2212,13 +2235,14 @@ it is made, with its resolution, so later work does not reopen it.
    display and virtual desktop its own ownership session and the build has one
    card set on the built-in panel. The recommendation put to J: 1.0 says one
    touchscreen and one virtual desktop at a time, the desktop switch gets a
-   defined answer, and a card set per desktop arrives with Table. The
-   alternative builds that now, which is most of Table's hard part and moves 1.0.
-   Block 14 measures before J rules.
+   defined answer, and a card set per desktop arrives with Table. J ruled the
+   desktop half on 23 September: Table is in 1.0, so each desktop gets its own
+   cards in Block 8, and cards stay on the desktop they started on until then.
+   The display half stays open until Block 14 has measured a touch monitor.
 
-5. **Table's release.** Decided by J on 23 September: tentatively 1.1,
-   depending on how long integrating the core concepts takes. The Table
-   contract stays the reference; Block 8 waits on Block 14.
+5. **Table's release.** Decided by J on 23 September: Table is in 1.0,
+   replacing the tentative 1.1 ruled earlier the same day. The Table contract
+   stays the reference, and Block 8 keeps its place in the order.
 
 ## Progress update rule
 

@@ -97,6 +97,12 @@ not alternate behavior, and where wording conflicts the owning document governs.
   attention flag, and picking the application brings it forward with the
   dialog on top. Switching Kadunce off gives waiting dialogs back. Physically
   accepted on 23 September.
+- Cards and Bento layouts live on the virtual desktop where they started.
+  Every other desktop is plain Plasma: windows open and move as ordinary
+  windows, the bottom swipe and Spread are left to the desktop, and nothing
+  there pulls the person back. Leaving cancels anything in hand, and coming
+  back to a Spread left open finds the Active card. Physically accepted on 23
+  September.
 - A carry is not refused because some other window closed during it: a
   notification, tooltip or menu going away leaves an ordinary window's or a
   Bento pane's carry to the edge and its drop. The move trace names the check
@@ -161,6 +167,11 @@ duplicates, and omits stack position.
   entry records only what the current structure does. It is also why a window a
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
+- Card ownership is structurally single-desktop. `CARD-LIFECYCLE.md` gives
+  every virtual desktop its own ownership session; the build gives one desktop
+  cards and leaves the rest plain until Table, which is in 1.0, brings a card
+  set per desktop. A card moved
+  to another desktop with the window menu is not handled.
 - Reorder intent zones still need product completion. A reorder commits at 82%
   of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
   edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long

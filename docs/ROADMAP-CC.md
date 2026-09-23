@@ -6,8 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
-   scope (Block 14).
+1. Measure a touch monitor, and bring J the 1.0 scope (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -40,7 +39,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 10 | Downstream assembly and installation | Waits on Blocks 9 and 10a |
 | 10b | Package and interface identity | Waits on Block 10a |
 | 11 | Host and public site | Waits on Block 10 |
-| 8 | Table | Tentatively 1.1; waits on Block 14 |
+| 8 | Table | In 1.0; keeps its place in the order |
 | 12 | Post-MVP debug | Deferred past MVP |
 
 ## Block 1 — Refactor enablement
@@ -94,15 +93,18 @@ freshly chosen card, and nothing goes wrong.
 
 ## Block 14 — Ownership scope
 
-- [ ] **Next:** measure what a virtual-desktop switch does while cards are owned.
+- [x] Measure what a virtual-desktop switch does while cards are owned.
       (audit 9)
-- [ ] Measure what a touch monitor gets, and a laptop whose built-in screen is
-      not touch. (audit 8)
-- [ ] J rules on the scope 1.0 promises (Open decision 4).
+- [x] Keep cards and layouts on the desktop they started on, and leave every
+      other desktop plain Plasma, until Table. (audit 9)
+- [x] J rules the desktop half: 1.0 includes Table, so every desktop gets its
+      own cards. (audit 11)
+- [ ] **Next:** measure what a touch monitor gets, and a laptop whose built-in
+      screen is not touch. (audit 8)
+- [ ] J rules on what 1.0 promises about displays (Open decision 4).
       (audit 11)
 - [ ] Put cards on the screen the touchscreen drives, not the one named like a
       laptop panel. (audit 8)
-- [ ] Give a virtual-desktop switch the answer J rules. (audit 9)
 - [ ] Bring J options for the monitor: pair two named windows as the tablet
       does, or keep filling itself and sending what it cannot show to the tablet.
       (audit 10)
@@ -303,6 +305,8 @@ identities.
 ## Block 8 — Table
 
 - [ ] Audit KWin and Plasma virtual-desktop APIs, gestures and lifecycle.
+- [ ] Give every virtual desktop its own cards and layouts, replacing the
+      one-desktop rule. (audit 9)
 - [ ] Prove multi-display behavior without changing Bento.
 - [ ] Build the smallest complete prototype and test it physically.
 - [ ] Implement the accepted interaction.
@@ -347,12 +351,12 @@ and nothing else fires.
    usable before signing in. The lock ships in the consumer bundle whatever else
    1.0 holds.
 3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
-4. **What 1.0 promises about displays and desktops.** Open. One touchscreen and
-   one virtual desktop at a time, with a card set per desktop arriving with
-   Table; or a card set per desktop now. Block 14 measures first. Audit 8 to
-   11.
-5. **Table's release.** Decided 23 September: tentatively 1.1, depending on how
-   long integrating the core concepts takes. Audit 12.
+4. **What 1.0 promises about displays and desktops.** Desktops decided 23
+   September: 1.0 includes Table, so every desktop gets its own cards in Block
+   8, and cards stay on the desktop they started on until then. Displays open:
+   Block 14 measures first. Audit 8 to 11.
+5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
+   earlier tentative 1.1. It keeps its place in the order. Audit 12.
 
 ## Working model
 
