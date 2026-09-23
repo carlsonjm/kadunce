@@ -23,6 +23,8 @@
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <input.h>
+#include <input_event.h>
+#include <input_event_spy.h>
 #include <inputmethod.h>
 #include <inputpanelv1window.h>
 #include <main.h>
@@ -33,6 +35,8 @@
 #include <workspace.h>
 #include <wayland_server.h>
 #include <wayland/seat.h>
+#include <wayland/textinput_v2.h>
+#include <wayland/textinput_v3.h>
 
 #include <KGlobalAccel>
 #include <KService>
@@ -279,6 +283,20 @@ void main(void)
 }
 )GLSL";
 
+// Observes touches for the keyboard's sake and consumes nothing.
+class KeyboardTouchSpy final : public KWin::InputEventSpy
+{
+public:
+    std::function<void(KWin::TouchDownEvent *)> down;
+    std::function<void(KWin::TouchMotionEvent *)> motion;
+    std::function<void(KWin::TouchUpEvent *)> up;
+    std::function<void(KWin::PointerButtonEvent *)> button;
+    void pointerButton(KWin::PointerButtonEvent *event) override { button(event); }
+    void touchDown(KWin::TouchDownEvent *event) override { down(event); }
+    void touchMotion(KWin::TouchMotionEvent *event) override { motion(event); }
+    void touchUp(KWin::TouchUpEvent *event) override { up(event); }
+};
+
 KWin::Region roundedClip(const KWin::Rect &rect, double radius)
 {
     QPainterPath path;
@@ -464,6 +482,9 @@ Effect::Effect()
             watchInputPanel);
     watchInputPanel();
     if (KWin::InputMethod *method = KWin::kwinApp()->inputMethod()) {
+        // Before the reveal hears it: a keyboard put back down reveals nothing.
+        connect(method, &KWin::InputMethod::visibleChanged, this,
+                &Effect::quietKeyboardIfSummoned);
         for (const auto signal : {&KWin::InputMethod::visibleChanged,
                                   &KWin::InputMethod::activeWindowChanged,
                                   &KWin::InputMethod::cursorRectangleChanged}) {
@@ -471,6 +492,27 @@ Effect::Effect()
                     [this]() { m_cardStage->refreshKeyboardReveal(); });
         }
     }
+    auto spy = std::make_unique<KeyboardTouchSpy>();
+    spy->down = [this](KWin::TouchDownEvent *event) {
+        m_keyboardQuietWindow.clear();
+        m_keyboardTap.down(event->id, event->pos, event->time);
+    };
+    spy->button = [this](KWin::PointerButtonEvent *event) {
+        if (event->state == KWin::PointerButtonState::Pressed) m_keyboardQuietWindow.clear();
+    };
+    spy->motion = [this](KWin::TouchMotionEvent *event) {
+        m_keyboardTap.motion(event->id, event->pos);
+    };
+    spy->up = [this](KWin::TouchUpEvent *event) {
+        if (const auto tap = m_keyboardTap.up(event->id, event->time)) {
+            // After the compositor has handed the touch to the client, so a
+            // tap that moves focus is judged against the window it reached.
+            const QPointF position = *tap;
+            QTimer::singleShot(0, this, [this, position] { handleKeyboardTap(position); });
+        }
+    };
+    m_keyboardTouchSpy = std::move(spy);
+    KWin::input()->installInputEventSpy(m_keyboardTouchSpy.get());
 
     m_carryRuntime = std::make_unique<NativeCarryRuntime>();
     m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
@@ -570,6 +612,7 @@ Effect::Effect()
 
 Effect::~Effect()
 {
+    if (m_keyboardTouchSpy) KWin::input()->uninstallInputEventSpy(m_keyboardTouchSpy.get());
     if (m_nativeCarry) KWin::effects->setElevatedWindow(m_nativeCarry, false);
     m_desktopStage->cancelRestoredMinimizations();
     // Roll back input while its target/controllers are alive, then unregister
@@ -852,6 +895,61 @@ std::optional<KWin::RectF> Effect::textCursorForCardStage(
         return std::nullopt;
     }
     return cursor;
+}
+
+bool Effect::textFocusForCardStage(const KWin::EffectWindow *window) const
+{
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (!window || !method || method->activeWindow() != window->window()) {
+        return false;
+    }
+    KWin::SeatInterface *seat = KWin::waylandServer()->seat();
+    return (seat->textInputV3() && seat->textInputV3()->isEnabled())
+        || (seat->textInputV2() && seat->textInputV2()->isEnabled());
+}
+
+void Effect::cardActivatedForCardStage(KWin::EffectWindow *window)
+{
+    m_keyboardQuietWindow = window;
+    m_keyboardQuietSince.start();
+}
+
+void Effect::quietKeyboardIfSummoned()
+{
+    // Focusing a card is not asking to type into it. Some clients have the
+    // compositor raise the keyboard as they gain focus; for a card this stage
+    // focused itself, that keyboard goes back down. The raise follows the
+    // focus within a moment, so the quiet lasts only that moment, and any
+    // touch or press ends it: a pull on the handle is one.
+    constexpr qint64 QuietMs = 1000;
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (m_keyboardQuietWindow && m_keyboardQuietSince.elapsed() > QuietMs) {
+        m_keyboardQuietWindow.clear();
+    }
+    if (!method || !method->isVisible() || !m_keyboardQuietWindow
+        || !method->activeWindow()
+        || method->activeWindow() != m_keyboardQuietWindow->window()) {
+        return;
+    }
+    method->hide();
+    qInfo() << "Kadunce kept the keyboard down for" << m_keyboardQuietWindow->caption();
+}
+
+void Effect::handleKeyboardTap(const QPointF &position)
+{
+    // A client that can ask for the keyboard asks on its own. One that
+    // cannot has it raised only as it gains focus, so a tap inside it after
+    // that never brings it up; this is that tap asking.
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    KWin::Window *focused = method ? method->activeWindow() : nullptr;
+    KWin::TextInputV3Interface *text = KWin::waylandServer()->seat()->textInputV3();
+    if (!focused || method->isVisible() || !text || !text->isEnabled()
+        || !text->implicitShowPanelRequired()
+        || !focused->frameGeometry().contains(position)) {
+        return;
+    }
+    method->show();
+    qInfo() << "Kadunce raised the keyboard for a tap in" << focused->caption();
 }
 
 bool Effect::mayHoldWindowForCardStage(

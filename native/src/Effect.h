@@ -12,6 +12,7 @@
 #include "NativeCarryRuntime.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
+#include "KeyboardTap.h"
 #include <options.h>
 
 #include <effect/offscreeneffect.h>
@@ -21,6 +22,7 @@
 #include <QList>
 #include <QHash>
 #include <QDBusContext>
+#include <QElapsedTimer>
 #include <QPointer>
 #include <QStringList>
 
@@ -205,6 +207,9 @@ private:
         KWin::LogicalOutput *output) const override;
     [[nodiscard]] std::optional<KWin::RectF> textCursorForCardStage(
         const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool textFocusForCardStage(
+        const KWin::EffectWindow *window) const override;
+    void cardActivatedForCardStage(KWin::EffectWindow *window) override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(
@@ -323,6 +328,16 @@ private:
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
     QMetaObject::Connection m_inputPanelGeometry;
+    // The keyboard comes up only for a touch inside the text being typed into
+    // or for a pull on its handle. A card the stage focuses by its own gesture
+    // keeps it down until the next touch, and a tap inside an application
+    // that cannot ask for it brings it up.
+    std::unique_ptr<KWin::InputEventSpy> m_keyboardTouchSpy;
+    KeyboardTap m_keyboardTap;
+    QPointer<KWin::EffectWindow> m_keyboardQuietWindow;
+    QElapsedTimer m_keyboardQuietSince;
+    void handleKeyboardTap(const QPointF &position);
+    void quietKeyboardIfSummoned();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;

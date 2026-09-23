@@ -5,7 +5,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|provenance-runtime-session.sh) ;;
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh) ;;
-    keyboard-runtime-session.sh) ;;
+    keyboard-runtime-session.sh|keyboard-focus-runtime-session.sh) ;;
     membership-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     active-admission-session.sh) ;;
@@ -51,7 +51,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; then
     # Lets the session photograph its own private outputs.
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
     # A real input-method client, started by this private compositor only.
