@@ -115,20 +115,16 @@ lower
 test "$(frame "Keyboard top probe")" = "$before"
 echo 'PASS: a visible cursor moves nothing'
 
-# A client that never says where its cursor is gives the keyboard its height
-# instead: its top and sides stay exactly where they were, its bottom stops a
-# gutter above the keys, and it returns exactly.
+# A client that never reports its cursor: nothing moves and nothing breaks.
 present "Keyboard blind probe"
 before=$(frame "Keyboard blind probe")
 raise
 record blind-raised
-jq -e --argjson b "$before" '
-    .visible == true and .trackedFrame.x == $b.x and .trackedFrame.y == $b.y
-    and .trackedFrame.width == $b.width
-    and ((.trackedFrame.y + .trackedFrame.height + 10 - .panel.y) | fabs) <= 1' <<<"$(state)"
+state | jq -e '.visible == true'
+test "$(frame "Keyboard blind probe")" = "$before"
 lower
 test "$(frame "Keyboard blind probe")" = "$before"
-echo 'PASS: a window that reports no cursor ends a gutter above the keys, top and sides unmoved'
+echo 'PASS: a window that reports no cursor is never moved'
 
 # Spread: the keyboard over the row changes no window.
 kad showCardLine

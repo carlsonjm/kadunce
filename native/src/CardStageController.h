@@ -80,12 +80,6 @@ public:
         const KWin::EffectWindow *) const {
         return std::nullopt;
     }
-    // Whether this window holds text focus with its text input enabled,
-    // whether or not it says where its cursor is.
-    [[nodiscard]] virtual bool textFocusForCardStage(
-        const KWin::EffectWindow *) const {
-        return false;
-    }
     // The stage is about to give this card focus by its own gesture, not by
     // a touch inside the card.
     virtual void cardActivatedForCardStage(KWin::EffectWindow *) {}
@@ -361,10 +355,6 @@ private:
         QPointer<KWin::EffectWindow> window;
         KWin::RectF base;
         double lift = 0.0;
-        // Height given up to the keyboard by a card whose client never says
-        // where its cursor is: it ends above the keys and keeps its own place
-        // visible, as a terminal does, rather than guessing which line to show.
-        double room = 0.0;
     };
     std::optional<KeyboardReveal> m_keyboardReveal;
     QTimer m_keyboardRevealTimer;

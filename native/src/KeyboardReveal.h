@@ -16,13 +16,4 @@ namespace Kadunce {
                       std::max(0.0, cursorTop - displayTop));
 }
 
-// How much height a card gives up so its bottom stops one gutter above the
-// keys, its top never moving. Never below zero, and never so much that less
-// than one gutter of the card is left.
-[[nodiscard]] inline double keyboardRoom(
-    double cardTop, double cardBottom, double keyboardTop, double gutter)
-{
-    const double most = std::max(0.0, cardBottom - cardTop - gutter);
-    return std::clamp(cardBottom - (keyboardTop - gutter), 0.0, most);
-}
 }

@@ -7,7 +7,6 @@
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
 #include "KeyboardReveal.h"
-#include "KeyboardTap.h"
 #include <QCoreApplication>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -124,30 +123,6 @@ int main(int argc, char **argv)
     require(lift(751, 770, 397, 0) == 383);
     require(lift(751, 770, 397, 500) == 251);
     require(lift(-5, 770, 397, 0) == 0);
-    // A card gives up exactly the height that puts its bottom a gutter above
-    // the keys, nothing when the keys miss it, and always keeps a gutter.
-    require(Kadunce::keyboardRoom(10, 838, 500, 10) == 348);
-    require(Kadunce::keyboardRoom(10, 480, 500, 10) == 0);
-    require(Kadunce::keyboardRoom(10, 838, 15, 10) == 818);
-    {
-        using namespace std::chrono_literals;
-        Kadunce::KeyboardTap tap;
-        tap.down(1, {100, 100}, 0us);
-        tap.motion(1, {108, 104});
-        const auto at = tap.up(1, 200ms);
-        require(at && *at == QPointF(108, 104));
-        tap.down(1, {100, 100}, 0us);
-        tap.motion(1, {100, 140});
-        require(!tap.up(1, 100ms));
-        tap.down(1, {100, 100}, 0us);
-        require(!tap.up(1, 800ms));
-        tap.down(1, {100, 100}, 0us);
-        tap.down(2, {300, 100}, 10ms);
-        require(!tap.up(2, 50ms));
-        require(!tap.up(1, 60ms));
-        tap.down(3, {50, 50}, 0us);
-        require(tap.up(3, 50ms).has_value());
-    }
     using Kadunce::RestoreResult;
     const QList<int> outputs{1,2,3};
     QList<int> attempted;

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# The keyboard comes up for a touch inside the text being typed into or for a
-# pull on its handle, never because a card was focused. A GTK window asks for
-# text input the way Ghostty does, so the compositor raises a keyboard
-# whenever it gains focus: a card the stage brings forward keeps it down, and
-# a tap inside the window brings it up.
+# A card the stage brings forward does not bring the keyboard with it. A GTK
+# window asks for text input the way Ghostty does, so the compositor raises a
+# keyboard whenever it gains focus; for a card the stage focused itself, that
+# keyboard goes back down.
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -euo pipefail
@@ -42,17 +41,8 @@ sleep 1.2
 state | jq -e '.tracked == "Keyboard GTK probe" and .visible == false'
 echo 'PASS: a card the stage brings forward does not bring the keyboard with it'
 
-frame=$(state | jq -c '.trackedFrame')
-x=$(jq '(.x + .width / 2) | floor' <<<"$frame")
-y=$(jq '(.y + 40) | floor' <<<"$frame")
-probe down 1 "$x" "$y"
-sleep .05
-probe up 1
-sleep 1
-state | jq -e '.visible == true'
-echo 'PASS: a tap inside the text brings the keyboard up'
 
 probe hideKeyboard
 sleep .6
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
-echo 'PASS: keyboard focus rules measured'
+echo 'PASS: keyboard focus rule measured'
