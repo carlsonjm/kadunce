@@ -113,6 +113,13 @@ public Q_SLOTS:
     target->clearFocus(); target->setFocus();
    }
  }
+ // A tooltip over this window: a popup that no layout ever holds.
+ void tooltip() { auto *w = new QWidget(this, Qt::ToolTip); w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("tooltip"); w->setGeometry(40,40,160,32); w->show(); }
+ void closeTooltip() { for (auto *w : findChildren<QWidget *>("tooltip", Qt::FindDirectChildrenOnly)) w->close(); }
+ void closeCompanion(const QString &title) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title)) w->close();
+ }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or

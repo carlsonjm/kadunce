@@ -29,14 +29,19 @@ public:
                                        QPointF pendingMotion = {})
     {
         using Result = NativeMoveTakeover::Result;
-        if (!m_pending || m_resolving || m_pending->window != window || !ownerValid)
-            return Result::Rejected;
+        m_rejection = nullptr;
+        const auto reject = [this](const char *check) { m_rejection = check; return Result::Rejected; };
+        if (!m_pending) return reject("rejected-not-staged");
+        if (m_resolving) return reject("rejected-resolving");
+        if (m_pending->window != window) return reject("rejected-other-window");
+        if (!ownerValid) return reject("rejected-owner");
         const auto generation = m_generation;
         const auto pending = *m_pending;
         QScopedValueRollback<bool> resolving(m_resolving, true);
-        if (!ownerValid() || generation != m_generation || !pending.window
-            || !pending.sourceValid() || generation != m_generation || !pending.window)
-            return Result::Rejected;
+        if (!ownerValid()) return reject("rejected-owner");
+        if (generation != m_generation || !pending.window) return reject("rejected-superseded");
+        if (!pending.sourceValid()) return reject("rejected-source");
+        if (generation != m_generation || !pending.window) return reject("rejected-superseded");
         // Validate contact before cancellation. Do not retain it as source validity:
         // the physical release ends input ownership but not destination acceptance.
         auto adoptionOwnerCheck = std::make_shared<std::function<bool()>>(ownerValid);
@@ -46,7 +51,8 @@ public:
                 return sourceValid() && (!*adoptionOwnerCheck || (*adoptionOwnerCheck)());
             }, pending.source.isDesktopWindow(), pendingMotion);
         *adoptionOwnerCheck = {}; // release validity belongs to the input adapter afterward
-        if (result == Result::Rejected) return result; // queued fallback still owns native start
+        if (result == Result::Rejected) // queued fallback still owns native start
+            return reject(m_takeover.rejection() ? m_takeover.rejection() : "rejected-takeover");
         m_pending.reset(); ++m_generation; // canceled native finish is never a drop
         if (generation + 1 != m_generation || result == Result::Interrupted) {
             m_takeover.cancel();
@@ -55,6 +61,9 @@ public:
         m_ownedSource = pending.source;
         return result;
     }
+
+    // Which check declined the last identification, for the move trace.
+    const char *rejection() const { return m_rejection; }
 
     void flushPending()
     {
@@ -99,7 +108,12 @@ public:
         const auto request = m_takeover.release(owner);
         if (!request) {
             // A foreign release leaves a live carry and its reservation alone.
-            if (auto outcome = takeOutcome()) return DropResult{*outcome, false, "refused-foreign-release"};
+            // An outcome here means the carry had already ended before release.
+            if (auto outcome = takeOutcome())
+                return DropResult{*outcome, false,
+                    outcome->resolution == CarryResolution::SourceGone ? "refused-source-gone"
+                    : outcome->resolution == CarryResolution::NeedsRecovery ? "refused-source-changed"
+                    : "refused-carry-ended"};
             return std::nullopt;
         }
         const auto source = m_ownedSource;
@@ -161,6 +175,7 @@ private:
     std::optional<Pending> m_pending;
     std::optional<PreparedCarrySource> m_ownedSource;
     quint64 m_generation = 0;
+    const char *m_rejection = nullptr;
     bool m_resolving = false;
 };
 } // namespace Kadunce

@@ -39,26 +39,33 @@ public:
                  std::function<bool()> sourceValid, bool deferredDesktop = false,
                  QPointF pendingMotion = {})
     {
-        if (m_preparing || m_cancellingWindow || busy() || m_pendingOutcome
-            || !window || window->isDeleted() || !window->output()
-            || KWin::workspace()->moveResizeWindow() != window
-            || !window->isInteractiveMove() || window->isInteractiveResize()
-            || origin.card != window->internalId().toString()
-            || (!deferredDesktop && origin.output != window->output()->name())
-            || !sourceValid) return Result::Rejected;
+        m_rejection = nullptr;
+        const auto reject = [this](const char *check) { m_rejection = check; return Result::Rejected; };
+        if (m_preparing || m_cancellingWindow || busy() || m_pendingOutcome)
+            return reject("rejected-carry-busy");
+        if (!window || window->isDeleted() || !window->output())
+            return reject("rejected-window-gone");
+        if (KWin::workspace()->moveResizeWindow() != window
+            || !window->isInteractiveMove() || window->isInteractiveResize())
+            return reject("rejected-not-moving");
+        if (origin.card != window->internalId().toString()) return reject("rejected-other-window");
+        if (!deferredDesktop && origin.output != window->output()->name())
+            return reject("rejected-output");
+        if (!sourceValid) return reject("rejected-source");
         QScopedValueRollback<bool> preparing(m_preparing, true);
         const QPointer<KWin::Window> candidate(window);
         const QPointer<KWin::LogicalOutput> output(window->output());
-        if (!sourceValid() || !candidate || candidate->isDeleted() || !output
-            || candidate->output() != output
-            || !KWin::effects->screens().contains(output.data())
-            || KWin::workspace()->moveResizeWindow() != candidate
+        if (!sourceValid()) return reject("rejected-source");
+        if (!candidate || candidate->isDeleted() || !output) return reject("rejected-window-gone");
+        if (candidate->output() != output || !KWin::effects->screens().contains(output.data()))
+            return reject("rejected-output");
+        if (KWin::workspace()->moveResizeWindow() != candidate
             || !candidate->isInteractiveMove() || candidate->isInteractiveResize())
-            return Result::Rejected;
+            return reject("rejected-not-moving");
 
         disconnectSource();
         if (!m_carry.begin(owner, std::move(origin), contact, topLeft))
-            return Result::Rejected;
+            return reject("rejected-carry-begin");
         m_owner = owner;
         m_snapshot = {window, window->output(), window->frameGeometry(),
             window->geometryRestore(), window->fullscreenGeometryRestore(),
@@ -93,6 +100,9 @@ public:
         if (!valid()) return Result::Interrupted;
         return Result::Carrying;
     }
+
+    // Which check declined the last adoption, for the move trace.
+    const char *rejection() const { return m_rejection; }
 
     bool ownsNativeFinish(const KWin::Window *window) const
     { return window && m_cancellingWindow == window; }
@@ -166,6 +176,7 @@ private:
     std::function<bool()> m_sourceValid;
     QList<QMetaObject::Connection> m_connections;
     std::optional<CarryOutcome> m_pendingOutcome;
+    const char *m_rejection = nullptr;
     bool m_preparing = false;
 };
 } // namespace Kadunce

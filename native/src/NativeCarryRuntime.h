@@ -54,6 +54,7 @@ public:
                 [this, ticket] { return bool(observer.contacts().resolve(ticket)); }, pendingMotion);
             if (result == NativeMoveTakeover::Result::Rejected) {
                 if (observed) observed(w, "adoption-rejected");
+                if (observed && handoff.rejection()) observed(w, handoff.rejection());
                 return;
             }
             if (!observer.contacts().resolve(ticket)) { cancel(); return; }

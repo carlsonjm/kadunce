@@ -2114,8 +2114,8 @@ bool DesktopStageController::handoffWindowToOutput(
 void DesktopStageController::removeWindow(KWin::EffectWindow *window,
                                    bool restoreSnapshot)
 {
-    m_applicationGuard.invalidate();
     if (!window) {
+        m_applicationGuard.invalidate();
         return;
     }
     QString sourceKey;
@@ -2136,9 +2136,12 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         session.windows.removeAll(window);
         break;
     }
+    // Only a window a layout holds changes a layout. A popup or a notification
+    // closing elsewhere must not retire pending commands or a prepared carry.
     if (sourceKey.isEmpty()) {
         return;
     }
+    m_applicationGuard.invalidate();
     if (restoreSnapshot && removedSnapshot.valid
         && removedSnapshot.window && removedSnapshot.window->window()) {
         KWin::Window *client = removedSnapshot.window->window();

@@ -1314,6 +1314,9 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                 traceNativeMove(window, source->isDesktopWindow() ? "staged-ordinary" : "staged-card");
                 return;
             }
+            traceNativeMove(window, "stage-refused");
+        } else {
+            traceNativeMove(window, "no-carry-source");
         }
     }
     beginLegacyNativeMove(window);

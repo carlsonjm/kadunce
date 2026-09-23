@@ -83,3 +83,12 @@ next window to open does the same. `desktop-runtime` on the same fixture
 requires that switching on with a window already open makes it the Active card,
 and that carrying that card to a side edge pairs it with the Active card rather
 than taking the first-entry path an ordinary display takes.
+
+# First carry session
+
+Run `KADUNCE_PROBE_SESSION=first-carry-runtime-session.sh KADUNCE_RUNTIME_BUILD=<build> bash tests/verify-unload-isolated.sh`
+with the ordinary build. An ordinary window is picked up by pointer and by
+touch right after Kadunce loads. A neighbouring window closes while the carry
+waits for the edge, and a tooltip closes after the edge takes it. The edge
+must still take the carry and the drop must commit. The move trace names the
+check that refuses a pickup, as it names the step that refuses a drop.
