@@ -17,4 +17,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: the 22 September direction is approved and unbuilt; `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Change height-derives-width first. The boundary pass added three asks, in `ROADMAP-CC.md` Block 5: a side gutter the dock must visibly leave, clearance above the keys, and the top grab handle retired.
+- Shuffle Keyboard owner: next is the arrival motion with the dock (Block 5). Still open from J: side gutter, clearance above the keys, retire the top grab handle. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Branch `shuffle-1.0`; build tests fresh, `build/` points at Itasca.

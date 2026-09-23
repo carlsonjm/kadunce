@@ -73,8 +73,10 @@ not alternate behavior, and where wording conflicts the owning document governs.
 - The Active card reads the virtual keyboard directly and sits above it, a
   gutter clear of the keys. It does not infer free space from the bottom panel,
   which yields as the keyboard raises and would otherwise read as room the
-  moment the room is taken. Physically accepted on 21 September: on the tablet
-  the card is 832 tall at rest and 517 with the keyboard up, and returns.
+  moment the room is taken. Physically accepted on 21 September, when the card
+  measured 832 tall at rest and 517 with the keyboard up, and returned; the
+  22 September dock, handle and single gutter changed those heights and not
+  the behavior.
   Two settles can still run on a raise, because the panel yields before the
   keyboard has mapped, so the first briefly targets the full 894 before the
   second reads the keyboard. The card lands correctly; the overshoot is
@@ -83,6 +85,13 @@ not alternate behavior, and where wording conflicts the owning document governs.
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
   would not take a rect; §13 keeps that for release and disable.
+- On the tablet, Spread's bottom swipe starts at the bezel and nowhere else:
+  the bottom 20 pixels, where every bezel swipe first registers. A swipe that
+  starts on the dock, or on any layer surface that is not a panel, is left to
+  that surface. Physically accepted on 22 September.
+- A card and a Bento layout keep one gutter on every edge, the bottom included,
+  and no layer surface is ever treated as an application or a card. Physically
+  accepted on 22 September.
 - An ordinary stack releases a member that is lifted and pulled up out of it,
   into the Spread where the stack stands, and rejoins one that never rose out.
   Sideways travel reorders instead, and the same upward gesture carried to the

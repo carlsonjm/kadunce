@@ -938,6 +938,12 @@ user-facing terminology matches the contract.
 
 **Status:** Ready, and the first work the downstream repository owes. Block 10a
 closed on 21 September, so the repository that holds it exists.
+
+**Next, as of 22 September:** the Keyboard boundary, its handle and the dock's
+pull all passed by hand. What is left, in order: the Keyboard's arrival motion,
+which J names as what stands between this and flagship quality; then the
+Ambient and ticker width retest; then Temperance's clock and calendar; then the
+verification owed below.
 Unblocked for testing the same day: the Keyboard exists and is accepted as
 working, so the dock's pull and hide actions have a real surface to be tested
 against instead of a described one. Its first integration is therefore known
@@ -1326,14 +1332,21 @@ here are unmapped rather than merely unaddressed.
   opens Spread. So the dock takes the pull: an upward pull anywhere on the
   application row, or a tap on the strip above the icons, asks the Keyboard to
   raise itself. A finger tap on an icon was also opening its menu, because the
-  right-click handler took touches too; it takes a pointer only now. Built and
-  unseen.
-- [ ] Give the Keyboard's arrival motion. The Keyboard now comes all the way
-  down, passed by hand on 22 September, but it arrives at once while the dock
-  steps aside under it, so the wallpaper flashes through in between. J: motion
-  that turns the change into one action is what now stands between this and
-  flagship quality.
-- [ ] Make Spread a bezel swipe on the tablet. Approved by J on 22 September.
+  right-click handler took touches too; it takes a pointer only now. Passed by
+  hand on 22 September: a pull from anywhere on the dock raises the Keyboard,
+  a tap opens an application, a long press opens its menu, a sideways drag
+  still reorders and Spread still opens only from the bezel.
+- [ ] Give the Keyboard's arrival motion. **Next.** The Keyboard now comes all
+  the way down, passed by hand on 22 September, but it arrives at once while the
+  dock steps aside under it, so the wallpaper flashes through in between. J:
+  motion that turns the change into one action is what now stands between this
+  and flagship quality. It is the Keyboard's and the dock's together: the dock
+  already slides out and back, the Keyboard does not move at all, and the order
+  between them is the contract's. A raise from the handle also hides and shows
+  the Keyboard once within about four milliseconds as the focus holder takes
+  the focus; J has not reported seeing it, and motion should be judged with it
+  in mind.
+- [x] Make Spread a bezel swipe on the tablet. Approved by J on 22 September.
   Kadunce's own recognizer, the one the tablet uses, starts the bottom swipe
   anywhere on the dock or up to 36 pixels above it, a reach widened in the 12
   September freeze. The handle lives in that band, so pulling the Keyboard and
