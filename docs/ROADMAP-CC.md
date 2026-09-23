@@ -6,7 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. J rules on what 1.0 promises about displays (Block 14).
+1. Put cards on the screen the touchscreen drives (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -101,10 +101,10 @@ freshly chosen card, and nothing goes wrong.
       own cards. (audit 11)
 - [x] Measure what a touch monitor gets, and a laptop whose built-in screen is
       not touch. (audit 8)
-- [ ] **Next:** J rules on what 1.0 promises about displays (Open decision 4).
-      (audit 11)
-- [ ] Put cards on the screen the touchscreen drives, not the one named like a
-      laptop panel. (audit 8)
+- [x] J rules the display half: one touchscreen holds cards, and a machine
+      with none gets Bento and Table only. (audit 11)
+- [ ] **Next:** put cards on the screen the touchscreen drives, not the one
+      named like a laptop panel. (audit 8)
 - [ ] Bring J options for the monitor: pair two named windows as the tablet
       does, or keep filling itself and sending what it cannot show to the tablet.
       (audit 10)
@@ -351,10 +351,11 @@ and nothing else fires.
    usable before signing in. The lock ships in the consumer bundle whatever else
    1.0 holds.
 3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
-4. **What 1.0 promises about displays and desktops.** Desktops decided 23
-   September: 1.0 includes Table, so every desktop gets its own cards in Block
-   8, and cards stay on the desktop they started on until then. Displays open;
-   Block 14 has measured them. Audit 8 to 11.
+4. **What 1.0 promises about displays and desktops.** Decided 23 September.
+   One touchscreen holds cards, wherever it is; every other display gets Bento,
+   and a machine with no touchscreen gets Bento and Table only. 1.0 includes
+   Table, so every desktop gets its own cards in Block 8, and cards stay on the
+   desktop they started on until then. Audit 8 to 11.
 5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
    earlier tentative 1.1. It keeps its place in the order. Audit 12.
 

@@ -158,7 +158,8 @@ duplicates, and omits stack position.
   presenting. Neither is stated by the contract; both are recorded in
   `DECISIONS.md`.
 - Card ownership is structurally single-display. One card workspace exists and it
-  is bound to one output, resolved as the internal panel, so
+  is bound to one output, the one a touchscreen drives, and a machine with no
+  touchscreen has none, so
   `CARD-LIFECYCLE.md` §11's independent per-display ownership session holds on
   that output only. Another display can hold its own Bento session, but it cannot
   hold individual cards, Spread or an Active card; a card carried onto one

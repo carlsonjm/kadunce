@@ -1038,6 +1038,33 @@ except on a Bento divider.
   the tablet for the sessions that need one, so it can stand in for the first
   two cases by geometry but cannot say which screen is touch.
 
+J ruled the display half of Open decision 4 on 23 September: one touchscreen
+holds cards, wherever it is, and every other display gets Bento. A machine with
+no touchscreen, a desktop with plain monitors or a laptop whose panel is not
+touch, gets Bento and Table only.
+
+The card display is now the one a touchscreen drives, decided as KWin places
+the touchscreen: the display the user assigned it to, else one whose physical
+size matches the digitizer's, else the built-in display, else the first. The
+Z13's digitizer reports 284 x 187.6 mm against a 288 x 180 mm panel, so it is
+placed by the built-in rule. Where two touchscreens drive different displays
+the built-in one holds cards, so docking a tablet to a touch monitor leaves its
+cards where they were; that choice is engineering's, made because neither
+option put to J covered it. Only a kernel touchscreen counts, so the nested
+harness, which has none, now gives `Virtual-0` a stand-in touchscreen for the
+sessions that need a card display. A touchscreen or display arriving or leaving
+re-decides it, and cards on a display that stops being the card display return
+to the desktop rather than moving. A touchscreen assigned in System Settings is
+matched by display name; KWin's newer match by display identifier is not
+exposed to an effect.
+
+`TouchDisplayTest` states the rule for each machine and fails on a choice by
+name. `no-touch-runtime` plays the no-touchscreen machine through a nested
+session: two plain monitors, no card display, no cards from a window opening, a
+bottom swipe or a D-Bus request, and Bento still composing. It passes on the
+earlier build too, because the harness cannot name a display like a built-in
+panel, so it guards the rule rather than proving the change.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person
@@ -2260,7 +2287,9 @@ it is made, with its resolution, so later work does not reopen it.
    defined answer, and a card set per desktop arrives with Table. J ruled the
    desktop half on 23 September: Table is in 1.0, so each desktop gets its own
    cards in Block 8, and cards stay on the desktop they started on until then.
-   The display half stays open until Block 14 has measured a touch monitor.
+   J ruled the display half the same day, after Block 14 measured it: one
+   touchscreen holds cards, wherever it is, and every other display gets Bento.
+   A machine with no touchscreen gets Bento and Table only.
 
 5. **Table's release.** Decided by J on 23 September: Table is in 1.0,
    replacing the tentative 1.1 ruled earlier the same day. The Table contract

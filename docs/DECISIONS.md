@@ -855,6 +855,15 @@ Table ships in 1.0 (J, 23 September), so 1.0 gives every virtual desktop its own
 cards. Until Table's block, cards and layouts live on the desktop where they
 started and every other desktop is plain Plasma.
 
+### Cards follow the touchscreen
+
+Ruled by J on 23 September. One touchscreen holds cards, wherever it is: a
+tablet's own panel or a desktop's touch monitor. Every other display gets Bento,
+and a machine with no touchscreen gets Bento and Table only. The card display is
+found from the touchscreen as KWin places it, never from a display's name, which
+says nothing about whether it can be touched. Where two touchscreens drive
+different displays, the built-in one holds cards.
+
 ### Shuffle Keyboard is required and uses system input plumbing
 
 Shuffle owns layout, resizing, editing gestures, and its keyboard/precision-surface

@@ -167,7 +167,9 @@ private:
     QString m_lastCarryDestinationTrace;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     void handleLaunchWindowChanged();
-    static bool isTabletOutput(const KWin::LogicalOutput *output);
+    // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
+    [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
+    void refreshCardOutput();
     static bool isCardWindow(const KWin::EffectWindow *window);
     static bool isApplicationWindow(const KWin::EffectWindow *window);
     // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
@@ -409,6 +411,7 @@ private:
     KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
     QPointer<KWin::VirtualDesktop> m_ownedDesktop;
+    QString m_cardOutputName;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;

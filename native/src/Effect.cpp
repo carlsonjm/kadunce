@@ -15,6 +15,8 @@
 #include "NativeLanding.h"
 #include "MonitorDropIntent.h"
 #include "DeliberateEdgeEntry.h"
+#include "TouchDisplay.h"
+#include <core/inputdevice.h>
 
 #include <core/output.h>
 #include <core/region.h>
@@ -301,6 +303,7 @@ Effect::Effect()
         static_cast<CardStageHost *>(this));
     m_desktopStage = std::make_unique<DesktopStageController>(
         static_cast<DesktopStageHost *>(this));
+    refreshCardOutput();
     // Assertion-only §14 observation. Both stage controllers exist now, so this
     // is the first point that can see all three owners at once. It reports and
     // never repairs: a violation it finds is a pre-existing defect.
@@ -447,7 +450,20 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
             this, &Effect::handleScreenRemoved);
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
-            [this](KWin::LogicalOutput *output) { m_desktopStage->handleScreenAdded(output); });
+            [this](KWin::LogicalOutput *output) {
+                m_desktopStage->handleScreenAdded(output);
+                refreshCardOutput();
+            });
+    // A touchscreen plugged in or out can move which display holds cards. The
+    // turn lets KWin place a new one on its display first.
+    if (KWin::input()) {
+        const auto deferRefresh = [this](KWin::InputDevice *device) {
+            if (device && device->isTouch())
+                QTimer::singleShot(0, this, &Effect::refreshCardOutput);
+        };
+        connect(KWin::input(), &KWin::InputRedirection::deviceAdded, this, deferRefresh);
+        connect(KWin::input(), &KWin::InputRedirection::deviceRemoved, this, deferRefresh);
+    }
     // The keyboard overlays the desktop: KeyboardOverlayPolicy stops KWin
     // lifting the focused window for it, and nothing here resizes a card. What
     // the card stage answers is a covered text cursor, so it hears every
@@ -701,16 +717,40 @@ void Effect::adoptDirectSystemEdges()
             << "adopted direct Z13 system edges after the tablet kit appeared";
 }
 
-bool Effect::isTabletOutput(const KWin::LogicalOutput *output)
+bool Effect::isTabletOutput(const KWin::LogicalOutput *output) const
 {
-    if (!output) {
-        return false;
-    }
+    return output && !m_cardOutputName.isEmpty() && output->name() == m_cardOutputName;
+}
 
-    const QString name = output->name().toLower();
-    return name.startsWith(QStringLiteral("edp"))
-        || name.startsWith(QStringLiteral("dsi"))
-        || name.startsWith(QStringLiteral("lvds"));
+void Effect::refreshCardOutput()
+{
+    QList<TouchDisplayOutput> outputs;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (output)
+            outputs.append({output->name(), output->isInternal(), QSizeF(output->physicalSize())});
+    }
+    QList<TouchDisplayDevice> devices;
+    if (KWin::input()) {
+        for (KWin::InputDevice *device : KWin::input()->devices()) {
+            // Only a kernel touchscreen drives a display. Fake and virtual
+            // input deliver contacts in global coordinates and belong to none.
+            if (!device || !device->isTouch() || !device->isEnabled()
+                || device->sysPath().isEmpty()) continue;
+            devices.append({device->outputName(), device->property("size").toSizeF()});
+        }
+    }
+    const QString name = cardOutputName(outputs, devices);
+    if (name == m_cardOutputName) return;
+    // Cards cannot follow a touchscreen to another display. They return to
+    // the desktop, and the display that now holds cards starts its own.
+    if (m_cardStage->isActive()) {
+        cancelInputForCardStage();
+        m_cardStage->release();
+    }
+    m_cardOutputName = name;
+    qInfo() << "Kadunce" << Revision << "cards belong to"
+            << (name.isEmpty() ? QStringLiteral("no display: no touchscreen drives one") : name);
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::isCardWindow(const KWin::EffectWindow *window)
@@ -896,7 +936,7 @@ KWin::LogicalOutput *Effect::tabletOutput() const
 {
     const QList<KWin::LogicalOutput *> outputs = KWin::effects->screens();
     const auto it = std::find_if(outputs.cbegin(), outputs.cend(),
-                                 [](const KWin::LogicalOutput *output) {
+                                 [this](const KWin::LogicalOutput *output) {
                                      return isTabletOutput(output);
                                  });
     return it == outputs.cend() ? nullptr : *it;
@@ -1970,6 +2010,8 @@ void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     cancelInputForCardStage();
     m_desktopStage->handleScreenRemoved(output);
+    // KWin still lists the display while announcing its removal.
+    QTimer::singleShot(0, this, &Effect::refreshCardOutput);
 }
 
 bool Effect::cancelForwardedTouchForInput()
