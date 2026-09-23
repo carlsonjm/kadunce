@@ -76,6 +76,8 @@ public:
     struct DropResult {
         CarryOutcome outcome;
         bool committed = false;
+        // Which step declined a drop that did not commit, for the move trace.
+        const char *refusal = nullptr;
     };
     // The adapter binds the semantic preview and receiver reservation together.
     // Callbacks are synchronous; commit must revalidate source/receiver and return
@@ -97,7 +99,7 @@ public:
         const auto request = m_takeover.release(owner);
         if (!request) {
             // A foreign release leaves a live carry and its reservation alone.
-            if (auto outcome = takeOutcome()) return DropResult{*outcome, false};
+            if (auto outcome = takeOutcome()) return DropResult{*outcome, false, "refused-foreign-release"};
             return std::nullopt;
         }
         const auto source = m_ownedSource;
@@ -113,17 +115,23 @@ public:
         auto outcome = takeOutcome();
         if (!outcome) return std::nullopt;
         bool committed = false;
+        const char *refusal = !matched ? "refused-unmatched"
+            : !accepted ? "refused-invalid"
+            : generation != m_generation ? "refused-superseded"
+            : outcome->resolution != CarryResolution::ReadyToCommit ? "refused-not-ready"
+            : nullptr;
         if (generation == m_generation && accepted
             && outcome->resolution == CarryResolution::ReadyToCommit) {
             // Native source observers are retired by resolution before placement
             // can change outputs. The transaction still owns source validation.
             committed = drop->commit(*source);
             if (!committed) {
+                refusal = "refused-commit";
                 outcome->resolution = CarryResolution::ReturnToOrigin;
                 outcome->destination.reset();
             }
         }
-        return DropResult{*outcome, committed};
+        return DropResult{*outcome, committed, refusal};
     }
     bool ownsNativeFinish(const KWin::Window *window) const { return m_takeover.ownsNativeFinish(window); }
     void withdrawDrop() { m_drop.reset(); }

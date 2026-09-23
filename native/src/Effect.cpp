@@ -1605,11 +1605,21 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             m_carryPreview = KWin::RectF(m_cardStage->activeTarget(target));
             handoff.previewDrop(*destination,
                 [this, carried, output, adopt] {
-                    return carried && !carried->isDeleted() && output
+                    const bool valid = carried && !carried->isDeleted() && output
                         && KWin::effects->screens().contains(output.data())
                         && isCardWindow(carried) && carried->screen() == output
                         && (m_cardStage->ownsDisplay(output)
                             || m_desktopStage->hasSessionOnOutput(output->name())) != adopt;
+                    if (!valid) {
+                        qInfo() << "Kadunce card entry drop invalid:"
+                                << "window" << bool(carried) << "output" << bool(output)
+                                << "card" << (carried && isCardWindow(carried))
+                                << "sameOutput" << (carried && output && carried->screen() == output)
+                                << "ownsDisplay" << (output && m_cardStage->ownsDisplay(output))
+                                << "bento" << (output && m_desktopStage->hasSessionOnOutput(output->name()))
+                                << "adopt" << adopt;
+                    }
+                    return valid;
                 },
                 [this, carried, adopt, bento, extractingPane](const PreparedCarrySource &source) {
                     const auto sourceValid = [this, &source, bento] {

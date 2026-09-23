@@ -1883,15 +1883,28 @@ bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
         || !carried->window() || carried->screen() != tablet
         || carried->isUserResize() || carried->isMinimized()
         || !m_host->isManagedWindowForCardStage(carried)
-        || !KWin::effects->screens().contains(tablet)) return false;
+        || !KWin::effects->screens().contains(tablet)) {
+        qInfo() << "Kadunce refused display adoption:"
+                << "owns" << ownsDisplay(tablet) << "tablet" << bool(tablet)
+                << "window" << bool(carried && !carried->isDeleted() && carried->window())
+                << "sameOutput" << (carried && carried->screen() == tablet)
+                << "resizing" << (carried && carried->isUserResize())
+                << "minimized" << (carried && carried->isMinimized())
+                << "managed" << (carried && m_host->isManagedWindowForCardStage(carried));
+        return false;
+    }
     // CARD-LIFECYCLE.md §3: the first deliberate action adopts the display as
     // one batch. Nothing is published until the carry commits, so a refusal
     // leaves every window Native rather than half of them owned.
-    if (!commitSource()) return false;
+    if (!commitSource()) {
+        qInfo() << "Kadunce refused display adoption: the carried source changed";
+        return false;
+    }
     m_restoredMinimizations.clear();
     rebuildLiveCards();
     const int carriedIndex = liveCardIndex(carried);
     if (carriedIndex < 0) {
+        qInfo() << "Kadunce refused display adoption: the carried window is not a live card";
         m_workspace.clear();
         m_presentedActive = nullptr;
         m_parkedRestores.clear();

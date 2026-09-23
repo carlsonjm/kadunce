@@ -77,6 +77,7 @@ public:
         } else if (action == A::Release) {
             const auto result = handoff.releaseDrop(owner);
             if (observed) observed(nullptr, result && result->committed ? "drop-committed" : "drop-not-committed");
+            if (observed && result && !result->committed && result->refusal) observed(nullptr, result->refusal);
             if (ended) ended();
         } else if (action == A::Cancel) cancel();
         return action != A::Pass;
