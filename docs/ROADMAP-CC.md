@@ -1302,6 +1302,15 @@ here are unmapped rather than merely unaddressed.
   not: J wants the full six pixels with no edge, keeping the translucency that
   lets the wallpaper through, and since the surface owns the dock, the spacing
   between row and handle can be rebalanced so the gutter still reads as ten.
+
+  Both built on 22 September, measured in isolation, unseen by hand. The bar
+  is six pixels sitting on the band and reserves its own height, so cards and
+  windows stop above it and the spacing reads ten, six, ten; it moved a layer
+  down because KWin hands out reserved space layer before creation order, and
+  the Keyboard starts before the shell. The raise no longer needs a warm-up: a
+  one-pixel overlay takes the focus for the length of a raise and asks as a text
+  field does, then gives the focus back. J accepted that the application loses
+  typing focus while the keyboard is up from the handle.
 - [ ] Give the Keyboard's arrival motion. The Keyboard now comes all the way
   down, passed by hand on 22 September, but it arrives at once while the dock
   steps aside under it, so the wallpaper flashes through in between. J: motion
