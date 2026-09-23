@@ -912,10 +912,10 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 {
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, output);
-    // A panel that reserves at the bottom of the output earns the stable extra
-    // clearance; the keyboard earns whatever it actually covers.
-    double clearance = work.bottom() < output->geometry().bottom() - 1
-        ? 10.0 : 0.0;
+    // The gutter is the same on every edge, a reserving panel included: the
+    // work area already stops at the panel. The keyboard earns whatever it
+    // actually covers.
+    double clearance = 0.0;
     // The Keyboard asks the bottom panels to yield as it raises, so the work
     // area grows at the very moment the space stops being free. Measuring the
     // keyboard itself is what stops the card taking that space: without it the

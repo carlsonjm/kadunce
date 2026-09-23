@@ -520,6 +520,15 @@ and to the Keyboard's handle. The tablet's direct recognizer had widened its
 reach to the dock and 36 pixels above it; that reach is withdrawn rather than
 arbitrated gesture by gesture.
 
+### One gutter on every edge
+
+The Active card and a Bento layout keep the same gutter on all four sides, the
+bottom included. Both once doubled it at the bottom to leave room for a dock
+that floated above the work area; that dock is gone, the Shuffle dock and the
+Keyboard's handle reserve their own space, and J saw the doubled gap on 22
+September as the one edge that did not match. The keyboard is the exception
+that remains: the card stops a gutter above whatever the keyboard covers.
+
 ### Dock input and dock clearance are separate
 
 Panel controls retain their input. Destination recognition may use the physical

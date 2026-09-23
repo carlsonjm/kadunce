@@ -73,6 +73,17 @@ int main()
         && close(mappedExpanded.y, mapped[1].y - 20 * composite.scale),
         "Expanded live surface lost its frame-relative offset");
 
+    {
+        // The stage keeps one gutter on every edge; the work area already
+        // stops at whatever reserves the bottom.
+        const Kadunce::CardRect work{0, 241, 1463, 848};
+        const auto area = Kadunce::makeBentoStageArea(work);
+        require(close(area.x - work.x, 10) && close(area.y - work.y, 10)
+            && close(work.right() - area.right(), 10)
+            && close(work.bottom() - area.bottom(), 10),
+            "Bento stage gutter is not the same on every edge");
+    }
+
     const Kadunce::BentoRect wideRect{0, 0, 2.0 / 3.0, 1};
     const Kadunce::CardRect driftedFrame{4300, 2100, 700, 300};
     const Kadunce::CardRect driftedExpanded{4288, 2082, 730, 334};

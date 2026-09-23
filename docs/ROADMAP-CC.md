@@ -1311,6 +1311,12 @@ here are unmapped rather than merely unaddressed.
   one-pixel overlay takes the focus for the length of a raise and asks as a text
   field does, then gives the focus back. J accepted that the application loses
   typing focus while the keyboard is up from the handle.
+
+  Seen by hand the same evening: the bar sits right, but the card stood twenty
+  above it against ten on every other side. Measured from J's screenshot, the
+  card's bottom was at 828.6 with the bar's top at 848. Kadunce doubled the
+  bottom gutter for the Active card and for Bento, room once left for a dock
+  that floated; it is one gutter on every edge now, built and unseen.
 - [ ] Give the Keyboard's arrival motion. The Keyboard now comes all the way
   down, passed by hand on 22 September, but it arrives at once while the dock
   steps aside under it, so the wallpaper flashes through in between. J: motion

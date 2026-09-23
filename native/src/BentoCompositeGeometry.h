@@ -13,7 +13,9 @@ namespace Kadunce
 
 constexpr double BentoStageSideInset = 10.0;
 constexpr double BentoStageTopInset = 10.0;
-constexpr double BentoStageBottomInset = 20.0;
+// The same as every other edge. It was once twice that, to leave room for a
+// dock that floated above the work area; the dock now reserves its own space.
+constexpr double BentoStageBottomInset = 10.0;
 
 struct BentoCompositeGeometry {
     CardRect sourceUnion;
