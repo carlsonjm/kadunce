@@ -15,6 +15,8 @@
 #include <QPalette>
 #include <QtGui/qguiapplication_platform.h>
 #include <xcb/xcb.h>
+#include <QScreen>
+#include <LayerShellQt/Window>
 // Accepts text but never says where its cursor is, the way a terminal or a
 // canvas-drawn editor can: the rectangle it reports is empty.
 class BlindText : public QWidget {
@@ -131,6 +133,24 @@ public Q_SLOTS:
  }
  // Each in its own colour, so a photograph says which window is showing.
  static void tint(QWidget *w, QColor c) { QPalette p = w->palette(); p.setColor(QPalette::Window, c); w->setPalette(p); w->setAutoFillBackground(true); }
+ // Plasma's desktop view on Wayland: a layer surface with the desktop scope,
+ // under everything on the first output, where the tablet fixture holds cards.
+ void desktopSurface() {
+  if (qGuiApp->platformName() != "wayland") return;
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); tint(w, QColor(0x33, 0x44, 0x55));
+  w->winId();
+  for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
+  if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
+   layer->setScope(QStringLiteral("desktop"));
+   layer->setLayer(LayerShellQt::Window::LayerBackground);
+   layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorBottom
+    | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+   layer->setExclusiveZone(-1);
+   layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+  }
+  w->show();
+ }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); tint(w, QColor(0xc8, 0x8a, 0x1e)); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or

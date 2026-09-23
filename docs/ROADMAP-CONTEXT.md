@@ -1083,6 +1083,24 @@ primary display, which the monitor became. A card carried onto the monitor
 kept its gutter, which read as missing only because it is black on black. The
 bottom swipe did not work at all while the monitor was attached.
 
+Measured the same evening. The black tablet is Plasma's, not Kadunce's: it
+stayed black with Kadunce switched off, a new wallpaper did not reach it, and
+plasmashell logged `setWallpaper: containment not found for screen 4294967295`
+after the monitor arrived, so its desktop view on the tablet had lost its
+containment. Whether today's update of the video wallpaper plugin
+(2.14.1 to 2.15.0) is the trigger is not yet known. The thin strip along the
+tablet's bottom edge also stayed with Kadunce off; it is a captionless window
+of KWin's own.
+
+The swipe was Kadunce's. Since 22 September a bottom touch that lands on a
+layer surface other than a panel is left to that surface, so a pull on the
+Keyboard handle stays with the handle. Plasma's desktop background is a layer
+surface too, and with the dock on the monitor the bezel lies over nothing else,
+so every swipe went to the background. The desktop is now excluded as panels
+are. `desktop-bezel-runtime` gives the tablet fixture a desktop-scoped
+background surface, no dock and the Z13 kit's posture file, and fails on the
+build before the change.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person

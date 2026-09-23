@@ -2059,10 +2059,12 @@ bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
     // Asks for the window KWin itself would deliver the touch to, so a layer
     // surface's input region is honoured: a touch beside a masked strip lands
     // on whatever is beneath and stays a bottom swipe candidate. Panels are
-    // excluded because a swipe from the dock is the bottom swipe.
+    // excluded because a swipe from the dock is the bottom swipe. So is the
+    // desktop background, also a layer surface, which is all the bezel lies
+    // over when no dock is on this display.
     const KWin::Window *window = KWin::input()->findToplevel(position);
     return window && window->inherits("KWin::LayerShellV1Window")
-        && !window->isDock() && !window->isAppletPopup();
+        && !window->isDock() && !window->isDesktop() && !window->isAppletPopup();
 }
 
 bool Effect::inputPanelContainsForInput(const QPointF &position) const

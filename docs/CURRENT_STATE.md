@@ -180,9 +180,9 @@ duplicates, and omits stack position.
   to another desktop with the window menu is not handled.
 - Nothing answers a display changing place or a card's window changing
   display. With a monitor plugged in, the window held as the Active card was
-  drawn on the monitor while the tablet presented it, so the tablet showed
-  black, and the bottom swipe stopped opening Spread. How the window reached
-  the monitor, and why the swipe stopped, are not yet measured.
+  drawn on the monitor while the tablet presented it. How it reached the
+  monitor is not yet measured. The tablet's black background at the same time
+  was Plasma losing its desktop on that display, not Kadunce.
 - Reorder intent zones still need product completion. A reorder commits at 82%
   of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
   edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long
