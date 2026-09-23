@@ -11,6 +11,7 @@
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
 #include "NativeEdgePolicy.h"
+#include "KeyboardOverlayPolicy.h"
 #include <options.h>
 
 #include <effect/offscreeneffect.h>
@@ -202,6 +203,8 @@ private:
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] std::optional<double> inputPanelTopForCardStage(
         KWin::LogicalOutput *output) const override;
+    [[nodiscard]] std::optional<KWin::RectF> textCursorForCardStage(
+        const KWin::EffectWindow *window) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(
@@ -318,6 +321,8 @@ private:
     std::unique_ptr<QFileSystemWatcher> m_tabletKitWatcher;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
+    std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
+    QMetaObject::Connection m_inputPanelGeometry;
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;

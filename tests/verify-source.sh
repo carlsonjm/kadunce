@@ -431,15 +431,20 @@ rg -q 'constexpr int CardEdgeRepeatDelay = 350' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(fast \? CardEdgeDwellDelay : delay\)' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
-# A placement must read the keyboard, never infer it from the work area. The
-# Keyboard asks the bottom panels to yield as it raises, so the area grows at
-# the moment the space stops being free, and a card that trusts the area grows
-# down into the keys. CURRENT_STATE.md records the measurement.
+# The keyboard overlays the desktop and never resizes a card. The Active
+# target does not read it, KWin's own lift of the focused window is declined
+# for as long as the effect is loaded, and a covered text cursor is answered
+# by lifting the card from the placement it had when the keyboard came.
+active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^KWin::Rect CardStageController::activePlacement(/p' "$card_cpp")
+test -n "$active_target"
+if printf '%s\n' "$active_target" | rg -q 'inputPanel|clearance'; then
+    echo 'The Active target must not shrink for the keyboard' >&2
+    exit 1
+fi
 rg -Fq 'KWin::effects->inputPanel()' "${effect_cpp}"
-active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^void CardStageController::refreshActivePlacement()/p' "$card_cpp")
-printf '%s\n' "$active_target" | rg -Fq 'inputPanelTopForCardStage(output)'
-printf '%s\n' "$active_target" | rg -Fq 'std::max(clearance, work.bottom() - *panelTop)'
 rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
+rg -Fq 'std::make_unique<KeyboardOverlayPolicy<KWin::Options>>(KWin::options)' "${effect_cpp}"
+rg -Fq 'm_keyboardOverlayPolicy->refresh()' "${effect_cpp}"
 
 rg -q 'constexpr int CardStackDwellDelay = 350' "${router_cpp}"
 rg -q 'constexpr int CardStackTransitionDuration = 350' "${effect_cpp}" "${card_cpp}"

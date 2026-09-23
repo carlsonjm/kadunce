@@ -12,6 +12,9 @@
 #include <pointer_input.h>
 #include <input_event.h>
 #include <options.h>
+#include <inputmethod.h>
+#include <main.h>
+#include <window.h>
 #include <QDBusConnection>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -164,6 +167,37 @@ public Q_SLOTS:
             + QString::number(KWin::options->electricBorderMaximize());
     }
     void reloadEdgeOptions() { KWin::options->updateSettings(); }
+    // What the keyboard covers and what the window holding text focus does
+    // about it: the panel, the focused window's frame, the text cursor it
+    // reports and the work area, read from the compositor that owns them.
+    QString keyboardState() {
+        auto rect = [](const KWin::RectF &r) {
+            return QJsonObject{{"x", r.x()}, {"y", r.y()}, {"width", r.width()}, {"height", r.height()}};
+        };
+        auto *method = KWin::kwinApp()->inputMethod();
+        QJsonObject state{{"overlayOption", KWin::options->overlayVirtualKeyboardOnWindows()}};
+        if (!method) return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
+        state.insert("visible", method->isVisible());
+        if (auto *panel = KWin::effects->inputPanel()) state.insert("panel", rect(panel->frameGeometry()));
+        if (auto *tracked = method->activeWindow()) {
+            state.insert("tracked", tracked->caption());
+            state.insert("trackedFrame", rect(tracked->frameGeometry()));
+            state.insert("workArea", rect(KWin::workspace()->clientArea(KWin::MaximizeArea, tracked)));
+        }
+        state.insert("cursor", rect(method->cursorRectangle()));
+        return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
+    }
+    QString frames() {
+        QJsonObject frames;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (!w->isNormalWindow() || w->isDeleted()) continue;
+            const auto r = w->frameGeometry();
+            frames.insert(w->caption(), QJsonObject{{"x", r.x()}, {"y", r.y()}, {"width", r.width()}, {"height", r.height()}});
+        }
+        return QString::fromUtf8(QJsonDocument(frames).toJson(QJsonDocument::Compact));
+    }
+    void setKeyboardOverlay(bool overlay) { KWin::options->setOverlayVirtualKeyboardOnWindows(overlay); }
+    void hideKeyboard() { if (auto *method = KWin::kwinApp()->inputMethod()) method->hide(); }
     bool handoffArm(bool bentoSource, bool reject, bool interrupt) {
         if (!contact || !contact->client) return false;
         bento.client = contact->client->effectWindow();

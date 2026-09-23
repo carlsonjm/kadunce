@@ -73,6 +73,13 @@ public:
         KWin::LogicalOutput *) const {
         return std::nullopt;
     }
+    // The text cursor of this window, in compositor coordinates, if the window
+    // holds text focus and reports where its cursor is. A window that reports
+    // nothing is never moved for the keyboard.
+    [[nodiscard]] virtual std::optional<KWin::RectF> textCursorForCardStage(
+        const KWin::EffectWindow *) const {
+        return std::nullopt;
+    }
     virtual void setPagingShortcutsForCardStage(bool active) = 0;
     virtual void cancelInputForCardStage() = 0;
     virtual void connectManagedWindowForCardStage(
@@ -147,9 +154,14 @@ public:
     [[nodiscard]] QPointF cardGrabOffset() const;
     [[nodiscard]] KWin::Rect cardGrabTarget() const;
     [[nodiscard]] int cardGrabPageOffset() const;
-    // Place the Active card again because the area it may occupy changed
-    // under it, rather than because the card did.
-    void refreshActivePlacement();
+    // The keyboard, its size, text focus or the text cursor changed: lift the
+    // Active card just far enough to show the cursor, or put it back.
+    void refreshKeyboardReveal();
+    // The frame of an Active card whose contents are panned up for the
+    // keyboard. The window itself moved; the card is drawn from this frame
+    // down, so the card stays where it was and its contents slide inside it.
+    [[nodiscard]] std::optional<KWin::RectF> keyboardRevealFrame(
+        const KWin::EffectWindow *window) const;
     [[nodiscard]] int stackPreviewTarget() const;
     [[nodiscard]] bool stackPreviewArmed() const;
     [[nodiscard]] bool stackInsertionPreviewValid() const;
@@ -284,6 +296,9 @@ private:
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
+    [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
+    void updateKeyboardReveal();
+    void putBackKeyboardReveal();
     void forgetManagedRestore(KWin::EffectWindow *window);
     void retireActiveIdentity(const KWin::EffectWindow *window);
     bool selectCardEntry(KWin::EffectWindow *window);
@@ -328,6 +343,18 @@ private:
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     int m_activeSettleRemaining = 0;
+    // The Active card's own placement while a keyboard is up, and how far it
+    // has been lifted from it. The placement is where the card was when the
+    // keyboard arrived, not one read from the work area, because the bottom
+    // panels yield to the keyboard and the area grows while the room does not.
+    struct KeyboardReveal {
+        QPointer<KWin::EffectWindow> window;
+        KWin::RectF base;
+        double lift = 0.0;
+    };
+    std::optional<KeyboardReveal> m_keyboardReveal;
+    QTimer m_keyboardRevealTimer;
+    QTimer m_keyboardRevealRelease;
     CardPresentation m_presentation = CardPresentation::Spread;
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;

@@ -7,8 +7,21 @@
 #include <QJsonObject>
 #include <QWindow>
 #include <QPushButton>
+#include <QLineEdit>
+#include <QVBoxLayout>
+#include <QPalette>
 #include <QtGui/qguiapplication_platform.h>
 #include <xcb/xcb.h>
+// Accepts text but never says where its cursor is, the way a terminal or a
+// canvas-drawn editor can: the rectangle it reports is empty.
+class BlindText : public QWidget {
+public:
+ QVariant inputMethodQuery(Qt::InputMethodQuery query) const override {
+  if (query == Qt::ImCursorRectangle || query == Qt::ImAnchorRectangle) return QRect();
+  if (query == Qt::ImEnabled) return true;
+  return QWidget::inputMethodQuery(query);
+ }
+};
 class Client : public QWidget {
  Q_OBJECT
 public:
@@ -68,6 +81,37 @@ public Q_SLOTS:
  void companionMinimumSize(const QString &title, int width, int height) {
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) w->setMinimumSize(width, height);
+ }
+ // A window whose only text field sits at its bottom edge, focused, so the
+ // text cursor it reports is where a keyboard raised from below arrives first.
+ void textCompanion() {
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard reveal probe");
+  // One colour nothing else in the session uses, so a photograph can tell
+  // this window's pixels from everything around it.
+  QPalette colour = w->palette(); colour.setColor(QPalette::Window, QColor(0x2a, 0x6f, 0x97));
+  w->setPalette(colour); w->setAutoFillBackground(true);
+  auto *layout = new QVBoxLayout(w); layout->addStretch(); auto *field = new QLineEdit; field->setObjectName("revealField");
+  layout->addWidget(field); w->resize(560,420); w->show(); w->activateWindow(); field->setFocus();
+ }
+ // The same field at the top edge, where a raised keyboard never reaches.
+ void topTextCompanion() {
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard top probe");
+  auto *layout = new QVBoxLayout(w); auto *field = new QLineEdit; layout->addWidget(field); layout->addStretch();
+  w->resize(560,420); w->show(); w->activateWindow(); field->setFocus();
+ }
+ // A window that asks for text input and reports no cursor at all.
+ void blindTextCompanion() {
+  auto *w = new BlindText; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard blind probe");
+  w->setAttribute(Qt::WA_InputMethodEnabled); w->setFocusPolicy(Qt::StrongFocus); w->resize(560,420); w->show(); w->activateWindow(); w->setFocus();
+ }
+ void focusText(const QString &title) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title)) {
+    // Focus leaves and returns so the client reports its cursor afresh; a
+    // client reports it on a focus or cursor change, not on a resize.
+    w->activateWindow(); QWidget *target = w->findChild<QLineEdit *>(); if (!target) target = w;
+    target->clearFocus(); target->setFocus();
+   }
  }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }

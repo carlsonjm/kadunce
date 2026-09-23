@@ -41,3 +41,17 @@ actual snapping; pointer/touch adoption demonstrates suppression plus shared
 CarrySession pose updates. Early Shift and fresh native behavior are checked.
 The probe validates the takeover boundary only. It does not establish production
 runtime readiness or authorize live-session testing.
+
+# Keyboard overlay session
+
+Run `KADUNCE_PROBE_SESSION=keyboard-runtime-session.sh KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`
+with the virtual-tablet fixture build. The private compositor starts a real
+input-method client, `shuffle-keyboard` unless `KADUNCE_TEST_INPUT_METHOD`
+names another, and the client opens windows with a focused text field at their
+bottom edge, at their top edge, and one that reports no cursor. It asserts that
+the compositor does not lift a window while Kadunce is loaded, that a covered
+cursor lifts only the Active card to one gutter above the keys at its own size,
+follows the keyboard as its height changes and returns exactly, that a visible
+or unreported cursor moves nothing, that Spread and Bento geometry are
+untouched, and that unloading gives the compositor its own lift back. The
+height change is sent through the keyboard's own `plasmakeyboardrc`.

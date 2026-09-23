@@ -5,6 +5,8 @@
 #include "DeferredCommandGuard.h"
 #include "RestoreOutputPlan.h"
 #include "NativeEdgePolicy.h"
+#include "KeyboardOverlayPolicy.h"
+#include "KeyboardReveal.h"
 #include <QCoreApplication>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -90,6 +92,37 @@ int main(int argc, char **argv)
         }
         require(options.tiling == !tiling && options.maximizing == !maximizing);
     }
+    struct KeyboardOptions {
+        bool overlay = false;
+        bool overlayVirtualKeyboardOnWindows() const { return overlay; }
+        void setOverlayVirtualKeyboardOnWindows(bool value) { overlay = value; }
+    };
+    for (bool overlay : {false, true}) {
+        KeyboardOptions options{overlay};
+        {
+            Kadunce::KeyboardOverlayPolicy guard(&options);
+            require(options.overlay);
+        }
+        require(options.overlay == overlay);
+        {
+            Kadunce::KeyboardOverlayPolicy guard(&options);
+            options.overlay = !overlay;
+            guard.refresh();
+            require(options.overlay);
+        }
+        require(options.overlay == !overlay);
+    }
+    // A cursor already a gutter clear of the keys moves nothing; one the keys
+    // cover rises exactly to a gutter above them, however far that takes the
+    // card's own top off the display; the cursor itself never leaves it.
+    const auto lift = [](double top, double bottom, double keys, double displayTop) {
+        return Kadunce::keyboardRevealLift(top, bottom, keys, 10, displayTop);
+    };
+    require(lift(361, 380, 397, 0) == 0);
+    require(lift(368, 387, 397, 0) == 0);
+    require(lift(751, 770, 397, 0) == 383);
+    require(lift(751, 770, 397, 500) == 251);
+    require(lift(-5, 770, 397, 0) == 0);
     using Kadunce::RestoreResult;
     const QList<int> outputs{1,2,3};
     QList<int> attempted;

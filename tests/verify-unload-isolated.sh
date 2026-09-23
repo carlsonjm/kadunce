@@ -5,6 +5,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|provenance-runtime-session.sh) ;;
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh) ;;
+    keyboard-runtime-session.sh) ;;
     membership-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     active-admission-session.sh) ;;
@@ -48,16 +49,29 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
     xwayland_args=(--xwayland)
     xwayland_launcher=(python3 "$project_dir/tests/private-xwayland.py")
 fi
+input_method_args=()
+session_env=()
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-runtime-session.sh ]]; then
+    # Lets the session photograph its own private outputs.
+    session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
+    # A real input-method client, started by this private compositor only.
+    input_method=$(command -v -- "${KADUNCE_TEST_INPUT_METHOD:-shuffle-keyboard}") || {
+        echo 'keyboard-runtime needs an input method; name one in KADUNCE_TEST_INPUT_METHOD' >&2
+        exit 1
+    }
+    input_method_args=(--inputmethod "$input_method")
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode 2
+fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
 fi
-timeout 40s env XDG_RUNTIME_DIR="$unload_root/runtime" \
+timeout 40s env "${session_env[@]}" XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \
     XDG_STATE_HOME="$unload_root/state" QT_PLUGIN_PATH="$unload_root/build/bin:${KADUNCE_RUNTIME_BUILD:-/nonexistent}/bin" \
     KADUNCE_UNLOAD_PROBE_BUILD="$unload_root/build" KWIN_COMPOSE=O2 \
     LIBGL_ALWAYS_SOFTWARE=1 QT_WAYLAND_RECONNECT=0 \
     dbus-run-session -- "${xwayland_launcher[@]}" "$kwin_binary" --virtual --width 1280 --height 800 --output-count "$output_count" \
-    --no-lockscreen --no-global-shortcuts --no-kactivities "${xwayland_args[@]}" \
+    --no-lockscreen --no-global-shortcuts --no-kactivities "${xwayland_args[@]}" "${input_method_args[@]}" \
     --exit-with-session "$project_dir/tests/unload-probe/${KADUNCE_PROBE_SESSION:-session.sh}" >"$unload_root/session.log" 2>&1
 rg '^PASS:' "$unload_root/session.log"
 # Keep bounded test artifacts/logs for inspection. Never install this probe.
