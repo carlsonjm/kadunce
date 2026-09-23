@@ -1024,12 +1024,16 @@ void CardStageController::updateKeyboardReveal()
     }
     const KWin::RectF base = m_keyboardReveal->base;
     const KWin::RectF frame = window->frameGeometry();
-    double lift = 0.0;
+    // Contents roll up only as far as the line being typed on needs, and
+    // never back down while the keyboard is up: a line typed below the keys,
+    // or taller keys, rolls them further; a cursor moving up, a shorter
+    // keyboard or focus leaving the card moves nothing.
+    double lift = m_keyboardReveal->lift;
     if (const auto cursor = m_host->textCursorForCardStage(window)) {
         // The cursor moves with the card, so measure it where the card rests.
         const KWin::RectF resting = cursor->translated(0.0, base.y() - frame.y());
-        lift = keyboardRevealLift(resting.top(), resting.bottom(), *keyboardTop,
-                                  m_settings.gutter(), tablet->geometry().y());
+        lift = std::max(lift, keyboardRevealLift(resting.top(), resting.bottom(),
+            *keyboardTop, m_settings.gutter(), tablet->geometry().y()));
     }
     m_keyboardReveal->lift = lift;
     const KWin::Rect target = base.translated(0.0, -lift).toRect();

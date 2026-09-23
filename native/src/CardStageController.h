@@ -154,8 +154,9 @@ public:
     [[nodiscard]] QPointF cardGrabOffset() const;
     [[nodiscard]] KWin::Rect cardGrabTarget() const;
     [[nodiscard]] int cardGrabPageOffset() const;
-    // The keyboard, its size, text focus or the text cursor changed: lift the
-    // Active card just far enough to show the cursor, or put it back.
+    // The keyboard, its size, text focus or the text cursor changed: pan the
+    // Active card's contents up as far as the cursor needs, never back down
+    // while the keyboard is up, and back to rest when it goes.
     void refreshKeyboardReveal();
     // The frame of an Active card whose contents are panned up for the
     // keyboard. The window itself moved; the card is drawn from this frame

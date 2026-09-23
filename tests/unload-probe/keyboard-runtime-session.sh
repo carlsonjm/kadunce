@@ -82,20 +82,24 @@ printf 'reveal-bands gutter=%s inside=%s\n' "$gutter" "$inside"
 within "$gutter" 0 0.02
 within "$inside" 0.9 1
 echo 'PASS: the card frame does not move; only its contents pan'
-# The keyboard changes height while it is up: the card follows the keys and
-# never changes size.
-for height in 300 600; do
-    kwriteconfig6 --notify --file plasmakeyboardrc --group General --key keyboardHeight "$height"
-    sleep 1
-    record "reveal-height-$height"
-    resized=$(state)
-    jq -e --argjson b "$before" --argjson r "$raised" '
-        .panel.y != $r.panel.y
-        and .trackedFrame.width == $b.width and .trackedFrame.height == $b.height
-        and .trackedFrame.x == $b.x
-        and ((.cursor.y + .cursor.height + 10 - .panel.y) | fabs) <= 1' <<<"$resized"
-done
-echo 'PASS: a keyboard changing height moves the card with it and never resizes it'
+# The keyboard changes height while it is up. Shorter keys roll nothing back
+# down; taller ones cover the line again and roll the contents further up.
+# The card never changes size either way.
+kwriteconfig6 --notify --file plasmakeyboardrc --group General --key keyboardHeight 300
+sleep 1
+record reveal-height-300
+jq -e --argjson r "$raised" '
+    .panel.y > $r.panel.y and .trackedFrame == $r.trackedFrame
+    and .cursor.y + .cursor.height + 10 < .panel.y' <<<"$(state)"
+kwriteconfig6 --notify --file plasmakeyboardrc --group General --key keyboardHeight 600
+sleep 1
+record reveal-height-600
+jq -e --argjson b "$before" --argjson r "$raised" '
+    .panel.y < $r.panel.y
+    and .trackedFrame.width == $b.width and .trackedFrame.height == $b.height
+    and .trackedFrame.x == $b.x and .trackedFrame.y < $r.trackedFrame.y
+    and ((.cursor.y + .cursor.height + 10 - .panel.y) | fabs) <= 1' <<<"$(state)"
+echo 'PASS: contents roll further up for taller keys and never back down while the keyboard is up'
 lower
 record reveal-lowered
 test "$(frame "Keyboard reveal probe")" = "$before"

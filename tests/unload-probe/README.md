@@ -50,8 +50,10 @@ input-method client, `shuffle-keyboard` unless `KADUNCE_TEST_INPUT_METHOD`
 names another, and the client opens windows with a focused text field at their
 bottom edge, at their top edge, and one that reports no cursor. It asserts that
 the compositor does not lift a window while Kadunce is loaded, that a covered
-cursor lifts only the Active card to one gutter above the keys at its own size,
-follows the keyboard as its height changes and returns exactly, that a visible
+cursor pans only the Active card's contents to one gutter above the keys while
+a photograph shows the card's frame where it was, that taller keys roll the
+contents further and shorter ones roll nothing back, that the card returns
+exactly, that a visible
 or unreported cursor moves nothing, that Spread and Bento geometry are
 untouched, and that unloading gives the compositor its own lift back. The
 height change is sent through the keyboard's own `plasmakeyboardrc`.
