@@ -898,6 +898,22 @@ before it is changed.
   different way: it fell back at `native-start`, before any proof, so no carry
   source was staged at all; a later pane carry to the top edge committed.
   Neither path involves the search change installed the same day.
+
+  Named and fixed the same day. The refusing check was the source's own: any
+  window closing anywhere, a notification, a tooltip or a menu, advanced the
+  layout side's generation, and a carry waiting for the edge or already held
+  checks that generation. Sign-in and a toggle are when popups and
+  notifications come and go, which is why the first drag met it and the
+  second, after things settled, did not. Only a window a layout holds advances
+  it now. The same fault reached a Bento pane carried out of its layout, since
+  a pane's carry checks the same generation; the Zen pane refused on the
+  afternoon of 23 September was one. The move trace now names the check that
+  refuses a pickup, says when a pickup never staged, and names a drop whose
+  carry had already ended by its cause. `first-carry-runtime` closes a window
+  while the carry waits and a tooltip before the drop, and fails on the build
+  before the fix. J passed it by hand: a pane dragged out while a timed
+  notification closed became the Active card, and the everyday side snap and
+  pane extraction worked on the first try after sign-in.
 - **Search by touch.** Fixed on 23 September and passed by hand, three checks
   of three: typing over an app and inside Spread, and a touch outside both
   closing it. Tettegouche's launcher moved from the overlay layer to the top
@@ -967,7 +983,9 @@ the audit's first three as where to start.
   there already means leaving a stack or, at the top edge, becoming Active.
 - **Text the keys cover.** Only the Active card pans. Bento panes, ordinary
   windows and clients that report no cursor stay covered, and scrolling does not
-  move a message box or a prompt that sits at the bottom of its window.
+  move a message box or a prompt that sits at the bottom of its window. The
+  Ghostty room and tap taken out on 23 September (Block 9) are an option here
+  again: the drop refusal that condemned them was a fault on `main`.
 - **The top edge.** Pulling down returns to the current card, which a tap in
   Spread already does. The expected pull from the top brings notifications and
   quick settings.
@@ -1886,7 +1904,11 @@ two disagree the concept governs, and the fork has not been updated from here.
   refused the first carried drop of the Claude client from the desktop twice;
   `main` committed the same drop, and the isolated compositor never reproduced
   the refusal on either build. Without them the tablet was stable. The move
-  trace now names the step that refuses a drop, should it recur.
+  trace now names the step that refuses a drop, should it recur. That refusal
+  no longer counts against the approach: the same day `main` was found to
+  refuse a first carry whenever any window closed during it (Block 13), which
+  depends on timing rather than on the keyboard. Taking the work up again is
+  J's call, under Block 15's covered text.
 - [ ] Keep autocorrect, prediction, swipe typing, dictation and custom IME work
   out of 1.0.
 

@@ -735,7 +735,9 @@ and the person scrolls. A client that reports no cursor is left alone: giving
 such a card the keyboard's height, with a tap inside it raising the keyboard,
 was built for Ghostty and taken out on 23 September, when a candidate carrying
 it refused carried drops on the tablet and no further keyboard work on
-cursorless clients was wanted.
+cursorless clients was wanted. Those refusals were later traced to `main`,
+which dropped a carry whenever any window closed during it, so only the second
+reason stands.
 
 ### The keyboard comes up for the text, not for focus
 
