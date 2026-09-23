@@ -66,6 +66,7 @@ status against the contracts and never redefines them.
 | `INTEGRATION-RELEASE-GATE.md` | candidate promotion evidence |
 | `REFACTOR-REGRESSION-GATE.md` | behavior preserved across structural change |
 | `KNOWN-ISSUES.md` | current limitations and compatibility constraints |
+| `EXPERIENCE-AUDIT.md` | the 23 September product and experience findings, each tied to the roadmap line that answers it |
 | `TEST-ENVIRONMENT-PROCEDURE.md` | private/live test separation and failure classification |
 | `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
 | `TERMINOLOGY.md` | suite-wide approved and retired language, and the rules for applying it |

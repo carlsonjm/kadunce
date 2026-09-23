@@ -135,7 +135,8 @@ had quietly traded away. Blocks 13 to 16 hold what it found. It also cut
 items whose premise had gone: the keyboard overlay of the same day retired most
 of 12a, and Block 7b already answers Block 4's reordering. The table in
 `ROADMAP-CC.md` is in priority order from then on, and a block's number is only
-its name.
+its name. `EXPERIENCE-AUDIT.md` numbers the findings, and a roadmap line
+tagged `(audit N)` answers finding N.
 
 ## Block 1 — Refactor enablement
 

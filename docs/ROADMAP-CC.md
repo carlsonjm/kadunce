@@ -16,7 +16,8 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 ## Blocks
 
 Open blocks are listed in priority order. A block's number is its name, not its
-place in the order.
+place in the order. A line tagged `(audit N)` answers finding N in
+`EXPERIENCE-AUDIT.md`.
 
 | Block | | Status |
 | --- | --- | --- |
@@ -71,14 +72,17 @@ Done, 21 September.
 ## Block 13 — What a person meets first
 
 - [ ] **Next:** type a whole search by touch without the launcher closing, in
-      Tettegouche and in Kadunce's search guest.
+      Tettegouche and in Kadunce's search guest. (audit 1)
 - [ ] **Next:** open dialogs on the tablet in Active, Spread and Bento, and
-      record what each does.
+      record what each does. (audit 2)
 - [ ] Keep a dialog with its app: never its own card, never a Bento pane.
-- [ ] Never hold a window hidden from the task switcher as a card.
-- [ ] The keys come up for the first text field touched in a session.
+      (audit 2)
+- [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
+- [ ] The keys come up for the first text field touched in a session. (audit 4)
 - [ ] The keys come up for a text box tapped right after a card is chosen.
+      (audit 5)
 - [ ] The first carry of a window off the desktop adopts it, as the second does.
+      (audit 6)
 
 **Done when:** on the tablet, a person searches, saves a file, and types into a
 freshly chosen card, and nothing goes wrong.
@@ -86,15 +90,18 @@ freshly chosen card, and nothing goes wrong.
 ## Block 14 — Ownership scope
 
 - [ ] **Next:** measure what a virtual-desktop switch does while cards are owned.
+      (audit 9)
 - [ ] Measure what a touch monitor gets, and a laptop whose built-in screen is
-      not touch.
+      not touch. (audit 8)
 - [ ] J rules on the scope 1.0 promises (Open decision 4).
+      (audit 11)
 - [ ] Put cards on the screen the touchscreen drives, not the one named like a
-      laptop panel.
-- [ ] Give a virtual-desktop switch the answer J rules.
+      laptop panel. (audit 8)
+- [ ] Give a virtual-desktop switch the answer J rules. (audit 9)
 - [ ] Bring J options for the monitor: pair two named windows as the tablet
       does, or keep filling itself and sending what it cannot show to the tablet.
-- [ ] Make the card and product contracts say what is built.
+      (audit 10)
+- [ ] Make the card and product contracts say what is built. (audit 10)
 
 **Done when:** the contracts, the current state and the build agree for every
 display and desktop a person can reach.
@@ -104,14 +111,15 @@ display and desktop a person can reach.
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
 - [ ] **Next:** rebuild against the 22 September direction and put it back in
       daily use, with an even gap at the sides and the old top grab retired.
+      (audit 13)
 - [ ] Bring J how the keys are put away once the top grab retires.
 - [ ] Bring the concept's height and reservation lines in line with keys that
-      cover rather than shrink.
+      cover rather than shrink. (audit 14)
 - [ ] Prove the four-row layout, controls, height, and the switch to the
       precision surface.
 - [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
-      GTK, browsers, Electron and terminals.
-- [ ] Bring J options for copy and paste by touch.
+      GTK, browsers, Electron and terminals. (audit 24)
+- [ ] Bring J options for copy and paste by touch. (audit 29)
 - [x] Lay the Keyboard over cards: a covered line pans inside the Active card,
       and a pull never takes the focus.
 - [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
@@ -134,11 +142,14 @@ physical peripherals.
 - [x] The gradient arrives on the tablet panel with no visible banding.
 - [ ] Give the Keyboard its arrival motion, so it and the dock move as one
       action, once Block 9's rebuild has set the Keyboard's shape.
+      (audit 13, 36)
 - [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
+      (audit 20)
 - [ ] Give Temperance clock and calendar presentation.
 - [ ] Keep the ticker legible on a bright wallpaper.
 - [ ] Replace the gradient with a solid fill under reduced transparency.
+      (audit 35)
 
 **Done when:** the dock is centred and grows evenly at tablet and monitor widths,
 and the Status Bar and Ambient each fill the space the dock leaves them.
@@ -149,15 +160,17 @@ Each line brings J options first. An accepted answer becomes a task in the block
 that owns it.
 
 - [ ] A gesture shows its result before release, and a refused one says so.
+      (audit 22)
 - [ ] Shuffle starts in cards after sign-in and comes back the way it was left.
-- [ ] Close an app by touch from Spread.
+      (audit 23)
+- [ ] Close an app by touch from Spread. (audit 25)
 - [ ] Type into text the keys cover: Bento panes, terminals, and boxes at the
-      bottom of a window.
-- [ ] What a pull down from the top edge brings.
-- [ ] Whether attaching the keyboard changes the mode.
-- [ ] Right-click and pointing without raising the keys.
-- [ ] One place to find everything.
-- [ ] Check portrait, and sleep and wake, on the tablet.
+      bottom of a window. (audit 19)
+- [ ] What a pull down from the top edge brings. (audit 26)
+- [ ] Whether attaching the keyboard changes the mode. (audit 27)
+- [ ] Right-click and pointing without raising the keys. (audit 28)
+- [ ] One place to find everything. (audit 31)
+- [ ] Check portrait, and sleep and wake, on the tablet. (audit 30)
 
 **Done when:** every line has J's ruling, and every accepted answer is a task in
 its block.
@@ -168,19 +181,23 @@ its block.
 - [x] Make stack extraction reliable.
 - [x] Normalize live terminology to Spread.
 - [ ] Let a Spread drop onto the Bento group name the pane it replaces.
+      (audit 16)
 - [ ] First Card or Bento entry adopts every eligible window on that display and
       desktop at once.
 - [ ] Displace by side, on a display that has the side gesture.
+      (audit 16)
 
 **Done when:** manipulation passes physical review on supported hardware.
 
 ## Block 16 — Motion
 
 - [ ] Complete arrival, displacement, cancellation and neighbor motion.
-- [ ] Panned contents slide rather than jump.
+      (audit 21)
+- [ ] Panned contents slide rather than jump. (audit 37)
 - [ ] Make compositor motion follow animation scaling and reduced motion.
+      (audit 35)
 - [ ] Review the Keyboard's arrival, the dock stepping aside and card motion
-      together.
+      together. (audit 21)
 
 **Done when:** every custom motion in the suite uses the shared timings and
 honours reduced motion.
@@ -188,9 +205,11 @@ honours reduced motion.
 ## Block 6 — Tettegouche completion
 
 - [ ] Search and Files stay usable with the keys covering half the screen.
+      (audit 14)
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`.
 - [ ] Media metadata priority and dock-aware width.
 - [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
+      (audit 34)
 - [ ] Transfers: pause, completion, and conflict choices that never overwrite
       silently.
 - [ ] Files: properties, previews, recursive search, Recent, error states.
@@ -202,8 +221,8 @@ honours reduced motion.
 
 - [ ] Add only authoritative, useful system events, deduplicated and dismissable.
 - [ ] Keep live progress and actions with Tettegouche.
-- [ ] Page the ticker with a finger, not only a hover.
-- [ ] Bring J whether Log Out asks before acting.
+- [ ] Page the ticker with a finger, not only a hover. (audit 32)
+- [ ] Bring J whether Log Out asks before acting. (audit 33)
 - [ ] Revisit presenter switching once its lifecycle is proven.
 - [x] Refine action-pill typography and padding.
 
@@ -214,6 +233,8 @@ honours reduced motion.
 - [ ] Remove duplication that creates reliability or maintenance risk.
 - [ ] Verify Tettegouche and Temperance activity ownership and cleanup.
 - [ ] Audit timers, model lifetime, responsive calculations and resource paths.
+      (audit 17)
+- [ ] Correct the stale documents the audit lists. (audit 39)
 - [ ] Confirm the protected custom icons are unchanged.
 
 **Done when:** the three components are lifecycle-safe with no duplicated state.
@@ -225,6 +246,7 @@ honours reduced motion.
 - [ ] Decide the row's shape.
 - [ ] Retire edge-dwell paging once a throw reaches a distant card.
 - [ ] Reorder with the deck rather than a third distance.
+      (audit 15)
 - [ ] Draw a held card from under the finger.
 - [ ] Give the row something that shows its order.
 
@@ -288,8 +310,8 @@ breaking normal desktop switching.
 - [x] Find whether KWin's keyboard adjustment can be declined for a managed
       window.
 - [ ] Confirm no card, pane or window grows into the dock's room while the keys
-      are up.
-- [ ] A tap just above a panned card reaches nothing the pan hid.
+      are up. (audit 14)
+- [ ] A tap just above a panned card reaches nothing the pan hid. (audit 37)
 
 **Done when:** a keyboard episode changes no card or pane geometry, and nothing
 hidden takes a tap.
@@ -320,9 +342,10 @@ and nothing else fires.
 3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
 4. **What 1.0 promises about displays and desktops.** Open. One touchscreen and
    one virtual desktop at a time, with a card set per desktop arriving with
-   Table; or a card set per desktop now. Block 14 measures first.
+   Table; or a card set per desktop now. Block 14 measures first. Audit 8 to
+   11.
 5. **Table's release.** Decided 23 September: tentatively 1.1, depending on how
-   long integrating the core concepts takes.
+   long integrating the core concepts takes. Audit 12.
 
 ## Working model
 
