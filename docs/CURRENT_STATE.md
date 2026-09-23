@@ -82,6 +82,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   and Bento are untouched. A card the stage focuses by its own gesture keeps
   the keyboard down for the moment in which a client would have KWin raise it
   on focus. Physically accepted on 23 September.
+- While Kadunce hosts the search launcher in Spread, a touch or click on the
+  keys types into it rather than reading as a touch away from it; a touch
+  outside both still closes it. Physically accepted on 23 September.
 - A placement that does not settle is asked for once more, and a pane that still
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
@@ -161,9 +164,11 @@ duplicates, and omits stack position.
   them is moved.
 - Panned contents jump rather than slide, and a tap in the strip just above a
   panned card reaches the hidden top of its client.
-- The first native carry of the Claude client from the desktop is rejected at
-  pickup and falls back to an ordinary move; the next carry of it adopts. This
-  is also true of `main` before the keyboard work. Why is not known.
+- The first carry of an ordinary window after Kadunce is switched on, at
+  sign-in or from the tray, is rejected when it reaches an edge and falls back
+  to an ordinary move; the next carry adopts. Seen with Code and the Claude
+  client, and on `main` before the keyboard work. Which check refuses it is not
+  yet recorded.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

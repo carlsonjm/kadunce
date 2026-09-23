@@ -885,8 +885,33 @@ before it is changed.
   unchanged.
 - **The first carry.** The Claude client's first carry off the desktop is
   refused at pickup and falls back to an ordinary move; the second adopts. True
-  of `main` before the keyboard work too, and the move trace now names the
-  refusing step.
+  of `main` before the keyboard work too. Measured on the tablet on the
+  afternoon of 23 September, from the move trace: after sign-in and again after
+  each tray toggle, the first carry of an ordinary window --- Code as well as
+  Claude --- was staged, waited for edge entry, and was rejected there
+  (`staged-ordinary`, `awaiting-entry`, `adoption-rejected`), so the edge did
+  nothing and KWin finished an ordinary move; the next carry of the same window
+  was adopted. It is not the top edge's: J's side snap worked only because it
+  was the second carry. The trace names the step that refuses a drop and not
+  the check inside `NativeCarryHandoff::identify` that refuses a pickup, so
+  naming that check comes first. A Claude Bento pane was also refused once, a
+  different way: it fell back at `native-start`, before any proof, so no carry
+  source was staged at all; a later pane carry to the top edge committed.
+  Neither path involves the search change installed the same day.
+- **Search by touch.** Fixed on 23 September and passed by hand, three checks
+  of three: typing over an app and inside Spread, and a touch outside both
+  closing it. Tettegouche's launcher moved from the overlay layer to the top
+  layer, so KWin's keyboard, which lives in the overlay layer, stacks above it;
+  in Spread, Kadunce no longer reads a touch on the keys as leaving the hosted
+  launcher. `keyboard-search-runtime` gates both halves with the real Keyboard
+  and launcher, and fails each on the build that had the defect.
+- **Starting in cards.** Moved here from Block 15 by J on 23 September, after
+  the first-carry refusal kept meeting him at sign-in. With the tablet already
+  in cards, that refused first carry leaves the daily path, since only a window
+  on the plain desktop takes it; the refusal is still fixed on its own. Coming
+  back the way it was left stays in Block 15. `CARD-LIFECYCLE.md` §3 says
+  enabling alone captures nothing and §12 ends a session with no cards, so both
+  change with J's answer.
 
 ## Block 14 — Ownership scope
 

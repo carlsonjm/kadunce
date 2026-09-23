@@ -6,12 +6,13 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Type a whole search by touch without the launcher closing (Block 13).
-2. Open dialogs on the tablet, then keep each one with its app (Block 13).
-3. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
+1. Bring J how Kadunce starts in cards when it is switched on, then build it
+   (Block 13).
+2. Name the check that refuses a first drag, then fix it (Block 13).
+3. Open dialogs on the tablet, then keep each one with its app (Block 13).
+4. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
    scope (Block 14).
-4. Rebuild the Keyboard against the 22 September direction (Block 9).
-5. Make the keys come up for the first text field of a session (Block 13).
+5. Rebuild the Keyboard against the 22 September direction (Block 9).
 
 ## Blocks
 
@@ -71,9 +72,13 @@ Done, 21 September.
 
 ## Block 13 — What a person meets first
 
-- [ ] **Next:** type a whole search by touch without the launcher closing, in
+- [x] Type a whole search by touch without the launcher closing, in
       Tettegouche and in Kadunce's search guest. (audit 1)
-- [ ] **Next:** open dialogs on the tablet in Active, Spread and Bento, and
+- [ ] **Next:** Kadunce starts in cards when it is switched on, at sign-in and
+      from the tray. (audit 23)
+- [ ] **Next:** name the check that refuses a pickup, as a refused drop is
+      named. (audit 6)
+- [ ] Open dialogs on the tablet in Active, Spread and Bento, and
       record what each does. (audit 2)
 - [ ] Keep a dialog with its app: never its own card, never a Bento pane.
       (audit 2)
@@ -81,8 +86,8 @@ Done, 21 September.
 - [ ] The keys come up for the first text field touched in a session. (audit 4)
 - [ ] The keys come up for a text box tapped right after a card is chosen.
       (audit 5)
-- [ ] The first carry of a window off the desktop adopts it, as the second does.
-      (audit 6)
+- [ ] The first drag of a window after Kadunce is switched on adopts it, as the
+      second does. (audit 6)
 
 **Done when:** on the tablet, a person searches, saves a file, and types into a
 freshly chosen card, and nothing goes wrong.
@@ -161,8 +166,7 @@ that owns it.
 
 - [ ] A gesture shows its result before release, and a refused one says so.
       (audit 22)
-- [ ] Shuffle starts in cards after sign-in and comes back the way it was left.
-      (audit 23)
+- [ ] Come back the way it was left after sign-out or restart. (audit 23)
 - [ ] Close an app by touch from Spread. (audit 25)
 - [ ] Type into text the keys cover: Bento panes, terminals, and boxes at the
       bottom of a window. (audit 19)
