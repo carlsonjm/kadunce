@@ -1316,7 +1316,18 @@ here are unmapped rather than merely unaddressed.
   above it against ten on every other side. Measured from J's screenshot, the
   card's bottom was at 828.6 with the bar's top at 848. Kadunce doubled the
   bottom gutter for the Active card and for Bento, room once left for a dock
-  that floated; it is one gutter on every edge now, built and unseen.
+  that floated; it is one gutter on every edge now. Passed by hand.
+
+  The warm-up fix held by hand: the first pull after signing in raised the
+  Keyboard. Grabbing did not: J called it unusable. Read from the touchscreen
+  against the Keyboard's own log, 21 of 28 pulls first touched the dock a few
+  pixels below the bar and never reached the handle, none landed above it, and
+  the 7 that landed on it all raised. J also confirmed a pull from the dock never
+  opens Spread. So the dock takes the pull: an upward pull anywhere on the
+  application row, or a tap on the strip above the icons, asks the Keyboard to
+  raise itself. A finger tap on an icon was also opening its menu, because the
+  right-click handler took touches too; it takes a pointer only now. Built and
+  unseen.
 - [ ] Give the Keyboard's arrival motion. The Keyboard now comes all the way
   down, passed by hand on 22 September, but it arrives at once while the dock
   steps aside under it, so the wallpaper flashes through in between. J: motion
