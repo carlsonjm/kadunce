@@ -22,6 +22,21 @@ Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
 dimensions and require an explicit integration design.
 
+### Switching Kadunce on puts the tablet in cards
+
+Settled by J on 23 September. While Kadunce is on, the display that can own
+cards holds its windows as cards, and switching on shows the window in use as
+the Active card. The rejected alternative opened Spread instead, which costs a
+tap after every sign-in and every toggle.
+
+The rule it replaces, that enabling captures nothing until a first deliberate
+edge action, kept Kadunce opt-in per display. On a tablet that meant every
+sign-in began on the plain desktop, and the first carry after switching on is
+also the one that was being refused at edge entry, so the person met the
+product's least reliable path first, every day. A display with no card left
+starts again with the next window to open, rather than keeping an empty
+session, so no state exists that §2 does not name.
+
 ### A side snap admits one card; Bento needs two named windows
 
 A side snap onto a display Kadunce does not yet own starts ownership without

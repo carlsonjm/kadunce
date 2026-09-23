@@ -20,9 +20,9 @@ mv "$test_root/tablet-source" "$test_root/fixture/native"
 patch --batch --fuzz=0 -d "$test_root/fixture" -p1 <"$test_root/source/tests/virtual-tablet.patch" >"$test_root/fixture.log"
 cmake -S "$test_root/fixture/native" -B "$test_root/tablet" -DBUILD_TESTING=OFF >>"$test_root/fixture.log" 2>&1
 cmake --build "$test_root/tablet" -j2 >>"$test_root/fixture.log" 2>&1
-for session in native-entry-runtime x11-native-entry-runtime runtime local-runtime desktop-runtime x11-runtime x11-baseline-runtime x11-client-runtime x11-action-runtime x11-exit-runtime tablet-runtime line-runtime sleeping-pane-runtime settle-runtime stack-runtime keyboard-runtime keyboard-focus-runtime keyboard-search-runtime exit-runtime tablet-desktop-runtime trace-runtime; do
+for session in native-entry-runtime x11-native-entry-runtime runtime local-runtime desktop-runtime x11-runtime x11-baseline-runtime x11-client-runtime x11-action-runtime x11-exit-runtime tablet-runtime line-runtime sleeping-pane-runtime settle-runtime stack-runtime keyboard-runtime keyboard-focus-runtime keyboard-search-runtime start-cards-runtime exit-runtime tablet-desktop-runtime trace-runtime; do
     candidate="$test_root/production"
-    if [[ $session == tablet-runtime || $session == line-runtime || $session == sleeping-pane-runtime || $session == settle-runtime || $session == stack-runtime || $session == keyboard-runtime || $session == keyboard-focus-runtime || $session == keyboard-search-runtime || $session == tablet-desktop-runtime ]]; then candidate="$test_root/tablet"; fi
+    if [[ $session == tablet-runtime || $session == line-runtime || $session == sleeping-pane-runtime || $session == settle-runtime || $session == stack-runtime || $session == keyboard-runtime || $session == keyboard-focus-runtime || $session == keyboard-search-runtime || $session == start-cards-runtime || $session == tablet-desktop-runtime ]]; then candidate="$test_root/tablet"; fi
     script="$session-session.sh"
     if [[ $session == tablet-desktop-runtime ]]; then script=desktop-runtime-session.sh; fi
     KADUNCE_PROBE_SESSION="$script" KADUNCE_RUNTIME_BUILD="$candidate" \

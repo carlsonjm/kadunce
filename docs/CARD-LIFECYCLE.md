@@ -65,10 +65,15 @@ Kadunce no longer owns or hides it.
 
 ## 3. Display admission
 
-Enabling Kadunce alone does not capture windows.
+Switching Kadunce on starts ownership of the display that can own cards, for
+the current virtual desktop. The window in use becomes the Active card, and
+every other eligible window there becomes an individual nonselected card. When
+that display holds no card, the next application window to open there starts
+ownership the same way and becomes Active.
 
-The first deliberate Card or Bento action starts Kadunce ownership for that display
-and current virtual desktop.
+On a display that cannot own cards, the first deliberate Bento action starts
+ownership. The edge entries below still answer a window carried onto a display
+Kadunce does not own.
 
 Kadunce atomically adopts every eligible open application window on that display.
 
@@ -510,7 +515,8 @@ If one pane remains, Bento ends and that pane becomes an individual card.
 
 Kadunce returns to Spread when other owned cards remain.
 
-If nothing remains, the display's Kadunce session ends.
+If nothing remains, the display's Kadunce session ends, and the next window to
+open there starts ownership again under §3.
 
 ## 13. Release and disable
 

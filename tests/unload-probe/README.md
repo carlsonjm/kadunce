@@ -72,3 +72,14 @@ the area Kadunce keeps for the launcher, which it reads from a lease taken and
 dropped before the launcher starts. A launcher on the overlay layer fails the
 first half, because it stacks above the keys; a Kadunce that reads a touch on
 the keys as leaving the launcher fails the second.
+
+# Starting in cards
+
+Run `KADUNCE_PROBE_SESSION=start-cards-runtime-session.sh KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`
+with the virtual-tablet fixture build. Kadunce is switched on with nothing
+open, and the session requires that the tablet holds no card, that the first
+window to open becomes the Active card, and that after the last card closes the
+next window to open does the same. `desktop-runtime` on the same fixture
+requires that switching on with a window already open makes it the Active card,
+and that carrying that card to a side edge pairs it with the Active card rather
+than taking the first-entry path an ordinary display takes.

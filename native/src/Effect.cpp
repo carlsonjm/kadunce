@@ -569,6 +569,39 @@ Effect::Effect()
                     : "Plasma-native system edges")
             << "and output-local Bento ready; fan aperture"
             << (m_fanApertureShader ? "enabled" : "r20 fallback");
+    // Switching Kadunce on puts the display that can own cards in cards. The
+    // turn lets KWin finish loading the effect before the first placement.
+    QTimer::singleShot(0, this, [this] { (void)startTabletInCards(nullptr); });
+}
+
+bool Effect::startTabletInCards(KWin::EffectWindow *arrival)
+{
+    // CARD-LIFECYCLE.md §3: while Kadunce is on, the display that can own
+    // cards holds its windows as cards, the one in use Active. This runs when
+    // Kadunce is switched on and when a window opens on that display while it
+    // holds none. It is the same adoption a first edge action performs.
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (!tablet || m_cardStage->isActive() || m_carriedWindow
+        || m_desktopStage->hasSessionOnOutput(tablet->name())) return false;
+    const auto eligible = [tablet](KWin::EffectWindow *window) {
+        return window && !window->isDeleted() && isCardWindow(window)
+            && window->screen() == tablet && window->window()
+            && window->window()->readyForPainting()
+            && !window->isUserMove() && !window->isUserResize();
+    };
+    KWin::EffectWindow *active = eligible(arrival) ? arrival : nullptr;
+    if (!active && eligible(KWin::effects->activeWindow()))
+        active = KWin::effects->activeWindow();
+    if (!active) {
+        const auto stack = KWin::effects->stackingOrder();
+        for (auto it = stack.crbegin(); it != stack.crend() && !active; ++it)
+            if (eligible(*it)) active = *it;
+    }
+    if (!active || !m_cardStage->adoptDisplayWithActive(active, [] { return true; }))
+        return false;
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
 }
 
 Effect::~Effect()
@@ -2865,6 +2898,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             observeCardOwnership();
             return;
         }
+        // §3: a display that can own cards and holds none takes the arrival
+        // as its Active card, with every other window there as a card.
+        if (!m_cardStage->isActive() && startTabletInCards(candidate)) return;
         // §8: the layout could not take it, so the layout leaves the screen
         // before the card stage puts a card where the panes were. Without
         // this the card is drawn over a running layout, which is the one

@@ -313,6 +313,7 @@ private:
     QAction *m_stackNextAction = nullptr;
     QAction *m_bentoAction = nullptr;
     void observeCardOwnership();
+    bool startTabletInCards(KWin::EffectWindow *arrival);
     // The authority for who owns a window. Both stages' containers are checked
     // against it; it is never repaired from them.
     CardOwnershipLedger m_ownership;
