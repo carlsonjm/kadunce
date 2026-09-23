@@ -274,4 +274,5 @@ again on the installed candidate in the graphical session, where the tray
 enable/disable control released and restored ownership cleanly, including a
 disable with a sleeping card owned, which returned that window to the desktop.
 
-Ordering, task detail and open product decisions live only in `ROADMAP-CC.md`.
+Ordering, tasks and open product decisions live only in `ROADMAP-CC.md`, and the
+reasoning behind them in `ROADMAP-CONTEXT.md`.

@@ -31,7 +31,8 @@ runtime handoffs, current-state hygiene, and index coverage.
 | `../SWARM.md` | live cross-worker dependencies only |
 | `README.md` | document classification and routing |
 | `CURRENT_STATE.md` | current behavior, limitations, provenance boundary, validation |
-| `ROADMAP-CC.md` | the only execution plan: block order, dependencies, task detail, planning controls and open product decisions |
+| `ROADMAP-CC.md` | the only execution plan, as a checklist: what is next, block order and status, one line per task, open product decisions |
+| `ROADMAP-CONTEXT.md` | the reasoning, measurements and history behind each block, under the same headings; product boundary, execution policy and planning controls |
 | `ARCHITECTURE.md` | subsystem ownership and invariants |
 | `DECISIONS.md` | durable subsystem-grouped decision ledger |
 | `PRODUCT-CONTRACT.md` | accepted Kadunce product behavior |
@@ -51,6 +52,7 @@ wording conflicts anyway, the owner governs.
 | Why a decision holds, and what it rejected | `DECISIONS.md` |
 | What is true now, what is missing, what has been validated | `CURRENT_STATE.md` |
 | Block order, dependencies, open product decisions | `ROADMAP-CC.md` |
+| Why a block's tasks are shaped as they are, and what was measured | `ROADMAP-CONTEXT.md` |
 
 `DECISIONS.md` records rationale, not restated rules. `CURRENT_STATE.md` reports
 status against the contracts and never redefines them.

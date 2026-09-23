@@ -20,8 +20,11 @@ and adds no separate protocol.
 `CURRENT_STATE.md` describes current behavior, limitations, source/installed state,
 and validation only. Replace stale text instead of appending progress notes.
 `ROADMAP-CC.md` is the only execution plan and owns block order, dependencies,
-planning controls and open product decisions. Record durable architecture decisions
-in `DECISIONS.md`; Git records implementation history.
+and open product decisions. It is a checklist, one line per task, and J follows
+it directly; keep it one. The reasoning, measurements and planning controls behind
+each block live in `ROADMAP-CONTEXT.md` under the same headings: read the section
+for the block being worked on. Record durable architecture decisions in
+`DECISIONS.md`; Git records implementation history.
 
 Keep `SWARM.md` empty unless another live agent must act. A live handoff must be at
 most 50 words; remove it when the dependency is resolved. Do not put backlogs,

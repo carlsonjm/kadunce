@@ -72,8 +72,8 @@ worktrees and candidate builds. Confirm the path before reading or editing.
 Kadunce is one of three open-source component repositories. `docs/ROADMAP-CC.md`
 is the execution plan for the whole suite, so Tettegouche and Temperance blocks
 are ordered from here while their task detail stays in their own repositories.
-It carries Kadunce's per-component task detail directly; there is no second
-roadmap.
+It carries Kadunce's per-component tasks directly as a checklist; the context
+behind each block is in `docs/ROADMAP-CONTEXT.md` under the same heading.
 
 ## Session reach
 
@@ -109,7 +109,9 @@ classify it with `docs/TEST-ENVIRONMENT-PROCEDURE.md`.
 
 ## Writing into this repository
 
-- Ordering goes in `docs/ROADMAP-CC.md`; durable decisions in `docs/DECISIONS.md`;
+- Ordering goes in `docs/ROADMAP-CC.md`, one line per task, and a finished task
+  is ticked there; what was measured or learned goes in `docs/ROADMAP-CONTEXT.md`
+  under its block; durable decisions in `docs/DECISIONS.md`;
   current behavior in `docs/CURRENT_STATE.md`; a live cross-agent dependency in
   `SWARM.md` and nowhere else.
 - Keep progress narration, worker summaries, candidate hashes and test logs out of
