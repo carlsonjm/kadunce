@@ -176,7 +176,12 @@ Kadunce does not create independent cards for:
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
 
-A dependent dialog follows its owning application card.
+A dependent dialog follows its owning application card. Over that card, or
+over the pane its application holds, it floats at its own size. When that card
+is not in front, the dialog waits with it, hidden and unable to take focus, and
+the application is marked as wanting attention; bringing the application
+forward shows the dialog on top. Switching Kadunce off gives every waiting
+dialog back.
 
 Other displays and virtual desktops remain independent.
 

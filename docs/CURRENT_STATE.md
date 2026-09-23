@@ -90,6 +90,13 @@ not alternate behavior, and where wording conflicts the owning document governs.
 - While Kadunce hosts the search launcher in Spread, a touch or click on the
   keys types into it rather than reading as a touch away from it; a touch
   outside both still closes it. Physically accepted on 23 September.
+- A dialog is part of its application and never a card or a Bento pane. Over
+  its own Active card or pane it floats at its own size and the layout is
+  untouched. When its application is not in front, in Spread or behind another
+  card, it waits hidden and unfocused while the application raises Plasma's
+  attention flag, and picking the application brings it forward with the
+  dialog on top. Switching Kadunce off gives waiting dialogs back. Physically
+  accepted on 23 September.
 - A carry is not refused because some other window closed during it: a
   notification, tooltip or menu going away leaves an ordinary window's or a
   Bento pane's carry to the edge and its drop. The move trace names the check
@@ -173,6 +180,11 @@ duplicates, and omits stack position.
   them is moved.
 - Panned contents jump rather than slide, and a tap in the strip just above a
   panned card reaches the hidden top of its client.
+- A waiting dialog is not drawn on its card in Spread, and a dialog stays where
+  it is when its card is carried. A Wayland dialog that names no parent is
+  admitted as a card; none has been found in the apps surveyed. Nothing yet
+  shows a waiting application: Ambient's row is Block 6 work, and whether the
+  dock shows Plasma's attention flag is unmeasured.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

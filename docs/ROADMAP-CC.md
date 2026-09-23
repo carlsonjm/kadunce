@@ -6,11 +6,11 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Open dialogs on the tablet, then keep each one with its app (Block 13).
-2. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
+1. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
    scope (Block 14).
-3. Rebuild the Keyboard against the 22 September direction (Block 9).
-4. Make the keys come up for the first text field of a session (Block 13).
+2. Rebuild the Keyboard against the 22 September direction (Block 9).
+3. Make the keys come up for the first text field of a session (Block 13).
+4. Show an app whose dialog is waiting in Ambient (Block 6).
 
 ## Blocks
 
@@ -76,10 +76,12 @@ Done, 21 September.
       tray. (audit 23)
 - [x] Name the check that refuses a pickup, as a refused drop is named.
       (audit 6)
-- [ ] **Next:** open dialogs on the tablet in Active, Spread and Bento, and
-      record what each does. (audit 2)
-- [ ] Keep a dialog with its app: never its own card, never a Bento pane.
+- [x] Open dialogs on the tablet in Active, Spread and Bento, and record what
+      each does. (audit 2)
+- [x] Keep a dialog with its app: never its own card, never a Bento pane.
       (audit 2)
+- [ ] Draw a waiting dialog on its card in Spread.
+- [ ] A dialog travels with its card when the card is carried.
 - [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
 - [ ] The keys come up for the first text field touched in a session. (audit 4)
 - [ ] The keys come up for a text box tapped right after a card is chosen.
@@ -209,6 +211,9 @@ honours reduced motion.
 - [ ] Search and Files stay usable with the keys covering half the screen.
       (audit 14)
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`.
+- [ ] Show an app whose dialog is waiting as an Ambient row; a tap brings the
+      app forward with its dialog. Decide whether an app's own attention
+      request counts too.
 - [ ] Media metadata priority and dock-aware width.
 - [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
       (audit 34)

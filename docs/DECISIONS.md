@@ -22,6 +22,27 @@ Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
 dimensions and require an explicit integration design.
 
+### A dialog waits with its application
+
+Settled by J on 23 September. A dialog is part of the application that opened
+it, never a card or a Bento pane. Over its own Active card or pane it floats at
+its own size. When its application is not in front, in Spread or behind
+another card, it waits with that application, hidden and unfocused, and the
+application is marked as wanting attention; bringing the application forward
+shows the dialog on top. The rejected alternative brought the application
+forward on its own, which lets any application interrupt whatever the person is
+doing; the cost of waiting is a dialog that can go unnoticed, which is why the
+mark matters.
+
+The mark is Plasma's standard attention flag, so Kadunce and whatever shows it
+never depend on each other. J chose Ambient as the place a waiting application
+shows, rather than a notification that pulls the person to it: a waiting
+dialog is ongoing state with an owner and a truthful action, which is Ambient's
+admission rule, while Temperance keeps passing events. A dialog that names no
+parent has nothing to follow and floats where KWin puts it; a Wayland dialog
+that names none is indistinguishable from an application and is admitted as
+one, and is found by survey rather than guessed at.
+
 ### Switching Kadunce on puts the tablet in cards
 
 Settled by J on 23 September. While Kadunce is on, the display that can own

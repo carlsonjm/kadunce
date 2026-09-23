@@ -933,6 +933,39 @@ before it is changed.
   whose next app opened as the Active card. `start-cards-runtime` and the
   tablet run of `desktop-runtime` gate it.
 
+- **Dialogs.** Measured on 23 September in the private compositor with a save
+  dialog, a confirmation and a plain dialog, each naming its window as parent.
+  KWin reported each as a normal window with a parent, and Kadunce ignored the
+  parent and admitted every one as an application: over the Active card each
+  became its own Active card stretched to the full card (a two-button
+  confirmation filled the tablet); in Bento the save dialog took a pane and
+  evicted the other app, and closing it ended the layout; opened in Spread it
+  left Spread as the Active card; and a dialog from an app behind another card
+  jumped in front of that card, and closing it left the person in the dialog's
+  app. J ruled the same day that a dialog whose app is not in front waits with
+  it (option B), over bringing the app forward, and suggested Ambient as where
+  the waiting app shows, which fits Ambient's admission rule as ongoing state
+  with an owner and a truthful action, where Temperance keeps passing events.
+  Built: a window that names a parent follows the application at the root of
+  that chain and is never a card or a pane, and a dialog naming none floats
+  where KWin puts it. Over its own Active card or pane it floats at its own
+  size. Where its app is not in front, in Spread or behind another card, it is
+  hidden in KWin (not drawn, not touchable, never focused) and its app raises
+  Plasma's standard attention flag, so neither component depends on the other;
+  picking the app brings it forward with the dialog on top. KWin activates a
+  new window before announcing it, so an activation that arrives before or in
+  the same turn as the window is the app's, and a later one is the person's.
+  Hiding the focused modal would have KWin focus it again, so focus moves to
+  the card in front first, or nowhere. `dialog-runtime` and
+  `dialog-waiting-runtime` gate it and fail on the build before. J passed it
+  by hand, seven checks of seven. Whether the dock shows the attention flag was
+  not answered: the hand helper ran from a terminal and had no dock icon. In
+  the survey of J's own apps nothing filled the screen; a Zen dialog took
+  priority and card swipes waited until it was answered, which J accepts.
+  Still open: a waiting dialog is not drawn on its card in Spread, a dialog
+  does not travel with a carried card, and a Wayland dialog that names no
+  parent is still admitted as a card.
+
 ## Block 14 — Ownership scope
 
 **Status:** Next: measure, then J's ruling. Added by the 23 September audit.
