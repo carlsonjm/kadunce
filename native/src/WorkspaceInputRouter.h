@@ -63,6 +63,9 @@ public:
     // starts on it, even inside the bottom swipe's starting band. The band
     // reaches above the dock, where such a surface can have a pull of its own.
     [[nodiscard]] virtual bool surfaceOwnsTouchAt(const QPointF &) const { return false; }
+    // The keys serve whatever holds the text focus, so a touch on them is
+    // never a touch away from it.
+    [[nodiscard]] virtual bool inputPanelContainsForInput(const QPointF &) const { return false; }
     [[nodiscard]] virtual bool cancelForwardedTouchForInput() = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool selectedStackContains(

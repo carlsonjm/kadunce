@@ -257,7 +257,8 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
     if (m_target->launcherGuestActiveForInput()
         && event->state == KWin::PointerButtonState::Pressed
         && m_target->isTabletPoint(event->position)) {
-        if (m_target->launcherGuestContainsForInput(event->position)) {
+        if (m_target->launcherGuestContainsForInput(event->position)
+            || m_target->inputPanelContainsForInput(event->position)) {
             m_forwardedPointerButtons.insert(event->button);
             return false;
         }
@@ -414,7 +415,9 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
         return true;
     }
     if (m_target->launcherGuestActiveForInput()) {
-        if (m_target->launcherGuestContainsForInput(event->pos)) {
+        // A touch on the keys is typing into the guest, not leaving it.
+        if (m_target->launcherGuestContainsForInput(event->pos)
+            || m_target->inputPanelContainsForInput(event->pos)) {
             m_launcherGuestTouchIds.insert(event->id);
             return false;
         }

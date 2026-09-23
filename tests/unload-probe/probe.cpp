@@ -16,6 +16,7 @@
 #include <main.h>
 #include <window.h>
 #include <QDBusConnection>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <functional>
@@ -195,6 +196,23 @@ public Q_SLOTS:
             frames.insert(w->caption(), QJsonObject{{"x", r.x()}, {"y", r.y()}, {"width", r.width()}, {"height", r.height()}});
         }
         return QString::fromUtf8(QJsonDocument(frames).toJson(QJsonDocument::Compact));
+    }
+    // Which window a touch at this point is delivered to, and the stack above
+    // the desktop, topmost last: what decides whether the keys or a surface
+    // laid over them receive a finger.
+    QString windowAt(int x, int y) {
+        auto describe = [](const KWin::Window *w) {
+            return QJsonObject{{"caption", w->caption()}, {"class", w->resourceClass()},
+                {"inputMethod", w->isInputMethod()}, {"layer", int(w->layer())},
+                {"hidden", w->isHidden()}};
+        };
+        QJsonObject state;
+        if (auto *w = KWin::input()->findToplevel(QPointF(x, y))) state.insert("target", describe(w));
+        QJsonArray stack;
+        for (auto *w : KWin::workspace()->stackingOrder())
+            if (!w->isDeleted() && w->layer() >= KWin::AboveLayer) stack.append(describe(w));
+        state.insert("stack", stack);
+        return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
     }
     void setKeyboardOverlay(bool overlay) { KWin::options->setOverlayVirtualKeyboardOnWindows(overlay); }
     void hideKeyboard() { if (auto *method = KWin::kwinApp()->inputMethod()) method->hide(); }

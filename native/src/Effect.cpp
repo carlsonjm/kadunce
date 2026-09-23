@@ -1839,6 +1839,15 @@ bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
         && !window->isDock() && !window->isAppletPopup();
 }
 
+bool Effect::inputPanelContainsForInput(const QPointF &position) const
+{
+    // The panel's own input region, not its frame: a keyboard drawn over a
+    // wider transparent surface takes only the touches on its keys.
+    KWin::EffectWindow *panel = KWin::effects->inputPanel();
+    return panel && !panel->isDeleted() && panel->isVisible() && panel->window()
+        && panel->window()->hitTest(position);
+}
+
 bool Effect::isTabletPoint(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();

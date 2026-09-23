@@ -15,6 +15,7 @@ struct Target : WorkspaceInputTarget {
     bool nativeInteraction = false;
     QRectF appletPopup;
     QRectF surface;
+    QRectF keys;
     WorkspacePresentation presentation = WorkspacePresentation::Spread;
     int cancellations = 0;
     bool canCancel = true;
@@ -41,6 +42,7 @@ struct Target : WorkspaceInputTarget {
     bool isTabletPoint(const QPointF &p) const override { return geometryForInput().tablet.contains(p); }
     bool isPanelPoint(const QPointF &p) const override { return QRectF(100,740,800,60).contains(p) || appletPopup.contains(p); }
     bool surfaceOwnsTouchAt(const QPointF &p) const override { return surface.contains(p); }
+    bool inputPanelContainsForInput(const QPointF &p) const override { return keys.contains(p); }
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     int cardStackCandidate() const override { return 0; }
@@ -662,6 +664,27 @@ int main(int argc, char **argv) {
         require(!router.touchDown(&down) && !router.touchMotion(&move)
                     && !router.touchUp(&up), "Panel touch lost ownership");
         require(target.actions == 0, "Panel input activated a card or dismissed Tette");
+    }
+    {
+        // Typing a search: the keys are not outside the launcher, and their
+        // touches are theirs. A touch outside both still dismisses it.
+        Target guest; guest.guest = true; guest.keys = QRectF(0,620,1000,180);
+        WorkspaceInputRouter input(&guest);
+        KWin::TouchDownEvent key{43,{50,700},{}};
+        KWin::TouchUpEvent keyUp{43,{}};
+        require(!input.touchDown(&key) && !input.touchUp(&keyUp) && guest.actions == 0,
+                "A touch on the keys dismissed the launcher");
+        KWin::PointerButtonEvent click{};
+        click.position = {50,700}; click.button = Qt::LeftButton;
+        click.state = KWin::PointerButtonState::Pressed;
+        require(!input.pointerButton(&click), "A click on the keys was taken from them");
+        click.state = KWin::PointerButtonState::Released;
+        require(!input.pointerButton(&click) && guest.actions == 0,
+                "A click on the keys dismissed the launcher");
+        KWin::TouchDownEvent outside{44,{50,300},{}};
+        KWin::TouchUpEvent outsideUp{44,{}};
+        require(input.touchDown(&outside) && input.touchUp(&outsideUp)
+                    && guest.dismissals == 1, "A touch outside the keys stopped dismissing");
     }
     Target target;
     {

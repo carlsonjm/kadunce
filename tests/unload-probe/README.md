@@ -57,3 +57,18 @@ exactly, that a visible
 or unreported cursor moves nothing, that Spread and Bento geometry are
 untouched, and that unloading gives the compositor its own lift back. The
 height change is sent through the keyboard's own `plasmakeyboardrc`.
+
+# Typing a search by touch
+
+Run `KADUNCE_PROBE_SESSION=keyboard-search-runtime-session.sh KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`
+with the virtual-tablet fixture build. The same real input-method client runs,
+and the Tettegouche search launcher opens beside it, first on its own and then
+hosted by Kadunce inside Spread; `KADUNCE_TEST_LAUNCHER` names a launcher build,
+the installed `tettegouche` otherwise. Each half asks the compositor which
+window a touch on a letter reaches, types two letters and requires the text
+cursor to advance with the launcher still open, then requires a touch outside
+the launcher and the keys to close it. The hosted half taps a letter outside
+the area Kadunce keeps for the launcher, which it reads from a lease taken and
+dropped before the launcher starts. A launcher on the overlay layer fails the
+first half, because it stacks above the keys; a Kadunce that reads a touch on
+the keys as leaving the launcher fails the second.
