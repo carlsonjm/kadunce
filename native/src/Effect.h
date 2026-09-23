@@ -170,6 +170,19 @@ private:
     static bool isTabletOutput(const KWin::LogicalOutput *output);
     static bool isCardWindow(const KWin::EffectWindow *window);
     static bool isApplicationWindow(const KWin::EffectWindow *window);
+    // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
+    // it belongs to, follows the application window at the root of that chain
+    // and is never a card or a pane. Null for a window that belongs to none.
+    static KWin::EffectWindow *dependentLead(const KWin::EffectWindow *window);
+    static bool isDependentWindow(const KWin::EffectWindow *window);
+    // Whether a dependent of lead may be seen: always, unless lead is a card
+    // that is not the Active card presented in front.
+    [[nodiscard]] bool dependentShown(const KWin::EffectWindow *lead) const;
+    // A dependent whose application is not in front waits with it, hidden and
+    // unfocused, and its application is marked as wanting attention.
+    void syncDependentWindows();
+    void scheduleDependentSync();
+    void returnDependentWindows();
     KWin::LogicalOutput *tabletOutput() const;
     [[nodiscard]] bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;
@@ -388,6 +401,12 @@ private:
     double guestNeighborOpacity() const;
     KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
+    QList<QPointer<KWin::EffectWindow>> m_dependents;
+    QList<QPointer<KWin::EffectWindow>> m_heldDependents;
+    QList<QPointer<KWin::EffectWindow>> m_freshDependents;
+    QList<QPointer<KWin::Window>> m_waitingLeads;
+    bool m_dependentSyncQueued = false;
+    bool m_holdingDependents = false;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;
     QString m_launcherGuestLaunchToken;

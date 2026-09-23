@@ -7,6 +7,9 @@
 #include <QJsonObject>
 #include <QWindow>
 #include <QPushButton>
+#include <QDialog>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QPalette>
@@ -113,6 +116,12 @@ public Q_SLOTS:
     target->clearFocus(); target->setFocus();
    }
  }
+ // The dialogs an application opens over itself: a save dialog and a
+ // confirmation, both modal to this window, and a plain dialog that is not.
+ void saveDialog() { auto *d = new QFileDialog(this, "Save probe"); d->setOption(QFileDialog::DontUseNativeDialog); d->setAcceptMode(QFileDialog::AcceptSave); d->setAttribute(Qt::WA_DeleteOnClose); d->open(); }
+ void confirmDialog() { auto *d = new QMessageBox(QMessageBox::Question, "Confirm probe", "Discard changes?", QMessageBox::Yes | QMessageBox::No, this); d->setAttribute(Qt::WA_DeleteOnClose); d->open(); }
+ void plainDialog() { auto *d = new QDialog(this); d->setWindowTitle("Dialog probe"); d->resize(420,300); d->setAttribute(Qt::WA_DeleteOnClose); d->show(); }
+ void closeDialogs() { for (auto *d : findChildren<QDialog *>()) d->close(); }
  // A tooltip over this window: a popup that no layout ever holds.
  void tooltip() { auto *w = new QWidget(this, Qt::ToolTip); w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("tooltip"); w->setGeometry(40,40,160,32); w->show(); }
  void closeTooltip() { for (auto *w : findChildren<QWidget *>("tooltip", Qt::FindDirectChildrenOnly)) w->close(); }

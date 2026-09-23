@@ -628,6 +628,7 @@ Effect::~Effect()
     if (m_cardStage->isActive() || hasActiveDesktopStage()) {
         release();
     }
+    returnDependentWindows();
     m_nativeEdgePolicy.reset();
 }
 
@@ -743,9 +744,118 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
                             Qt::CaseInsensitive) == 0) {
         return false;
     }
+    // A dialog that names its application follows that application's card
+    // (§4). One that names none has no card to follow and floats where KWin
+    // puts it, over whatever the person was using.
     return window->isOnCurrentDesktop()
         && window->isOnCurrentActivity()
-        && (window->isNormalWindow() || window->isDialog());
+        && window->isNormalWindow() && !dependentLead(window);
+}
+
+KWin::EffectWindow *Effect::dependentLead(const KWin::EffectWindow *window)
+{
+    if (!window || window->isDeleted() || !window->window()) return nullptr;
+    auto *client = window->window();
+    KWin::Window *lead = client;
+    for (int depth = 0; depth < 16 && lead->transientFor(); ++depth) lead = lead->transientFor();
+    if (lead == client) {
+        // An X11 group transient names its group rather than one window.
+        if (!client->isTransient()) return nullptr;
+        const auto mains = client->allMainWindows();
+        if (mains.isEmpty()) return nullptr;
+        lead = mains.constFirst();
+    }
+    auto *effectLead = lead ? lead->effectWindow() : nullptr;
+    return effectLead && effectLead != window && !effectLead->isDeleted() ? effectLead : nullptr;
+}
+
+bool Effect::isDependentWindow(const KWin::EffectWindow *window)
+{
+    return window && !window->isDeleted()
+        && (window->isNormalWindow() || window->isDialog() || window->isUtility())
+        && dependentLead(window);
+}
+
+bool Effect::dependentShown(const KWin::EffectWindow *lead) const
+{
+    if (!lead || !m_cardStage->isActive() || m_cardStage->liveCardIndex(lead) < 0) return true;
+    return m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->selectedWindow() == lead;
+}
+
+void Effect::scheduleDependentSync()
+{
+    if (m_dependentSyncQueued) return;
+    m_dependentSyncQueued = true;
+    // KWin activates a new window inside the call that announces it, and an
+    // activation unhides; the decision runs once that call has returned.
+    QTimer::singleShot(0, this, [this] { syncDependentWindows(); });
+}
+
+void Effect::syncDependentWindows()
+{
+    m_dependentSyncQueued = false;
+    m_dependents.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    m_heldDependents.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    KWin::Window *focus = nullptr;
+    {
+        QScopedValueRollback<bool> holding(m_holdingDependents, true);
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (!isDependentWindow(window)) continue;
+            auto *lead = dependentLead(window);
+            if (!m_dependents.contains(window)) m_dependents.append(window);
+            const bool held = m_heldDependents.contains(window);
+            if (!dependentShown(lead)) {
+                if (!window->window()->isHidden()) {
+                    // Hiding the focused window would have KWin focus the next
+                    // one, which for a modal dialog is the dialog again. The
+                    // keys go to the card in front, and nowhere when that card
+                    // is the one the dialog is waiting with.
+                    if (window->window()->isActive()) {
+                        auto *front = m_cardStage->selectedWindow();
+                        if (front && front != lead && front->window()) {
+                            KWin::workspace()->activateWindow(front->window());
+                        } else {
+                            KWin::workspace()->setActiveWindow(nullptr);
+                            KWin::workspace()->focusToNull();
+                        }
+                    }
+                    window->window()->setHidden(true);
+                }
+                if (!held) m_heldDependents.append(window);
+                if (!lead->window()->isActive() && !lead->window()->isDemandingAttention()) {
+                    lead->window()->demandAttention(true);
+                    if (!m_waitingLeads.contains(lead->window())) m_waitingLeads.append(lead->window());
+                }
+            } else if (held) {
+                m_heldDependents.removeAll(window);
+                window->window()->setHidden(false);
+                // The person came to the application, so its dialog takes the
+                // keys as it would have had it opened in front.
+                if (lead->window()->isActive() || window->window()->isActive()) focus = window->window();
+            }
+        }
+        for (const auto &lead : std::as_const(m_waitingLeads)) {
+            if (!lead) continue;
+            const bool stillWaiting = std::any_of(m_heldDependents.cbegin(), m_heldDependents.cend(),
+                [&lead](const auto &w) { return w && dependentLead(w) && dependentLead(w)->window() == lead; });
+            if (!stillWaiting) lead->demandAttention(false);
+        }
+        m_waitingLeads.removeIf([](const auto &lead) {
+            return !lead || !lead->isDemandingAttention();
+        });
+    }
+    if (focus) KWin::workspace()->activateWindow(focus);
+}
+
+void Effect::returnDependentWindows()
+{
+    for (const auto &window : std::as_const(m_heldDependents))
+        if (window && !window->isDeleted() && window->window()) window->window()->setHidden(false);
+    for (const auto &lead : std::as_const(m_waitingLeads))
+        if (lead) lead->demandAttention(false);
+    m_heldDependents.clear();
+    m_waitingLeads.clear();
 }
 
 KWin::LogicalOutput *Effect::tabletOutput() const
@@ -2563,6 +2673,7 @@ void Effect::release()
     }
     const bool hadCards = m_cardStage->isActive();
     m_cardStage->release();
+    returnDependentWindows();
     m_paintingOutput = nullptr;
     if (!hadCards && hadBento) {
         qInfo() << "Kadunce" << Revision
@@ -2609,6 +2720,17 @@ void Effect::pageStack(int delta)
 
 void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
+    // Presentation changes repaint, so a frame is where a dependent's
+    // application is first seen to come to the front or leave it.
+    for (const auto &window : std::as_const(m_dependents)) {
+        if (!window || window->isDeleted() || !window->window()) continue;
+        const bool shown = dependentShown(dependentLead(window));
+        if ((!shown && !window->window()->isHidden())
+            || (shown && m_heldDependents.contains(window))) {
+            scheduleDependentSync();
+            break;
+        }
+    }
     const auto neighbors = m_cardStage->preparationNeighbors();
     for (const auto &window : std::as_const(m_preparationNeighbors)) {
         if (window && !neighbors.contains(window)
@@ -2890,6 +3012,16 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
     if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     Q_EMIT workspaceContextChanged();
+    if (isDependentWindow(window)) {
+        // Anything that activates it before the next turn is the application
+        // opening it, not the person asking for it.
+        const QPointer<KWin::EffectWindow> fresh(window);
+        m_dependents.append(fresh);
+        m_freshDependents.append(fresh);
+        QTimer::singleShot(0, this, [this, fresh] { m_freshDependents.removeAll(fresh); });
+        scheduleDependentSync();
+        return;
+    }
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     const auto admitReadyWindow = [this, candidate]() {
@@ -2921,6 +3053,12 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    if (m_dependents.contains(window)) {
+        m_dependents.removeAll(window);
+        m_heldDependents.removeAll(window);
+        m_freshDependents.removeAll(window);
+        scheduleDependentSync();
+    }
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer
@@ -2936,6 +3074,17 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    if (m_holdingDependents) return;
+    if (auto *lead = isDependentWindow(window) ? dependentLead(window) : nullptr) {
+        if (!dependentShown(lead)) {
+            const bool opening = m_freshDependents.contains(window) || !m_dependents.contains(window);
+            // The person asked for it through the dock, the task switcher or
+            // a waiting row, so its application comes forward with it on top.
+            if (!opening && !admitActivatedCardToLiveBento(lead)) m_cardStage->handleWindowActivated(lead);
+        }
+        scheduleDependentSync();
+        return;
+    }
     if (m_settlingWindow && window != m_settlingWindow) clearDropSettle();
     if (m_carriedWindow && window != m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     if (isApplicationWindow(window) && m_guestSwipeFocusReturn) {
@@ -3181,6 +3330,9 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    // Hidden with its application even before KWin is told, so a dialog that
+    // opens behind the card in front is never seen for a frame.
+    if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return;
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return;

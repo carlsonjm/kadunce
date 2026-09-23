@@ -92,3 +92,17 @@ touch right after Kadunce loads. A neighbouring window closes while the carry
 waits for the edge, and a tooltip closes after the edge takes it. The edge
 must still take the carry and the drop must commit. The move trace names the
 check that refuses a pickup, as it names the step that refuses a drop.
+
+# Dialog sessions
+
+Run `KADUNCE_PROBE_SESSION=dialog-runtime-session.sh` and
+`KADUNCE_PROBE_SESSION=dialog-waiting-runtime-session.sh`, each with
+`KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`.
+The client opens a save dialog, a confirmation and a plain dialog over its own
+window. Over its own Active card or Bento pane each floats at its own size, is
+never a card, and leaves no mark on the layout; it leaves for Spread with its
+card and comes back with it. Opened while the person is in Spread or using
+another card, it waits hidden and unfocused while its application is marked as
+wanting attention, and picking that application the way the dock does brings it
+forward with the dialog on top. Switching Kadunce off gives a waiting dialog
+back.

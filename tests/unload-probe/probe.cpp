@@ -214,6 +214,37 @@ public Q_SLOTS:
         state.insert("stack", stack);
         return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
     }
+    // What KWin says about every client window, in stacking order, for the
+    // sessions that measure which windows Kadunce should hold.
+    QString windowFacts() {
+        QJsonArray list;
+        for (auto *w : KWin::workspace()->stackingOrder()) {
+            if (w->isDeleted() || !w->isClient()) continue;
+            const auto g = w->frameGeometry();
+            list.append(QJsonObject{{"caption", w->caption()}, {"class", w->resourceClass()},
+                {"id", w->internalId().toString(QUuid::WithoutBraces)},
+                {"normal", w->isNormalWindow()}, {"dialog", w->isDialog()},
+                {"transient", w->isTransient()}, {"modal", w->isModal()},
+                {"parent", w->transientFor() ? w->transientFor()->caption() : QString()},
+                {"parentId", w->transientFor() ? w->transientFor()->internalId().toString(QUuid::WithoutBraces) : QString()},
+                {"attention", w->isDemandingAttention()},
+                {"skipSwitcher", w->skipSwitcher()}, {"skipTaskbar", w->skipTaskbar()},
+                {"minimized", w->isMinimized()}, {"hidden", w->isHidden()},
+                {"active", w->isActive()}, {"layer", int(w->layer())},
+                {"output", w->output() ? w->output()->name() : QString()},
+                {"x", g.x()}, {"y", g.y()}, {"width", g.width()}, {"height", g.height()}});
+        }
+        return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
+    }
+    // What the dock or a task switcher does when a person picks a window.
+    bool activateWindowId(const QString &id) {
+        for (auto *w : KWin::workspace()->windows())
+            if (w->internalId().toString(QUuid::WithoutBraces) == id) {
+                KWin::workspace()->activateWindow(w);
+                return true;
+            }
+        return false;
+    }
     void setKeyboardOverlay(bool overlay) { KWin::options->setOverlayVirtualKeyboardOnWindows(overlay); }
     void hideKeyboard() { if (auto *method = KWin::kwinApp()->inputMethod()) method->hide(); }
     bool handoffArm(bool bentoSource, bool reject, bool interrupt) {
