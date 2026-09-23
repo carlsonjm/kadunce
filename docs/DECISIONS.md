@@ -526,8 +526,8 @@ The Active card and a Bento layout keep the same gutter on all four sides, the
 bottom included. Both once doubled it at the bottom to leave room for a dock
 that floated above the work area; that dock is gone, the Shuffle dock and the
 Keyboard's handle reserve their own space, and J saw the doubled gap on 22
-September as the one edge that did not match. The keyboard is the exception
-that remains: the card stops a gutter above whatever the keyboard covers.
+September as the one edge that did not match. The keyboard never changes a
+card's gutter: it lies over the card, and a covered line pans inside it.
 
 ### Dock input and dock clearance are separate
 
@@ -693,17 +693,43 @@ hold the reservation the dock had when the keyboard episode began and re-read it
 only once the episode has closed. Recorded on 21 September against measurements
 from a physical pass; the implementation is deferred with the rest of Block 12a.
 
-### The compositor has the last word on a focused window it lifts for the keyboard
+### The keyboard overlays; a covered line pans inside a still card
 
-KWin lifts the focused window for the keyboard itself, pinning its top to the
-work area and sizing it to the keyboard's top edge, which drops the stage gutter.
-Deferring this controller's own placement by an event-loop turn was built and
-physically tested on 21 September and did not close it, so the adjustment
-re-applies rather than merely arriving late.
+Settled by J on 23 September. The keyboard never reserves workspace and never
+moves or resizes a card. KWin lifts the focused window for the keyboard itself,
+pinning it to the top of the work area and cutting it off at the keys; that is
+a second authority over a window Kadunce owns, and KWin's own
+`OverlayVirtualKeyboardOnWindows` setting declines it. Kadunce holds that
+setting in memory while loaded and restores the user's value on unload, the
+way it holds edge tiling. KWin still puts a lifted window back to its
+geometry at keyboard-open when the keyboard goes; with the lift declined that
+is the card's own placement, the same one Kadunce restores.
 
-Do not treat "place later" as the remedy without evidence that our placement
-survived. Any further attempt starts by logging what was asked for and what
-survived, because two passes produced a verdict and no trace.
+When the keys would cover the Active card's text cursor, the window rises by
+the least that shows the cursor a gutter above them and is drawn only from the
+card's own top edge down, so the frame stays still and the contents pan like a
+blind in a fixed window. Chosen over sliding the whole card. The contents roll
+further when the typed line or taller keys need it and never back down until
+the keyboard goes, because a view that shifts on every tap reads as busy. The
+placement they pan from is the card's own at keyboard-open, not one read from
+the work area, since the dock yields to the keyboard and the area grows while
+the room does not.
+
+Only the Active card pans. Bento panes and ordinary windows are left covered,
+and the person scrolls. A client that reports no cursor is left alone: giving
+such a card the keyboard's height, with a tap inside it raising the keyboard,
+was built for Ghostty and taken out on 23 September, when a candidate carrying
+it refused carried drops on the tablet and no further keyboard work on
+cursorless clients was wanted.
+
+### The keyboard comes up for the text, not for focus
+
+Settled by J on 23 September. A pull on the handle leaves the focus where it
+was, so a ready text box is typed into and panned into view; only a cold
+start, with nothing ready to type into, borrows the focus to get the keys on
+screen. Focusing a card is not a request to type: a client that has KWin raise
+the keyboard whenever it gains focus has that keyboard put back down when the
+stage focused the card itself.
 
 ### Persistent membership is not promised across unload
 

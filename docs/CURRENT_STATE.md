@@ -70,17 +70,18 @@ not alternate behavior, and where wording conflicts the owning document governs.
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
-- The Active card reads the virtual keyboard directly and sits above it, a
-  gutter clear of the keys. It does not infer free space from the bottom panel,
-  which yields as the keyboard raises and would otherwise read as room the
-  moment the room is taken. Physically accepted on 21 September, when the card
-  measured 832 tall at rest and 517 with the keyboard up, and returned; the
-  22 September dock, handle and single gutter changed those heights and not
-  the behavior.
-  Two settles can still run on a raise, because the panel yields before the
-  keyboard has mapped, so the first briefly targets the full 894 before the
-  second reads the keyboard. The card lands correctly; the overshoot is
-  presentation.
+- The keyboard overlays the desktop. While Kadunce is loaded it declines
+  KWin's own lift of the focused window through KWin's
+  `OverlayVirtualKeyboardOnWindows` setting, held in memory and restored on
+  unload, so showing, hiding or resizing the keyboard changes no card's size or
+  place. When the keys would cover the Active card's text cursor, the card's
+  frame stays where it is and its contents pan up inside it until the cursor
+  sits a gutter above the keys; they roll further for a line typed below the
+  keys or taller keys, never back down while the keyboard is up, and return
+  exactly when it goes. A client that reports no cursor is not moved. Spread
+  and Bento are untouched. A card the stage focuses by its own gesture keeps
+  the keyboard down for the moment in which a client would have KWin raise it
+  on focus. Physically accepted on 23 September.
 - A placement that does not settle is asked for once more, and a pane that still
   will not take its rect leaves for card ownership while the panes that settled
   keep theirs. A layout is never returned to the native desktop because a client
@@ -154,11 +155,15 @@ duplicates, and omits stack position.
   wherever it stands.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
-- The keyboard covers Bento panes. The Active card now reads the input panel
-  and sits above it, but a live layout keeps its stored pane rects, and nothing
-  re-places a session when the area changes. A pane the keyboard covers stays
-  covered. Re-solving a live layout for a transient keyboard is a §5 question,
-  because a shortened layout sheds, and is not answered yet.
+- The keyboard covers Bento panes, by decision: a pane keeps its rect and the
+  person scrolls. It also covers ordinary windows that are not cards, and the
+  Active card of a client that reports no cursor, such as Ghostty; none of
+  them is moved.
+- Panned contents jump rather than slide, and a tap in the strip just above a
+  panned card reaches the hidden top of its client.
+- The first native carry of the Claude client from the desktop is rejected at
+  pickup and falls back to an ordinary move; the next carry of it adopts. This
+  is also true of `main` before the keyboard work. Why is not known.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

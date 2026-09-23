@@ -1656,8 +1656,28 @@ two disagree the concept governs, and the fork has not been updated from here.
   across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
   `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against
   the suite checkout.
-- [ ] Reserve usable workspace correctly as height changes. Implemented with
-  live KWin workspace updates; verification belongs to the pass above.
+- [x] Lay the Keyboard over cards. Superseded "reserve usable workspace" on 23
+  September: the Keyboard never reserves workspace. Measured first in an
+  isolated compositor with the real Keyboard: KWin lifted and cut off the
+  focused window, native or card, to 0..397 on a 1280x800 output, including a
+  client that reports no cursor; the Keyboard's own panel reserves nothing; the
+  second mover is the dock stepping aside, which grows the work area, measured
+  physically on 21 September. KWin's `OverlayVirtualKeyboardOnWindows` declines
+  the first; placing a panned card from its own frame at keyboard-open rather
+  than the work area answers the second. A covered cursor pans the Active
+  card's contents inside a still frame (J chose this over sliding the card),
+  rolling only further while the keyboard is up. Physically accepted the same
+  day, with Bento and ordinary windows left covered at J's direction. The
+  Keyboard's handle now asks KWin for the keys directly and holds the focus
+  only on a cold start. `DECISIONS.md` carries both rulings.
+
+  Tried and taken out the same day: giving a card whose client reports no
+  cursor (Ghostty) the keyboard's height, and raising the keyboard for a tap
+  inside such a client through a touch observer. The candidate carrying them
+  refused the first carried drop of the Claude client from the desktop twice;
+  `main` committed the same drop, and the isolated compositor never reproduced
+  the refusal on either build. Without them the tablet was stable. The move
+  trace now names the step that refuses a drop, should it recur.
 - [ ] Keep autocorrect, prediction, swipe typing, dictation and custom IME work
   out of 1.0.
 
@@ -1790,8 +1810,11 @@ Add that trace before changing placement again.
 
 - [ ] Log the placement this controller asks for and the geometry that survived,
       on every input-panel transition.
-- [ ] Establish whether the compositor's keyboard adjustment can be declined for
+- [x] Establish whether the compositor's keyboard adjustment can be declined for
       a window this controller owns, or only overwritten after the fact.
+      Declined: KWin's `OverlayVirtualKeyboardOnWindows`, held while Kadunce is
+      loaded (Block 9, 23 September). The stage-gutter defect this section
+      opened with no longer arises, because nothing lifts a card.
 - [ ] Hold the dock's reservation across a keyboard episode so neither a pane nor
       the Active card expands into it.
 - [ ] Give the Active card the motion the panes already have; a keyboard raise is

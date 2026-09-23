@@ -158,7 +158,8 @@ breaking normal desktop switching.
       precision surface.
 - [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
       GTK, browsers, Electron and terminals.
-- [ ] Reserve workspace correctly as the height changes.
+- [x] Lay the Keyboard over cards: a covered line pans inside the Active card,
+      and a pull never takes the focus.
 - [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
 
 **Done when:** a 10 to 13 inch touch device types and points reliably with no
@@ -214,7 +215,7 @@ identities.
 
 - [ ] Log what placement is asked for and what survives, on every keyboard
       change.
-- [ ] Find whether KWin's keyboard adjustment can be declined for a managed
+- [x] Find whether KWin's keyboard adjustment can be declined for a managed
       window.
 - [ ] Hold the dock's space through a keyboard raise.
 - [ ] Give the Active card the motion the panes already have.
