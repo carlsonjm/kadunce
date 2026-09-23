@@ -6,14 +6,17 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Give the Keyboard's arrival motion, so the Keyboard and the dock move as one
-   action (Block 5).
-2. Retest the asymmetric Ambient and ticker width (Block 5).
-3. Give Temperance clock and calendar presentation (Block 5).
-4. Answer the Bottom Surface's verification owed (Block 5).
-5. Rebuild the Keyboard against the 22 September direction (Block 9).
+1. Type a whole search by touch without the launcher closing (Block 13).
+2. Open dialogs on the tablet, then keep each one with its app (Block 13).
+3. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
+   scope (Block 14).
+4. Rebuild the Keyboard against the 22 September direction (Block 9).
+5. Make the keys come up for the first text field of a session (Block 13).
 
 ## Blocks
+
+Open blocks are listed in priority order. A block's number is its name, not its
+place in the order.
 
 | Block | | Status |
 | --- | --- | --- |
@@ -21,19 +24,23 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 | 2 | Ownership foundation | Done |
 | 3 | Ownership behavior | Done |
 | 3b | Bento layout grammar | Done |
-| 4 | Kadunce manipulation | In progress |
-| 5 | Bottom Surface | In progress |
-| 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
-| 6b | Maintainability and lifecycle audit | Ready |
-| 7 | Temperance event boundary | Ready |
-| 7b | Spread deck motion | Waits on Blocks 5, 6 and 7 |
-| 8 | Table | Waits on Blocks 3 and 4 |
-| 9 | Shuffle Keyboard | In progress |
-| 9b | Shuffle Lock | Waits on Block 9 |
 | 10a | Integration repository | Done |
+| 13 | What a person meets first | Next |
+| 14 | Ownership scope | Next: measure, then J's ruling |
+| 9 | Shuffle Keyboard | In progress |
+| 5 | Bottom Surface | In progress; the Keyboard's arrival waits on Block 9's rebuild |
+| 15 | Consumer fundamentals | Ready: options for J |
+| 4 | Kadunce manipulation | In progress |
+| 16 | Motion | Ready |
+| 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
+| 7 | Temperance event boundary | Ready |
+| 6b | Maintainability and lifecycle audit | Ready |
+| 7b | Spread deck motion | Waits on Blocks 5, 6 and 7 |
+| 9b | Shuffle Lock | Waits on Block 9; ships in the consumer bundle |
 | 10 | Downstream assembly and installation | Waits on Blocks 9 and 10a |
 | 10b | Package and interface identity | Waits on Block 10a |
 | 11 | Host and public site | Waits on Block 10 |
+| 8 | Table | Tentatively 1.1; waits on Block 14 |
 | 12 | Post-MVP debug | Deferred past MVP |
 
 ## Block 1 — Refactor enablement
@@ -57,20 +64,60 @@ refused snap that changes nothing.
 Done. One pane cap per display, orientation from the work area, and side contact
 choosing the shape.
 
-## Block 4 — Kadunce manipulation
+## Block 10a — Integration repository
 
-- [x] A resumed layout survives a pane that will not take its rect back.
-- [x] Make stack extraction reliable.
-- [x] Normalize live terminology to Spread.
-- [ ] Give reordering a usable intent zone without accidental paging.
-- [ ] Let a Spread drop onto the Bento group name the pane it replaces.
-- [ ] Displace by side.
-- [ ] First Card or Bento entry adopts every eligible window on that display and
-      desktop at once.
-- [ ] Complete arrival, displacement, cancellation and neighbor motion.
-- [ ] Make compositor motion follow animation scaling and reduced motion.
+Done, 21 September.
 
-**Done when:** manipulation passes physical review on supported hardware.
+## Block 13 — What a person meets first
+
+- [ ] **Next:** type a whole search by touch without the launcher closing, in
+      Tettegouche and in Kadunce's search guest.
+- [ ] **Next:** open dialogs on the tablet in Active, Spread and Bento, and
+      record what each does.
+- [ ] Keep a dialog with its app: never its own card, never a Bento pane.
+- [ ] Never hold a window hidden from the task switcher as a card.
+- [ ] The keys come up for the first text field touched in a session.
+- [ ] The keys come up for a text box tapped right after a card is chosen.
+- [ ] The first carry of a window off the desktop adopts it, as the second does.
+
+**Done when:** on the tablet, a person searches, saves a file, and types into a
+freshly chosen card, and nothing goes wrong.
+
+## Block 14 — Ownership scope
+
+- [ ] **Next:** measure what a virtual-desktop switch does while cards are owned.
+- [ ] Measure what a touch monitor gets, and a laptop whose built-in screen is
+      not touch.
+- [ ] J rules on the scope 1.0 promises (Open decision 4).
+- [ ] Put cards on the screen the touchscreen drives, not the one named like a
+      laptop panel.
+- [ ] Give a virtual-desktop switch the answer J rules.
+- [ ] Bring J options for the monitor: pair two named windows as the tablet
+      does, or keep filling itself and sending what it cannot show to the tablet.
+- [ ] Make the card and product contracts say what is built.
+
+**Done when:** the contracts, the current state and the build agree for every
+display and desktop a person can reach.
+
+## Block 9 — Shuffle Keyboard
+
+- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
+- [ ] **Next:** rebuild against the 22 September direction and put it back in
+      daily use, with an even gap at the sides and the old top grab retired.
+- [ ] Bring J how the keys are put away once the top grab retires.
+- [ ] Bring the concept's height and reservation lines in line with keys that
+      cover rather than shrink.
+- [ ] Prove the four-row layout, controls, height, and the switch to the
+      precision surface.
+- [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
+      GTK, browsers, Electron and terminals.
+- [ ] Bring J options for copy and paste by touch.
+- [x] Lay the Keyboard over cards: a covered line pans inside the Active card,
+      and a pull never takes the focus.
+- [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
+
+**Done when:** a 10 to 13 inch touch device types and points reliably with no
+physical peripherals.
 
 ## Block 5 — Bottom Surface
 
@@ -84,28 +131,83 @@ choosing the shape.
       signing in, and a pull from anywhere on the dock raises the Keyboard.
 - [x] Spread opens only from the bezel.
 - [x] A tap on a dock app opens it; the menu is a long press.
-- [ ] **Next:** give the Keyboard's arrival motion, so it and the dock move as
-      one action.
+- [x] The gradient arrives on the tablet panel with no visible banding.
+- [ ] Give the Keyboard its arrival motion, so it and the dock move as one
+      action, once Block 9's rebuild has set the Keyboard's shape.
 - [ ] Retest the asymmetric Ambient and ticker width.
+- [ ] Once the flanks hold, retire the width fixes they made redundant.
 - [ ] Give Temperance clock and calendar presentation.
-- [ ] Answer the verification owed: gradient banding, blur smear line, ticker
-      legibility on a bright wallpaper, and a solid fill for reduced
-      transparency.
+- [ ] Keep the ticker legible on a bright wallpaper.
+- [ ] Replace the gradient with a solid fill under reduced transparency.
 
 **Done when:** the dock is centred and grows evenly at tablet and monitor widths,
 and the Status Bar and Ambient each fill the space the dock leaves them.
 
+## Block 15 — Consumer fundamentals
+
+Each line brings J options first. An accepted answer becomes a task in the block
+that owns it.
+
+- [ ] A gesture shows its result before release, and a refused one says so.
+- [ ] Shuffle starts in cards after sign-in and comes back the way it was left.
+- [ ] Close an app by touch from Spread.
+- [ ] Type into text the keys cover: Bento panes, terminals, and boxes at the
+      bottom of a window.
+- [ ] What a pull down from the top edge brings.
+- [ ] Whether attaching the keyboard changes the mode.
+- [ ] Right-click and pointing without raising the keys.
+- [ ] One place to find everything.
+- [ ] Check portrait, and sleep and wake, on the tablet.
+
+**Done when:** every line has J's ruling, and every accepted answer is a task in
+its block.
+
+## Block 4 — Kadunce manipulation
+
+- [x] A resumed layout survives a pane that will not take its rect back.
+- [x] Make stack extraction reliable.
+- [x] Normalize live terminology to Spread.
+- [ ] Let a Spread drop onto the Bento group name the pane it replaces.
+- [ ] First Card or Bento entry adopts every eligible window on that display and
+      desktop at once.
+- [ ] Displace by side, on a display that has the side gesture.
+
+**Done when:** manipulation passes physical review on supported hardware.
+
+## Block 16 — Motion
+
+- [ ] Complete arrival, displacement, cancellation and neighbor motion.
+- [ ] Panned contents slide rather than jump.
+- [ ] Make compositor motion follow animation scaling and reduced motion.
+- [ ] Review the Keyboard's arrival, the dock stepping aside and card motion
+      together.
+
+**Done when:** every custom motion in the suite uses the shared timings and
+honours reduced motion.
+
 ## Block 6 — Tettegouche completion
 
-- [ ] Answer a virtual keyboard: the layout has to work with the Keyboard up.
+- [ ] Search and Files stay usable with the keys covering half the screen.
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`.
 - [ ] Media metadata priority and dock-aware width.
+- [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
 - [ ] Transfers: pause, completion, and conflict choices that never overwrite
       silently.
 - [ ] Files: properties, previews, recursive search, Recent, error states.
 - [ ] Storage lifecycle without weakening KIO ownership.
 
 **Done when:** each slice has automated checks and an installed acceptance pass.
+
+## Block 7 — Temperance event boundary
+
+- [ ] Add only authoritative, useful system events, deduplicated and dismissable.
+- [ ] Keep live progress and actions with Tettegouche.
+- [ ] Page the ticker with a finger, not only a hover.
+- [ ] Bring J whether Log Out asks before acting.
+- [ ] Revisit presenter switching once its lifecycle is proven.
+- [x] Refine action-pill typography and padding.
+
+**Done when:** events are authoritative and never duplicated.
 
 ## Block 6b — Maintainability and lifecycle audit
 
@@ -115,15 +217,6 @@ and the Status Bar and Ambient each fill the space the dock leaves them.
 - [ ] Confirm the protected custom icons are unchanged.
 
 **Done when:** the three components are lifecycle-safe with no duplicated state.
-
-## Block 7 — Temperance event boundary
-
-- [ ] Add only authoritative, useful system events, deduplicated and dismissable.
-- [ ] Keep live progress and actions with Tettegouche.
-- [ ] Revisit presenter switching once its lifecycle is proven.
-- [ ] Refine action-pill typography and padding.
-
-**Done when:** events are authoritative and never duplicated.
 
 ## Block 7b — Spread deck motion
 
@@ -138,33 +231,6 @@ and the Status Bar and Ambient each fill the space the dock leaves them.
 **Done when:** dragging and throwing the deck settles where the hand expects, and
 reordering and paging are never confused.
 
-## Block 8 — Table
-
-- [ ] Audit KWin and Plasma virtual-desktop APIs, gestures and lifecycle.
-- [ ] Prove multi-display behavior without changing Bento.
-- [ ] Build the smallest complete prototype and test it physically.
-- [ ] Implement the accepted interaction.
-
-**Done when:** a window moves between real KDE desktops through Table without
-breaking normal desktop switching.
-
-## Block 9 — Shuffle Keyboard
-
-- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
-- [ ] Rebuild against the 22 September direction and put it back in daily use.
-      J's open asks: an even gap at the Keyboard's sides, a gap above the keys,
-      and retire the old top grab handle.
-- [ ] Prove the four-row layout, controls, height, and the switch to the
-      precision surface.
-- [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
-      GTK, browsers, Electron and terminals.
-- [x] Lay the Keyboard over cards: a covered line pans inside the Active card,
-      and a pull never takes the focus.
-- [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
-
-**Done when:** a 10 to 13 inch touch device types and points reliably with no
-physical peripherals.
-
 ## Block 9b — Shuffle Lock
 
 - [ ] Write the product contract (see Open decisions).
@@ -174,10 +240,6 @@ physical peripherals.
 
 **Done when:** the lock conceals the workspace, authenticates through the system
 locker, and a Shuffle failure never leaves a session unlocked.
-
-## Block 10a — Integration repository
-
-Done, 21 September.
 
 ## Block 10 — Downstream assembly and installation
 
@@ -209,19 +271,28 @@ identities.
 
 **Done when:** the site shows the released product and a complete install path.
 
+## Block 8 — Table
+
+- [ ] Audit KWin and Plasma virtual-desktop APIs, gestures and lifecycle.
+- [ ] Prove multi-display behavior without changing Bento.
+- [ ] Build the smallest complete prototype and test it physically.
+- [ ] Implement the accepted interaction.
+
+**Done when:** a window moves between real KDE desktops through Table without
+breaking normal desktop switching.
+
 ## Block 12 — Post-MVP debug
 
-### 12a. Keyboard geometry and the stage gutter
+### 12a. Keyboard and the dock's room
 
-- [ ] Log what placement is asked for and what survives, on every keyboard
-      change.
 - [x] Find whether KWin's keyboard adjustment can be declined for a managed
       window.
-- [ ] Hold the dock's space through a keyboard raise.
-- [ ] Give the Active card the motion the panes already have.
+- [ ] Confirm no card, pane or window grows into the dock's room while the keys
+      are up.
+- [ ] A tap just above a panned card reaches nothing the pan hid.
 
-**Done when:** a keyboard raised over a layout or a card keeps the gutter and
-moves once, smoothly.
+**Done when:** a keyboard episode changes no card or pane geometry, and nothing
+hidden takes a tap.
 
 ### 12b. Edge gestures on any touchscreen
 
@@ -244,8 +315,14 @@ and nothing else fires.
 1. **Plugin compatibility.** Approved: ship the KWin plugin as a package, built
    per KWin release. Scheduled in Block 10.
 2. **Shuffle Lock scope.** Open. What the lock screen hides, and what stays
-   usable before signing in.
+   usable before signing in. The lock ships in the consumer bundle whatever else
+   1.0 holds.
 3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
+4. **What 1.0 promises about displays and desktops.** Open. One touchscreen and
+   one virtual desktop at a time, with a card set per desktop arriving with
+   Table; or a card set per desktop now. Block 14 measures first.
+5. **Table's release.** Decided 23 September: tentatively 1.1, depending on how
+   long integrating the core concepts takes.
 
 ## Working model
 

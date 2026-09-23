@@ -731,6 +731,15 @@ screen. Focusing a card is not a request to type: a client that has KWin raise
 the keyboard whenever it gains focus has that keyboard put back down when the
 stage focused the card itself.
 
+### The dock steps aside for the keys
+
+Settled by J on 23 September, against keeping the dock in place and seating the
+keys above it. KWin seats the keyboard on the bottom of the work area, so a dock
+that kept its reservation would hold the keys up by its own height, and a dock
+under the keys is worse for typing. The dock therefore gives up its room while
+the keys are up, and the hand-off that costs is answered by the arrival motion
+rather than by keeping the dock.
+
 ### Persistent membership is not promised across unload
 
 The public context endpoint and live registry disappear with the effect. Do not add
@@ -744,6 +753,12 @@ a service solely to preserve an implementation extraction boundary.
 recovery lives outside the compositor plugin, because the failure it exists for is
 the plugin not loading. A control hosted by the thing it recovers cannot recover
 it, which is why no effect test can stand in for this one.
+
+It has to be reachable on every build that is tested or shipped; settled by J on
+23 September. It does not have to be on screen at every moment: the Bottom
+Surface takes it off screen with the dock while the dock steps aside for the
+keys, and it returns with the dock. Losing it on a tested build was an early
+defect that has not recurred.
 
 ### Private tests and live evidence remain distinct
 

@@ -17,4 +17,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: next is the arrival motion with the dock (Block 5). Still open from J: side gutter, clearance above the keys, retire the top grab handle. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Branch `shuffle-1.0`; build tests fresh, `build/` points at Itasca.
+- Shuffle Keyboard owner: next is the 22 September rebuild (Block 9): side gutter, top grab retired. Arrival motion with the dock follows it (Block 5). Ask J how the keys are put away. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Branch `shuffle-1.0`; build tests fresh, `build/` points at Itasca.

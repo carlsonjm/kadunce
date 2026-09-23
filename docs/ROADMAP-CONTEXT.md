@@ -125,6 +125,18 @@ Table and Keyboard feasibility remain after the component engines meet their
 contracts. Proving input plumbing against a shell that does not yet satisfy
 `CARD-LIFECYCLE.md` would prove it against a moving target.
 
+A product and experience audit on 23 September reordered the open blocks by what
+a person meets first rather than by which component owns the work. With the
+ownership engine done, the gaps that remained sat between the engine and the
+person: search that cannot be typed into by touch, dialogs the card rules
+describe and the build does not handle, a contract that promises more displays
+and desktops than the structure holds, and consumer expectations that the rules
+had quietly traded away. Blocks 13 to 16 hold what it found. It also cut
+items whose premise had gone: the keyboard overlay of the same day retired most
+of 12a, and Block 7b already answers Block 4's reordering. The table in
+`ROADMAP-CC.md` is in priority order from then on, and a block's number is only
+its name.
+
 ## Block 1 — Refactor enablement
 
 **Status:** Complete. 1e closed on the 20 September cold boot and 1d on the
@@ -836,16 +848,137 @@ coverage for the cap, the orientation rule, both three-pane shapes and the
 contact mapping passes, and physical review accepts the tablet's two shapes and
 rail behavior within them. Met on 21 September.
 
+## Block 13 — What a person meets first
+
+**Status:** Next. Added by the 23 September audit. Each item is something a
+person reaches in their first minutes on the tablet, and each is reproduced
+before it is changed.
+
+- **Search by touch.** Touching the Keyboard closes Tettegouche's launcher,
+  because a touch on the keys reads as a touch outside it. Tettegouche's own
+  roadmap (its 1b) records it from physical use on 21 September and calls search
+  "unusable by touch", a release matter; the backdrop in `qml/Launcher.qml` still
+  closes on any tap outside the sheet. The same note says Kadunce's search guest
+  has the same blind spot. Nothing in this plan carried it until now.
+- **Dialogs.** `CARD-LIFECYCLE.md` §4 says a dependent dialog follows its
+  application card and a window excluded from task switching never becomes a
+  card. `Effect::isApplicationWindow` checks neither: no parent, no transient,
+  no skip-switcher test. KWin types a Wayland dialog with a parent as an
+  ordinary window, so by reading, a save or confirmation dialog is admitted like
+  an application: in Bento it is an arrival that can take a pane under §8, and
+  over an Active card it can become a card of its own. No probe opens a dialog,
+  so none of this has been seen; the first item is to open them on the tablet
+  and record what each does.
+- **The unidentified internal card.** `CURRENT_STATE.md` records one of KWin's
+  own windows, with no caption and marked to skip the taskbar and switcher, held
+  as a card and left alone until it is identified. §4 already excludes it by
+  what it is, so following the contract is the fix and identification is not
+  needed first.
+- **The keys and the first text field.** The first text field tapped in a
+  session flashed and did not raise the Keyboard (Block 5, not reproduced). A
+  card the stage focuses keeps the keyboard down for one second, which is also
+  the second in which a quick person taps a text box in the card they just
+  chose. The ruling in `DECISIONS.md` stands; the item is that a deliberate tap
+  still raises the keys. The touch observer that once answered this was part of
+  the candidate withdrawn on 23 September, so the answer is not to restore it
+  unchanged.
+- **The first carry.** The Claude client's first carry off the desktop is
+  refused at pickup and falls back to an ordinary move; the second adopts. True
+  of `main` before the keyboard work too, and the move trace now names the
+  refusing step.
+
+## Block 14 — Ownership scope
+
+**Status:** Next: measure, then J's ruling. Added by the 23 September audit.
+
+The card contract promises more than the structure holds. `CARD-LIFECYCLE.md`
+§3 and §11 give every display and every virtual desktop its own ownership
+session, and Block 12b wants the gestures on any touchscreen. The build has one
+card workspace, bound to the output whose name starts like a built-in panel
+(`Effect::isTabletOutput` reads `eDP`, `DSI` or `LVDS`), and nothing in the
+effect reacts to a virtual-desktop switch. What a person meets:
+
+- What a desktop switch does while cards are owned has not been measured.
+- A touch monitor on a desktop computer gets no cards at all, and a laptop with
+  a built-in screen that is not touch gets them there rather than on the touch
+  monitor.
+- `PRODUCT-CONTRACT.md` says an external display never presents cards, while §11
+  lists individual cards and stacks on each display.
+- The monitor still composes across itself when it cannot own cards, which is
+  the solver deciding membership that `DECISIONS.md` § A side snap admits one
+  card rejected for the tablet, and a window its layout cannot show moves onto
+  the tablet.
+
+Table depends on the answer. Entering a destination Spread needs a card set per
+virtual desktop, which is architecture rather than feasibility. Open decision 4
+carries the choice. The recommendation put to J was to make the 1.0 contract
+say one touchscreen and one desktop at a time, give the desktop switch a defined
+answer, and bring card sets per desktop with Table. Choosing the card screen by
+which screen the touchscreen drives is needed under either answer.
+
+## Block 15 — Consumer fundamentals
+
+**Status:** Ready. Added by the 23 September audit, which asked what a person
+expects of a touch environment that Shuffle does not give, or has given up to
+satisfy another rule. Every item is a design conversation with J before any
+code, and an accepted answer becomes a task in the block that owns it. J named
+the audit's first three as where to start.
+
+- **Seeing the result before letting go.** A side snap's partner comes from a
+  Spread order nobody sees, and the contract records that showing it is not
+  required. The upper or lower half of an edge silently picks the larger or
+  smaller pane. The tablet cannot show which pane an arrival displaces. A
+  refused gesture does nothing at all, so it reads as broken.
+- **Starting in cards, and remembering.** Enabling captures nothing, so after
+  every sign-in windows sit on the desktop until the first deliberate action.
+  Stacks, pairs and order are gone after sign-out, restart or a reload, because
+  Kadunce keeps no persistence of its own.
+- **Closing by touch.** No gesture closes an app from Spread. Upward travel
+  there already means leaving a stack or, at the top edge, becoming Active.
+- **Text the keys cover.** Only the Active card pans. Bento panes, ordinary
+  windows and clients that report no cursor stay covered, and scrolling does not
+  move a message box or a prompt that sits at the bottom of its window.
+- **The top edge.** Pulling down returns to the current card, which a tap in
+  Spread already does. The expected pull from the top brings notifications and
+  quick settings.
+- **Posture.** The model is decided by screen, the built-in one attending and a
+  monitor composing, while the tablet becomes a laptop when its keyboard is
+  attached. The posture file is used only to choose the edge recognizer.
+- **Pointing.** The precision surface lives in the Keyboard, so a right-click
+  in a desktop application costs raising the keys.
+- **One home.** Applications are found in the dock, in Spread, in the search
+  launcher and in Ambient.
+- **Unmeasured.** No portrait pass and no physical sleep-and-wake review is on
+  record.
+
+## Block 16 — Motion
+
+**Status:** Ready. Added by the 23 September audit to give motion one owner.
+Motion work was spread over Block 4 (arrival, displacement, cancellation,
+neighbours, reduced motion), Block 5 (the Keyboard's arrival), Block 12a (the
+Active card) and Block 7b (the deck), each able to set its own timings.
+`ITASCA-VISUAL-LANGUAGE.md` § Motion and animation already states the tiers,
+easing, choreography and reduced motion; this block holds every custom motion
+to it. The Keyboard's arrival stays in Block 5, where J named it, and is
+reviewed here beside the rest. Panned contents currently jump; that is the one
+motion the keyboard overlay added.
+
 ## Block 4 — Kadunce manipulation
 
-**Status:** In progress. Two items closed on a physically accepted candidate on
+**Status:** In progress. On 23 September reordering moved to Block 7b, which
+answers it, and the two motion items moved to Block 16. Letting a Spread drop
+name the pane it replaces now leads the block, because the tablet has no other
+way to say which pane yields and displacing by side serves only a display with
+the side gesture. J shelved it on 20 September until MVP criteria are met, and
+that holds; its place in the block is its priority when the block is picked up.
+
+Two items closed on a physically accepted candidate on
 21 September and are on `main`: a placement a client moves out of no longer
 costs the layout, and a stacked card is released by pulling it up out of the
 stack. The tablet pass took both, together with the tray control against a
 layout holding a sleeping card. The compositor had the candidate plugin mapped
 while the gestures ran, the session log carries no §14 violation, and
-`./verify.sh` and the route matrix pass. Four items remain, two of which are
-product decisions J has not been asked yet.
+`./verify.sh` and the route matrix pass. Three items remain in the block.
 
 - [x] Let a resumed layout survive a pane that will not take its stored rect
   back. Reproduced in the nested compositor before anything was changed: a
@@ -872,7 +1005,8 @@ product decisions J has not been asked yet.
   into the Spread where the stack stands, one that does not rejoins it, and
   sideways travel keeps meaning reorder. `CARD-LIFECYCLE.md` §9 states it and
   `stack-runtime` gates all three answers.
-- [ ] Give reordering a usable intent zone without accidental paging. A reorder
+- [ ] Moved to Block 7b on 23 September: give reordering a usable intent zone
+  without accidental paging. A reorder
   commits at 82% of a card's pitch, 705px of sideways travel against an 860px
   pitch on the tablet's work area, and paging arms on a 300ms dwell inside a
   115px edge zone. A sweep that long ends inside that zone, so the pause a user
@@ -930,9 +1064,10 @@ product decisions J has not been asked yet.
   current desktop and activity. The Bento half concerns only a display that
   cannot own cards, because the tablet's shortcut now names two windows instead
   of sweeping an output.
-- [ ] Complete arrival, displacement, cancellation and neighbor motion.
-- [ ] Make custom compositor motion follow platform animation scaling and
-  reduced-motion preferences.
+- [ ] Moved to Block 16 on 23 September: complete arrival, displacement,
+  cancellation and neighbor motion.
+- [ ] Moved to Block 16 on 23 September: make custom compositor motion follow
+  platform animation scaling and reduced-motion preferences.
 - [x] Normalize live terminology to Spread. Completed in Block 1b.
 
 **Exit gate:** Physical review accepts manipulation on supported hardware, and
@@ -987,7 +1122,9 @@ ways and the surface takes the smallest of the three:
 - **Bottom Surface** owns their allocation, the centred app dock, the Keyboard
   boundary, and the visual treatment of the shared region. It does not
   reimplement the tray, and must host Temperance so that the disable control is
-  present at all times.
+  there. J settled on 23 September that the control has to be reachable on
+  every build that is tested or shipped, not on screen at every moment, so the
+  dock may take it off screen while it steps aside for the keys.
 
 ### Resting presentation
 
@@ -1183,7 +1320,9 @@ containment's gradient, which is what now draws the region, and the first of the
 has already been measured there: on the tablet panel the fade arrives with no
 step and no contour, and the material is indistinguishable from the raw backdrop
 at the reserved line. The band height that waited on these checks is therefore no
-longer blocked by the effect.
+longer blocked by the effect. The smear line below belongs to the parked effect
+alone, because the gradient draws no blur, so it returns with the effect rather
+than standing in this block's list; the checklist carries the other two.
 
 - A long dark gradient over a large area bands on an 8-bit panel. The fade has to
   arrive without a visible step, or the treatment loses its whole argument.
@@ -1340,7 +1479,13 @@ here are unmapped rather than merely unaddressed.
   hand on 22 September: a pull from anywhere on the dock raises the Keyboard,
   a tap opens an application, a long press opens its menu, a sideways drag
   still reorders and Spread still opens only from the bezel.
-- [ ] Give the Keyboard's arrival motion. **Next.** The Keyboard now comes all
+- [ ] Give the Keyboard's arrival motion, after Block 9's rebuild. It led the
+  plan until 23 September, when it moved behind the rebuild: the 22 September
+  direction puts a gutter at the Keyboard's sides, where the dock stepping aside
+  becomes visible, so motion built first would be judged against a shape about
+  to change. J confirmed the same day that the dock steps aside rather than the
+  keys sitting above it, because a dock under the keys is worse for typing
+  (`DECISIONS.md`). The Keyboard now comes all
   the way down, passed by hand on 22 September, but it arrives at once while the
   dock steps aside under it, so the wallpaper flashes through in between. J:
   motion that turns the change into one action is what now stands between this
@@ -1487,11 +1632,19 @@ exists rather than a described one.
 
 **Status:** Width work blocked by Block 5; the rest is ready.
 
-- [ ] Answer a virtual keyboard. J confirmed on 21 September that Tettegouche is
-  not optimized for one: its composition assumes the work area a keyboard takes
-  half of. The Keyboard reserves workspace as its height changes, so this is
-  Tettegouche responding to a smaller area rather than either side negotiating,
-  and it belongs with the width work Block 5 gates.
+- [ ] Search and Files stay usable with the keys covering half the screen. J
+  confirmed on 21 September that Tettegouche is not optimized for a virtual
+  keyboard. This item was written when the Keyboard reserved workspace and
+  Tettegouche would have answered a smaller area; since 23 September the
+  Keyboard lies over the screen and changes no work area, so what has to hold
+  is that the search field and its results stay above the keys. Typing a search
+  without the launcher closing is Block 13.
+- [ ] Bring J touch-first Ambient and Files. Added by the 23 September audit.
+  Ambient's play, skip and cancel controls are icon buttons with 20px icons in a
+  42px strip whose own tap opens details, so a near miss opens the wrong thing;
+  Temperance holds its actions to 44px and Ambient has no such rule. Files
+  selects on a tap and opens on a double tap, and a 180ms hold both selects and
+  opens the action menu, which is desktop grammar.
 
 - [ ] Ambient release validation against `AMBIENT-CONTRACT.md`: MPRIS, Plasma
   jobs, Tette operations, Downloads arrivals, concurrent density.
@@ -1529,7 +1682,13 @@ consumption without duplicated state ownership.
 - [ ] Preserve Tettegouche ownership of live progress and actions; neither side
   retains the same completion indefinitely.
 - [ ] Revisit presenter switching only after its process-wide lifecycle is proven.
-- [ ] Refine action-pill typography or horizontal padding.
+- [ ] Page the ticker with a finger. Added by the 23 September audit: the next
+  notification control is enabled only while a hover reveals it, so a finger
+  can open history with the bell but cannot page.
+- [ ] Bring J whether Log Out asks before acting. It is one tap with no
+  confirmation, which is an easy accidental tap on a tablet.
+- [x] Refine action-pill typography or horizontal padding. Temperance records
+  it physically accepted on 17 September.
 
 **Exit gate:** Events are authoritative and deduplicated; no duplicate ownership
 of a completion.
@@ -1588,7 +1747,10 @@ for one another.
 
 ## Block 8 — Table feasibility and implementation
 
-**Status:** Blocked by Blocks 3 and 4. Reference:
+**Status:** Tentatively 1.1, decided by J on 23 September, depending on how long
+integrating the core concepts takes. Waits on Block 14: a destination Spread
+needs a card set per virtual desktop, which the structure does not have.
+Reference:
 `KADUNCE-TABLE-1.1-CONCEPT.md`.
 
 - [ ] Audit KWin and Plasma virtual-desktop APIs, gesture ownership and lifecycle.
@@ -1651,7 +1813,24 @@ two disagree the concept governs, and the fork has not been updated from here.
   build until it lands. Pin one open question for that pass: whether the
   notch hold reads as feedback or as lag without haptics, and whether a density
   falloff still adds anything once the gutter and the scrub columns are in place.
-  J's reading is that they have likely already solved it.
+  J's reading is that they have likely already solved it. It leads the plan's
+  Keyboard work from 23 September, ahead of the arrival motion in Block 5. J's
+  open asks were an even gap at the sides, a gap above the keys and retiring the
+  top grab. The gap above the keys was asked so the Keyboard reads as pushing
+  the window; since the overlay it pushes nothing and the pan already stops a
+  gutter above the keys, so it is dropped unless J still wants it for its look.
+- [ ] Bring J how the keys are put away once the top grab retires. Today a tap
+  on the grab closes the Keyboard and a drag on it resizes. The concept gives
+  that edge to show and hide alone, the downstream contract records J wanting
+  the keys dragged down, and no document says which it becomes.
+- [ ] Bring the concept's height and reservation lines in line with keys that
+  cover. The height column promises that the window above grows by what the
+  keyboard gives back, and the engineering constraints still list workspace
+  reservation. Since 23 September a shorter keyboard covers less rather than
+  giving a window room.
+- [ ] Bring J options for copy and paste by touch. The concept returned them to
+  Ctrl chords, which a hand on glass does not make; the lesson it drew about two
+  functions on one control stands, and the casualty is the question.
 - [ ] Verify locale and keymap correctness, focus, latency and loss-free input
   across Qt/KDE, GTK, browsers, Electron and terminals. The fork's
   `docs/PHYSICAL_ACCEPTANCE.md` is the pass for it; it has not been run against
@@ -1691,8 +1870,9 @@ rather than a custom input engine.
 ## Block 9b — Shuffle Lock
 
 **Status:** Blocked by Block 9. No contract, concept document or implementation
-exists anywhere in the three repositories; the term appears in zero files. This
-is the largest undocumented 1.0 commitment.
+exists anywhere in the three repositories. J confirmed on 23 September that it
+ships in the consumer bundle whatever else 1.0 holds, and judges it an
+afternoon's work once the Keyboard is rebuilt.
 
 Shuffle Lock is a privacy-first presentation over the trusted system lock and
 authentication. It depends on the Keyboard, because authenticating on a tablet
@@ -1776,7 +1956,7 @@ provides a complete supported installation path.
 Work that is real but does not gate MVP production, held in one place so it is
 not lost between blocks. Each part carries its own status and exit gate.
 
-### 12a. Keyboard geometry and the stage gutter
+### 12a. Keyboard and the dock's room
 
 **Status:** Deferred past MVP production at J's direction on 21 September, after
 two physical passes failed to close it. Its own debug, not a Block 5 dependency.
@@ -1804,24 +1984,29 @@ What is already measured, so the next pass does not repeat it:
   (832 to 884; the Active card 832 to 894) and settles when the dock returns.
   A dock that steps aside is not a display that grew.
 
-**Start here:** nothing in the log records what this controller placed or which
-placement survived, which is why two passes produced an opinion and no trace.
-Add that trace before changing placement again.
+**Re-cut on 23 September.** The keyboard overlay removed the premise of most of
+this section: nothing lifts a card, and Kadunce no longer places anything on a
+keyboard change. Three items went. Logging placement on every keyboard change
+has nothing left to log. The Active card's motion on a raise has no motion to
+give, because the card does not move; the one motion the overlay added, panned
+contents that jump, is Block 16's. Holding the dock's reservation became a check:
+the Active card's pan already places from its frame at keyboard-open rather than
+from the grown work area, and Bento and Spread were accepted untouched on 23
+September, so what is left is to confirm nothing else grows into the dock's room.
+The strip just above a panned card still passes a tap to the part of the client
+the pan hid.
 
-- [ ] Log the placement this controller asks for and the geometry that survived,
-      on every input-panel transition.
 - [x] Establish whether the compositor's keyboard adjustment can be declined for
       a window this controller owns, or only overwritten after the fact.
       Declined: KWin's `OverlayVirtualKeyboardOnWindows`, held while Kadunce is
       loaded (Block 9, 23 September). The stage-gutter defect this section
       opened with no longer arises, because nothing lifts a card.
-- [ ] Hold the dock's reservation across a keyboard episode so neither a pane nor
-      the Active card expands into it.
-- [ ] Give the Active card the motion the panes already have; a keyboard raise is
-      sharp on that path because nothing animates it.
+- [ ] Confirm no card, pane or window grows into the dock's room while the keys
+      are up.
+- [ ] A tap just above a panned card reaches nothing the pan hid.
 
-**Exit gate:** A keyboard raised over a layout and over a single card keeps the
-stage gutter throughout, moves once, and moves smoothly.
+**Exit gate:** A keyboard episode changes no card or pane geometry, and nothing
+hidden takes a tap.
 
 ### 12b. Edge gestures on any touchscreen
 
@@ -1882,7 +2067,8 @@ it is made, with its resolution, so later work does not reopen it.
 
 2. **Shuffle Lock scope.** Block 9b has no contract yet. What the lock surface
    conceals and what remains usable before authentication is a product decision
-   that must precede its feasibility work.
+   that must precede its feasibility work. The lock ships in the consumer bundle whatever
+   else 1.0 holds (J, 23 September).
 
 3. **Edge pairing grammar.** Decided 19 September 2026, superseding the earlier
    answer that a card carried to a side edge while it was itself Active had
@@ -1935,6 +2121,19 @@ it is made, with its resolution, so later work does not reopen it.
    rather than by output identity; showing the partner before release is not
    required; and Spread reordering remains separate work. `DECISIONS.md` records
    the decision and what the rejected reading cost. **Scheduled in Block 3.**
+
+4. **What 1.0 promises about displays and desktops.** Open, raised by the 23
+   September audit; Block 14 carries the reasoning. The contract gives every
+   display and virtual desktop its own ownership session and the build has one
+   card set on the built-in panel. The recommendation put to J: 1.0 says one
+   touchscreen and one virtual desktop at a time, the desktop switch gets a
+   defined answer, and a card set per desktop arrives with Table. The
+   alternative builds that now, which is most of Table's hard part and moves 1.0.
+   Block 14 measures before J rules.
+
+5. **Table's release.** Decided by J on 23 September: tentatively 1.1,
+   depending on how long integrating the core concepts takes. The Table
+   contract stays the reference; Block 8 waits on Block 14.
 
 ## Progress update rule
 
