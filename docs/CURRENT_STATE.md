@@ -82,6 +82,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   and Bento are untouched. A card the stage focuses by its own gesture keeps
   the keyboard down for the moment in which a client would have KWin raise it
   on focus. Physically accepted on 23 September.
+- While Kadunce is on, the display that can own cards holds its windows as
+  cards. Switching it on, at sign-in or from the tray, makes the window in use
+  the Active card and every other window there a card, and a window that opens
+  while that display holds no card starts it the same way. Physically accepted
+  on 23 September.
 - While Kadunce hosts the search launcher in Spread, a touch or click on the
   keys types into it rather than reading as a touch away from it; a touch
   outside both still closes it. Physically accepted on 23 September.
@@ -164,11 +169,12 @@ duplicates, and omits stack position.
   them is moved.
 - Panned contents jump rather than slide, and a tap in the strip just above a
   panned card reaches the hidden top of its client.
-- The first carry of an ordinary window after Kadunce is switched on, at
-  sign-in or from the tray, is rejected when it reaches an edge and falls back
-  to an ordinary move; the next carry adopts. Seen with Code and the Claude
-  client, and on `main` before the keyboard work. Which check refuses it is not
-  yet recorded.
+- The first carry of a window on the plain desktop after Kadunce is switched
+  on is rejected when it reaches an edge and falls back to an ordinary move;
+  the next carry adopts. Seen with Code and the Claude client, and on `main`
+  before the keyboard work. With the tablet in cards whenever Kadunce is on, a
+  window reaches that path only from another display or after being given back
+  to the desktop. Which check refuses it is not yet recorded.
 - Plugin installation assumes the tested native KWin plugin directory and requires
   a rebuild after a KWin ABI change.
 - Table and Shuffle Keyboard have approved product contracts but no accepted

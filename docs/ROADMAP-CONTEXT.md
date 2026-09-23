@@ -911,7 +911,11 @@ before it is changed.
   on the plain desktop takes it; the refusal is still fixed on its own. Coming
   back the way it was left stays in Block 15. `CARD-LIFECYCLE.md` §3 says
   enabling alone captures nothing and §12 ends a session with no cards, so both
-  change with J's answer.
+  change with J's answer. J chose the Active card over opening Spread, and it
+  passed by hand the same day, three checks of three: sign-in, the tray switch
+  off and on with a side snap pairing on the first try, and an empty tablet
+  whose next app opened as the Active card. `start-cards-runtime` and the
+  tablet run of `desktop-runtime` gate it.
 
 ## Block 14 — Ownership scope
 

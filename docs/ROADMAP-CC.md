@@ -6,13 +6,12 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Bring J how Kadunce starts in cards when it is switched on, then build it
-   (Block 13).
-2. Name the check that refuses a first drag, then fix it (Block 13).
-3. Open dialogs on the tablet, then keep each one with its app (Block 13).
-4. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
+1. Name the check that refuses a first drag, then fix it (Block 13).
+2. Open dialogs on the tablet, then keep each one with its app (Block 13).
+3. Measure a virtual-desktop switch and a touch monitor, and bring J the 1.0
    scope (Block 14).
-5. Rebuild the Keyboard against the 22 September direction (Block 9).
+4. Rebuild the Keyboard against the 22 September direction (Block 9).
+5. Make the keys come up for the first text field of a session (Block 13).
 
 ## Blocks
 
@@ -74,11 +73,11 @@ Done, 21 September.
 
 - [x] Type a whole search by touch without the launcher closing, in
       Tettegouche and in Kadunce's search guest. (audit 1)
-- [ ] **Next:** Kadunce starts in cards when it is switched on, at sign-in and
-      from the tray. (audit 23)
+- [x] Kadunce starts in cards when it is switched on, at sign-in and from the
+      tray. (audit 23)
 - [ ] **Next:** name the check that refuses a pickup, as a refused drop is
       named. (audit 6)
-- [ ] Open dialogs on the tablet in Active, Spread and Bento, and
+- [ ] **Next:** open dialogs on the tablet in Active, Spread and Bento, and
       record what each does. (audit 2)
 - [ ] Keep a dialog with its app: never its own card, never a Bento pane.
       (audit 2)
