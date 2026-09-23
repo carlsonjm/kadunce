@@ -1079,8 +1079,9 @@ nothing in Kadunce answers a display changing place or a card's window
 changing display. Whether KWin moved the window there when the monitor
 arrived or a drag did is not yet measured, nor why the bottom swipe stopped.
 The dock follows Plasma's
-primary display, which the monitor became. Carried onto the monitor, a card
-became an ordinary window with no gutter, which the rule expects.
+primary display, which the monitor became. A card carried onto the monitor
+kept its gutter, which read as missing only because it is black on black. The
+bottom swipe did not work at all while the monitor was attached.
 
 ## Block 15 — Consumer fundamentals
 
