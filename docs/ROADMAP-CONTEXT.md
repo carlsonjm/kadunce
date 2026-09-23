@@ -1016,6 +1016,28 @@ the window menu was left out of the pass and is not handled. Keys that did not
 come up on desktop two were the keyboard cover being attached, which puts the
 tablet in laptop mode, not this change.
 
+Displays were measured on 23 September from source and the nested harness; no
+touch monitor was on hand. Which screen holds cards is decided by one thing, its
+name: the first output named `eDP`, `DSI` or `LVDS`. Nothing reads which screen a
+touch device drives, and a touch outside that screen passes through untouched
+except on a Bento divider.
+
+- A desktop computer with a touch monitor has no such screen, so it gets no
+  cards, no Spread and no Active card, by gesture, shortcut or D-Bus. It keeps
+  Bento, composed by carrying a window to a side or top edge, and the divider
+  drag.
+- A laptop whose built-in screen is not touch gets its cards there, where they
+  cannot be touched. The touch monitor gets Bento only. Plasma's own bottom edge
+  on the monitor can open Spread on the laptop screen, where KWin places the
+  edge; the Z13's direct edges ignore the monitor entirely.
+- A touch tablet or 2-in-1 other than the Z13 gets cards on its built-in screen,
+  but the bottom swipe is Plasma's touch edge rather than Kadunce's 20 pixel
+  bezel band: the direct edges are adopted only when the Z13 kit's posture file
+  exists. Neither the posture nor KWin's tablet mode gates anything else.
+- The nested harness names its outputs `Virtual-N` and patches `virtual-0` into
+  the tablet for the sessions that need one, so it can stand in for the first
+  two cases by geometry but cannot say which screen is touch.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person

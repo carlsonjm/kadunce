@@ -6,7 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Measure a touch monitor, and bring J the 1.0 scope (Block 14).
+1. J rules on what 1.0 promises about displays (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -99,9 +99,9 @@ freshly chosen card, and nothing goes wrong.
       other desktop plain Plasma, until Table. (audit 9)
 - [x] J rules the desktop half: 1.0 includes Table, so every desktop gets its
       own cards. (audit 11)
-- [ ] **Next:** measure what a touch monitor gets, and a laptop whose built-in
-      screen is not touch. (audit 8)
-- [ ] J rules on what 1.0 promises about displays (Open decision 4).
+- [x] Measure what a touch monitor gets, and a laptop whose built-in screen is
+      not touch. (audit 8)
+- [ ] **Next:** J rules on what 1.0 promises about displays (Open decision 4).
       (audit 11)
 - [ ] Put cards on the screen the touchscreen drives, not the one named like a
       laptop panel. (audit 8)
@@ -353,8 +353,8 @@ and nothing else fires.
 3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
 4. **What 1.0 promises about displays and desktops.** Desktops decided 23
    September: 1.0 includes Table, so every desktop gets its own cards in Block
-   8, and cards stay on the desktop they started on until then. Displays open:
-   Block 14 measures first. Audit 8 to 11.
+   8, and cards stay on the desktop they started on until then. Displays open;
+   Block 14 has measured them. Audit 8 to 11.
 5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
    earlier tentative 1.1. It keeps its place in the order. Audit 12.
 
