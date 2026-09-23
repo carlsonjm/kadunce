@@ -106,3 +106,17 @@ another card, it waits hidden and unfocused while its application is marked as
 wanting attention, and picking that application the way the dock does brings it
 forward with the dialog on top. Switching Kadunce off gives a waiting dialog
 back.
+
+# Virtual desktop sessions
+
+Run `KADUNCE_PROBE_SESSION=desktop-switch-runtime-session.sh` and
+`KADUNCE_PROBE_SESSION=desktop-switch-bento-runtime-session.sh`, each with
+`KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`.
+Until each virtual desktop has its own cards, cards and layouts live on the
+desktop where ownership started. The sessions add a second desktop, switch to
+it and open a window there, and require that the window stays a plain window
+that is drawn and takes touch, that Spread does not open there, that a layout on
+the first desktop never takes the window or pulls the person back, and that the
+first desktop's cards or layout come back exactly as they were, with a Spread
+left open closed into Active. They photograph the screens with
+`capture-png.py`, and the harness lets these sessions take screenshots.

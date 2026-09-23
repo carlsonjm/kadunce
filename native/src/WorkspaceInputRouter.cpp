@@ -176,6 +176,8 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    if (event->state == KWin::PointerButtonState::Pressed && m_target->standsAsideForInput()
+        && !m_pointerPressed && !m_railPointer) return false;
     if (m_railPointer) {
         const bool commit = event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Released;
         if (!commit) m_drainingPointerButtons.insert(Qt::LeftButton);
@@ -377,6 +379,7 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
+    if (m_target->standsAsideForInput() && m_ownedTouchIds.isEmpty() && m_railTouch < 0) return false;
     m_observedTouchIds.insert(event->id);
     if (m_railTouch >= 0) {
         m_drainingTouchIds.insert(m_railTouch);

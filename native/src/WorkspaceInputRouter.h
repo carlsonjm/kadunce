@@ -66,6 +66,9 @@ public:
     // The keys serve whatever holds the text focus, so a touch on them is
     // never a touch away from it.
     [[nodiscard]] virtual bool inputPanelContainsForInput(const QPointF &) const { return false; }
+    // Nothing on screen is Kadunce's: every new touch and press passes to the
+    // desktop untouched, including the bottom edge.
+    [[nodiscard]] virtual bool standsAsideForInput() const { return false; }
     [[nodiscard]] virtual bool cancelForwardedTouchForInput() = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool selectedStackContains(

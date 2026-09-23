@@ -174,6 +174,13 @@ private:
     // it belongs to, follows the application window at the root of that chain
     // and is never a card or a pane. Null for a window that belongs to none.
     static KWin::EffectWindow *dependentLead(const KWin::EffectWindow *window);
+    // Cards and layouts live on one virtual desktop until each desktop has its
+    // own (Table). On any other desktop Kadunce stands aside entirely.
+    [[nodiscard]] bool onOwnedDesktop() const;
+    void noteOwnedDesktop();
+    void handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current);
+    void toggleOwnedPresentation();
+    [[nodiscard]] bool standsAsideForInput() const override { return !onOwnedDesktop(); }
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.
@@ -401,6 +408,7 @@ private:
     double guestNeighborOpacity() const;
     KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
+    QPointer<KWin::VirtualDesktop> m_ownedDesktop;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;

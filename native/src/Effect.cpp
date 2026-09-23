@@ -31,6 +31,7 @@
 #include <opengl/glvertexbuffer.h>
 #include <window.h>
 #include <workspace.h>
+#include <virtualdesktops.h>
 #include <wayland_server.h>
 #include <wayland/seat.h>
 
@@ -437,6 +438,10 @@ Effect::Effect()
             this, &Effect::handleWindowClosed);
     connect(KWin::effects, &KWin::EffectsHandler::windowActivated,
             this, &Effect::handleWindowActivated);
+    connect(KWin::effects, &KWin::EffectsHandler::desktopChanged, this,
+            [this](KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current) {
+                handleDesktopChanged(previous, current);
+            });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
@@ -767,6 +772,35 @@ KWin::EffectWindow *Effect::dependentLead(const KWin::EffectWindow *window)
     }
     auto *effectLead = lead ? lead->effectWindow() : nullptr;
     return effectLead && effectLead != window && !effectLead->isDeleted() ? effectLead : nullptr;
+}
+
+bool Effect::onOwnedDesktop() const
+{
+    return !m_ownedDesktop || KWin::effects->currentDesktop() == m_ownedDesktop;
+}
+
+void Effect::noteOwnedDesktop()
+{
+    // Ownership belongs to the desktop it started on, and a desktop with no
+    // card and no layout left gives it up for the next one to start.
+    if (!m_cardStage->isActive() && !hasActiveDesktopStage()) m_ownedDesktop.clear();
+    else if (!m_ownedDesktop) m_ownedDesktop = KWin::effects->currentDesktop();
+}
+
+void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current)
+{
+    if (!m_ownedDesktop || previous == current) return;
+    // Nothing Kadunce started on this desktop may still be in hand.
+    if (previous == m_ownedDesktop) {
+        if (m_carryRuntime) m_carryRuntime->cancel();
+        cancelInputForCardStage();
+    }
+    // Coming back finds the cards presented, not a Spread left open. It cannot
+    // close on the way out: its cards are not on the desktop being shown.
+    if (current == m_ownedDesktop && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread)
+        toggleOwnedPresentation();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::isDependentWindow(const KWin::EffectWindow *window)
@@ -1119,7 +1153,7 @@ WorkspacePresentation Effect::presentationForInput() const
     // Bento is presented by the desktop stage's real panes. Card Stage still
     // owns its hidden individual cards, but none of its gestures apply, so the
     // router sees the same thing it saw before those cards could coexist.
-    if (!m_cardStage->isActive()
+    if (!m_cardStage->isActive() || !onOwnedDesktop()
         || m_cardStage->presentation() == CardPresentation::Bento) {
         return WorkspacePresentation::Inactive;
     }
@@ -1392,6 +1426,10 @@ QString Effect::applicationDisplayName(KWin::EffectWindow *window)
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    if (!onOwnedDesktop()) {
+        traceNativeMove(window, "other-desktop");
+        return;
+    }
     // Active-sized cards do not become ordinary windows through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
@@ -2356,6 +2394,7 @@ void Effect::endLauncherGuest()
 
 bool Effect::toggleBentoOnOutput(const QString &outputName)
 {
+    if (!onOwnedDesktop()) return false;
     const bool toggled = m_desktopStage->toggleOnOutput(outputName);
     observeCardOwnership();
     return toggled;
@@ -2633,6 +2672,12 @@ void Effect::activateSelectedFromInput()
 }
 
 void Effect::toggle()
+{
+    if (!onOwnedDesktop()) return;
+    toggleOwnedPresentation();
+}
+
+void Effect::toggleOwnedPresentation()
 {
     if (m_cardStage->launcherGuestActive()) {
         dismissLauncherGuestFromInput();
@@ -2951,6 +2996,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
 
 void Effect::observeCardOwnership()
 {
+    noteOwnedDesktop();
     std::vector<quintptr> cards;
     const auto &live = m_cardStage->liveCards();
     cards.reserve(static_cast<std::size_t>(live.size()));
@@ -3025,6 +3071,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     const auto admitReadyWindow = [this, candidate]() {
+        // A window that opens on another desktop is that desktop's, and plain.
+        if (!onOwnedDesktop()) return;
         if (!candidate || candidate->isDeleted() || !isCardWindow(candidate)
             || !candidate->window() || !candidate->window()->readyForPainting()) {
             return;
@@ -3087,6 +3135,7 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     }
     if (m_settlingWindow && window != m_settlingWindow) clearDropSettle();
     if (m_carriedWindow && window != m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
+    if (!onOwnedDesktop()) return;
     if (isApplicationWindow(window) && m_guestSwipeFocusReturn) {
         const bool restored = window == m_guestSwipeFocusReturn;
         m_guestSwipeFocusReturn.clear();
@@ -3383,8 +3432,9 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
     // owns, and a pane is not one of its cards, so it must not be routed here.
+    // Nor is anything on a desktop the cards do not live on.
     if (!m_cardStage->isActive() || !m_paintingOutput || !isCardWindow(window)
-        || m_desktopStage->managesWindow(window)) {
+        || m_desktopStage->managesWindow(window) || !onOwnedDesktop()) {
         KWin::effects->paintWindow(
             renderTarget, viewport, window, mask, deviceRegion, data);
         return;

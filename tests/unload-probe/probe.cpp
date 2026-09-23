@@ -232,6 +232,7 @@ public Q_SLOTS:
                 {"minimized", w->isMinimized()}, {"hidden", w->isHidden()},
                 {"active", w->isActive()}, {"layer", int(w->layer())},
                 {"output", w->output() ? w->output()->name() : QString()},
+                {"onCurrentDesktop", w->isOnCurrentDesktop()},
                 {"x", g.x()}, {"y", g.y()}, {"width", g.width()}, {"height", g.height()}});
         }
         return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));

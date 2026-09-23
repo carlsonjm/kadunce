@@ -76,7 +76,7 @@ public Q_SLOTS:
  void paneCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Pane admission probe"); w->setMinimumSize(700,600); w->resize(700,600); w->show(); }
  void widerCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
- void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); w->resize(400,300); w->show(); }
+ void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); tint(w, QColor(0x2e, 0x8b, 0x57)); w->resize(400,300); w->show(); }
  // A client whose own minimum grows while its layout is not live, the way one
  // does on a font or scale change. The rect its session stored is then a size
  // the client will not take, and the compositor clamps the placement to what
@@ -129,7 +129,9 @@ public Q_SLOTS:
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) w->close();
  }
- void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); w->resize(560,420); w->show(); }
+ // Each in its own colour, so a photograph says which window is showing.
+ static void tint(QWidget *w, QColor c) { QPalette p = w->palette(); p.setColor(QPalette::Window, c); w->setPalette(p); w->setAutoFillBackground(true); }
+ void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); tint(w, QColor(0xc8, 0x8a, 0x1e)); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or
  // scale change. The window it names is a pane whose layout is not live, so
