@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: next is the 22 September rebuild (Block 9): side gutter, top grab retired. Arrival motion with the dock follows it (Block 5). Ask J how the keys are put away. `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: arrival motion (Block 5) is built, awaiting J's physical pass (keyboard 1dc8464, shuffle 9c27e91). Next the rebuild (Block 9): side gutter; grab and resize onto the dock's handle. Concept governs. Branch `shuffle-1.0`.
