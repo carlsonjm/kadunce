@@ -320,6 +320,9 @@ rebuild that changes the Keyboard's size or edges keeps both halves.
 
 **Putting the keys away.** Settled: the handle carries them down (`DECISIONS.md`).
 
+**Slices 1 and 2.** Passed 24 September. At the 45% default J typed with no
+mistakes without looking at the keys.
+
 **Height and reservation.** The concept's height column still promises that the
 window above grows by what the Keyboard gives back, and its engineering
 constraints list workspace reservation. The keys cover and never reserve
