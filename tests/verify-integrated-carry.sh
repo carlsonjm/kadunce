@@ -69,7 +69,7 @@ done
 [[ ${#selected[@]} != 0 ]] || { echo "No scene matches KADUNCE_GATE_SCENES" >&2; exit 2; }
 
 mkdir "$test_root/source"
-cp -a "$project_dir/native" "$project_dir/tests" "$test_root/source/"
+cp -a "$project_dir/native" "$project_dir/tests" "$project_dir/control" "$test_root/source/"
 # Hashes describe the exact source/test snapshot, including uncommitted files.
 find "$test_root/source" -type f -print0 | sort -z | xargs -0 sha256sum >"$test_root/source.sha256"
 git -C "$project_dir" rev-parse HEAD >"$test_root/base-commit"
@@ -82,6 +82,14 @@ cmake --build "$test_root/production" -j8 >>"$test_root/build.log" 2>&1
     status=0
     ctest --test-dir "$test_root/production" --output-on-failure -j4 >"$test_root/ctest.log" 2>&1 || status=$?
     echo "$status" >"$test_root/ctest.status"
+) &
+
+# The guided repair builds and tests its own snapshot with installation refused,
+# independent of the compositors, so it runs beside them too.
+(
+    status=0
+    bash "$test_root/source/tests/verify-repair.sh" >"$test_root/repair.log" 2>&1 || status=$?
+    echo "$status" >"$test_root/repair.status"
 ) &
 
 # Apply the explicit one-line fixture patch only to the disposable copy.
@@ -120,6 +128,10 @@ if [[ $(cat "$test_root/ctest.status") != 0 ]]; then
     failed=1
 else
     tail -3 "$test_root/ctest.log"
+fi
+if [[ $(cat "$test_root/repair.status") != 0 ]]; then
+    echo "FAIL  guided repair  ($test_root/repair.log)"
+    failed=1
 fi
 if compgen -G "$test_root/*.failed" >/dev/null; then failed=1; fi
 ((failed == 0)) || { echo "FAIL: integrated carry gate; inspect $test_root" >&2; trap - ERR; exit 1; }

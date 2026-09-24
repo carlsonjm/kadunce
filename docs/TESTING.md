@@ -9,7 +9,7 @@ who installs; this document owns the procedure.
 | Check | Target class | Proves | Does not prove |
 | --- | --- | --- | --- |
 | `bash tests/verify-headless.sh` | Source and build only | Domain rules that need no KWin: a C++20 compiler and Qt6Core | Anything KWin-linked; never promotion evidence |
-| `./verify.sh` | Source and build only | Documentation hygiene, source guards, package and control checks; run on every change | Runtime behavior |
+| `./verify.sh` | Source and build only | Documentation hygiene, source guards including the idle-repaint guard, package and control checks; run on every change | Runtime behavior |
 | `bash tests/verify-integrated-carry.sh` | Private compositors | Every scene of the private route matrix plus native tests | The installed system, appearance, hardware |
 | `bash tests/verify-live-control.sh` | Live, read-only | The tray control is registered, exposes its switch, and is wanted at session start | Any gesture |
 | Physical review | Live, by hand | What only the real tablet shows: feel, touch, bezel, folio, displays, keys | Anything a saved test already proves |
@@ -325,5 +325,5 @@ the results back.
 6. The safety control: the automated check always; the hand toggle, with complete
    desktop recovery, only as § The test sheet allows.
 
-Do not run live repair to satisfy this checklist; `tests/verify-repair.sh` covers
-it in isolation unless repair behavior itself changed.
+Do not run live repair to satisfy this checklist; the integrated gate runs
+`tests/verify-repair.sh`, which covers it in isolation with installation refused.

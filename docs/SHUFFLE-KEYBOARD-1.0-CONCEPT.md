@@ -136,17 +136,11 @@ either edge; a square corner would need one distance-based mask.
 
 ### Accepted visual direction
 
-The September 17 concept establishes the direction without serving as a pixel-level
-layout specification. It predates the 22 September corrections above, so where the
-image and this document disagree, this document governs:
-
-![Shuffle Keyboard visual direction](../assets/concepts/shuffle-keyboard-direction-2026-09-17.png)
-
 - Retain MaiN Keyboard's open spacing, floating labels, and quiet lower key edges.
 - Use the shared dark surfaces, Ghost White labels, rounded controls, restrained
   borders, and accent only for meaningful state.
-- The built candidate's arrangement supersedes the image and the bullets this
-  replaces, because J has typed on it and accepted it. `123` and Tab take the
+- The built candidate's arrangement governs, because J has typed on it and
+  accepted it. `123` and Tab take the
   first two left edges and Shift the third, where a tap is one-shot Shift and a
   double tap locks Caps. Backspace and Enter share the right edge. The bottom row
   is `ctrl`, `alt`, a large Space, and the Tette Dot Meta key, which is the
@@ -155,10 +149,8 @@ image and this document disagree, this document governs:
 - Space is the widest control on the keyboard and is wider still now that it also
   carries the pointer. Sizing the keyboard up serves that directly, because a wider
   space bar is more travel before the gesture has to track beyond it.
-- The pictured Shuffle surface at the lower-right corner, and its gesture hints,
-  are retired with the key itself.
-- The pictured `caps` label is superseded by `shift`; do not implement duplicate
-  Shift or Caps controls from the reference image.
+- There is no Shuffle surface key and no gesture hint at the lower-right corner.
+- Shift carries both one-shot Shift and Caps lock; there is no separate Caps key.
 
 ## Engineering constraints
 
