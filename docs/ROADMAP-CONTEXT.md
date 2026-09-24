@@ -453,15 +453,17 @@ own height one layer below the surface, and a pull anywhere on the dock raises
 the Keyboard, because 21 of 28 measured pulls landed on the dock rather than the
 bar. Spread opens only from the bezel (`DECISIONS.md` § Spread opens from the
 bezel, not from the dock). The dock grows uncapped until Block 12c.
+The compositor closes the handle's surface when its display leaves, so the
+handle is rebuilt whenever a display comes or goes, on Kadunce's card display or
+else the dock's, and shows only while the dock is there. Physically passed 24
+September.
 
 **Hand test, 24 September.** The sheet, its actions and bringing back a
-minimized monitor window passed. The dock stepped aside, as it does for the
-keys, whenever Zen focused its own field on a tab switch or a new window with
-no keys shown, and stayed gone until a tap in open space. A tap on an app in
+minimized monitor window passed. The dock once stepped aside whenever Zen
+focused its own field with no keys shown. A tap on an app in
 front puts it away only when it has one window; with several it moves to the
 next, which is Plasma's own default at 6.7.5, and J kept the platform's
-behavior. After unplugging the monitor the handle sat broken in a corner until a
-new session. J's direction: the sheet leads with window actions, since app
+behavior. J's direction: the sheet leads with window actions, since app
 actions vary by application; smaller pills; the pin was not recognizable as a
 control, though it is one; the bar and dots combine, with at most two dots.
 

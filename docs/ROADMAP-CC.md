@@ -27,7 +27,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 13 | What a person meets first | Next |
 | 14 | Ownership scope | Next: build the monitor's layout rule |
 | 9 | Shuffle Keyboard | In progress |
-| 5 | Bottom Surface | In progress: the handle after an unplug, then the sheet and the arrival motion |
+| 5 | Bottom Surface | In progress: the sheet, then the arrival motion |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
 | 16 | Motion | Ready |
@@ -171,9 +171,9 @@ physical peripherals.
 - [x] Build the approved long-press sheet with live window previews, and the
       approved icon signals.
 - [x] The dock stays when an app focuses a text field and no keys come up.
-- [ ] **Next:** the Keyboard's handle comes back whole after a monitor is
-      unplugged or plugged in.
-- [ ] Sheet: new window as an icon beside the pin, the pin without its circle
+- [x] The Keyboard's handle comes back whole after a monitor is unplugged or
+      plugged in.
+- [ ] **Next:** Sheet: new window as an icon beside the pin, the pin without its circle
       and with its own pinned mark, and pills for the window's size actions
       with a more control for the rest.
 - [ ] Icon signals: the bar for the app in front keeps its dots, at most two.
