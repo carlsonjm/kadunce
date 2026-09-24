@@ -20,6 +20,8 @@ runs:
 - same-output Bento exchange, return-home, dock exclusion, and restoration;
 - ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration;
 - tablet Active departure and Bento return into Spread;
+- a monitor unplugged and plugged back in, leaving every card and its window on
+  the tablet;
 - Spread transfer, stack insertion/browsing, cancellation, and interrupted motion;
 - candidate Bento transfer/restoration/unload and independent safety checks.
 

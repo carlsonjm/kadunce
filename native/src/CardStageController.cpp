@@ -2095,6 +2095,73 @@ bool CardStageController::admitSleepingPaneAsCard(
     return true;
 }
 
+int CardStageController::returnCardsToDisplay()
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !tablet || !KWin::effects->screens().contains(tablet)) return 0;
+    // Where KWin intends a window to be, not where its last acknowledged frame
+    // was: a Wayland client acknowledges a move later than KWin decides it.
+    const KWin::EffectWindow *presented =
+        m_presentation == CardPresentation::Active ? selectedWindow() : nullptr;
+    int returned = 0;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    for (const QPointer<KWin::EffectWindow> &window : std::as_const(m_workspace.windows())) {
+        if (!window || window->isDeleted() || !window->window()) continue;
+        KWin::Window *client = window->window();
+        if (client->moveResizeOutput() == tablet
+            || client->isInteractiveMove() || client->isInteractiveResize()) continue;
+        // KWin may have given the window back a state it held on that layout.
+        // A card holds none of them; its restore record keeps the originals.
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore)
+            client->maximize(KWin::MaximizeRestore);
+        if (client->quickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
+        // Every card stands where the Active card does. Only the presented one
+        // is drawn there; the rest are drawn in Spread's slots or not at all.
+        const KWin::Rect target = window == presented
+            ? activePlacement(tablet) : activeTarget(tablet);
+        client->moveResize(KWin::RectF(target));
+        ++returned;
+        qInfo() << "Kadunce" << Revision << "returned card" << window->caption()
+                << "to" << tablet->name() << "target" << target;
+    }
+    if (returned == 0) return 0;
+    if (presented) m_activeSettleRemaining = 2;
+    KWin::effects->addRepaintFull();
+    return returned;
+}
+
+bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_cardGrabActive || m_launcherGuestActive || !tablet || !window
+        || window->isDeleted() || !window->window() || !window->isNormalWindow()
+        || !m_host->isManagedWindowForCardStage(window)
+        || window->window()->moveResizeOutput() != tablet
+        || window->isUserMove() || window->isUserResize()
+        || liveCardIndex(window) >= 0) return false;
+    // Admission appends the card after every other and selects it; the
+    // selection this display had is put back, so what it presents stands.
+    const int previousSelection = m_workspace.selectedIndex();
+    const auto admission = m_workspace.prepareAdmission(window, false);
+    if (!admission || !m_workspace.commitAdmission(*admission, [] { return true; }))
+        return false;
+    m_workspace.selectIndex(previousSelection);
+    // Published first, then described, as every other admission does. The
+    // record is where KWin put it on this display, which is a place release
+    // can always return it to.
+    retainManagedOwnership(window);
+    m_originalCardStackingOrder.append(window);
+    m_host->connectManagedWindowForCardStage(window);
+    KWin::effects->setElevatedWindow(window, false);
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "took" << window->caption()
+            << "as a card after its display went away;"
+            << m_workspace.windows().size() << "individual cards";
+    return true;
+}
+
 bool CardStageController::admitDisplacedPaneAsHiddenCard(
     KWin::EffectWindow *window, const std::function<bool()> &commitSource,
     const NativeMoveSnapshot *restore)

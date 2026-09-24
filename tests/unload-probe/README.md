@@ -120,3 +120,16 @@ the first desktop never takes the window or pulls the person back, and that the
 first desktop's cards or layout come back exactly as they were, with a Spread
 left open closed into Active. They photograph the screens with
 `capture-png.py`, and the harness lets these sessions take screenshots.
+
+# Monitor unplugged and plugged back in
+
+Run `KADUNCE_PROBE_SESSION=output-unplug-runtime-session.sh KADUNCE_RUNTIME_BUILD=<tablet build> bash tests/verify-unload-isolated.sh`
+with the virtual-tablet fixture build. Two windows are left on the second
+display, one maximized, and `kscreen-doctor` removes and re-adds that display.
+After every change a window on the tablet must be a card and a card's window
+must be on the tablet, as KWin reports it. An arrival must wait hidden behind
+the Active card, be drawn in Spread, and become Active when picked; replugging
+must not take a card back to the monitor or release the stage by re-maximizing
+the Active card. The session repeats the hand test's switch-off-and-on while
+the display is out, then switches off and requires ordinary windows. Every
+check is reported, so one failure does not hide the rest.

@@ -315,6 +315,11 @@ private:
                                        const KWin::RectF &geometry);
     void handleWindowMoveResizeFinished(KWin::EffectWindow *window);
     void handleScreenRemoved(KWin::LogicalOutput *output);
+    // A display plugged in, unplugged or moved. KWin moves windows between
+    // displays as it happens; once it has, cards go back to the display that
+    // holds them and windows it moved onto that display become cards.
+    void scheduleCardDisplaySettle();
+    void settleCardsOnDisplays();
     void handleSessionStateChanged();
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
@@ -417,6 +422,7 @@ private:
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;
     QList<QPointer<KWin::Window>> m_waitingLeads;
     bool m_dependentSyncQueued = false;
+    bool m_cardDisplaySettleQueued = false;
     bool m_holdingDependents = false;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;

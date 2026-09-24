@@ -478,6 +478,28 @@ public Q_SLOTS:
         }
         return true;
     }
+    // Leaves one window on a named display, as a person who had put it there
+    // would, for the sessions that start from a window on the monitor.
+    bool sendCaptionToOutput(const QString &caption, const QString &outputName) {
+        KWin::LogicalOutput *target = nullptr;
+        for (auto *o : KWin::effects->screens())
+            if (o->name() == outputName) target = o;
+        if (!target) return false;
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (w->isDeleted() || !w->window() || w->caption() != caption) continue;
+            w->window()->sendToOutput(target);
+            return true;
+        }
+        return false;
+    }
+    bool maximizeCaption(const QString &caption) {
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (w->isDeleted() || !w->window() || w->caption() != caption) continue;
+            w->window()->maximize(KWin::MaximizeFull);
+            return true;
+        }
+        return false;
+    }
     bool contactPrepareDecoration() { return contact && contact->prepareDecoration(); }
     bool contactLookupAll() {
         QSet<KWin::XdgToplevelInterface *> found;

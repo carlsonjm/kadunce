@@ -265,6 +265,18 @@ public:
     }
     // §10: a carried window with nothing to pair with becomes the Active card.
     bool promoteToActive(KWin::EffectWindow *window);
+    // A display was plugged in or out, and KWin moves windows between
+    // displays when that happens, cards included: it evacuates a removed
+    // display and puts windows back where they last stood on a layout it has
+    // seen before. §14 hands a card back to the desktop only by release or
+    // disable, so a card KWin moved off this display comes back to it, and the
+    // card and its window never name different displays. Returns how many.
+    int returnCardsToDisplay();
+    // §3: a window KWin moved onto this display because the display it stood
+    // on went away arrives as one card. It is not selected: the display keeps
+    // presenting what it presented, because a display going away is not the
+    // person asking for that window.
+    bool admitArrivalAsCard(KWin::EffectWindow *window);
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.
     void leaveBentoPresentation();

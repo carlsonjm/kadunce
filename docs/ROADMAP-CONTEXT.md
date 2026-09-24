@@ -1101,6 +1101,24 @@ are. `desktop-bezel-runtime` gives the tablet fixture a desktop-scoped
 background surface, no dock and the Z13 kit's posture file, and fails on the
 build before the change.
 
+J's next hand test the same evening unplugged the monitor, and a window that had
+been on it did not come back to the tablet; switching Kadunce off recovered it.
+After the monitor went back in, Kadunce reported that window as a tablet card
+while KWin had it on the monitor. The journal places the unplugs and replugs and
+shows Kadunce doing nothing at any of them. Measured in the nested compositor:
+KWin moves windows itself when a display comes or goes. It evacuates a removed
+display onto the ones that remain, and on replug it puts every window back where
+it last stood on that layout, cards included. That answers how the Active card
+reached the monitor earlier. Kadunce answered neither move. The tablet hides
+every window on it that is not a card, even in Spread, so an evacuated window
+could be neither seen nor picked, and a card KWin put back on the monitor stayed
+in the tablet's set, drawn nowhere on the tablet. Once KWin has finished, a card
+off the tablet now goes back to it, and a window moved onto it becomes a card
+behind the one in front (`DECISIONS.md` § A display coming or going keeps every
+card on the card display). `output-unplug-runtime` removes and re-adds the
+second nested display, including the switch-off-and-on J used, and fails 8 of
+its 15 checks on the build before the change.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person

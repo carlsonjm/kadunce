@@ -178,11 +178,16 @@ duplicates, and omits stack position.
   cards and leaves the rest plain until Table, which is in 1.0, brings a card
   set per desktop. A card moved
   to another desktop with the window menu is not handled.
-- Nothing answers a display changing place or a card's window changing
-  display. With a monitor plugged in, the window held as the Active card was
-  drawn on the monitor while the tablet presented it. How it reached the
-  monitor is not yet measured. The tablet's black background at the same time
-  was Plasma losing its desktop on that display, not Kadunce.
+- A monitor plugged in, unplugged or moved is answered once KWin has moved
+  windows for it: a card KWin moved off the tablet goes back to it, and a
+  window KWin moved onto the tablet from a display that went away becomes a
+  card behind the one in front, drawn in Spread. The nested session proves it;
+  hand testing has not yet. A card's window sent to another display any other
+  way, such as KWin's own window-to-screen shortcut, is still not answered.
+  Whether release returns a window to the right place after the tablet has
+  moved in the desktop layout since its card was taken is not measured. The
+  tablet's black background with a monitor attached was Plasma losing its
+  desktop on that display, not Kadunce.
 - Reorder intent zones still need product completion. A reorder commits at 82%
   of a card's pitch, 705px against an 860px pitch on the tablet's work area, and
   edge paging arms on a 300ms dwell inside a 115px edge zone. A sweep that long

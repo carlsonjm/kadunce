@@ -642,6 +642,26 @@ tablet change presentation without disturbing an external display the user is
 still reading; a single global session would make every tablet gesture a
 multi-display event.
 
+### A display coming or going keeps every card on the card display
+
+KWin moves windows itself when a display is plugged in, unplugged or moved: it
+evacuates a display that went away onto the ones that remain, and on replug it
+puts each window back where it last stood on that layout, cards included.
+Kadunce answers once KWin has finished. A card whose window KWin moved off the
+card display goes back to it, because §14 returns a card to the desktop only by
+release or disable and a card and its window must never name different
+displays. A window KWin moved onto the card display from one that went away
+becomes a card, as §3 says of any arrival from another display.
+
+The arrival becomes a nonselected card, and what the display presents stands.
+A display going away is not the person asking for that window, and several
+windows can arrive at once, so none of them is made Active. It is in Spread and
+answers the dock like any other card. Where the display holds no card nothing
+is hidden, so an arrival stays an ordinary window until ownership starts there
+the ordinary way. The rejected
+alternative let KWin's move stand and dropped the card, which returns a managed
+window to the desktop without a release.
+
 ### Teardown order is part of correctness
 
 On unload, Kadunce first cancels and destroys input routes, then restores managed

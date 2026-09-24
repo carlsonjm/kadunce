@@ -453,7 +453,12 @@ Effect::Effect()
             [this](KWin::LogicalOutput *output) {
                 m_desktopStage->handleScreenAdded(output);
                 refreshCardOutput();
+                scheduleCardDisplaySettle();
             });
+    // A display that moves, as the tablet does when a monitor is arranged
+    // beside it, is a layout KWin may put windows back into as well.
+    connect(KWin::effects, &KWin::EffectsHandler::virtualScreenGeometryChanged,
+            this, &Effect::scheduleCardDisplaySettle);
     // A touchscreen plugged in or out can move which display holds cards. The
     // turn lets KWin place a new one on its display first.
     if (KWin::input()) {
@@ -2012,6 +2017,58 @@ void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
     m_desktopStage->handleScreenRemoved(output);
     // KWin still lists the display while announcing its removal.
     QTimer::singleShot(0, this, &Effect::refreshCardOutput);
+    scheduleCardDisplaySettle();
+}
+
+void Effect::scheduleCardDisplaySettle()
+{
+    if (m_cardDisplaySettleQueued) return;
+    m_cardDisplaySettleQueued = true;
+    // KWin announces a display inside the call that rearranges windows for it,
+    // and the placement it remembers for a layout is put back at the end of
+    // that call. The turn after is the first one that sees where KWin left
+    // every window, and it follows the card display's own refresh.
+    QTimer::singleShot(0, this, &Effect::settleCardsOnDisplays);
+}
+
+void Effect::settleCardsOnDisplays()
+{
+    m_cardDisplaySettleQueued = false;
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (!tablet || !KWin::effects->screens().contains(tablet)) return;
+    // The paint route hides any window on the card display that is not a card,
+    // so a window KWin moved here must become one or it cannot be seen.
+    // Windows on a desktop the cards do not live on stay plain.
+    const auto arrived = [this, tablet](KWin::EffectWindow *window) {
+        return window && isCardWindow(window) && window->isNormalWindow()
+            && !isDependentWindow(window) && window->window()
+            && window->window()->moveResizeOutput() == tablet
+            && window->window()->readyForPainting()
+            && window->isOnCurrentDesktop()
+            && !window->isUserMove() && !window->isUserResize()
+            && window != m_carriedWindow && window != m_nativeCarry
+            && !m_desktopStage->managesWindow(window)
+            && m_cardStage->liveCardIndex(window) < 0;
+    };
+    QList<QPointer<KWin::EffectWindow>> arrivals;
+    if (onOwnedDesktop()) {
+        for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+            if (arrived(window)) arrivals.append(window);
+    }
+    bool strayed = false;
+    for (const auto &card : m_cardStage->liveCards()) {
+        if (card && !card->isDeleted() && card->window()
+            && card->window()->moveResizeOutput() != tablet) strayed = true;
+    }
+    // With no card owned nothing is hidden, so an arrival is an ordinary
+    // window there until ownership starts the ordinary way.
+    if (!m_cardStage->isActive() || (arrivals.isEmpty() && !strayed)) return;
+    cancelInputForCardStage();
+    (void)m_cardStage->returnCardsToDisplay();
+    for (const auto &window : std::as_const(arrivals))
+        if (window) (void)m_cardStage->admitArrivalAsCard(window);
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::cancelForwardedTouchForInput()
