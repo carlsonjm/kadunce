@@ -382,8 +382,8 @@ opens one sheet as wide as its window pictures: the last-used one ringed,
 then window actions as pills, size first, more while the line has room, the
 rest behind a more control, then the app's shortcuts behind one row. Pills act
 on every window, as Plasma's do; a pinned app's pin stands solid (J, 24
-September). Pictures show only the icon: a window's id reads as a letter of
-its title. On the icon, white
+September). Roles are named as `TaskManager.AbstractTasksModel.X`; read
+through a property holding the type, the shell returns the window's title. On the icon, white
 marks what is open (a dot per window up to three, the bar for the one in front)
 and the accent only means attention, a count, progress or starting.
 
