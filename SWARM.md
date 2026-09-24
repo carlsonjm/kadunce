@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: the three-slice rebuild passed 24 September (keyboard d2e7064). The dock's bezel either-or (shuffle fd7fd5e) awaits J's pass; the arrival motion is revisited next. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: rebuild and bezel either-or passed 24 September. Arrival revisit: room made at the keys' pace and a shorter wait (keyboard e5d0cbd, shuffle c68b414) await J's pass. Concept governs. Branch `shuffle-1.0`.
