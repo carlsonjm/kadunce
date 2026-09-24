@@ -262,10 +262,17 @@ the one-window snaps. On a machine with no touchscreen the same rule holds.
 
 **Hand test, 24 September.** One window on the monitor passed from a side and
 from the top, and switching off with windows parked returned every one. Two
-failed. The dock lists only its own display's windows (`filterByScreen` in the
-Bottom Surface's dock model), and J's machine has one dock, so a window parked on
-the monitor is missing from a dock on the tablet and a tap on its app opens a new
-window. J saw the same with the monitor primary; that half is unreproduced. Past
+failed. A window parked or minimized on the monitor was missing from the dock,
+and a tap on its app opened a new window, with either display primary. The dock
+model filtered hidden windows, and on Wayland Plasma's task model reports every
+minimized window as hidden, so each one left the list. Plasma's own task model,
+run in a private compositor, drops a window at minimize with the filter and keeps
+it without. The second pass hit the same thing: a pane minimized off a two-window
+monitor layout vanished from the dock. Kadunce's half, minimize and pick on a
+monitor layout organized in place or made by carrying a card there, holds with a
+real Zen window and is gated by `monitor-return-runtime`. Why J could not reach
+the tray until unplugging is unexplained. A pane minimized while the monitor's
+only visible pane leaves it empty even when a parked window waits. Past
 eight panes, a card carried to the monitor previewed only the Active size at the
 top and nothing at the sides, where the ruling gives it one slot and parks that
 slot's occupant. `monitor-full-runtime` does this on a 2560x1440 monitor and

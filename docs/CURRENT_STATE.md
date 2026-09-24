@@ -261,7 +261,7 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor scenes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior, and `verify-integrated-carry.sh`
-runs every one of them: 47 scenes, the native tests, the candidate check, the
+runs every one of them: 48 scenes, the native tests, the candidate check, the
 source, package and control guards, and a read-only session registration check,
 from a freshly captured source tree, in about three minutes. It runs every scene
 even after one fails, so a failure cannot hide the ones behind it. No scene
