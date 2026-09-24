@@ -5,7 +5,9 @@
 # CARD-LIFECYCLE.md §3: a window arriving on the display that holds cards
 # arrives as a card. §14: only release or disable returns a card to the
 # desktop. So after every change, a window on the tablet is a card and a card's
-# window is on the tablet, and a window that arrived can be seen and picked.
+# window is on the tablet. The window the person used last on the monitor comes
+# to the tablet as the Active card, so they pick up where they were; the other
+# arrivals and the card that was in front wait behind it.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -54,8 +56,11 @@ probe maximizeCaption 'Ordinary neighbor probe'
 sleep .3
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep .8
-report start
 main=$(idOf unload-client)
+# The person was last using the green window on the monitor.
+probe activateWindowId "$(idOf 'Cross ownership probe')"
+sleep .5
+report start
 check 'the tablet presents its one card; the monitor windows are plain' \
     context --arg m "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $m
         and ([.applications[] | select(.hasCard)] | length == 1)'
@@ -65,9 +70,11 @@ report unplugged
 check 'unplugged: KWin moved both monitor windows onto the tablet' \
     facts 'Cross ownership probe' '.output == "Virtual-0"'
 check 'unplugged: every window on the tablet is a card, every card is on the tablet' whole
-check 'unplugged: the card in front is still the one the person was using' \
-    context --arg m "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $m'
-check 'unplugged: an arrival waits hidden behind the Active card' test "$(green)" = 0.000
+check 'unplugged: the window last used on the monitor is the Active card' \
+    context --arg id "$(idOf 'Cross ownership probe')" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+check 'unplugged: the other arrival and the card that was in front wait behind it' \
+    context '[.applications[] | select(.title != "Cross ownership probe") | select(.hasCard and (.selected | not))] | length == 2'
+check 'unplugged: the Active card fills the tablet' atLeast "$(green)" 0.9
 kad showCardLine
 sleep .8
 check 'unplugged: the arrival is drawn in Spread on the tablet' atLeast "$(green)" 0.01

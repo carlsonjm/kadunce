@@ -2022,6 +2022,7 @@ void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 
 void Effect::scheduleCardDisplaySettle()
 {
+    m_cardDisplaySettleRounds = 0;
     if (m_cardDisplaySettleQueued) return;
     m_cardDisplaySettleQueued = true;
     // KWin announces a display inside the call that rearranges windows for it,
@@ -2064,9 +2065,32 @@ void Effect::settleCardsOnDisplays()
     // window there until ownership starts the ordinary way.
     if (!m_cardStage->isActive() || (arrivals.isEmpty() && !strayed)) return;
     cancelInputForCardStage();
-    (void)m_cardStage->returnCardsToDisplay();
-    for (const auto &window : std::as_const(arrivals))
-        if (window) (void)m_cardStage->admitArrivalAsCard(window);
+    // A client can still acknowledge the placement KWin asked of it before the
+    // return, and KWin applies an acknowledged placement where it was asked:
+    // a card that kept its size goes straight back, then that answer takes it
+    // to the other display again. Look once more after the round trip, until
+    // nothing needs to move, a bounded number of times.
+    constexpr int SettleRounds = 8;
+    if (m_cardStage->returnCardsToDisplay() > 0
+        && ++m_cardDisplaySettleRounds < SettleRounds) {
+        QTimer::singleShot(250, this, [this] {
+            if (!m_cardDisplaySettleQueued) settleCardsOnDisplays();
+        });
+    }
+    // The arrival the person used last is the one they pick up again, so it
+    // becomes the Active card and the others wait behind it. The card that was
+    // in front stays in the line. Ties go to the higher window in the stack.
+    KWin::EffectWindow *resume = nullptr;
+    quint64 latest = 0;
+    for (const auto &window : std::as_const(arrivals)) {
+        if (!window || !m_cardStage->admitArrivalAsCard(window)) continue;
+        const quint64 used = m_activationOrder.value(windowIdentity(window));
+        if (!resume || used >= latest) {
+            resume = window;
+            latest = used;
+        }
+    }
+    if (resume) (void)m_cardStage->promoteToActive(resume);
     observeCardOwnership();
     Q_EMIT workspaceContextChanged();
 }

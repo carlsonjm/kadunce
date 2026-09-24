@@ -2142,7 +2142,7 @@ bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
         || window->isUserMove() || window->isUserResize()
         || liveCardIndex(window) >= 0) return false;
     // Admission appends the card after every other and selects it; the
-    // selection this display had is put back, so what it presents stands.
+    // selection this display had is put back until the caller chooses.
     const int previousSelection = m_workspace.selectedIndex();
     const auto admission = m_workspace.prepareAdmission(window, false);
     if (!admission || !m_workspace.commitAdmission(*admission, [] { return true; }))

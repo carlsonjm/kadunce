@@ -273,9 +273,8 @@ public:
     // card and its window never name different displays. Returns how many.
     int returnCardsToDisplay();
     // §3: a window KWin moved onto this display because the display it stood
-    // on went away arrives as one card. It is not selected: the display keeps
-    // presenting what it presented, because a display going away is not the
-    // person asking for that window.
+    // on went away arrives as one card. It is admitted unselected, so the
+    // caller decides which arrival, if any, is presented.
     bool admitArrivalAsCard(KWin::EffectWindow *window);
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.

@@ -1113,11 +1113,12 @@ reached the monitor earlier. Kadunce answered neither move. The tablet hides
 every window on it that is not a card, even in Spread, so an evacuated window
 could be neither seen nor picked, and a card KWin put back on the monitor stayed
 in the tablet's set, drawn nowhere on the tablet. Once KWin has finished, a card
-off the tablet now goes back to it, and a window moved onto it becomes a card
-behind the one in front (`DECISIONS.md` § A display coming or going keeps every
-card on the card display). `output-unplug-runtime` removes and re-adds the
-second nested display, including the switch-off-and-on J used, and fails 8 of
-its 15 checks on the build before the change.
+off the tablet now goes back to it, and windows moved onto it become cards
+(`DECISIONS.md` § A display coming or going keeps every card on the card
+display). J then ruled that the arrival he used last comes in front as the
+Active card, so he picks up where he was, with the rest behind it; cards stay
+on the tablet on replug. `output-unplug-runtime` removes and re-adds the second
+nested display, including the switch-off-and-on J used, and checks both.
 
 ## Block 15 — Consumer fundamentals
 

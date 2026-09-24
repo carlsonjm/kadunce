@@ -653,14 +653,21 @@ release or disable and a card and its window must never name different
 displays. A window KWin moved onto the card display from one that went away
 becomes a card, as §3 says of any arrival from another display.
 
-The arrival becomes a nonselected card, and what the display presents stands.
-A display going away is not the person asking for that window, and several
-windows can arrive at once, so none of them is made Active. It is in Spread and
-answers the dock like any other card. Where the display holds no card nothing
-is hidden, so an arrival stays an ordinary window until ownership starts there
-the ordinary way. The rejected
+J ruled on 23 September that the arrival he was using last becomes the Active
+card, because he chose to pick up where he was on the monitor. Among the windows
+KWin moves onto the card display, the one most recently activated is presented;
+the other arrivals are nonselected cards behind it, and the card that was Active
+before stays in the line as an ordinary nonselected card. Where the display
+holds no card nothing is hidden, so an arrival stays an ordinary window until
+ownership starts there the ordinary way.
+
+On replug the cards stay on the card display (J, 23 September). The rejected
 alternative let KWin's move stand and dropped the card, which returns a managed
 window to the desktop without a release.
+
+A card that kept its size can be taken back to the other display by the
+client's late answer to the placement KWin asked for first, so the return is
+checked again after that round trip until nothing needs to move.
 
 ### Teardown order is part of correctness
 

@@ -127,8 +127,10 @@ Run `KADUNCE_PROBE_SESSION=output-unplug-runtime-session.sh KADUNCE_RUNTIME_BUIL
 with the virtual-tablet fixture build. Two windows are left on the second
 display, one maximized, and `kscreen-doctor` removes and re-adds that display.
 After every change a window on the tablet must be a card and a card's window
-must be on the tablet, as KWin reports it. An arrival must wait hidden behind
-the Active card, be drawn in Spread, and become Active when picked; replugging
+must be on the tablet, as KWin reports it. The window used last on the monitor
+must arrive as the Active card with the other arrival and the previous Active
+card behind it, be drawn in Spread, and another arrival must become Active when
+picked; replugging
 must not take a card back to the monitor or release the stage by re-maximizing
 the Active card. The session repeats the hand test's switch-off-and-on while
 the display is out, then switches off and requires ordinary windows. Every

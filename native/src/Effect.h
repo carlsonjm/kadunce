@@ -423,6 +423,7 @@ private:
     QList<QPointer<KWin::Window>> m_waitingLeads;
     bool m_dependentSyncQueued = false;
     bool m_cardDisplaySettleQueued = false;
+    int m_cardDisplaySettleRounds = 0;
     bool m_holdingDependents = false;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;

@@ -179,9 +179,10 @@ duplicates, and omits stack position.
   set per desktop. A card moved
   to another desktop with the window menu is not handled.
 - A monitor plugged in, unplugged or moved is answered once KWin has moved
-  windows for it: a card KWin moved off the tablet goes back to it, and a
-  window KWin moved onto the tablet from a display that went away becomes a
-  card behind the one in front, drawn in Spread. The nested session proves it;
+  windows for it: a card KWin moved off the tablet goes back to it, and the
+  windows KWin moved onto the tablet from a display that went away become
+  cards, the one used last presented as the Active card and the rest, with the
+  card that was in front, behind it. The nested session proves it;
   hand testing has not yet. A card's window sent to another display any other
   way, such as KWin's own window-to-screen shortcut, is still not answered.
   Whether release returns a window to the right place after the tablet has
