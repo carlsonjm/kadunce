@@ -134,9 +134,8 @@ display and desktop a person can reach.
 ## Block 9 — Shuffle Keyboard
 
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
-- [ ] **Next:** Rebuild slice 1: the card, fixed key width, height limits.
-      (audit 13)
-- [ ] Rebuild slice 2: the history and height scrub columns.
+- [x] Rebuild slice 1: the card, fixed key width, height limits. (audit 13)
+- [ ] **Next:** Rebuild slice 2: the history and height scrub columns.
 - [ ] Rebuild slice 3, the space-bar pointer.
 - [ ] Move the Keyboard's own grab and resize onto the dock's handle; height
       goes to the right-edge scrub column.

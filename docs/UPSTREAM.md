@@ -16,7 +16,7 @@ code) or **inferred**.
 | When the space below the keys grows, they stay floating where they were placed. | KWin input panel | measured | report or small patch |
 | An overlay opened after the keys covers them. | KWin stacking | measured | report |
 | A task list hiding hidden windows loses every minimized one on Wayland. | libtaskmanager | measured | report; may be deliberate |
-| Clicking an app with several windows can raise nothing when the shell started after they were last used. | Icons-only Task Manager | source | small patch |
+| Key sounds can never be switched on: the build option is `PLASMA_KEYBOARD_SOUNDS_ENABLED`, but the code reads `PLASMA_KEYBOARD_SOUND_ENABLED`. | Plasma Keyboard | source | one-line patch |
 | A reinstalled effect reports loaded while the old build runs until logout. | KWin effect loading | measured | report |
 | With a monitor made primary, the tablet's desktop goes black, Kadunce off too. | plasma-workspace | measured once | report once reproduced |
 

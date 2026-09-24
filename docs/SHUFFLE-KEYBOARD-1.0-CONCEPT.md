@@ -44,7 +44,8 @@ were approved on 22 September.
   § The keyboard overlays), so a shorter keyboard uncovers more of the card
   beneath it, and the user is trading accuracy for screen rather than picking a
   key size. A
-  bright notch marks the default, which is a square key.
+  bright notch marks the default, which is a square key. Height runs from 35% to
+  55% of the screen in steps of one; the default is 45% (J, 24 September).
 
   This is the sharpest conflict with the built candidate, which derives the typing
   block's width from the selected row height so that ordinary keys stay square.
