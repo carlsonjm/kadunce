@@ -853,9 +853,9 @@ September).
 
 ### The latched trackpad is the pointer
 
-J, 24 September: pointing lives in the latch at the space bar's right end,
-which holds the keys up; the space bar only types. Rejected, after a build:
-sliding the space bar to point, whose clicks put the keys down.
+J, 24 September: pointing lives in the latch at the space bar's end, which
+holds the keys up. Rejected after a build: a space-bar slide, whose clicks put
+the keys down.
 
 ### The handle brings the keys and takes them away
 
