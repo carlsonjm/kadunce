@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: rebuild in three slices (Block 9). Card and scrub columns passed; the space-bar pointer (keyboard e46071e) awaits J's pass. Arrival motion is revisited after. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: slices 1-2 passed; slice 3 polish passed (keyboard e5db8ac). Open: J's ruling on clicking while pointing (keys close on a click), and Kadunce 4f9b186's narrowed bezel under the keys awaits install. Concept governs. Branch `shuffle-1.0`.
