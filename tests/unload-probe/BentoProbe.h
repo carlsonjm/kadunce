@@ -736,64 +736,6 @@ struct BentoProbe {
         controller.restoreAllSessions();
         return rejected && stale && accepted;
     }
-    bool edgeBatchAdmission() {
-        controller.restoreAllSessions();
-        if (!client || !client->window()) return false;
-        QList<QPointer<KWin::EffectWindow>> others;
-        for (auto *w : KWin::effects->stackingOrder())
-            if (w != client && host.isManagedWindowForDesktopStage(w)) others.append(w);
-        if (others.size() < 2) return false;
-        auto resident = others[0];
-        auto witness = others[1];
-        auto *origin = client->screen();
-        KWin::LogicalOutput *target = nullptr;
-        for (auto *o : KWin::effects->screens()) if (o != origin) { target = o; break; }
-        if (!target) return false;
-        resident->window()->sendToOutput(target);
-        witness->window()->sendToOutput(origin);
-        const auto residentGeometry = resident->frameGeometry();
-        const auto witnessGeometry = witness->frameGeometry();
-        const auto clientGeometry = client->frameGeometry();
-        const KWin::RectF arrivalGeometry(target->geometry());
-        using Intent = Kadunce::DesktopStageController::CardDropIntent;
-        int commits = 0, releases = 0;
-        const auto rejectedCommit = [&] { ++commits; return false; };
-        // Even an explicit activation request must not turn the tablet into a
-        // monitor composition session through this transfer entry point.
-        host.tablet = target;
-        const bool forbidden = controller.transferCardWindow(client, target, arrivalGeometry,
-            rejectedCommit, [&] { ++releases; }, Intent::ActivateBento);
-        host.tablet = nullptr;
-        if (forbidden || commits || releases || controller.hasActiveSession()) return false;
-        const bool rejected = controller.transferCardWindow(client, target, arrivalGeometry,
-            rejectedCommit, [&] { ++releases; }, Intent::ActivateBento);
-        if (rejected || commits != 1 || releases || controller.hasActiveSession()
-            || client->screen() != origin || client->frameGeometry() != clientGeometry
-            || resident->frameGeometry() != residentGeometry) return false;
-        bool ordered = false;
-        const bool accepted = controller.transferCardWindow(client, target, arrivalGeometry,
-            [&] {
-                ++commits;
-                return !controller.hasActiveSession() && client->screen() == origin;
-            }, [&] {
-                ++releases;
-                ordered = commits == 2 && controller.hasSessionOnOutput(target->name())
-                    && controller.managesWindow(client) && controller.managesWindow(resident)
-                    && !controller.managesWindow(witness) && client->screen() == origin;
-            }, Intent::ActivateBento);
-        const bool correct = accepted && ordered && releases == 1
-            && client->screen() == target && !controller.managesWindow(witness)
-            && witness->screen() == origin && witness->frameGeometry() == witnessGeometry;
-        controller.restoreAllSessions();
-        if (!correct) return false;
-        // Arrival already belongs to destination output: merge, don't duplicate.
-        const bool local = controller.transferCardWindow(client, target, arrivalGeometry,
-            [] { return true; }, [] {}, Intent::ActivateBento);
-        const bool localCorrect = local && controller.managesWindow(client)
-            && controller.managesWindow(resident) && !controller.managesWindow(witness);
-        controller.restoreAllSessions();
-        return localCorrect;
-    }
     bool cardAdmissionOrdering() {
         if (!client || !client->window()) return false;
         QPointer<KWin::EffectWindow> companion;

@@ -682,4 +682,15 @@ if rg -q '\bmoveWindow\(|windowToScreen\(|frameGeometry\s*=' "${native_dir}"; th
     exit 1
 fi
 
+# A scene the gate does not run is not evidence, and it goes stale unseen.
+for scene in "$project_dir"/tests/unload-probe/*session.sh; do
+    name=$(basename "$scene" .sh)
+    name=${name%-session}
+    [[ $name == session ]] && name=unload
+    if ! grep -Eq "^    $name (production|tablet)$" "$project_dir/tests/verify-integrated-carry.sh"; then
+        echo "tests/unload-probe/$(basename "$scene") is not run by verify-integrated-carry.sh" >&2
+        exit 1
+    fi
+done
+
 echo "Kadunce source checks passed; controller boundaries, standard layout and focused-pair guards are intact"

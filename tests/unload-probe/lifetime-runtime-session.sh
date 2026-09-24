@@ -7,15 +7,27 @@ trap 'echo "FAIL: lifetime line $LINENO" >&2' ERR
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
 client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
+# The bezel is Kadunce's to recognise only with the Z13 kit's posture file.
+mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
+echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe
 "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
+# Plasma always draws a desktop background under the bezel.
+client desktopSurface
+sleep .5
 probe pointer 500 350
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 main=$(kad workspaceContext | jq -r '.applications[0].windowId')
+# Loading makes the window in use the Active card at once, so its desktop
+# geometry is read with the effect unloaded.
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
+sleep .3
 original=$(probe windowGeometry "$main")
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
+sleep .3
 kad showCardLine
 kad showActive
 sleep .3
@@ -39,12 +51,10 @@ sleep .2
 kad workspaceContext | jq -e '.cardStage.presentation == "active"'
 test "$(probe windowGeometry "$main")" = "$active"
 echo 'PASS: Active resize rejected without ownership release'
-probe down 72 640 775
-probe motion 72 640 755
-probe motion 72 640 735
-probe motion 72 640 680
+probe down 72 640 796
+for y in 760 720 660 600 540; do probe motion 72 640 "$y"; sleep .03; done
 probe up 72
-sleep .3
+sleep .6
 kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
 test "$(probe windowGeometry "$main")" = "$active"
 echo 'PASS: bottom edge swipe enters Spread without native resize'
@@ -60,8 +70,9 @@ test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep .3
 test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep .3
-test "$(probe windowGeometry "$main")" = "$original"
-echo 'PASS: retained app record survives second app and Bento round trip'
+# A layout ends into card ownership (CARD-LIFECYCLE.md §5) rather than
+# returning the window to the desktop; the unload below proves its restore
+# record survived the second app and the round trip.
 kad showCardLine
 kad showActive
 kad showCardLine

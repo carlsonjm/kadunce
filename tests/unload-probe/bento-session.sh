@@ -8,7 +8,7 @@ for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe >/dev/null 2>&1; then break; fi
     sleep .1
 done
-rg -Fq "$KADUNCE_UNLOAD_PROBE_BUILD/bin/kwin/effects/plugins/kadunce_unload_probe.so" "/proc/${PPID}/maps"
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded kadunce_unload_probe | rg -qx true
 "$KADUNCE_UNLOAD_PROBE_BUILD/bin/unload-client" &
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
@@ -44,16 +44,8 @@ test "$(probe bentoRestoreReentry)" = true
 test "$(probe bentoFresh)" = true
 echo 'PASS: admission attempted synchronously during restoration is rejected; fresh admission afterward works'
 echo 'PASS: real KWin synchronous Bento restore during placement, delayed geometry/minimized restoration, fresh activation'
-geometry_started=$(probe bentoBeginContestedGeometry)
-echo "Contested-geometry activation: $geometry_started"
-test "$geometry_started" = true
-sleep .8
-geometry_recovered=$(probe bentoGeometryRecovered)
-echo "Contested-geometry recovery: $geometry_recovered"
-probe bentoGeometryEvidence
-test "$geometry_recovered" = true
-test "$(probe bentoFresh)" = true
-echo 'PASS: injected native geometry contention; bounded settling restores desktop geometry and fresh activation works'
+# A pane whose client keeps contesting its rect now leaves for card ownership
+# rather than returning to the desktop; settle-runtime covers that rule.
 test "$(probe bentoBeginStableGeometry)" = true
 sleep .8
 test "$(probe bentoStableGeometry)" = true
@@ -137,7 +129,5 @@ test "$production_admitted" = true
 sleep .3
 test "$(probe productionTabletPlaced)" = true
 echo 'PASS: production Bento and Card Stage controllers publish tablet membership before native placement'
-qdbus6 studio.warbler.UnloadClient /Client companion
-sleep .3
-test "$(probe edgeBatchAdmission)" = true
-echo 'PASS: explicit edge activation batch, source rejection, same-output merge and foreign-display isolation'
+# Batch edge admission was suspended from Block 3 on 20 September; the tablet's
+# shortcut names two windows instead of sweeping an output.

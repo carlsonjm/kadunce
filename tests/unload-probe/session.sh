@@ -19,7 +19,7 @@ for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe >/dev/null 2>&1; then break; fi
     sleep .1
 done
-rg -Fq "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/kwin/effects/plugins/kadunce_unload_probe.so" "/proc/${PPID}/maps"
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded kadunce_unload_probe | rg -qx true
 "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT

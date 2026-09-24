@@ -11,9 +11,20 @@ Run from the repository root:
 bash tests/verify-integrated-carry.sh
 ```
 
+While iterating on one change, name only the scenes it touches:
+
+```bash
+KADUNCE_GATE_SCENES="output-unplug-runtime desktop-bezel-runtime" bash tests/verify-integrated-carry.sh
+```
+
+A candidate is handed over only after a run with every scene. The full run takes
+about three minutes; `KADUNCE_GATE_JOBS` sets how many private compositors run at
+once (default 4). Every scene runs even after one fails, and each failure names
+its log.
+
 The harness snapshots the exact source and tests, records the base revision and
-hashes, builds the production plugin plus a disposable virtual-tablet variant, and
-runs:
+hashes, builds the production plugin, a disposable virtual-tablet variant and
+the probe once, and runs:
 
 - all native CTests;
 - pointer and touch cross-output carry and destination footprints;

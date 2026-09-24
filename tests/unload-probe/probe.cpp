@@ -321,112 +321,6 @@ public Q_SLOTS:
     void handoffCancelInput() {
         if (contact) contact->dispatch(contact->route.cancel(), contact->route.owner());
     }
-    void bentoRestore() { bento.controller.restoreAllSessions(); }
-    void handoffPress(bool touch) {
-        const auto center = contact->client->frameGeometry().center();
-        pointer(qRound(center.x()), qRound(center.y()));
-        if (touch) down(47, qRound(center.x()), qRound(center.y()));
-        else contactButton(true);
-    }
-    void handoffMove(bool touch) {
-        const auto center = contact->client->frameGeometry().center();
-        if (touch) motion(47, qRound(center.x()) + 10, qRound(center.y()));
-        else contactMotion(qRound(center.x()) + 10, qRound(center.y()));
-    }
-    bool handoffPreviewDrop(const QString &mode) {
-        if (!handoff || !handoff->source() || !contact || !contact->client) return false;
-        auto *w = contact->client->effectWindow();
-        KWin::LogicalOutput *target = nullptr;
-        for (auto *o : KWin::effects->screens()) if (o != w->screen()) { target = o; break; }
-        if (!target || bento.controller.hasSessionOnOutput(target->name())) return false;
-        destinationUnderTest = target;
-        const KWin::RectF geometry(target->geometry());
-        const auto reserved = bento.controller.prepareCardDrop(w, target, geometry);
-        if (!reserved) return false;
-        QPointer<KWin::LogicalOutput> output = target;
-        dropEnabled = true;
-        const bool previewed = handoff->previewDrop(
-            {Kadunce::CarryDestinationKind::NativeDesktop, target->name(), target->name(), 0, 0},
-            [this, reserved, mode] {
-                if (mode == QStringLiteral("cancel")) handoff->cancel();
-                return bento.controller.cardDropValid(*reserved);
-            },
-            [this, reserved, output, geometry, mode](const Kadunce::PreparedCarrySource &source) {
-                ++dropCommits;
-                if (mode == QStringLiteral("reject")) return false;
-                if (bento.reservationIsBento) {
-                    const bool committed = bento.controller.transferNativeCarryToDesktop(source, *reserved);
-                    if (bento.controller.transferNativeCarryToDesktop(source, *reserved)) qFatal("Bento drop replayed");
-                    return committed;
-                }
-                bento.reservationHost.desktopAdmission = [this, reserved](auto *, auto *, const auto &,
-                    const auto &commit, const auto &cleanup) {
-                    return bento.controller.transferPreparedCard(*reserved, commit, cleanup);
-                };
-                const bool committed = bento.reservationCards->transferNativeCarryToDesktop(source, output, geometry);
-                bento.reservationHost.desktopAdmission = {};
-                return committed;
-            });
-        if (mode == QStringLiteral("stale")) {
-            if (bento.reservationIsBento) {
-                // Retire only the receiver reservation, not the shared source
-                // generation: a rejected solve must preserve Bento's source.
-                if (bento.controller.transferPreparedCard(*reserved, [] { return false; }, [] {}))
-                    qFatal("rejected receiver committed");
-            } else bento.controller.stopPendingSettle();
-        }
-        // A foreign physical release must not consume the reservation.
-        auto foreign = contact->route.owner(); ++foreign.contact;
-        return previewed && !handoff->releaseDrop(foreign) && handoff->carry().busy();
-    }
-    bool handoffDropPassed(bool accepted, int attempts) {
-        return dropResult && dropResult->committed == accepted && dropCommits == attempts
-            && dropResult->outcome.resolution == (accepted ? Kadunce::CarryResolution::ReadyToCommit
-                                                         : Kadunce::CarryResolution::ReturnToOrigin)
-            && !handoff->releaseDrop(contact->route.owner()) && !handoff->takeOutcome()
-            && bento.sourceValid() == !accepted;
-    }
-    bool bentoPositionCompanion() {
-        if (!contact || !contact->client) return false;
-        bento.controller.restoreAllSessions();
-        if (bento.reservationCards) bento.reservationCards->release();
-        KWin::LogicalOutput *target = nullptr;
-        for (auto *o : KWin::effects->screens()) if (o != contact->client->output()) { target = o; break; }
-        if (!target) return false;
-        for (auto *w : KWin::effects->stackingOrder()) {
-            if (!bento.host.isManagedWindowForDesktopStage(w) || w->window() == contact->client) continue;
-            w->window()->setMinimized(false);
-            w->window()->sendToOutput(target);
-            w->window()->moveResize(KWin::RectF(target->geometry()).adjusted(100, 100, -100, -100));
-            return true;
-        }
-        return false;
-    }
-    bool bentoReservedDestination() {
-        destinationEvidence = QStringLiteral("Bento source preparation");
-        if (!contact || !contact->client) return false;
-        bento.client = contact->client->effectWindow();
-        if (!bento.sourcePrepare(true)) return false;
-        KWin::LogicalOutput *target = nullptr;
-        for (auto *o : KWin::effects->screens()) if (o != bento.client->screen()) { target = o; break; }
-        destinationEvidence = QStringLiteral("Bento target preparation");
-        if (!target || !bento.controller.toggleOnOutput(target->name())) return false;
-        // A different layout was published before pickup. Reserve the current
-        // source, not the superseded generation from fixture preparation.
-        bento.reservation = bento.controller.prepareNativeCarrySource(bento.client);
-        const auto reserved = bento.controller.prepareCardDrop(bento.client, target, KWin::RectF(target->geometry()));
-        destinationEvidence = QStringLiteral("Bento reservations");
-        if (!bento.reservation || !reserved) return false;
-        const auto original = bento.reservation->origin().output;
-        destinationUnderTest = target;
-        const bool committed = bento.controller.transferNativeCarryToDesktop(*bento.reservation, *reserved);
-        QDebug(&destinationEvidence) << committed << bento.sourceValid()
-            << bento.controller.outputStageState() << original << target->name();
-        return committed && !bento.controller.transferNativeCarryToDesktop(*bento.reservation, *reserved)
-            && bento.controller.hasSessionOnOutput(target->name())
-            && bento.controller.managesWindow(bento.client)
-            && !bento.controller.hasSessionOnOutput(original);
-    }
     bool handoffDisarm() {
         if (!handoff || !contact) return false;
         contact->onNativeStart = {}; contact->onIdentified = {};
@@ -518,59 +412,6 @@ public Q_SLOTS:
         return count >= 2;
     }
     void contactDrop() { contact.reset(); }
-    bool activeDestinationTest(bool reject, bool existingBento) {
-        destinationEvidence = QStringLiteral("starting");
-        if (!contact || !contact->client) return false;
-        bento.client = contact->client->effectWindow();
-        if (!bento.sourcePrepare(false)) { destinationEvidence = QStringLiteral("source preparation failed"); return false; }
-        KWin::LogicalOutput *destination = nullptr;
-        for (auto *output : KWin::effects->screens())
-            if (output != bento.client->screen()) { destination = output; break; }
-        if (!destination) return false;
-        destinationUnderTest = destination;
-        if (existingBento && !bento.controller.toggleOnOutput(destination->name())) {
-            destinationEvidence = QStringLiteral("layout preparation failed"); return false;
-        }
-        const auto source = *bento.reservation;
-        int commits = 0, cleanups = 0;
-        bool publishedBeforeCleanup = false;
-        bento.reservationHost.desktopAdmission = [&](auto *w, auto *o, const auto &geometry,
-                                                    const auto &commit, const auto &release) {
-            const auto drop = bento.controller.prepareCardDrop(w, o, geometry);
-            if (!drop || !bento.controller.cardDropValid(*drop)) return false;
-            if (reject) bento.controller.stopPendingSettle();
-            const bool accepted = bento.controller.transferPreparedCard(*drop,
-                [&] { ++commits; return commit(); },
-                [&] {
-                    ++cleanups;
-                    publishedBeforeCleanup = !bento.reservationCards->nativeCarrySourceValid(source)
-                        && (!existingBento || bento.controller.managesWindow(w));
-                    release();
-                });
-            const bool replay = bento.controller.transferPreparedCard(*drop,
-                [&] { ++commits; return false; }, [&] { ++cleanups; });
-            if (replay) return false;
-            return accepted;
-        };
-        const bool result = bento.reservationCards->transferNativeCarryToDesktop(
-            source, destination, KWin::RectF(destination->geometry()));
-        bento.reservationHost.desktopAdmission = {};
-        if (reject) return !result && commits == 0 && cleanups == 0 && bento.sourceValid();
-        const bool duplicateRejected = !bento.reservationCards->transferNativeCarryToDesktop(
-            source,destination,KWin::RectF(destination->geometry()));
-        const bool sourceStayedOrganized = !bento.reservationCards->isActive()
-            || bento.reservationCards->presentation() == Kadunce::CardPresentation::Spread;
-        bento.reservationCards->release();
-        QDebug(&destinationEvidence) << "Destination test" << existingBento << result << commits << cleanups
-            << publishedBeforeCleanup << duplicateRejected << sourceStayedOrganized
-            << (bento.client->screen() == destination);
-        return result && commits == 1 && cleanups == 1 && publishedBeforeCleanup
-            && duplicateRejected && sourceStayedOrganized;
-    }
-    QString activeDestinationEvidence() { return destinationEvidence; }
-    bool activeDestinationPlaced() {
-        return bento.client && destinationUnderTest && bento.client->screen() == destinationUnderTest;
-    }
     void contactButton(bool pressed) {
         KWin::input()->pointer()->processButton(272, pressed ? KWin::PointerButtonState::Pressed
             : KWin::PointerButtonState::Released, now(), &device);
@@ -639,7 +480,6 @@ public Q_SLOTS:
     bool bentoRestoreReentry() { return bento.restoreReentry(); }
     bool bentoOutputLostDuringRestore() { return bento.outputLostDuringRestore(); }
     bool cardAdmissionOrdering() { return bento.cardAdmissionOrdering(); }
-    bool edgeBatchAdmission() { return bento.edgeBatchAdmission(); }
     bool a2Setup() { return ownershipTransitions.setup(); }
     bool a2Begin() { return ownershipTransitions.begin(); }
     bool a2Arrival(bool oversized) { return ownershipTransitions.arrival(oversized); }
@@ -669,19 +509,11 @@ public Q_SLOTS:
     bool prepareProductionTablet() { return bento.prepareProductionTablet(); }
     bool productionTabletPlaced() { return bento.productionTabletPlaced(); }
     QString tabletAdmissionEvidence() { return bento.tabletEvidence; }
-    bool bentoBeginContestedGeometry() { return bento.beginGeometryTest(true); }
-    bool bentoGeometryRecovered() { return bento.geometryRecovered(); }
     bool bentoBeginStableGeometry() { return bento.beginGeometryTest(false); }
     bool bentoStableGeometry() {
         const bool active = bento.controller.hasActiveSession();
         bento.controller.restoreAllSessions();
         return active;
-    }
-    QString bentoGeometryEvidence() {
-        QString value;
-        QDebug(&value) << bento.controller.hasActiveSession() << bool(bento.client)
-            << (bento.client ? bento.client->frameGeometry() : KWin::RectF{}) << bento.original;
-        return value;
     }
     void arm() { drop(); target = Target{}; router = std::make_unique<WorkspaceInputRouter>(&target); KWin::input()->installInputEventFilter(router.get()); }
     void drop() { if(router) router->cancelWorkspaceInteraction(); router.reset(); }

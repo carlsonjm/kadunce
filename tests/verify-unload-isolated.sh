@@ -40,8 +40,15 @@ kwin_library=$(awk '$1 == "libkwin.so.6" && $2 == "=>" {print $3}' "$unload_root
 if [[ -n $kwin_library && -r $kwin_library ]]; then
     sha256sum "$kwin_library" >>"$unload_root/compositor.sha256"
 fi
-cmake -S "$project_dir/tests/unload-probe" -B "$unload_root/build" -DBUILD_TESTING=OFF >"$unload_root/build.log" 2>&1
-cmake --build "$unload_root/build" -j2 >>"$unload_root/build.log" 2>&1
+# A caller running many sessions builds the probe once and names it here; the
+# build is identical for every session, so rebuilding it per session only adds time.
+if [[ -n ${KADUNCE_PROBE_BUILD:-} ]]; then
+    test -d "$KADUNCE_PROBE_BUILD/bin"
+    ln -s "$KADUNCE_PROBE_BUILD" "$unload_root/build"
+else
+    cmake -S "$project_dir/tests/unload-probe" -B "$unload_root/build" -DBUILD_TESTING=OFF >"$unload_root/build.log" 2>&1
+    cmake --build "$unload_root/build" -j2 >>"$unload_root/build.log" 2>&1
+fi
 mkdir -p "$unload_root/runtime" "$unload_root/config" "$unload_root/data" "$unload_root/state"
 chmod 700 "$unload_root/runtime"
 xwayland_args=()

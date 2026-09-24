@@ -249,65 +249,26 @@ accepted ownership, constrained launch routing, stack retention, large-pane
 selection, monitor isolation, lifecycle, and the current live-rendering model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
-The isolated nested-compositor probes under `tests/unload-probe/` are the
-closest automated evidence to physical behavior. `ownership-transition`,
-`side-runtime`, `sleeping-pane-runtime`, `settle-runtime`, `stack-runtime`,
-`membership-runtime`, `launch-runtime`, `desktop-runtime` and `exit-runtime`
-pass and assert the
-accepted ownership contract: a launch joins a layout that can grow for it, one
-no slot fits is refused awake and unowned, a full layout's displaced pane
-becomes an awake individual card, a group resume leaves the cards beside it
-owned rather than returning them to the desktop, a minimized pane leaves for a
-sleeping card that waking does not put back, a placement a client keeps moving
-out of costs that pane rather than the layout, and a stacked member is released
-by rising out of the stack while one that never rose rejoins it. The
-two probes that never passed were retired on 20 September: `column-runtime`
-asserted a three-pane column on a display capped at two, which is the grammar
-Block 3b holds dormant, and `tablet-entry-runtime` never reached an edge because
-the harness could not start a carry from a press, a limit of the harness rather
-than of the gesture. Neither retirement changes what the suite covers.
+The isolated nested-compositor scenes under `tests/unload-probe/` are the
+closest automated evidence to physical behavior, and `verify-integrated-carry.sh`
+runs every one of them: 44 scenes, the native tests, the candidate check, the
+source, package and control guards, and a read-only session registration check,
+from a freshly captured source tree, in about three minutes. It runs every scene
+even after one fails, so a failure cannot hide the ones behind it. No scene
+outside the gate is kept. The scenes assert the accepted ownership contract,
+including: a launch joins a layout that can grow for it, one no slot fits is
+refused awake and unowned, a full layout's displaced pane becomes an awake
+individual card, a group resume leaves the cards beside it owned, a minimized
+pane leaves for a sleeping card that waking does not put back, a placement a
+client keeps moving out of costs that pane rather than the layout, a stacked
+member is released by rising out of the stack, switching Kadunce off returns a
+window to the exact desktop geometry it had before Kadunce loaded, and the
+effect names the plugin image its compositor has open.
 
-`verify-integrated-carry.sh` passes: sixteen nested-compositor sessions, the
-candidate check, the source, package and control guards, and a read-only
-session registration check, from a freshly captured source tree. It had not
-passed since 19 September, and the reasons were stacked: each one hid the next,
-because the matrix stops at its first failure. `tablet-runtime` asserted the `cardLine` presentation under the name
-`spread`, which `Effect::workspaceContext` never reports, and `full-session` and
-`lifetime-runtime` carried the same rewrite. `line-runtime` then failed at three
-assertions of its own, all of them probe errors rather than defects, and all
-three failed identically on `main`. Its release assertion asked for the held
-card width exactly, which only a read that elapsed no time can see; the settle
-itself was running and is measured doing so. Its two stack-seam assertions
-inverted the front-first insertion depth and reused one carried identity across
-two gestures, although the first release changes which card is the stack's
-face. `line-runtime` now passes end to end.
-
-Reaching past it exposed two more, both invisible for the same reason.
-`tablet-desktop-runtime` crashed the compositor: the destination outline is
-drawn for a Bento reservation or for a Card Stage entry, and only the first has
-a reservation, but the detach label asked the empty one whether it detaches. A
-native carry to a tablet side edge reaches that every time. The same session
-then asserted the superseded entry contract --- a first side snap composing
-Bento on the tablet rather than adopting it into cards --- and expected the
-tablet to answer the dock band differently from an ordinary display, which it
-no longer does now that both seams read capability rather than output identity.
-Past those, `verify-bento-candidate.sh` was asking `/proc/<kwin>/maps` which
-build the compositor had open. This kernel restricts ptrace to descendants, so
-that file is unreadable even as the same user; the check now asks the effect,
-which is the one process that can read its own map, and compares the inode it
-reports with the candidate's.
-Six failures in a row, one behind another, and only one of them a defect. A
-matrix that stops at its first failure hides everything after it, so the cost of
-leaving one member failing is not one check but every check behind it.
-`active-admission-session.sh` runs and passes; it asserts Bento-to-Active
-extraction over both selection paths, a refused extraction that leaves the
-layout unchanged, repeated extraction, last-pane teardown, exact restore and
-other-display isolation. It drives the controllers directly, and it now prepares
-a real carry source and validates it the way the gesture does, rather than
-supplying a stub that always agrees. That stub is why it passed for a week while
-the gesture it stood for refused every time. No display the harness creates is an
-internal panel, so no display there can own cards, and the gesture that reaches
-the seam is still hardware-only: that half waits on physical review.
+No display the harness creates is an internal panel, so no display there can
+own cards except through the virtual-tablet fixture, and routes that carry a
+window from another display onto the card display are hardware-only. They wait
+on physical review.
 
 Installing a candidate does not by itself put it in the running compositor.
 `install.sh` leaves the effect unloaded rather than reloaded, and KWin keeps the
