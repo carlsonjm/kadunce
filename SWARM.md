@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: rebuild in three slices (Block 9). Card and scrub columns passed; next the space-bar pointer, after J rules what a second finger does. Arrival motion is revisited after. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: rebuild in three slices (Block 9). Card and scrub columns passed; the space-bar pointer (keyboard e46071e) awaits J's pass. Arrival motion is revisited after. Concept governs. Branch `shuffle-1.0`.

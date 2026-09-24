@@ -839,12 +839,10 @@ on it were `main`'s.
 
 ### The keyboard comes up for the text, not for focus
 
-Settled by J on 23 September and extended on 24 September: the keys come up
-only when the person taps for them. A pull on the handle leaves the focus where
-it was, so a ready text box is typed into and panned into view; only a cold
-start borrows the focus to get the keys on screen. Focusing a card, or an
-application focusing its own field, is not a request to type: a keyboard KWin
-raises for it is put back down, and the dock does not step aside for it.
+J, 23 and 24 September: the keys come up only when the person taps for them.
+A pull on the handle leaves the focus where it was; only a cold start borrows
+it. A card or application focusing a field is not a request to type: keys
+KWin raises for it are put back down, and the dock stays.
 
 ### The dock steps aside for the keys
 
@@ -852,6 +850,11 @@ J, 23 September, against keys seated above a dock that stays: KWin seats them
 on the work area's bottom, so a reserving dock holds them up by its height. The
 dock gives up its room while keys are on screen, not merely asked for (J, 24
 September).
+
+### A second finger is the button while the space bar points
+
+J, 24 September: a second finger down presses the button and up releases it;
+the latch gives right click and scroll. Rejected: lift-to-click.
 
 ### The handle brings the keys and takes them away
 
