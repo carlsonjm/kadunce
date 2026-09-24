@@ -29,8 +29,8 @@ Run `KADUNCE_PROBE_SESSION=bento-session.sh bash tests/verify-unload-isolated.sh
 from the repository root for real-client synchronous restoration during Bento
 placement. The test-only host treats virtual outputs as external. It compiles
 the current production controller; it is not a production plugin replacement.
-Interpret results against `../../docs/CARRY-SESSION-CONTRACT.md` and
-`../../docs/INTEGRATION-RELEASE-GATE.md`.
+Interpret results against `../../docs/ARCHITECTURE.md` § Transfer transaction and
+§ Carry session, and `../../docs/TESTING.md`.
 
 ## Native takeover probe
 

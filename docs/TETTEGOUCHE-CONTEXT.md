@@ -50,9 +50,11 @@ must reject unknown major versions instead of guessing at fields.
 - `applications`: current-desktop application windows, including minimized
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
   identity, title, output, focus/minimize state, and current card membership.
-- `cardStage`: whether Card Stage is active, its `inactive`, `spread`, or
-  `active` presentation, the selected card UUID, and ordered selected-stack
-  member UUIDs.
+- `cardStage`: whether Card Stage is active, its presentation, the selected
+  card UUID, and ordered selected-stack member UUIDs. The presentation is one
+  of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
+  layout while Card Stage holds its cards hidden), or `active`. `cardLine` is a
+  frozen interface value that Block 10b renames with a versioned migration.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `displayContext`: hardware posture when supplied by the optional Z13 helper,
   the selected edge backend, and every output's role, geometry, and Bento

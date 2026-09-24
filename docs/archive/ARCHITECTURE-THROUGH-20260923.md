@@ -55,16 +55,18 @@ animation. Paint scheduling requests only the frames needed to reach an endpoint
 ## Restore and ownership records
 
 Every native geometry mutation has one authoritative restore record owned by the
-controller that owns the physical layout. Explicit release, unload, or an accepted
-transfer consumes the record. A presentation change never consumes it and never
-returns a window to the native desktop; `CARD-LIFECYCLE.md` §14 owns both rules.
+controller that owns the physical layout. Card membership keeps its restore record
+when presentation changes. Spread or selection changes do not restore the native
+window. Explicit release, unload, or an accepted transfer consumes the record.
 
 Card Stage release clears its live registry. Identity is stable by window handle or
 UUID while the effect is loaded; array indices are compatibility data, not durable
-identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §13).
+identity. Kadunce does not currently promise persistence across a complete effect
+unload.
 
 Constrained new windows use the Bento admission solver or prepared individual-card
-ownership.
+ownership. Presentation changes never release a managed window to the native
+desktop; `CARD-LIFECYCLE.md` defines what each presentation owns.
 
 ## Transfer transaction
 
@@ -75,112 +77,44 @@ All cross-owner transfers follow one order:
 3. The destination validates current output, membership, minimum sizes, visibility,
    the identities the input named, and its own revision, then prepares admission on
    a value copy.
-4. Every generation and topology check repeats at commit, and the source removes
-   membership only after destination acceptance.
-5. Controllers publish state and release the input route before guarded native
-   placement, which only a real-geometry destination applies.
+4. The source removes membership only after destination acceptance.
+5. Controllers publish state before guarded native placement.
 6. Rejection or cancellation preserves exact source membership, stack order,
    selection, and restore state.
 
-After acceptance, an interruption belongs to the destination and cannot restore
-stale source state.
-
 Existing Bento has priority for an incoming transfer. An invalid existing layout
-rejects instead of falling through to ordinary desktop placement. A same-output
-pane exchange swaps identities and restore records through one prepared layout,
-and a pane returned to its original slot consumes the drop without a native
-placement.
-
-A deliberate edge destination that means a pair prepares only the two windows
-`CARD-LIFECYCLE.md` §3 names. Nothing else on the display is an input to the
-solve, the preview, or the revalidation, and a plan with any other pane set is
-rejected. A display the pairing rules do not reach prepares its eligible
-resident batch plus the arrival. Open space without an existing Bento remains
+rejects instead of falling through to ordinary desktop placement. Where a
+deliberate edge destination means a pair, preparation admits exactly the carried
+window and the one partner the gesture named, and a plan that is not exactly
+those two panes is rejected. Open space without an existing Bento remains
 ordinary native desktop space on a display that cannot own cards; on a display
-that can, an arrival there is admitted to the card stage, publishing membership
-before presentation cleanup, and may seed Spread's center-and-expand motion from
-its released pose. A stack takes no arrival from the native desktop
-(`CARD-LIFECYCLE.md` §9).
+that can, an arrival there is admitted to the card stage.
 
 Committed monitor placement may retain a short compositor-only settle while KWin's
 requested output and geometry still match the reservation. The input route is already
 released. The settle cannot issue geometry writes and ends on new input, topology or
 manual state change, divergence, cancellation, or teardown.
 
-### Carry session
-
-A carry is the transfer value a live move between Spread, Bento and the native
-desktop creates. It identifies:
-
-- the source window and controller;
-- authoritative restore state captured before presentation ownership changes;
-- the initiating input device or contact and the pickup pose;
-- source membership, stack order, selection, and generation;
-- the current topology and output generation;
-- a semantic destination, every window identity it names, and any prepared
-  destination plan.
-
-A carry holds no mutable window model of its own. Presentation may derive a
-carried pose from it but cannot commit membership or geometry, and the carried
-face never becomes a second source of restore geometry. Each output clips its own
-paint route.
-
-- One carry has one outcome and one source restore record, and retires exactly
-  once, leaving no callback behind.
-- Preparation never invokes a mutating shortcut path and recruits no unrelated
-  client, panel, other output, or companion guest.
-- Commit admits the exact identities the carry named and revalidated; none is
-  re-read at release.
-- Native geometry is never written repeatedly during motion.
-- Paint and preview cannot make acceptance decisions.
+Native-to-stack admission is still incomplete as one atomic destination transaction;
+see `CURRENT_STATE.md`.
 
 ## Input ownership
 
 Each input stream has one owner until release or explicit cancellation. Panel input,
 application input, Tette guest input, Kadunce card input, and native KWin move/resize
-must not steal one another's releases. Routing never infers ownership from paint
-state.
+must not steal one another's releases. Touch identities and pointer buttons drain on
+their original route even when their actions are canceled.
 
-| Sequence | Owner until termination |
-| --- | --- |
-| Native desktop move/resize | KWin, unless exact Kadunce takeover proof succeeds |
-| Pointer press on a Plasma panel | Plasma through release |
-| Contact inside a companion guest | Guest through release |
-| Contact outside an open guest on the card display | Kadunce; stationary release may dismiss, movement cancels dismissal |
-| Contact on Spread or Active chrome | Kadunce through the semantic transaction |
-| Provisional bottom-edge touch | Client until deliberate upward intent and successful native cancellation |
-| Foreign or unmatched release | Original route; it cannot activate a card |
-
-Touch and pointer state are independent. Canceling one device cannot clear the
-other device's hold, grab, timer, or forwarded ownership. Each timer and delayed
-action carries the initiating device and generation, and its callback revalidates
-both before acting. A canceled contact stays in a drain set until physical
-release, so its release drains on the original route and cannot fall through to a
-new one. Forwarded pointer ownership retains every held button; releasing one does
-not end the route while another remains held.
-
-Ordinary client contact remains native until a deliberate reserved edge or
-crossing proves Kadunce intent and KWin's native interaction is canceled once.
-Kadunce takes over a native move only while all of these still match:
-
-- the exact weak window identity;
-- the initiating pointer button or touch identity and its source surface;
-- the same native move/resize lifetime;
-- controller and workspace generation and output topology;
-- an eligible move rather than a resize, keyboard, or unsupported request;
-- a valid deliberate Kadunce destination.
-
-Wayland application moves use the xdg-toplevel serial. Xwayland client-side moves
-correlate `_NET_WM_MOVERESIZE` after KWin has accepted the request. The observer
-neither consumes nor replays the client request. Failed or ambiguous proof stays
-native.
+Ordinary client contact remains native until a deliberate reserved edge or crossing
+proves Kadunce intent and KWin's native interaction is canceled once. Native source
+proof is bound to the exact window, initiating contact, move lifetime, generation,
+and topology. Failed proof stays native.
 
 Automatic electric-border tiling and maximize behavior are suppressed in memory
 while Kadunce is active and restored on unload. Explicit Shift custom tiling and
 keyboard/manual window operations remain KWin-owned.
 
-Source close, output loss, topology change, manual takeover, view release, effect
-unload, or competing input cancels the affected actions and timers.
+The detailed routing table is `INPUT-OWNERSHIP.md`.
 
 ## Output and dock rules
 
@@ -191,9 +125,8 @@ display's hardware identity. Sessions are output-local; changing or releasing on
 output must not release another output's session.
 
 Dock safety uses the actual work area plus visible bottom dock frames. The bottom
-edge remains an intentional destination strip even where a dock occupies it; that
-grants Kadunce no ordinary dock hit testing, and panel input stays with the panel.
-Native releases get one bounded position correction with 10 px clearance;
+edge remains an intentional destination strip, while ordinary panel input remains
+untouched. Native releases get one bounded position correction with 10 px clearance;
 oversized windows retain a reachable title bar instead of being resized.
 
 ## Integration boundaries
@@ -209,20 +142,14 @@ product contracts do not grant either component a second window or input backend
 
 ## Safety and teardown
 
-The out-of-process tray controller is the persistent recovery surface;
-`PRODUCT-CONTRACT.md` § System control states what it promises. On unload, input
-routes are canceled and destroyed while controllers remain alive, then every
-managed client is restored, as `CARD-LIFECYCLE.md` §13 lists, before the effect
-disappears. No timer, native observer, or callback survives its owner.
+The out-of-process tray controller is the persistent recovery surface. Disabling
+requires KWin to confirm safe effect unload; failure restores the enabled setting.
+On unload, input routes are canceled and destroyed while controllers remain alive,
+then every managed client is restored before the effect disappears.
 
 Private compositor tests must use isolated runtime directories, display sockets,
-and D-Bus. Headless and private tests prove routing, drain, callback, and carry
-rules; they do not prove hardware event ordering, a real panel or guest surface,
-live compositor unload, fractional scale, frame pacing, or live-session safety.
-`bash tests/verify-integrated-carry.sh` runs the private carry route matrix, and
-`../tests/unload-probe/README.md` covers the unload and takeover harness. Live
-disable or input injection requires explicit authorization. Follow
-`TESTING.md`.
+and D-Bus. They do not prove live-session safety or physical behavior. Follow
+`TEST-ENVIRONMENT-PROCEDURE.md` and `INTEGRATION-RELEASE-GATE.md`.
 
 ## Invariants
 

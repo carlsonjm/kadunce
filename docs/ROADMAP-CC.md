@@ -25,7 +25,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 13 | What a person meets first | Next |
-| 14 | Ownership scope | Next: measure, then J's ruling |
+| 14 | Ownership scope | Next: options for J on the monitor |
 | 9 | Shuffle Keyboard | In progress |
 | 5 | Bottom Surface | In progress; the Keyboard's arrival waits on Block 9's rebuild |
 | 15 | Consumer fundamentals | Ready: options for J |
@@ -36,8 +36,8 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 6b | Maintainability and lifecycle audit | Ready |
 | 7b | Spread deck motion | Waits on Blocks 5, 6 and 7 |
 | 9b | Shuffle Lock | Waits on Block 9; ships in the consumer bundle |
-| 10 | Downstream assembly and installation | Waits on Blocks 9 and 10a |
-| 10b | Package and interface identity | Waits on Block 10a |
+| 10 | Downstream assembly and installation | Waits on Block 9 |
+| 10b | Package and interface identity | Ready; coordinated across all three repositories |
 | 11 | Host and public site | Waits on Block 10 |
 | 8 | Table | In 1.0; keeps its place in the order |
 | 12 | Post-MVP debug | Deferred past MVP |
@@ -349,12 +349,16 @@ and nothing else fires.
 
 ## Open decisions
 
-1. **Plugin compatibility.** Approved: ship the KWin plugin as a package, built
-   per KWin release. Scheduled in Block 10.
+1. **Plugin compatibility.** Approved: ship the KWin plugin as a package from a
+   project pacman repository, built per KWin release, so a Plasma update that
+   breaks the plugin is repaired by an ordinary system update rather than a
+   rebuild on the user's machine. Scheduled in Block 10. See `DECISIONS.md`
+   § A consumer gets a working plugin from the package manager.
 2. **Shuffle Lock scope.** Open. What the lock screen hides, and what stays
    usable before signing in. The lock ships in the consumer bundle whatever else
    1.0 holds.
-3. **Edge pairing grammar.** Decided 19 September. See `ROADMAP-CONTEXT.md`.
+3. **Edge pairing grammar.** Decided 19 September. See `DECISIONS.md` § Spread
+   order selects the partner; the gesture places it.
 4. **What 1.0 promises about displays and desktops.** Decided 23 September.
    One touchscreen holds cards, wherever it is; every other display gets Bento,
    and a machine with no touchscreen gets Bento and Table only. 1.0 includes
@@ -374,9 +378,11 @@ Two session types share GitHub and have different reach.
 | `tests/verify-headless.sh` domain suite | yes | yes |
 | Reading, analysis, documentation | yes | yes |
 
-Anything touching `Effect`, `WorkspaceInputRouter`, packaging or the installed
-system needs a local session. A headless pass is a pre-check, never promotion
-evidence. The product boundary, execution policy, planning controls and ordering
+Domain-layer work in `CardWorkspaceState`, `SpreadModel`, `SpreadLayout` and
+`BentoLayout` is fully covered by the headless suite and can be prepared in
+either session. Anything touching `Effect`, `WorkspaceInputRouter`, packaging or
+the installed system needs a local session. A headless pass is a pre-check,
+never promotion evidence. The product boundary, execution policy, planning controls and ordering
 rationale are in `ROADMAP-CONTEXT.md`.
 
 ## Keeping this a checklist

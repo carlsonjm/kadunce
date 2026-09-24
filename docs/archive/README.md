@@ -20,6 +20,24 @@ investigation.
 - `SHUFFLE-KEYBOARD-CONCEPT-20260916.md`
 - `TEST-ENVIRONMENT-PROCEDURE-20260915.md`
 
+The `THROUGH-20260923` set is every document as it stood before the 23
+September consolidation, which moved finished-block history out of
+`ROADMAP-CONTEXT.md`, stated each rule once and merged overlapping references.
+
+- `ARCHITECTURE-THROUGH-20260923.md`
+- `CARD-LIFECYCLE-THROUGH-20260923.md`
+- `CARRY-SESSION-CONTRACT-THROUGH-20260923.md`
+- `CURRENT_STATE-THROUGH-20260923.md`
+- `DECISIONS-THROUGH-20260923.md`
+- `INPUT-OWNERSHIP-THROUGH-20260923.md`
+- `INTEGRATION-RELEASE-GATE-THROUGH-20260923.md`
+- `KNOWN-ISSUES-THROUGH-20260923.md`
+- `PRODUCT-CONTRACT-THROUGH-20260923.md`
+- `REFACTOR-REGRESSION-GATE-THROUGH-20260923.md`
+- `ROADMAP-CONTEXT-THROUGH-20260923.md`
+- `SHUFFLE-KEYBOARD-1.0-CONCEPT-THROUGH-20260923.md`
+- `TEST-ENVIRONMENT-PROCEDURE-THROUGH-20260923.md`
+
 ## Accepted freezes and checkpoints
 
 - `CHECKPOINT-20260916.md`
@@ -74,6 +92,9 @@ investigation.
 - `XWAYLAND-TEST.md`
 
 ## Geometry, rendering, and research
+
+- `NATIVE-MOVE-TRACE-20260912.jsonl` and `NATIVE-RETURN-TRACE-20260912.jsonl`: raw
+  native move and return event traces from the 12 September carry checkpoint.
 
 - `BENTO-COLUMN-20260914.md`
 - `BENTO-MOTION-20260914.md`

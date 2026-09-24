@@ -7,28 +7,32 @@ For every task, read only this startup set, in order:
 3. `docs/ROADMAP-CC.md`
 4. `SWARM.md`
 
-Then inspect the branch, working tree, and only the source or reference documents
-needed for the assigned work. `docs/README.md` classifies the remaining documents.
-Do not read `docs/archive/` during normal startup. Use archived evidence only to
-diagnose a regression, answer a provenance question, or revisit a failed candidate.
-For any card, Bento, admission, release, or Shuffle navigation task, read
+Then run `git fetch --all` and check the `origin/claude/*` branches. Cloud sessions
+land work there, and one branch can be ahead of `main` in several Shuffle
+repositories at once. Read a newer one before planning, and reconcile it against
+what `main` holds, not against the state it forked from, before merging.
+
+Inspect the branch, working tree, and only the source or reference documents the
+assigned work needs. `docs/README.md` classifies the remaining documents. Do not
+read `docs/archive/` during normal startup; use archived evidence only to diagnose
+a regression, answer a provenance question, or revisit a failed candidate. For any
+card, Bento, admission, release, or Shuffle navigation task, read
 `docs/CARD-LIFECYCLE.md` before inspecting implementation.
 
 Claude Code loads `CLAUDE.md` automatically. It routes into this same startup set
 and adds no separate protocol.
 
-`CURRENT_STATE.md` describes current behavior, limitations, source/installed state,
-and validation only. Replace stale text instead of appending progress notes.
-`ROADMAP-CC.md` is the only execution plan and owns block order, dependencies,
-and open product decisions. It is a checklist, one line per task, and J follows
-it directly; keep it one. The reasoning, measurements and planning controls behind
-each block live in `ROADMAP-CONTEXT.md` under the same headings: read the section
-for the block being worked on. Record durable architecture decisions in
-`DECISIONS.md`; Git records implementation history.
+## Holds
 
-Keep `SWARM.md` empty unless another live agent must act. A live handoff must be at
-most 50 words; remove it when the dependency is resolved. Do not put backlogs,
-status reports, implementation history, or completed handoffs there.
+These hold in every Shuffle repository.
+
+- J approves product behavior and visual direction before implementation begins.
+  Engineering may present evidence, constraints and alternatives; an unapproved
+  proposal does not become a candidate.
+- One implementation owner per repository. A second worker is read-only review or
+  a disjoint file set.
+- Reproduce a defect and measure the property controlling it before changing it.
+- Components never depend on private product features.
 
 ## Work packets
 
@@ -37,23 +41,61 @@ outcome; task-relevant contracts; acceptance checks; stop conditions; permission
 already granted. Omit history and unrelated reading. If another worker must act,
 reduce the dependency to one `SWARM.md` handoff and delete it when resolved.
 
+## Where writing goes
+
+- `docs/ROADMAP-CC.md` is the only execution plan and owns block order,
+  dependencies and open product decisions. It is a checklist, one line per task,
+  and J follows it directly; tick a finished task there and keep it one.
+- What was measured or learned goes in `docs/ROADMAP-CONTEXT.md` under the
+  block's heading; read that section for the block being worked on.
+- Durable decisions go in `docs/DECISIONS.md`.
+- `docs/CURRENT_STATE.md` describes current behavior, limitations,
+  source/installed state and validation only. Replace stale text; never append
+  progress notes.
+- A live cross-agent dependency goes in `SWARM.md` and nowhere else: at most three
+  handoffs of at most 50 words each, removed when resolved. No backlogs, status
+  reports, history or completed handoffs.
+- Keep progress narration, worker summaries, candidate hashes and test logs out of
+  live documents. Git carries history.
+- Code comments explain code behavior and reasoning only, never handoffs,
+  authorship, product instructions or agent conversation.
+- Terminology follows `docs/TERMINOLOGY.md`. Three layer-3 identities keep the
+  retired workspace term until Block 10b; `tests/verify-source.sh` names them and
+  rejects every other occurrence.
+- A new tracked document is added to `docs/README.md` in the same change, or
+  `tests/verify-docs.py` fails.
+- When a task is ticked, reduce its context to the durable finding; the story of
+  how it was found goes in the commit message. `docs/README.md` § Keeping
+  documentation small states the word budgets `tests/verify-docs.py` enforces.
+
 # Safety control
 
 Kadunce's persistent tray enable/disable switch is release-critical, including
 when the workspace effect is disabled or incompatible. Never remove it, make it
-optional, or treat effect tests alone as release evidence.
+optional, or treat effect tests alone as release evidence. A safety-control
+failure blocks promotion and is never waived by passing effect tests.
 
-For sandbox, D-Bus, private compositor, or startup failures, follow
-`docs/TEST-ENVIRONMENT-PROCEDURE.md`. A transport denial is not evidence that the
-kill switch is missing. Preserve private/live bus separation.
+A sandbox, D-Bus or transport denial is a test-environment result, not evidence
+that the switch is missing; classify it with `docs/TESTING.md` § Failure
+classification. Preserve private/live bus separation.
 
-For Kadunce changes, run `./verify.sh`. After a live installation, run
-`bash tests/verify-live-control.sh` in the graphical session and confirm the
-controller is wanted by `graphical-session.target`.
+Never probe the live session: do not start `plasmashell`, script panels, or kill
+a process by `$PPID` outside a private compositor. A nested Plasma-shell probe
+once froze the machine. Private compositor rules are in `docs/TESTING.md`.
 
-Installing, restarting the graphical session and logging the user out are the
-user's to perform. An agent prepares the candidate and hands the installation
-over as one exact command; no task packet authorizes it to run one itself.
-`docs/TEST-ENVIRONMENT-PROCEDURE.md` § Handing over an installation states what
-that handover carries. Do not toggle the live effect or publish unless the task
-explicitly authorizes it. A safety-control failure blocks promotion.
+## Verify
+
+Run `./verify.sh` before calling any change complete, and check its exit status
+rather than a pipe's. `docs/TESTING.md` says what each further check proves and
+when a candidate is promotable.
+
+## Installation handover
+
+Installing, restarting the graphical session and logging out are performed by J,
+never by an agent, and no task packet changes that. An agent builds and verifies
+the candidate and hands the installation over as one copy-pasteable command;
+`docs/TESTING.md` § Handing over an installation states what the handover
+carries. After J installs, `bash tests/verify-live-control.sh` runs in the
+graphical session and confirms the controller is wanted by
+`graphical-session.target`. Do not toggle the live effect or publish unless the
+task says so in words.

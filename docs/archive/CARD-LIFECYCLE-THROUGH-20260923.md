@@ -85,10 +85,17 @@ A window arriving from another display starts ownership the same way, whether it
 was carried there or left a layout that could not show it. It arrives as one
 card; arrival adopts nothing else.
 
-### First edge entry
+### First top-edge entry
 
-On a display Kadunce does not yet own, a top, left or right snap gives the same
-result:
+On a display Kadunce does not yet own:
+
+- The carried window becomes an individual card.
+- It becomes Active.
+- Every other eligible window becomes an individual nonselected card.
+
+### First left/right-edge entry
+
+On a display Kadunce does not yet own:
 
 - The carried window becomes an individual card.
 - It becomes Active.
@@ -141,7 +148,8 @@ window and the partner keep the ownership and presentation they had.
 ### The Bento action
 
 A Bento action is a request without a carried window or a contacted edge. It
-belongs to the display `PRODUCT-CONTRACT.md` § Input gives `Ctrl+B`.
+belongs to the display the product contract gives the desktop stage: the
+external display while one is attached, otherwise the tablet.
 
 On a display Kadunce owns that can own cards, it names a pair the way a side
 snap does. The Active card keeps the left side and its partner is the nearest
@@ -332,6 +340,8 @@ The same peer entries return:
 - Bento returns as one grouped entry.
 - Selection remains on the most recently presented entry.
 
+Changing presentation never consumes restoration data.
+
 ## 7. Minimize behavior
 
 ### Minimizing an individual card
@@ -439,9 +449,23 @@ Make the carried window an independent Active card. The top edge never pairs.
 
 ### Left or right edge
 
-§3 governs a side snap: it adopts a display Kadunce does not yet own, pairs on
-one it owns, and yields an individual Active card or no change when no partner is
-named. On a display with a live Bento layout it targets that layout under §5.
+Pair the carried window into Bento with one partner: the Active card, or, when
+the carried window is itself the Active card, the nearest eligible card on the
+contacted side of it in Spread order. The carried window takes the side it was
+released into and the partner takes the opposite side.
+
+When Kadunce does not yet own the display, the snap adopts it instead. The
+carried window becomes the Active card and every other eligible window becomes an
+individual card.
+
+Admit the carried window as an individual Active card when no eligible partner is
+named and the carried window is not the Active card.
+
+When the carried window is the Active card and no eligible partner is named,
+nothing changes.
+
+When the display has a live Bento layout, the snap targets that layout instead of
+beginning a pair.
 
 ### Bottom edge
 
@@ -469,9 +493,14 @@ Each display may contain:
 - Ordinary stacks
 - At most one Bento layout
 
-Moving a card between displays, with its restoration record, is a transfer under
-`ARCHITECTURE.md` § Transfer transaction. A failed transfer changes neither
-display.
+Moving a card between displays uses destination-first transfer:
+
+1. Prepare the destination.
+2. Validate the destination.
+3. Move the ownership and restoration record.
+4. Remove the source ownership.
+
+A failed transfer changes neither display.
 
 ## 12. Window closure
 
@@ -520,13 +549,16 @@ Kadunce does not persist card or Bento membership across unload or restart.
 - A pair commits with the partner it was prepared for, or does not commit.
 - Active is a presentation state, not a separate ownership class.
 - Selecting one entry never releases its neighbors.
-- Presentation changes never consume or overwrite restoration records.
-- Cross-owner transfers follow `ARCHITECTURE.md` § Transfer transaction.
+- Presentation changes never overwrite restoration records.
+- Destination acceptance happens before source removal.
 - Failed or cancelled transitions preserve the exact prior state.
 - Other displays and virtual desktops remain untouched.
 - Only explicit release or disable returns a managed window to the native desktop.
 
 ## 15. Shuffle navigation
 
-The navigation gestures are `PRODUCT-CONTRACT.md` § Input.
-
+- Bottom-edge swipe up launches Card Spread.
+- Top-edge swipe down returns to the current card state:
+  - Solo Card
+  - Card Stacks
+  - Bento, with its layout resumed

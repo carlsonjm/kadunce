@@ -5,8 +5,7 @@ subsystem. Superseded discussion and candidate evidence are preserved in
 `docs/archive/` and Git history.
 
 `CARD-LIFECYCLE.md` is the canonical product authority for card ownership,
-presentation states, transitions and release; `PRODUCT-CONTRACT.md` owns the
-gestures. This ledger
+presentation states, transitions, release, and Shuffle navigation. This ledger
 records the architectural rationale that implements that contract.
 
 ## Product and authority
@@ -21,8 +20,7 @@ create parallel window identity, geometry, virtual-desktop, or input-method syst
 
 Active means one window. Spread and Bento mean a set of windows. Table means a
 set of existing KDE virtual desktops. Displays and virtual desktops are independent
-dimensions; § Cards follow the touchscreen and § Table is required and uses KDE
-virtual desktops settle how each one meets cards.
+dimensions and require an explicit integration design.
 
 ### A dialog waits with its application
 
@@ -185,9 +183,11 @@ destination does not exist, so the session keeps its single pane exactly as
 before rather than shedding a window with no owner to become — the same answer
 §5 already gives a layout that cannot place what it sheds.
 
-A session that held a §7 sleeping window ends the same way, because the
-sleeping window has already left through its own door (§ A minimized pane leaves
-through a third door, asleep).
+One case is deliberately left out. A session still holding a §7 sleeping window
+does not end, because ending it would have to give that window to card
+ownership too and card ownership cannot yet hold a sleeping window. That is the
+same gap that keeps a minimized pane inside its session, and closing it closes
+both.
 
 ### The top edge means the same thing from a pane as from a card
 
@@ -286,20 +286,6 @@ what it can hold decide what a gesture means; what the display is called decides
 nothing. A display Kadunce already owns answers a side snap the same way whether
 it is a tablet or a monitor.
 
-### The Bento shortcut names a pair, and targets a display rather than the pointer
-
-The Bento shortcut carries no window and contacts no edge, so it needs an entry
-rule of its own. It targets a display as `PRODUCT-CONTRACT.md` states: the
-external display while one is attached, otherwise the tablet. It used to read
-the pointer, which on a touch tablet is wherever the pointer was last left, so
-it acted on a display the person was not looking at. The pointer-targeted path
-was removed rather than kept as a second rule.
-
-On a display that can own cards the shortcut names a pair the way a side snap
-does: the Active card on the left and its partner the nearest eligible card to
-its right. It composes two named windows rather than sweeping the display, for
-the reason § A side snap admits one card gives.
-
 ### Release is a command
 
 Release returns managed clients to safe ordinary Plasma windows. It is not a saved
@@ -328,35 +314,15 @@ cannot see is a window they will look for somewhere else, and a retained
 association would have to be reconciled on every minimize and every displacement.
 Scoping to visible panes removes that reconciliation instead of automating it.
 
-A window §7 puts to sleep leaves for card ownership as a sleeping card. Only
-where no display can own a card does the session keep it, because dropping it
-would lose the record release needs; that is the only snapshot a session may hold
-without showing.
+One window a session owns is not a visible pane: one §7 put to sleep. It stays
+because a minimized window is not an eligible card window, so card ownership
+cannot take it, and dropping it would lose the record release needs. That is a
+named state with a rule of its own, not a remainder, and it is the only snapshot
+a session may hold without showing.
 
 Scoping to visible panes also settles what a pairing may name: the group is one
 Spread entry, and neither it nor a window inside it passes the partner test, so a
 new layout cannot begin by taking a pane out of the live one.
-
-### The tablet keeps two panes; the three-pane grammar stays dormant
-
-Chosen by J on 19 September. The tablet's pane cap is two. A three-pane grammar
-was built as far as its shapes and contact mapping --- one column beside a
-top/bottom split, three vertical columns as its alternate, and side contact
-choosing between them --- and it raised questions that were not worth answering
-to reach an install: which resident holds which pane, what the shapes mean in a
-portrait work area, and whether the mapping extends to the monitor. The shapes
-and the mapping stay in the source behind `BentoContactGrammarPaneCap`, which no
-display's cap reaches.
-
-What was kept is the part never in doubt: one pane cap per display that every
-admission path reads, orientation from the work area, no shape decision reading
-the output's name, and a pane bound on the column split. The edge path had no
-cap at all, which is how a side snap reached three panes while ordinary
-admission stopped at two.
-
-Raising the compact cap to three reopens those three questions, and owes the
-coverage `column-runtime` carried: it asserted the dormant grammar and was
-retired on 20 September rather than carried red.
 
 ### Both stages own windows on the same display
 
@@ -664,8 +630,8 @@ never delays input or model changes. Departing paint state has no input authorit
 
 ### Motion must follow platform accessibility
 
-Custom durations follow platform animation scaling and reduced-motion
-preferences. Meeting that does not license a broad renderer rewrite.
+Custom durations should respect platform animation scaling and reduced-motion
+preferences. This is a live gap, not permission for a broad renderer rewrite.
 
 ## Output and lifecycle
 
@@ -777,6 +743,19 @@ than letting one gesture decide both, and it removes the atomic
 membership-and-insertion transaction that an arrival into a stack would have
 required.
 
+### A dock that steps aside is not a display that grew
+
+The keyboard asks Plasma's bottom panels to autohide while it is up and restores
+them when it goes. For the length of that round trip the reserved work area is
+the whole output, and a layout placed in that window expands 52px into room the
+dock is about to take back, then settles when it returns. The Active card does
+the same at 894 before landing at 832.
+
+Reading the reservation as real is what produces the excursion. Placement should
+hold the reservation the dock had when the keyboard episode began and re-read it
+only once the episode has closed. Recorded on 21 September against measurements
+from a physical pass; the implementation is deferred with the rest of Block 12a.
+
 ### The keyboard overlays; a covered line pans inside a still card
 
 Settled by J on 23 September. The keyboard never reserves workspace and never
@@ -872,26 +851,6 @@ spelling protects the word, not the interface.
 The touch-lifetime correction binds a saved touch identity to one window and one
 native move/resize lifetime. It must be reviewed and rebuilt against the exact KWin
 package version; Kadunce's installer never replaces KWin or silently pins it.
-
-### A consumer gets a working plugin from the package manager
-
-KDE publishes no stable KWin effect ABI, so a Plasma update can leave the
-installed plugin unloadable. The failure is already safe: KWin declines the
-plugin, the tray switch persists, and the desktop keeps working. What remains
-is how a person gets a working plugin back.
-
-The guided repair rebuilds a retained source snapshot on the user's machine.
-That needs a full C++, Qt, KDE Frameworks and KWin development toolchain on
-every consumer installation, which is a developer workaround rather than a
-consumer mechanism.
-
-Approved by J: the plugin is distributed as a package from a project pacman
-repository, built per KWin release in CI, so a corrected plugin arrives through
-ordinary system updates. One supported distribution makes this cheap and keeps
-maintenance in one pipeline instead of making every user's machine a build
-environment. It is built with the consumer bundle, because until that exists
-there is no repository to publish to and no consumer to protect; on development
-machines the toolchain is present and the guided repair is adequate.
 
 ## External contracts
 

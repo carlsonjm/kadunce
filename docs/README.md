@@ -7,19 +7,27 @@ and is not part of normal startup.
 
 ## Normal startup
 
-Read only:
+`../AGENTS.md` owns the startup set. Open other references only as a task needs
+them, and consult `archive/` for a regression, provenance question, or
+failed-candidate diagnosis. `../verify.sh` runs the documentation guard with the
+source, package and safety-control checks.
 
-1. `../AGENTS.md`
-2. `CURRENT_STATE.md`
-3. `ROADMAP-CC.md`
-4. `../SWARM.md`
+## Keeping documentation small
 
-Then open only the references required by the task. Consult `archive/` for a
-regression, provenance question, or failed-candidate diagnosis.
+Live documents state what is true now and why. History belongs in commit
+messages, and a finished block keeps only what open work still needs.
 
-Run `../verify.sh` for the repository's source, package, safety-control, and
-documentation checks. The documentation guard enforces archive isolation, compact
-runtime handoffs, current-state hygiene, and index coverage.
+- When a task is ticked in `ROADMAP-CC.md`, reduce its context in
+  `ROADMAP-CONTEXT.md` to the durable finding. The story of how it was found
+  goes in the commit message; a decision that will outlive the block goes in
+  `DECISIONS.md`.
+- State a rule once, in its owner below, and cite it elsewhere.
+- Replace stale text; never append a correction beside it.
+- `tests/verify-docs.py` enforces a word budget for the largest documents and
+  for all live documents together, and a limit for each Done block's context.
+  When a budget fails, trim: archive a dated `THROUGH` snapshot of the document
+  first if the removed text exists nowhere else. A budget is raised only with
+  J's agreement.
 
 ## Canonical
 
@@ -61,13 +69,8 @@ status against the contracts and never redefines them.
 
 | Document | Live contract |
 | --- | --- |
-| `CARRY-SESSION-CONTRACT.md` | prepared transfer lifecycle and invariants |
-| `INPUT-OWNERSHIP.md` | input routing, proof, cancellation, and teardown |
-| `INTEGRATION-RELEASE-GATE.md` | candidate promotion evidence |
-| `REFACTOR-REGRESSION-GATE.md` | behavior preserved across structural change |
-| `KNOWN-ISSUES.md` | current limitations and compatibility constraints |
+| `TESTING.md` | what each check proves, the private route matrix, promotion, reading a probe run, failure classification, and handing over an installation |
 | `EXPERIENCE-AUDIT.md` | the 23 September product and experience findings, each tied to the roadmap line that answers it |
-| `TEST-ENVIRONMENT-PROCEDURE.md` | private/live test separation and failure classification |
 | `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
 | `TERMINOLOGY.md` | suite-wide approved and retired language, and the rules for applying it |
 | `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |

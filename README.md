@@ -149,21 +149,20 @@ disable.sh              safe release and temporary disable
 uninstall.sh            installed component removal
 ```
 
-Run the repository checks before proposing a build:
+Run the repository checks before proposing a change:
 
 ```bash
-./tests/verify-source.sh
-./tests/verify-package.sh
-./tests/verify-control.sh
+./verify.sh
 ```
 
-`./tests/verify-headless.sh` builds and runs the native domain tests that do not
-link KWin. It needs only a C++20 compiler and Qt6Core, so it also runs where the
-Plasma development stack is unavailable. Use it as a fast pre-check; it does not
-replace the full suite, the KWin-linked tests, package and control checks, or
-physical review.
+It runs the documentation, source, package and control checks; `install.sh` runs
+the source, package and control checks itself before it builds. `bash tests/verify-headless.sh` runs the native
+domain tests that do not link KWin, needing only a C++20 compiler and Qt6Core, as
+a fast pre-check where the Plasma development stack is unavailable.
 
-Changes to the compositor also require a clean login session and physical testing. See `docs/KNOWN-ISSUES.md` and `docs/TEST-ENVIRONMENT-PROCEDURE.md`.
+Changes to the compositor also need the private route matrix, a fresh login
+session and physical testing. `docs/TESTING.md` describes every check and what it
+proves; `docs/KNOWN-ISSUES.md` lists current limitations.
 
 ## License
 

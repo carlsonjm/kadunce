@@ -5,15 +5,9 @@ project history.
 
 ## Rules
 
-- Keep at most three live handoffs.
-- Keep each handoff to at most 50 words.
-- Put cross-agent communication only in this file.
-- Delete completed handoffs; do not archive them here.
-- Record durable architectural and engineering decisions in the canonical
-  architecture or decision documents.
-- Let Git history record implementation changes.
-- Use code comments only for code behavior and reasoning, never agent conversation,
-  handoffs, product-management instructions, implementation history, or authorship.
+- At most three live handoffs, each one bullet of at most 50 words.
+- Cross-agent communication goes only here; delete a handoff when it is resolved.
+- `AGENTS.md` § Where writing goes says where everything else belongs.
 
 ## Active handoffs
 

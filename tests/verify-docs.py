@@ -147,8 +147,67 @@ def check_current_state() -> None:
         errors.append("CURRENT_STATE.md contains relative progress narration")
 
 
+# Live documents regrow when history is appended instead of filed. A document
+# over its budget is trimmed, with the removed text archived as a dated
+# THROUGH snapshot; a budget is raised only with J's agreement.
+WORD_BUDGETS = {
+    "docs/ROADMAP-CONTEXT.md": 9000,
+    "docs/DECISIONS.md": 9000,
+    "docs/CURRENT_STATE.md": 3500,
+    "docs/ROADMAP-CC.md": 3500,
+    "docs/CARD-LIFECYCLE.md": 3500,
+    "docs/TESTING.md": 3000,
+}
+LIVE_WORD_BUDGET = 45000
+DONE_BLOCK_WORDS = 150
+
+
+def word_count(text: str) -> int:
+    return len(text.split())
+
+
+def check_word_budgets() -> None:
+    total = 0
+    for path in tracked_documents():
+        if path.startswith("docs/archive/") or not (ROOT / path).exists():
+            continue
+        words = word_count((ROOT / path).read_text())
+        total += words
+        budget = WORD_BUDGETS.get(path)
+        if budget is not None and words > budget:
+            errors.append(
+                f"{path} has {words} words; budget is {budget}. Archive a THROUGH "
+                "snapshot and move finished history out"
+            )
+    if total > LIVE_WORD_BUDGET:
+        errors.append(
+            f"live documents total {total} words; budget is {LIVE_WORD_BUDGET}"
+        )
+
+
+def check_done_blocks() -> None:
+    """A finished block keeps only what open work still needs."""
+    plan = (ROOT / "docs" / "ROADMAP-CC.md").read_text()
+    done = set(re.findall(r"^\|\s*(\w+)\s*\|[^|\n]*\|\s*Done\s*\|", plan, re.MULTILINE))
+    context = (ROOT / "docs" / "ROADMAP-CONTEXT.md").read_text()
+    sections = re.split(r"^(?=## )", context, flags=re.MULTILINE)
+    for section in sections:
+        heading = re.match(r"## Block (\w+)\b", section)
+        if not heading or heading.group(1) not in done:
+            continue
+        words = word_count(section)
+        if words > DONE_BLOCK_WORDS:
+            errors.append(
+                f"ROADMAP-CONTEXT.md Block {heading.group(1)} is Done and has "
+                f"{words} words; keep at most {DONE_BLOCK_WORDS}, the rest belongs "
+                "in the commit message or DECISIONS.md"
+            )
+
+
 check_index_coverage()
 check_archive_authority()
+check_word_budgets()
+check_done_blocks()
 check_swarm()
 check_retired_vocabulary()
 check_current_state()

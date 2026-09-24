@@ -90,7 +90,8 @@ changed in 1.1.0 and existing panel widgets had to be removed and re-added.
 identity appears in the source tree. That mechanism is the model: a terminology
 regression should break a check, not wait for a reader to notice.
 
-- [x] Extend the guard to Kadunce. Temperance still needs it.
+- [x] Extend the guard to Kadunce.
+- [ ] Extend the guard to Temperance.
 - [x] Add retired product vocabulary to the pattern once the rename lands, so
   the retired term cannot return.
 - [x] Exclude `docs/archive/` and the guard file itself from the pattern.

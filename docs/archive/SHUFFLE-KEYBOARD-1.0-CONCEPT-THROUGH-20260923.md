@@ -1,8 +1,6 @@
 # Shuffle Keyboard product contract
 
-**Status:** Required for Shuffle 1.0. The technical foundation is chosen
-(`shuffle-keyboard` `docs/FEASIBILITY.md`), and the build is being rebuilt to the
-22 September direction.
+**Status:** Required for Shuffle 1.0; technical evaluation queued.
 
 Shuffle Keyboard provides reliable text input and precision desktop control on a
 supported 10–13 inch touch device without physical peripherals. KDE/KWin or another
@@ -40,10 +38,8 @@ were approved on 22 September.
   tap cannot do that, which is why tapped undo was dropped.
 - **Right column: key height.** Key width never changes, so the gutter, the key
   columns and the space bar keep their positions at every setting; only key height
-  does. The keys lie over the workspace rather than reserving it (`DECISIONS.md`
-  § The keyboard overlays), so a shorter keyboard uncovers more of the card
-  beneath it, and the user is trading accuracy for screen rather than picking a
-  key size. A
+  does. The window above therefore grows by exactly what the keyboard gives back,
+  and the user is trading accuracy for screen rather than picking a key size. A
   bright notch marks the default, which is a square key.
 
   This is the sharpest conflict with the built candidate, which derives the typing
@@ -103,9 +99,7 @@ gestures remain a separate recognizer and state.
 
 Height is set by the right scrub column, in notches, with the default marked. The
 chosen height persists, and landscape and portrait may eventually remember separate
-values. The keys reserve no workspace, so a height change moves only how much of
-the card they cover, and the Active card's contents re-pan to keep the cursor in
-view.
+values. Workspace reservation must update correctly as the height changes.
 
 A continuously draggable upper edge is retired; see `Superseded by use`.
 
@@ -162,13 +156,13 @@ image and this document disagree, this document governs:
 
 ## Engineering constraints
 
-- Build on the chosen foundation: a Shuffle front end over Qt Virtual Keyboard,
-  Plasma Keyboard's input-method client and KWin's text-input delivery.
+- Evaluate Plasma Keyboard, Qt Virtual Keyboard, KWin input-method plumbing, and
+  Fcitx5 OSK before choosing an implementation base.
 - Do not build a custom input engine unless mature system infrastructure cannot meet
   the release contract.
 - Verify Qt/KDE, GTK, browsers, Chromium/Electron, and terminals.
 - Treat dropped characters, wrong keymaps, focus loss, meaningful latency, unreliable
-  show/hide, or a keyboard that moves or resizes a card as blockers.
+  show/hide, or incorrect workspace reservation as blockers.
 - Keep pointer, editing, resize, keyboard, and system gestures in explicit,
   non-overlapping ownership states.
 - Lock-screen/session surfaces are supported only where the system API permits safe

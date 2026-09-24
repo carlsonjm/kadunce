@@ -6,9 +6,8 @@ Desktop applications remain real desktop applications. Kadunce gives
 them a touch-native spatial shell without replacing KWin's authority over
 window lifecycle, focus, snapping, displays, and recovery.
 
-- The display a touchscreen drives is the attention stage: choosing and
-  focusing.
-- Any other display is the desktop stage: seeing and composing.
+- The tablet is the attention stage: choosing and focusing.
+- The external display is the desktop stage: seeing and composing.
 - Neither stage imitates the other.
 - Applications are cards.
 - Stacks are visibly ordered piles.
@@ -16,12 +15,9 @@ window lifecycle, focus, snapping, displays, and recovery.
 - Moving between outputs is a committed handoff, not background ownership.
 - Release always returns safe ordinary Plasma windows.
 
-## Attention stage
+## Tablet stage
 
-The display a touchscreen drives presents Active, Spread, and Bento. Cards go
-there because of that capability, never because of a display's name or hardware
-identity. A machine with no touchscreen has no attention stage and gets Bento
-only.
+The built-in touch display can present Active, Spread, and undocked Bento.
 
 - **Active** is one fixed, interactive application card.
 - **Spread** is an ordered compositor view with one centered card and two
@@ -29,7 +25,7 @@ only.
 - **Bento** uses real geometry for simultaneous interaction.
 
 `CARD-LIFECYCLE.md` is authoritative for card ownership, admission, selection,
-minimization, Bento membership, and what a release restores.
+minimization, Bento membership, release, and Shuffle navigation.
 
 ## Desktop stage
 
@@ -41,8 +37,7 @@ delegates ordinary movement, resizing, focus, and snapping to KWin.
 
 Release is a command, not a persistent layout mode. Per-output release restores
 every managed client inside that output's usable area. Global disable releases
-all outputs before unloading Kadunce. `CARD-LIFECYCLE.md` §13 lists what a
-release restores.
+all outputs before unloading Kadunce.
 
 ## System control
 
@@ -58,15 +53,14 @@ compositor plugin.
 ## Input
 
 - Bottom-edge upward: launch Card Spread
-- Top-edge downward: return to the current card state: the Active card, a Stack,
-  or the resumed Bento layout
+- Top-edge downward: return to the current card state, including Solo Card, Card
+  Stacks, or resumed Bento
 - Active left/right edge: previous/next card
-- Spread background swipe: move through the Spread
+- Spread background swipe: page line
 - Stack vertical gesture: previous/next member
 - Long hold: opaque lifted card with stable pointer attachment
-- `Ctrl+S`: Active/Spread on the attention stage
-- `Ctrl+B`: Bento on the largest desktop-stage display while one is attached,
-  otherwise on the attention stage
+- `Ctrl+S`: tablet Active/Spread
+- `Ctrl+B`: external Bento while docked, tablet Bento while undocked
 - `Ctrl+Arrow`: equivalent card and stack navigation
 - `Ctrl+Esc`: release the output under the pointer
 

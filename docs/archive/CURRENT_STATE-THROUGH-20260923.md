@@ -6,8 +6,7 @@ Kadunce is the open-source spatial-window component of Shuffle for Plasma. KWin
 owns real windows and virtual desktops. Kadunce owns the touch interaction
 model, card membership, output-local Bento sessions, input routing, and
 compositor presentation. Table and Shuffle Keyboard are required
-Shuffle capabilities. Table's feasibility is open; the Keyboard runs and is being
-rebuilt to the 22 September direction.
+Shuffle capabilities; their technical feasibility remains open.
 
 `CARD-LIFECYCLE.md` is the approved canonical ownership and presentation contract
 and `ARCHITECTURE.md` holds the structural invariants. This document reports status
@@ -34,7 +33,8 @@ not alternate behavior, and where wording conflicts the owning document governs.
   can hold retires the layout into a Spread group before becoming a card, on both
   the launch and the activation path.
 - `workspaceContext` reports the third presentation as `bento`, distinct from the
-  Active card that would be drawn over it.
+  Active card that would be drawn over it. It reported both as `active` before,
+  which is the distinction two physical reviews turned on.
 - Admitting a Bento group parks the restore record of an individual Active card
   the stage already presents instead of discarding it, so a window displaced
   into card ownership still returns where it began when Kadunce releases.
@@ -59,9 +59,7 @@ not alternate behavior, and where wording conflicts the owning document governs.
   Bento session without a layout solve. A pane whose own client changed its frame
   while the group was projected is placed back on the stored rect as the session
   resumes, rather than refusing the resume and leaving the group unopenable.
-  Kadunce does not crop, stretch or natively resize the panes for it, and
-  client-painted black remains part of each live source. Ordinary Spread cards
-  retain their accepted presentation.
+  Ordinary Spread cards retain their accepted presentation.
 - Other outputs keep their own Bento sessions when the tablet changes presentation.
 - Native carries preserve input ownership, exact restore records, dock clearance,
   cancellation, and output-local admission rules.
@@ -142,15 +140,28 @@ not alternate behavior, and where wording conflicts the owning document governs.
   layout that falls to one visible pane ends into card ownership, including
   when the pane it lost was the minimized one.
 
-- Spread labels each card with its application's human name, from desktop
-  service metadata with window metadata and caption fallbacks, centered below
-  the card, and puts a stack's position at the row's right edge. A Bento group
-  lists every visible pane's application in pane order, duplicates included,
-  and shows no stack position. Card geometry and input are unchanged by labels.
-  Physically accepted.
+The current `main` production sources and installed candidate carry accepted
+ownership behavior through Block 3: deliberate edge entry, no Bento overflow,
+every arrival answered by the layout, a layout that ends into card ownership,
+top-edge extraction, a refused snap that changes nothing, and the sleeping pane.
+They also carry the constrained-launch correction and the physically accepted
+Bento group-card presentation. Revalidate source, package, control, and live
+provenance before the next installation.
+
+The current local `main` adds physically accepted Spread application labels without changing
+card geometry or input. Ordinary cards resolve their human application name from
+desktop service metadata with window metadata and caption fallbacks, keep it
+centered below the card, and put pageable stack position at the row's right edge.
+A Bento group lists every visible pane application in pane order, including
+duplicates, and omits stack position.
 
 ## Open limitations
 
+- Resuming a projected Bento group leaves every card beside it owned by the card
+  stage, which then presents Bento and keeps them hidden behind the panes rather
+  than returning them to the desktop. The stage stops presenting only when the
+  group was all it held. This is measured in source and by the isolated probes,
+  not on an installed candidate.
 - Where no display can hold a card, a window a layout cannot show is not
   adopted at first entry and keeps its own place on the desktop. Where one can,
   a window leaving a live layout reaches it through the same adoption a carried
@@ -205,21 +216,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   shows a waiting application: Ambient's row is Block 6 work, and whether the
   dock shows Plasma's attention flag is unmeasured.
 - Plugin installation assumes the tested native KWin plugin directory and requires
-  a rebuild after a KWin ABI change. The tray's on-disk factory-version check
-  cannot prove that a running, pre-upgrade compositor can load the rebuilt
-  plugin; cached plugins may need a normal logout and login, and in-session hot
-  reload is not promised.
-- Guided compatibility repair rebuilds the source snapshot kept at installation
-  as the normal user, runs its tests and asks authorization for one plugin file.
-  It downloads nothing and neither toggles the effect nor restarts the session;
-  it needs the build dependencies and that snapshot, and a later source
-  incompatibility may need a maintained Kadunce update. Its log is
-  `$XDG_STATE_HOME/kadunce/repair.log` (or `~/.local/state/kadunce/repair.log`).
-  Snapshot checksums catch accidental edits, not an actor who already controls
-  the account.
-- On a touchscreen other than the Z13's, Spread and Active open from Plasma's
-  own touch edges rather than the bezel band; that path is unproven.
-- Table has an approved product contract and no feasibility implementation.
+  a rebuild after a KWin ABI change.
+- Table and Shuffle Keyboard have approved product contracts but no accepted
+  feasibility implementation.
 
 ## Validation boundary
 
@@ -237,14 +236,17 @@ drifted-pane resume, first-snap refresh, and private two-output ownership
 lifecycle coverage. Physical
 review accepted its geometry, tint, gutters, container-level rounded clipping,
 exact resume, and repeated-entry behavior.
-Physical review has accepted `CARD-LIFECYCLE.md` §5's one-remaining-pane rule,
-§7's sleeping pane, §8 on both branches and §10's top edge; deliberate entry and
-pairing; a refused side snap that leaves the carried card's stack and the Spread
-unchanged; repeated resume of a projected group after a pane's own client moved
-it; a layout that survives a client which keeps moving its pane; release of a
-stacked member pulled up out of its stack; and ownership, constrained launch
-routing, stack retention, large-pane selection, monitor isolation, lifecycle and
-the live-rendering model. Automated and private-compositor checks do not replace physical appearance,
+Physical review has accepted `CARD-LIFECYCLE.md` §8 on both branches, §5's
+one-remaining-pane rule and §10's top edge, across four candidates on 20
+September. The 21 September candidate added deliberate entry and pairing, a
+refused side snap that leaves both the carried card's stack and the Spread
+unchanged, a minimized pane leaving its layout as a sleeping card, and repeated
+resume of a projected group after a pane's own client had moved it. A second
+candidate the same day added a layout that survives a client which keeps moving
+its own pane, and release of a stacked member by pulling it up out of the stack;
+the compositor had that plugin mapped while the gestures ran. It has also
+accepted ownership, constrained launch routing, stack retention, large-pane
+selection, monitor isolation, lifecycle, and the current live-rendering model. Automated and private-compositor checks do not replace physical appearance,
 frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor scenes under `tests/unload-probe/` are the
@@ -274,9 +276,12 @@ previous plugin image mapped across an unload, so a freshly loaded effect can
 still be the previous build. A compositor restart is what replaces the image,
 and until one happens an installed candidate is unexercised.
 
-The ownership observer holds two rules and has been live-verified on a
-restarted compositor, reporting no violation through deliberate entry, a refused
-side snap, group resume, a minimized pane leaving its layout, and tray disable.
+The ownership observer has been live-verified on a restarted compositor
+running the installed candidate. The retained Bento remainder it first reported
+no longer exists in source and the rule that named it is retired, so the
+observer now holds two rules. On the 21 September candidate it reported no
+violation at any point, including deliberate entry, a refused side snap, group
+resume, a minimized pane leaving its layout, and tray disable.
 
 ## Safety
 
