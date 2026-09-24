@@ -677,7 +677,7 @@ multi-display event.
 Settled by J on 23 September. A display that cannot own cards shows either
 ordinary Plasma windows or one Bento layout, never both at once. With one
 window there, a snap to a side gives it half the display and a snap to the top
-gives it the Active card's size inside the gutter. With two or more, a snap to
+gives it the Active card's size: the full screen inside the gutter. With two or more, a snap to
 an edge organizes every window on that display into one layout, with the snapped
 window on the side it was snapped to; the Bento shortcut does the same. A layout
 holds as many windows as their minimum sizes allow in a pattern; there is no
@@ -686,9 +686,10 @@ fixed count.
 A window the layout has no room for goes to the dock, minimized: one that fits
 no slot, one a newcomer displaces, and one let go loose on that display. It never
 moves to another display on its own, and picking it from the dock brings it back
-as an arrival. An application too big for any slot opens on its own and the
-layout's windows go to the dock, because an application the person just opened
-has to appear.
+as an arrival. An application too big for any slot takes the Active size and
+the layout's windows go to the dock, because an application the person just
+opened has to appear. Sending that overflow to another desktop through Table is
+an alternative for Block 8, not the rule.
 
 The tablet names each window it pairs (§ A side snap admits one card), and this
 is the opposite answer on purpose. The tablet is touch and attention, where a

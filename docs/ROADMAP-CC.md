@@ -321,6 +321,8 @@ identities.
 - [ ] Prove multi-display behavior without changing Bento.
 - [ ] Build the smallest complete prototype and test it physically.
 - [ ] Implement the accepted interaction.
+- [ ] Bring J the option of a monitor layout's overflow going to another desktop
+      through Table instead of the dock.
 
 **Done when:** a window moves between real KDE desktops through Table without
 breaking normal desktop switching.
