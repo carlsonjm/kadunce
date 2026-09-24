@@ -223,8 +223,8 @@ September, so the answer is not to restore it unchanged.
 
 ## Block 14 — Ownership scope
 
-**Status:** Next: bring J options for what the monitor does with cards. Both
-measurements and both of J's rulings are done.
+**Status:** Next: a window KWin moves onto the monitor joins its layout. The
+24 September hand test failed two checks, recorded below.
 
 `CARD-LIFECYCLE.md` §3 and §11 gave every display and every virtual desktop its
 own ownership session; the build had one card workspace, bound to the output
@@ -259,6 +259,16 @@ every eligible window, so the work is where overflow goes (today it moves to the
 tablet as a card), the eight-pane cap (`BentoCuratedPaneCap`; the patterns past
 eight exist in `makeBentoLayout`), a window released loose beside a layout, and
 the one-window snaps. On a machine with no touchscreen the same rule holds.
+
+**Hand test, 24 September.** One window on the monitor passed from a side and
+from the top, and switching off with windows parked returned every one. Two
+failed. The dock lists only its own display's windows (`filterByScreen` in the
+Bottom Surface's dock model), and J's machine has one dock, so a window parked on
+the monitor is missing from a dock on the tablet and a tap on its app opens a new
+window. J saw the same with the monitor primary; that half is unreproduced. Past
+eight panes, a card carried to the monitor previewed only the Active size at the
+top and nothing at the sides, where the ruling gives it one slot and parks that
+slot's occupant; not yet reproduced in the harness.
 
 ## Block 9 — Shuffle Keyboard
 

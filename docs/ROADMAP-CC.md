@@ -117,6 +117,10 @@ freshly chosen card, and nothing goes wrong.
 - [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
 - [x] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.
+- [ ] A window the monitor parked is in the dock, so a tap brings it back
+      rather than opening another (Open decision 6).
+- [ ] A card carried onto a full monitor layout takes one slot, and that
+      slot's window waits in the dock.
 - [ ] Hand-test the monitor's layout rule.
 
 **Done when:** the contracts, the current state and the build agree for every
@@ -377,6 +381,9 @@ and nothing else fires.
    desktop they started on until then. Audit 8 to 11.
 5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
    earlier tentative 1.1. It keeps its place in the order. Audit 12.
+
+6. **Which dock holds the monitor's windows.** Open. One dock listing every
+   display's windows, or a dock on each display. Block 14.
 
 ## Working model
 
