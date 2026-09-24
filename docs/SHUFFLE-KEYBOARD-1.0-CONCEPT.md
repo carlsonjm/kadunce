@@ -28,8 +28,8 @@ A third 2× Shuffle target and the mode transition it carried are retired; see
 
 ## Scrub columns
 
-The keyboard respects Kadunce's 10 px gutter, so its key block does not reach the
-work area's edges. The width either side is not padding: each side carries a scrub
+The keyboard keeps Kadunce's 10 px gutter at its sides, so its key block does not
+reach the work area's edges. The width either side is not padding: each side carries a scrub
 column, a vertical control that is close to invisible until a finger arrives. Both
 were approved on 22 September.
 
@@ -118,12 +118,14 @@ the recognizable keyboard silhouette.
 
 ### Geometry against the work area
 
-Approved 22 September. On the tablet's 1443x894 work area the key block sits at 80%
-of the width at its default position, measured on the build rather than derived. The
-keyboard takes Kadunce's 10 px gutter on every side, so it aligns with an Active card
-and with any window edge, and the keys are sized up about a tenth from that
-measurement. The two scrub columns consume what is left, so no region of the
-keyboard is empty and there are no bars.
+Approved 22 September, refined 24 September. The key block is 88% of the width:
+80% as first measured, sized up a tenth. The keyboard takes Kadunce's 10 px gutter
+at its sides only, with rounded top corners; it stays flush with the screen's bottom
+edge and lies over the window above, since a gutter there would only cost rows. Its
+top strip carries the dock's handle with 10 px clear above the keys. Rows stay
+between 48 px and a quarter taller than a key is wide, under 55% of the screen. The
+two scrub columns consume what is left, so no region is empty and there are no
+bars.
 
 The keyboard keeps a hard rounded edge. A density falloff like the Bottom Surface's
 was tried and rejected on sight the same day: surfaces that meet the screen edge

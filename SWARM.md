@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: arrival motion (Block 5) is built, awaiting J's physical pass (keyboard aaf2912, shuffle 4a109cd). Next the rebuild (Block 9): side gutter; grab and resize onto the dock's handle. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: rebuild in three slices (Block 9); slice 1, the card, is built (keyboard bb82987) and awaits J's pass; then scrub columns, then the space-bar pointer. Arrival motion is revisited after. Concept governs. Branch `shuffle-1.0`.
