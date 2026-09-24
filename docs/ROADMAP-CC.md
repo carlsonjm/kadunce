@@ -170,8 +170,6 @@ physical peripherals.
       approved icon signals.
 - [ ] **Next:** the dock stays when an app focuses a text field and no keys
       come up.
-- [ ] A tap on an app with several windows puts away the one in front, and the
-      next tap brings it back.
 - [ ] The Keyboard's handle comes back whole after a monitor is unplugged.
 - [ ] Sheet: window actions lead and the app's own actions follow, the pills
       are smaller, and the pin reads as a button.
