@@ -851,10 +851,11 @@ on the work area's bottom, so a reserving dock holds them up by its height. The
 dock gives up its room while keys are on screen, not merely asked for (J, 24
 September).
 
-### A second finger is the button while the space bar points
+### The latched trackpad is the pointer
 
-J, 24 September: a second finger down presses the button and up releases it;
-the latch gives right click and scroll. Rejected: lift-to-click.
+J, 24 September: pointing lives in the latch at the space bar's right end,
+which holds the keys up; the space bar only types. Rejected, after a build:
+sliding the space bar to point, whose clicks put the keys down.
 
 ### The handle brings the keys and takes them away
 

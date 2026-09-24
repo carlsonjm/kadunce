@@ -72,20 +72,11 @@ The precision surface is still the full keyboard footprint acting as pointer and
 scroll input. What changed on 22 September is how it is entered, and that it no
 longer replaces anything.
 
-**The space bar is the pointer.** Press it and slide: the finger that holds is the
-finger that points, so there is no second hand and no key pinned in a corner. The
-keys step back visually but stay exactly where they are, so there is no mode to
-escape and no visual swap between typing and pointing.
-
-Arming is by distance, not time. Sliding past roughly ten pixels turns the touch
-into a pointer; releasing without sliding types a space. No timer sits between the
-user and the most-pressed key on the keyboard. Once armed, the gesture keeps
-tracking beyond the space bar's own bounds, so travel is not capped by the key.
-
-A control at the space bar's right end latches the surface for longer work, which is
-the same momentary-and-latched pair the retired Shuffle key carried, moved to where
-the thumb already rests. Pointer acceleration around 2.4x is an accepted baseline,
-not a tuned value.
+**The latch is the pointer.** A trackpad mark at the space bar's right end latches
+the whole keyboard as a trackpad until tapped again, and the keys stay up while it
+is latched. The space bar only types. The space-bar slide was built and retired on
+24 September: a click it made landed in the application, whose focus change put
+the keys down, and it was one more swipe to remember (J).
 
 Baseline precision behavior:
 

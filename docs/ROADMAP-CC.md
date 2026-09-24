@@ -136,7 +136,7 @@ display and desktop a person can reach.
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
 - [x] Rebuild slice 1: the card, fixed key width, height limits. (audit 13)
 - [x] Rebuild slice 2: the history and height scrub columns.
-- [ ] **Next:** Rebuild slice 3, the space-bar pointer.
+- [ ] **Next:** Rebuild slice 3: the latched trackpad.
 - [ ] Move the Keyboard's own grab and resize onto the dock's handle; height
       goes to the right-edge scrub column.
 - [x] Bring J how the keys are put away: by the handle.

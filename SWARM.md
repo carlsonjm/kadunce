@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: slices 1-2 passed; slice 3 polish passed (keyboard e5db8ac). Open: J's ruling on clicking while pointing (keys close on a click), and Kadunce 4f9b186's narrowed bezel under the keys awaits install. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: slices 1-2 passed; slice 3 is now the latched trackpad only (keyboard d2e7064), awaiting J's pass with Kadunce 4f9b186's narrowed bezel. Concept governs. Branch `shuffle-1.0`.
