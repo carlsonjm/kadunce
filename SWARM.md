@@ -11,4 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: slices 1-2 passed; slice 3 is now the latched trackpad only (keyboard d2e7064), awaiting J's pass with Kadunce 4f9b186's narrowed bezel. Concept governs. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: the three-slice rebuild passed 24 September (keyboard d2e7064). The dock's bezel either-or (shuffle fd7fd5e) awaits J's pass; the arrival motion is revisited next. Concept governs. Branch `shuffle-1.0`.
