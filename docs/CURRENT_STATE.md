@@ -83,9 +83,10 @@ not alternate behavior, and where wording conflicts the owning document governs.
   exactly when it goes. A client that reports no cursor is not moved. Spread
   and Bento are untouched. Physically accepted on 23 September. Keys stay up
   only for a touch on the text cursor's line, on the keys, or a request
-  through `raiseKeyboard`; any others are never drawn and go back down. An
-  application focusing its own field cannot be produced in the private
-  compositor, so that case waits on physical review.
+  through `raiseKeyboard`; any others are never drawn and go back down, and
+  the dock steps aside only for keys on screen. Physically accepted on 24
+  September, including an application focusing its own field, which the
+  private compositor cannot produce.
 - While Kadunce is on, the display that can own cards holds its windows as
   cards. Switching it on, at sign-in or from the tray, makes the window in use
   the Active card and every other window there a card, and a window that opens

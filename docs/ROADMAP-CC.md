@@ -83,7 +83,7 @@ Done, 21 September.
 - [ ] A dialog travels with its card when the card is carried.
 - [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
 - [ ] The keys come up for the first text field touched in a session. (audit 4)
-- [ ] The keys never come up because an app focused its own field.
+- [x] The keys never come up because an app focused its own field.
 - [ ] The keys come up for a text box tapped right after a card is chosen.
       (audit 5)
 - [x] The first drag of a window after Kadunce is switched on adopts it, as the
@@ -168,9 +168,9 @@ physical peripherals.
 - [ ] Give the dock everything Plasma's Icons-only Task Manager does.
 - [x] Build the approved long-press sheet with live window previews, and the
       approved icon signals.
-- [ ] **Next:** the dock stays when an app focuses a text field and no keys
-      come up.
-- [ ] The Keyboard's handle comes back whole after a monitor is unplugged.
+- [x] The dock stays when an app focuses a text field and no keys come up.
+- [ ] **Next:** the Keyboard's handle comes back whole after a monitor is
+      unplugged.
 - [ ] Sheet: window actions lead and the app's own actions follow, the pills
       are smaller, and the pin reads as a button.
 - [ ] Icon signals: the bar for the app in front keeps its dots, at most two.
