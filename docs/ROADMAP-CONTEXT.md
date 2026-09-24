@@ -380,8 +380,10 @@ exists, so the two cannot both paint.
 (`DECISIONS.md` § The platform's answer wins where it has one). J approved on
 24 September the Shuffle look for what the stock dock draws on hover: the canvas
 at https://claude.ai/artifact/KM8NUM8Cit47ZHeReMufUp. A long press or right-click
-opens one sheet: live previews with the last-used window lit, the app's own
-actions, media controls and mute, then the window actions. On the icon, white
+opens one sheet: live previews with the last-used window ringed, media
+controls and mute, the window's size as pills, then the app's own shortcuts
+behind one row. Size pills act on every window of the app, as Plasma's do
+(J, 24 September). On the icon, white
 marks what is open (a dot per window up to three, the bar for the one in front)
 and the accent only means attention, a count, progress or starting.
 
@@ -464,8 +466,7 @@ focused its own field with no keys shown. A tap on an app in
 front puts it away only when it has one window; with several it moves to the
 next, which is Plasma's own default at 6.7.5, and J kept the platform's
 behavior. J's direction: the sheet leads with window actions, since app
-actions vary by application; smaller pills; the pin was not recognizable as a
-control, though it is one; the bar and dots combine, with at most two dots.
+actions vary by application; the bar and dots combine, with at most two dots.
 
 Plasma supplies the rest of the hosting: `X-Plasma-ContainmentType: Panel`,
 `PanelView::updateExclusiveZone` reserving exactly the thickness in the normal
