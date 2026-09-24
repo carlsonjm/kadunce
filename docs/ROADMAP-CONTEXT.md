@@ -268,7 +268,13 @@ the monitor is missing from a dock on the tablet and a tap on its app opens a ne
 window. J saw the same with the monitor primary; that half is unreproduced. Past
 eight panes, a card carried to the monitor previewed only the Active size at the
 top and nothing at the sides, where the ruling gives it one slot and parks that
-slot's occupant; not yet reproduced in the harness.
+slot's occupant. `monitor-full-runtime` does this on a 2560x1440 monitor and
+takes a slot from both edges; the symptom is unreproduced. It found a snap to
+the right edge landing on the left, because the library pattern's large slot is
+on the left; the pattern is now mirrored to the snapped side. Each carry preview
+onto a display without cards now logs the window's minimum size, the residents'
+and the answer, so the next hand test names what decided it. A carried window
+wider than half the monitor fits only alone, which is the ruled Active size.
 
 ## Block 9 — Shuffle Keyboard
 

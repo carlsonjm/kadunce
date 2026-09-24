@@ -6,7 +6,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh) ;;
-    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh) ;;
+    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
@@ -23,6 +23,11 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == *runtime-session.sh ]]; then outpu
 if [[ -n ${KADUNCE_TEST_OUTPUT_COUNT:-} ]]; then
     [[ $KADUNCE_TEST_OUTPUT_COUNT == 1 || $KADUNCE_TEST_OUTPUT_COUNT == 2 ]] || exit 2
     output_count=$KADUNCE_TEST_OUTPUT_COUNT
+fi
+# A layout reaches its full pane count only on a monitor-sized display.
+output_width=1280 output_height=800
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-full-runtime-session.sh ]]; then
+    output_width=2560 output_height=1440
 fi
 echo "Isolated unload evidence: $unload_root"
 kwin_binary=${KADUNCE_TEST_KWIN:-kwin_wayland}
@@ -81,7 +86,7 @@ timeout 40s env "${session_env[@]}" XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_STATE_HOME="$unload_root/state" QT_PLUGIN_PATH="$unload_root/build/bin:${KADUNCE_RUNTIME_BUILD:-/nonexistent}/bin" \
     KADUNCE_UNLOAD_PROBE_BUILD="$unload_root/build" KWIN_COMPOSE=O2 \
     LIBGL_ALWAYS_SOFTWARE=1 QT_WAYLAND_RECONNECT=0 \
-    dbus-run-session -- "${xwayland_launcher[@]}" "$kwin_binary" --virtual --width 1280 --height 800 --output-count "$output_count" \
+    dbus-run-session -- "${xwayland_launcher[@]}" "$kwin_binary" --virtual --width "$output_width" --height "$output_height" --output-count "$output_count" \
     --no-lockscreen --no-global-shortcuts --no-kactivities "${xwayland_args[@]}" "${input_method_args[@]}" \
     --exit-with-session "$project_dir/tests/unload-probe/${KADUNCE_PROBE_SESSION:-session.sh}" >"$unload_root/session.log" 2>&1
 rg '^PASS:' "$unload_root/session.log"

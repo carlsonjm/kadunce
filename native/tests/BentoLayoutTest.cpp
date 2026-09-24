@@ -186,6 +186,27 @@ int main()
         require(plan && plan->candidateIndices.size() == 4,
             "Monitor edge preference hid a fourth window that fits normal Bento");
     }
+    // A full monitor of mid-sized windows fits nine candidates only as the
+    // curated library's eight, which puts candidate 0 wherever that pattern's
+    // first slot is. The snap named a side, so the dragged card is on it.
+    std::vector<BentoCandidate> fullMonitor(9, {600, 450, 900, 700, false});
+    fullMonitor[0] = {940, 500, 900, 700, true};
+    for (bool right : {false, true}) for (bool large : {false, true}) {
+        const auto plan = chooseBentoSideAdmission({right, large}, 2540, 1410, fullMonitor, 0);
+        require(plan && plan->candidateIndices.size() == 8,
+            "A full monitor did not keep eight panes for an edge arrival");
+        const auto at = std::find(plan->candidateIndices.begin(),
+            plan->candidateIndices.end(), 0) - plan->candidateIndices.begin();
+        const auto &r = plan->rects.at(at);
+        require(right ? std::abs(r.x + r.width - 1) < .002 : std::abs(r.x) < .002,
+            "An edge arrival on a full monitor landed away from the edge it was snapped to");
+        const auto pixels = makePixelBentoLayout(plan->rects, 0, 0, 2540, 1410);
+        for (size_t i = 0; i < pixels.size(); ++i) {
+            const auto &c = fullMonitor.at(plan->candidateIndices.at(i));
+            require(pixels[i].width >= c.minimumWidth && pixels[i].height >= c.minimumHeight,
+                "Moving the edge arrival to its side put a window below its minimum size");
+        }
+    }
     for (bool right : {false,true}) {
         const std::vector<BentoRect> pair = right
             ? std::vector<BentoRect>{{0,0,2.0/3,1},{2.0/3,0,1.0/3,1}}

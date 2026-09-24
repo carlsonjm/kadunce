@@ -409,6 +409,9 @@ private:
 
     DesktopStageHost *m_host;
     std::shared_ptr<const int> m_carrySourceIdentity = std::make_shared<const int>(0);
+    // The last answer a carry preview onto a display without cards logged, so
+    // a drag reports each change of answer once rather than every frame.
+    QString m_lastOverflowPreview;
     DeferredCommandGuard m_applicationGuard;
     bool m_restoring = false;
     bool m_parking = false;

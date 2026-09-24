@@ -673,13 +673,39 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
     const auto plan = local ? prepareLocalPlacement(drop)
         : prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr,
                                drop.side, drop.pairPartner);
-    if (!plan) return std::nullopt;
-    const auto index = plan->windows.indexOf(drop.window);
-    const auto pixels = makePixelBentoLayout(plan->rects, drop.area.x(), drop.area.y(),
-        drop.area.width(), drop.area.height());
-    if (index < 0 || index >= static_cast<int>(pixels.size())) return std::nullopt;
-    const auto &pixel = pixels.at(index);
-    return KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height);
+    const auto index = plan ? plan->windows.indexOf(drop.window) : -1;
+    const auto pixels = plan ? makePixelBentoLayout(plan->rects, drop.area.x(), drop.area.y(),
+        drop.area.width(), drop.area.height()) : std::vector<BentoPixelRect>{};
+    std::optional<KWin::RectF> preview;
+    if (index >= 0 && index < static_cast<int>(pixels.size())) {
+        const auto &pixel = pixels.at(index);
+        preview = KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height);
+    }
+    // A display without cards answers a carry with its whole layout, and the
+    // answer turns on minimum sizes nothing else reports. Each new answer is
+    // logged with what decided it, so a drag seen on hardware can be replayed.
+    if (drop.hadSession && parksOverflow(outputKey(drop.output)) && drop.window->window()) {
+        const auto minimum = drop.window->window()->minSize();
+        QString residents;
+        for (const auto &resident : drop.residents)
+            if (resident && resident->window())
+                residents += QStringLiteral(" %1x%2").arg(resident->window()->minSize().width())
+                    .arg(resident->window()->minSize().height());
+        const QString answer = QStringLiteral("%1 min %2x%3 side %4 residents%5 -> %6")
+            .arg(drop.window->caption()).arg(minimum.width()).arg(minimum.height())
+            .arg(!drop.side ? QStringLiteral("none")
+                 : drop.side->right ? QStringLiteral("right") : QStringLiteral("left"))
+            .arg(residents)
+            .arg(!preview ? QStringLiteral("refused")
+                 : QStringLiteral("%1 panes, pane %2x%3 at %4,%5").arg(plan->windows.size())
+                       .arg(preview->width()).arg(preview->height())
+                       .arg(preview->x()).arg(preview->y()));
+        if (answer != m_lastOverflowPreview) {
+            m_lastOverflowPreview = answer;
+            qInfo() << "Kadunce carry onto" << drop.output->name() << qPrintable(answer);
+        }
+    }
+    return preview;
 }
 
 bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop,

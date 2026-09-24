@@ -314,8 +314,38 @@ inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement
         : std::optional<BentoAdmission>{};
     if (ordinary && (!best || ordinary->candidateIndices.size() > best->candidateIndices.size())
         && std::find(ordinary->candidateIndices.begin(), ordinary->candidateIndices.end(), 0)
-            != ordinary->candidateIndices.end())
+            != ordinary->candidateIndices.end()) {
         best = ordinary;
+        // The library pattern puts the edge-selected card in its first slot,
+        // wherever that is. The snap named a side, so the pattern is mirrored
+        // to bring that slot to it; mirroring changes no pane's size. Where
+        // the slot touches neither edge, the card instead trades places with
+        // the occupant of the smallest slot on that side that both fit.
+        auto &indices = best->candidateIndices;
+        const int at = int(std::find(indices.begin(), indices.end(), 0) - indices.begin());
+        const auto onSide = [&](int slot) {
+            const auto &r = best->rects[slot];
+            return choice.right ? std::abs(r.x + r.width - 1) < .002 : std::abs(r.x) < .002;
+        };
+        if (!onSide(at)) {
+            for (auto &r : best->rects) r.x = 1.0 - r.x - r.width;
+        }
+        const auto pixels = makePixelBentoLayout(best->rects, 0, 0, width, height);
+        const auto fits = [&](int candidate, int slot) {
+            return pixels[slot].width >= candidates[candidate].minimumWidth
+                && pixels[slot].height >= candidates[candidate].minimumHeight;
+        };
+        if (!onSide(at) && pixels.size() == best->rects.size()) {
+            int chosen = -1;
+            for (int slot = 0; slot < int(pixels.size()); ++slot) {
+                if (!onSide(slot) || !fits(0, slot) || !fits(indices[slot], at)) continue;
+                if (chosen < 0 || double(pixels[slot].width) * pixels[slot].height
+                        < double(pixels[chosen].width) * pixels[chosen].height)
+                    chosen = slot;
+            }
+            if (chosen >= 0) std::swap(indices[at], indices[chosen]);
+        }
+    }
     return best;
 }
 }

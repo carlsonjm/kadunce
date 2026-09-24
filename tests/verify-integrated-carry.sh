@@ -57,6 +57,7 @@ scenes=(
     output-unplug-runtime tablet
     monitor-overflow-runtime tablet
     monitor-lone-runtime tablet
+    monitor-full-runtime tablet
     lifetime-runtime tablet
     guest-drawer-runtime tablet
     x11-tablet-runtime tablet
