@@ -88,7 +88,17 @@ public:
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty();
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
+            || keysAwaitingPerson();
+    }
+
+    // Keys on screen that are not yet known to be the person's are painted
+    // through this effect, which withholds them, whether or not it holds any
+    // card. Once they are the person's, or gone, it asks for nothing.
+    [[nodiscard]] bool keysAwaitingPerson() const
+    {
+        const KWin::EffectWindow *panel = KWin::effects->inputPanel();
+        return !m_keysForPerson && panel && panel->isVisible();
     }
 
 private Q_SLOTS:
@@ -355,6 +365,10 @@ private:
     // the text cursor sits on, or a request through raiseKeyboard. Anything
     // else the compositor raises goes back down before it is drawn.
     QElapsedTimer m_keyboardAskedSince;
+    // Set once keys on screen are found asked for, and held until they go.
+    // Until then they are not drawn, so keys raised for nobody are never seen
+    // for the frame the compositor can paint before the decision reaches it.
+    bool m_keysForPerson = false;
     [[nodiscard]] bool keyboardAskedFor(const KWin::InputMethod &method) const;
     void keepUnaskedKeyboardDown();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;

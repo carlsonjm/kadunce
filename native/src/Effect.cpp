@@ -1106,6 +1106,9 @@ bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
     const KWin::Window *target = method.activeWindow();
     if (!touch || KWin::input()->lastInputHandler() != touch || !target) return false;
     const QPointF finger = touch->position();
+    // Typing on the keys is asking for them.
+    if (const KWin::EffectWindow *panel = KWin::effects->inputPanel();
+        panel && panel->frameGeometry().contains(finger)) return true;
     if (!target->frameGeometry().contains(finger)) return false;
     const KWin::RectF cursor = method.cursorRectangle();
     // A client that never says where its cursor is cannot be read; the touch
@@ -1117,10 +1120,20 @@ bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
 
 void Effect::keepUnaskedKeyboardDown()
 {
-    // Runs as the compositor shows the keys and before they are drawn, so
-    // keys nobody asked for never appear and nothing waiting on them moves.
+    // Decided once for each time the keys come up: a client that enables its
+    // field again with every keystroke must not have each one read afresh.
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
-    if (!method || !method->isVisible() || keyboardAskedFor(*method)) return;
+    if (!method || !method->isVisible()) {
+        m_keysForPerson = false;
+        return;
+    }
+    if (m_keysForPerson) return;
+    if (keyboardAskedFor(*method)) {
+        m_keysForPerson = true;
+        if (KWin::EffectWindow *panel = KWin::effects->inputPanel())
+            KWin::effects->addRepaint(panel->expandedGeometry().toAlignedRect());
+        return;
+    }
     method->hide();
     const KWin::Window *target = method->activeWindow();
     qInfo() << "Kadunce kept the keyboard down for"
@@ -3515,6 +3528,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return;
+    // Keys are drawn only once they are known to be the person's.
+    if (!m_keysForPerson && window == KWin::effects->inputPanel()) return;
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return;

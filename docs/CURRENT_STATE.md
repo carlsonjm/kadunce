@@ -81,12 +81,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   sits a gutter above the keys; they roll further for a line typed below the
   keys or taller keys, never back down while the keyboard is up, and return
   exactly when it goes. A client that reports no cursor is not moved. Spread
-  and Bento are untouched. Physically accepted on 23 September. The keys stay
-  up only for a touch on the text cursor's line in the window being typed
-  into, or a request through `raiseKeyboard`; anything else KWin raises goes
-  back down before it is drawn. The case it exists for, an application
-  focusing its own field, cannot be produced in the private compositor and
-  waits on physical review.
+  and Bento are untouched. Physically accepted on 23 September. Keys stay up
+  only for a touch on the text cursor's line, on the keys, or a request
+  through `raiseKeyboard`; any others are never drawn and go back down. An
+  application focusing its own field cannot be produced in the private
+  compositor, so that case waits on physical review.
 - While Kadunce is on, the display that can own cards holds its windows as
   cards. Switching it on, at sign-in or from the tray, makes the window in use
   the Active card and every other window there a card, and a window that opens
