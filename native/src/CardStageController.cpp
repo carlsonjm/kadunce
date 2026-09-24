@@ -2505,7 +2505,6 @@ bool CardStageController::enterActive()
     m_activeSettleTimer.start();
     // A keyboard may already be up over the card that just arrived.
     refreshKeyboardReveal();
-    m_host->cardActivatedForCardStage(effectWindow);
     KWin::workspace()->raiseWindow(client);
     KWin::workspace()->activateWindow(client, true);
     qInfo() << "Kadunce" << Revision

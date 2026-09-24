@@ -82,7 +82,6 @@ public:
     }
     // The stage is about to give this card focus by its own gesture, not by
     // a touch inside the card.
-    virtual void cardActivatedForCardStage(KWin::EffectWindow *) {}
     virtual void setPagingShortcutsForCardStage(bool active) = 0;
     virtual void cancelInputForCardStage() = 0;
     virtual void connectManagedWindowForCardStage(

@@ -94,7 +94,7 @@ for attempt in {1..60}; do hosted && break; sleep .1; done
 hosted
 # A launcher that has just taken the text focus can miss the first raise.
 for attempt in 1 2 3; do
-    vk forceActivate
+    kad raiseKeyboard
     sleep 1
     probe keyboardState | jq -e '.visible' >/dev/null && break
 done

@@ -47,6 +47,7 @@ scenes=(
     keyboard-runtime tablet
     keyboard-focus-runtime tablet
     keyboard-search-runtime tablet
+    keyboard-tap-runtime tablet
     start-cards-runtime tablet
     dialog-runtime tablet
     dialog-waiting-runtime tablet

@@ -5,7 +5,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|provenance-runtime-session.sh) ;;
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh) ;;
-    keyboard-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh) ;;
+    keyboard-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     active-admission-session.sh) ;;

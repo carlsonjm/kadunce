@@ -114,6 +114,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString nativeCarryState() const;
     Q_SCRIPTABLE QStringList nativeMoveTrace() const { return m_nativeMoveTrace; }
     Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
+    Q_SCRIPTABLE void raiseKeyboard();
     Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
     Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
@@ -228,7 +229,6 @@ private:
         KWin::LogicalOutput *output) const override;
     [[nodiscard]] std::optional<KWin::RectF> textCursorForCardStage(
         const KWin::EffectWindow *window) const override;
-    void cardActivatedForCardStage(KWin::EffectWindow *window) override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(
@@ -351,12 +351,12 @@ private:
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
     QMetaObject::Connection m_inputPanelGeometry;
-    // A card the stage focuses by its own gesture does not bring the keyboard
-    // up with it: a client that has the compositor raise one on focus has it
-    // put back down for that moment.
-    QPointer<KWin::EffectWindow> m_keyboardQuietWindow;
-    QElapsedTimer m_keyboardQuietSince;
-    void quietKeyboardIfSummoned();
+    // The keys come up only when the person asks for them: a tap on the line
+    // the text cursor sits on, or a request through raiseKeyboard. Anything
+    // else the compositor raises goes back down before it is drawn.
+    QElapsedTimer m_keyboardAskedSince;
+    [[nodiscard]] bool keyboardAskedFor(const KWin::InputMethod &method) const;
+    void keepUnaskedKeyboardDown();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;

@@ -25,6 +25,7 @@
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <input.h>
+#include <touch_input.h>
 #include <inputmethod.h>
 #include <inputpanelv1window.h>
 #include <main.h>
@@ -492,7 +493,7 @@ Effect::Effect()
     if (KWin::InputMethod *method = KWin::kwinApp()->inputMethod()) {
         // Before the reveal hears it: a keyboard put back down reveals nothing.
         connect(method, &KWin::InputMethod::visibleChanged, this,
-                &Effect::quietKeyboardIfSummoned);
+                &Effect::keepUnaskedKeyboardDown);
         for (const auto signal : {&KWin::InputMethod::visibleChanged,
                                   &KWin::InputMethod::activeWindowChanged,
                                   &KWin::InputMethod::cursorRectangleChanged}) {
@@ -1079,30 +1080,52 @@ std::optional<KWin::RectF> Effect::textCursorForCardStage(
     return cursor;
 }
 
-void Effect::cardActivatedForCardStage(KWin::EffectWindow *window)
+void Effect::raiseKeyboard()
 {
-    m_keyboardQuietWindow = window;
-    m_keyboardQuietSince.start();
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (!method) return;
+    m_keyboardAskedSince.start();
+    method->forceActivate();
 }
 
-void Effect::quietKeyboardIfSummoned()
+bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
 {
-    // Focusing a card is not asking to type into it. Some clients have the
-    // compositor raise the keyboard as they gain focus; for a card this stage
-    // focused itself, that keyboard goes back down. The raise follows the
-    // focus within a moment, so the quiet lasts only that moment.
-    constexpr qint64 QuietMs = 1000;
+    // A request through raiseKeyboard is the person's own, from the handle or
+    // a pull on the dock. It is honoured for the moment the raise takes.
+    constexpr qint64 AskedMs = 1500;
+    if (m_keyboardAskedSince.isValid() && m_keyboardAskedSince.elapsed() < AskedMs)
+        return true;
+    // Otherwise the compositor raised the keys because a field was enabled
+    // soon after a touch, which is also true when the application focused
+    // the field itself after a touch somewhere else in it. A tap on a field
+    // puts the text cursor on the line the finger landed on; an application's
+    // own focus leaves it wherever the field is. Across the line the cursor
+    // lands at the end of the text, far from the finger, so only the line is
+    // read.
+    KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+    const KWin::Window *target = method.activeWindow();
+    if (!touch || KWin::input()->lastInputHandler() != touch || !target) return false;
+    const QPointF finger = touch->position();
+    if (!target->frameGeometry().contains(finger)) return false;
+    const KWin::RectF cursor = method.cursorRectangle();
+    // A client that never says where its cursor is cannot be read; the touch
+    // landing in its window is all there is to go on.
+    if (cursor.height() <= 0.0) return true;
+    const double reach = cursor.height() / 2.0;
+    return finger.y() >= cursor.top() - reach && finger.y() <= cursor.bottom() + reach;
+}
+
+void Effect::keepUnaskedKeyboardDown()
+{
+    // Runs as the compositor shows the keys and before they are drawn, so
+    // keys nobody asked for never appear and nothing waiting on them moves.
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
-    if (m_keyboardQuietWindow && m_keyboardQuietSince.elapsed() > QuietMs) {
-        m_keyboardQuietWindow.clear();
-    }
-    if (!method || !method->isVisible() || !m_keyboardQuietWindow
-        || !method->activeWindow()
-        || method->activeWindow() != m_keyboardQuietWindow->window()) {
-        return;
-    }
+    if (!method || !method->isVisible() || keyboardAskedFor(*method)) return;
     method->hide();
-    qInfo() << "Kadunce kept the keyboard down for" << m_keyboardQuietWindow->caption();
+    const KWin::Window *target = method->activeWindow();
+    qInfo() << "Kadunce kept the keyboard down for"
+            << (target ? target->caption() : QStringLiteral("no window"))
+            << "; nobody tapped its text";
 }
 
 bool Effect::mayHoldWindowForCardStage(

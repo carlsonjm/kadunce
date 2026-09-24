@@ -16,7 +16,7 @@ vk() { qdbus6 org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard."$@"; }
 state() { probe keyboardState; }
 frame() { probe frames | jq -c --arg t "$1" '.[$t]'; }
 record() { printf '%s %s %s\n' "$1" "$(state)" "$(probe frames)"; }
-raise() { vk forceActivate; sleep 1; }
+raise() { kad raiseKeyboard; sleep 1; }
 # How much of a band of the display is the reveal probe's own colour.
 band() { python3 "$(dirname "$0")/capture-band.py" "$@" 2a6f97; }
 within() { awk -v v="$1" -v lo="$2" -v hi="$3" 'BEGIN { exit !(v >= lo && v <= hi) }'; }
