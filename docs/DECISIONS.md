@@ -206,8 +206,7 @@ back into the layout it was trying to leave.
 ### Two cases the contract does not answer
 
 First entry on a display that cannot own cards is answered by § A display
-without cards organizes everything it shows: what the layout cannot show goes to
-the dock, on a machine with a touchscreen or without one.
+without cards organizes everything it shows.
 
 §5 puts the user in Spread to find an evicted window, and the adoption that
 gives it card ownership is the one a carried card already uses, so a card stage
@@ -608,9 +607,15 @@ the ordinary window actions; an application is pinned, unpinned and reordered th
 way every dock does it. Touch reaches the same menu through a long press rather
 than through a different behavior. Novelty is spent on the interactions Shuffle
 exists to change --- cards, Spread, Bento, the Table --- because a bespoke gesture
-elsewhere makes the user relearn something they already know and quietly drops
-everything the standard route carries. Settled by J on 22 September, against a
+elsewhere makes the user relearn what they know and drops what the standard route
+carries. Settled by J on 22 September, against a
 hold-to-pin gesture built for the Shuffle Dock in place of the native menu.
+
+The Shuffle Dock starts from everything Plasma's Icons-only Task Manager does
+and improves on it; a stock feature it lacks is a defect, not a proposal. One
+dock lists every display's windows, so a window a monitor layout parked is picked
+up where the person already looks. Settled by J on 24 September, against a dock
+on each display.
 
 ## Rendering and motion
 

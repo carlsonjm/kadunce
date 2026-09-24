@@ -118,7 +118,7 @@ freshly chosen card, and nothing goes wrong.
 - [x] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.
 - [ ] A window the monitor parked is in the dock, so a tap brings it back
-      rather than opening another (Open decision 6).
+      rather than opening another.
 - [ ] A card carried onto a full monitor layout takes one slot, and that
       slot's window waits in the dock.
 - [ ] Hand-test the monitor's layout rule.
@@ -162,6 +162,8 @@ physical peripherals.
 - [x] An app with several windows lists them in its dock menu, and a tap
       brings back the one used last.
 - [x] The gradient arrives on the tablet panel with no visible banding.
+- [ ] Give the dock everything Plasma's Icons-only Task Manager does, each
+      reachable by touch; bring J the gap list first.
 - [ ] Give the Keyboard its arrival motion, so it and the dock move as one
       action, once Block 9's rebuild has set the Keyboard's shape.
       (audit 13, 36)
@@ -382,8 +384,9 @@ and nothing else fires.
 5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
    earlier tentative 1.1. It keeps its place in the order. Audit 12.
 
-6. **Which dock holds the monitor's windows.** Open. One dock listing every
-   display's windows, or a dock on each display. Block 14.
+6. **Which dock holds the monitor's windows.** Decided 24 September: one dock
+   lists every display's windows. See `DECISIONS.md` § The platform's answer
+   wins where it has one.
 
 ## Working model
 
