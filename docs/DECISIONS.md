@@ -833,11 +833,9 @@ the room does not.
 Only the Active card pans. Bento panes and ordinary windows are left covered,
 and the person scrolls. A client that reports no cursor is left alone: giving
 such a card the keyboard's height, with a tap inside it raising the keyboard,
-was built for Ghostty and taken out on 23 September, when a candidate carrying
-it refused carried drops on the tablet and no further keyboard work on
-cursorless clients was wanted. Those refusals were later traced to `main`,
-which dropped a carry whenever any window closed during it, so only the second
-reason stands.
+was built for Ghostty and taken out on 23 September because no further
+keyboard work on cursorless clients was wanted; the drop refusals first blamed
+on it were `main`'s.
 
 ### The keyboard comes up for the text, not for focus
 
@@ -850,12 +848,17 @@ raises for it is put back down, and the dock does not step aside for it.
 
 ### The dock steps aside for the keys
 
-Settled by J on 23 September, against seating the keys above a dock that stays.
-KWin seats the keyboard on the work area's bottom, so a dock keeping its
-reservation would hold the keys up by its own height, and a dock under the keys
-is worse for typing. The dock gives up its room while the keys are on screen,
-not when they are only asked for (J, 24 September), and the arrival motion
-answers that hand-off.
+J, 23 September, against keys seated above a dock that stays: KWin seats them
+on the work area's bottom, so a reserving dock holds them up by its height. The
+dock gives up its room while keys are on screen, not merely asked for (J, 24
+September).
+
+### The handle brings the keys and takes them away
+
+J, 24 September. The keys wear the dock's handle and rise under the finger
+once the dock has gone; dragging it down, or a tap, carries them away. Height
+moves to the right-edge scrub column. Rejected: a drag on it resizing, so the
+edge that opens the keys upward would shrink them downward.
 
 ### Persistent membership is not promised across unload
 

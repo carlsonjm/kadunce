@@ -137,8 +137,9 @@ display and desktop a person can reach.
 - [ ] **Next:** rebuild against the 22 September direction and put it back in
       daily use, with an even gap at the sides and the old top grab retired.
       (audit 13)
-- [ ] Move the Keyboard's own grab and resize onto the dock's handle.
-- [ ] Bring J how the keys are put away once the top grab retires.
+- [ ] Move the Keyboard's own grab and resize onto the dock's handle; height
+      goes to the right-edge scrub column.
+- [x] Bring J how the keys are put away: the handle carries them down.
 - [ ] Bring the concept's height and reservation lines in line with keys that
       cover rather than shrink. (audit 14)
 - [ ] Prove the four-row layout, controls, height, and the switch to the

@@ -318,9 +318,7 @@ region at once reaches KWin as no change. `shuffle-keyboard/tests/verify-seat.sh
 measures it and the downstream contract's § Keyboard boundary states it; a
 rebuild that changes the Keyboard's size or edges keeps both halves.
 
-**Putting the keys away.** A tap on the top grab closes the Keyboard and a drag
-on it resizes. J's direction (24 September): both move onto the dock's handle,
-connected in the design pass; how the keys go down is still his to choose.
+**Putting the keys away.** Settled: the handle carries them down (`DECISIONS.md`).
 
 **Height and reservation.** The concept's height column still promises that the
 window above grows by what the Keyboard gives back, and its engineering
@@ -407,17 +405,11 @@ No prior art carries these. Progressive blur is established inside application
 content, and the system chrome Shuffle is measured against uses a uniform
 translucent material rather than a density gradient.
 
-**The Keyboard's arrival.** The Keyboard comes all the way down and the dock
-steps aside for it (`DECISIONS.md` § The dock steps aside for the keys), but the
-keys arrive at once while the dock slides out beneath them, so the wallpaper
-flashes through between. J named motion that makes the change one action as what
-stands between this and flagship quality. The order between the two is the
-contract's: presentation out then reservation, and the reverse coming back. The
-dock stepping aside is not yet visible, because the Keyboard spans the output and
-covers it; the rebuild's side gutter shows it, which is why this waits on Block
-9. A cold-start raise from the handle also hides and shows the Keyboard once
-within about four milliseconds as the focus holder takes the focus; J has not
-reported seeing it, and motion should be judged with it in mind.
+**The Keyboard's arrival.** Built 24 September to J's direction (`DECISIONS.md`
+§ The handle brings the keys and takes them away). The keys wait below the edge
+until the dock has left and released its strut, then rise with its handle under
+the finger; a release settles at the finger's speed. The dock vacates by
+`windowsgobelow`, since `autohide` hid the panel and cut off a pull begun on it.
 
 **Width.** Temperance sized itself by measuring from its nearest neighbour on the
 left, which is correct on an ordinary panel and measures across the dock here, so
