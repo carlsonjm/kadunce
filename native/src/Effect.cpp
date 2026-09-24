@@ -2695,11 +2695,6 @@ int Effect::cardStackCandidate() const
     return m_cardStage->cardStackCandidate();
 }
 
-int Effect::cardStackBrowseTarget() const
-{
-    return m_cardStage->stackBrowseTarget();
-}
-
 void Effect::setCardStackPreview(int destinationId)
 {
     m_cardStage->setCardStackPreview(destinationId);
@@ -2710,19 +2705,9 @@ bool Effect::pageCardStackInsertion(int direction)
     return m_cardStage->pageCardStackInsertion(direction);
 }
 
-double Effect::cardStackInsertionBlend() const
-{
-    return m_cardStage->stackInsertionBlend();
-}
-
 void Effect::clearCardStackPreview()
 {
     m_cardStage->clearCardStackPreview();
-}
-
-double Effect::cardStackPreviewBlend() const
-{
-    return m_cardStage->stackPreviewBlend();
 }
 
 void Effect::syncSelectedElevation()

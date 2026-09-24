@@ -156,7 +156,6 @@ public:
     [[nodiscard]] bool cardGrabActive() const;
     [[nodiscard]] QPointF cardGrabOffset() const;
     [[nodiscard]] KWin::Rect cardGrabTarget() const;
-    [[nodiscard]] int cardGrabPageOffset() const;
     // The keyboard, its size, text focus or the text cursor changed: pan the
     // Active card's contents up as far as the cursor needs, never back down
     // while the keyboard is up, and back to rest when it goes.
@@ -196,7 +195,6 @@ public:
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
-    [[nodiscard]] QStringList hudState() const;
 
     void toggle();
     void release();

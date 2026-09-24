@@ -397,11 +397,6 @@ QPointF CardStageController::cardGrabOffset() const
     return m_cardGrabOffset;
 }
 
-int CardStageController::cardGrabPageOffset() const
-{
-    return m_cardGrabPageOffset;
-}
-
 KWin::Rect CardStageController::cardGrabTarget() const
 {
     if (!m_cardGrabActive || !m_cardGrabScaleTimer.isValid()) return m_cardGrabTarget;
@@ -1095,24 +1090,6 @@ int CardStageController::activeSideForPoint(const QPointF &position) const
         return 1;
     }
     return 0;
-}
-
-QStringList CardStageController::hudState() const
-{
-    const bool available = m_active
-        && m_presentation == CardPresentation::Spread;
-    KWin::EffectWindow *window = available ? selectedWindow() : nullptr;
-    const int selectedId = available ? m_workspace.selectedId() : 0;
-    const int stackCount = available
-        ? m_workspace.stackSizeForId(selectedId) : 0;
-    const int stackPosition = stackCount > 0
-        ? m_workspace.stackActivePositionForId(selectedId) + 1 : 0;
-    return {
-        available ? QStringLiteral("1") : QStringLiteral("0"),
-        window ? window->caption() : QString(),
-        QString::number(stackPosition),
-        QString::number(stackCount),
-    };
 }
 
 std::optional<PreparedCarrySource> CardStageController::prepareNativeCarrySource(KWin::EffectWindow *window) const

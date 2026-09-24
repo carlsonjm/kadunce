@@ -286,9 +286,6 @@ private:
     void setCardStackPreview(int destinationId) override;
     void clearCardStackPreview() override;
     [[nodiscard]] bool pageCardStackInsertion(int direction) override;
-    [[nodiscard]] int cardStackBrowseTarget() const;
-    [[nodiscard]] double cardStackInsertionBlend() const;
-    [[nodiscard]] double cardStackPreviewBlend() const;
     void syncSelectedElevation();
     void activateSelectedFromInput() override;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
