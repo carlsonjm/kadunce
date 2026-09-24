@@ -56,9 +56,12 @@ for kind in pointer touch; do
     kad showCardLine
     sleep .3
     kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"'
-    probe pointer 1800 380
+    # Pick the window up where it now stands on the monitor.
+    main=$(kad workspaceContext | jq -r 'first(.applications[] | select(.output == "Virtual-1")) | .windowId')
+    read -r px py <<<"$(probe windowGeometry "$main" | jq -r '[.x+.width/2, .y+.height/2] | map(floor) | @tsv')"
+    probe pointer "$px" "$py"
     client armMove
-    if [[ $kind == pointer ]]; then probe contactButton true; else probe down 48 1800 380; fi
+    if [[ $kind == pointer ]]; then probe contactButton true; else probe down 48 "$px" "$py"; fi
     sleep .15
     if [[ $scenario == open ]]; then
         jq -e '(.carrying|not) and (.inputBusy|not)' <<<"$(kad nativeCarryState)"
@@ -84,10 +87,13 @@ for kind in pointer touch; do
         # Tablet arrival uses its own Spread presentation, not a Bento outline.
         kad nativeCarryState | jq -e '.carrying and .destination'
     fi
+    face=$(probe windowGeometry "$main" | jq '.width')
     if [[ $kind == pointer ]]; then probe contactButton false; else probe up 48; fi
-    # It must start from the wide carried face, not teleport to the 64% center.
-    kad nativeCarryState | jq -e '.lineAnimating and (.carrying|not)
-        and (.inputBusy|not) and (.dropSettling|not) and .lineRect.width > 820'
+    # It must start from the carried face, whatever its width, not teleport to
+    # the 64% center.
+    kad nativeCarryState | jq -e --argjson face "$face" '.lineAnimating and (.carrying|not)
+        and (.inputBusy|not) and (.dropSettling|not)
+        and .lineRect.width > $face - 60 and .lineRect.width < $face + 60'
     sleep .75
     jq -e '(.carrying|not) and (.inputBusy|not)' <<<"$(kad nativeCarryState)"
     state=$(kad workspaceContext); echo "$state"

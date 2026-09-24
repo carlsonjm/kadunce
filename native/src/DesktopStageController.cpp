@@ -1234,6 +1234,8 @@ bool DesktopStageController::planSession(Session &session,
         const auto admission = chooseBentoSideAdmission(*session.side, area.width(), area.height(),
             candidates, requirePreferred ? owned.indexOf(preferred) : 0);
         if (!admission) return false;
+        if (owned.size() > 1) session.lone = false;
+        else if (session.windows.isEmpty() && parksOverflow(session.outputName)) session.lone = true;
         session.windows.clear();
         QList<QPointer<KWin::EffectWindow>> remainder = owned;
         for (const int index : admission->candidateIndices) {
@@ -1241,6 +1243,12 @@ bool DesktopStageController::planSession(Session &session,
             remainder.removeAll(owned[index]);
         }
         session.rects = admission->rects;
+        if (session.lone && session.windows.size() == 1) {
+            const auto minimum = session.windows.first()->window()->minSize();
+            if (minimum.width() <= area.width() / 2.0)
+                session.rects = {session.side->right ? BentoRect{0.5, 0.0, 0.5, 1.0}
+                                                     : BentoRect{0.0, 0.0, 0.5, 1.0}};
+        }
         report(remainder);
         return true;
     }

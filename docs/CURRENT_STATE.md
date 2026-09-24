@@ -175,9 +175,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   one from the dock brings it back as an arrival, and an application too big for
   any slot takes the Active size while the layout waits in the dock. Switching
   Kadunce off returns every window to the desktop, minimized ones included.
+  One window snapped to a side of that display takes half of it, and snapped to
+  the top takes the Active size; a second window organizes both.
 - J's ruling for that display is not yet fully built: a layout stops at eight
-  panes, one window snapped to a side fills the display rather than half of it,
-  and a window KWin moves there by other means stands loose beside a layout.
+  panes, and a window KWin moves there by other means stands loose beside a
+  layout.
 - Card ownership is structurally single-desktop. `CARD-LIFECYCLE.md` gives
   every virtual desktop its own ownership session; the build gives one desktop
   cards and leaves the rest plain until Table, which is in 1.0, brings a card

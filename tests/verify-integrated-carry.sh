@@ -56,6 +56,7 @@ scenes=(
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
     monitor-overflow-runtime tablet
+    monitor-lone-runtime tablet
     lifetime-runtime tablet
     guest-drawer-runtime tablet
     x11-tablet-runtime tablet

@@ -115,7 +115,7 @@ freshly chosen card, and nothing goes wrong.
 - [ ] **Next:** a window KWin moves onto the monitor joins its layout or waits in
       the dock, rather than standing loose beside it.
 - [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
-- [ ] One window on the monitor: a side snap takes half, a top snap takes the
+- [x] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.
 - [ ] Hand-test the monitor's layout rule.
 

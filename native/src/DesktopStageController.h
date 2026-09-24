@@ -262,6 +262,10 @@ private:
         std::vector<BentoRect> rects;
         bool applying = false;
         bool participationDirty = false;
+        // One window snapped to a side of a display without cards takes half
+        // of it, until a second window joins (DECISIONS.md § A display without
+        // cards organizes everything it shows).
+        bool lone = false;
         quint64 applicationToken = 0;
     };
     struct RailDrag {
