@@ -853,8 +853,9 @@ raises for it is put back down, and the dock does not step aside for it.
 Settled by J on 23 September, against seating the keys above a dock that stays.
 KWin seats the keyboard on the work area's bottom, so a dock keeping its
 reservation would hold the keys up by its own height, and a dock under the keys
-is worse for typing. The dock gives up its room while the keys are up, and the
-arrival motion answers that hand-off.
+is worse for typing. The dock gives up its room while the keys are on screen,
+not when they are only asked for (J, 24 September), and the arrival motion
+answers that hand-off.
 
 ### Persistent membership is not promised across unload
 
