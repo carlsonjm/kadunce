@@ -459,6 +459,16 @@ the Keyboard, because 21 of 28 measured pulls landed on the dock rather than the
 bar. Spread opens only from the bezel (`DECISIONS.md` § Spread opens from the
 bezel, not from the dock). The dock grows uncapped until Block 12c.
 
+**Hand test, 24 September.** The sheet, its actions and bringing back a
+minimized monitor window passed. The dock stepped aside, as it does for the
+keys, whenever Zen focused its own field on a tab switch or a new window with
+no keys shown, and stayed gone until a tap in open space. A tap on an app in
+front puts it away only when it has one window; with several it moves to the
+next. After unplugging the monitor the handle sat broken in a corner until a
+new session. J's direction: the sheet leads with window actions, since app
+actions vary by application; smaller pills; the pin was not recognizable as a
+control, though it is one; the bar and dots combine, with at most two dots.
+
 Plasma supplies the rest of the hosting: `X-Plasma-ContainmentType: Panel`,
 `PanelView::updateExclusiveZone` reserving exactly the thickness in the normal
 hiding mode and nothing in autohide, and no background drawn for a

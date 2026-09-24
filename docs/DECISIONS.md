@@ -841,21 +841,20 @@ reason stands.
 
 ### The keyboard comes up for the text, not for focus
 
-Settled by J on 23 September. A pull on the handle leaves the focus where it
-was, so a ready text box is typed into and panned into view; only a cold
-start, with nothing ready to type into, borrows the focus to get the keys on
-screen. Focusing a card is not a request to type: a client that has KWin raise
-the keyboard whenever it gains focus has that keyboard put back down when the
-stage focused the card itself.
+Settled by J on 23 September and extended on 24 September: the keys come up
+only when the person taps for them. A pull on the handle leaves the focus where
+it was, so a ready text box is typed into and panned into view; only a cold
+start borrows the focus to get the keys on screen. Focusing a card, or an
+application focusing its own field, is not a request to type: a keyboard KWin
+raises for it is put back down, and the dock does not step aside for it.
 
 ### The dock steps aside for the keys
 
-Settled by J on 23 September, against keeping the dock in place and seating the
-keys above it. KWin seats the keyboard on the bottom of the work area, so a dock
-that kept its reservation would hold the keys up by its own height, and a dock
-under the keys is worse for typing. The dock therefore gives up its room while
-the keys are up, and the hand-off that costs is answered by the arrival motion
-rather than by keeping the dock.
+Settled by J on 23 September, against seating the keys above a dock that stays.
+KWin seats the keyboard on the work area's bottom, so a dock keeping its
+reservation would hold the keys up by its own height, and a dock under the keys
+is worse for typing. The dock gives up its room while the keys are up, and the
+arrival motion answers that hand-off.
 
 ### Persistent membership is not promised across unload
 

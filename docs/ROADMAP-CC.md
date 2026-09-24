@@ -83,6 +83,7 @@ Done, 21 September.
 - [ ] A dialog travels with its card when the card is carried.
 - [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
 - [ ] The keys come up for the first text field touched in a session. (audit 4)
+- [ ] The keys never come up because an app focused its own field.
 - [ ] The keys come up for a text box tapped right after a card is chosen.
       (audit 5)
 - [x] The first drag of a window after Kadunce is switched on adopts it, as the
@@ -117,7 +118,7 @@ freshly chosen card, and nothing goes wrong.
 - [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
 - [x] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.
-- [ ] A window the monitor parked is in the dock, so a tap brings it back
+- [x] A window the monitor parked is in the dock, so a tap brings it back
       rather than opening another.
 - [ ] A card carried onto a full monitor layout takes one slot, and that
       slot's window waits in the dock.
@@ -165,8 +166,16 @@ physical peripherals.
 - [x] Bring J the dock's gap against Plasma's Icons-only Task Manager, and a
       Shuffle look for what it lacks.
 - [ ] Give the dock everything Plasma's Icons-only Task Manager does.
-- [ ] Build the approved long-press sheet with live window previews, and the
+- [x] Build the approved long-press sheet with live window previews, and the
       approved icon signals.
+- [ ] **Next:** the dock stays when an app focuses a text field and no keys
+      come up.
+- [ ] A tap on an app with several windows puts away the one in front, and the
+      next tap brings it back.
+- [ ] The Keyboard's handle comes back whole after a monitor is unplugged.
+- [ ] Sheet: window actions lead and the app's own actions follow, the pills
+      are smaller, and the pin reads as a button.
+- [ ] Icon signals: the bar for the app in front keeps its dots, at most two.
 - [ ] Give the Keyboard its arrival motion, so it and the dock move as one
       action, once Block 9's rebuild has set the Keyboard's shape.
       (audit 13, 36)
@@ -366,6 +375,11 @@ and nothing else fires.
 ### 12c. Dock overflow
 
 - [ ] Cap and condense the dock once working sets outgrow it.
+
+### 12d. Monitor layout
+
+- [ ] A low or high side snap makes room under a larger pane rather than
+      taking a full-height third.
 
 ## Open decisions
 
