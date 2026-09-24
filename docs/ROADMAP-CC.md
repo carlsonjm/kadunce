@@ -6,7 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Keep the tablet's cards whole when a monitor is plugged in (Block 14).
+1. Bring J options for what the monitor does with cards (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -105,9 +105,9 @@ freshly chosen card, and nothing goes wrong.
       with none gets Bento and Table only. (audit 11)
 - [x] Put cards on the screen the touchscreen drives, not the one named like a
       laptop panel. (audit 8)
-- [ ] **Next:** keep the tablet's cards whole and its bottom swipe working when a
+- [x] Keep the tablet's cards whole and its bottom swipe working when a
       monitor is plugged in or out.
-- [ ] Bring J options for the monitor: pair two named windows as the tablet
+- [ ] **Next:** bring J options for the monitor: pair two named windows as the tablet
       does, or keep filling itself and sending what it cannot show to the tablet.
       (audit 10)
 - [ ] Make the card and product contracts say what is built. (audit 10)
@@ -148,6 +148,8 @@ physical peripherals.
       signing in, and a pull from anywhere on the dock raises the Keyboard.
 - [x] Spread opens only from the bezel.
 - [x] A tap on a dock app opens it; the menu is a long press.
+- [x] An app with several windows lists them in its dock menu, and a tap
+      brings back the one used last.
 - [x] The gradient arrives on the tablet panel with no visible banding.
 - [ ] Give the Keyboard its arrival motion, so it and the dock move as one
       action, once Block 9's rebuild has set the Keyboard's shape.

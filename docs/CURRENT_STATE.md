@@ -108,6 +108,11 @@ not alternate behavior, and where wording conflicts the owning document governs.
   no card display and gets Bento only. With a plain monitor plugged in, cards
   stay on the tablet. Physically accepted on 23 September on the Z13; no touch
   monitor has been tried.
+- A monitor unplugged or plugged back in keeps every card on the tablet. On
+  an unplug the windows KWin moves onto the tablet become cards, the one used
+  last presented as the Active card and the rest, with the card that was in
+  front, behind it; on a replug a card KWin moved back to the monitor returns
+  to the tablet. Physically accepted on 23 September on the Z13.
 - A carry is not refused because some other window closed during it: a
   notification, tooltip or menu going away leaves an ordinary window's or a
   Bento pane's carry to the edge and its drop. The move trace names the check
@@ -118,8 +123,9 @@ not alternate behavior, and where wording conflicts the owning document governs.
   would not take a rect; §13 keeps that for release and disable.
 - On the tablet, Spread's bottom swipe starts at the bezel and nowhere else:
   the bottom 20 pixels, where every bezel swipe first registers. A swipe that
-  starts on the dock, or on any layer surface that is not a panel, is left to
-  that surface. Physically accepted on 22 September.
+  starts on the dock, or on any layer surface that is not a panel or the
+  desktop background, is left to that surface. Physically accepted on 22
+  September, and with a monitor holding the dock on 23 September.
 - A card and a Bento layout keep one gutter on every edge, the bottom included,
   and no layer surface is ever treated as an application or a card. Physically
   accepted on 22 September.
@@ -178,13 +184,9 @@ duplicates, and omits stack position.
   cards and leaves the rest plain until Table, which is in 1.0, brings a card
   set per desktop. A card moved
   to another desktop with the window menu is not handled.
-- A monitor plugged in, unplugged or moved is answered once KWin has moved
-  windows for it: a card KWin moved off the tablet goes back to it, and the
-  windows KWin moved onto the tablet from a display that went away become
-  cards, the one used last presented as the Active card and the rest, with the
-  card that was in front, behind it. The nested session proves it;
-  hand testing has not yet. A card's window sent to another display any other
-  way, such as KWin's own window-to-screen shortcut, is still not answered.
+- A display change is answered only once KWin has moved windows for it. A
+  card's window sent to another display any other way, such as KWin's own
+  window-to-screen shortcut, is still not answered.
   Whether release returns a window to the right place after the tablet has
   moved in the desktop layout since its card was taken is not measured. The
   tablet's black background with a monitor attached was Plasma losing its

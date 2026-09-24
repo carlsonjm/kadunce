@@ -1120,6 +1120,11 @@ Active card, so he picks up where he was, with the rest behind it; cards stay
 on the tablet on replug. `output-unplug-runtime` removes and re-adds the second
 nested display, including the switch-off-and-on J used, and checks both.
 
+Passed by hand on the Z13 the same night, on the running build that was
+installed: an unplug brought the window last used on the monitor in front on
+the tablet with the rest behind it, a replug left every card on the tablet, and
+a bottom swipe opened Spread with the monitor holding the dock.
+
 ## Block 15 — Consumer fundamentals
 
 **Status:** Ready. Added by the 23 September audit, which asked what a person
@@ -1685,6 +1690,10 @@ here are unmapped rather than merely unaddressed.
   hand on 22 September: a pull from anywhere on the dock raises the Keyboard,
   a tap opens an application, a long press opens its menu, a sideways drag
   still reorders and Spread still opens only from the bezel.
+- [x] An app with several windows lists them by title at the top of its dock
+  menu, and picking one brings that window forward. A tap on the app brings
+  back the window used last; Plasma's task model silently dropped a tap on an
+  app with more than one window. Passed by hand on 23 September.
 - [ ] Give the Keyboard's arrival motion, after Block 9's rebuild. It led the
   plan until 23 September, when it moved behind the rebuild: the 22 September
   direction puts a gutter at the Keyboard's sides, where the dock stepping aside
