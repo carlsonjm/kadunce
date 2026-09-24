@@ -691,18 +691,18 @@ fixed count.
 A window the layout has no room for goes to the dock, minimized: one that fits
 no slot, one a newcomer displaces, and one let go loose on that display. It never
 moves to another display on its own, and picking it from the dock brings it back
-as an arrival. An application too big for any slot takes the Active size and
+as an arrival. When room frees up, a window waiting there comes back on its own
+(J, 24 September). An application too big for any slot takes the Active size and
 the layout's windows go to the dock, because an application the person just
-opened has to appear. Sending that overflow to another desktop through Table is
-an alternative for Block 8, not the rule.
+opened has to appear. Overflow to another desktop through Table is a Block 8
+alternative.
 
-The tablet names each window it pairs (§ A side snap admits one card), and this
-is the opposite answer on purpose. The tablet is touch and attention, where a
-person places each card; a monitor is where ordinary Plasma windows pile up
-under a mouse, and the value is organizing the whole pile in one move. The
-objection that ruled out filling on the tablet was the solver choosing
-membership and leaving the rest mixed in; here membership is everything on the
-display, and only space decides who waits in the dock. Rejected: pairing on the
+The tablet names each window it pairs (§ A side snap admits one card); this is
+the opposite answer on purpose. On the tablet a person places each card; a
+monitor is where Plasma windows pile up under a mouse, and the value is
+organizing the pile in one move. Filling was ruled out on the tablet because the
+solver chose membership; here membership is everything on the display, and only
+space decides who waits. Rejected: pairing on the
 monitor, which traded that experience for control, and sending overflow to the
 tablet, which moved windows between screens without the person and had no
 destination on a machine without a touchscreen.

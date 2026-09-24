@@ -27,7 +27,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 13 | What a person meets first | Next |
 | 14 | Ownership scope | Next: build the monitor's layout rule |
 | 9 | Shuffle Keyboard | In progress |
-| 5 | Bottom Surface | In progress; the Keyboard's arrival waits on Block 9's rebuild |
+| 5 | Bottom Surface | In progress: the handle after an unplug, then the sheet and the arrival motion |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
 | 16 | Motion | Ready |
@@ -122,6 +122,8 @@ freshly chosen card, and nothing goes wrong.
       rather than opening another.
 - [ ] A card carried onto a full monitor layout takes one slot, and that
       slot's window waits in the dock.
+- [ ] When room frees up on the monitor, a window waiting in the dock comes
+      back on its own.
 - [ ] Hand-test the monitor's layout rule.
 
 **Done when:** the contracts, the current state and the build agree for every
@@ -170,12 +172,13 @@ physical peripherals.
       approved icon signals.
 - [x] The dock stays when an app focuses a text field and no keys come up.
 - [ ] **Next:** the Keyboard's handle comes back whole after a monitor is
-      unplugged.
-- [ ] Sheet: window actions lead and the app's own actions follow, the pills
-      are smaller, and the pin reads as a button.
+      unplugged or plugged in.
+- [ ] Sheet: new window as an icon beside the pin, the pin without its circle
+      and with its own pinned mark, and pills for the window's size actions
+      with a more control for the rest.
 - [ ] Icon signals: the bar for the app in front keeps its dots, at most two.
-- [ ] Give the Keyboard its arrival motion, so it and the dock move as one
-      action, once Block 9's rebuild has set the Keyboard's shape.
+- [ ] Give the Keyboard its arrival motion: the handle carries the keys under
+      the finger, and the dock is gone before they reach its room.
       (audit 13, 36)
 - [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
