@@ -463,11 +463,14 @@ Kadunce owns it, which card is Active, whether it has a live Bento layout, and
 its maximum visible pane count. The rules are the same on every display; only
 these values differ.
 
-Each display may contain:
+The display that can own cards may contain:
 
 - Individual cards
 - Ordinary stacks
 - At most one Bento layout
+
+Any other display shows ordinary windows or one Bento layout, never both, and
+never cards (`PRODUCT-CONTRACT.md` § Desktop stage).
 
 Moving a card between displays, with its restoration record, is a transfer under
 `ARCHITECTURE.md` § Transfer transaction. A failed transfer changes neither

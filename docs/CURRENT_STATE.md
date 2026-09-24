@@ -168,6 +168,10 @@ not alternate behavior, and where wording conflicts the owning document governs.
   entry records only what the current structure does. It is also why a window a
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
+- A display that cannot own cards does not yet follow J's ruling that it
+  organizes everything it shows: a window its layout has no room for moves to the
+  card display as a card instead of to the dock, a layout stops at eight panes,
+  and a window can sit loose beside a layout.
 - Card ownership is structurally single-desktop. `CARD-LIFECYCLE.md` gives
   every virtual desktop its own ownership session; the build gives one desktop
   cards and leaves the rest plain until Table, which is in 1.0, brings a card

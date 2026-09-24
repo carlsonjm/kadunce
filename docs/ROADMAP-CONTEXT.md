@@ -252,22 +252,13 @@ display coming or going keeps every card on the card display, gated by
 going to Plasma's desktop background, a layer surface; the desktop is now
 excluded as panels are, gated by `desktop-bezel-runtime`.
 
-**The monitor's options.** The monitor still composes across itself: a side snap
-there fills the layout from whatever is eligible, which is the solver deciding
-membership that `DECISIONS.md` § A side snap admits one card rejected for the
-tablet, and a window its layout cannot show moves onto the tablet as a card. The
-two options for J: the monitor pairs two named windows as the tablet does, or it
-keeps filling itself and sends what it cannot show to the tablet. A machine with
-no touchscreen has no tablet to send to; there, first entry adopts what the
-layout can show and leaves the rest (`DECISIONS.md` § Two cases the contract does
-not answer). Block 4's first-entry item waits on this answer for its Bento half.
-
-**The contracts.** `PRODUCT-CONTRACT.md` says an external display never presents
-cards, while `CARD-LIFECYCLE.md` §11 lists individual cards and stacks on each
-display, and §3 and §11 still give every desktop its own session. Both have to
-say what is built: one touchscreen's display holds cards, one desktop at a time
-until Table, Bento everywhere else. What a display or desktop change still does
-not answer is in `CURRENT_STATE.md` § Open limitations.
+**The monitor.** J ruled it on 23 September (`DECISIONS.md` § A display without
+cards organizes everything it shows): it organizes every window it shows, and a
+window without room goes to the dock. What is built already fills the layout from
+every eligible window, so the work is where overflow goes (today it moves to the
+tablet as a card), the eight-pane cap (`BentoCuratedPaneCap`; the patterns past
+eight exist in `makeBentoLayout`), a window released loose beside a layout, and
+the one-window snaps. On a machine with no touchscreen the same rule holds.
 
 ## Block 9 — Shuffle Keyboard
 

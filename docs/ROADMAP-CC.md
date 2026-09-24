@@ -6,7 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Bring J options for what the monitor does with cards (Block 14).
+1. Make the monitor organize everything it shows (Block 14).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
@@ -25,7 +25,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 13 | What a person meets first | Next |
-| 14 | Ownership scope | Next: options for J on the monitor |
+| 14 | Ownership scope | Next: build the monitor's layout rule |
 | 9 | Shuffle Keyboard | In progress |
 | 5 | Bottom Surface | In progress; the Keyboard's arrival waits on Block 9's rebuild |
 | 15 | Consumer fundamentals | Ready: options for J |
@@ -107,10 +107,15 @@ freshly chosen card, and nothing goes wrong.
       laptop panel. (audit 8)
 - [x] Keep the tablet's cards whole and its bottom swipe working when a
       monitor is plugged in or out.
-- [ ] **Next:** bring J options for the monitor: pair two named windows as the tablet
-      does, or keep filling itself and sending what it cannot show to the tablet.
-      (audit 10)
-- [ ] Make the card and product contracts say what is built. (audit 10)
+- [x] J rules the monitor: it organizes everything it shows, and a window
+      without room goes to the dock. (audit 10)
+- [x] Make the card and product contracts say what is ruled. (audit 10)
+- [ ] **Next:** send a window the monitor's layout has no room for to the dock,
+      never to the tablet, and never leave one loose beside a layout.
+- [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
+- [ ] One window on the monitor: a side snap takes half, a top snap takes the
+      Active card's size.
+- [ ] Hand-test the monitor's layout rule.
 
 **Done when:** the contracts, the current state and the build agree for every
 display and desktop a person can reach.
@@ -220,6 +225,8 @@ honours reduced motion.
 - [ ] Show an app whose dialog is waiting as an Ambient row; a tap brings the
       app forward with its dialog. Decide whether an app's own attention
       request counts too.
+- [ ] Bring J options for showing, in Ambient, windows a monitor layout sent to
+      the dock for lack of room.
 - [ ] Media metadata priority and dock-aware width.
 - [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
       (audit 34)

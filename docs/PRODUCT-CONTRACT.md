@@ -33,9 +33,14 @@ minimization, Bento membership, and what a release restores.
 
 ## Desktop stage
 
-An external output presents ordinary Plasma windows or per-output Bento. It
-does not run a second Spread. It accepts deliberate tablet handoffs and
-delegates ordinary movement, resizing, focus, and snapping to KWin.
+Any other display presents ordinary Plasma windows or one Bento layout, never
+both, and never cards or Spread. One window snapped to a side takes half the
+display, and snapped to the top takes the Active card's size. With two or more
+windows, a snap to an edge organizes every window there into one layout, as many
+as their minimum sizes allow. A window without room goes to the dock and never
+to another display on its own. Carrying a card here from the attention stage is
+a deliberate handoff; ordinary movement, resizing and focus stay with KWin.
+`DECISIONS.md` § A display without cards organizes everything it shows.
 
 ## Release
 

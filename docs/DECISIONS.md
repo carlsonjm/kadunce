@@ -205,13 +205,9 @@ back into the layout it was trying to leave.
 
 ### Two cases the contract does not answer
 
-`CARD-LIFECYCLE.md` §5 says nothing leaves where no display can hold a card,
-which is a rule about a live layout shedding. It has no twin for first entry.
-A display with more eligible windows than its layout can show, on a system with
-no card-owning display at all, therefore adopts what it can show and leaves the
-rest where they are. Refusing the whole entry would take the product away from
-that hardware entirely, and adopting a window the layout cannot show is the
-state this block removes.
+First entry on a display that cannot own cards is answered by § A display
+without cards organizes everything it shows: what the layout cannot show goes to
+the dock, on a machine with a touchscreen or without one.
 
 §5 puts the user in Spread to find an evicted window, and the adoption that
 gives it card ownership is the one a carried card already uses, so a card stage
@@ -675,6 +671,35 @@ Kept as `ARCHITECTURE.md` invariant 6. Output-local sessions are what let the
 tablet change presentation without disturbing an external display the user is
 still reading; a single global session would make every tablet gesture a
 multi-display event.
+
+### A display without cards organizes everything it shows
+
+Settled by J on 23 September. A display that cannot own cards shows either
+ordinary Plasma windows or one Bento layout, never both at once. With one
+window there, a snap to a side gives it half the display and a snap to the top
+gives it the Active card's size inside the gutter. With two or more, a snap to
+an edge organizes every window on that display into one layout, with the snapped
+window on the side it was snapped to; the Bento shortcut does the same. A layout
+holds as many windows as their minimum sizes allow in a pattern; there is no
+fixed count.
+
+A window the layout has no room for goes to the dock, minimized: one that fits
+no slot, one a newcomer displaces, and one let go loose on that display. It never
+moves to another display on its own, and picking it from the dock brings it back
+as an arrival. An application too big for any slot opens on its own and the
+layout's windows go to the dock, because an application the person just opened
+has to appear.
+
+The tablet names each window it pairs (§ A side snap admits one card), and this
+is the opposite answer on purpose. The tablet is touch and attention, where a
+person places each card; a monitor is where ordinary Plasma windows pile up
+under a mouse, and the value is organizing the whole pile in one move. The
+objection that ruled out filling on the tablet was the solver choosing
+membership and leaving the rest mixed in; here membership is everything on the
+display, and only space decides who waits in the dock. Rejected: pairing on the
+monitor, which traded that experience for control, and sending overflow to the
+tablet, which moved windows between screens without the person and had no
+destination on a machine without a touchscreen.
 
 ### A display coming or going keeps every card on the card display
 
