@@ -6,10 +6,12 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Make the monitor organize everything it shows (Block 14).
+1. Give the Keyboard its arrival motion (Block 5).
 2. Rebuild the Keyboard against the 22 September direction (Block 9).
 3. Make the keys come up for the first text field of a session (Block 13).
 4. Show an app whose dialog is waiting in Ambient (Block 6).
+5. Finish the Bottom Surface's remaining checks (Block 5).
+6. Make the monitor organize everything it shows (Block 14).
 
 ## Blocks
 
@@ -25,9 +27,9 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 13 | What a person meets first | Next |
-| 14 | Ownership scope | Next: build the monitor's layout rule |
 | 9 | Shuffle Keyboard | In progress |
 | 5 | Bottom Surface | In progress: the Keyboard's arrival motion |
+| 14 | Ownership scope | After Block 5: the monitor's layout rule |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
 | 16 | Motion | Ready |
@@ -135,6 +137,7 @@ display and desktop a person can reach.
 - [ ] **Next:** rebuild against the 22 September direction and put it back in
       daily use, with an even gap at the sides and the old top grab retired.
       (audit 13)
+- [ ] Move the Keyboard's own grab and resize onto the dock's handle.
 - [ ] Bring J how the keys are put away once the top grab retires.
 - [ ] Bring the concept's height and reservation lines in line with keys that
       cover rather than shrink. (audit 14)

@@ -303,11 +303,10 @@ left and key height right; and the Keyboard on Kadunce's 10 px gutter with a
 hard edge. It is unbuilt, so the proof and verification items below measure the
 superseded build until it lands. J's open asks are an even gap at the sides and
 retiring the top grab. He asked for a gap above the keys so the Keyboard would
-read as pushing the window; since the overlay it pushes nothing and the pan
-already stops a gutter above the keys, so that is dropped unless he wants it for
-its look. Pin two questions for the pass: whether the notch hold reads as
-feedback or as lag without haptics, and whether a density falloff adds anything
-once the gutter and scrub columns are in. J expects both are already answered.
+read as pushing the window; the overlay pushes nothing and the pan stops a
+gutter above the keys, so that is dropped unless he wants the look. Pin two questions for the pass, which J expects are answered: does
+the notch hold read as feedback or lag without haptics, and does a density
+falloff add anything once the gutter and scrub columns are in.
 
 **Where KWin seats the keys.** KWin 6.7.5 seats an input panel on the bottom of
 the work area and moves it again only when its size or input region changes, the
@@ -320,9 +319,8 @@ measures it and the downstream contract's § Keyboard boundary states it; a
 rebuild that changes the Keyboard's size or edges keeps both halves.
 
 **Putting the keys away.** A tap on the top grab closes the Keyboard and a drag
-on it resizes. The concept gives that edge to show and hide alone, the downstream
-contract records J wanting the keys dragged down, and no document says which the
-edge becomes once the grab retires.
+on it resizes. J's direction (24 September): both move onto the dock's handle,
+connected in the design pass; how the keys go down is still his to choose.
 
 **Height and reservation.** The concept's height column still promises that the
 window above grows by what the Keyboard gives back, and its engineering
@@ -334,16 +332,14 @@ card), so a shorter Keyboard covers less rather than giving a window room.
 and the switch to the precision surface are implemented and in daily use. They
 were used against Plasma's own bottom panel; the dock they were to be proven
 against was accepted on 22 September, so the proof now waits only on the rebuild.
-The fork's `docs/PHYSICAL_ACCEPTANCE.md` is the cross-toolkit pass and has not
-been run against the suite checkout; it also still expects behavior the dock
-changed (audit 39).
+The fork's `docs/PHYSICAL_ACCEPTANCE.md`, the cross-toolkit pass, has not run
+against the suite and still expects behavior the dock changed (audit 39).
 
 **Copy and paste.** The concept returned them to Ctrl chords, which a hand on
 glass does not make. Its lesson that one control should not carry two functions
 stands; copy and paste are what it cost.
 
-Laying the Keyboard over cards is done. Covered text beyond the Active card is
-Block 15's question.
+Laying the Keyboard over cards is done; covered text elsewhere is Block 15's.
 
 ## Block 5 — Bottom Surface
 
