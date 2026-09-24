@@ -638,6 +638,26 @@ int main(int argc, char **argv) {
                     && router.touchUp(&bezelUp) && target.toggles == 1,
                 "A bezel swipe below the handle stopped opening Spread");
     }
+    {
+        // With the keys up, a slide begun low on them is the Keyboard's; a
+        // swipe from the output's last rows still opens Spread.
+        Target target; target.presentation = WorkspacePresentation::Active;
+        target.keys = QRectF(10,560,980,240);
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent low{30,{500,785},{}};
+        KWin::TouchMotionEvent lowMove{30,{540,700},{}};
+        KWin::TouchUpEvent lowUp{30,{}};
+        require(!router.touchDown(&low) && !router.touchMotion(&lowMove) && !router.touchUp(&lowUp),
+                "A slide low on the keys was taken as the bottom edge");
+        require(target.actions == 0 && target.cancellations == 0,
+                "A slide low on the keys opened Spread or canceled the keys");
+        KWin::TouchDownEvent bezel{31,{500,797},{}};
+        KWin::TouchMotionEvent bezelMove{31,{501,700},{}};
+        KWin::TouchUpEvent bezelUp{31,{}};
+        require(!router.touchDown(&bezel) && router.touchMotion(&bezelMove)
+                    && router.touchUp(&bezelUp) && target.toggles == 1,
+                "A bezel swipe under the keys stopped opening Spread");
+    }
     for (bool guest : {false, true}) {
         Target target;
         target.guest = guest;

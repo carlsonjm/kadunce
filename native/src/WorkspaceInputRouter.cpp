@@ -24,6 +24,10 @@ constexpr double SystemEdgeWidth = 36.0;
 // the Keyboard handle 60 to 70 above it; the strip stays well clear of both
 // the handle and most of the dock, whose touches are their own.
 constexpr double BottomBezelWidth = 20.0;
+// With the keys up the strip is theirs but for the output's last rows, where a
+// bezel swipe first lands: the Keyboard stands its keys about 10 px above the
+// edge, and a slide begun low on the space bar was opening Spread.
+constexpr double KeysBottomBezelWidth = 6.0;
 constexpr double CardHoldMotion = 12.0;
 constexpr int CardHoldDelay = 300;
 constexpr double CardEdgeZoneFraction = 0.08;
@@ -817,8 +821,10 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
     }
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
+    const double bezelWidth = m_target->inputPanelContainsForInput(position)
+        ? KeysBottomBezelWidth : BottomBezelWidth;
     const bool atBottom = position.y()
-        >= geometry.tabletBottomInclusive - BottomBezelWidth;
+        >= geometry.tabletBottomInclusive - bezelWidth;
     const bool atTop = position.y()
         < geometry.tablet.y() + SystemEdgeWidth;
     if (atBottom) {

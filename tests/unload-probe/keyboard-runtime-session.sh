@@ -85,15 +85,15 @@ echo 'PASS: the card frame does not move; only its contents pan'
 # The keyboard changes height while it is up. Shorter keys roll nothing back
 # down; taller ones cover the line again and roll the contents further up.
 # The card never changes size either way.
-kwriteconfig6 --notify --file plasmakeyboardrc --group General --key keyboardHeight 300
+kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 35
 sleep 1
-record reveal-height-300
+record reveal-height-35
 jq -e --argjson r "$raised" '
     .panel.y > $r.panel.y and .trackedFrame == $r.trackedFrame
     and .cursor.y + .cursor.height + 10 < .panel.y' <<<"$(state)"
-kwriteconfig6 --notify --file plasmakeyboardrc --group General --key keyboardHeight 600
+kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 55
 sleep 1
-record reveal-height-600
+record reveal-height-55
 jq -e --argjson b "$before" --argjson r "$raised" '
     .panel.y < $r.panel.y
     and .trackedFrame.width == $b.width and .trackedFrame.height == $b.height
