@@ -368,6 +368,15 @@ starts by showing that blur and drain can be told from the gradient at all. The
 seam that stands the containment's gradient down while an effect draws already
 exists, so the two cannot both paint.
 
+**The dock's features.** Its floor is Plasma's Icons-only Task Manager
+(`DECISIONS.md` § The platform's answer wins where it has one). J approved on
+24 September the Shuffle look for what the stock dock draws on hover: the canvas
+at https://claude.ai/artifact/KM8NUM8Cit47ZHeReMufUp. A long press or right-click
+opens one sheet: live previews with the last-used window lit, the app's own
+actions, media controls and mute, then the window actions. On the icon, white
+marks what is open (a dot per window up to three, the bar for the one in front)
+and the accent only means attention, a count, progress or starting.
+
 **Allocation.** The dock is fixed to the output's centre and grows symmetrically,
 and each flank spends its own side (`DECISIONS.md` § The dock's centre is fixed,
 and each flank spends its own side). An asymmetric result is intended, not a

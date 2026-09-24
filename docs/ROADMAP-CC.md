@@ -162,8 +162,11 @@ physical peripherals.
 - [x] An app with several windows lists them in its dock menu, and a tap
       brings back the one used last.
 - [x] The gradient arrives on the tablet panel with no visible banding.
-- [ ] Give the dock everything Plasma's Icons-only Task Manager does, each
-      reachable by touch; bring J the gap list first.
+- [x] Bring J the dock's gap against Plasma's Icons-only Task Manager, and a
+      Shuffle look for what it lacks.
+- [ ] Give the dock everything Plasma's Icons-only Task Manager does.
+- [ ] Build the approved long-press sheet with live window previews, and the
+      approved icon signals.
 - [ ] Give the Keyboard its arrival motion, so it and the dock move as one
       action, once Block 9's rebuild has set the Keyboard's shape.
       (audit 13, 36)
