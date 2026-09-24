@@ -6,7 +6,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh) ;;
-    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh) ;;
+    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
@@ -59,7 +59,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; then

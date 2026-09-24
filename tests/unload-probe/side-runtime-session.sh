@@ -77,10 +77,9 @@ sleep .6
 probe windowGeometry "$main" | jq -e '.width < 600 and .x < 30'
 echo 'PASS: single card fills and restores requested side/share when companion returns'
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
-    # CARD-LIFECYCLE.md §8 is growth-only. This launch asks for more width than
-    # the larger pane of any two-pane shape fits, and the display is already at
-    # its two-pane maximum, so no layout can grow to show it. It is refused and
-    # left awake, and the panes the user placed do not move.
+    # This launch asks for more width than the larger pane of any two-pane shape
+    # fits, and the display is already at its two-pane maximum, so no slot can
+    # hold it.
     resident_main=$(probe windowGeometry "$main")
     resident_other=$(probe windowGeometry "$other")
     panes_before=$(kad outputStageState | rg '^Virtual-0\|')
@@ -88,11 +87,14 @@ if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
     sleep .6
     incoming=$(kad workspaceContext | jq -r '.applications[] | select(.title == "Large admission probe") | .windowId')
     test -n "$incoming"
+    # DECISIONS.md § A display without cards organizes everything it shows: an
+    # application too big for any slot takes the Active size alone, and the
+    # layout it could not join waits in the dock.
     test "$(probe windowMinimized "$incoming")" = false
-    test "$(probe windowGeometry "$main")" = "$resident_main"
-    test "$(probe windowGeometry "$other")" = "$resident_other"
-    test "$(kad outputStageState | rg '^Virtual-0\|')" = "$panes_before"
-    echo 'PASS: a launch the layout cannot grow for is refused awake and leaves the placed panes untouched'
+    test "$(probe windowMinimized "$main")" = true
+    test "$(probe windowMinimized "$other")" = true
+    kad outputStageState | rg '^Virtual-0\|.*\|1$'
+    echo 'PASS: a launch too big for any slot takes the Active size and the layout waits in the dock'
 fi
 test "$(probe releaseRuntime)" = true
 if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
@@ -113,17 +115,16 @@ if [[ ${KADUNCE_SIDE_TABLET:-0} != 1 ]]; then
         if [[ $kind == pointer ]]; then probe contactButton false; else probe up 63; fi
         sleep .6
         probe windowGeometry "$main" | jq -e --argjson target "$expected" '. == $target'
-        # CARD-LIFECYCLE.md §5: the resident the two-pane layout cannot keep
-        # yields to card ownership awake. Nothing is parked, so it is never
-        # minimized and release has nothing to wake.
-        test "$(probe windowMinimized "$incoming")" = false
-        test "$(probe windowMinimized "$other")" = false
+        # No display here can own cards, so the resident the two-pane layout
+        # cannot keep waits in the dock, and release gives it back awake.
+        kad workspaceContext | jq -e '[.applications[] | select(.minimized)] | length == 1'
         kad outputStageState | rg '^Virtual-0\|.*\|2$'
         test "$(probe releaseRuntime)" = true
         sleep .6
         test "$(probe windowMinimized "$incoming")" = false
+        test "$(probe windowMinimized "$other")" = false
     done
-    echo 'PASS: an edge snap evicts the resident it cannot show as an awake card and keeps two panes'
+    echo 'PASS: an edge snap keeps two panes and the resident it cannot show waits in the dock until release'
 fi
 if [[ ${KADUNCE_SIDE_TABLET:-0} == 1 ]]; then
     probe pointer 500 350

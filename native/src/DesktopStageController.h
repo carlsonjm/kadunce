@@ -247,6 +247,10 @@ private:
         bool minimized = false;
         bool valid = false;
         bool userMinimized = false;
+        // Minimized by Kadunce because a layout on a display that cannot own
+        // cards had no room for it. It waits in the dock, owned, and comes back
+        // as an arrival; release gives it back unminimized.
+        bool parked = false;
     };
 
     struct Session {
@@ -290,6 +294,8 @@ private:
     struct PendingEviction {
         QPointer<KWin::EffectWindow> window;
         NativeMoveSnapshot record;
+        QString sourceKey;
+        RestoreSnapshot snapshot;
     };
     [[nodiscard]] QList<PendingEviction> captureEvictions(
         const Session &live, const Session &published) const;
@@ -297,6 +303,15 @@ private:
     // §5: a window leaves for the display that can hold it as a card. Where
     // none can, nothing leaves and the layout keeps the combination it has.
     [[nodiscard]] bool canPlaceEvictedCard() const;
+    // DECISIONS.md § A display without cards organizes everything it shows: a
+    // layout there sends what it has no room for to the dock, never to another
+    // display and never loose beside it.
+    [[nodiscard]] bool parksOverflow(const QString &key) const;
+    void parkWindow(const QString &key, KWin::EffectWindow *window,
+                    const RestoreSnapshot *record = nullptr);
+    void minimizeParked(const QString &key);
+    bool admitArrival(Session *session, KWin::EffectWindow *window,
+                      const RestoreSnapshot &snapshot);
     // CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one
     // slot. The slot is the smallest whose pixel size satisfies the arrival's
     // minimum, so a window that only fits the wide pane takes the wide pane;
@@ -392,6 +407,7 @@ private:
     std::shared_ptr<const int> m_carrySourceIdentity = std::make_shared<const int>(0);
     DeferredCommandGuard m_applicationGuard;
     bool m_restoring = false;
+    bool m_parking = false;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     QList<QPointer<KWin::LogicalOutput>> m_retiredOutputs;
     QTimer m_settleTimer;

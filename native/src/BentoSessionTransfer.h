@@ -16,7 +16,7 @@ bool showsEveryAwakeSnapshot(const Session &session)
 {
     decltype(session.windows.size()) awake = 0;
     for (const auto &snapshot : session.snapshots) {
-        const int shown = snapshot.userMinimized ? 0 : 1;
+        const int shown = snapshot.userMinimized || snapshot.parked ? 0 : 1;
         if (session.windows.count(snapshot.window) != shown) return false;
         awake += shown;
     }

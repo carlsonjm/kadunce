@@ -203,6 +203,12 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     }
     for (const auto &snapshot : std::as_const(session->snapshots))
         if (snapshot.window == window) return true;
+    return admitArrival(session, window, makeSnapshot(window));
+}
+
+bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *window,
+                                          const RestoreSnapshot &snapshot)
+{
     // CARD-LIFECYCLE.md §8: a display showing a live layout answers an arrival
     // with that layout. Where the layout can grow it grows; where it cannot, a
     // pane yields, because the arrival shown on top of live panes is the one
@@ -211,7 +217,7 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     // how recently the resident was used second, which planSession expresses
     // as candidate order. The whole decision runs on a value copy: nothing
     // leaves until this admission has published.
-    const RestoreSnapshot snapshot = makeSnapshot(window);
+    const QString key = session->outputName;
     const auto grows = [&](Session &probe) {
         probe.snapshots.append(snapshot);
         QList<QPointer<KWin::EffectWindow>> unshowable;
@@ -231,10 +237,23 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
         // Full: the arrival takes the one slot it fits, and the rest of the
         // layout keeps its shape and its places.
         const auto slot = slotForArrival(live, window);
-        if (!slot) return false;
-        candidate = live;
-        if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
-        visible = true;
+        if (slot) {
+            candidate = live;
+            if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
+        } else if (parksOverflow(key)) {
+            // An application too big for any slot has to appear because the
+            // person just opened it: it takes the Active size alone and the
+            // layout waits in the dock.
+            candidate = live;
+            for (auto &saved : candidate.snapshots)
+                if (!saved.userMinimized) saved.parked = true;
+            candidate.snapshots.append(snapshot);
+            candidate.side.reset();
+            candidate.sideWindow.clear();
+            if (!reflowSession(candidate, window, true, false)) return false;
+        } else {
+            return false;
+        }
     }
     m_applicationGuard.invalidate();
     const auto pending = captureEvictions(live, candidate);
@@ -243,6 +262,7 @@ bool DesktopStageController::handleWindowAdded(KWin::EffectWindow *window)
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
+    minimizeParked(key);
     return true;
 }
 
@@ -253,8 +273,9 @@ void DesktopStageController::handleWindowClosed(KWin::EffectWindow *window)
 
 void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *window)
 {
-    if (m_restoring || !window || !window->window()) return;
+    if (m_restoring || m_parking || !window || !window->window()) return;
     QString key;
+    std::optional<RestoreSnapshot> picked;
     for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
         auto &session = it.value();
         // Kadunce's own placement is not a user participation change.
@@ -262,11 +283,29 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
         auto saved = std::find_if(session.snapshots.begin(), session.snapshots.end(),
             [window](const auto &s) { return s.window == window; });
         if (saved == session.snapshots.end()) continue;
+        key = it.key();
+        // On a display that cannot own cards, a window picked from the dock
+        // comes back as an arrival, so a resident makes room for it rather
+        // than it being sent straight back.
+        if (!window->isMinimized() && (saved->parked || saved->userMinimized)
+            && parksOverflow(key) && !m_interactionWindow) {
+            RestoreSnapshot record = *saved;
+            record.parked = false;
+            record.userMinimized = false;
+            session.snapshots.erase(saved);
+            picked = record;
+            break;
+        }
         saved->userMinimized = window->isMinimized();
+        saved->parked = false;
         session.participationDirty = true;
         m_applicationGuard.invalidate();
-        key = it.key();
         break;
+    }
+    if (picked) {
+        auto session = m_sessions.find(key);
+        if (session != m_sessions.end()) admitArrival(&session.value(), window, *picked);
+        return;
     }
     if (key.isEmpty() || m_interactionWindow) return;
     // CARD-LIFECYCLE.md §7 leaves a sleeping window owned without showing it,
@@ -278,7 +317,10 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
     // The reflow above has already stopped showing it, so this gives up a
     // record rather than a pane. Where card ownership cannot take it the
     // session keeps it, which is §5's answer when nothing can hold a card.
-    if (window->isMinimized() && m_sessions.contains(key)
+    // DECISIONS.md § A display without cards organizes everything it shows:
+    // there the minimized window waits in the dock, owned, rather than
+    // crossing to the display that holds cards.
+    if (window->isMinimized() && m_sessions.contains(key) && !parksOverflow(key)
         && !evictToTablet(key, window, {}, EvictedAs::SleepingCard)) {
         qInfo() << "Kadunce" << Revision
                 << "kept a minimized pane; no display can hold a sleeping card";
@@ -832,6 +874,10 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         // which runs on every exit that published the plan.
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
+            if (parksOverflow(key)) {
+                parkWindow(key, resident);
+                continue;
+            }
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });
         }
     } else {
@@ -1091,6 +1137,10 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
     // Where no display can hold a card, nothing leaves and they stay put.
     for (const auto &window : std::as_const(unshowable)) {
         if (!window || window->isDeleted() || !window->window()) continue;
+        if (parksOverflow(session.outputName)) {
+            parkWindow(session.outputName, window);
+            continue;
+        }
         // The record captured before Card Stage was released is the
         // authoritative one: a client may still report Active bounds after
         // that release, so reading its live geometry now would hand card
@@ -1135,7 +1185,8 @@ bool DesktopStageController::planSession(Session &session,
     };
     QList<QPointer<KWin::EffectWindow>> owned;
     for (const RestoreSnapshot &snapshot : std::as_const(session.snapshots)) {
-        if (snapshot.valid && !snapshot.userMinimized && snapshot.window && !snapshot.window->isDeleted()
+        if (snapshot.valid && !snapshot.userMinimized && !snapshot.parked && snapshot.window
+            && !snapshot.window->isDeleted()
             && snapshot.window->window() && !owned.contains(snapshot.window)) {
             owned.append(snapshot.window);
         }
@@ -1304,6 +1355,53 @@ bool DesktopStageController::canPlaceEvictedCard() const
     return m_host->tabletOutputForDesktopStage() != nullptr;
 }
 
+bool DesktopStageController::parksOverflow(const QString &key) const
+{
+    KWin::LogicalOutput *output = outputForKey(key);
+    return output && !m_host->outputCanOwnCards(output);
+}
+
+void DesktopStageController::parkWindow(const QString &key, KWin::EffectWindow *window,
+                                        const RestoreSnapshot *record)
+{
+    auto session = m_sessions.find(key);
+    if (session == m_sessions.end() || !window || window->isDeleted() || !window->window())
+        return;
+    auto saved = std::find_if(session->snapshots.begin(), session->snapshots.end(),
+        [window](const auto &s) { return s.window == window; });
+    if (saved == session->snapshots.end()) {
+        session->snapshots.append(record ? *record : makeSnapshot(window));
+        saved = std::prev(session->snapshots.end());
+    }
+    saved->parked = true;
+    saved->userMinimized = false;
+    const int index = session->windows.indexOf(window);
+    if (index >= 0) {
+        if (index < static_cast<int>(session->rects.size()))
+            session->rects.erase(session->rects.begin() + index);
+        session->windows.removeAt(index);
+    }
+    minimizeParked(key);
+}
+
+void DesktopStageController::minimizeParked(const QString &key)
+{
+    const auto session = m_sessions.constFind(key);
+    if (session == m_sessions.cend()) return;
+    QList<QPointer<KWin::EffectWindow>> pending;
+    for (const auto &saved : session->snapshots) {
+        if (saved.parked && saved.window && !saved.window->isDeleted()
+            && saved.window->window() && !saved.window->isMinimized())
+            pending.append(saved.window);
+    }
+    // Kadunce's own minimize is not the person's, so the handler that turns a
+    // minimize into a participation change must not see it.
+    const bool wasParking = std::exchange(m_parking, true);
+    for (const auto &window : std::as_const(pending))
+        if (window && window->window()) window->window()->setMinimized(true);
+    m_parking = wasParking;
+}
+
 QList<DesktopStageController::PendingEviction> DesktopStageController::captureEvictions(
     const Session &live, const Session &published) const
 {
@@ -1315,7 +1413,8 @@ QList<DesktopStageController::PendingEviction> DesktopStageController::captureEv
         pending.append({saved.window,
             {saved.window->window(), outputForKey(saved.outputName), saved.geometry,
              saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
-             saved.quickTileMode, saved.fullScreen, saved.minimized}});
+             saved.quickTileMode, saved.fullScreen, saved.minimized},
+            live.outputName, saved});
     }
     return pending;
 }
@@ -1325,6 +1424,10 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
     for (const auto &eviction : pending) {
         const auto window = eviction.window;
         if (!window || window->isDeleted() || !window->window()) continue;
+        if (parksOverflow(eviction.sourceKey)) {
+            parkWindow(eviction.sourceKey, window, &eviction.snapshot);
+            continue;
+        }
         // The plan that stopped naming this window is already published, so
         // there is no source membership left to give up and nothing that a
         // refusal here could roll back. The record travels with it because the
@@ -1350,7 +1453,7 @@ bool DesktopStageController::shortenToShowable(Session &session, const RestoreSn
         return true;
     // §5: the yield needs somewhere to go. Where nothing can hold it, nothing
     // leaves, and refusing here is what keeps the combination the layout has.
-    if (!canPlaceEvictedCard()) return false;
+    if (!canPlaceEvictedCard() && !parksOverflow(session.outputName)) return false;
     for (const auto &yielding : std::as_const(unshowable)) {
         if (!yielding || yielding == arrival.window) continue;
         const int index = session.windows.indexOf(yielding);
@@ -1451,6 +1554,10 @@ bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
         // can be handed on.
         if (std::none_of(snapshots.cbegin(), snapshots.cend(),
                 [&window](const auto &saved) { return saved.window == window; })) continue;
+        if (parksOverflow(key)) {
+            parkWindow(key, window);
+            continue;
+        }
         if (!evictToTablet(key, window)) return false;
     }
     return true;
@@ -1477,7 +1584,8 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
     // solve, so it would come back forever while appearing nowhere in the
     // ownership view. Report it here rather than let it go unnamed.
     for (const auto &saved : plan.snapshots) {
-        if (!saved.valid || saved.userMinimized || plan.windows.contains(saved.window))
+        if (!saved.valid || saved.userMinimized || saved.parked
+            || plan.windows.contains(saved.window))
             continue;
         qWarning() << "Kadunce" << Revision << "Bento on" << key
                    << "owns a window it neither shows nor put to sleep";
@@ -1716,6 +1824,8 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
                 width, height);
         }
         client->sendToOutput(targetOutput);
+        // A window Kadunce parked in the dock was awake before it was parked.
+        if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
         if (valid() && restoreWindowStateChecked(client.data(), snapshot, restoreGeometry,
                            preserveGeometry, true, false, valid)) {
             if (snapshot.minimized || snapshot.userMinimized) {
@@ -2037,6 +2147,10 @@ bool DesktopStageController::handoffWindowToOutput(
         // every exit that published. These were never adopted at all.
         for (const auto &resident : std::as_const(unadopted)) {
             if (!resident || resident->isDeleted() || !resident->window()) continue;
+            if (parksOverflow(destinationKey)) {
+                parkWindow(destinationKey, resident);
+                continue;
+            }
             m_host->admitTransferredWindowToTablet(resident, [] { return true; });
         }
         // §5: the display the pane left may now hold one, which ends its Bento.

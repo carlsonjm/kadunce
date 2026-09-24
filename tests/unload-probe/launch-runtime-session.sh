@@ -37,8 +37,10 @@ paneB=$(probe windowGeometry "$second")
 client paneCompanion
 sleep 1
 kad outputStageState | rg '^Virtual-0\|.*\|2$'
-kad workspaceContext | jq -e '[.applications[] | select(.output=="Virtual-0" and (.minimized|not))] | length==3'
-kad workspaceContext | jq -e '[.applications[] | select(.minimized)] | length==0'
+# DECISIONS.md § A display without cards organizes everything it shows: no
+# display here can own cards, so the occupant that yields waits in the dock.
+kad workspaceContext | jq -e '[.applications[] | select(.output=="Virtual-0" and (.minimized|not))] | length==2'
+kad workspaceContext | jq -e '[.applications[] | select(.minimized)] | length==1'
 arrival=$(kad workspaceContext | jq -r --arg before "$before" \
     '[.applications[] | select(.output=="Virtual-0") | .windowId] - ($before | split(" ")) | .[0]')
 test -n "$arrival"
@@ -46,11 +48,7 @@ test -n "$arrival"
 # refusal leaves it at its own size beside an untouched layout, so this is what
 # separates taking a slot from being put in front of one.
 probe windowGeometry "$arrival" | jq -e --argjson a "$paneA" --argjson b "$paneB" '. == $a or . == $b'
-# What the yielding window becomes is not reachable here. No display the harness
-# creates is an internal panel, so there is no card stage to take it and it is
-# simply left where it was, still wearing the pane rectangle. Whether it becomes
-# a nonselected card, and whether a refused arrival retires the layout instead of
-# being drawn over it, are the halves this seam owes physical review.
+# Release gives the parked occupant back awake, so nothing below is minimized.
 
 test "$(probe releaseRuntime)" = true
 sleep .4

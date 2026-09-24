@@ -110,8 +110,10 @@ freshly chosen card, and nothing goes wrong.
 - [x] J rules the monitor: it organizes everything it shows, and a window
       without room goes to the dock. (audit 10)
 - [x] Make the card and product contracts say what is ruled. (audit 10)
-- [ ] **Next:** send a window the monitor's layout has no room for to the dock,
-      never to the tablet, and never leave one loose beside a layout.
+- [x] Send a window the monitor's layout has no room for to the dock, never to
+      the tablet; picking it from the dock brings it back as an arrival.
+- [ ] **Next:** a window KWin moves onto the monitor joins its layout or waits in
+      the dock, rather than standing loose beside it.
 - [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
 - [ ] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.

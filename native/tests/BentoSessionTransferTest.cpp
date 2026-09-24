@@ -6,7 +6,7 @@
 #include <iostream>
 using namespace Kadunce;
 struct Snapshot { int window; bool valid = true; int restoreMarker = 0;
-                  bool userMinimized = false; };
+                  bool userMinimized = false; bool parked = false; };
 struct Session {
     QString outputName;
     QList<int> windows;

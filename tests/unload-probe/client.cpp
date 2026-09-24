@@ -71,6 +71,9 @@ public Q_SLOTS:
   xcb_flush(c);
  }
  void companion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->resize(500,400); w->show(); }
+ // A named window with a minimum size, so a scene can decide how many fit a
+ // layout without depending on the layout's own pane count.
+ void titledCompanion(const QString &title, int width, int height) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); w->setMinimumSize(width, height); w->resize(width, height); w->show(); }
  void largeCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1000,700); w->resize(1000,700); w->show(); }
  // Fits the 0.62 pane of a two-pane landscape layout on a 1280x800 output and
  // nothing smaller, so it can only be admitted by growing the layout and can

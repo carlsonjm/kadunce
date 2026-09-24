@@ -168,10 +168,16 @@ not alternate behavior, and where wording conflicts the owning document governs.
   entry records only what the current structure does. It is also why a window a
   layout cannot show moves to the display that can hold it as a card rather than
   staying where it was.
-- A display that cannot own cards does not yet follow J's ruling that it
-  organizes everything it shows: a window its layout has no room for moves to the
-  card display as a card instead of to the dock, a layout stops at eight panes,
-  and a window can sit loose beside a layout.
+- On a display that cannot own cards, a window its layout has no room for waits
+  in the dock, minimized and still owned: one that fits no slot, one a newcomer
+  displaces, and one shed by a placement that will not settle. A pane the person
+  minimizes waits there too rather than crossing to the card display. Picking
+  one from the dock brings it back as an arrival, and an application too big for
+  any slot takes the Active size while the layout waits in the dock. Switching
+  Kadunce off returns every window to the desktop, minimized ones included.
+- J's ruling for that display is not yet fully built: a layout stops at eight
+  panes, one window snapped to a side fills the display rather than half of it,
+  and a window KWin moves there by other means stands loose beside a layout.
 - Card ownership is structurally single-desktop. `CARD-LIFECYCLE.md` gives
   every virtual desktop its own ownership session; the build gives one desktop
   cards and leaves the rest plain until Table, which is in 1.0, brings a card
