@@ -27,7 +27,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 13 | What a person meets first | Next |
 | 14 | Ownership scope | Next: build the monitor's layout rule |
 | 9 | Shuffle Keyboard | In progress |
-| 5 | Bottom Surface | In progress: icon signals, then the arrival motion |
+| 5 | Bottom Surface | In progress: blackout for a maximized window, then the arrival motion |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
 | 16 | Motion | Ready |
@@ -177,7 +177,8 @@ physical peripherals.
       and with its own pinned mark, and pills for the window's size actions
       with a more control for the rest.
 - [x] The sheet's window pictures go live.
-- [ ] **Next:** Icon signals: the bar for the app in front keeps its dots, at most two.
+- [x] Icon signals: J keeps them as they are.
+- [ ] **Next:** A maximized window turns the region solid, in Shuffle's black.
 - [ ] Give the Keyboard its arrival motion: the handle carries the keys under
       the finger, and the dock is gone before they reach its room.
       (audit 13, 36)

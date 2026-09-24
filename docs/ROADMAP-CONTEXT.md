@@ -464,7 +464,7 @@ minimized monitor window passed. The dock once stepped aside whenever Zen
 focused its own field with no keys shown. A tap on an app in
 front puts it away only when it has one window; with several it moves to the
 next, which is Plasma's own default at 6.7.5, and J kept the platform's
-behavior. The bar and dots combine, with at most two dots.
+behavior.
 
 Plasma supplies the rest of the hosting: `X-Plasma-ContainmentType: Panel`,
 `PanelView::updateExclusiveZone` reserving exactly the thickness in the normal
