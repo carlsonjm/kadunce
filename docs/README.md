@@ -72,6 +72,7 @@ status against the contracts and never redefines them.
 | `TESTING.md` | what each check proves, the private route matrix, promotion, reading a probe run, failure classification, and handing over an installation |
 | `EXPERIENCE-AUDIT.md` | the 23 September product and experience findings, each tied to the roadmap line that answers it |
 | `TETTEGOUCHE-CONTEXT.md` | versioned context and guest D-Bus API |
+| `UPSTREAM.md` | problems in KDE software Shuffle could report or patch, for J to choose what is sent |
 | `TERMINOLOGY.md` | suite-wide approved and retired language, and the rules for applying it |
 | `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |
 | `KADUNCE-TABLE-1.1-CONCEPT.md` | required Table product contract and feasibility gate |

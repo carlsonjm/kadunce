@@ -374,7 +374,11 @@ and nothing else fires.
 
 - [ ] Cap and condense the dock once working sets outgrow it.
 
-### 12d. Monitor layout
+### 12d. Give back to KDE
+
+- [ ] J picks what to send from `UPSTREAM.md`.
+
+### 12e. Monitor layout
 
 - [ ] A low or high side snap makes room under a larger pane rather than
       taking a full-height third.

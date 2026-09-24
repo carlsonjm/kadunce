@@ -81,9 +81,12 @@ not alternate behavior, and where wording conflicts the owning document governs.
   sits a gutter above the keys; they roll further for a line typed below the
   keys or taller keys, never back down while the keyboard is up, and return
   exactly when it goes. A client that reports no cursor is not moved. Spread
-  and Bento are untouched. A card the stage focuses by its own gesture keeps
-  the keyboard down for the moment in which a client would have KWin raise it
-  on focus. Physically accepted on 23 September.
+  and Bento are untouched. Physically accepted on 23 September. The keys stay
+  up only for a touch on the text cursor's line in the window being typed
+  into, or a request through `raiseKeyboard`; anything else KWin raises goes
+  back down before it is drawn. The case it exists for, an application
+  focusing its own field, cannot be produced in the private compositor and
+  waits on physical review.
 - While Kadunce is on, the display that can own cards holds its windows as
   cards. Switching it on, at sign-in or from the tray, makes the window in use
   the Active card and every other window there a card, and a window that opens
@@ -261,7 +264,7 @@ frame pacing, hardware touch, fractional-scale, suspend, or live disable review.
 
 The isolated nested-compositor scenes under `tests/unload-probe/` are the
 closest automated evidence to physical behavior, and `verify-integrated-carry.sh`
-runs every one of them: 48 scenes, the native tests, the candidate check, the
+runs every one of them: 49 scenes, the native tests, the candidate check, the
 source, package and control guards, and a read-only session registration check,
 from a freshly captured source tree, in about three minutes. It runs every scene
 even after one fails, so a failure cannot hide the ones behind it. No scene
