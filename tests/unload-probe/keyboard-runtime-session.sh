@@ -120,6 +120,23 @@ sleep 1
 record room-stale
 test "$(frame "Keyboard reveal probe")" = "$before"
 echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
+# The Keyboard's own put-away: a finger carries the handle down. The keys claim
+# less room all the way out, never the whole Keyboard again as they go, and the
+# card ends at its own height.
+raise
+probe watchPanel
+keys=$(state | jq '.panel')
+x=$(jq '.x + .width / 2 | floor' <<<"$keys"); y=$(jq '.y + 12 | floor' <<<"$keys")
+probe down 1 "$x" "$y"
+for step in {1..10}; do probe motion 1 "$x" $((y + step * 30)); sleep .02; done
+probe up 1
+sleep 1.5
+record room-put-away
+printf 'put-away panel heights %s\n' "$(probe panelHistory)"
+state | jq -e '.visible == false'
+probe panelHistory | jq -e 'length > 2 and (. as $h | all(range(1; length); $h[.] <= $h[. - 1]))'
+test "$(frame "Keyboard reveal probe")" = "$before"
+echo 'PASS: keys put away by the handle only ever shrink, and the card ends whole'
 
 # Room is made for the keys, not for the cursor: a field they would never
 # reach, and a client that reports no cursor at all, both make it.

@@ -13,6 +13,7 @@
 #include <input_event.h>
 #include <options.h>
 #include <inputmethod.h>
+#include <inputpanelv1window.h>
 #include <main.h>
 #include <window.h>
 #include <QDBusConnection>
@@ -187,6 +188,25 @@ public Q_SLOTS:
         }
         state.insert("cursor", rect(method->cursorRectangle()));
         return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
+    }
+    // Every height the input panel reports while it is on screen, from now on,
+    // so a scene can say whether the keys ever claimed more room as they left.
+    void watchPanel() {
+        panelHeights = {};
+        QObject::disconnect(panelWatch);
+        auto *method = KWin::kwinApp()->inputMethod();
+        QPointer<KWin::Window> panel = method ? method->panel() : nullptr;
+        if (!panel) return;
+        panelWatch = connect(panel, &KWin::Window::frameGeometryChanged, this, [this, panel]() {
+            const auto *shown = KWin::effects->inputPanel();
+            if (panel && shown && shown->isVisible())
+                panelHeights.append(panel->frameGeometry().height());
+        });
+    }
+    QString panelHistory() {
+        QJsonArray heights;
+        for (double height : std::as_const(panelHeights)) heights.append(height);
+        return QString::fromUtf8(QJsonDocument(heights).toJson(QJsonDocument::Compact));
     }
     QString frames() {
         QJsonObject frames;
@@ -555,6 +575,8 @@ private:
     std::optional<Kadunce::NativeCarryHandoff::DropResult> dropResult;
     QPointer<KWin::LogicalOutput> destinationUnderTest;
     int paintGeometryChanges = 0;
+    QList<double> panelHeights;
+    QMetaObject::Connection panelWatch;
     QSet<QString> carryPaintOutputs;
     std::chrono::microseconds now() { return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()); }
     Target target;
