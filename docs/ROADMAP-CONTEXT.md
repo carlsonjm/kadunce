@@ -333,21 +333,18 @@ and the accent only means attention, a count, progress or starting.
 and each flank spends its own side (`DECISIONS.md` § The dock's centre is fixed,
 and each flank spends its own side); an asymmetric result is intended.
 
-**Checks owed.** The fade was measured on the tablet panel with no step or
-contour, so the band height the contract marks pending is no longer blocked.
-Still owed:
+**The band's looks.** The fade was measured on the tablet panel with no step or
+contour, so the band height the contract marks pending is no longer blocked. J
+set on 25 September that the band's settings offer three looks rather than
+reacting to a preference Plasma does not have: Auto, the fade that goes black for
+a window reaching into it, as built; Clear, always the fade; Blackout, always
+black. Blackout is the reduced-transparency answer (audit 35).
 
-- Ambient's ticker stays legible against a bright wallpaper at the thin end of
-  the gradient, which has the least material and the most light behind it. J's
-  own background is the case to test. Window contact is one input to the solid
-  fill, not the whole rule. A third-party containment cannot reach
-  `touchingWindow`, which drives Plasma's adaptive opacity inside the shell's
-  `Panel.qml`; `TasksModel` region filtering is what replaces it.
-- A reduced-transparency preference replaces the gradient with a solid fill.
-  `ITASCA-VISUAL-LANGUAGE.md` covers reduced motion and not this; closing the gap
-  is this block's.
-- A smear line where a faded tint meets an unfaded blur belongs to the parked
-  effect and returns with it.
+The band's look is to be revisited as a whole, since the filtered glass could not
+be built and the fade stands in for it. The ticker's legibility against a bright
+wallpaper at the thin end of the fade belongs to that review; J's background is a
+video, whose brightness changes every frame. A smear line where a faded tint
+meets an unfaded blur belongs to the parked effect and returns with it.
 
 No prior art carries these. Progressive blur is established inside application
 content, and the system chrome Shuffle is measured against uses a uniform
@@ -368,8 +365,8 @@ whatever the component does. The surface publishes the dock's extent per output
 and Temperance measures to that edge, discovering it at run time, following the
 change signal, refusing an unknown major version and doing without it on a plain
 panel. And Ambient and the status cluster are placed on their own sides, left and
-right, by applet plugin name. None is retested on hardware; once the flanks hold,
-the fixes they make redundant retire (audit 20). The extent's other consumer is
+right, by applet plugin name. J saw both sides hold on the tablet on 25
+September, so the fixes they make redundant now retire (audit 20). The extent's other consumer is
 the Keyboard's handle, which takes its width from it.
 
 **Clock and calendar.** J set the direction on 24 September; it is Temperance's
@@ -378,7 +375,8 @@ like a card), and so is the slice detail. The clock, the calendar card and event
 from linked calendars passed on the tablet on 25 September. Holidays come from
 Plasma's holiday plugin and the region set in Plasma. Events come from private
 calendar links, read with KDE's calendar library (`kcalendarcore`), which Block
-10's installer then carries.
+10's installer then carries. Today's next timed event joins the notification
+ticker and history (J, 25 September; Temperance's `DECISIONS.md` says how).
 
 **Done, in brief.** The dock is centred, stores its pinned list with the surface,
 carries the platform's own task menu from the native component the stock task
@@ -386,9 +384,8 @@ manager uses, reorders by a sideways carry stored at each place it crosses, list
 an application's windows in its menu, and brings back the one used last on a tap
 (`DECISIONS.md` § The platform's answer wins where it has one). KWin grants the
 window-list protocol only to the shell, so the dock's contents can be reviewed
-only on a panel. Two menu gaps remain, neither blocking: an application's own
-jump-list entries, which no model role carries, and the move-to-desktop and
-move-to-activity submenus. The Keyboard boundary is the contract's `yieldRegion`
+only on a panel. The sheet carries an application's own shortcuts. Moving a
+window to another desktop or activity from the sheet waits for Table (Block 8). The Keyboard boundary is the contract's `yieldRegion`
 and `releaseRegion`, with one holder tracked by bus name; yielding gives up the
 reservation, not only the paint, and `shuffle/tests/verify-boundary.sh` runs both
 production halves. The handle is a six-pixel bar on the band that reserves its
@@ -666,7 +663,9 @@ layout cannot show moves to the display that can hold it as a card, the only
 settling place this build has; J accepted that on 20 September for this version
 and expects Table to offer more places to settle a misplaced card. And an
 application that declares a large minimum and takes the wide pane against a
-person's intent is partly Table's to answer.
+person's intent is partly Table's to answer. The dock's sheet has no way to move
+a window to another desktop or activity, the last of Plasma's task manager it
+lacks; J tied it to Table on 25 September.
 
 The interaction was chosen on 25 September; `DECISIONS.md` § Table is tabs
 scrubbed from the top edge records why. The audit's new question is whether

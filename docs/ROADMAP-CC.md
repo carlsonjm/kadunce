@@ -48,7 +48,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 14 | Ownership scope | Done |
-| 5 | Bottom Surface | Current: the clock, then the remaining checks |
+| 5 | Bottom Surface | Current: the width fixes, then the band's looks |
 | 9 | Shuffle Keyboard | Current: acceptance |
 | 8 | Table | Current: after the Bottom Surface |
 | 9b | Shuffle Lock | Current: scope is Open decision 2; needs the Keyboard |
@@ -114,7 +114,7 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 - [x] The gradient arrives on the tablet panel with no visible banding.
 - [x] Bring J the dock's gap against Plasma's Icons-only Task Manager, and a
       Shuffle look for what it lacks.
-- [ ] Give the dock everything Plasma's Icons-only Task Manager does.
+- [x] Give the dock everything Plasma's Icons-only Task Manager does.
 - [x] Build the approved long-press sheet with live window previews, and the
       approved icon signals.
 - [x] The dock stays when an app focuses a text field and no keys come up.
@@ -136,13 +136,14 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 - [x] A tap opens the calendar as a small card in the corner, with holidays.
 - [x] J picks where events come from: a private calendar link.
 - [x] The calendar shows the events from that link.
-- [ ] **Next:** Bring J the next event beside the time, where there is room.
-- [ ] Retest the asymmetric Ambient and ticker width.
-- [ ] Once the flanks hold, retire the width fixes they made redundant.
-      (audit 20)
-- [ ] Keep the ticker legible on a bright wallpaper.
-- [ ] Replace the gradient with a solid fill under reduced transparency.
-      (audit 35)
+- [x] Retest the asymmetric Ambient and ticker width.
+- [x] Today's next timed event joins the notification ticker and history.
+- [ ] **Next:** Retire the width fixes the flanks made redundant. (audit 20)
+- [ ] The band's settings offer three looks: Auto, as it behaves now; Clear,
+      always the fade; Blackout, always black. (audit 35)
+- [ ] Revisit the band's look as a whole, since the filtered glass could not be
+      built and the fade stands in for it; the ticker on a bright wallpaper is
+      part of that review.
 
 **Done when:** the dock is centred and grows evenly at tablet and monitor widths,
 and the Status Bar and Ambient each fill the space the dock leaves them.
@@ -268,6 +269,8 @@ that owns it.
 - [ ] Whether attaching the keyboard changes the mode. (audit 27)
 - [ ] Right-click and pointing without raising the keys. (audit 28)
 - [ ] One place to find everything. (audit 31)
+- [ ] One Shuffle settings app for what each component keeps in its widget's
+      settings.
 - [ ] Check portrait, and sleep and wake, on the tablet. (audit 30)
 
 **Done when:** every line has J's ruling, and every accepted answer is a task in
