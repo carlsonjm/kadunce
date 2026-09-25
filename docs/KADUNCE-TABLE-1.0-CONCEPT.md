@@ -1,7 +1,9 @@
 # Table product contract
 
 **Status:** Required for Shuffle 1.0. Interaction and visual direction approved
-by J on 25 September; engineering feasibility queued.
+by J on 25 September. KDE's virtual-desktop APIs were audited from source the
+same day and support every part of it (`ROADMAP-CONTEXT.md` § Block 8); the
+runtime proofs are next.
 
 Table extends Kadunce's spatial model to existing KDE Plasma virtual desktops:
 
@@ -61,7 +63,11 @@ its own place opens it. Releasing at the edge cancels.
 - A workspace that holds no cards dissolves on its own unless it is pinned. The
   workspace the person is in stays until they leave it.
 - A workspace spans every display. Its tab row holds its windows from every
-  display, and a Bento layout is one grouped card, as in Spread.
+  display, and a Bento layout is one grouped card, as in Spread. KDE's
+  per-display desktop switching stays off: with it on, each display has its own
+  current desktop and a window moved between displays changes desktop. J
+  turned it off on 25 September and ruled that the setting should not exist
+  for Shuffle.
 
 ## Presentation
 
@@ -93,8 +99,9 @@ its own place opens it. Releasing at the edge cancels.
 
 Before product implementation:
 
-- audit KWin/Plasma virtual-desktop APIs, including creating and removing a
-  desktop and painting a non-current desktop at full size on every display;
+- ~~audit KWin/Plasma virtual-desktop APIs, including creating and removing a
+  desktop and painting a non-current desktop at full size on every display~~
+  (from source, 25 September; the painting still needs its runtime proof);
 - define state ownership across desktop switch, output change, client close,
   effect unload, and session restore, and where a pin is kept;
 - prove one value-first transfer on a private prototype;
@@ -107,6 +114,9 @@ Before product implementation:
 - How the tab row holds more workspaces than fit across.
 - How strongly the preview is shaded.
 - The shortcut that opens Table.
+- How Shuffle keeps per-display desktop switching off.
+- KDE's own three-finger touchscreen swipe and desktop-name pop-up, beside
+  Table.
 
 ## 1.0 acceptance
 

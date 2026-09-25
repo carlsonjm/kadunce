@@ -48,7 +48,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 5 | Bottom Surface | Done |
 | 9b | Shuffle Lock | Done |
 | 9 | Shuffle Keyboard | Current: acceptance |
-| 8 | Table | Current |
+| 8 | Table | Current: runtime proofs, then a card set per desktop |
 | 6 | Tettegouche completion | Current: the Keyboard line only |
 | 4 | Kadunce manipulation | Current: defects met in daily use |
 | 12 | Post-MVP debug | 12f current; the rest waits |
@@ -139,13 +139,28 @@ physical peripherals.
 ## Block 8 — Table
 
 - [x] Choose Table's interaction and look: tabs scrubbed from the top edge.
-- [ ] Audit KWin and Plasma virtual-desktop APIs and lifecycle, including
-      creating and removing desktops and painting one that is not current.
+- [x] Audit KWin and Plasma virtual-desktop APIs and lifecycle, from the 6.7.5
+      source.
+- [ ] Prove on a private prototype in the running session: a desktop that is not
+      current painted at full size on every display, with its cost and
+      freshness; a switch without the slide; and creating, naming, moving a
+      window to and removing a desktop, each confirmed through KDE's D-Bus.
 - [ ] Give every virtual desktop its own cards and layouts, replacing the
       one-desktop rule. (audit 9)
+- [ ] Follow KDE's own changes: a window moved by the window menu or a rule, a
+      desktop removed or reordered, a window opening on a desktop not in view.
 - [ ] Prove multi-display behavior without changing Bento.
-- [ ] Build the smallest complete prototype and test it physically.
+- [ ] Bring J how Shuffle keeps per-display desktop switching off, which Table
+      assumes (J, 25 September).
+- [ ] Bring J options for KDE's own switching beside Table: its three-finger
+      touchscreen swipe once two desktops exist, and its desktop-name pop-up.
+- [ ] Keep Table's workspace rules in Kadunce: a new desktop named after its
+      first card's application, an empty one dissolved unless pinned, pins
+      stored by desktop id.
+- [ ] Build the smallest complete prototype and test it physically: the scrub,
+      the depth line, a card carried to a tab and to `+`, and cancel.
 - [ ] Implement the accepted interaction.
+- [ ] Give the dock's sheet a way to move a window to another desktop.
 - [ ] Choose the shortcut that opens Table.
 - [ ] Bring J the option of a monitor layout's overflow going to another desktop
       through Table instead of the dock.

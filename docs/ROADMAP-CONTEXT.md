@@ -553,9 +553,47 @@ a window to another desktop or activity, the last of Plasma's task manager it
 lacks; J tied it to Table on 25 September.
 
 The interaction was chosen on 25 September; `DECISIONS.md` § Table is tabs
-scrubbed from the top edge records why. The audit's new question is whether
-an effect can paint a non-current desktop at full size on every display, since
-the preview depends on it; Plasma's Overview suggests it can.
+scrubbed from the top edge records why.
+
+**API audit, 25 September, from KWin 6.7.5's source.** Everything Table needs
+is there; references are to that tag.
+
+- Desktops: `VirtualDesktopManager` creates at a 0-based position, removes,
+  renames and moves (`virtualdesktops.cpp:448-550`), 1 to 25 of them, with
+  random UUID ids that survive reorder and restart. A removed desktop's windows
+  that were only there go to the desktop now in its slot
+  (`workspace.cpp:1560-1598`). D-Bus has no move, and its create position is
+  0-based despite the header comment.
+- Membership: `effects->windowToDesktops` (`effecthandler.cpp:808-815`) ignores
+  docks and the desktop window; transients follow their parent and a modal
+  dialog takes its main window along (`window.cpp:730-743`); a forced window
+  rule wins. `EffectWindow::windowDesktopsChanged` reports changes.
+- Switching: `effects->setCurrentDesktop`. Holding the active fullscreen effect
+  makes the slide and fade effects stand aside (`plugins/slide/slide.cpp:447`),
+  but KDE's `desktopchangeosd` script still shows the desktop's name.
+- Preview without switching: hold `EffectWindowVisibleRef(w,
+  PAINT_DISABLED_BY_DESKTOP)` as the slide effect does
+  (`plugins/slide/slide.cpp:405`), which also keeps the application drawing,
+  or Overview's `QuickSceneEffect` route. Cost and freshness are the runtime
+  proof owed.
+- Persistence: desktops live in `kwinrc [Desktops]`; a window's desktops return
+  after restart only for applications using xdg-session-management
+  (`xdgshellwindow.cpp:480-499`). KDE has no pinned flag, so Table's pins are
+  Kadunce's, kept by desktop id.
+- KDE's own switching: a three-finger left or right touchscreen swipe once the
+  grid has more than one column, touchpad swipes, and Ctrl+Meta+arrows
+  (`virtualdesktops.cpp:773-879`).
+- Per-display switching (`[Windows] PerOutputVirtualDesktops`) gives each
+  display its own current desktop, and a window moved between displays swaps
+  its desktop for the destination's (`window.cpp:4670-4699`). That contradicts
+  a workspace spanning every display. J turned it off on 25 September and ruled
+  that the setting should not exist for Shuffle; Table assumes it off.
+
+The runtime proofs come first because they are cheap and decide the preview,
+the riskiest promise in the contract. A card set per desktop is the block's
+architecture: `CARD-LIFECYCLE.md` already gives each desktop its own ownership
+session, while the build keeps one `CardStageController` and a
+`m_ownedDesktop` (`Effect.cpp:822-850`).
 
 **Exit gate:** a person pulls down Table, moves a real managed window between
 existing KDE virtual desktops, lifts into the destination, and sees correct
