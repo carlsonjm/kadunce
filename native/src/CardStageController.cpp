@@ -4,7 +4,7 @@
 */
 
 #include "CardStageController.h"
-#include "KeyboardReveal.h"
+#include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
 #include "OwnershipHandoff.h"
 #include "NeighborStackPose.h"
@@ -78,19 +78,19 @@ CardStageController::CardStageController(CardStageHost *host)
         }
         KWin::effects->addRepaintFull();
     });
-    // Keyboard, focus and cursor notifications arrive in bursts and from
-    // inside the compositor's own handling, so the reveal runs once, after.
-    m_keyboardRevealTimer.setSingleShot(true);
-    m_keyboardRevealTimer.setInterval(0);
-    QObject::connect(&m_keyboardRevealTimer, &QTimer::timeout,
-                     &m_keyboardRevealTimer, [this]() { updateKeyboardReveal(); });
+    // Keyboard and focus notifications arrive in bursts and from inside the
+    // compositor's own handling, so the room is made once, after.
+    m_keyboardRoomTimer.setSingleShot(true);
+    m_keyboardRoomTimer.setInterval(0);
+    QObject::connect(&m_keyboardRoomTimer, &QTimer::timeout,
+                     &m_keyboardRoomTimer, [this]() { updateKeyboardRoom(); });
     // The bottom panels return a moment after the keyboard leaves. Until then
     // the work area still includes their room, so the card keeps the
     // placement it had before the keyboard came.
-    m_keyboardRevealRelease.setSingleShot(true);
-    m_keyboardRevealRelease.setInterval(1000);
-    QObject::connect(&m_keyboardRevealRelease, &QTimer::timeout,
-                     &m_keyboardRevealRelease, [this]() { m_keyboardReveal.reset(); });
+    m_keyboardRoomRelease.setSingleShot(true);
+    m_keyboardRoomRelease.setInterval(1000);
+    QObject::connect(&m_keyboardRoomRelease, &QTimer::timeout,
+                     &m_keyboardRoomRelease, [this]() { m_keyboardRoom.reset(); });
     m_activeSettleTimer.setSingleShot(true);
     m_activeSettleTimer.setInterval(0);
     QObject::connect(&m_activeSettleTimer, &QTimer::timeout, &m_activeSettleTimer, [this]() {
@@ -922,9 +922,9 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
     const KWin::RectF work = KWin::effects->clientArea(
         KWin::MaximizeArea, output);
     // The gutter is the same on every edge, a reserving panel included: the
-    // work area already stops at the panel. The keyboard overlays the card and
-    // never changes its size; a covered text cursor is revealed by lifting
-    // the card, in updateKeyboardReveal.
+    // work area already stops at the panel. The keyboard never changes the
+    // work area; the room the card gives up for it is made from this target,
+    // in updateKeyboardRoom.
     const CardRect target = makeActiveTarget(
         work.x(), work.y(), work.width(), work.height(), m_settings.gutter());
     return KWin::Rect(qRound(target.x), qRound(target.y),
@@ -934,57 +934,45 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 KWin::Rect CardStageController::activePlacement(
     KWin::LogicalOutput *output) const
 {
-    if (!m_keyboardReveal || !m_keyboardReveal->window
-        || m_keyboardReveal->window != m_activeRestore.window) {
+    if (!m_keyboardRoom || !m_keyboardRoom->window
+        || m_keyboardRoom->window != m_activeRestore.window) {
         return activeTarget(output);
     }
-    const bool raised = m_host->inputPanelTopForCardStage(output).has_value();
-    return m_keyboardReveal->base
-        .translated(0.0, raised ? -m_keyboardReveal->lift : 0.0).toRect();
+    KWin::RectF placement = m_keyboardRoom->base;
+    if (m_host->inputPanelTopForCardStage(output).has_value()
+        && m_host->keyboardTypesIntoForCardStage(m_keyboardRoom->window))
+        placement.setHeight(m_keyboardRoom->height);
+    return placement.toRect();
 }
 
-void CardStageController::refreshKeyboardReveal()
+void CardStageController::refreshKeyboardRoom()
 {
-    m_keyboardRevealTimer.start();
+    m_keyboardRoomTimer.start();
 }
 
-std::optional<KWin::RectF> CardStageController::keyboardRevealFrame(
-    const KWin::EffectWindow *window) const
+void CardStageController::putBackKeyboardRoom()
 {
-    if (!m_keyboardReveal || m_keyboardReveal->lift <= 0.0 || !window
-        || m_keyboardReveal->window != window
-        || m_activeRestore.window != window
-        || m_presentation != CardPresentation::Active) {
-        return std::nullopt;
-    }
-    return m_keyboardReveal->base;
-}
-
-void CardStageController::putBackKeyboardReveal()
-{
-    m_keyboardRevealTimer.stop();
-    m_keyboardRevealRelease.stop();
-    const auto reveal = std::exchange(m_keyboardReveal, std::nullopt);
-    if (!reveal || reveal->lift <= 0.0 || !reveal->window
-        || reveal->window->isDeleted() || !reveal->window->window()) {
+    m_keyboardRoomTimer.stop();
+    m_keyboardRoomRelease.stop();
+    const auto room = std::exchange(m_keyboardRoom, std::nullopt);
+    if (!room || room->height >= room->base.height() || !room->window
+        || room->window->isDeleted() || !room->window->window()) {
         return;
     }
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-    const KWin::RectF frame = reveal->window->frameGeometry();
-    reveal->window->window()->moveResize(
-        KWin::RectF(reveal->base.x(), reveal->base.y(), frame.width(), frame.height()));
+    room->window->window()->moveResize(room->base);
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce keyboard reveal returned" << reveal->window->caption()
-            << "to" << reveal->base.toRect();
+    qInfo() << "Kadunce keyboard room returned" << room->window->caption()
+            << "to" << room->base.toRect();
 }
 
-void CardStageController::updateKeyboardReveal()
+void CardStageController::updateKeyboardRoom()
 {
     const auto window = m_activeRestore.window;
-    if (m_keyboardReveal && m_keyboardReveal->window != window) {
-        // Whatever took the card out of Active placed it; the lift left with it.
-        m_keyboardReveal.reset();
-        m_keyboardRevealRelease.stop();
+    if (m_keyboardRoom && m_keyboardRoom->window != window) {
+        // Whatever took the card out of Active placed it; the room left with it.
+        m_keyboardRoom.reset();
+        m_keyboardRoomRelease.stop();
     }
     auto *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || m_presentation != CardPresentation::Active
@@ -998,54 +986,52 @@ void CardStageController::updateKeyboardReveal()
         || client->quickTileMode() != KWin::QuickTileMode{}) {
         return;
     }
-    const auto keyboardTop = m_host->inputPanelTopForCardStage(tablet);
+    // Room is made for keys typing into this card, never for keys another
+    // window asked for while the card waits behind it.
+    auto keyboardTop = m_host->inputPanelTopForCardStage(tablet);
+    if (!m_host->keyboardTypesIntoForCardStage(window)) keyboardTop.reset();
     if (!keyboardTop) {
-        if (!m_keyboardReveal) return;
-        const KWin::RectF base = m_keyboardReveal->base;
-        if (m_keyboardReveal->lift > 0.0) {
-            m_keyboardReveal->lift = 0.0;
+        if (!m_keyboardRoom) return;
+        const KWin::RectF base = m_keyboardRoom->base;
+        if (m_keyboardRoom->height < base.height()) {
+            m_keyboardRoom->height = base.height();
             QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-            client->moveResize(KWin::RectF(base.x(), base.y(),
-                window->frameGeometry().width(), window->frameGeometry().height()));
+            client->moveResize(base);
             KWin::effects->addRepaintFull();
-            qInfo() << "Kadunce keyboard reveal returned" << window->caption()
+            qInfo() << "Kadunce keyboard room returned" << window->caption()
                     << "to" << base.toRect();
         }
-        m_keyboardRevealRelease.start();
+        m_keyboardRoomRelease.start();
         return;
     }
-    m_keyboardRevealRelease.stop();
-    if (!m_keyboardReveal) {
+    m_keyboardRoomRelease.stop();
+    if (!m_keyboardRoom) {
         // The placement asked for rather than the frame, which still shows the
         // old size while a card that has just arrived acknowledges its new one.
-        m_keyboardReveal = KeyboardReveal{window, client->moveResizeGeometry(), 0.0};
+        const KWin::RectF base = client->moveResizeGeometry();
+        m_keyboardRoom = KeyboardRoom{window, base, base.height()};
     }
-    const KWin::RectF base = m_keyboardReveal->base;
-    const KWin::RectF frame = window->frameGeometry();
-    // Contents roll up only as far as the line being typed on needs, and
-    // never back down while the keyboard is up: a line typed below the keys,
-    // or taller keys, rolls them further; a cursor moving up, a shorter
-    // keyboard or focus leaving the card moves nothing.
-    double lift = m_keyboardReveal->lift;
-    if (const auto cursor = m_host->textCursorForCardStage(window)) {
-        // The cursor moves with the card, so measure it where the card rests.
-        const KWin::RectF resting = cursor->translated(0.0, base.y() - frame.y());
-        lift = std::max(lift, keyboardRevealLift(resting.top(), resting.bottom(),
-            *keyboardTop, m_settings.gutter(), tablet->geometry().y()));
-    }
-    m_keyboardReveal->lift = lift;
-    // Only the height the contents sit at is the reveal's to set. A client
-    // that trims its own frame, as a terminal does to whole rows, keeps the
-    // size it chose; the settle owns size.
-    const int top = qRound(base.y() - lift);
-    if (qRound(frame.y()) == top) return;
-    const KWin::Rect target(qRound(frame.x()), top, qRound(frame.width()),
-                            qRound(frame.height()));
+    // The card gives up the room the keys take as they take it, and has it
+    // back as they shrink or leave. Its top edge, its width and its place stay;
+    // only its bottom edge follows the keys, so the application lays itself
+    // out again above them. A client that cannot be that short keeps the
+    // least height it can have.
+    const KWin::RectF base = m_keyboardRoom->base;
+    const double room = keyboardRoomHeight(base.y(), base.height(),
+        *keyboardTop, m_settings.gutter());
+    const double height = std::min(base.height(),
+        client->constrainFrameSize(QSizeF(base.width(), room)).height());
+    m_keyboardRoom->height = height;
+    const KWin::Rect target = KWin::RectF(base.x(), base.y(), base.width(), height).toRect();
+    // Measured against what was asked for, not the frame: a client still
+    // drawing its last size, or one that trims itself to whole rows as a
+    // terminal does, is not asked again.
+    if (client->moveResizeGeometry().toRect() == target) return;
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce keyboard reveal" << window->caption()
-            << "lift" << lift << "target" << target;
+    qInfo() << "Kadunce keyboard room" << window->caption()
+            << "height" << height << "target" << target;
 }
 
 bool CardStageController::selectedStackContains(const QPointF &position) const
@@ -2504,7 +2490,7 @@ bool CardStageController::enterActive()
     syncSelectedElevation();
     m_activeSettleTimer.start();
     // A keyboard may already be up over the card that just arrived.
-    refreshKeyboardReveal();
+    refreshKeyboardRoom();
     KWin::workspace()->raiseWindow(client);
     KWin::workspace()->activateWindow(client, true);
     qInfo() << "Kadunce" << Revision
@@ -2517,9 +2503,9 @@ void CardStageController::restoreActiveSnapshot()
     ++m_restoreGeneration;
     m_activeSettleTimer.stop();
     m_activeSettleRemaining = 0;
-    m_keyboardRevealTimer.stop();
-    m_keyboardRevealRelease.stop();
-    m_keyboardReveal.reset();
+    m_keyboardRoomTimer.stop();
+    m_keyboardRoomRelease.stop();
+    m_keyboardRoom.reset();
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     m_restoredMinimizations.clear();
     parkActiveSnapshot();
@@ -2539,10 +2525,10 @@ void CardStageController::restoreActiveSnapshot()
 void CardStageController::parkActiveSnapshot()
 {
     m_activeSettleTimer.stop();
-    // A card leaving Active stays a card, so it leaves from its own placement
-    // rather than from wherever the keyboard lifted it.
-    if (m_keyboardReveal && m_keyboardReveal->window == m_activeRestore.window) {
-        putBackKeyboardReveal();
+    // A card leaving Active stays a card, so it leaves at its own size rather
+    // than the one it gave up for the keyboard.
+    if (m_keyboardRoom && m_keyboardRoom->window == m_activeRestore.window) {
+        putBackKeyboardRoom();
     }
     if (m_activeRestore.valid && m_activeRestore.window) {
         const auto window = m_activeRestore.window;
