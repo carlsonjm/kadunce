@@ -649,8 +649,8 @@ gives a complete supported installation path.
 ## Block 8 — Table
 
 **Status:** In 1.0, decided by J on 23 September, replacing the tentative 1.1
-ruled earlier that day. It keeps its place in the order, because the one-desktop
-rule Block 14 built is stable enough to carry the plan until then. Reference:
+ruled earlier that day. On 25 September J put it in the personal daily-driver
+target, after the Bottom Surface. Reference:
 `KADUNCE-TABLE-1.0-CONCEPT.md`.
 
 A destination Spread needs a card set per virtual desktop, which the structure

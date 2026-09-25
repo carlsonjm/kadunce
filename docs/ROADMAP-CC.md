@@ -4,14 +4,35 @@ The checklist for the whole suite, in the order the work is done. One line per
 task: `[x]` done, `[ ]` open. Why a task exists, what was measured and what it
 needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
-## Next
+## Current target: personal daily driver
 
-1. Give Temperance its clock: each new minute deals like a card, and a tap
-   opens the calendar in the corner (Block 5).
-2. Finish the Bottom Surface's remaining checks (Block 5).
-3. Prove the Keyboard: layout, controls, height, the precision surface, and
-   every kind of application (Block 9).
-4. Tettegouche's remaining work, the waiting-dialog row included (Block 6).
+Shuffle becomes J's own daily system first. Work outside this list waits.
+
+**Missing capability**
+
+- Clock: Temperance's clock and calendar (Block 5).
+- Lock (Block 9b).
+- Table, after the Bottom Surface (Block 8).
+
+**Verification**
+
+- Keyboard acceptance (Block 9).
+- The Bottom Surface's remaining physical checks (Block 5).
+
+**Daily-use fixes**
+
+- The keys on the first tap (12f).
+- Tettegouche with the Keyboard up (Block 6).
+- Manipulation defects met in daily use (Block 4).
+
+## Not current
+
+- Product packaging (Blocks 10, 10b).
+- Spread Deck (Block 7b).
+- Advanced monitor layouts (12e).
+- Public site (Block 11).
+- Post-1.0 polish (Blocks 16, 12g).
+- Also waiting: the rest of Block 6, and Blocks 13, 15, 7, 6b and 12a–d.
 
 ## Blocks
 
@@ -27,22 +48,22 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 14 | Ownership scope | Done |
-| 5 | Bottom Surface | Next: the clock, then the remaining checks |
-| 9 | Shuffle Keyboard | In progress: proving the rebuild |
-| 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
-| 13 | What a person meets first | Ready: dialogs on cards, hidden windows |
-| 15 | Consumer fundamentals | Ready: options for J |
-| 4 | Kadunce manipulation | In progress |
-| 16 | Motion | Ready |
-| 7 | Temperance event boundary | Ready |
-| 6b | Maintainability and lifecycle audit | Ready |
-| 7b | Spread deck motion | Waits on Blocks 5, 6 and 7 |
-| 9b | Shuffle Lock | Waits on Block 9; ships in the consumer bundle |
-| 10 | Downstream assembly and installation | Waits on Block 9 |
-| 10b | Package and interface identity | Ready; coordinated across all three repositories |
-| 11 | Host and public site | Waits on Block 10 |
-| 8 | Table | In 1.0; keeps its place in the order |
-| 12 | Post-MVP debug | Deferred past MVP |
+| 5 | Bottom Surface | Current: the clock, then the remaining checks |
+| 9 | Shuffle Keyboard | Current: acceptance |
+| 8 | Table | Current: after the Bottom Surface |
+| 9b | Shuffle Lock | Current: scope is Open decision 2; needs the Keyboard |
+| 6 | Tettegouche completion | Current: the Keyboard line only |
+| 4 | Kadunce manipulation | Current: defects met in daily use |
+| 12 | Post-MVP debug | 12f current; the rest waits |
+| 13 | What a person meets first | Not current |
+| 15 | Consumer fundamentals | Not current |
+| 16 | Motion | Not current |
+| 7 | Temperance event boundary | Not current |
+| 6b | Maintainability and lifecycle audit | Not current |
+| 7b | Spread deck motion | Not current |
+| 10 | Downstream assembly and installation | Not current |
+| 10b | Package and interface identity | Not current |
+| 11 | Host and public site | Not current |
 
 ## Block 1 — Refactor enablement
 
@@ -149,6 +170,33 @@ and the Status Bar and Ambient each fill the space the dock leaves them.
 **Done when:** a 10 to 13 inch touch device types and points reliably with no
 physical peripherals.
 
+## Block 8 — Table
+
+- [x] Choose Table's interaction and look: tabs scrubbed from the top edge.
+- [ ] Audit KWin and Plasma virtual-desktop APIs and lifecycle, including
+      creating and removing desktops and painting one that is not current.
+- [ ] Give every virtual desktop its own cards and layouts, replacing the
+      one-desktop rule. (audit 9)
+- [ ] Prove multi-display behavior without changing Bento.
+- [ ] Build the smallest complete prototype and test it physically.
+- [ ] Implement the accepted interaction.
+- [ ] Choose the shortcut that opens Table.
+- [ ] Bring J the option of a monitor layout's overflow going to another desktop
+      through Table instead of the dock.
+
+**Done when:** a window moves between real KDE desktops through Table without
+breaking normal desktop switching.
+
+## Block 9b — Shuffle Lock
+
+- [ ] Write the product contract (see Open decisions).
+- [ ] Keep KDE's screen locker as the authentication authority.
+- [ ] Prove the Keyboard works on the lock screen.
+- [ ] Define failure, interruption, timeout and multi-display behavior.
+
+**Done when:** the lock conceals the workspace, authenticates through the system
+locker, and a Shuffle failure never leaves a session unlocked.
+
 ## Block 6 — Tettegouche completion
 
 - [ ] Search and Files stay usable with the keys covering half the screen.
@@ -168,6 +216,20 @@ physical peripherals.
 - [ ] Storage lifecycle without weakening KIO ownership.
 
 **Done when:** each slice has automated checks and an installed acceptance pass.
+
+## Block 4 — Kadunce manipulation
+
+- [x] A resumed layout survives a pane that will not take its rect back.
+- [x] Make stack extraction reliable.
+- [x] Normalize live terminology to Spread.
+- [ ] Let a Spread drop onto the Bento group name the pane it replaces.
+      (audit 16)
+- [ ] First Card or Bento entry adopts every eligible window on that display and
+      desktop at once.
+- [ ] Displace by side, on a display that has the side gesture.
+      (audit 16)
+
+**Done when:** manipulation passes physical review on supported hardware.
 
 ## Block 13 — What a person meets first
 
@@ -210,20 +272,6 @@ that owns it.
 
 **Done when:** every line has J's ruling, and every accepted answer is a task in
 its block.
-
-## Block 4 — Kadunce manipulation
-
-- [x] A resumed layout survives a pane that will not take its rect back.
-- [x] Make stack extraction reliable.
-- [x] Normalize live terminology to Spread.
-- [ ] Let a Spread drop onto the Bento group name the pane it replaces.
-      (audit 16)
-- [ ] First Card or Bento entry adopts every eligible window on that display and
-      desktop at once.
-- [ ] Displace by side, on a display that has the side gesture.
-      (audit 16)
-
-**Done when:** manipulation passes physical review on supported hardware.
 
 ## Block 16 — Motion
 
@@ -273,16 +321,6 @@ honours reduced motion.
 **Done when:** dragging and throwing the deck settles where the hand expects, and
 reordering and paging are never confused.
 
-## Block 9b — Shuffle Lock
-
-- [ ] Write the product contract (see Open decisions).
-- [ ] Keep KDE's screen locker as the authentication authority.
-- [ ] Prove the Keyboard works on the lock screen.
-- [ ] Define failure, interruption, timeout and multi-display behavior.
-
-**Done when:** the lock conceals the workspace, authenticates through the system
-locker, and a Shuffle failure never leaves a session unlocked.
-
 ## Block 10 — Downstream assembly and installation
 
 - [ ] Consume pinned component versions with provenance.
@@ -312,23 +350,6 @@ identities.
 - [ ] Keyboard, touch, responsive, performance and accessibility testing.
 
 **Done when:** the site shows the released product and a complete install path.
-
-## Block 8 — Table
-
-- [x] Choose Table's interaction and look: tabs scrubbed from the top edge.
-- [ ] Audit KWin and Plasma virtual-desktop APIs and lifecycle, including
-      creating and removing desktops and painting one that is not current.
-- [ ] Give every virtual desktop its own cards and layouts, replacing the
-      one-desktop rule. (audit 9)
-- [ ] Prove multi-display behavior without changing Bento.
-- [ ] Build the smallest complete prototype and test it physically.
-- [ ] Implement the accepted interaction.
-- [ ] Choose the shortcut that opens Table.
-- [ ] Bring J the option of a monitor layout's overflow going to another desktop
-      through Table instead of the dock.
-
-**Done when:** a window moves between real KDE desktops through Table without
-breaking normal desktop switching.
 
 ## Block 12 — Post-MVP debug
 
@@ -403,8 +424,7 @@ Smarter layouts; the monitor's rule meets MVP.
    Table, so every desktop gets its own cards in Block 8, and cards stay on the
    desktop they started on until then. Audit 8 to 11.
 5. **Table's release.** Decided 23 September: Table is in 1.0, replacing the
-   earlier tentative 1.1. It keeps its place in the order. Audit 12.
-
+   earlier tentative 1.1. Audit 12.
 6. **Which dock holds the monitor's windows.** Decided 24 September: one dock
    lists every display's windows. See `DECISIONS.md` § The platform's answer
    wins where it has one.
@@ -429,7 +449,7 @@ rationale are in `ROADMAP-CONTEXT.md`.
 
 ## Keeping this a checklist
 
-When a task finishes, tick it here and move the Next list on. Anything worth
+When a task finishes, tick it here and update the current target. Anything worth
 keeping about it --- measurements, a physical verdict, what was rejected and why
 --- goes in `ROADMAP-CONTEXT.md` under the same block; durable decisions go in
 `DECISIONS.md`. A line here stays one task. No session narration, test logs or
