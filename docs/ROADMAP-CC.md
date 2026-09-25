@@ -49,7 +49,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 5 | Bottom Surface | Done |
 | 9 | Shuffle Keyboard | Current: acceptance |
 | 8 | Table | Current |
-| 9b | Shuffle Lock | Current: scope is Open decision 2; needs the Keyboard |
+| 9b | Shuffle Lock | Current: the sign-in screen's keys |
 | 6 | Tettegouche completion | Current: the Keyboard line only |
 | 4 | Kadunce manipulation | Current: defects met in daily use |
 | 12 | Post-MVP debug | 12f current; the rest waits |
@@ -146,10 +146,14 @@ breaking normal desktop switching.
 
 ## Block 9b — Shuffle Lock
 
-- [ ] Write the product contract (see Open decisions).
-- [ ] Keep KDE's screen locker as the authentication authority.
-- [ ] Prove the Keyboard works on the lock screen.
-- [ ] Define failure, interruption, timeout and multi-display behavior.
+- [x] Write the product contract: `../shuffle/docs/LOCK-CONTRACT.md`.
+- [x] Keep KDE's screen locker as the authentication authority.
+- [x] Prove the Keyboard works on the lock screen.
+- [x] Define failure, interruption, timeout and multi-display behavior.
+- [x] Build the lock: `../shuffle/install-lock.sh`, passed on the tablet on
+      25 September.
+- [ ] Give the sign-in screen the Keyboard, keeping KDE's look (J,
+      25 September).
 
 **Done when:** the lock conceals the workspace, authenticates through the system
 locker, and a Shuffle failure never leaves a session unlocked.
@@ -372,9 +376,9 @@ Smarter layouts; the monitor's rule meets MVP.
    breaks the plugin is repaired by an ordinary system update rather than a
    rebuild on the user's machine. Scheduled in Block 10. See `DECISIONS.md`
    § A consumer gets a working plugin from the package manager.
-2. **Shuffle Lock scope.** Open. What the lock screen hides, and what stays
-   usable before signing in. The lock ships in the consumer bundle whatever else
-   1.0 holds.
+2. **Shuffle Lock scope.** Decided 25 September. The lock shows the time, the
+   credential field and the Keyboard's handle, and nothing from the session.
+   See `../shuffle/docs/LOCK-CONTRACT.md`.
 3. **Edge pairing grammar.** Decided 19 September. See `DECISIONS.md` § Spread
    order selects the partner; the gesture places it.
 4. **What 1.0 promises about displays and desktops.** Decided 23 September.

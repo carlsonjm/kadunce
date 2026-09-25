@@ -478,17 +478,20 @@ block is a hand judgment that no automated check substitutes for.
 
 ## Block 9b — Shuffle Lock
 
-**Status:** Waits on Block 9. No contract, concept or implementation exists in
-any repository. J confirmed on 23 September that it ships in the consumer bundle
-whatever else 1.0 holds, and judges it an afternoon's work once the Keyboard is
-rebuilt.
+**Status:** Built and passed on the tablet on 25 September
+(`../shuffle/docs/LOCK-CONTRACT.md`); the sign-in screen's keys remain. It
+ships in the consumer bundle whatever else 1.0 holds.
 
 Shuffle Lock is a privacy-first presentation over the system lock. It needs the
 Keyboard, because authenticating on a tablet without peripherals requires it.
-The contract comes first and is Open decision 2 in `ROADMAP-CC.md`: what is
-concealed, what is shown, and what a person can do before authenticating. KDE's
-screen locker stays the authentication authority; Shuffle presents and never
-handles credentials or replaces the lock.
+KDE's screen locker stays the authentication authority; Shuffle presents and
+never handles credentials or replaces the lock. Since Plasma 6 the lock screen
+belongs to the Plasma shell, so Shuffle Lock is a lock-only shell chosen for the
+greeter through KWin's environment, leaving the desktop on KDE's shell. What the
+greeter falls back to was measured with its test mode, and the Keyboard came up
+over a real lock on the tablet. The sign-in screen after signing out is another
+program with no on-screen keys at all; a tablet without peripherals cannot sign
+back in until it has the Keyboard.
 
 **Exit gate:** the lock conceals workspace content, authenticates through the
 system locker, takes Keyboard input reliably, and a failure in Shuffle's
