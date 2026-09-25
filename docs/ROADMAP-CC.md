@@ -10,7 +10,6 @@ Shuffle becomes J's own daily system first. Work outside this list waits.
 
 **Missing capability**
 
-- Lock (Block 9b).
 - Table (Block 8).
 
 **Verification**
@@ -47,9 +46,9 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 10a | Integration repository | Done |
 | 14 | Ownership scope | Done |
 | 5 | Bottom Surface | Done |
+| 9b | Shuffle Lock | Done |
 | 9 | Shuffle Keyboard | Current: acceptance |
 | 8 | Table | Current |
-| 9b | Shuffle Lock | Current: the sign-in screen's keys |
 | 6 | Tettegouche completion | Current: the Keyboard line only |
 | 4 | Kadunce manipulation | Current: defects met in daily use |
 | 12 | Post-MVP debug | 12f current; the rest waits |
@@ -104,6 +103,16 @@ linked events beside it. The band is one eased fade whose black rises like a tid
 for a window; Plasma's panel Opacity chooses Auto, Clear or Blackout; and the band
 is the panel's height, 64 px by default, with the dock sized from it.
 
+## Block 9b — Shuffle Lock
+
+Done, 25 September. Shuffle Lock is what KDE's screen locker shows; the locker
+alone decides. It is a lock-only Plasma shell chosen for the locker through
+KWin's environment, so the desktop keeps KDE's shell: piano black, Temperance's
+clock as one block, an outlined credential box whose rim lights red or green,
+Sleep and a two-tap Shut down, the person's name, and the Keyboard's handle. The
+sign-in screen keeps KDE's look and has the Shuffle Keyboard, so the tablet signs
+back in without peripherals. See `../shuffle/docs/LOCK-CONTRACT.md`.
+
 ## Block 9 — Shuffle Keyboard
 
 - [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
@@ -143,20 +152,6 @@ physical peripherals.
 
 **Done when:** a window moves between real KDE desktops through Table without
 breaking normal desktop switching.
-
-## Block 9b — Shuffle Lock
-
-- [x] Write the product contract: `../shuffle/docs/LOCK-CONTRACT.md`.
-- [x] Keep KDE's screen locker as the authentication authority.
-- [x] Prove the Keyboard works on the lock screen.
-- [x] Define failure, interruption, timeout and multi-display behavior.
-- [x] Build the lock: `../shuffle/install-lock.sh`, passed on the tablet on
-      25 September.
-- [ ] Give the sign-in screen the Keyboard, keeping KDE's look (J,
-      25 September).
-
-**Done when:** the lock conceals the workspace, authenticates through the system
-locker, and a Shuffle failure never leaves a session unlocked.
 
 ## Block 6 — Tettegouche completion
 
