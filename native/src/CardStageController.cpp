@@ -995,6 +995,12 @@ void CardStageController::updateKeyboardRoom()
         const KWin::RectF base = m_keyboardRoom->base;
         if (m_keyboardRoom->height < base.height()) {
             m_keyboardRoom->height = base.height();
+            // KWin sends a size a moment after it is asked for, and sends
+            // nothing for the size a client already has. Keys that leave just
+            // after asking for less, as the Keyboard's own put-away does, can
+            // leave the client answering that smaller size after this one.
+            // The settle asks again when the frame lands anywhere else.
+            m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
             QScopedValueRollback<bool> applying(m_applyingWindowState, true);
             client->moveResize(base);
             KWin::effects->addRepaintFull();

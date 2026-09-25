@@ -111,6 +111,15 @@ lower
 record room-lowered
 test "$(frame "Keyboard reveal probe")" = "$before"
 echo 'PASS: the Active card returns exactly when the keyboard leaves'
+# KWin sends a size a moment after it is asked for, and sends nothing when the
+# size asked for is the one the client already has. Asked short and then full
+# again inside that moment, a client is sent only the short size and settles
+# there. The card is asked for its height again when that happens.
+client resizeCompanion "Keyboard reveal probe" 1260 420
+sleep 1
+record room-stale
+test "$(frame "Keyboard reveal probe")" = "$before"
+echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
 
 # Room is made for the keys, not for the cursor: a field they would never
 # reach, and a client that reports no cursor at all, both make it.
