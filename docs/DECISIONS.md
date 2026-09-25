@@ -950,13 +950,15 @@ stacked-card tray mark remain protected custom work.
 
 ### Table is required and uses KDE virtual desktops
 
-Table is the workspace level above Spread/Bento. It must manipulate existing KWin
-virtual-desktop membership and preserve current display ownership. Feasibility,
-gesture conflicts, and lifecycle behavior must be proven before implementation.
+Table ships in 1.0 (J, 23 September). Until Block 8, cards live on the desktop
+where they started and every other desktop is plain Plasma.
 
-Table ships in 1.0 (J, 23 September), so 1.0 gives every virtual desktop its own
-cards. Until Table's block, cards and layouts live on the desktop where they
-started and every other desktop is plain Plasma.
+### Table is tabs scrubbed from the top edge
+
+J, 25 September. Pull depth picks workspace or card and sideways movement picks
+the item, so any window is one stroke away. The top edge was free because a tap
+returns to Active. Rejected: surfaces holding small Spreads, a reskinned
+Overview; and a list with submenus, a diagonal hand-off away from the edge.
 
 ### Cards follow the touchscreen
 

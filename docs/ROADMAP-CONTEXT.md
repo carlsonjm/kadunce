@@ -651,7 +651,7 @@ gives a complete supported installation path.
 **Status:** In 1.0, decided by J on 23 September, replacing the tentative 1.1
 ruled earlier that day. It keeps its place in the order, because the one-desktop
 rule Block 14 built is stable enough to carry the plan until then. Reference:
-`KADUNCE-TABLE-1.1-CONCEPT.md`.
+`KADUNCE-TABLE-1.0-CONCEPT.md`.
 
 A destination Spread needs a card set per virtual desktop, which the structure
 does not have, so giving each desktop its own cards is this block's architecture
@@ -662,8 +662,13 @@ and expects Table to offer more places to settle a misplaced card. And an
 application that declares a large minimum and takes the wide pane against a
 person's intent is partly Table's to answer.
 
-**Exit gate:** a person enters Table, moves a real managed window between
-existing KDE virtual desktops, enters the destination Spread, and sees correct
+The interaction was chosen on 25 September; `DECISIONS.md` § Table is tabs
+scrubbed from the top edge records why. The audit's new question is whether
+an effect can paint a non-current desktop at full size on every display, since
+the preview depends on it; Plasma's Overview suggests it can.
+
+**Exit gate:** a person pulls down Table, moves a real managed window between
+existing KDE virtual desktops, lifts into the destination, and sees correct
 desktop membership without regressing normal KDE switching or display ownership.
 
 ## Block 12 — Post-MVP debug

@@ -315,12 +315,15 @@ identities.
 
 ## Block 8 — Table
 
-- [ ] Audit KWin and Plasma virtual-desktop APIs, gestures and lifecycle.
+- [x] Choose Table's interaction and look: tabs scrubbed from the top edge.
+- [ ] Audit KWin and Plasma virtual-desktop APIs and lifecycle, including
+      creating and removing desktops and painting one that is not current.
 - [ ] Give every virtual desktop its own cards and layouts, replacing the
       one-desktop rule. (audit 9)
 - [ ] Prove multi-display behavior without changing Bento.
 - [ ] Build the smallest complete prototype and test it physically.
 - [ ] Implement the accepted interaction.
+- [ ] Choose the shortcut that opens Table.
 - [ ] Bring J the option of a monitor layout's overflow going to another desktop
       through Table instead of the dock.
 

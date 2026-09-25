@@ -76,7 +76,7 @@ status against the contracts and never redefines them.
 | `UPSTREAM.md` | problems in KDE software Shuffle could report or patch, for J to choose what is sent |
 | `TERMINOLOGY.md` | suite-wide approved and retired language, and the rules for applying it |
 | `ITASCA-VISUAL-LANGUAGE.md` | shared visual and motion grammar |
-| `KADUNCE-TABLE-1.1-CONCEPT.md` | required Table product contract and feasibility gate |
+| `KADUNCE-TABLE-1.0-CONCEPT.md` | required Table product contract and feasibility gate |
 | `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` | required keyboard product contract and feasibility gate |
 | `../patches/kwin/README.md` | version-bound native touch correction |
 | `../patches/kwin/package/README.md` | installed package and rollback provenance |

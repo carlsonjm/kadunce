@@ -63,8 +63,11 @@ compositor plugin.
 ## Input
 
 - Bottom-edge upward: launch Card Spread
-- Top-edge downward: return to the current card state: the Active card, a Stack,
-  or the resumed Bento layout
+- Top-edge downward: Table (`KADUNCE-TABLE-1.0-CONCEPT.md`). Until Table ships
+  in Block 8 it returns to the current card state: the Active card, a Stack, or
+  the resumed Bento layout
+- Tap in Spread or Table: back to work, the tapped card Active in its own
+  workspace
 - Active left/right edge: previous/next card
 - Spread background swipe: move through the Spread
 - Stack vertical gesture: previous/next member
