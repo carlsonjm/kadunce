@@ -166,7 +166,7 @@ asks for.
     group's physical review open.
   - `PRODUCT-CONTRACT.md` § Input and `CARD-LIFECYCLE.md` §15 use "page line"
     and "Solo Card", which `TERMINOLOGY.md` does not define.
-  - `CURRENT_STATE.md` and `KADUNCE-TABLE-1.1-CONCEPT.md` call Table required
+  - `CURRENT_STATE.md` and `KADUNCE-TABLE-1.0-CONCEPT.md` call Table required
     for 1.0, and `CURRENT_STATE.md` says the Keyboard has no accepted
     implementation.
   - `SHUFFLE-KEYBOARD-1.0-CONCEPT.md` says its technical evaluation is queued.
