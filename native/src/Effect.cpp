@@ -470,11 +470,11 @@ Effect::Effect()
         connect(KWin::input(), &KWin::InputRedirection::deviceAdded, this, deferRefresh);
         connect(KWin::input(), &KWin::InputRedirection::deviceRemoved, this, deferRefresh);
     }
-    // The keyboard overlays the desktop: KeyboardOverlayPolicy stops KWin
-    // lifting the focused window for it, and nothing here resizes a card. What
-    // the card stage answers is a covered text cursor, so it hears every
-    // change that can cover or uncover one: the keyboard showing, hiding or
-    // changing height, text focus moving, and the cursor itself moving.
+    // KeyboardOverlayPolicy stops KWin lifting the focused window for the
+    // keyboard, so the card stage alone decides what a card does about it: the
+    // Active card gives up the room the keys take while they type into it. It
+    // hears every change to that room: the keyboard showing, hiding or
+    // changing height, and text focus moving to another window.
     const auto watchInputPanel = [this]() {
         disconnect(m_inputPanelGeometry);
         // KWin announces a panel before the panel has a window an effect can
@@ -483,22 +483,21 @@ Effect::Effect()
         if (KWin::Window *panel = method ? method->panel() : nullptr) {
             m_inputPanelGeometry = connect(panel,
                 &KWin::Window::frameGeometryChanged, this,
-                [this]() { m_cardStage->refreshKeyboardReveal(); });
+                [this]() { m_cardStage->refreshKeyboardRoom(); });
         }
-        m_cardStage->refreshKeyboardReveal();
+        m_cardStage->refreshKeyboardRoom();
     };
     connect(KWin::effects, &KWin::EffectsHandler::inputPanelChanged, this,
             watchInputPanel);
     watchInputPanel();
     if (KWin::InputMethod *method = KWin::kwinApp()->inputMethod()) {
-        // Before the reveal hears it: a keyboard put back down reveals nothing.
+        // Before the room is made: a keyboard put back down takes no room.
         connect(method, &KWin::InputMethod::visibleChanged, this,
                 &Effect::keepUnaskedKeyboardDown);
         for (const auto signal : {&KWin::InputMethod::visibleChanged,
-                                  &KWin::InputMethod::activeWindowChanged,
-                                  &KWin::InputMethod::cursorRectangleChanged}) {
+                                  &KWin::InputMethod::activeWindowChanged}) {
             connect(method, signal, this,
-                    [this]() { m_cardStage->refreshKeyboardReveal(); });
+                    [this]() { m_cardStage->refreshKeyboardRoom(); });
         }
     }
 
@@ -1061,23 +1060,15 @@ std::optional<double> Effect::inputPanelTopForCardStage(
     return covered.top();
 }
 
-std::optional<KWin::RectF> Effect::textCursorForCardStage(
+bool Effect::keyboardTypesIntoForCardStage(
     const KWin::EffectWindow *window) const
 {
-    // Only the window KWin sends text to has a cursor worth revealing, and a
-    // cursor outside that window's own frame is not one it could be showing.
-    // An empty rectangle is a client that never said where its cursor is.
+    // KWin sends text to one window. A card behind a layout or a launcher is
+    // not it, and a dialog floating over its own card is the card's.
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
-    if (!window || !method || !method->activeWindow()
-        || method->activeWindow() != window->window()) {
-        return std::nullopt;
-    }
-    const KWin::RectF cursor = method->cursorRectangle();
-    if (cursor.height() <= 0.0
-        || !window->frameGeometry().contains(cursor.center())) {
-        return std::nullopt;
-    }
-    return cursor;
+    const KWin::Window *target = method ? method->activeWindow() : nullptr;
+    const KWin::Window *client = window ? window->window() : nullptr;
+    return target && client && (target == client || client->hasTransient(target, true));
 }
 
 void Effect::raiseKeyboard()
@@ -3560,23 +3551,6 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
         return;
-    }
-    // The keyboard pans an Active card's contents, never the card: the window
-    // rose, and it is drawn only from the card's own top edge down, with the
-    // card's corners there. Below that edge the whole output stays paintable
-    // so the card keeps its side and bottom shadow.
-    if (m_paintingOutput) {
-        if (const auto frame = m_cardStage->keyboardRevealFrame(window)) {
-            const KWin::Rect card = viewport.mapToDeviceCoordinatesAligned(*frame);
-            const KWin::Rect output = viewport.mapToDeviceCoordinatesAligned(
-                m_paintingOutput->geometry());
-            const int radius = static_cast<int>(std::ceil(CardCornerRadius * viewport.scale()));
-            const KWin::Rect below(output.x(), card.y() + radius, output.width(),
-                std::max(0, output.y() + output.height() - card.y() - radius));
-            KWin::effects->paintWindow(renderTarget, viewport, window, mask,
-                deviceRegion & (roundedClip(card, radius) | below), data);
-            return;
-        }
     }
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
     // owns, and a pane is not one of its cards, so it must not be routed here.

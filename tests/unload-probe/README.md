@@ -49,14 +49,15 @@ with the virtual-tablet fixture build. The private compositor starts a real
 input-method client, `shuffle-keyboard` unless `KADUNCE_TEST_INPUT_METHOD`
 names another, and the client opens windows with a focused text field at their
 bottom edge, at their top edge, and one that reports no cursor. It asserts that
-the compositor does not lift a window while Kadunce is loaded, that a covered
-cursor pans only the Active card's contents to one gutter above the keys while
-a photograph shows the card's frame where it was, that taller keys roll the
-contents further and shorter ones roll nothing back, that the card returns
-exactly, that a visible
-or unreported cursor moves nothing, that Spread and Bento geometry are
-untouched, and that unloading gives the compositor its own lift back. The
-height change is sent through the keyboard's own `plasmakeyboardrc`.
+the compositor does not lift a window while Kadunce is loaded, that the
+Active card's bottom edge ends one gutter above the keys with its top edge,
+width and place unchanged and its bottom field on top of the keys, that it
+follows taller and shorter keys, that it returns exactly and is asked again
+after a stale size, that keys put away by their handle only ever shrink the
+panel, that a visible or unreported cursor makes the same room, that Spread and
+Bento geometry are untouched, and that unloading gives the compositor its own
+lift back. The height change is sent through the keyboard's own
+`plasmakeyboardrc`. The put-away step needs Shuffle Keyboard 0a8a6ea or later.
 
 # Typing a search by touch
 

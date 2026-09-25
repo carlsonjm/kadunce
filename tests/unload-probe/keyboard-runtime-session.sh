@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# The keyboard overlays the desktop. KWin starts a real input-method client for
-# this session, and probe windows hold a focused text field at their bottom
-# edge, at their top edge, and one reports no cursor at all. Showing and hiding
-# the keyboard must change no card's size; a covered cursor lifts only the
-# Active card, only as far as it needs, and the card returns exactly.
+# The keyboard lies over the desktop and the Active card makes room for it.
+# KWin starts a real input-method client for this session, and probe windows
+# hold a focused text field at their bottom edge, at their top edge, and one
+# reports no cursor at all. While the keys are up the Active card's bottom edge
+# ends a gutter above them, whatever its cursor reports; it returns exactly
+# when they go, and Spread and Bento change nothing.
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -euo pipefail
@@ -59,72 +60,97 @@ present() {
     frame "$title" | jq -e '.width == 1260 and .height == 780'
 }
 
-# A field at the bottom of an Active card: the card rises, keeps its size, and
-# the cursor ends one gutter above the keys.
+# The Active card makes room for the keys: its top edge, its width and its
+# place stay, and its bottom edge ends one gutter above them.
+makes_room() {
+    jq -e --argjson b "$1" '
+        .trackedFrame.x == $b.x and .trackedFrame.y == $b.y
+        and .trackedFrame.width == $b.width
+        and ((.trackedFrame.y + .trackedFrame.height + 10 - .panel.y) | fabs) <= 1'
+}
+
+# A field at the bottom of an Active card lands on top of the keys.
 present "Keyboard reveal probe"
-record reveal-before
+record room-before
 before=$(frame "Keyboard reveal probe")
 # The gutter above the card is not the card; the card's top rows are.
 within "$(band 100 1 1000 8)" 0 0.02
 within "$(band 100 14 1000 40)" 0.9 1
 raise
-record reveal-raised
+record room-raised
 raised=$(state)
-jq -e --argjson b "$before" '
-    .trackedFrame.width == $b.width and .trackedFrame.height == $b.height
-    and .trackedFrame.x == $b.x and .trackedFrame.y < $b.y
-    and ((.cursor.y + .cursor.height + 10 - .panel.y) | fabs) <= 1' <<<"$raised"
-echo 'PASS: a covered cursor pans the contents to one gutter above the keys'
-# The window rose past the card's top edge, yet nothing of it is drawn there:
-# the card stays where it was and its contents slid inside it.
+makes_room "$before" <<<"$raised"
+# The client reports its cursor on a focus change, not a resize, and a focus
+# change nobody tapped puts the keys away; ask for both again.
+client focusText "Keyboard reveal probe"
+sleep .5
+raise
+record room-refocused
+state | jq -e '.visible and .cursor.y + .cursor.height <= .panel.y'
+echo 'PASS: the card ends a gutter above the keys and its bottom field sits on them'
 gutter=$(band 100 1 1000 8); inside=$(band 100 14 1000 40)
-printf 'reveal-bands gutter=%s inside=%s\n' "$gutter" "$inside"
+printf 'room-bands gutter=%s inside=%s\n' "$gutter" "$inside"
 within "$gutter" 0 0.02
 within "$inside" 0.9 1
-echo 'PASS: the card frame does not move; only its contents pan'
-# The keyboard changes height while it is up. Shorter keys roll nothing back
-# down; taller ones cover the line again and roll the contents further up.
-# The card never changes size either way.
+echo 'PASS: the card keeps its top edge'
+# The keyboard changes height while it is up: the card follows it both ways.
 kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 35
 sleep 1
-record reveal-height-35
-jq -e --argjson r "$raised" '
-    .panel.y > $r.panel.y and .trackedFrame == $r.trackedFrame
-    and .cursor.y + .cursor.height + 10 < .panel.y' <<<"$(state)"
+record room-height-35
+jq -e --argjson r "$raised" '.panel.y > $r.panel.y
+    and .trackedFrame.height > $r.trackedFrame.height' <<<"$(state)"
+makes_room "$before" <<<"$(state)"
 kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 55
 sleep 1
-record reveal-height-55
-jq -e --argjson b "$before" --argjson r "$raised" '
-    .panel.y < $r.panel.y
-    and .trackedFrame.width == $b.width and .trackedFrame.height == $b.height
-    and .trackedFrame.x == $b.x and .trackedFrame.y < $r.trackedFrame.y
-    and ((.cursor.y + .cursor.height + 10 - .panel.y) | fabs) <= 1' <<<"$(state)"
-echo 'PASS: contents roll further up for taller keys and never back down while the keyboard is up'
+record room-height-55
+jq -e --argjson r "$raised" '.panel.y < $r.panel.y
+    and .trackedFrame.height < $r.trackedFrame.height' <<<"$(state)"
+makes_room "$before" <<<"$(state)"
+echo 'PASS: the card gives room to taller keys and takes it back from shorter ones'
 lower
-record reveal-lowered
+record room-lowered
 test "$(frame "Keyboard reveal probe")" = "$before"
 echo 'PASS: the Active card returns exactly when the keyboard leaves'
-
-# A field the keyboard never reaches: nothing moves.
-present "Keyboard top probe"
-before=$(frame "Keyboard top probe")
+# KWin sends a size a moment after it is asked for, and sends nothing when the
+# size asked for is the one the client already has. Asked short and then full
+# again inside that moment, a client is sent only the short size and settles
+# there. The card is asked for its height again when that happens.
+client resizeCompanion "Keyboard reveal probe" 1260 420
+sleep 1
+record room-stale
+test "$(frame "Keyboard reveal probe")" = "$before"
+echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
+# The Keyboard's own put-away: a finger carries the handle down. The keys claim
+# less room all the way out, never the whole Keyboard again as they go, and the
+# card ends at its own height.
 raise
-record top-raised
-test "$(frame "Keyboard top probe")" = "$before"
-lower
-test "$(frame "Keyboard top probe")" = "$before"
-echo 'PASS: a visible cursor moves nothing'
+probe watchPanel
+keys=$(state | jq '.panel')
+x=$(jq '.x + .width / 2 | floor' <<<"$keys"); y=$(jq '.y + 12 | floor' <<<"$keys")
+probe down 1 "$x" "$y"
+for step in {1..10}; do probe motion 1 "$x" $((y + step * 30)); sleep .02; done
+probe up 1
+sleep 1.5
+record room-put-away
+printf 'put-away panel heights %s\n' "$(probe panelHistory)"
+state | jq -e '.visible == false'
+probe panelHistory | jq -e 'length > 2 and (. as $h | all(range(1; length); $h[.] <= $h[. - 1]))'
+test "$(frame "Keyboard reveal probe")" = "$before"
+echo 'PASS: keys put away by the handle only ever shrink, and the card ends whole'
 
-# A client that never reports its cursor: nothing moves and nothing breaks.
-present "Keyboard blind probe"
-before=$(frame "Keyboard blind probe")
-raise
-record blind-raised
-state | jq -e '.visible == true'
-test "$(frame "Keyboard blind probe")" = "$before"
-lower
-test "$(frame "Keyboard blind probe")" = "$before"
-echo 'PASS: a window that reports no cursor is never moved'
+# Room is made for the keys, not for the cursor: a field they would never
+# reach, and a client that reports no cursor at all, both make it.
+for title in "Keyboard top probe" "Keyboard blind probe"; do
+    present "$title"
+    before=$(frame "$title")
+    raise
+    record "room-raised $title"
+    state | jq -e '.visible == true'
+    makes_room "$before" <<<"$(state)"
+    lower
+    test "$(frame "$title")" = "$before"
+done
+echo 'PASS: every Active card makes room, whatever its cursor reports'
 
 # Spread: the keyboard over the row changes no window.
 kad showCardLine
@@ -137,8 +163,9 @@ lower
 test "$(probe frames)" = "$all"
 echo 'PASS: Spread geometry is untouched by the keyboard'
 
-# Bento is left unpanned: its panes keep their rects, and a covered field
-# stays covered. Recorded, not decided.
+# Bento makes no room: its panes keep their rects, a covered field stays
+# covered, and the card waiting behind the layout keeps its size. Recorded,
+# not decided.
 present "Keyboard reveal probe"
 test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep 1

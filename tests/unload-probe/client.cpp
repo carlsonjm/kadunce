@@ -112,6 +112,12 @@ public Q_SLOTS:
   auto *w = new BlindText; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard blind probe");
   w->setAttribute(Qt::WA_InputMethodEnabled); w->setFocusPolicy(Qt::StrongFocus); w->resize(560,420); w->show(); w->activateWindow(); w->setFocus();
  }
+ // The window takes a size of its own accord, as a client answering a
+ // configure the compositor has since superseded does.
+ void resizeCompanion(const QString &title, int width, int height) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title)) w->resize(width, height);
+ }
  void focusText(const QString &title) {
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) {

@@ -40,10 +40,10 @@ were approved on 22 September.
   tap cannot do that, which is why tapped undo was dropped.
 - **Right column: key height.** Key width never changes, so the gutter, the key
   columns and the space bar keep their positions at every setting; only key height
-  does. The keys lie over the workspace rather than reserving it (`DECISIONS.md`
-  § The keyboard overlays), so a shorter keyboard uncovers more of the card
-  beneath it, and the user is trading accuracy for screen rather than picking a
-  key size. A
+  does. The keys reserve no workspace, and the Active card makes room for them
+  (`DECISIONS.md` § The Active card makes room for the keys), so a shorter
+  keyboard gives that card back height, and the user is trading accuracy for
+  screen rather than picking a key size. A
   bright notch marks the default, which is a square key. Height runs from 35% to
   55% of the screen in steps of one; the default is 45% (J, 24 September).
 
@@ -95,9 +95,8 @@ gestures remain a separate recognizer and state.
 
 Height is set by the right scrub column, in notches, with the default marked. The
 chosen height persists, and landscape and portrait may eventually remember separate
-values. The keys reserve no workspace, so a height change moves only how much of
-the card they cover, and the Active card's contents re-pan to keep the cursor in
-view.
+values. The keys reserve no workspace; the Active card's bottom edge follows a
+height change, so the card grows by what a shorter keyboard gives back.
 
 A continuously draggable upper edge is retired; see `Superseded by use`.
 
@@ -154,7 +153,8 @@ either edge; a square corner would need one distance-based mask.
   the release contract.
 - Verify Qt/KDE, GTK, browsers, Chromium/Electron, and terminals.
 - Treat dropped characters, wrong keymaps, focus loss, meaningful latency, unreliable
-  show/hide, or a keyboard that moves or resizes a card as blockers.
+  show/hide, or a keyboard that moves a card, or resizes one other than the
+  Active card making its room, as blockers.
 - Keep pointer, editing, resize, keyboard, and system gestures in explicit,
   non-overlapping ownership states.
 - Lock-screen/session surfaces are supported only where the system API permits safe

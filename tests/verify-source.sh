@@ -431,10 +431,10 @@ rg -q 'constexpr int CardEdgeRepeatDelay = 350' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(fast \? CardEdgeDwellDelay : delay\)' "${router_cpp}"
 rg -q 'm_edgePageTimer\.start\(m_edgePageDelay\)' "${router_cpp}"
 rg -q 'pageCardGrab' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
-# The keyboard overlays the desktop and never resizes a card. The Active
-# target does not read it, KWin's own lift of the focused window is declined
-# for as long as the effect is loaded, and a covered text cursor is answered
-# by lifting the card from the placement it had when the keyboard came.
+# The keyboard never changes the work area. The Active target does not read
+# it, KWin's own lift of the focused window is declined for as long as the
+# effect is loaded, and the room the Active card gives up for the keys is made
+# from the placement it had when the keyboard came.
 active_target=$(sed -n '/^KWin::Rect CardStageController::activeTarget(/,/^KWin::Rect CardStageController::activePlacement(/p' "$card_cpp")
 test -n "$active_target"
 if printf '%s\n' "$active_target" | rg -q 'inputPanel|clearance'; then
