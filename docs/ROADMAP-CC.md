@@ -6,12 +6,11 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Give the Keyboard its arrival motion (Block 5).
-2. Rebuild the Keyboard against the 22 September direction (Block 9).
-3. Make the keys come up for the first text field of a session (Block 13).
-4. Show an app whose dialog is waiting in Ambient (Block 6).
-5. Finish the Bottom Surface's remaining checks (Block 5).
-6. Make the monitor organize everything it shows (Block 14).
+1. Rebuild the Keyboard against the 22 September direction (Block 9).
+2. Make the keys come up for the first text field of a session (Block 13).
+3. Show an app whose dialog is waiting in Ambient (Block 6).
+4. Finish the Bottom Surface's remaining checks (Block 5).
+5. Make the monitor organize everything it shows (Block 14).
 
 ## Blocks
 
@@ -28,7 +27,7 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 10a | Integration repository | Done |
 | 13 | What a person meets first | Next |
 | 9 | Shuffle Keyboard | In progress |
-| 5 | Bottom Surface | In progress: the Keyboard's arrival motion |
+| 5 | Bottom Surface | In progress: the remaining checks |
 | 14 | Ownership scope | After Block 5: the monitor's layout rule |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
@@ -140,15 +139,15 @@ display and desktop a person can reach.
 - [ ] Move the Keyboard's own grab and resize onto the dock's handle; height
       goes to the right-edge scrub column.
 - [x] Bring J how the keys are put away: by the handle.
-- [ ] Bring the concept's height and reservation lines in line with keys that
-      cover rather than shrink. (audit 14)
+- [x] Bring the concept's height and reservation lines in line with the
+      Active card making room for the keys. (audit 14)
 - [ ] Prove the four-row layout, controls, height, and the switch to the
       precision surface.
 - [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
       GTK, browsers, Electron and terminals. (audit 24)
 - [ ] Bring J options for copy and paste by touch. (audit 29)
-- [x] Lay the Keyboard over cards: a covered line pans inside the Active card,
-      and a pull never takes the focus.
+- [x] The Active card makes room for the keys, and a pull never takes the
+      focus. (audit 19)
 - [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
 
 **Done when:** a 10 to 13 inch touch device types and points reliably with no
@@ -183,10 +182,10 @@ physical peripherals.
 - [x] The sheet's window pictures go live.
 - [x] Icon signals: J keeps them as they are.
 - [x] A maximized window turns the region solid, in Shuffle's black.
-- [ ] **Next:** Give the Keyboard its arrival motion: the handle carries the keys under
+- [x] Give the Keyboard its arrival motion: the handle carries the keys under
       the finger, and the dock is gone before they reach its room.
       (audit 13, 36)
-- [ ] Retest the asymmetric Ambient and ticker width.
+- [ ] **Next:** Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
       (audit 20)
 - [ ] Give Temperance clock and calendar presentation.
@@ -206,8 +205,8 @@ that owns it.
       (audit 22)
 - [ ] Come back the way it was left after sign-out or restart. (audit 23)
 - [ ] Close an app by touch from Spread. (audit 25)
-- [ ] Type into text the keys cover: Bento panes, terminals, and boxes at the
-      bottom of a window. (audit 19)
+- [ ] Type into text the keys cover in a Bento pane or an ordinary window.
+      (audit 19)
 - [ ] What a pull down from the top edge brings. (audit 26)
 - [ ] Whether attaching the keyboard changes the mode. (audit 27)
 - [ ] Right-click and pointing without raising the keys. (audit 28)
@@ -235,7 +234,6 @@ its block.
 
 - [ ] Complete arrival, displacement, cancellation and neighbor motion.
       (audit 21)
-- [ ] Panned contents slide rather than jump. (audit 37)
 - [ ] Make compositor motion follow animation scaling and reduced motion.
       (audit 35)
 - [ ] Review the Keyboard's arrival, the dock stepping aside and card motion
@@ -362,10 +360,9 @@ breaking normal desktop switching.
       window.
 - [ ] Confirm no card, pane or window grows into the dock's room while the keys
       are up. (audit 14)
-- [ ] A tap just above a panned card reaches nothing the pan hid. (audit 37)
 
-**Done when:** a keyboard episode changes no card or pane geometry, and nothing
-hidden takes a tap.
+**Done when:** a keyboard episode changes no geometry but the Active card's
+room for the keys.
 
 ### 12b. Edge gestures on any touchscreen
 

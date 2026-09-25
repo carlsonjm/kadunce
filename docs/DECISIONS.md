@@ -592,7 +592,7 @@ bottom included. Both once doubled it at the bottom to leave room for a dock
 that floated above the work area; that dock is gone, the Shuffle dock and the
 Keyboard's handle reserve their own space, and J saw the doubled gap on 22
 September as the one edge that did not match. The keyboard never changes a
-card's gutter: it lies over the card, and a covered line pans inside it.
+card's gutter: the Active card's bottom edge stays a gutter above the keys.
 
 ### Dock input and dock clearance are separate
 
@@ -808,34 +808,31 @@ than letting one gesture decide both, and it removes the atomic
 membership-and-insertion transaction that an arrival into a stack would have
 required.
 
-### The keyboard overlays; a covered line pans inside a still card
+### The Active card makes room for the keys
 
-Settled by J on 23 September. The keyboard never reserves workspace and never
-moves or resizes a card. KWin lifts the focused window for the keyboard itself,
-pinning it to the top of the work area and cutting it off at the keys; that is
-a second authority over a window Kadunce owns, and KWin's own
-`OverlayVirtualKeyboardOnWindows` setting declines it. Kadunce holds that
-setting in memory while loaded and restores the user's value on unload, the
-way it holds edge tiling. KWin still puts a lifted window back to its
-geometry at keyboard-open when the keyboard goes; with the lift declined that
-is the card's own placement, the same one Kadunce restores.
+Settled by J on 24 September, replacing the 23 September pan. The keys never
+reserve workspace; the Active card they type into gives up the room they take.
+Its top edge, width and place stay, and its bottom edge follows the keys a
+gutter above them as they rise, grow, shrink or leave, so the application lays
+itself out again above them and whatever it keeps at its own bottom edge, a
+message box or a terminal prompt, lands on the keys. Chosen over panning the
+contents to the text cursor, the only thing a client reports: the cursor's line
+cleared the keys while the rest of its box and the buttons under it stayed
+covered. J found the room the smoother of the two.
 
-When the keys would cover the Active card's text cursor, the window rises by
-the least that shows the cursor a gutter above them and is drawn only from the
-card's own top edge down, so the frame stays still and the contents pan like a
-blind in a fixed window. Chosen over sliding the whole card. The contents roll
-further when the typed line or taller keys need it and never back down until
-the keyboard goes, because a view that shifts on every tap reads as busy. The
-placement they pan from is the card's own at keyboard-open, not one read from
-the work area, since the dock yields to the keyboard and the area grows while
-the room does not.
+KWin lifts the focused window for the keyboard itself, pinning it to the top of
+the work area and cutting it off at the keys; that is a second authority over a
+window Kadunce owns, and KWin's own `OverlayVirtualKeyboardOnWindows` setting
+declines it. Kadunce holds that setting in memory while loaded and restores the
+user's value on unload, the way it holds edge tiling.
 
-Only the Active card pans. Bento panes and ordinary windows are left covered,
-and the person scrolls. A client that reports no cursor is left alone: giving
-such a card the keyboard's height, with a tap inside it raising the keyboard,
-was built for Ghostty and taken out on 23 September because no further
-keyboard work on cursorless clients was wanted; the drop refusals first blamed
-on it were `main`'s.
+The room is made from the card's own placement at keyboard-open, not from the
+work area, since the dock yields to the keyboard and the area grows while the
+room does not. It is made for keys typing into the card or a dialog of its own,
+whatever cursor the client reports, and never for keys another window asked for
+while the card waits behind it. When the keys leave, a client that answers a
+size KWin has since superseded is asked for its height again. Spread, Bento
+panes and ordinary windows make no room and stay covered.
 
 ### The keyboard comes up for the text, not for focus
 

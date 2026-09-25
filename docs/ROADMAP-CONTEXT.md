@@ -303,8 +303,8 @@ left and key height right; and the Keyboard on Kadunce's 10 px gutter with a
 hard edge. It is unbuilt, so the proof and verification items below measure the
 superseded build until it lands. J's open asks are an even gap at the sides and
 retiring the top grab. He asked for a gap above the keys so the Keyboard would
-read as pushing the window; the overlay pushes nothing and the pan stops a
-gutter above the keys, so that is dropped unless he wants the look. Pin two questions for the pass, which J expects are answered: does
+read as pushing the window; the Active card now ends a gutter above the keys,
+which answers it. Pin two questions for the pass, which J expects are answered: does
 the notch hold read as feedback or lag without haptics, and does a density
 falloff add anything once the gutter and scrub columns are in.
 
@@ -323,11 +323,13 @@ rebuild that changes the Keyboard's size or edges keeps both halves.
 **Slices 1 and 2.** Passed 24 September. At the 45% default J typed with no
 mistakes without looking at the keys.
 
-**Height and reservation.** The concept's height column still promises that the
-window above grows by what the Keyboard gives back, and its engineering
-constraints list workspace reservation. The keys cover and never reserve
-(`DECISIONS.md` § The keyboard overlays; a covered line pans inside a still
-card), so a shorter Keyboard covers less rather than giving a window room.
+**Height and room.** The keys reserve no workspace, and the Active card makes
+room for them (`DECISIONS.md` § The Active card makes room for the keys), so
+the concept's promise that the window above grows by what a shorter Keyboard
+gives back holds for that card. KWin sends a size on a timer and sends nothing
+for the size a client already has, so a card asked short and then whole again
+at once can be left short: the Keyboard kept its region shrinking to the last
+as it hides, and Kadunce asks again when the keys have gone.
 
 **Proving the build.** The four-row layout, cascading controls, adjustable height
 and the switch to the precision surface are implemented and in daily use. They
@@ -340,7 +342,7 @@ against the suite and still expects behavior the dock changed (audit 39).
 glass does not make. Its lesson that one control should not carry two functions
 stands; copy and paste are what it cost.
 
-Laying the Keyboard over cards is done; covered text elsewhere is Block 15's.
+The Active card's room is done; covered text elsewhere is Block 15's.
 
 ## Block 5 — Bottom Surface
 
@@ -413,6 +415,7 @@ translucent material rather than a density gradient.
 until the dock has left and released its strut, then rise with its handle under
 the finger; a release settles at the finger's speed. The dock vacates by
 `windowsgobelow`, since `autohide` hid the panel and cut off a pull begun on it.
+Passed 24 September, with the Active card making room at the keys' pace.
 
 **Width.** Temperance sized itself by measuring from its nearest neighbour on the
 left, which is correct on an ordinary panel and measures across the dock here, so
@@ -486,11 +489,9 @@ J named the first three as where to start.
   across unload).
 - **Closing by touch.** No gesture closes an app from Spread. Upward travel there
   already means leaving a stack or, at the top edge, becoming Active.
-- **Text the keys cover.** Only the Active card pans. Bento panes, ordinary
-  windows and clients that report no cursor stay covered, and scrolling does not
-  move a message box or prompt that sits at the bottom of its window. The Ghostty
-  room and tap taken out on 23 September are an option again: the drop refusal
-  that condemned them was a fault on `main`, since fixed in Block 13.
+- **Text the keys cover.** Answered for the Active card on 24 September: it
+  makes room, so a prompt or message box at its bottom lands on the keys. Bento
+  panes and ordinary windows make none and stay covered.
 - **The top edge.** Pulling down returns to the current card, which a tap in
   Spread already does. The pull a person expects from the top brings
   notifications and quick settings.
@@ -546,8 +547,7 @@ cancellation, neighbours, reduced motion), Block 5 (the Keyboard's arrival), 12a
 `ITASCA-VISUAL-LANGUAGE.md` § Motion and animation already states the tiers,
 easing, choreography and reduced motion; this block holds every custom motion to
 it. The Keyboard's arrival is built in Block 5, where J named it, and reviewed
-here beside the rest. Panned contents jump rather than slide; that is the one
-motion the keyboard overlay added.
+here beside the rest, with the Active card's bottom edge that follows it.
 
 ## Block 6 — Tettegouche completion
 
@@ -726,14 +726,13 @@ Real work that does not gate MVP, held in one place so it is not lost.
 ### 12a. Keyboard and the dock's room
 
 Deferred past MVP by J on 21 September, and re-cut on 23 September when the
-keyboard overlay removed most of its premise: nothing lifts a card, and Kadunce
-places nothing on a keyboard change, so the stage-gutter defect it opened with no
-longer arises. Two checks are left. The Active card's pan places from the card's
-frame at keyboard-open rather than from the grown work area, and Bento and Spread
-were accepted untouched, so what remains is to confirm nothing else grows into
-the dock's room while the dock steps aside (`DECISIONS.md` § A dock that steps
-aside is not a display that grew). And the strip just above a panned card still
-passes a tap to the part of the client the pan hid.
+keyboard overlay removed most of its premise: nothing lifts a card, and a
+keyboard change moves only the Active card's bottom edge, so the stage-gutter
+defect it opened with no longer arises. That room is made from the card's frame
+at keyboard-open rather than from the grown work area, and Bento and Spread were
+accepted untouched, so what remains is to confirm nothing else grows into the
+dock's room while the dock steps aside (`DECISIONS.md` § A dock that steps aside
+is not a display that grew).
 
 ### 12b. Edge gestures on any touchscreen
 

@@ -72,16 +72,16 @@ not alternate behavior, and where wording conflicts the owning document governs.
   are accepted; Kadunce does not retain a second snapshot cache.
 - The persistent tray controller releases windows before unloading the effect and
   is wired to `graphical-session.target`.
-- The keyboard overlays the desktop. While Kadunce is loaded it declines
+- The Active card makes room for the keys. While Kadunce is loaded it declines
   KWin's own lift of the focused window through KWin's
   `OverlayVirtualKeyboardOnWindows` setting, held in memory and restored on
-  unload, so showing, hiding or resizing the keyboard changes no card's size or
-  place. When the keys would cover the Active card's text cursor, the card's
-  frame stays where it is and its contents pan up inside it until the cursor
-  sits a gutter above the keys; they roll further for a line typed below the
-  keys or taller keys, never back down while the keyboard is up, and return
-  exactly when it goes. A client that reports no cursor is not moved. Spread
-  and Bento are untouched. Physically accepted on 23 September. Keys stay up
+  unload. While the keys type into the Active card or its dialog, the card's
+  top edge, width and place stay and its bottom edge follows the keys a gutter
+  above them as they rise, grow, shrink and leave, so the application's own
+  bottom edge sits on them; the card has its exact height back when they go,
+  and is asked again if its client answers a superseded size. Spread, Bento
+  and ordinary windows are untouched. Physically accepted on 24 September,
+  including a put-away that left no window short. Keys stay up
   only for a touch on the text cursor's line, on the keys, or a request
   through `raiseKeyboard`; any others are never drawn and go back down, and
   the dock steps aside only for keys on screen. Physically accepted on 24
@@ -208,12 +208,8 @@ not alternate behavior, and where wording conflicts the owning document governs.
   wherever it stands.
 - Custom compositor motion does not yet fully follow platform animation scaling or
   reduced-motion preferences.
-- The keyboard covers Bento panes, by decision: a pane keeps its rect and the
-  person scrolls. It also covers ordinary windows that are not cards, and the
-  Active card of a client that reports no cursor, such as Ghostty; none of
-  them is moved.
-- Panned contents jump rather than slide, and a tap in the strip just above a
-  panned card reaches the hidden top of its client.
+- The keyboard covers Bento panes and ordinary windows that are not cards;
+  none of them makes room, and the person scrolls.
 - A waiting dialog is not drawn on its card in Spread, and a dialog stays where
   it is when its card is carried. A Wayland dialog that names no parent is
   admitted as a card; none has been found in the apps surveyed. Nothing yet

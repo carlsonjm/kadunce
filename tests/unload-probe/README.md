@@ -52,10 +52,12 @@ bottom edge, at their top edge, and one that reports no cursor. It asserts that
 the compositor does not lift a window while Kadunce is loaded, that the
 Active card's bottom edge ends one gutter above the keys with its top edge,
 width and place unchanged and its bottom field on top of the keys, that it
-follows taller and shorter keys, that it returns exactly, that a visible or
-unreported cursor makes the same room, that Spread and Bento geometry are
-untouched, and that unloading gives the compositor its own lift back. The
-height change is sent through the keyboard's own `plasmakeyboardrc`.
+follows taller and shorter keys, that it returns exactly and is asked again
+after a stale size, that keys put away by their handle only ever shrink the
+panel, that a visible or unreported cursor makes the same room, that Spread and
+Bento geometry are untouched, and that unloading gives the compositor its own
+lift back. The height change is sent through the keyboard's own
+`plasmakeyboardrc`. The put-away step needs Shuffle Keyboard 0a8a6ea or later.
 
 # Typing a search by touch
 
