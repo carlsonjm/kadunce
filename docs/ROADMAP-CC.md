@@ -133,11 +133,10 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
       digits that never move the layout.
 - [x] Each new minute deals onto the clock like a card; a fade under reduced
       motion.
-- [ ] **Next:** A tap opens the calendar as a small card in the corner, with
-      holidays.
+- [x] A tap opens the calendar as a small card in the corner, with holidays.
 - [x] J picks where events come from: a private calendar link.
-- [ ] The calendar shows the events from that link.
-- [ ] Bring J the next event beside the time, where there is room.
+- [x] The calendar shows the events from that link.
+- [ ] **Next:** Bring J the next event beside the time, where there is room.
 - [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
       (audit 20)
