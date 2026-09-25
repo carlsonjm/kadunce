@@ -374,10 +374,10 @@ the Keyboard's handle, which takes its width from it.
 
 **Clock and calendar.** J set the direction on 24 September; it is Temperance's
 (`temperance/docs/DECISIONS.md` § The clock is Temperance's, and its minute deals
-like a card), and so is the slice detail. Plasma's month grid and its holiday
-plugin are installed on the tablet. Events come from a private calendar link,
-read with KDE's calendar library, which Block 10's installer then carries. Temperance's README
-still calls the clock a separate widget (audit 39); the first slice corrects it.
+like a card), and so is the slice detail. The clock passed on the tablet on 25
+September. Plasma's month grid and its holiday plugin are installed there. Events
+come from a private calendar link, read with KDE's calendar library, which Block
+10's installer then carries.
 
 **Done, in brief.** The dock is centred, stores its pinned list with the surface,
 carries the platform's own task menu from the native component the stock task
@@ -495,6 +495,11 @@ cancellation, neighbours, reduced motion), Block 5 (the Keyboard's arrival), 12a
 easing, choreography and reduced motion; this block holds every custom motion to
 it. The Keyboard's arrival is built in Block 5, where J named it, and reviewed
 here beside the rest, with the Active card's bottom edge that follows it.
+
+Suite motion follows Plasma's animation speed, which J runs at four times the
+default, so each lasts a quarter of its designed length on the tablet. The clock's
+minute is the one exception (Temperance `DECISIONS.md`); whether the rest keeps
+its own pace is open for this block.
 
 ## Block 6 — Tettegouche completion
 

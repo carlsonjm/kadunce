@@ -194,7 +194,8 @@ Use the system UI family. Create hierarchy with size, weight, opacity, and spaci
 - Use **sentence case** for headings, menus, buttons, settings, and descriptive
   labels: `Open system settings`, `Keep for review`, `New folder`.
 - Use **lowercase** for quiet spatial invitations that act like environmental
-  hints: `browse everything`, `explore files`.
+  hints: `browse everything`, `explore files`, and for the time's day period:
+  `9:41 a.m.`.
 - Use **ALL CAPS** only for a tiny established state tag such as `OPEN`; never for
   headings or ordinary actions.
 - Preserve casing from people, applications, files, songs, artists, and sources.

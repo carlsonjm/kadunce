@@ -248,7 +248,8 @@ The handover is written so J can act on it without coming back to ask:
 2. That the installer asks once for a password and restores the previous effect
    configuration if it stops early.
 3. That the logout replaces the running build, and no gesture before it tests the
-   candidate.
+   candidate. A Temperance update needs no logout: its installer restarts the
+   panel, which leaves windows and the session alone.
 4. The safety check to run first after logging back in,
    `bash /absolute/path/to/kadunce/tests/verify-live-control.sh`; a failure ends
    the pass before any gesture.

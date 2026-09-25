@@ -129,11 +129,12 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 - [x] Give the Keyboard its arrival motion: the handle carries the keys under
       the finger, and the dock is gone before they reach its room.
       (audit 13, 36)
-- [ ] **Next:** The clock in Temperance: the system font or one the person
-      chooses, and digits that never move the layout.
-- [ ] Each new minute deals onto the clock like a card; a fade under reduced
+- [x] The clock in Temperance: the system font or one the person chooses, and
+      digits that never move the layout.
+- [x] Each new minute deals onto the clock like a card; a fade under reduced
       motion.
-- [ ] A tap opens the calendar as a small card in the corner, with holidays.
+- [ ] **Next:** A tap opens the calendar as a small card in the corner, with
+      holidays.
 - [x] J picks where events come from: a private calendar link.
 - [ ] The calendar shows the events from that link.
 - [ ] Bring J the next event beside the time, where there is room.
