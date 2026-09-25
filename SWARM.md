@@ -11,5 +11,4 @@ project history.
 
 ## Active handoffs
 
-- Shuffle Keyboard owner: rebuild and bezel either-or passed 24 September. Arrival revisit: room made at the keys' pace and a shorter wait (keyboard e5d0cbd, shuffle c68b414) await J's pass. Concept governs. Branch `shuffle-1.0`.
-- Shuffle Keyboard owner: two fixes from J's make-room pass (24 September). Hiding resets `carry` to 0 while mapped, so the panel reports the full keys for one update and the card above shrinks again; `beginArrival` already sets it. And `cardRadius` 18 should match Kadunce's card radius, 10. Branch `shuffle-1.0`.
+- Shuffle Keyboard owner: arrival and the Active card's room passed 24 September. Keyboard 0a8a6ea (carry kept on hide, 10 px corners) awaits J's install and pass; Kadunce's keyboard-runtime put-away step needs it installed. Next is Block 9's handle and scrub-column move. Concept governs. Branch `shuffle-1.0`.
