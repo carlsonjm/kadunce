@@ -38,6 +38,9 @@ September consolidation, which moved finished-block history out of
 - `SHUFFLE-KEYBOARD-1.0-CONCEPT-THROUGH-20260923.md`
 - `TEST-ENVIRONMENT-PROCEDURE-THROUGH-20260923.md`
 
+`ROADMAP-CONTEXT-THROUGH-20260924.md` is that document as it stood before Block
+14 closed on 24 September and its context was cut to what outlives it.
+
 ## Accepted freezes and checkpoints
 
 - `CHECKPOINT-20260916.md`

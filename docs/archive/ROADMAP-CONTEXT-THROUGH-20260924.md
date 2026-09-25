@@ -207,19 +207,61 @@ painted wherever it stands, so the exclusion has to be seen on the tablet.
 
 ## Block 14 — Ownership scope
 
-Done 24 September. Cards and layouts stay on the desktop where they started and
-every other desktop is plain Plasma until Table; cards follow the touchscreen,
-and a display coming or going keeps them there; the monitor organizes what it
-shows and sends what has no room to the dock. The rationale is in
-`DECISIONS.md`, from § A display without cards organizes everything it shows to
-§ Cards follow the touchscreen.
+**Status:** Open for one safety item: the tray could not be reached with a
+monitor plugged in, recorded below. The monitor's rule meets MVP (J, 24
+September); smarter layouts are 12e.
 
-Two findings outlive it. Only a kernel touchscreen counts, so the nested harness
-gives `Virtual-0` a stand-in and `TouchDisplayTest` states the rule per machine.
-And the tray J could not reach with a monitor plugged in went with the
-Keyboard's handle rebuilt whole on a display change (keyboard e8ce3fd): a
-surface a display change leaves behind can sit over anything. Smarter monitor
-layouts are 12e.
+`CARD-LIFECYCLE.md` §3 and §11 gave every display and every virtual desktop its
+own ownership session; the build had one card workspace, bound to the output
+named like a built-in panel, and nothing reacted to a desktop switch. J ruled
+both halves on 23 September, recorded in `DECISIONS.md` § Table is required and
+uses KDE virtual desktops and § Cards follow the touchscreen.
+
+Built under those rulings. Cards and layouts stay on the desktop where they
+started and every other desktop is plain Plasma until Table, gated by
+`desktop-switch-runtime` and `desktop-switch-bento-runtime`; once no card or
+layout is left, ownership moves to the next desktop that starts one. The card
+display is chosen as KWin places the touchscreen: the display the user assigned
+it to, else one whose physical size matches the digitizer's, else the built-in
+display, else the first. The Z13's digitizer (284 x 187.6 mm against a 288 x 180
+mm panel) is placed by the built-in rule. A touchscreen assigned in System
+Settings is matched by display name, because KWin's newer match by display
+identifier is not exposed to an effect. A touchscreen or display coming or going
+re-decides it, and cards on a display that stops being the card display return
+to the desktop rather than moving. Only a kernel touchscreen counts, so the
+nested harness gives `Virtual-0` a stand-in; `TouchDisplayTest` states the rule
+per machine, and `no-touch-runtime` guards the no-touchscreen machine but passes
+on the earlier build too. A monitor plugged in or out is `DECISIONS.md` § A
+display coming or going keeps every card on the card display, gated by
+`output-unplug-runtime`. A bottom swipe with the dock on the monitor had been
+going to Plasma's desktop background, a layer surface; the desktop is now
+excluded as panels are, gated by `desktop-bezel-runtime`.
+
+**The monitor.** J ruled it on 23 September (`DECISIONS.md` § A display without
+cards organizes everything it shows): it organizes every window it shows, and a
+window without room goes to the dock. What is built already fills the layout from
+every eligible window, so the work is where overflow goes (today it moves to the
+tablet as a card), the eight-pane cap (`BentoCuratedPaneCap`; the patterns past
+eight exist in `makeBentoLayout`), a window released loose beside a layout, and
+the one-window snaps. On a machine with no touchscreen the same rule holds.
+
+**Hand test, 24 September.** One window on the monitor passed from a side and
+from the top, and switching off with windows parked returned every one. Two
+failed. A window parked or minimized on the monitor was missing from the dock,
+because the dock filtered hidden windows and Plasma's task model reads hidden
+from minimized on Wayland; the fix passed by hand. Kadunce's half is gated by
+`monitor-return-runtime`. Why J could not reach the tray until unplugging is
+unexplained. Minimizing the monitor's only visible pane leaves it empty even
+when a parked window waits. Past
+eight panes, a card carried to the monitor previewed only the Active size at the
+top and nothing at the sides, where the ruling gives it one slot and parks that
+slot's occupant. `monitor-full-runtime` does this on a 2560x1440 monitor and
+takes a slot from both edges; the symptom is unreproduced. It found a snap to
+the right edge landing on the left, because the library pattern's large slot is
+on the left; the pattern is now mirrored to the snapped side. Each carry preview
+onto a display without cards now logs the window's minimum size, the residents'
+and the answer, so the next hand test names what decided it. A carried window
+wider than half the monitor fits only alone, which is the ruled Active size.
 
 ## Block 9 — Shuffle Keyboard
 
@@ -705,19 +747,8 @@ set, not a predicted one.
 ### 12e. Monitor layout
 
 Moved from Block 14 on 24 September, when J found the monitor's rule met MVP: a
-window KWin moves onto it joins the layout. The pane cap is `BentoCuratedPaneCap`;
-the patterns past eight already exist in `makeBentoLayout`.
-
-The 24 September hand test, as it bears on these: minimizing the monitor's only
-visible pane leaves it empty even when a parked window waits. Past eight panes,
-a card carried to the monitor previewed only the Active size at the top and
-nothing at the sides; `monitor-full-runtime` does this on a 2560x1440 monitor
-and takes a slot from both edges, so the symptom is unreproduced. Each carry
-preview onto a display without cards logs the window's minimum size, the
-residents' and the answer, so the next hand test names what decided it. A
-carried window wider than half the monitor fits only alone, which is the ruled
-Active size. A snap to the right edge had landed on the left; the pattern is now
-mirrored to the snapped side.
+window KWin moves onto it joins the layout. What the hand test found about
+eight-pane previews and an emptied layout is under Block 14.
 
 ### 12f. The keys on the first tap
 

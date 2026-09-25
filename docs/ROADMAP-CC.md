@@ -6,8 +6,7 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Give Temperance its clock and calendar, and find why its tray could not be
-   reached with a monitor plugged in (Blocks 5 and 14).
+1. Give Temperance its clock and calendar (Block 5).
 2. Finish the Bottom Surface's remaining checks (Block 5).
 3. Prove the Keyboard: layout, controls, height, the precision surface, and
    every kind of application (Block 9).
@@ -26,8 +25,8 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3 | Ownership behavior | Done |
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
+| 14 | Ownership scope | Done |
 | 5 | Bottom Surface | Next: the clock, then the remaining checks |
-| 14 | Ownership scope | Open: the tray with a monitor plugged in |
 | 9 | Shuffle Keyboard | In progress: proving the rebuild |
 | 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
 | 13 | What a person meets first | Ready: dialogs on cards, hidden windows |
@@ -69,83 +68,12 @@ choosing the shape.
 
 Done, 21 September.
 
-## Block 13 — What a person meets first
-
-- [x] Type a whole search by touch without the launcher closing, in
-      Tettegouche and in Kadunce's search guest. (audit 1)
-- [x] Kadunce starts in cards when it is switched on, at sign-in and from the
-      tray. (audit 23)
-- [x] Name the check that refuses a pickup, as a refused drop is named.
-      (audit 6)
-- [x] Open dialogs on the tablet in Active, Spread and Bento, and record what
-      each does. (audit 2)
-- [x] Keep a dialog with its app: never its own card, never a Bento pane.
-      (audit 2)
-- [ ] Draw a waiting dialog on its card in Spread.
-- [ ] A dialog travels with its card when the card is carried.
-- [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
-- [x] The keys never come up because an app focused its own field.
-- [x] The first drag of a window after Kadunce is switched on adopts it, as the
-      second does. (audit 6)
-
-**Done when:** on the tablet, a person searches and saves a file, and nothing
-goes wrong.
-
 ## Block 14 — Ownership scope
 
-- [x] Measure what a virtual-desktop switch does while cards are owned.
-      (audit 9)
-- [x] Keep cards and layouts on the desktop they started on, and leave every
-      other desktop plain Plasma, until Table. (audit 9)
-- [x] J rules the desktop half: 1.0 includes Table, so every desktop gets its
-      own cards. (audit 11)
-- [x] Measure what a touch monitor gets, and a laptop whose built-in screen is
-      not touch. (audit 8)
-- [x] J rules the display half: one touchscreen holds cards, and a machine
-      with none gets Bento and Table only. (audit 11)
-- [x] Put cards on the screen the touchscreen drives, not the one named like a
-      laptop panel. (audit 8)
-- [x] Keep the tablet's cards whole and its bottom swipe working when a
-      monitor is plugged in or out.
-- [x] J rules the monitor: it organizes everything it shows, and a window
-      without room goes to the dock. (audit 10)
-- [x] Make the card and product contracts say what is ruled. (audit 10)
-- [x] Send a window the monitor's layout has no room for to the dock, never to
-      the tablet; picking it from the dock brings it back as an arrival.
-- [x] A window KWin moves onto the monitor joins its layout rather than
-      standing loose beside it.
-- [x] One window on the monitor: a side snap takes half, a top snap takes the
-      Active card's size.
-- [x] A window the monitor parked is in the dock, so a tap brings it back
-      rather than opening another.
-- [ ] **Next:** Find why the tray could not be reached with a monitor plugged
-      in. It is the safety control.
-
-**Done when:** the contracts, the current state and the build agree for every
-display and desktop a person can reach.
-
-## Block 9 — Shuffle Keyboard
-
-- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
-- [x] Rebuild slice 1: the card, fixed key width, height limits. (audit 13)
-- [x] Rebuild slice 2: the history and height scrub columns.
-- [x] Rebuild slice 3: the latched trackpad.
-- [x] Move the Keyboard's own grab and resize onto the dock's handle; height
-      goes to the right-edge scrub column.
-- [x] Bring J how the keys are put away: by the handle.
-- [x] Bring the concept's height and reservation lines in line with the
-      Active card making room for the keys. (audit 14)
-- [ ] Prove the four-row layout, controls, height, and the switch to the
-      precision surface.
-- [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
-      GTK, browsers, Electron and terminals. (audit 24)
-- [ ] Bring J options for copy and paste by touch. (audit 29)
-- [x] The Active card makes room for the keys, and a pull never takes the
-      focus. (audit 19)
-- [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
-
-**Done when:** a 10 to 13 inch touch device types and points reliably with no
-physical peripherals.
+Done, 24 September. Cards stay on the desktop they started on and follow the
+touchscreen, a display coming or going keeps them there, and the monitor
+organizes what it shows and sends what has no room to the dock. The tray is
+reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 
 ## Block 5 — Bottom Surface
 
@@ -189,6 +117,71 @@ physical peripherals.
 
 **Done when:** the dock is centred and grows evenly at tablet and monitor widths,
 and the Status Bar and Ambient each fill the space the dock leaves them.
+
+## Block 9 — Shuffle Keyboard
+
+- [x] Audit Plasma Keyboard, Qt Virtual Keyboard, KWin input methods and Fcitx5.
+- [x] Rebuild slice 1: the card, fixed key width, height limits. (audit 13)
+- [x] Rebuild slice 2: the history and height scrub columns.
+- [x] Rebuild slice 3: the latched trackpad.
+- [x] Move the Keyboard's own grab and resize onto the dock's handle; height
+      goes to the right-edge scrub column.
+- [x] Bring J how the keys are put away: by the handle.
+- [x] Bring the concept's height and reservation lines in line with the
+      Active card making room for the keys. (audit 14)
+- [ ] Prove the four-row layout, controls, height, and the switch to the
+      precision surface.
+- [ ] Verify locales, keymaps, focus, latency and loss-free input across Qt/KDE,
+      GTK, browsers, Electron and terminals. (audit 24)
+- [ ] Bring J options for copy and paste by touch. (audit 29)
+- [x] The Active card makes room for the keys, and a pull never takes the
+      focus. (audit 19)
+- [ ] Keep autocorrect, prediction, swipe typing and dictation out of 1.0.
+
+**Done when:** a 10 to 13 inch touch device types and points reliably with no
+physical peripherals.
+
+## Block 6 — Tettegouche completion
+
+- [ ] Search and Files stay usable with the keys covering half the screen.
+      (audit 14)
+- [ ] Ambient release validation against `AMBIENT-CONTRACT.md`.
+- [ ] Show an app whose dialog is waiting as an Ambient row; a tap brings the
+      app forward with its dialog. Decide whether an app's own attention
+      request counts too.
+- [ ] Bring J options for showing, in Ambient, windows a monitor layout sent to
+      the dock for lack of room.
+- [ ] Media metadata priority and dock-aware width.
+- [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
+      (audit 34)
+- [ ] Transfers: pause, completion, and conflict choices that never overwrite
+      silently.
+- [ ] Files: properties, previews, recursive search, Recent, error states.
+- [ ] Storage lifecycle without weakening KIO ownership.
+
+**Done when:** each slice has automated checks and an installed acceptance pass.
+
+## Block 13 — What a person meets first
+
+- [x] Type a whole search by touch without the launcher closing, in
+      Tettegouche and in Kadunce's search guest. (audit 1)
+- [x] Kadunce starts in cards when it is switched on, at sign-in and from the
+      tray. (audit 23)
+- [x] Name the check that refuses a pickup, as a refused drop is named.
+      (audit 6)
+- [x] Open dialogs on the tablet in Active, Spread and Bento, and record what
+      each does. (audit 2)
+- [x] Keep a dialog with its app: never its own card, never a Bento pane.
+      (audit 2)
+- [ ] Draw a waiting dialog on its card in Spread.
+- [ ] A dialog travels with its card when the card is carried.
+- [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
+- [x] The keys never come up because an app focused its own field.
+- [x] The first drag of a window after Kadunce is switched on adopts it, as the
+      second does. (audit 6)
+
+**Done when:** on the tablet, a person searches and saves a file, and nothing
+goes wrong.
 
 ## Block 15 — Consumer fundamentals
 
@@ -235,26 +228,6 @@ its block.
 
 **Done when:** every custom motion in the suite uses the shared timings and
 honours reduced motion.
-
-## Block 6 — Tettegouche completion
-
-- [ ] Search and Files stay usable with the keys covering half the screen.
-      (audit 14)
-- [ ] Ambient release validation against `AMBIENT-CONTRACT.md`.
-- [ ] Show an app whose dialog is waiting as an Ambient row; a tap brings the
-      app forward with its dialog. Decide whether an app's own attention
-      request counts too.
-- [ ] Bring J options for showing, in Ambient, windows a monitor layout sent to
-      the dock for lack of room.
-- [ ] Media metadata priority and dock-aware width.
-- [ ] Bring J touch-first Ambient and Files: control size, and one tap to open.
-      (audit 34)
-- [ ] Transfers: pause, completion, and conflict choices that never overwrite
-      silently.
-- [ ] Files: properties, previews, recursive search, Recent, error states.
-- [ ] Storage lifecycle without weakening KIO ownership.
-
-**Done when:** each slice has automated checks and an installed acceptance pass.
 
 ## Block 7 — Temperance event boundary
 
