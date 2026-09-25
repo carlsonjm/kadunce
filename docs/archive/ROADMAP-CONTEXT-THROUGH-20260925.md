@@ -289,19 +289,127 @@ The Active card's room is done; covered text elsewhere is Block 15's.
 
 ## Block 5 — Bottom Surface
 
-**Status:** Done, 25 September. What outlives it:
+**Status:** In progress. The dock, its sheet, the Keyboard boundary, the handle,
+the bezel rule and the gradient are accepted; `ROADMAP-CC.md` orders the rest.
 
-- The surface is the one layout authority: the dock holds the output's centre
-  and each flank holds its component to its side. Components measure only what
-  they can see (Temperance's `DECISIONS.md`).
-- KWin grants the window-list protocol only to the shell, so the dock can be
-  reviewed only on a panel; task roles are named in full.
-- The band's material, and the looks parked on 25 September, are in
-  `shuffle/docs/BOTTOM-SURFACE-MATERIAL.md` and its archive. In Auto, a band that
-  is not black has only the wallpaper behind it.
-- A restarted shell can lose the current activity and show no desktop; the
-  installers announce it again.
-- Moving a window to another desktop from the dock's sheet waits for Table.
+The Bottom Surface is the one layout authority for the Status Bar, Shuffle Dock,
+Ambient and the Keyboard boundary, so those surfaces stop negotiating width with
+each other. It lives downstream, and Tettegouche and Temperance stay fully
+functional without it: an installation without the dock is supported, not
+degraded. It is a Plasma panel Shuffle configures and owns outright, hosting
+Temperance, with the tray and Kadunce's disable control, and Ambient;
+`DECISIONS.md` § The Bottom Surface is a Plasma panel that hosts the components
+records the split. `shuffle/docs/BOTTOM-SURFACE-CONTRACT.md` is the interface and
+`BOTTOM-SURFACE-MATERIAL.md` beside it carries the approved values.
+
+**Presentation.** Approved by J on 22 September as visual direction, conditional
+on the checks below. The region is one material, full at the screen edge and
+falling to nothing by the reserved line, never painting above it. It blurs,
+drains and darkens the backdrop so the application icons are its only colour,
+fills to solid black across the reservation when the backdrop would compromise
+contrast, and never lets the reservation follow where the material becomes
+invisible. `DECISIONS.md` § The bottom region is one material that fades to
+nothing records why. The containment draws it as a plain gradient. The
+compositor effect that would add blur and drain is parked (`DECISIONS.md` § The
+region's material is a compositor effect of its own, parked); taking it up again
+starts by showing that blur and drain can be told from the gradient at all. The
+seam that stands the containment's gradient down while an effect draws already
+exists, so the two cannot both paint.
+
+**The dock's features.** Its floor is Plasma's Icons-only Task Manager
+(`DECISIONS.md` § The platform's answer wins where it has one). J approved on
+24 September the Shuffle look for what the stock dock draws on hover: the canvas
+at https://claude.ai/artifact/KM8NUM8Cit47ZHeReMufUp. A long press or right-click
+opens one sheet as wide as its window pictures: the last-used one ringed,
+then window actions as pills, size first, more while the line has room, the
+rest behind a more control, then the app's shortcuts behind one row. Pills act
+on every window, as Plasma's do; a pinned app's pin stands solid (J, 24
+September). Roles are named as `TaskManager.AbstractTasksModel.X`; read
+through a property holding the type, the shell returns the window's title. On the icon, white
+marks what is open (a dot per window up to three, the bar for the one in front)
+and the accent only means attention, a count, progress or starting.
+
+**Allocation.** The dock is fixed to the output's centre and grows symmetrically,
+and each flank spends its own side (`DECISIONS.md` § The dock's centre is fixed,
+and each flank spends its own side); an asymmetric result is intended.
+
+**The band's look.** Settled by J on 25 September from previews over his own
+wallpaper: one eased fade, black rising like a tide for a window, Plasma's panel
+Opacity choosing Auto, Clear or Blackout, and a 64 px band whose content sizes
+from the panel's height. `shuffle/docs/BOTTOM-SURFACE-MATERIAL.md` § What ships
+records it, and its archive holds the looks parked that day, among them
+Difference as a user option for the Shuffle settings app (Block 15).
+
+No prior art carries these. Progressive blur is established inside application
+content, and the system chrome Shuffle is measured against uses a uniform
+translucent material rather than a density gradient.
+
+**The Keyboard's arrival.** Built 24 September to J's direction (`DECISIONS.md`
+§ The handle brings the keys and takes them away). The keys wait below the edge
+until the dock has left and released its strut, then rise with its handle under
+the finger; a release settles at the finger's speed. The dock vacates by
+`windowsgobelow`, since `autohide` hid the panel and cut off a pull begun on it.
+Passed 24 September, with the Active card making room at the keys' pace.
+
+**Width.** Temperance sized itself by measuring from its nearest neighbour on the
+left, which is correct on an ordinary panel and measures across the dock here, so
+it asked for most of the output. Three things now answer that. The flank is the
+authority on its own width and clamps a component to its side permanently,
+whatever the component does. The surface publishes the dock's extent per output
+and Temperance measures to that edge, discovering it at run time, following the
+change signal, refusing an unknown major version and doing without it on a plain
+panel. And Ambient and the status cluster are placed on their own sides, left and
+right, by applet plugin name. J saw both sides hold on the tablet on 25
+September, so the fixes they make redundant now retire (audit 20). The extent's other consumer is
+the Keyboard's handle, which takes its width from it.
+
+**Clock and calendar.** J set the direction on 24 September; it is Temperance's
+(`temperance/docs/DECISIONS.md` § The clock is Temperance's, and its minute deals
+like a card), and so is the slice detail. The clock, the calendar card and events
+from linked calendars passed on the tablet on 25 September. Holidays come from
+Plasma's holiday plugin and the region set in Plasma. Events come from private
+calendar links, read with KDE's calendar library (`kcalendarcore`), which Block
+10's installer then carries. Today's next timed event joins the notification
+ticker and history (J, 25 September; Temperance's `DECISIONS.md` says how).
+
+**Done, in brief.** The dock is centred, stores its pinned list with the surface,
+carries the platform's own task menu from the native component the stock task
+manager uses, reorders by a sideways carry stored at each place it crosses, lists
+an application's windows in its menu, and brings back the one used last on a tap
+(`DECISIONS.md` § The platform's answer wins where it has one). KWin grants the
+window-list protocol only to the shell, so the dock's contents can be reviewed
+only on a panel. The sheet carries an application's own shortcuts. Moving a
+window to another desktop or activity from the sheet waits for Table (Block 8). The Keyboard boundary is the contract's `yieldRegion`
+and `releaseRegion`, with one holder tracked by bus name; yielding gives up the
+reservation, not only the paint, and `shuffle/tests/verify-boundary.sh` runs both
+production halves. The handle is a six-pixel bar on the band that reserves its
+own height one layer below the surface, and a pull anywhere on the dock raises
+the Keyboard, because 21 of 28 measured pulls landed on the dock rather than the
+bar. Spread opens only from the bezel (`DECISIONS.md` § Spread opens from the
+bezel, not from the dock). The dock grows uncapped until Block 12c.
+The compositor closes the handle's surface when its display leaves, so the
+handle is rebuilt whenever a display comes or goes, on Kadunce's card display or
+else the dock's, and shows only while the dock is there. Physically passed 24
+September.
+
+**Hand test, 24 September.** The sheet, its actions and bringing back a
+minimized monitor window passed. The dock once stepped aside whenever Zen
+focused its own field with no keys shown. A tap on an app in
+front puts it away only when it has one window; with several it moves to the
+next, which is Plasma's own default at 6.7.5, and J kept the platform's
+behavior.
+
+Plasma supplies the rest of the hosting: `X-Plasma-ContainmentType: Panel`,
+`PanelView::updateExclusiveZone` reserving exactly the thickness in the normal
+hiding mode and nothing in autohide, and no background drawn for a
+`NoBackground` containment. Plasma Mobile's QML-only `taskpanel` is the example
+to copy. These were read from the Plasma 6.7.5 sources, not measured: the
+nested-session probe that asked them took the machine down, and
+`TEST-ENVIRONMENT-PROCEDURE.md` governs.
+
+**Exit gate:** the dock is physically centred and grows symmetrically at tablet
+and monitor widths, the Status Bar and Ambient each compose into the space their
+side leaves them, and every check owed passes on the tablet panel.
 
 ## Block 15 — Consumer fundamentals
 

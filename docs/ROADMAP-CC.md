@@ -10,14 +10,12 @@ Shuffle becomes J's own daily system first. Work outside this list waits.
 
 **Missing capability**
 
-- Clock: Temperance's clock and calendar (Block 5).
 - Lock (Block 9b).
-- Table, after the Bottom Surface (Block 8).
+- Table (Block 8).
 
 **Verification**
 
 - Keyboard acceptance (Block 9).
-- The Bottom Surface's remaining physical checks (Block 5).
 
 **Daily-use fixes**
 
@@ -48,9 +46,9 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
 | 14 | Ownership scope | Done |
-| 5 | Bottom Surface | Current: the width fixes, then the band's looks |
+| 5 | Bottom Surface | Done |
 | 9 | Shuffle Keyboard | Current: acceptance |
-| 8 | Table | Current: after the Bottom Surface |
+| 8 | Table | Current |
 | 9b | Shuffle Lock | Current: scope is Open decision 2; needs the Keyboard |
 | 6 | Tettegouche completion | Current: the Keyboard line only |
 | 4 | Kadunce manipulation | Current: defects met in daily use |
@@ -99,54 +97,12 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 
 ## Block 5 — Bottom Surface
 
-- [x] Integration repository exists (Block 10a).
-- [x] Author the Bottom Surface contract.
-- [x] Settle what hosts Temperance once no Plasma panel exists.
-- [x] Shuffle Dock: centred, pin, reorder, the standard right-click menu.
-- [x] Keyboard boundary: the dock steps aside and the Keyboard comes all the way
-      down.
-- [x] Keyboard handle: six pixels on the dock, works on the first pull after
-      signing in, and a pull from anywhere on the dock raises the Keyboard.
-- [x] Spread opens only from the bezel.
-- [x] A tap on a dock app opens it; the menu is a long press.
-- [x] An app with several windows lists them in its dock menu, and a tap
-      brings back the one used last.
-- [x] The gradient arrives on the tablet panel with no visible banding.
-- [x] Bring J the dock's gap against Plasma's Icons-only Task Manager, and a
-      Shuffle look for what it lacks.
-- [x] Give the dock everything Plasma's Icons-only Task Manager does.
-- [x] Build the approved long-press sheet with live window previews, and the
-      approved icon signals.
-- [x] The dock stays when an app focuses a text field and no keys come up.
-- [x] The Keyboard's handle comes back whole after a monitor is unplugged or
-      plugged in.
-- [x] Sheet: new window as an icon beside the pin, the pin without its circle
-      and with its own pinned mark, and pills for the window's size actions
-      with a more control for the rest.
-- [x] The sheet's window pictures go live.
-- [x] Icon signals: J keeps them as they are.
-- [x] A maximized window turns the region solid, in Shuffle's black.
-- [x] Give the Keyboard its arrival motion: the handle carries the keys under
-      the finger, and the dock is gone before they reach its room.
-      (audit 13, 36)
-- [x] The clock in Temperance: the system font or one the person chooses, and
-      digits that never move the layout.
-- [x] Each new minute deals onto the clock like a card; a fade under reduced
-      motion.
-- [x] A tap opens the calendar as a small card in the corner, with holidays.
-- [x] J picks where events come from: a private calendar link.
-- [x] The calendar shows the events from that link.
-- [x] Retest the asymmetric Ambient and ticker width.
-- [x] Today's next timed event joins the notification ticker and history.
-- [ ] **Next:** Retire the width fixes the flanks made redundant. (audit 20)
-- [ ] The band's settings offer three looks: Auto, as it behaves now; Clear,
-      always the fade; Blackout, always black. (audit 35)
-- [ ] Revisit the band's look as a whole, since the filtered glass could not be
-      built and the fade stands in for it; the ticker on a bright wallpaper is
-      part of that review.
-
-**Done when:** the dock is centred and grows evenly at tablet and monitor widths,
-and the Status Bar and Ambient each fill the space the dock leaves them.
+Done, 25 September. The Bottom Surface is a Plasma panel Shuffle owns: a centred
+dock with everything Plasma's task manager does, its long-press sheet with live
+pictures, the Keyboard's handle and arrival, and Temperance's clock, calendar and
+linked events beside it. The band is one eased fade whose black rises like a tide
+for a window; Plasma's panel Opacity chooses Auto, Clear or Blackout; and the band
+is the panel's height, 64 px by default, with the dock sized from it.
 
 ## Block 9 — Shuffle Keyboard
 

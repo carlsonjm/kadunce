@@ -40,6 +40,8 @@ September consolidation, which moved finished-block history out of
 
 `ROADMAP-CONTEXT-THROUGH-20260924.md` is that document as it stood before Block
 14 closed on 24 September and its context was cut to what outlives it.
+`ROADMAP-CONTEXT-THROUGH-20260925.md` is the same for Block 5, closed on 25
+September.
 
 ## Accepted freezes and checkpoints
 
