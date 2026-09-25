@@ -167,3 +167,6 @@ proves; `docs/KNOWN-ISSUES.md` lists current limitations.
 ## License
 
 Kadunce is licensed under GPL-2.0-or-later. See `LICENSE`.
+
+The project names and marks are not covered by that licence. See
+[TRADEMARKS.md](TRADEMARKS.md).

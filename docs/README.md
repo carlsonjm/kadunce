@@ -37,6 +37,7 @@ messages, and a finished block keeps only what open work still needs.
 | `../CLAUDE.md` | Claude Code entry point; routes into the `AGENTS.md` startup set |
 | `../README.md` | public package and developer entry point |
 | `../SWARM.md` | live cross-worker dependencies only |
+| `../TRADEMARKS.md` | the project's names and marks, which the code licence does not cover |
 | `README.md` | document classification and routing |
 | `CURRENT_STATE.md` | current behavior, limitations, provenance boundary, validation |
 | `ROADMAP-CC.md` | the only execution plan, as a checklist: what is next, block order and status, one line per task, open product decisions |
