@@ -113,7 +113,8 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 - [ ] Each new minute deals onto the clock like a card; a fade under reduced
       motion.
 - [ ] A tap opens the calendar as a small card in the corner, with holidays.
-- [ ] J picks where events come from, and the calendar shows them.
+- [x] J picks where events come from: a private calendar link.
+- [ ] The calendar shows the events from that link.
 - [ ] Bring J the next event beside the time, where there is room.
 - [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.

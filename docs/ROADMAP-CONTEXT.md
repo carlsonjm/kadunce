@@ -375,8 +375,8 @@ the Keyboard's handle, which takes its width from it.
 **Clock and calendar.** J set the direction on 24 September; it is Temperance's
 (`temperance/docs/DECISIONS.md` § The clock is Temperance's, and its minute deals
 like a card), and so is the slice detail. Plasma's month grid and its holiday
-plugin are installed on the tablet; no event source is, so events wait on J's
-choice of one, which Block 10's installer then carries. Temperance's README
+plugin are installed on the tablet. Events come from a private calendar link,
+read with KDE's calendar library, which Block 10's installer then carries. Temperance's README
 still calls the clock a separate widget (audit 39); the first slice corrects it.
 
 **Done, in brief.** The dock is centred, stores its pinned list with the surface,
