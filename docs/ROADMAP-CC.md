@@ -6,7 +6,8 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Give Temperance its clock and calendar (Block 5).
+1. Give Temperance its clock: each new minute deals like a card, and a tap
+   opens the calendar in the corner (Block 5).
 2. Finish the Bottom Surface's remaining checks (Block 5).
 3. Prove the Keyboard: layout, controls, height, the precision surface, and
    every kind of application (Block 9).
@@ -107,7 +108,13 @@ reachable with a monitor plugged in. Smarter monitor layouts are 12e.
 - [x] Give the Keyboard its arrival motion: the handle carries the keys under
       the finger, and the dock is gone before they reach its room.
       (audit 13, 36)
-- [ ] **Next:** Give Temperance clock and calendar presentation.
+- [ ] **Next:** The clock in Temperance: the system font or one the person
+      chooses, and digits that never move the layout.
+- [ ] Each new minute deals onto the clock like a card; a fade under reduced
+      motion.
+- [ ] A tap opens the calendar as a small card in the corner, with holidays.
+- [ ] J picks where events come from, and the calendar shows them.
+- [ ] Bring J the next event beside the time, where there is room.
 - [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
       (audit 20)
@@ -369,6 +376,10 @@ Smarter layouts; the monitor's rule meets MVP.
 - [ ] The keys come up for the first text field touched in a session. (audit 4)
 - [ ] The keys come up for a text box tapped right after a card is chosen.
       (audit 5)
+
+### 12g. After 1.0
+
+- [ ] The calendar rising from the bottom edge as a card, with a timeline.
 
 ## Open decisions
 

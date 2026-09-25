@@ -372,8 +372,12 @@ right, by applet plugin name. None is retested on hardware; once the flanks hold
 the fixes they make redundant retire (audit 20). The extent's other consumer is
 the Keyboard's handle, which takes its width from it.
 
-**Clock and calendar** move to Temperance as new work. Temperance's README still
-keeps the clock a separate widget (audit 39).
+**Clock and calendar.** J set the direction on 24 September; it is Temperance's
+(`temperance/docs/DECISIONS.md` § The clock is Temperance's, and its minute deals
+like a card), and so is the slice detail. Plasma's month grid and its holiday
+plugin are installed on the tablet; no event source is, so events wait on J's
+choice of one, which Block 10's installer then carries. Temperance's README
+still calls the clock a separate widget (audit 39); the first slice corrects it.
 
 **Done, in brief.** The dock is centred, stores its pinned list with the surface,
 carries the platform's own task menu from the native component the stock task
