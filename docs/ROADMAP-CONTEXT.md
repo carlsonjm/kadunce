@@ -171,8 +171,9 @@ because the Bottom Surface lives there.
 
 ## Block 13 — What a person meets first
 
-**Status:** Next. Each item is something a person reaches in the first minutes on
-the tablet, and each is reproduced before it is changed.
+**Status:** Ready. Each item is something a person reaches in the first minutes
+on the tablet, and each is reproduced before it is changed. The keys' first-tap
+items moved to 12f.
 
 Done, in brief. Search by touch: Tettegouche's launcher moved to the top layer,
 so KWin's keyboard, in the overlay layer, stacks above it, and Kadunce no longer
@@ -204,27 +205,11 @@ so following the contract is the fix and identifying it is not needed first. The
 reason it was left alone is the thing to watch: a window Kadunce stops hiding is
 painted wherever it stands, so the exclusion has to be seen on the tablet.
 
-**The keys and the first text field.** On 22 September the first text field
-tapped in a session flashed and did not raise the Keyboard, and the second raised
-it; it has not been reproduced. KWin's rule has that shape: it shows a forced
-input panel only after the panel has been allowed, allows it only on a text-input
-update while touch was the last input, and never revokes it, so the first text
-field touched unlocks the panel for the rest of the session. A mouse or touchpad
-click never raises it, which is Plasma's touch-only setting and correct. The
-handle gets past the unlock on a cold start by holding the focus for the length
-of a raise with a one-pixel overlay that asks as a text field does.
-
-**The keys after a card is chosen.** A card the stage focuses keeps the keyboard
-down for one second, which is also when a quick person taps a text box in the
-card they just chose. `DECISIONS.md` § The keyboard comes up for the text, not
-for focus stands; the task is that a deliberate tap still raises the keys. The
-touch observer that once answered this was in the candidate withdrawn on 23
-September, so the answer is not to restore it unchanged.
-
 ## Block 14 — Ownership scope
 
-**Status:** Next: a window KWin moves onto the monitor joins its layout. The
-24 September hand test failed two checks, recorded below.
+**Status:** Open for one safety item: the tray could not be reached with a
+monitor plugged in, recorded below. The monitor's rule meets MVP (J, 24
+September); smarter layouts are 12e.
 
 `CARD-LIFECYCLE.md` §3 and §11 gave every display and every virtual desktop its
 own ownership session; the build had one card workspace, bound to the output
@@ -758,6 +743,34 @@ Deferred from Block 5 on 22 September: the dock grows uncapped, because a cap
 earns nothing at MVP working-set sizes, and the flanks clip, so an overgrown dock
 crowds them rather than corrupting the layout. Revisit with a measured working
 set, not a predicted one.
+
+### 12e. Monitor layout
+
+Moved from Block 14 on 24 September, when J found the monitor's rule met MVP: a
+window KWin moves onto it joins the layout. What the hand test found about
+eight-pane previews and an emptied layout is under Block 14.
+
+### 12f. The keys on the first tap
+
+Moved from Block 13 on 24 September: J wants these as one debug session, and
+not now.
+
+**The keys and the first text field.** On 22 September the first text field
+tapped in a session flashed and did not raise the Keyboard, and the second raised
+it; it has not been reproduced. KWin's rule has that shape: it shows a forced
+input panel only after the panel has been allowed, allows it only on a text-input
+update while touch was the last input, and never revokes it, so the first text
+field touched unlocks the panel for the rest of the session. A mouse or touchpad
+click never raises it, which is Plasma's touch-only setting and correct. The
+handle gets past the unlock on a cold start by holding the focus for the length
+of a raise with a one-pixel overlay that asks as a text field does.
+
+**The keys after a card is chosen.** A card the stage focuses keeps the keyboard
+down for one second, which is also when a quick person taps a text box in the
+card they just chose. `DECISIONS.md` § The keyboard comes up for the text, not
+for focus stands; the task is that a deliberate tap still raises the keys. The
+touch observer that once answered this was in the candidate withdrawn on 23
+September, so the answer is not to restore it unchanged.
 
 ## Open product decisions
 

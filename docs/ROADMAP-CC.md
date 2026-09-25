@@ -6,11 +6,12 @@ needs to know live in `ROADMAP-CONTEXT.md` under the same block heading.
 
 ## Next
 
-1. Rebuild the Keyboard against the 22 September direction (Block 9).
-2. Make the keys come up for the first text field of a session (Block 13).
-3. Show an app whose dialog is waiting in Ambient (Block 6).
-4. Finish the Bottom Surface's remaining checks (Block 5).
-5. Make the monitor organize everything it shows (Block 14).
+1. Give Temperance its clock and calendar, and find why its tray could not be
+   reached with a monitor plugged in (Blocks 5 and 14).
+2. Finish the Bottom Surface's remaining checks (Block 5).
+3. Prove the Keyboard: layout, controls, height, the precision surface, and
+   every kind of application (Block 9).
+4. Tettegouche's remaining work, the waiting-dialog row included (Block 6).
 
 ## Blocks
 
@@ -25,14 +26,14 @@ place in the order. A line tagged `(audit N)` answers finding N in
 | 3 | Ownership behavior | Done |
 | 3b | Bento layout grammar | Done |
 | 10a | Integration repository | Done |
-| 13 | What a person meets first | Next |
-| 9 | Shuffle Keyboard | In progress |
-| 5 | Bottom Surface | In progress: the remaining checks |
-| 14 | Ownership scope | After Block 5: the monitor's layout rule |
+| 5 | Bottom Surface | Next: the clock, then the remaining checks |
+| 14 | Ownership scope | Open: the tray with a monitor plugged in |
+| 9 | Shuffle Keyboard | In progress: proving the rebuild |
+| 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
+| 13 | What a person meets first | Ready: dialogs on cards, hidden windows |
 | 15 | Consumer fundamentals | Ready: options for J |
 | 4 | Kadunce manipulation | In progress |
 | 16 | Motion | Ready |
-| 6 | Tettegouche completion | Width work waits on Block 5; the rest is ready |
 | 7 | Temperance event boundary | Ready |
 | 6b | Maintainability and lifecycle audit | Ready |
 | 7b | Spread deck motion | Waits on Blocks 5, 6 and 7 |
@@ -83,15 +84,12 @@ Done, 21 September.
 - [ ] Draw a waiting dialog on its card in Spread.
 - [ ] A dialog travels with its card when the card is carried.
 - [ ] Never hold a window hidden from the task switcher as a card. (audit 3)
-- [ ] The keys come up for the first text field touched in a session. (audit 4)
 - [x] The keys never come up because an app focused its own field.
-- [ ] The keys come up for a text box tapped right after a card is chosen.
-      (audit 5)
 - [x] The first drag of a window after Kadunce is switched on adopts it, as the
       second does. (audit 6)
 
-**Done when:** on the tablet, a person searches, saves a file, and types into a
-freshly chosen card, and nothing goes wrong.
+**Done when:** on the tablet, a person searches and saves a file, and nothing
+goes wrong.
 
 ## Block 14 — Ownership scope
 
@@ -114,18 +112,14 @@ freshly chosen card, and nothing goes wrong.
 - [x] Make the card and product contracts say what is ruled. (audit 10)
 - [x] Send a window the monitor's layout has no room for to the dock, never to
       the tablet; picking it from the dock brings it back as an arrival.
-- [ ] **Next:** a window KWin moves onto the monitor joins its layout or waits in
-      the dock, rather than standing loose beside it.
-- [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
+- [x] A window KWin moves onto the monitor joins its layout rather than
+      standing loose beside it.
 - [x] One window on the monitor: a side snap takes half, a top snap takes the
       Active card's size.
 - [x] A window the monitor parked is in the dock, so a tap brings it back
       rather than opening another.
-- [ ] A card carried onto a full monitor layout takes one slot, and that
-      slot's window waits in the dock.
-- [ ] When room frees up on the monitor, a window waiting in the dock comes
-      back on its own.
-- [ ] Hand-test the monitor's layout rule.
+- [ ] **Next:** Find why the tray could not be reached with a monitor plugged
+      in. It is the safety control.
 
 **Done when:** the contracts, the current state and the build agree for every
 display and desktop a person can reach.
@@ -136,7 +130,7 @@ display and desktop a person can reach.
 - [x] Rebuild slice 1: the card, fixed key width, height limits. (audit 13)
 - [x] Rebuild slice 2: the history and height scrub columns.
 - [x] Rebuild slice 3: the latched trackpad.
-- [ ] Move the Keyboard's own grab and resize onto the dock's handle; height
+- [x] Move the Keyboard's own grab and resize onto the dock's handle; height
       goes to the right-edge scrub column.
 - [x] Bring J how the keys are put away: by the handle.
 - [x] Bring the concept's height and reservation lines in line with the
@@ -185,10 +179,10 @@ physical peripherals.
 - [x] Give the Keyboard its arrival motion: the handle carries the keys under
       the finger, and the dock is gone before they reach its room.
       (audit 13, 36)
-- [ ] **Next:** Retest the asymmetric Ambient and ticker width.
+- [ ] **Next:** Give Temperance clock and calendar presentation.
+- [ ] Retest the asymmetric Ambient and ticker width.
 - [ ] Once the flanks hold, retire the width fixes they made redundant.
       (audit 20)
-- [ ] Give Temperance clock and calendar presentation.
 - [ ] Keep the ticker legible on a bright wallpaper.
 - [ ] Replace the gradient with a solid fill under reduced transparency.
       (audit 35)
@@ -386,8 +380,22 @@ and nothing else fires.
 
 ### 12e. Monitor layout
 
+Smarter layouts; the monitor's rule meets MVP.
+
+- [ ] Let minimum sizes, not a count of eight, decide how many panes fit.
+- [ ] A card carried onto a full monitor layout takes one slot, and that
+      slot's window waits in the dock.
+- [ ] When room frees up on the monitor, a window waiting in the dock comes
+      back on its own.
 - [ ] A low or high side snap makes room under a larger pane rather than
       taking a full-height third.
+- [ ] Hand-test the monitor's layout rule.
+
+### 12f. The keys on the first tap
+
+- [ ] The keys come up for the first text field touched in a session. (audit 4)
+- [ ] The keys come up for a text box tapped right after a card is chosen.
+      (audit 5)
 
 ## Open decisions
 
