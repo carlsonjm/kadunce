@@ -1,0 +1,10 @@
+--- a/native/src/Effect.cpp
++++ b/native/src/Effect.cpp
+@@ -739,6 +739,7 @@
+             devices.append({device->outputName(), device->property("size").toSizeF()});
+         }
+     }
++    devices.append({QStringLiteral("Virtual-0"), QSizeF()});
+     const QString name = cardOutputName(outputs, devices);
+     if (name == m_cardOutputName) return;
+     // Cards cannot follow a touchscreen to another display. They return to

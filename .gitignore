@@ -1,0 +1,4 @@
+/build-native/
+/build/
+*.user
+/.claude/worktrees/

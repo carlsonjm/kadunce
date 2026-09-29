@@ -1,0 +1,14 @@
+[Unit]
+Description=Kadunce workspace control
+PartOf=graphical-session.target
+After=graphical-session.target plasma-workspace.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/kadunce-control
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

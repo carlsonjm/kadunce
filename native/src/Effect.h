@@ -1,0 +1,495 @@
+/*
+    SPDX-FileCopyrightText: 2026 Jared Carlson
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#pragma once
+
+#include "CardStageController.h"
+#include "DesktopStageController.h"
+#include "WorkspaceInputRouter.h"
+#include "DeferredCommandGuard.h"
+#include "NativeCarryRuntime.h"
+#include "NativeEdgePolicy.h"
+#include "KeyboardOverlayPolicy.h"
+#include "KeyRoute.h"
+#include <options.h>
+
+#include <effect/offscreeneffect.h>
+#include "DesktopExitLabel.h"
+#include "CardLabelRenderer.h"
+
+#include <QList>
+#include <QHash>
+#include <QDBusContext>
+#include <QElapsedTimer>
+#include <QPointer>
+#include <QStringList>
+
+#include <memory>
+#include <array>
+#include <optional>
+
+class QAction;
+class QDBusServiceWatcher;
+class QFileSystemWatcher;
+
+namespace Kadunce
+{
+
+class Effect final : public KWin::OffscreenEffect,
+                     protected QDBusContext,
+                     private WorkspaceInputTarget,
+                     private DesktopStageHost,
+                     private CardStageHost
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "studio.warbler.Kadunce")
+
+public:
+    Effect();
+    ~Effect() override;
+
+    static bool supported();
+
+    void prePaintScreen(KWin::ScreenPrePaintData &data) override;
+    void postPaintScreen() override;
+    void prePaintWindow(KWin::RenderView *view,
+                        KWin::EffectWindow *window,
+                        KWin::WindowPrePaintData &data) override;
+    void paintScreen(const KWin::RenderTarget &renderTarget,
+                     const KWin::RenderViewport &viewport,
+                     int mask,
+                     const KWin::Region &deviceRegion,
+                     KWin::LogicalOutput *screen) override;
+    void paintWindow(const KWin::RenderTarget &renderTarget,
+                     const KWin::RenderViewport &viewport,
+                     KWin::EffectWindow *window,
+                     int mask,
+                     const KWin::Region &deviceRegion,
+                     KWin::WindowPaintData &data) override;
+    void drawWindow(const KWin::RenderTarget &renderTarget,
+                    const KWin::RenderViewport &viewport,
+                    KWin::EffectWindow *window,
+                    int mask,
+                    const KWin::Region &deviceRegion,
+                    KWin::WindowPaintData &data) override;
+
+    [[nodiscard]] int requestedEffectChainPosition() const override
+    {
+        return 50;
+    }
+
+    [[nodiscard]] bool blocksDirectScanout() const override
+    {
+        return (m_cardStage && m_cardStage->isActive())
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty();
+    }
+
+    [[nodiscard]] bool isActive() const override
+    {
+        return (m_cardStage && m_cardStage->isActive())
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
+            || keysAwaitingPerson();
+    }
+
+    // Keys on screen that are not yet known to be the person's are painted
+    // through this effect, which withholds them, whether or not it holds any
+    // card. Once they are the person's, or gone, it asks for nothing.
+    [[nodiscard]] bool keysAwaitingPerson() const
+    {
+        const KWin::EffectWindow *panel = KWin::effects->inputPanel();
+        return !m_keysForPerson && panel && panel->isVisible();
+    }
+
+private Q_SLOTS:
+    void toggle();
+    void release();
+    void pageLeft();
+    void pageRight();
+    void pageStackUp();
+    void pageStackDown();
+    void toggleBento();
+    [[nodiscard]] KWin::LogicalOutput *externalDesktopOutput() const;
+    bool pairActiveCardIntoBento(KWin::LogicalOutput *output);
+
+public Q_SLOTS:
+    Q_SCRIPTABLE void showCardLine();
+    Q_SCRIPTABLE void showActive();
+    Q_SCRIPTABLE QStringList outputStageState() const;
+    // Which plugin image this compositor actually has open. An installer runs
+    // outside KWin and, under a restricted-ptrace kernel, cannot read its maps;
+    // KWin can always read its own. Reported as "<inode> present|deleted".
+    Q_SCRIPTABLE QString loadedPluginProvenance() const;
+    Q_SCRIPTABLE QString workspaceContext() const;
+    Q_SCRIPTABLE QString nativeCarryState() const;
+    Q_SCRIPTABLE QStringList nativeMoveTrace() const { return m_nativeMoveTrace; }
+    Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
+    Q_SCRIPTABLE void raiseKeyboard();
+    // The keys' own word on where they are going: they come to rest `height`
+    // logical pixels tall above their screen's bottom edge, 0 when leaving,
+    // in `durationMs`. Optional: keys that never say are read as they move.
+    Q_SCRIPTABLE void keyboardHeading(double height, int durationMs);
+    Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
+    Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
+    Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
+    Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE bool prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken);
+    Q_SCRIPTABLE void cancelLauncherGuestLaunch();
+    Q_SCRIPTABLE void endLauncherGuest();
+    Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
+    Q_SCRIPTABLE bool handoffBentoLeadToOutput(
+        const QString &sourceName, const QString &destinationName);
+
+Q_SIGNALS:
+    Q_SCRIPTABLE void workspaceContextChanged();
+    Q_SCRIPTABLE void bridgeUnavailable();
+
+private:
+    // The tablet kit decides which backend owns the top and bottom edges, and it
+    // can appear after the effect loads. These move the session onto the direct
+    // router at that point instead of leaving the constructor's answer final.
+    void watchForTabletKit();
+    void adoptDirectSystemEdges();
+    // Source-local bounds only: ordinary window movement does not recapture.
+    QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
+    QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
+    QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
+    CardLabelRenderer m_cardLabelRenderer;
+    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
+    void redirectPreviewSource(KWin::EffectWindow *window);
+    struct BentoMotion {
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::LogicalOutput> output;
+        QRectF from, to, outputGeometry;
+        QElapsedTimer timer;
+    };
+    QList<BentoMotion> m_bentoMotions;
+    QRectF bentoPresentationRect(KWin::EffectWindow *window) const override;
+    void animateBentoLayout(KWin::LogicalOutput *output,
+        const QList<QPointer<KWin::EffectWindow>> &windows,
+        const QList<QRectF> &from, const QList<QRectF> &to) override;
+    std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
+    void clearBentoMotions();
+    bool beginRailFromInput(QPointF p) override {
+        return !m_carriedWindow && !m_cardStage->cardGrabActive()
+            && !(isTabletPoint(p) && m_cardStage->isActive()) && m_desktopStage->beginRail(p);
+    }
+    void updateRailFromInput(QPointF p) override { m_desktopStage->updateRail(p); }
+    void finishRailFromInput(bool commit) override { m_desktopStage->finishRail(commit); }
+    // Spread's row and the card under one finger.
+    [[nodiscard]] bool rowMovingForInput() const override { return m_cardStage->rowMoving(); }
+    [[nodiscard]] bool rowStillForInput() const override { return m_cardStage->rowStill(); }
+    [[nodiscard]] bool scrollFromFingersForInput() const override;
+    bool catchRowFromInput() override { return m_cardStage->catchRow(); }
+    void settleRowFromInput() override { m_cardStage->settleRowFromStroke(); }
+    bool beginRowFromInput() override { return m_cardStage->beginRowDrag(); }
+    void updateRowFromInput(double travel) override { m_cardStage->updateRowDrag(travel); }
+    void finishRowFromInput(double velocity) override { m_cardStage->finishRowDrag(velocity); }
+    bool beginScrubFromInput() override { return m_cardStage->beginScrub(); }
+    void updateScrubFromInput(double travel) override { m_cardStage->updateScrub(travel); }
+    void finishScrubFromInput() override { m_cardStage->finishScrub(); }
+    bool beginLiftFromInput(const QPointF &position) override { return m_cardStage->beginLift(position); }
+    void updateLiftFromInput(double travel) override { m_cardStage->updateLift(travel); }
+    void finishLiftFromInput(double velocity) override { m_cardStage->finishLift(velocity); }
+    void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
+    void presentSelectedForCardStage() override { activateSelectedFromInput(); }
+    void traceNativeMove(KWin::EffectWindow *window, const char *event);
+    QStringList m_nativeMoveTrace;
+    QString m_lastCarryDestinationTrace;
+    bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
+    void handleLaunchWindowChanged();
+    // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
+    [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
+    void refreshCardOutput();
+    static bool isCardWindow(const KWin::EffectWindow *window);
+    static bool isApplicationWindow(const KWin::EffectWindow *window);
+    // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
+    // it belongs to, follows the application window at the root of that chain
+    // and is never a card or a pane. Null for a window that belongs to none.
+    static KWin::EffectWindow *dependentLead(const KWin::EffectWindow *window);
+    // Cards and layouts live on one virtual desktop. On any other desktop
+    // Kadunce stands aside entirely.
+    [[nodiscard]] bool onOwnedDesktop() const;
+    void noteOwnedDesktop();
+    void handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current);
+    void toggleOwnedPresentation();
+    [[nodiscard]] bool standsAsideForInput() const override { return !onOwnedDesktop(); }
+    static bool isDependentWindow(const KWin::EffectWindow *window);
+    // Whether a dependent of lead may be seen: always, unless lead is a card
+    // that is not the Active card presented in front.
+    [[nodiscard]] bool dependentShown(const KWin::EffectWindow *lead) const;
+    // A dependent whose application is not in front waits with it, hidden and
+    // unfocused, and its application is marked as wanting attention.
+    void syncDependentWindows();
+    void scheduleDependentSync();
+    void returnDependentWindows();
+    KWin::LogicalOutput *tabletOutput() const;
+    [[nodiscard]] bool isTabletOutputForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool allowsDesktopStageOnOutput(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isManagedWindowForDesktopStage(
+        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] KWin::LogicalOutput *tabletOutputForDesktopStage()
+        const override;
+    [[nodiscard]] bool outputCanOwnCards(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] KWin::Rect activeTargetForDesktopStage(
+        KWin::LogicalOutput *output) const override;
+    void retireOutputFromDesktopStage(KWin::LogicalOutput *output) override;
+    void prepareOutputForDesktopStage(
+        KWin::LogicalOutput *output) override;
+    [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
+        KWin::EffectWindow *window) const override;
+    bool admitDisplacedPaneToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) override;
+    bool admitSleepingPaneToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore = nullptr) override;
+    [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
+        const override;
+    [[nodiscard]] bool isTabletOutputForCardStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isManagedWindowForCardStage(
+        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool mayHoldWindowForCardStage(
+        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] std::optional<double> inputPanelTopForCardStage(
+        KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool keyboardTypesIntoForCardStage(
+        const KWin::EffectWindow *window) const override;
+    void setPagingShortcutsForCardStage(bool active) override;
+    void cancelInputForCardStage() override;
+    void connectManagedWindowForCardStage(
+        KWin::EffectWindow *window) override;
+    void unredirectForCardStage(KWin::EffectWindow *window) override;
+    void retireBentoProjectionForCardStage(
+        const QList<QPointer<KWin::EffectWindow>> &windows) override;
+    [[nodiscard]] bool admitCardToDesktopStage(
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const KWin::RectF &geometry, const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource) override;
+    [[nodiscard]] bool resumeBentoProjectionForCardStage(
+        const BentoProjectionSession &projection,
+        const std::function<bool()> &commitSource,
+        const std::function<void()> &releaseSource) override;
+    // Three fingers down open Spread: under the fingers from the Active card,
+    // or once past halfway from a layout or the desktop.
+    struct SpreadGesture {
+        enum class Mode { Idle, Refused, Follow, Commit, Opened };
+        Mode mode = Mode::Idle;
+        double progress = 0.0;
+    };
+    void setPagingShortcutsActive(bool active);
+    bool answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat);
+    void runKeyAction(KeyAction action);
+    // KWin's gesture recogniser calls these; they are invokable, never on the
+    // bus, so a private compositor's probe can drive them where its virtual
+    // displays report no physical size for KWin to measure fingers by.
+    Q_INVOKABLE void followSpreadGesture(qreal progress);
+    [[nodiscard]] SpreadGesture::Mode beginSpreadGesture();
+    Q_INVOKABLE void finishSpreadGesture();
+    void holdOverviewOff();
+    [[nodiscard]] WorkspacePresentation presentationForInput() const override;
+    [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;
+    [[nodiscard]] bool cardGrabActiveForInput() const override;
+    [[nodiscard]] bool nativeWindowInteractionForInput() const override;
+    [[nodiscard]] bool centerCardContainsForInput(
+        const QPointF &position) const override;
+    [[nodiscard]] bool launcherGuestActiveForInput() const override;
+    [[nodiscard]] bool launcherGuestContainsForInput(
+        const QPointF &position) const override;
+    [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
+    [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
+    [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
+    [[nodiscard]] bool cancelForwardedTouchForInput() override;
+    [[nodiscard]] bool isTabletPoint(
+        const QPointF &position) const override;
+    void pointerMovedForInput(const QPointF &position) override;
+    // The gutter around Kadunce's own cards and panes holds the pointer.
+    void quietCardGap(const QPointF &position);
+    [[nodiscard]] bool inCardGap(const QPointF &position) const;
+    bool m_gapHeld = false;
+    [[nodiscard]] int activeSideForPoint(
+        const QPointF &position) const override;
+    [[nodiscard]] bool selectedStackContains(
+        const QPointF &position) const override;
+    void toggleFromInput() override;
+    void beginBezelSpreadFromInput() override;
+    void followBezelSpreadFromInput(double rise) override;
+    void finishBezelSpreadFromInput(double rise, double speed, bool cancelled) override;
+    void dismissLauncherGuestFromInput() override;
+    void navigateLauncherGuestFromInput(
+        const QPointF &position) override;
+    void pageLeftFromInput() override;
+    void pageRightFromInput() override;
+    void pageStackFromInput(int delta) override;
+    void pageHorizontal(int delta);
+    void pageStack(int delta);
+    void beginCardGrab(const QPointF &position) override;
+    void updateCardGrab(const QPointF &position) override;
+    void finishCardGrab(bool commit) override;
+    [[nodiscard]] bool finishCardGrabOnOutput(
+        const QPointF &position) override;
+    [[nodiscard]] bool cardAtForInput(const QPointF &position) const override;
+    void tapSpreadFromInput(const QPointF &position) override;
+    void syncSelectedElevation();
+    void activateSelectedFromInput() override;
+    [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
+    void handleWindowAdded(KWin::EffectWindow *window);
+    void handleWindowClosed(KWin::EffectWindow *window);
+    void handleWindowActivated(KWin::EffectWindow *window);
+    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the
+    // user calls forward joins that layout. True means the activation was
+    // answered here; false leaves it to Card Stage, which by then is no longer
+    // presenting Bento.
+    [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    // §8: retire a layout that cannot take an arrival into a Spread group, so
+    // the card the arrival becomes is not drawn over live panes. Both arrival
+    // paths ask this before handing the window to Card Stage.
+    [[nodiscard]] bool retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output);
+    void handleActiveGeometryChanged(KWin::EffectWindow *window,
+                                     const KWin::RectF &oldGeometry);
+    void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
+    void beginLegacyNativeMove(KWin::EffectWindow *window);
+    void updateNativeCarryDestination(QPointF contact);
+    void endNativeCarryPresentation();
+    void handleManagedStateChanged();
+    void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
+                                       const KWin::RectF &geometry);
+    void handleWindowMoveResizeFinished(KWin::EffectWindow *window);
+    void handleScreenRemoved(KWin::LogicalOutput *output);
+    // A display plugged in, unplugged or moved. KWin moves windows between
+    // displays as it happens; once it has, cards go back to the display that
+    // holds them and windows it moved onto that display become cards.
+    void scheduleCardDisplaySettle();
+    void settleCardsOnDisplays();
+    void handleSessionStateChanged();
+    [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
+    [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
+    [[nodiscard]] KWin::Rect cardTargetForSlot(
+        KWin::LogicalOutput *output, int slot) const;
+    [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
+    [[nodiscard]] bool hasActiveDesktopStage() const;
+    void connectManagedWindow(KWin::EffectWindow *window);
+    bool admitTransferredWindowToTablet(
+        KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; },
+        const NativeMoveSnapshot *restore = nullptr) override;
+
+    std::unique_ptr<KeyRoute> m_keyRoute;
+    // Cards are on the tablet, so Meta's arrows move through them.
+    bool m_cardsShownForKeys = false;
+    SpreadGesture m_spreadGesture;
+    QAction *m_spreadGestureAction = nullptr;
+    // KDE's Overview was set aside here and is loaded again when Kadunce stops.
+    bool m_overviewHeld = false;
+    void observeCardOwnership();
+    bool startTabletInCards(KWin::EffectWindow *arrival);
+    // The authority for who owns a window. Both stages' containers are checked
+    // against it; it is never repaired from them.
+    CardOwnershipLedger m_ownership;
+    std::vector<OwnershipViolation> m_observedOwnershipViolations;
+
+    QAction *m_showSpreadAction = nullptr;
+    QAction *m_showActiveAction = nullptr;
+    bool m_usesDirectSystemEdges = true;
+    std::unique_ptr<QFileSystemWatcher> m_tabletKitWatcher;
+    std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
+    std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
+    std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
+    QMetaObject::Connection m_inputPanelGeometry;
+    // The keys come up only when the person asks for them: a tap on the line
+    // the text cursor sits on, or a request through raiseKeyboard. Anything
+    // else the compositor raises goes back down before it is drawn.
+    QElapsedTimer m_keyboardAskedSince;
+    // Set once keys on screen are found asked for, and held until they go.
+    // Until then they are not drawn, so keys raised for nobody are never seen
+    // for the frame the compositor can paint before the decision reaches it.
+    bool m_keysForPerson = false;
+    [[nodiscard]] bool keyboardAskedFor(const KWin::InputMethod &method) const;
+    void keepUnaskedKeyboardDown();
+    // Keys the compositor hid while they still had a picture, drawn on until
+    // the keyboard lets go of it, so a keyboard that slides out when typing
+    // ends is seen doing so. Held no longer than a slide takes.
+    std::unique_ptr<KWin::EffectWindowVisibleRef> m_leavingKeys;
+    QPointer<KWin::EffectWindow> m_leavingPanel;
+    QMetaObject::Connection m_leavingKeysUnmap;
+    QTimer m_leavingKeysLimit;
+    void releaseLeavingKeys();
+    std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
+    QPointer<KWin::EffectWindow> m_carriedWindow;
+    QRectF m_carryPickup;
+    std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
+    std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
+    // A tablet edge action that admits to Card Stage has no Bento reservation
+    // to hold: its destination is the Active card target on this output.
+    // CARD-LIFECYCLE.md §3 and §10 decide which of the two a gesture is.
+    QPointer<KWin::LogicalOutput> m_carryCardEntryOutput;
+    QPointer<KWin::LogicalOutput> m_lineCardEntryOutput;
+    QPointer<KWin::EffectWindow> m_lineDestinationWindow;
+    QPointF m_lineDestinationContact;
+    DeferredCommandGuard m_inputActivationGuard;
+    std::unique_ptr<DesktopStageController> m_desktopStage;
+    std::unique_ptr<CardStageController> m_cardStage;
+    KWin::LogicalOutput *m_paintingOutput = nullptr;
+    bool m_continueRepaint = false;
+    QList<QPointer<KWin::EffectWindow>> m_preparationNeighbors;
+    bool m_neighborPreparedThisFrame = false;
+    unsigned int m_neighborPreparationCursor = 0;
+    int m_neighborPreparationFrames = 0;
+    QPointer<KWin::EffectWindow> m_nativeCarry;
+    QString m_nativeCarrySource;
+    bool m_nativeCarryFromBento = false;
+    std::unique_ptr<KWin::GLShader> m_fanApertureShader;
+    std::unique_ptr<KWin::GLShader> m_destinationShader;
+    std::optional<KWin::RectF> m_carryPreview;
+    DesktopExitLabel m_detachLabel;
+    std::optional<KWin::RectF> m_linePreview;
+    void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                         const QRectF &from, const QRectF &to);
+    void clearDropSettle();
+    [[nodiscard]] std::optional<QRectF> dropSettleRect() const;
+    QPointer<KWin::EffectWindow> m_settlingWindow;
+    QPointer<KWin::LogicalOutput> m_settlingOutput;
+    QRectF m_settleFrom, m_settleTo, m_settleOutputGeometry;
+    QElapsedTimer m_dropSettleTimer;
+    KWin::EffectWindow *m_fanApertureWindow = nullptr;
+    QSizeF m_fanPaintSize;
+    QPointF m_fanApertureOrigin;
+    QSizeF m_fanApertureSize;
+    float m_fanApertureRadius = 0.0F;
+    int m_fanPaintSizeLocation = -1;
+    int m_fanApertureOriginLocation = -1;
+    int m_fanApertureSizeLocation = -1;
+    int m_fanApertureRadiusLocation = -1;
+    QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
+    QString m_launcherGuestOwner;
+    bool m_launcherGuestExpanded = false;
+    QElapsedTimer m_guestNeighborMotion;
+    double m_guestNeighborFrom = 1.0;
+    double guestNeighborOpacity() const;
+    KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
+    QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
+    QPointer<KWin::VirtualDesktop> m_ownedDesktop;
+    QString m_cardOutputName;
+    QList<QPointer<KWin::EffectWindow>> m_dependents;
+    QList<QPointer<KWin::EffectWindow>> m_heldDependents;
+    QList<QPointer<KWin::EffectWindow>> m_freshDependents;
+    QList<QPointer<KWin::Window>> m_waitingLeads;
+    bool m_dependentSyncQueued = false;
+    bool m_cardDisplaySettleQueued = false;
+    int m_cardDisplaySettleRounds = 0;
+    bool m_holdingDependents = false;
+    bool m_launcherGuestLaunchPending = false;
+    QStringList m_launcherGuestLaunchApps;
+    QString m_launcherGuestLaunchToken;
+    quint64 m_guestGeneration = 0;
+    QHash<QString, quint64> m_activationOrder;
+    quint64 m_activationSequence = 0;
+};
+
+} // namespace Kadunce

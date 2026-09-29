@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kadunce Control
+Comment=Enable, pause, repair, and configure your card workspace
+Exec=kadunce-control
+Icon=studio.warbler.kadunce-logo
+Terminal=false
+NoDisplay=true
+Categories=System;Settings;
+X-KDE-StartupNotify=false

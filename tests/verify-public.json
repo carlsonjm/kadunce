@@ -1,0 +1,19 @@
+{
+  "exclude": [
+    "LICENSES/*"
+  ],
+  "private_branches": [
+    "table-private"
+  ],
+  "table": {
+    "AGENTS.md": 1,
+    "README.md": 2,
+    "docs/DECISIONS.md": 7,
+    "docs/INPUT.md": 8,
+    "docs/TERMINOLOGY.md": 1,
+    "native/src/Effect.cpp": 1,
+    "native/src/KadunceKeys.h": 3,
+    "native/tests/KadunceKeysTest.cpp": 3
+  },
+  "attribution_pending": {}
+}

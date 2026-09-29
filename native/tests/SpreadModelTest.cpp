@@ -1,0 +1,440 @@
+/*
+    SPDX-FileCopyrightText: 2026 Jared Carlson
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "SpreadModel.h"
+#include "SpreadPartnerWalk.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <iostream>
+
+namespace
+{
+void require(bool condition, const char *message)
+{
+    if (!condition) {
+        std::cerr << message << '\n';
+        std::exit(EXIT_FAILURE);
+    }
+}
+}
+
+int main()
+{
+    for (int active = 0; active < 4; ++active) {
+        Kadunce::SpreadModel lifted(4);
+        require(lifted.stackSelectedWith(2), "Four-face seed failed");
+        for (int id = 3; id <= 4; ++id) {
+            lifted.page(1);
+            require(lifted.stackSelectedWith(1), "Four-face setup failed");
+        }
+        lifted.pageStack(active - 3);
+        const int held = lifted.selectedId();
+        const auto members = lifted.stackMembersForId(held);
+        auto remainingPaint = lifted.stackPaintOrderForId(held);
+        require(remainingPaint.back() == held, "Original face not on top");
+        remainingPaint.pop_back();
+        require(lifted.detachSelectedMember(), "Front lift failed");
+        const int exposed = lifted.detachedNeighborhood(0)[1];
+        require(exposed == remainingPaint.back(), "Lift rotated the face underneath");
+        require(lifted.stackPaintOrderForId(exposed) == remainingPaint,
+            "Lift reordered the remaining visible fan");
+        require(lifted.restoreDetachedMember() && lifted.selectedId() == held
+            && lifted.stackMembersForId(held) == members,
+            "Lift cancellation failed to restore original stack");
+    }
+    // Every insertion slot preserves the destination's active identity; users
+    // can then browse to the newly placed member without rewriting order.
+    for (int active = 0; active < 3; ++active) {
+        for (int slot = 0; slot <= 3; ++slot) {
+            Kadunce::SpreadModel placed(4);
+            require(placed.stackSelectedWith(2, 0), "Placement setup A,B failed");
+            placed.page(1);
+            require(placed.stackSelectedWith(1), "Placement setup A,B,C failed");
+            placed.pageStack(active - 2);
+            const int face = placed.selectedId();
+            placed.page(1); // D
+            require(placed.stackSelectedWith(1, slot,
+                Kadunce::SpreadModel::InsertionSelection::DestinationCard), "Placement commit failed");
+            std::vector<int> expected{1,2,3};
+            expected.insert(expected.begin() + slot, 4);
+            require(placed.stackMembersForId(4) == expected && placed.selectedId() == face,
+                "Inserted member replaced face or lost explicit slot");
+            require(placed.stackPaintOrderForId(face).back() == face,
+                "Paint order disagrees with preserved face");
+            for (int step = 0; step < 4; ++step) placed.pageStack(1);
+            require(placed.selectedId() == face && placed.stackMembersForId(4) == expected,
+                "Full browse cycle rewrote placement");
+            placed.pageStack(slot - placed.stackActivePositionForId(4));
+            require(placed.selectedId() == 4 && placed.detachSelectedMember(),
+                "Placed member could not be selected and detached");
+            require(placed.restoreDetachedMember() && placed.stackMembersForId(4) == expected,
+                "Canceled regrab lost placed order");
+        }
+    }
+    Kadunce::SpreadModel oneCard(1);
+    require(oneCard.count() == 1, "One-spread was padded with fake cards");
+    oneCard.page(99);
+    require(oneCard.selectedId() == 1 && oneCard.invariantHolds(),
+            "One-spread did not remain stable");
+
+    Kadunce::SpreadModel twoCards(2);
+    for (int side : {-1, 1}) {
+        for (int selected : {0, 1}) {
+            Kadunce::SpreadModel incoming(2);
+            incoming.selectIndex(selected);
+            incoming.setPairNeighborSide(side);
+            const int primary = incoming.selectedId();
+            const int partner = incoming.idAtOffset(side);
+            const int added = incoming.appendCenteredCard();
+            require(incoming.selectedId() == added && incoming.invariantHolds()
+                        && incoming.idAtOffset(side) == partner
+                        && incoming.idAtOffset(-side) == primary,
+                    "Centered arrival displaced the old shoulder or failed to move old primary aside");
+        }
+    }
+    Kadunce::SpreadModel firstPair(1);
+    firstPair.appendCenteredCard();
+    require(firstPair.selectedId() == 2 && firstPair.visibleNeighborhood() == std::array<int,3>{1,2,0},
+            "Second app did not become primary with the old app to its left");
+    require(twoCards.visibleNeighborhood() == std::array<int, 3>{0, 1, 2},
+            "Pair must show its partner only once");
+    for (int i = 0; i < 10000; ++i) {
+        twoCards.page(1);
+        require(twoCards.visibleNeighborhood() == std::array<int, 3>{1, 2, 0},
+                "Outgoing pair card did not stay on the left");
+        twoCards.page(-1);
+        require(twoCards.visibleNeighborhood() == std::array<int, 3>{0, 1, 2},
+                "Reverse pair swipe did not return its partner to the right");
+    }
+    for (int side : {-1, 1}) {
+        Kadunce::SpreadModel pair(2);
+        pair.setPairNeighborSide(side);
+        pair.appendCard(true);
+        require(pair.selectedId() == 1 && pair.count() == 3 && pair.invariantHolds(),
+                "Third arrival stole selection or corrupted the pair");
+        require(pair.idAtOffset(side) == 2 && pair.idAtOffset(-side) == 3,
+                "Third arrival crossed the existing neighbor");
+        require(pair.removeCard(3) && pair.pairNeighborSide() == side
+                    && pair.selectedId() == 1 && pair.invariantHolds(),
+                "Third departure moved the surviving shoulder");
+    }
+    Kadunce::SpreadModel groupedPair(3);
+    require(groupedPair.stackSelectedWith(2) && groupedPair.count() == 2
+                && groupedPair.cardCount() == 3,
+            "Pair handling must count groups, not member windows");
+    require(twoCards.count() == 2, "Two-spread was padded with fake cards");
+    twoCards.selectIndex(1);
+    require(twoCards.selectedId() == 2, "Explicit selection chose the wrong card");
+
+    Kadunce::SpreadModel admitted(3);
+    require(admitted.appendCard() == 4
+                && admitted.cardCount() == 4
+                && admitted.count() == 4
+                && admitted.selectedId() == 4
+                && admitted.invariantHolds(),
+            "A newly admitted app did not become the selected standalone card");
+    require(admitted.removeCard(2)
+                && admitted.cardCount() == 3
+                && admitted.count() == 3
+                && admitted.selectedId() == 3
+                && admitted.invariantHolds(),
+            "Closing a helper window rebuilt or corrupted the live Spread");
+    require(twoCards.invariantHolds(), "Two-card selection broke invariants");
+
+    Kadunce::SpreadModel line(20);
+
+    require(line.count() == 20, "Card count changed at construction");
+    require(line.selectedId() == 1, "Initial card is not card 1");
+    require(line.visibleNeighborhood() == std::array<int, 3>{20, 1, 2},
+            "Initial neighborhood does not wrap cleanly");
+
+    for (int step = 1; step <= 10000; ++step) {
+        line.page(1);
+        require(line.count() == 20, "Right paging changed line length");
+        require(line.selectedId() == (step % 20) + 1,
+                "Right paging selected the wrong card");
+        require(line.invariantHolds(), "Right paging broke model invariants");
+    }
+
+    require(line.selectedId() == 1,
+            "Full right-paging cycles did not return to card 1");
+
+    for (int step = 1; step <= 10000; ++step) {
+        line.page(-1);
+        const int expected = 20 - ((step - 1) % 20);
+        require(line.selectedId() == expected,
+                "Left paging selected the wrong card");
+        require(line.count() == 20, "Left paging changed line length");
+        require(line.invariantHolds(), "Left paging broke model invariants");
+    }
+
+    require(line.selectedId() == 1,
+            "Full left-paging cycles did not return to card 1");
+    require(line.visibleNeighborhood() == std::array<int, 3>{20, 1, 2},
+            "Neighborhood changed after repeated paging");
+    require(line.detachedNeighborhood(0) == std::array<int, 3>{20, 2, 3},
+            "Detached row did not close the lifted card's source gap");
+    require(line.detachedNeighborhood(1) == std::array<int, 3>{2, 3, 4},
+            "One deliberate edge page did not advance one destination");
+    require(line.detachedNeighborhood(-1) == std::array<int, 3>{19, 20, 2},
+            "Reverse edge page did not expose the previous destination");
+
+    line.moveSelected(1);
+    require(line.selectedId() == 1,
+            "Moving right changed the grabbed card identity");
+    require(line.visibleNeighborhood() == std::array<int, 3>{2, 1, 3},
+            "Moving right did not place the grabbed card after its neighbor");
+    require(line.invariantHolds(), "Moving right duplicated or lost a card");
+
+    line.moveSelected(-1);
+    require(line.selectedId() == 1,
+            "Moving left changed the grabbed card identity");
+    require(line.visibleNeighborhood() == std::array<int, 3>{20, 1, 2},
+            "Moving left did not restore the original order");
+
+    line.moveSelected(-1);
+    require(line.selectedId() == 1,
+            "Wrapped reorder changed the grabbed card identity");
+    require(line.visibleNeighborhood() == std::array<int, 3>{19, 1, 20},
+            "Wrapped reorder did not cross the Spread seam cleanly");
+    require(line.count() == 20 && line.invariantHolds(),
+            "Reordering changed Spread membership");
+
+    Kadunce::SpreadModel threeCards(3);
+    require(threeCards.detachedNeighborhood(0)
+                == std::array<int, 3>{3, 2, 0},
+            "Three-card detached row duplicated a destination");
+    require(threeCards.detachedNeighborhood(1)
+                == std::array<int, 3>{2, 3, 0},
+            "Three-card edge page did not remain deterministic");
+
+    Kadunce::SpreadModel stacks(5);
+    require(stacks.stackSelectedWith(2),
+            "A standalone card could not join its destination stack");
+    require(stacks.count() == 4 && stacks.cardCount() == 5,
+            "Stacking confused group count with live-card count");
+    require(stacks.selectedId() == 1
+                && stacks.stackMembersForId(1) == std::vector<int>{2, 1},
+            "The carried card was not placed on top of its destination");
+    require(stacks.stackPaintOrderForId(1) == std::vector<int>({2, 1}),
+            "A two-card fan did not paint its rear member before its face");
+    require(stacks.sameStack(1, 2)
+                && stacks.stackSizeForId(1) == 2
+                && stacks.stackPositionForId(2) == 0
+                && stacks.stackPositionForId(1) == 1
+                && stacks.stackActivePositionForId(2) == 1,
+            "Stack membership or active position is inconsistent");
+    require(!stacks.selectedIsStandalone(),
+            "A committed stack still reports as standalone");
+    require(!stacks.stackSelectedWith(3),
+            "The first stack gate unexpectedly moved a whole stack");
+    stacks.page(-1);
+    require(stacks.selectedId() == 5,
+            "Horizontal paging did not treat a stack as one group");
+    stacks.page(1);
+    require(stacks.selectedId() == 1,
+            "Horizontal paging did not return to the remembered stack face");
+    stacks.page(1);
+    require(stacks.selectedId() == 3,
+            "Horizontal paging did not advance into the next group");
+    stacks.page(-1);
+    stacks.pageStack(-1);
+    require(stacks.selectedId() == 2,
+            "Vertical paging could not select the lower stack member");
+    require(stacks.stackPaintOrderForId(2) == std::vector<int>({1, 2}),
+            "Cycling a stack did not keep the selected face on top");
+    stacks.page(1);
+    stacks.page(-1);
+    require(stacks.selectedId() == 2,
+            "A stack forgot its active member after horizontal paging");
+    stacks.pageStack(1);
+    require(stacks.selectedId() == 1,
+            "Vertical paging could not return to the top stack member");
+    require(stacks.invariantHolds(),
+            "Stack commit duplicated or lost a live card");
+
+    require(stacks.detachSelectedMember(),
+            "The active stack member could not be lifted into a transaction");
+    require(stacks.hasDetachedMember() && stacks.selectedIsStandalone()
+                && stacks.selectedId() == 1
+                && stacks.count() == 5
+                && stacks.stackMembersForId(2) == std::vector<int>{2},
+            "A lifted stack member did not become a reversible standalone group");
+    require(stacks.detachedNeighborhood(0)[1] == 2,
+            "The source stack did not remain centered beneath its lifted member");
+    require(stacks.restoreDetachedMember()
+                && !stacks.hasDetachedMember()
+                && stacks.stackMembersForId(1) == std::vector<int>({2, 1})
+                && stacks.stackActivePositionForId(1) == 1
+                && stacks.count() == 4,
+            "Cancelling a stack lift did not restore exact membership and face");
+
+    require(stacks.detachSelectedMember(),
+            "The restored stack could not begin a second lift");
+    stacks.commitDetachedMember();
+    require(!stacks.hasDetachedMember() && stacks.selectedIsStandalone()
+                && stacks.stackMembersForId(2) == std::vector<int>{2}
+                && stacks.count() == 5 && stacks.invariantHolds(),
+            "Committing a stack lift did not leave one standalone card");
+
+    Kadunce::SpreadModel threeMemberStack(3);
+    require(threeMemberStack.stackSelectedWith(2),
+            "Three-member lift test could not create its first pair");
+    threeMemberStack.page(1);
+    require(threeMemberStack.stackSelectedWith(1)
+                && threeMemberStack.stackMembersForId(3)
+                    == std::vector<int>({2, 1, 3}),
+            "Three-member lift test could not create its source stack");
+    threeMemberStack.pageStack(-1);
+    require(threeMemberStack.selectedId() == 1
+                && threeMemberStack.detachSelectedMember()
+                && threeMemberStack.stackMembersForId(2)
+                    == std::vector<int>({2, 3}),
+            "Lifting the middle face corrupted a three-member stack");
+    require(threeMemberStack.restoreDetachedMember()
+                && threeMemberStack.stackMembersForId(1)
+                    == std::vector<int>({2, 1, 3})
+                && threeMemberStack.selectedId() == 1,
+            "A cancelled middle-face lift did not restore its exact position");
+
+    Kadunce::SpreadModel insertedStack(4);
+    require(insertedStack.stackSelectedWith(2),
+            "Insertion test could not create its destination stack");
+    insertedStack.page(1);
+    require(insertedStack.stackSelectedWith(1, 1)
+                && insertedStack.stackMembersForId(3)
+                    == std::vector<int>({2, 3, 1})
+                && insertedStack.stackActivePositionForId(3) == 1,
+            "An explicit insertion seam did not place the carried card in order");
+
+    Kadunce::SpreadModel largeStack(20);
+    require(largeStack.stackSelectedWith(2),
+            "Large-stack seed failed");
+    for (int cardId = 3; cardId <= 20; ++cardId) {
+        largeStack.page(1);
+        require(largeStack.selectedId() == cardId,
+                "Large-stack test could not select the next standalone card");
+        require(largeStack.stackSelectedWith(1),
+                "Large stack rejected a valid additional card");
+    }
+    require(largeStack.count() == 1 && largeStack.cardCount() == 20
+                && largeStack.stackSizeForId(1) == 20
+                && largeStack.invariantHolds(),
+            "Spread imposed a four- or five-card stack limit");
+    require(largeStack.stackPaintOrderForId(largeStack.selectedId())
+                == std::vector<int>({17, 18, 19, 20}),
+            "A large fan did not expose a deterministic back-to-front deck");
+    std::vector<bool> visited(21, false);
+    for (int step = 0; step < 20; ++step) {
+        largeStack.pageStack(1);
+        visited.at(static_cast<std::size_t>(largeStack.selectedId())) = true;
+    }
+    require(std::all_of(visited.cbegin() + 1, visited.cend(),
+                        [](bool seen) { return seen; }),
+            "A large stack hid cards from vertical member paging");
+
+    const int beforeAdmission = largeStack.selectedId();
+    const int selectionBeforeAdmission = largeStack.selectedIndex();
+    largeStack.appendCard();
+    largeStack.selectIndex(selectionBeforeAdmission);
+    require(largeStack.selectedId() == beforeAdmission,
+            "Guest-time admission must preserve the selected stack member");
+
+    // CARD-LIFECYCLE.md §3 names a Bento partner by walking entry order from
+    // the entry holding the carried card. The order is cyclic and the walk
+    // steps over entries, so a stack is one step however many members it holds.
+    {
+        Kadunce::SpreadModel order(5);
+        // Five standalone entries, ids 1..5 in entry order. A lower entry index
+        // is drawn to the left, so negative steps walk toward the left shoulder.
+        require(order.count() == 5, "Entry order lost a card");
+        require(spreadFaceAtStepsFrom(order, 3, -1) == 2 && spreadFaceAtStepsFrom(order, 3, 1) == 4,
+                "A single step did not reach the adjacent entry");
+        require(spreadFaceAtStepsFrom(order, 3, -2) == 1 && spreadFaceAtStepsFrom(order, 3, 2) == 5,
+                "A second step did not reach the next entry outward");
+        // Cyclic: walking off one side returns on the other, and a full lap
+        // comes back to where it started.
+        require(spreadFaceAtStepsFrom(order, 1, -1) == 5 && spreadFaceAtStepsFrom(order, 5, 1) == 1,
+                "Entry order did not wrap");
+        require(spreadFaceAtStepsFrom(order, 3, 5) == 3 && spreadFaceAtStepsFrom(order, 3, -5) == 3,
+                "A full lap did not return to the starting entry");
+        require(spreadFaceAtStepsFrom(order, 0, 1) == 0 && spreadFaceAtStepsFrom(order, 99, 1) == 0,
+                "An unknown card named an entry");
+    }
+    {
+        // A stack is one entry. The walk offers its selected face, and the
+        // same face however deep the stack is paged.
+        Kadunce::SpreadModel stacked(4);
+        stacked.selectIndex(2);
+        require(stacked.stackSelectedWith(2), "Stack setup failed");
+        require(stacked.count() == 3, "Stacking did not collapse two entries");
+        const int face = spreadFaceAtStepsFrom(stacked, 1, 1);
+        require(face == 2 || face == 3, "The walk did not offer the stack's face");
+        require(stacked.stackSizeForId(face) == 2,
+                "The walk offered a face the caller cannot recognise as a stack");
+        require(spreadFaceAtStepsFrom(stacked, 1, 2) == 4,
+                "A two-member stack cost the walk two steps instead of one");
+        // Stacking leaves the new stack selected, so it can be paged directly.
+        stacked.pageStack(1);
+        require(spreadFaceAtStepsFrom(stacked, 1, 1) == stacked.selectedId(),
+                "Paging a stack did not change the face the walk offers");
+    }
+    {
+        // Exactly two entries: both directions name the same one, which is the
+        // one pair available. The two-entry neighbour side is presentation and
+        // must not change which entry the walk names.
+        Kadunce::SpreadModel pair(2);
+        require(spreadFaceAtStepsFrom(pair, 1, -1) == 2 && spreadFaceAtStepsFrom(pair, 1, 1) == 2,
+                "Two entries did not resolve both sides to the same partner");
+        pair.setPairNeighborSide(-1);
+        const int left = spreadFaceAtStepsFrom(pair, 1, -1);
+        const int right = spreadFaceAtStepsFrom(pair, 1, 1);
+        pair.setPairNeighborSide(1);
+        require(spreadFaceAtStepsFrom(pair, 1, -1) == left && spreadFaceAtStepsFrom(pair, 1, 1) == right,
+                "The drawn neighbour side reached the partner walk");
+    }
+    {
+        // One entry: the walk has nowhere to go and names only itself.
+        Kadunce::SpreadModel alone(1);
+        require(spreadFaceAtStepsFrom(alone, 1, -1) == 1 && spreadFaceAtStepsFrom(alone, 1, 1) == 1,
+                "A lone card named a partner");
+    }
+
+    {
+        // A card pulled down out of a Stack sits just after it, and the Stack
+        // keeps its place, its order and the selection.
+        Kadunce::SpreadModel pulled(4);
+        require(pulled.stackSelectedWith(2), "Pull test could not seed its Stack");
+        pulled.page(1);
+        require(pulled.stackSelectedWith(1)
+                    && pulled.stackMembersForId(3) == std::vector<int>({2, 1, 3})
+                    && pulled.selectedId() == 3,
+                "Pull test could not build a three-card Stack");
+        require(pulled.releaseMember(3) && pulled.count() == 3
+                    && pulled.stackMembersForId(2) == std::vector<int>({2, 1})
+                    && pulled.selectedId() == 1
+                    && pulled.entryIndexForId(1) == 0 && pulled.entryIndexForId(3) == 1
+                    && pulled.entryIndexForId(4) == 2,
+                "A pulled face did not sit beside its Stack, which shows its nearest shoulder");
+        require(pulled.releaseMember(2) && pulled.count() == 4
+                    && pulled.selectedIsStandalone() && pulled.selectedId() == 1
+                    && pulled.entryIndexForId(2) == 1 && pulled.entryIndexForId(3) == 2,
+                "A pulled shoulder did not leave the last card standing alone");
+        require(!pulled.releaseMember(1) && !pulled.releaseMember(99) && pulled.invariantHolds(),
+                "A card with no Stack was pulled out of one");
+
+        Kadunce::SpreadModel before(4);
+        require(before.stackSelectedWith(2), "Pull-before test could not seed its Stack");
+        before.page(1);
+        require(before.selectedId() == 3 && before.releaseMember(1)
+                    && before.selectedId() == 3 && before.entryIndexForId(3) == 2,
+                "Pulling from a Stack behind the selection moved the selection");
+    }
+
+    std::cout << "Spread group and vertical stack paging are deterministic\n";
+    return EXIT_SUCCESS;
+}

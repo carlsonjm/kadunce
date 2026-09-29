@@ -1,0 +1,21 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Jared Carlson"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "Bring your windows within reach with fluid, touch-first cards",
+        "EnabledByDefault": false,
+        "Id": "kwin4_effect_kadunce",
+        "Icon": "studio.warbler.kadunce-logo",
+        "License": "GPL-2.0-or-later",
+        "Name": "Kadunce",
+        "ServiceTypes": [
+            "KWin/Effect"
+        ],
+        "Version": "0.1.0"
+    },
+    "X-KDE-Ordering": 50
+}
