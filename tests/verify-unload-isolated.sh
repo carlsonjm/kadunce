@@ -71,7 +71,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 shortcut_args=(--no-global-shortcuts)
@@ -79,8 +79,6 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh 
     # KWin's recogniser serves three fingers only with global shortcuts on;
     # this compositor's input is its own either way.
     shortcut_args=()
-    # Kadunce's own log lines, which otherwise go to the journal.
-    session_env=(QT_FORCE_STDERR_LOGGING=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; then
     # Lets the session photograph its own private outputs.
@@ -105,7 +103,9 @@ fi
 session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then session_timeout=60s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
-timeout "$session_timeout" env "${session_env[@]}" XDG_RUNTIME_DIR="$unload_root/runtime" \
+# Every log line, Kadunce's included, goes to this session's log, not the
+# journal of the person whose machine runs the test.
+timeout "$session_timeout" env "${session_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \
     XDG_STATE_HOME="$unload_root/state" QT_PLUGIN_PATH="$unload_root/build/bin:${KADUNCE_RUNTIME_BUILD:-/nonexistent}/bin" \
     KADUNCE_UNLOAD_PROBE_BUILD="$unload_root/build" KWIN_COMPOSE=O2 \

@@ -439,6 +439,10 @@ private:
     // Kadunce is giving windows back: one returning from minimized then was
     // not picked by the person.
     bool m_releasing = false;
+    // Sleeping cards Spread keeps drawn, dimmed.
+    QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_sleepingShown;
+    static constexpr qreal SleepingCardOpacity = 0.45;
+    void showSleepingCardsInSpread();
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;

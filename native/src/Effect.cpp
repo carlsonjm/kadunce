@@ -3344,6 +3344,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
     // A released row, a returning card or a thrown one moves once per frame.
     if (isTabletOutput(data.screen)) m_cardStage->advanceMotion();
+    showSleepingCardsInSpread();
     // Presentation changes repaint, so a frame is where a dependent's
     // application is first seen to come to the front or leave it.
     for (const auto &window : std::as_const(m_dependents)) {
@@ -3407,6 +3408,26 @@ void Effect::postPaintScreen()
     KWin::effects->postPaintScreen();
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
+    }
+}
+
+// CARD-LIFECYCLE.md §2: a sleeping card is chosen in Spread to wake it, so
+// Spread keeps it drawn, dimmed, from the last frame its window showed. KWin
+// paints no minimized window unless an effect holds it visible.
+void Effect::showSleepingCardsInSpread()
+{
+    const bool spread = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread;
+    for (auto it = m_sleepingShown.begin(); it != m_sleepingShown.end();) {
+        KWin::EffectWindow *window = it.key();
+        if (spread && m_cardStage->liveCardIndex(window) >= 0 && window->isMinimized()) ++it;
+        else it = m_sleepingShown.erase(it);
+    }
+    if (!spread) return;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (!window || window->isDeleted() || !window->isMinimized()
+            || m_sleepingShown.contains(window) || m_cardStage->liveCardIndex(window) < 0) continue;
+        m_sleepingShown.insert(window, KWin::EffectWindowVisibleRef(window, KWin::EffectWindow::PAINT_DISABLED_BY_MINIMIZE));
     }
 }
 
@@ -3968,6 +3989,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (!m_keysForPerson && window == KWin::effects->inputPanel()) return;
     // A card flicked closed stays out of sight while its app closes.
     if (m_cardStage->thrownAway(window)) return;
+    // A sleeping card stands in Spread dimmed, so it can be found and woken.
+    if (m_sleepingShown.contains(window)) data.multiplyOpacity(SleepingCardOpacity);
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return;
@@ -4004,7 +4027,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
     // owns, and a pane is not one of its cards, so it must not be routed here.
     // Nor is anything on a desktop the cards do not live on.
-    if (!m_cardStage->isActive() || !m_paintingOutput || !isCardWindow(window)
+    if (!m_cardStage->isActive() || !m_paintingOutput
+        || !(isCardWindow(window) || m_sleepingShown.contains(window))
         || m_desktopStage->managesWindow(window) || !onOwnedDesktop()) {
         KWin::effects->paintWindow(
             renderTarget, viewport, window, mask, deviceRegion, data);

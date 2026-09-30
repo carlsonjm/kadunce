@@ -56,9 +56,10 @@ The Bento group is one Spread entry regardless of its pane count.
 
 ### Sleeping
 
-A minimized individual card remains owned but is not presented.
-
-Selecting it wakes it and presents it as Active.
+A minimized individual card remains owned but is not presented. Spread draws
+it dimmed in its place, from the last frame its window showed, so it can be
+found; selecting it there, by touch, click or keys, wakes it and presents it
+as Active.
 
 ### Native desktop
 
