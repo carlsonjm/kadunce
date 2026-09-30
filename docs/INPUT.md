@@ -21,14 +21,13 @@ Browse everything and Files.
 | Input | What happens |
 | --- | --- |
 | Swipe up from the bottom edge | Spread opens and follows your finger; a quick flick opens it all the way. |
-| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if you let go before halfway; from a Bento layout, which joins the row as one group card, or from the desktop, Spread opens once the swipe passes halfway. KDE's Overview is set aside while Kadunce runs. |
-| `Meta+S` | Spread opens, or closes back to the Active card. From a Bento layout, Spread opens with the layout as one group card. |
+| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if you let go before halfway; from a Bento layout or the desktop, Spread opens once the swipe passes halfway. KDE's Overview is set aside while Kadunce runs. |
+| `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout joins the row as one group card. |
 | Drag the row sideways, by finger or mouse | The row follows, coasts after a flick, settles on a card and springs back at either end. |
 | Wheel over the row | The row moves one card. |
 | `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |
 | `Meta+Left`, `Meta+Right` in Spread | The row moves to the card before or after. |
-| Tap or click empty space | You go back to where you were: the card last open, or the layout you opened Spread from. |
-| `Escape` in Spread | The same as tapping empty space. |
+| Tap or click empty space, or press `Escape` | You go back to where you were: the card last open, or the layout you opened Spread from. |
 | Flick a card up | Its application closes; one that asks first comes forward with its question. A short lift springs back. The Bento group never closes this way. |
 | Pull down on the Bento group | The pane under your finger leaves the layout and becomes a card of its own. |
 | Hold a card | It rises under your finger and can be carried, and Spread stays three across. Held away from the middle, the row keeps sliding under it, faster further out. |
@@ -38,8 +37,7 @@ Browse everything and Files.
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes. A stroke that moves does not close it, and a touch on the keys types into it. |
-| Plasma's bottom touch edge, on a touchscreen other than the ROG Flow Z13's | Spread opens. |
-| Plasma's top touch edge, on a touchscreen other than the ROG Flow Z13's | Spread closes. |
+| Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. |
 
 A swipe that starts on the dock stays with the dock, and while the on-screen keys
 are up, the bottom edge is theirs.
@@ -52,7 +50,7 @@ are up, the bottom edge is theirs.
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
 | Pull a Stack's card down | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. A pull that stops short springs back. |
-| Hold a Stack's card | It lifts out, and the Stack parts front to back at an outlined place where it would go. Moving sideways moves that place, left toward the back; let go and the card takes it, and whichever card is then in front shows. Let go without moving, or where it began, and nothing changes. |
+| Hold a Stack's card | It lifts out, and the Stack parts at an outlined place where it would go; moving sideways moves that place, left toward the back. Let go and the card takes it, and the card then in front shows. Let go where it began and nothing changes. |
 
 ## Active card
 

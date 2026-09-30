@@ -32,10 +32,8 @@ holds its windows as cards, and switching on shows the window in use as the
 Active card. Rejected: opening Spread instead, which costs a tap after every
 sign-in and every toggle.
 
-The rule it replaced, that enabling captured nothing until a first deliberate
-edge action, kept Kadunce opt-in per display. Every sign-in then began on the
-plain desktop, and the first carry after switching on was also the one most
-often refused, so you met the product's least reliable path first, every
+The rule it replaced waited for a first edge action, so every sign-in began on
+the plain desktop and you met the least reliable path, the first carry, every
 day. A display with no card left starts again with the next window to open
 rather than keeping an empty session, so no state exists that §2 does not name.
 
@@ -75,9 +73,9 @@ by a partner you named, never by one a walk found.
 ### Overflow is deleted, not reconciled
 
 A window Kadunce owns and cannot currently show is an individual card; there is
-no fourth place for it to be. The implementation once kept a per-session
-overflow container although §5 always said Bento owns no hidden overflow, which
-created a state nothing could name: retained by a session, owned by nobody.
+no fourth place for it to be. A per-session overflow container once made a
+state §5 never allowed and nothing could name: retained by a session, owned by
+nobody.
 Rejected: keeping the container and teaching each transition to reconcile it,
 which preserves the state it was meant to remove and grows with every new
 transition. Removing it means a full Bento displaces rather than parks, and
@@ -122,12 +120,11 @@ carried to the top edge back into the layout it was leaving.
 ### Two cases the contract does not answer
 
 First entry on a display that cannot own cards is answered by § A display
-without cards organizes everything it shows. And an evicted window reaches the
-card display through the adoption a carried card uses, so a card stage that was
-not presenting begins presenting Spread, while a refused launch goes to the
-card stage's new-window path and becomes the Active card. Both are recorded
-rather than designed around; a different answer changes which entry point an
-eviction uses, not the ownership it produces.
+without cards organizes everything it shows. An evicted window reaches the card
+display through the adoption a carried card uses, so an idle card stage begins
+presenting Spread, while a refused launch becomes the Active card. A different
+answer would change which entry point an eviction uses, not the ownership it
+produces.
 
 ### A display presenting a layout answers every arrival with the layout
 
@@ -153,7 +150,7 @@ most recently used resident, which moved two windows when you asked for
 one and changed the survivor's size and side. Fit alone answers what recency was
 for: a window that fits either pane takes the narrower, so a small tool never
 evicts the large window. What fit cannot answer is a small window you
-wants in the wide pane; the side gesture outranks the rule where it exists, and a
+want in the wide pane; the side gesture outranks the rule where it exists, and a
 Spread drop that names its pane (12h) would give the tablet one.
 
 What a display owns and can hold decides what a gesture means; what the display
@@ -186,15 +183,12 @@ live one.
 ### The tablet keeps two panes; the three-pane grammar stays dormant
 
 Decided 19 September 2026. A three-pane grammar was built as far as its shapes
-and contact mapping (one column beside a top/bottom split, three columns as its
-alternate, side contact choosing between them) and raised questions not worth
-answering to reach an install: which resident holds which pane, what the shapes
-mean in a portrait work area, and whether the mapping extends to the monitor. It
-stays in the source behind `BentoContactGrammarPaneCap`, which no display's cap
-reaches. What was kept is one pane cap per display that every admission path
-reads, orientation from the work area, and no shape decision reading the
-output's name. Raising the cap to three reopens those questions and owes the
-coverage the retired `column-runtime` scene carried.
+and contact mapping and raised questions not worth answering to reach an
+install: which resident holds which pane, what the shapes mean in portrait, and
+whether the mapping extends to the monitor. It stays in the source behind
+`BentoContactGrammarPaneCap`, which no display's cap reaches; every admission
+path reads one pane cap per display. Raising the cap to three reopens those
+questions and owes the coverage the retired `column-runtime` scene carried.
 
 ### Both stages own windows on the same display
 
@@ -400,17 +394,15 @@ and its client is asked for a size once a motion (26 September 2026). Rejected:
 asking every frame, which made a client trail the keys and lay itself out at the
 display's refresh rate.
 
-KWin's own lift of the focused window is a second authority over a window
-Kadunce owns, so its `OverlayVirtualKeyboardOnWindows` setting declines it in
-memory while Kadunce is loaded, as edge tiling is. The room comes from the card's
-placement at keyboard-open, not the work area, because the dock yields to the
-keys and the area grows while the room does not. It is made only for keys typing
-into the card or its own dialog; Spread, Bento panes and ordinary windows make
-none. Cards are laid out in the work area as it stood when the keys came until
-the dock takes its room back, so a card chosen meanwhile stops at the dock too
-(29 September 2026). Rejected: the live work area, which gave that card the
-dock's room. KWin moves only a window touching an edge that moved, so a panel
-taking or giving up room places the Active card again.
+KWin's own lift of the focused window would be a second authority over a card,
+so Kadunce declines `OverlayVirtualKeyboardOnWindows` in memory while loaded, as
+it does edge tiling. Only keys typing into the card or its own dialog make room;
+Spread, Bento panes and ordinary windows make none. Cards are laid out in the
+work area as it stood when the keys came until the dock takes its room back,
+because the dock yields to the keys (29 September 2026). Rejected: the live work
+area, which gave a card chosen meanwhile the dock's room. KWin moves only a
+window touching an edge that moved, so a panel taking or giving up room places
+the Active card again.
 
 ### The keyboard comes up for the text, not for focus
 
