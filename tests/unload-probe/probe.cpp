@@ -14,8 +14,10 @@
 #include <options.h>
 #include <inputmethod.h>
 #include <inputpanelv1window.h>
+#include <internalwindow.h>
 #include <main.h>
 #include <window.h>
+#include <workspace.h>
 #include <scene/windowitem.h>
 #include <wayland/surface.h>
 #include <QDBusConnection>
@@ -23,6 +25,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPainter>
+#include <QRasterWindow>
 #include <functional>
 #include <memory>
 #include <core/inputdevice.h>
@@ -126,6 +130,16 @@ struct EdgeOrderProbe final : KWin::InputEventFilter {
     int touchMotions = 0;
     QPointF pointerPosition;
     QPointF touchPosition;
+};
+
+// A window of KWin's own, drawn in one colour so a photograph can find it.
+class Swatch final : public QRasterWindow {
+public:
+    explicit Swatch(const QColor &colour) : colour(colour) {}
+protected:
+    void paintEvent(QPaintEvent *) override { QPainter(this).fillRect(QRect(QPoint(), size()), colour); }
+private:
+    QColor colour;
 };
 
 class UnloadProbe final : public KWin::Effect {
@@ -297,6 +311,7 @@ public Q_SLOTS:
                 {"parentId", w->transientFor() ? w->transientFor()->internalId().toString(QUuid::WithoutBraces) : QString()},
                 {"attention", w->isDemandingAttention()},
                 {"skipSwitcher", w->skipSwitcher()}, {"skipTaskbar", w->skipTaskbar()},
+                {"internal", w->isInternal()},
                 {"minimized", w->isMinimized()}, {"hidden", w->isHidden()},
                 {"active", w->isActive()}, {"layer", int(w->layer())},
                 {"output", w->output() ? w->output()->name() : QString()},
@@ -305,6 +320,30 @@ public Q_SLOTS:
         }
         return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
     }
+    // One of KWin's own windows as the task switcher never lists it: no
+    // caption, and marked to skip the taskbar, the pager and the switcher from
+    // the moment KWin announces it, before any effect decides what it is. KWin
+    // places it, and it then stands where the scene asks.
+    void openSwitcherHiddenWindow(int x, int y, int width, int height, const QString &hex) {
+        auto swatch = std::make_unique<Swatch>(QColor(QLatin1Char('#') + hex));
+        swatch->setFlag(Qt::FramelessWindowHint);
+        swatch->resize(width, height);
+        const QWindow *handle = swatch.get();
+        auto announced = std::make_shared<QMetaObject::Connection>();
+        *announced = connect(KWin::workspace(), &KWin::Workspace::windowAdded, this,
+            [handle, announced, x, y](KWin::Window *window) {
+                const auto *internal = qobject_cast<KWin::InternalWindow *>(window);
+                if (!internal || internal->handle() != handle) return;
+                disconnect(*announced);
+                window->setSkipTaskbar(true);
+                window->setSkipPager(true);
+                window->setSkipSwitcher(true);
+                window->move(QPointF(x, y));
+            });
+        swatch->show();
+        swatches.push_back(std::move(swatch));
+    }
+    void closeSwitcherHiddenWindows() { swatches.clear(); }
     // What the dock or a task switcher does when a person picks a window.
     bool activateWindowId(const QString &id) {
         for (auto *w : KWin::workspace()->windows())
@@ -685,6 +724,7 @@ private:
     Device device;
     EdgeOrderProbe edgeOrder;
     std::unique_ptr<WorkspaceInputRouter> router;
+    std::vector<std::unique_ptr<Swatch>> swatches;
 };
 KWIN_EFFECT_FACTORY_SUPPORTED(UnloadProbe, "metadata.json", return true;)
 #include "probe.moc"

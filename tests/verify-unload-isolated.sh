@@ -9,6 +9,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh) ;;
+    first-entry-runtime-session.sh|monitor-side-runtime-session.sh|switcher-hidden-runtime-session.sh|bottom-release-runtime-session.sh|spread-bento-drop-runtime-session.sh) ;;
     active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
@@ -71,7 +72,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == switcher-hidden-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 shortcut_args=(--no-global-shortcuts)
@@ -103,7 +104,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key BorderSize None
 fi
 session_timeout=40s
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then session_timeout=60s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-side-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh ]]; then session_timeout=60s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 timeout "$session_timeout" env "${session_env[@]}" XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \
