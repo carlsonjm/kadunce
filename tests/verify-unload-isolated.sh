@@ -6,6 +6,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     side-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh|gap-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh) ;;
+    keyboard-first-runtime-session.sh|keyboard-choose-runtime-session.sh|keyboard-offscreen-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh) ;;
@@ -91,7 +92,13 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; t
         exit 1
     }
     input_method_args=(--inputmethod "$input_method")
-    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode 2
+    keyboard_mode=2
+    case ${KADUNCE_PROBE_SESSION:-session.sh} in
+        # Plasma's touch-only setting, as the tablet has it, from the first
+        # moment: what a touch unlocks is part of what these scenes measure.
+        keyboard-first-runtime-session.sh|keyboard-choose-runtime-session.sh|keyboard-offscreen-runtime-session.sh) keyboard_mode=1 ;;
+    esac
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode "$keyboard_mode"
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
@@ -104,6 +111,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh ]]; then
 fi
 session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then session_timeout=60s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-choose-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh ]]; then session_timeout=60s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 timeout "$session_timeout" env "${session_env[@]}" XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \

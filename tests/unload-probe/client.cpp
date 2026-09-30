@@ -17,6 +17,7 @@
 #include <xcb/xcb.h>
 #include <QScreen>
 #include <QThread>
+#include <QTimer>
 #include <LayerShellQt/Window>
 // Accepts text but never says where its cursor is, the way a terminal or a
 // canvas-drawn editor can: the rectangle it reports is empty.
@@ -27,6 +28,74 @@ public:
   if (query == Qt::ImEnabled) return true;
   return QWidget::inputMethodQuery(query);
  }
+};
+// A stand-in for the Shuffle Bottom Surface on this private bus, speaking the
+// interface the Keyboard asks it by: a dock band along the tablet's bottom edge
+// that reserves its height, steps aside when the Keyboard asks for the region,
+// says it has stopped reserving once that has gone out, and takes its room
+// back when the Keyboard lets the region go. The Keyboard holds its keys below
+// the screen's edge until the band has stopped reserving.
+class BandStandIn : public QObject {
+ Q_OBJECT
+ Q_CLASSINFO("D-Bus Interface", "studio.warbler.BottomSurface")
+public:
+ explicit BandStandIn(int band) : m_band(band) {
+  m_dock = new QWidget; m_dock->setObjectName("band");
+  QPalette p = m_dock->palette(); p.setColor(QPalette::Window, QColor(0x10, 0x10, 0x10));
+  m_dock->setPalette(p); m_dock->setAutoFillBackground(true);
+  m_dock->winId();
+  for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") m_dock->windowHandle()->setScreen(screen);
+  if (auto *layer = LayerShellQt::Window::get(m_dock->windowHandle())) {
+   layer->setScope(QStringLiteral("dock"));
+   layer->setLayer(LayerShellQt::Window::LayerTop);
+   layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorBottom
+    | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+   layer->setExclusiveZone(band);
+   layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+  }
+  m_dock->resize(1280, band); m_dock->show();
+ }
+ // Only scriptable slots are exported to the bus.
+public Q_SLOTS:
+ // What the Keyboard reads: the band's height, where the dock sits on it, and
+ // whether the band still holds its reservation.
+ Q_SCRIPTABLE QString dockExtent(const QString &) const {
+  return QString::fromUtf8(QJsonDocument(QJsonObject{
+   {"schema", "studio.warbler.shuffle.dock-extent"}, {"version", 1}, {"output", "Virtual-0"},
+   {"presenting", true}, {"reserving", m_reserving},
+   {"band", QJsonObject{{"height", m_band}}},
+   {"dock", QJsonObject{{"left", 440}, {"right", 840}, {"center", 640}}},
+   {"available", QJsonObject{{"left", 440}, {"right", 440}}}}).toJson(QJsonDocument::Compact));
+ }
+ // The dock leaves first and the reservation goes after it, as the surface's
+ // own presentation does.
+ Q_SCRIPTABLE bool yieldRegion() {
+  ++yields; m_yielded = true;
+  QTimer::singleShot(120, this, [this] {
+   if (!m_yielded) return;
+   setZone(0);
+   QTimer::singleShot(40, this, [this] { if (m_yielded) { m_reserving = false; Q_EMIT dockExtentChanged("Virtual-0"); } });
+  });
+  return true;
+ }
+ Q_SCRIPTABLE bool releaseRegion() {
+  ++releases; m_yielded = false;
+  setZone(m_band); m_reserving = true; Q_EMIT dockExtentChanged("Virtual-0");
+  return true;
+ }
+public:
+ QJsonObject state() const { return {{"reserving", m_reserving}, {"yielded", m_yielded}, {"yields", yields}, {"releases", releases}}; }
+ int yields = 0, releases = 0;
+Q_SIGNALS:
+ Q_SCRIPTABLE void dockExtentChanged(const QString &outputName);
+private:
+ void setZone(int zone) {
+  if (auto *layer = LayerShellQt::Window::get(m_dock->windowHandle())) { layer->setExclusiveZone(zone); m_dock->update(); }
+ }
+ QWidget *m_dock = nullptr;
+ int m_band;
+ bool m_reserving = true, m_yielded = false;
 };
 // Takes as long to draw as a browser laying a page out again, so each size the
 // compositor asks for reaches the screen that much later.
@@ -124,6 +193,44 @@ public Q_SLOTS:
   auto *layout = new QVBoxLayout(w); auto *field = new QLineEdit; layout->addWidget(field); layout->addStretch();
   w->resize(560,420); w->show(); w->activateWindow(); field->setFocus();
  }
+ // Two fields, one at the top edge and one at the bottom, and the application
+ // focuses the top one itself, as a browser focuses its address bar.
+ void pairTextCompanion() {
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard pair probe");
+  auto *layout = new QVBoxLayout(w); auto *top = new QLineEdit; top->setObjectName("topField");
+  auto *bottom = new QLineEdit; bottom->setObjectName("bottomField");
+  layout->addWidget(top); layout->addStretch(); layout->addWidget(bottom);
+  w->resize(560,420); w->show(); w->activateWindow(); top->setFocus();
+ }
+ // Where a named field's middle is in its window, as "x y" in the window's
+ // own coordinates; a scene adds where the window stands.
+ QString fieldCentre(const QString &title, const QString &name) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title))
+    if (auto *field = w->findChild<QLineEdit *>(name)) {
+     const QPoint c = field->mapTo(w, field->rect().center());
+     return QStringLiteral("%1 %2").arg(c.x()).arg(c.y());
+    }
+  return {};
+ }
+ // Which field of this client has the focus, by name: what a touch landed in.
+ QString focusedField() {
+  QWidget *w = QApplication::focusWidget();
+  return w ? w->window()->windowTitle() + QLatin1Char('/') + w->objectName() : QString();
+ }
+ // The Bottom Surface stand-in, registered as the surface registers itself:
+ // the object first, then the name the Keyboard watches for.
+ void bottomSurface(int band) {
+  if (band_ || qGuiApp->platformName() != "wayland") return;
+  band_ = new BandStandIn(band);
+  QDBusConnection::sessionBus().registerObject("/BottomSurface", band_,
+   QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals);
+  QDBusConnection::sessionBus().registerService("studio.warbler.BottomSurface");
+  // Said again once the name has had time to reach everyone watching for it.
+  Q_EMIT band_->dockExtentChanged("Virtual-0");
+  QTimer::singleShot(500, band_, [this] { Q_EMIT band_->dockExtentChanged("Virtual-0"); });
+ }
+ QString bandState() { return band_ ? QString::fromUtf8(QJsonDocument(band_->state()).toJson(QJsonDocument::Compact)) : QString("{}"); }
  // A window that asks for text input and reports no cursor at all.
  void blindTextCompanion() {
   auto *w = new BlindText; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Keyboard blind probe");
@@ -232,7 +339,8 @@ public Q_SLOTS:
  QString targetState() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"press",targetPresses},{"release",targetReleases},{"click",targetClicks}}).toJson(QJsonDocument::Compact)); }
  QString state() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"touchDown",downs},{"touchUp",ups},{"cancel",cancels},{"press",presses},{"release",releases}}).toJson(QJsonDocument::Compact)); }
  void reset() { downs=ups=cancels=presses=releases=0; }
-private: bool moveArmed = false, resizeArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
+private: BandStandIn *band_ = nullptr;
+ bool moveArmed = false, resizeArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
  int targetPresses=0,targetReleases=0,targetClicks=0;
 };
 int main(int argc,char**argv) { QApplication a(argc,argv); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("studio.warbler.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }

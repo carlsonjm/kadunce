@@ -132,7 +132,7 @@ class UnloadProbe final : public KWin::Effect {
     Q_OBJECT
 public:
     bool carrying() const { return handoff && handoff->carry().busy(); }
-    bool isActive() const override { return carrying() || roomWatch.isValid(); }
+    bool isActive() const override { return carrying() || roomWatch.isValid() || bandWatch.isValid(); }
     void prePaintScreen(KWin::ScreenPrePaintData &data) override {
         if (carrying()) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
         KWin::effects->prePaintScreen(data);
@@ -159,6 +159,27 @@ public:
             for (auto *w : KWin::effects->stackingOrder())
                 if (w->caption() == roomTitle) sample.append(w->frameGeometry().bottom());
             roomSamples.append(sample);
+        }
+        if (bandWatch.isValid()) {
+            // Shown is the compositor's word; drawn is whether the panel's
+            // picture is on screen at all; the panel's frame is the part of
+            // the keys the Keyboard says is on screen, never quite empty.
+            auto *method = KWin::kwinApp()->inputMethod();
+            const auto *panel = KWin::effects->inputPanel();
+            auto *surface = method && method->panel() ? method->panel()->surface() : nullptr;
+            QJsonObject sample{{"ms", double(bandWatch.nsecsElapsed()) / 1e6},
+                {"shown", method && method->isVisible()},
+                {"drawn", panel && panel->windowItem()->isVisible() && surface && surface->isMapped()}};
+            if (panel) {
+                sample.insert("keysTop", panel->frameGeometry().top());
+                sample.insert("keysHeight", panel->frameGeometry().height());
+            }
+            for (auto *w : KWin::effects->stackingOrder())
+                if (w->caption() == bandTitle) {
+                    sample.insert("cardBottom", w->frameGeometry().bottom());
+                    sample.insert("cardHeight", w->frameGeometry().height());
+                }
+            bandSamples.append(sample);
         }
         KWin::effects->postPaintScreen();
     }
@@ -187,6 +208,25 @@ public:
     UnloadProbe() {
         KWin::input()->addInputDevice(&device);
         QDBusConnection::sessionBus().registerObject("/UnloadProbe", this, QDBusConnection::ExportAllSlots);
+        listenForKeys();
+    }
+    void listenForKeys() {
+        auto *method = KWin::kwinApp()->inputMethod();
+        if (!method || keysWatchConnection) return;
+        keysWatchConnection = connect(method, &KWin::InputMethod::visibleChanged, this, [this, method]() {
+            if (!keysWatch.isValid()) return;
+            const auto r = method->cursorRectangle();
+            const QPointF finger = KWin::input()->touch()->position();
+            QJsonObject sample{{"ms", double(keysWatch.nsecsElapsed()) / 1e6},
+                {"visible", method->isVisible()}, {"lastInput", lastInput()},
+                {"cursor", QJsonObject{{"y", r.y()}, {"height", r.height()}}},
+                {"finger", QJsonObject{{"x", finger.x()}, {"y", finger.y()}}}};
+            if (auto *panel = method->panel()) {
+                const auto p = panel->frameGeometry();
+                sample.insert("panel", QJsonObject{{"y", p.y()}, {"height", p.height()}});
+            }
+            keysSamples.append(sample);
+        });
     }
     ~UnloadProbe() override { drop(); KWin::input()->removeInputDevice(&device); QDBusConnection::sessionBus().unregisterObject("/UnloadProbe"); }
 public Q_SLOTS:
@@ -213,7 +253,21 @@ public Q_SLOTS:
             state.insert("workArea", rect(KWin::workspace()->clientArea(KWin::MaximizeArea, tracked)));
         }
         state.insert("cursor", rect(method->cursorRectangle()));
+        state.insert("lastInput", lastInput());
         return QString::fromUtf8(QJsonDocument(state).toJson(QJsonDocument::Compact));
+    }
+    // Every time the compositor shows or hides the keys, from now on: when,
+    // which way, the panel's frame then, which device KWin last heard from,
+    // where the last finger was and the text cursor KWin reports at that
+    // moment. Heard before Kadunce, which loads after this probe, so keys
+    // shown and put straight back down read as shown and then hidden.
+    void watchKeys() {
+        keysSamples = {};
+        keysWatch.start();
+        listenForKeys();
+    }
+    QString keysHistory() {
+        return QString::fromUtf8(QJsonDocument(keysSamples).toJson(QJsonDocument::Compact));
     }
     // Every height the input panel reports while it is on screen, from now on,
     // so a scene can say whether the keys ever claimed more room as they left.
@@ -233,6 +287,13 @@ public Q_SLOTS:
     QString roomHistory() {
         roomWatch.invalidate();
         return QString::fromUtf8(QJsonDocument(roomSamples).toJson(QJsonDocument::Compact));
+    }
+    // Every frame painted from now on, for the keys and the named window:
+    // what bandHistory returns, and stops.
+    void watchBand(const QString &title) { bandTitle = title; bandSamples = {}; bandWatch.start(); }
+    QString bandHistory() {
+        bandWatch.invalidate();
+        return QString::fromUtf8(QJsonDocument(bandSamples).toJson(QJsonDocument::Compact));
     }
     QString panelHistory() {
         QJsonArray heights;
@@ -659,6 +720,22 @@ public Q_SLOTS:
         return false;
     }
 private:
+    // The device KWin heard from last, which decides whether it may raise the
+    // keys for a field under Plasma's touch-only setting.
+    static QString lastInput() {
+        const QObject *last = KWin::input()->lastInputHandler();
+        if (!last) return QStringLiteral("none");
+        if (last == KWin::input()->touch()) return QStringLiteral("touch");
+        if (last == KWin::input()->pointer()) return QStringLiteral("pointer");
+        if (last == KWin::input()->keyboard()) return QStringLiteral("keyboard");
+        return QStringLiteral("other");
+    }
+    QElapsedTimer bandWatch;
+    QString bandTitle;
+    QJsonArray bandSamples;
+    QElapsedTimer keysWatch;
+    QJsonArray keysSamples;
+    QMetaObject::Connection keysWatchConnection;
     KWin::LogicalOutput *paintingOutput = nullptr;
     int carryPaints = 0;
     QString destinationEvidence;

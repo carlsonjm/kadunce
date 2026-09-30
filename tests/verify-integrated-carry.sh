@@ -50,6 +50,9 @@ scenes=(
     keyboard-focus-runtime tablet
     keyboard-search-runtime tablet
     keyboard-tap-runtime tablet
+    keyboard-first-runtime tablet
+    keyboard-choose-runtime tablet
+    keyboard-offscreen-runtime tablet
     start-cards-runtime tablet
     gap-runtime tablet
     dialog-runtime tablet
