@@ -652,6 +652,22 @@ public Q_SLOTS:
         }
         return false;
     }
+    // Hides a window from the task switcher, as a utility window asks to be.
+    bool setSkipSwitcher(const QString &caption, bool skip) {
+        for (auto *w : KWin::workspace()->windows())
+            if (!w->isDeleted() && w->caption() == caption) {
+                w->setSkipSwitcher(skip);
+                return true;
+            }
+        return false;
+    }
+    // A window's id by its title, before Kadunce has any view of it.
+    QString windowIdByCaption(const QString &caption) {
+        for (auto *window : KWin::effects->stackingOrder())
+            if (!window->isDeleted() && window->caption() == caption)
+                return window->internalId().toString(QUuid::WithoutBraces);
+        return {};
+    }
     bool windowMinimized(const QString &id) {
         for (auto *window : KWin::effects->stackingOrder())
             if (window->internalId().toString(QUuid::WithoutBraces) == id)

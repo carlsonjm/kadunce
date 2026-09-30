@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
+#include <utility>
 #include "NativeCarryHandoff.h"
 #include "NativeMoveObserver.h"
 #include "CarryInputRoute.h"
@@ -121,10 +122,24 @@ public:
         dispatch(route.streamGone(CarryDevice::Touch, 1), route.owner());
         return false;
     }
-    bool keyboardKey(KWin::KeyboardKeyEvent *) override { clearDeferred(); return false; }
+    // INPUT.md: Escape while dragging a window cancels the drag and the window
+    // stays as it was, a carry Kadunce has taken included. The contact still
+    // down is held until it lifts, so letting go places nothing, and the key's
+    // release goes where its press went.
+    bool keyboardKey(KWin::KeyboardKeyEvent *e) override {
+        clearDeferred();
+        constexpr auto held = Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier;
+        if (e->key != Qt::Key_Escape) return false;
+        if (e->state == KWin::KeyboardKeyState::Released) return std::exchange(m_escapeTaken, false);
+        if (!route.active() || (e->modifiers & held)) return false;
+        m_escapeTaken = true;
+        dispatch(route.cancel(), route.owner());
+        return true;
+    }
 private:
     struct Deferred { QPointer<KWin::Window> window; NativeMoveObserver::Candidate ticket; QPointF lastPosition; };
     std::optional<Deferred> m_deferred;
+    bool m_escapeTaken = false;
     bool tryEntry(QPointF position) {
         if (!m_deferred) return false;
         const auto waiting = *m_deferred;

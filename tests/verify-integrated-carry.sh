@@ -35,6 +35,7 @@ scenes=(
     membership-runtime production
     launch-runtime production
     side-runtime production
+    escape-carry-runtime production
     contact production
     bento production
     snap production
@@ -48,9 +49,13 @@ scenes=(
     keyboard-dock-runtime tablet
     keyboard-roll-runtime tablet
     keyboard-focus-runtime tablet
+    keyboard-minimized-runtime tablet
+    keyboard-chosen-runtime tablet
     keyboard-search-runtime tablet
     keyboard-tap-runtime tablet
     start-cards-runtime tablet
+    minimized-start-runtime tablet
+    switcher-hidden-runtime tablet
     gap-runtime tablet
     dialog-runtime tablet
     dialog-late-runtime tablet

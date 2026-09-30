@@ -3472,18 +3472,33 @@ void CardStageController::rebuildLiveCards()
     }
     KWin::EffectWindow *active = KWin::effects->activeWindow();
     int activeIndex = -1;
+    int awakeIndex = -1;
     QList<QPointer<KWin::EffectWindow>> admitted;
     const QList<KWin::EffectWindow *> windows = KWin::effects->stackingOrder();
     for (KWin::EffectWindow *window : windows) {
-        if (!m_host->isManagedWindowForCardStage(window)
+        // CARD-LIFECYCLE.md §2 and §7: a window minimized before Kadunce held
+        // the display is held too, as a sleeping card, so picking it wakes it
+        // as a card. Only an awake window can be the one presented.
+        if (!m_host->mayHoldWindowForCardStage(window)
             || window->screen() != tablet) {
             continue;
         }
-        if (window == active) {
+        const bool awake = m_host->isManagedWindowForCardStage(window);
+        if (awake && window == active) {
             activeIndex = admitted.size();
         }
-        m_host->connectManagedWindowForCardStage(window);
+        if (awake) {
+            awakeIndex = admitted.size();
+        }
         admitted.append(window);
+    }
+    // Nothing awake is nothing to present: the display waits for a window to
+    // open, as it does holding nothing, and no minimized window is woken.
+    if (awakeIndex < 0) {
+        admitted.clear();
+    }
+    for (const auto &window : std::as_const(admitted)) {
+        m_host->connectManagedWindowForCardStage(window);
     }
     // Entry publishes the whole admitted set before any of it is described.
     // A restore record is defined only for a published card, so capture here
@@ -3491,7 +3506,7 @@ void CardStageController::rebuildLiveCards()
     publishOwnershipThenRecord(
         [&] {
             m_workspace.reset(admitted,
-                activeIndex >= 0 ? activeIndex : admitted.size() - 1);
+                activeIndex >= 0 ? activeIndex : awakeIndex);
             return true;
         },
         [&] {

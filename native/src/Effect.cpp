@@ -806,9 +806,11 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
     // A dialog that names its application follows that application's card
     // (§4), including one that names it only after it is shown
     // (handleTransientChanged). One that names none is a window of its own.
+    // A window excluded from normal task switching is no card either (§4).
     return window->isOnCurrentDesktop()
         && window->isOnCurrentActivity()
-        && window->isNormalWindow() && !dependentLead(window);
+        && window->isNormalWindow() && !window->isSkipSwitcher()
+        && !dependentLead(window);
 }
 
 KWin::EffectWindow *Effect::dependentLead(const KWin::EffectWindow *window)
