@@ -4,13 +4,9 @@ What is planned for Kadunce, and what it does not do yet.
 
 ## Planned
 
-- In Spread, swiping sideways from an open card through a Stack, and choosing
-  the order of the row.
 - In Bento, replacing a pane by dropping a window on its side.
 - Monitor layouts past eight panes, and a window KWin moves to a monitor by
   other means joining that monitor's layout.
-- Dialogs drawn on their application's card in Spread, and travelling with a
-  carried card.
 - Panes and ordinary windows making room for the on-screen keys, as the Active
   card does.
 - The on-screen keys coming up for the first text field of a session, and for a

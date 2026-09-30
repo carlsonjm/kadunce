@@ -365,14 +365,17 @@ stock feature it lacks is a defect. One dock lists every display's windows, so a
 window a monitor layout sent there is picked up where you already look (24
 September 2026, against a dock on each display).
 
-### Gestures split by distance need the band between them
+### Spread gives every move one meaning
 
-Two gestures told apart by how far a held card travels need a band between
-their distances in which neither fires; that band is what a hand can feel. A
-shorter reorder that closed it passed every automated gate and failed physical
-review. Spread 2.0 removed the question: a row that follows the finger has no
-thresholds to separate. `wip/reorder-push-20260921` keeps the attempt; it is not
-to be rebuilt as a variant.
+Decided 27 September 2026 from a trial of the whole map. In Spread sideways
+travels, up closes, down takes out, a hold carries and a tap opens. A Bento
+group, which can hold eight applications, never closes by a flick; Spread has no
+window menu. On the centred Stack a slow stroke scrubs its cards and a quick one
+moves the row. Bento comes only from carrying the Active card to a side.
+Rejected: the long reorder sweep and edge-dwell paging. Moves told apart by a
+held card's travel need a band between them a hand can feel; a shorter reorder
+that closed it passed every automated check and failed by hand (`wip/reorder-
+push-20260921`).
 
 ### A stack takes no arrival from the desktop
 
