@@ -165,6 +165,18 @@ live_provenance="$(qdbus6 org.kde.KWin /Kadunce loadedPluginProvenance \
 live_inode="${live_provenance%% *}"
 live_state="${live_provenance##* }"
 
+# Prints the controls map docs/INPUT.md opens with, a destination to a line.
+controls_map() {
+    awk -F'|' '/^\| *---/ && !seen { inmap = 1; seen = 1; next }
+        inmap && /^\|/ {
+            gsub(/`/, "")
+            for (i = 2; i <= 4; i++) gsub(/^ +| +$/, "", $i)
+            printf "  %s: %s, or %s\n", $2, $3, $4
+            next
+        }
+        inmap { exit }' "$1"
+}
+
 echo "Kadunce installed and enabled."
 echo "All six installation steps completed. It is now safe to restart Plasma."
 echo "Receipt: ${install_receipt}"
@@ -189,13 +201,10 @@ else
     echo "you are about to test is not what was just installed." >&2
     echo "Restart Plasma once, then test." >&2
 fi
-echo "Lift after 300 ms; hold over a destination for 350 ms, then release to stack."
-echo "Edge paging starts at 300 ms and repeats every 350 ms."
-echo "Ctrl+Left/Right pages groups; Ctrl+Up/Down pages stack members."
-echo "Ctrl+B toggles Bento under the pointer."
-echo "Without an external display, Ctrl+B uses the tablet as the fallback Bento stage."
-echo "A lifted Spread card can be released on that display to hand it over."
-echo "Ctrl+S toggles; Ctrl+Esc releases."
+if [[ -f "${project_dir}/docs/INPUT.md" ]]; then
+    echo "Controls (docs/INPUT.md has every gesture and key):"
+    controls_map "${project_dir}/docs/INPUT.md"
+fi
 echo "The Kadunce tray icon exposes one persistent enable/disable switch."
 command -v notify-send >/dev/null 2>&1 \
     && notify-send "Kadunce ready" \

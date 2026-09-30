@@ -50,6 +50,28 @@ rg -q 'tests/verify-package\.sh' "${project_dir}/install.sh"
 rg -q 'mktemp -d /tmp/kadunce-install' "${project_dir}/install.sh"
 rg -q 'pkexec /usr/bin/install -Dm755' "${project_dir}/install.sh"
 rg -q 'pkexec /usr/bin/rm -f' "${project_dir}/uninstall.sh"
+# The installer's closing summary is docs/INPUT.md's controls map, printed from
+# it a destination to a line, and names no key of its own.
+if rg -n '^\s*echo .*\b(Ctrl|Meta|Alt)\+' "${project_dir}/install.sh"; then
+    echo "install.sh names keys of its own; it prints docs/INPUT.md's controls map" >&2
+    exit 1
+fi
+controls_function="$(sed -n '/^controls_map()/,/^}/p' "${project_dir}/install.sh")"
+if [[ -z "${controls_function}" ]]; then
+    echo "install.sh does not print docs/INPUT.md's controls map" >&2
+    exit 1
+fi
+controls_summary="$(bash -c "${controls_function}"$'\n''controls_map "$1"' _ \
+    "${project_dir}/docs/INPUT.md")"
+map_tasks="$(awk -F'|' '/^\| *---/ && !seen { inmap = 1; seen = 1; next }
+    inmap && /^\|/ { gsub(/^ +| +$/, "", $2); print $2; next } inmap { exit }' \
+    "${project_dir}/docs/INPUT.md")"
+while IFS= read -r task; do
+    if ! rg -q --fixed-strings "  ${task}: " <<<"${controls_summary}"; then
+        echo "install.sh's closing summary lacks the map's ${task}" >&2
+        exit 1
+    fi
+done <<<"${map_tasks}"
 test ! -d "${project_dir}/search"
 test ! -e "${project_dir}/update-presentation.sh"
 test ! -e "${project_dir}/rollback-presentation.sh"
