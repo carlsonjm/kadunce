@@ -630,6 +630,7 @@ bool Effect::startTabletInCards(KWin::EffectWindow *arrival)
 
 Effect::~Effect()
 {
+    m_releasing = true;
     if (m_gapHeld) KWin::effects->stopMouseInterception(this);
     if (m_nativeCarry) KWin::effects->setElevatedWindow(m_nativeCarry, false);
     m_desktopStage->cancelRestoredMinimizations();
@@ -1757,7 +1758,15 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     if (window->window()) {
         connect(window->window(), &KWin::Window::minimizedChanged, this,
             [this, guarded = QPointer<KWin::EffectWindow>(window)] {
-                if (guarded) m_desktopStage->handleWindowMinimizedChanged(guarded);
+                if (!guarded) return;
+                m_desktopStage->handleWindowMinimizedChanged(guarded);
+                // §3: the display that can own cards, holding none, takes a
+                // window picked back from minimized as its Active card, as it
+                // takes a window that opens there. Only that display does: a
+                // monitor's windows stay native until a snap or a key asks.
+                if (!m_releasing && !guarded->isMinimized() && onOwnedDesktop()
+                    && !m_cardStage->isActive())
+                    (void)startTabletInCards(guarded);
             });
         connect(window->window(), &KWin::Window::readyForPaintingChanged,
                 this, &Effect::handleLaunchWindowChanged, Qt::UniqueConnection);
@@ -3275,6 +3284,9 @@ void Effect::toggleOwnedPresentation()
 
 void Effect::release()
 {
+    // Windows given back here may come back from minimized; that is no pick.
+    const bool wasReleasing = std::exchange(m_releasing, true);
+    const auto settled = qScopeGuard([this, wasReleasing] { m_releasing = wasReleasing; });
     if (m_carryRuntime) m_carryRuntime->cancel();
     const bool hadBento = hasActiveDesktopStage();
     if (hadBento) {

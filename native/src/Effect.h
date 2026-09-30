@@ -436,6 +436,9 @@ private:
     void followKeysWorkArea();
     void releaseKeysWorkArea();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
+    // Kadunce is giving windows back: one returning from minimized then was
+    // not picked by the person.
+    bool m_releasing = false;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
