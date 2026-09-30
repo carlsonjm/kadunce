@@ -3225,6 +3225,10 @@ void Effect::activateSelectedFromInput()
                     qWarning() << "Kadunce" << Revision
                                << "declined to resume the selected Bento group";
                 }
+            } else if (requested->isMinimized()) {
+                // §2: selecting a sleeping card wakes it and presents it as
+                // Active, as picking it from the dock does.
+                KWin::effects->activateWindow(requested);
             } else {
                 toggle();
             }

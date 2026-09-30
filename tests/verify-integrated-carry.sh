@@ -55,6 +55,7 @@ scenes=(
     keyboard-tap-runtime tablet
     start-cards-runtime tablet
     minimized-start-runtime tablet
+    sleeping-spread-runtime tablet
     switcher-hidden-runtime tablet
     gap-runtime tablet
     dialog-runtime tablet
