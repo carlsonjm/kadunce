@@ -45,6 +45,7 @@ scenes=(
     settle-runtime tablet
     stack-runtime tablet
     keyboard-runtime tablet
+    keyboard-dock-runtime tablet
     keyboard-roll-runtime tablet
     keyboard-focus-runtime tablet
     keyboard-search-runtime tablet

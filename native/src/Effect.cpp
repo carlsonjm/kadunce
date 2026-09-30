@@ -425,6 +425,23 @@ Effect::Effect()
     // beside it, is a layout KWin may put windows back into as well.
     connect(KWin::effects, &KWin::EffectsHandler::virtualScreenGeometryChanged,
             this, &Effect::scheduleCardDisplaySettle);
+    // A panel took its room, gave it up or took it back. KWin announces the
+    // rearrangement before making it, so the card is placed on the next turn.
+    m_keysWorkAreaRelease.setSingleShot(true);
+    m_keysWorkAreaRelease.setInterval(1000);
+    connect(&m_keysWorkAreaRelease, &QTimer::timeout, this, &Effect::releaseKeysWorkArea);
+    connect(KWin::workspace(), &KWin::Workspace::aboutToRearrange, this, [this]() {
+        if (m_workAreaCheckQueued) return;
+        m_workAreaCheckQueued = true;
+        QTimer::singleShot(0, this, [this]() {
+            m_workAreaCheckQueued = false;
+            followKeysWorkArea();
+            m_cardStage->followWorkArea();
+        });
+    });
+    // Displays that came or went since the keys came up are not the ones held.
+    connect(KWin::effects, &KWin::EffectsHandler::virtualScreenGeometryChanged,
+            this, [this]() { m_keysWorkAreas.clear(); followKeysWorkArea(); });
     // A touchscreen plugged in or out can move which display holds cards. The
     // turn lets KWin place a new one on its display first.
     if (KWin::input()) {
@@ -462,6 +479,10 @@ Effect::Effect()
         // Before the room is made: a keyboard put back down takes no room.
         connect(method, &KWin::InputMethod::visibleChanged, this,
                 &Effect::keepUnaskedKeyboardDown);
+        // After the decision above: keys it put back down lend nothing, and
+        // keys it keeps drawing on their way out still do.
+        connect(method, &KWin::InputMethod::visibleChanged, this,
+                &Effect::followKeysWorkArea);
         connect(method, &KWin::InputMethod::visibleChanged, this,
                 [this]() { m_cardStage->keepKeyboardRoomPlacement(); });
         for (const auto signal : {&KWin::InputMethod::visibleChanged,
@@ -1079,6 +1100,52 @@ std::optional<double> Effect::inputPanelTopForCardStage(
     return covered.top();
 }
 
+KWin::RectF Effect::workAreaForCardStage(const KWin::LogicalOutput *output) const
+{
+    const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    // A panel that gives its room up to the keys lends it to them, not to the
+    // cards: a card chosen while the keys are up, or in the moment before the
+    // panel is back, stops where the panel stood. One that appears meanwhile
+    // still takes its room.
+    const auto held = m_keysWorkAreas.constFind(output);
+    return held == m_keysWorkAreas.cend() ? work : work.intersected(*held);
+}
+
+void Effect::followKeysWorkArea()
+{
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if ((method && method->isVisible()) || m_leavingPanel) {
+        m_keysWorkAreaRelease.stop();
+        // Keys back before a panel returned find the area already held.
+        if (m_keysWorkAreas.isEmpty()) {
+            for (const KWin::LogicalOutput *output : KWin::effects->screens())
+                m_keysWorkAreas.insert(output, KWin::effects->clientArea(KWin::MaximizeArea, output));
+        }
+        return;
+    }
+    if (m_keysWorkAreas.isEmpty()) return;
+    // The keys have gone. Nothing lent them room, or it is back: let go now.
+    // Otherwise wait for the panel, but not for one that never returns.
+    for (const KWin::LogicalOutput *output : KWin::effects->screens()) {
+        const auto held = m_keysWorkAreas.constFind(output);
+        if (held == m_keysWorkAreas.cend()) continue;
+        const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+        if (work.intersected(*held) != work) {
+            if (!m_keysWorkAreaRelease.isActive()) m_keysWorkAreaRelease.start();
+            return;
+        }
+    }
+    releaseKeysWorkArea();
+}
+
+void Effect::releaseKeysWorkArea()
+{
+    m_keysWorkAreaRelease.stop();
+    if (m_keysWorkAreas.isEmpty()) return;
+    m_keysWorkAreas.clear();
+    m_cardStage->followWorkArea();
+}
+
 bool Effect::keyboardTypesIntoForCardStage(
     const KWin::EffectWindow *window) const
 {
@@ -1202,6 +1269,7 @@ void Effect::releaseLeavingKeys()
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method || !method->isVisible()) m_keysForPerson = false;
     m_cardStage->refreshKeyboardRoom();
+    followKeysWorkArea();
 }
 
 bool Effect::mayHoldWindowForCardStage(

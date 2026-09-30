@@ -185,6 +185,29 @@ public Q_SLOTS:
   }
   w->show();
  }
+ // A dock along the tablet's bottom edge that reserves its height, and gives
+ // the reservation up and takes it back as a bottom surface does for the keys.
+ void dockSurface(int height) {
+  if (qGuiApp->platformName() != "wayland") return;
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("dock"); tint(w, QColor(0x10, 0x10, 0x10));
+  w->winId();
+  for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
+  if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
+   layer->setScope(QStringLiteral("dock"));
+   layer->setLayer(LayerShellQt::Window::LayerTop);
+   layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorBottom
+    | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+   layer->setExclusiveZone(height);
+   layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+  }
+  w->resize(1280, height); w->show();
+ }
+ void dockReserve(int zone) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->objectName() == "dock")
+    if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) { layer->setExclusiveZone(zone); w->update(); }
+ }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); tint(w, QColor(0xc8, 0x8a, 0x1e)); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or

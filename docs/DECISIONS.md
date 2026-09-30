@@ -403,7 +403,11 @@ memory while Kadunce is loaded, as edge tiling is. The room comes from the card'
 placement at keyboard-open, not the work area, because the dock yields to the
 keys and the area grows while the room does not. It is made only for keys typing
 into the card or its own dialog; Spread, Bento panes and ordinary windows make
-none.
+none. Cards are laid out in the work area as it stood when the keys came until
+the dock takes its room back, so a card chosen meanwhile stops at the dock too
+(29 September 2026). Rejected: the live work area, which gave that card the
+dock's room. KWin moves only a window touching an edge that moved, so a panel
+taking or giving up room places the Active card again.
 
 ### The keyboard comes up for the text, not for focus
 

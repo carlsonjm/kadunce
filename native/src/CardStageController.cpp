@@ -52,6 +52,11 @@ constexpr double LauncherGuestDragPreview = 0.18;
 constexpr int ThrownCloseWait = 2000;
 }
 
+KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
+{
+    return KWin::effects->clientArea(KWin::MaximizeArea, output);
+}
+
 CardStageController::CardStageController(CardStageHost *host)
     : m_host(host)
 {
@@ -419,7 +424,7 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
         auto *output = m_host->tabletOutputForCardStage();
         const auto target = carryTarget(output, window);
         if (!output || target.width() <= 0) return 99;
-        const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+        const auto work = workArea(output);
         const double reach = target.width() * 0.2;
         if (target.right() + reach < work.left() || target.left() - reach > work.right()) return 99;
         return target.center().x() < work.center().x() ? -1 : 1;
@@ -511,7 +516,7 @@ int CardStageController::rowSlotInMotion(const KWin::EffectWindow *window) const
     auto *output = m_host->tabletOutputForCardStage();
     if (offset == 99 || !output) return 99;
     if (offset == 0) return 0;
-    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const auto work = workArea(output);
     const auto target = cardTargetForSlot(output, offset);
     // A closed Stack's fan and a card's shadow reach a little past its slot.
     const double reach = target.width() * 0.2;
@@ -613,7 +618,7 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     KWin::LogicalOutput *output) const
 {
     if (!output) return std::nullopt;
-    const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
     const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     const CardRect &centre = layout.cards[1];
@@ -727,8 +732,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
 KWin::Rect CardStageController::cardTargetForSlot(
     KWin::LogicalOutput *output, int slot, int selectedId) const
 {
-    const KWin::RectF work = KWin::effects->clientArea(
-        KWin::MaximizeArea, output);
+    const KWin::RectF work = workArea(output);
     if (std::abs(slot) >= 2) {
         // Past the shoulders every entry is a shoulder-sized card one pitch on.
         const SpreadLayout plain = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
@@ -790,7 +794,7 @@ void CardStageController::anchorRowTransition()
 {
     auto *output = m_host->tabletOutputForCardStage();
     if (!m_rowPageTransition || !output) return;
-    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const auto work = workArea(output);
     if (work.width() <= 0) return;
     const int centerId = m_workspace.selectedId();
     const auto center = m_workspace.windows().value(centerId - 1);
@@ -834,7 +838,7 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
         clearCardTransition();
         return;
     }
-    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const auto work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return;
     const bool fullPose = includeGrab || (m_poseTransition && !m_launcherGuestActive);
     QList<PreviewOrigin> origins;
@@ -893,7 +897,7 @@ KWin::Rect CardStageController::restingPreviewTarget(
     auto target = m_launcherGuestActive && !m_launcherGuestArrival ? launcherGuestTargetForSlot(output, slot)
                                        : cardTargetForSlot(output, slot);
     if (m_rowPageTransition && visibleSlot(window) == 99) {
-        const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+        const auto work = workArea(output);
         target.translate(slot < 0 ? work.x() - target.right() - 32
                                  : work.right() - target.x() + 32, 0);
     }
@@ -916,7 +920,7 @@ KWin::Rect CardStageController::restingPreviewTarget(
     if (!m_previewTransition.isValid() || m_cardGrabActive || m_poseTransition
         || m_presentation != CardPresentation::Spread
         || m_previewTransition.elapsed() >= duration) return target;
-    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const auto work = workArea(output);
     QRectF from(target.x() + slot * work.width() * 0.2, target.y(),
                 target.width(), target.height());
     for (const auto &origin : m_previewOrigins) {
@@ -958,7 +962,7 @@ double CardStageController::applyPoseTransition(const KWin::EffectWindow *window
         || !m_previewTransition.isValid()
         || m_presentation != CardPresentation::Spread
         || m_previewTransition.elapsed() >= duration) return 1.0;
-    const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const auto work = workArea(output);
     if (m_rowPageTransition) {
         const QRectF area(work.x(), work.y(), work.width(), work.height());
         RowPageFrame to{QRectF(rect.x(), rect.y(), rect.width(), rect.height()),
@@ -1103,7 +1107,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
             pose = closed;
             const int side = visibleSlot(window);
             if (side == -1 || side == 1) {
-                const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
+                const auto work = workArea(tablet);
                 const auto base = m_launcherGuestActive && !m_launcherGuestArrival
                     ? launcherGuestTargetForSlot(tablet, side)
                     : cardTargetForSlot(tablet, side);
@@ -1132,8 +1136,7 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
     if (!output) {
         return {};
     }
-    const KWin::RectF work = KWin::effects->clientArea(
-        KWin::MaximizeArea, output);
+    const KWin::RectF work = workArea(output);
     const SpreadLayout layout = makeLauncherGuestLayout(work.x(), work.y(),
         work.width(), work.height(), m_launcherGuestGroupCount);
     const auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
@@ -1143,12 +1146,11 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
 
 KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
 {
-    const KWin::RectF work = KWin::effects->clientArea(
-        KWin::MaximizeArea, output);
+    const KWin::RectF work = workArea(output);
     // The gutter is the same on every edge, a reserving panel included: the
-    // work area already stops at the panel. The keyboard never changes the
-    // work area; the room the card gives up for it is made from this target,
-    // in updateKeyboardRoom.
+    // work area already stops at the panel, and at a panel that has stepped
+    // aside for the keys (workAreaForCardStage). The room the card gives up
+    // for the keys is made from this target, in updateKeyboardRoom.
     const CardRect target = makeActiveTarget(
         work.x(), work.y(), work.width(), work.height(), m_settings.gutter());
     return KWin::Rect(qRound(target.x), qRound(target.y),
@@ -1282,6 +1284,27 @@ void CardStageController::keepKeyboardRoomPlacement()
     if (client->moveResizeGeometry().toRect() == target) return;
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
+}
+
+void CardStageController::followWorkArea()
+{
+    if (!m_active) return;
+    // Spread and the neighbours are drawn from the area every frame.
+    KWin::effects->addRepaintFull();
+    const auto window = m_activeRestore.window;
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (m_presentation != CardPresentation::Active || !m_activeRestore.valid
+        || !window || window->isDeleted() || !window->window() || !tablet) return;
+    auto *client = window->window();
+    if (client->isInteractiveMove() || client->isInteractiveResize()
+        || client->isFullScreen() || client->maximizeMode() != KWin::MaximizeRestore
+        || client->quickTileMode() != KWin::QuickTileMode{}) return;
+    const KWin::Rect target = activePlacement(tablet);
+    if (client->moveResizeGeometry().toRect() == target) return;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    client->moveResize(KWin::RectF(target));
+    qInfo() << "Kadunce Active card follows the work area" << window->caption()
+            << "to" << target;
 }
 
 void CardStageController::repaintKeyboardEdge(const KWin::RectF &from,
@@ -2783,8 +2806,7 @@ void CardStageController::updateLauncherGuest(double horizontalDelta)
     if (!tablet) {
         return;
     }
-    const KWin::RectF work = KWin::effects->clientArea(
-        KWin::MaximizeArea, tablet);
+    const KWin::RectF work = workArea(tablet);
     const SpreadLayout layout = makeSpreadLayout(
         work.x(), work.y(), work.width(), work.height());
     const double pitch = layout.cards[1].width + layout.gutter;
@@ -2834,7 +2856,7 @@ void CardStageController::endLauncherGuest()
     if (!m_launcherGuestArrival && m_workspace.count() == 2 && m_launcherGuestTransitionTimer.isValid()) {
         m_workspace.setPairNeighborSide(m_launcherGuestOffset < 0.0 ? -1 : 1);
         if (auto *output = m_host->tabletOutputForCardStage()) {
-            const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+            const auto work = workArea(output);
             if (work.width() > 0 && work.height() > 0) {
                 m_previewOrigins.clear();
                 for (const auto &window : std::as_const(m_workspace.windows())) {
@@ -3333,7 +3355,7 @@ void CardStageController::advanceMotion()
         m_lift.y += m_lift.velocity * seconds;
         const auto window = m_lift.window;
         const auto rect = output && window ? previewTargetForWindow(output, window) : KWin::Rect();
-        const auto work = output ? KWin::effects->clientArea(KWin::MaximizeArea, output) : KWin::RectF();
+        const auto work = output ? workArea(output) : KWin::RectF();
         if (!window || window->isDeleted() || rect.width() <= 0 || rect.bottom() < work.top()) {
             // Out of sight: the next card can be lifted while this one closes.
             if (window && !window->isDeleted() && liveCardIndex(window) >= 0) {
@@ -3422,7 +3444,7 @@ void CardStageController::returnThrownCard(KWin::EffectWindow *window, bool pres
         // Drops back into its place from above.
         auto *output = m_host->tabletOutputForCardStage();
         const auto rect = output ? previewTargetForWindow(output, window) : KWin::Rect();
-        const auto work = output ? KWin::effects->clientArea(KWin::MaximizeArea, output) : KWin::RectF();
+        const auto work = output ? workArea(output) : KWin::RectF();
         m_lift = {window, rect.width() > 0 ? work.top() - rect.bottom() : 0.0, 0.0,
                   false, false, Lift::Phase::Return};
         m_motionClock.start();
@@ -3769,7 +3791,7 @@ bool CardStageController::admitTransferredWindowToTablet(
     // this after admission cleanup, which can cancel the source carry.
     if (valid() && animateArrival && m_presentation == CardPresentation::Spread
         && m_arrivalWindow == arrival && carriedOrigin.isValid()) {
-        const auto work = KWin::effects->clientArea(KWin::MaximizeArea, tablet);
+        const auto work = workArea(tablet);
         if (work.width() > 0 && work.height() > 0) {
             m_previewOrigins.removeIf([&](const auto &origin) { return origin.window == arrival; });
             m_previewOrigins.append({arrival, QRectF(
@@ -3807,7 +3829,7 @@ void CardStageController::stageWindowArrival(KWin::EffectWindow *window)
         // every existing app at its current painted origin during the reveal.
         auto *output = m_host->tabletOutputForCardStage();
         if (!output) return;
-        const auto work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+        const auto work = workArea(output);
         if (work.width() <= 0 || work.height() <= 0) return;
         const auto center = launcherGuestTarget(output);
         m_previewOrigins.removeIf([window](const auto &origin) { return origin.window == window; });

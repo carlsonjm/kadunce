@@ -75,6 +75,12 @@ public:
         KWin::LogicalOutput *) const {
         return std::nullopt;
     }
+    // The area cards are laid out in on this display. A panel that gives its
+    // room up while the keys are up lends it to them, not to the cards, so the
+    // host answers the area as it stood before they came until the panel takes
+    // the room back. A host with no keyboard answers the compositor's.
+    [[nodiscard]] virtual KWin::RectF workAreaForCardStage(
+        const KWin::LogicalOutput *output) const;
     // Whether the keyboard is typing into this window or a dialog of its own.
     // A host with no keyboard answers that it is not.
     [[nodiscard]] virtual bool keyboardTypesIntoForCardStage(
@@ -177,6 +183,11 @@ public:
     // it that short place. The card is put where its room has it in the same
     // turn, before KWin's size reaches the client.
     void keepKeyboardRoomPlacement();
+    // The area cards are laid out in may have changed: a panel took its room,
+    // gave it up or took it back. The Active card is placed in it again. KWin
+    // moves only a window touching the old edge, and a card stands a gutter
+    // inside it.
+    void followWorkArea();
     // The keys moved from `from` to `to`: the band the card's edge crossed is
     // drawn again in the same frame.
     void repaintKeyboardEdge(const KWin::RectF &from, const KWin::RectF &to) const;
@@ -391,6 +402,10 @@ private:
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
+    [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
+    {
+        return m_host->workAreaForCardStage(output);
+    }
     [[nodiscard]] KWin::Rect restingPreviewTarget(
         KWin::LogicalOutput *output, const KWin::EffectWindow *window) const;
     // The two-ended row: which side a two-entry row draws its neighbour on,

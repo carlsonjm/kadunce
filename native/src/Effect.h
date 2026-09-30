@@ -265,6 +265,8 @@ private:
         KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool keyboardTypesIntoForCardStage(
         const KWin::EffectWindow *window) const override;
+    [[nodiscard]] KWin::RectF workAreaForCardStage(
+        const KWin::LogicalOutput *output) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
     void connectManagedWindowForCardStage(
@@ -424,6 +426,14 @@ private:
     QMetaObject::Connection m_leavingKeysUnmap;
     QTimer m_leavingKeysLimit;
     void releaseLeavingKeys();
+    // Each display's work area as it stood when the keys came up, held while
+    // they are on screen and until a panel that stepped aside for them takes
+    // its room back, or a moment after they have gone if none does.
+    QHash<const KWin::LogicalOutput *, KWin::RectF> m_keysWorkAreas;
+    QTimer m_keysWorkAreaRelease;
+    bool m_workAreaCheckQueued = false;
+    void followKeysWorkArea();
+    void releaseKeysWorkArea();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;
