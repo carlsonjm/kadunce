@@ -225,6 +225,10 @@ private:
     void syncDependentWindows();
     void scheduleDependentSync();
     void returnDependentWindows();
+    // A window named the window it belongs to after it was shown, as
+    // Electron's native boxes do on Wayland. Taken for a card or a pane
+    // before then, it leaves them and waits with its application from now on.
+    void handleTransientChanged();
     KWin::LogicalOutput *tabletOutput() const;
     [[nodiscard]] bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;

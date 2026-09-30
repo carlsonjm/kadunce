@@ -177,7 +177,9 @@ over the pane its application holds, it floats at its own size. When that card
 is not in front, the dialog waits with it, hidden and unable to take focus, and
 the application is marked as wanting attention; bringing the application
 forward shows the dialog on top. Switching Kadunce off gives every waiting
-dialog back.
+dialog back. A dialog that names its application only once it is shown, as
+Electron's message boxes do, follows it from then on, even if it was first
+taken for a card.
 
 Other displays and virtual desktops remain independent.
 

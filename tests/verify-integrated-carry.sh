@@ -52,6 +52,8 @@ scenes=(
     start-cards-runtime tablet
     gap-runtime tablet
     dialog-runtime tablet
+    dialog-late-runtime tablet
+    dialog-electron-runtime tablet
     dialog-waiting-runtime tablet
     desktop-switch-runtime tablet
     desktop-switch-bento-runtime tablet

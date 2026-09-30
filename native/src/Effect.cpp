@@ -776,8 +776,8 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
         return false;
     }
     // A dialog that names its application follows that application's card
-    // (§4). One that names none has no card to follow and floats where KWin
-    // puts it, over whatever the person was using.
+    // (§4), including one that names it only after it is shown
+    // (handleTransientChanged). One that names none is a window of its own.
     return window->isOnCurrentDesktop()
         && window->isOnCurrentActivity()
         && window->isNormalWindow() && !dependentLead(window);
@@ -906,6 +906,41 @@ void Effect::syncDependentWindows()
         });
     }
     if (focus) KWin::workspace()->activateWindow(focus);
+}
+
+void Effect::handleTransientChanged()
+{
+    auto *client = qobject_cast<KWin::Window *>(sender());
+    KWin::EffectWindow *window = client ? client->effectWindow() : nullptr;
+    if (!isDependentWindow(window) || m_dependents.contains(window)) return;
+    KWin::EffectWindow *lead = dependentLead(window);
+    // The box was what the person was looking at, so its application is.
+    const bool inFront = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->selectedWindow() == window;
+    const bool card = m_cardStage->liveCardIndex(window) >= 0;
+    const bool pane = m_desktopStage->managesWindow(window);
+    if (card) m_cardStage->handleWindowClosed(window);
+    if (pane) m_desktopStage->handleWindowClosed(window);
+    if (card || pane) {
+        // Placed as a card or a pane; it floats over its application instead.
+        const KWin::RectF over = lead->frameGeometry();
+        const KWin::RectF box = client->frameGeometry();
+        client->move(QPointF(over.center().x() - box.width() / 2.0,
+                             over.center().y() - box.height() / 2.0));
+        m_cardLabelTargets.remove(window);
+        observeCardOwnership();
+        qInfo() << "Kadunce" << window->caption() << "belongs to" << lead->caption()
+                << "and waits with it rather than as a card";
+    }
+    m_dependents.append(window);
+    if (inFront) {
+        m_cardStage->handleWindowActivated(lead);
+        // It had the keys as a card and keeps them over its application.
+        KWin::workspace()->activateWindow(client);
+    }
+    scheduleDependentSync();
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::returnDependentWindows()
@@ -1521,6 +1556,8 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
                 this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::quickTileModeChanged,
                 this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::transientChanged,
+                this, &Effect::handleTransientChanged, Qt::UniqueConnection);
     }
     connect(window, &KWin::EffectWindow::windowFrameGeometryChanged,
             this, &Effect::handleActiveGeometryChanged,
