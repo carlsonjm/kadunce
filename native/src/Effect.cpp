@@ -430,6 +430,11 @@ Effect::Effect()
     m_keysWorkAreaRelease.setSingleShot(true);
     m_keysWorkAreaRelease.setInterval(1000);
     connect(&m_keysWorkAreaRelease, &QTimer::timeout, this, &Effect::releaseKeysWorkArea);
+    // A card let go lands, and settles, within this; its dialogs follow it
+    // there and are then left where they stand.
+    m_carriedDialogsRelease.setSingleShot(true);
+    m_carriedDialogsRelease.setInterval(1000);
+    connect(&m_carriedDialogsRelease, &QTimer::timeout, this, &Effect::releaseCarriedDialogs);
     connect(KWin::workspace(), &KWin::Workspace::aboutToRearrange, this, [this]() {
         if (m_workAreaCheckQueued) return;
         m_workAreaCheckQueued = true;
@@ -508,6 +513,7 @@ Effect::Effect()
         }
         m_carriedWindow = w->effectWindow();
         traceNativeMove(m_carriedWindow, "adopted");
+        takeCarriedDialogs(m_carriedWindow);
         KWin::effects->setElevatedWindow(m_carriedWindow, true);
         KWin::effects->addRepaintFull();
     };
@@ -518,6 +524,7 @@ Effect::Effect()
         m_nativeCarry = w->effectWindow();
         m_nativeCarrySource = w->output()->name();
         m_nativeCarryFromBento = false;
+        takeCarriedDialogs(m_nativeCarry);
         KWin::effects->setElevatedWindow(m_nativeCarry, true);
     };
     m_carryRuntime->entryRequested = [this](const PreparedCarrySource &source, QPointF p) {
@@ -947,8 +954,8 @@ void Effect::handleTransientChanged()
         // Placed as a card or a pane; it floats over its application instead.
         const KWin::RectF over = lead->frameGeometry();
         const KWin::RectF box = client->frameGeometry();
-        client->move(QPointF(over.center().x() - box.width() / 2.0,
-                             over.center().y() - box.height() / 2.0));
+        client->move(onLeadDisplay(over, QSizeF(box.width(), box.height()),
+            QPointF(over.center().x() - box.width() / 2.0, over.center().y() - box.height() / 2.0)));
         m_cardLabelTargets.remove(window);
         observeCardOwnership();
         qInfo() << "Kadunce" << window->caption() << "belongs to" << lead->caption()
@@ -972,6 +979,146 @@ void Effect::returnDependentWindows()
         if (lead) lead->demandAttention(false);
     m_heldDependents.clear();
     m_waitingLeads.clear();
+    m_drawnDialogs.clear();
+    releaseCarriedDialogs();
+}
+
+void Effect::updateDrawnDialogs()
+{
+    const bool spread = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread;
+    bool changed = false;
+    for (auto it = m_drawnDialogs.begin(); it != m_drawnDialogs.end();) {
+        if (spread && m_heldDependents.contains(it->first)) { ++it; continue; }
+        it = m_drawnDialogs.erase(it);
+        changed = true;
+    }
+    if (spread) {
+        for (const auto &dialog : std::as_const(m_heldDependents)) {
+            if (!dialog || dialog->isDeleted() || m_drawnDialogs.contains(dialog)) continue;
+            m_drawnDialogs.emplace(dialog, std::make_unique<KWin::EffectWindowVisibleRef>(
+                dialog, KWin::EffectWindow::PAINT_DISABLED));
+            changed = true;
+        }
+    }
+    if (changed) KWin::effects->addRepaintFull();
+}
+
+QList<KWin::EffectWindow *> Effect::drawnDialogsOf(const KWin::EffectWindow *lead) const
+{
+    QList<KWin::EffectWindow *> dialogs;
+    if (m_drawnDialogs.empty()) return dialogs;
+    for (auto *window : KWin::effects->stackingOrder()) {
+        if (m_drawnDialogs.contains(window) && !window->isDeleted() && dependentLead(window) == lead)
+            dialogs.append(window);
+    }
+    return dialogs;
+}
+
+void Effect::paintDialogsOn(const KWin::RenderTarget &renderTarget,
+                            const KWin::RenderViewport &viewport, KWin::EffectWindow *lead,
+                            const QList<KWin::EffectWindow *> &dialogs, const KWin::Region &clip,
+                            const KWin::WindowPaintData &leadData)
+{
+    for (auto *dialog : dialogs) {
+        // Its application is scaled about its own corner and moved; the same
+        // mapping about the dialog's corner moves it by its offset's change.
+        const QPointF offset = dialog->pos() - lead->pos();
+        KWin::WindowPaintData data;
+        data.setOpacity(leadData.opacity());
+        data.setXScale(leadData.xScale());
+        data.setYScale(leadData.yScale());
+        data.setXTranslation(leadData.xTranslation() + offset.x() * (leadData.xScale() - 1.0));
+        data.setYTranslation(leadData.yTranslation() + offset.y() * (leadData.yScale() - 1.0));
+        if (!qFuzzyIsNull(leadData.rotationAngle())) {
+            const QVector3D origin = leadData.rotationOrigin();
+            data.setRotationAngle(leadData.rotationAngle());
+            data.setRotationOrigin(QVector3D(origin.x() - offset.x(), origin.y() - offset.y(), origin.z()));
+        }
+        KWin::effects->paintWindow(renderTarget, viewport, dialog,
+            PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, clip, data);
+    }
+}
+
+void Effect::takeCarriedDialogs(KWin::EffectWindow *lead)
+{
+    releaseCarriedDialogs();
+    if (!lead || lead->isDeleted() || !lead->window()) return;
+    const KWin::RectF frame = lead->frameGeometry();
+    if (frame.width() <= 0 || frame.height() <= 0) return;
+    for (const auto &dialog : std::as_const(m_dependents)) {
+        if (!dialog || dialog->isDeleted() || !dialog->window() || dependentLead(dialog) != lead) continue;
+        const KWin::RectF box = dialog->frameGeometry();
+        // One wider or taller than its application has no place on it that
+        // way but its middle; where the screen pushed it is not one.
+        m_carriedDialogs.append({dialog, QPointF(
+            box.width() >= frame.width() ? 0.5 : (box.center().x() - frame.x()) / frame.width(),
+            box.height() >= frame.height() ? 0.5 : (box.center().y() - frame.y()) / frame.height())});
+        // KWin sends a dialog to its application's new display on its own,
+        // keeping its place on the display rather than on the application.
+        m_carriedDialogWatch.append(connect(dialog->window(), &KWin::Window::frameGeometryChanged,
+                                            this, &Effect::placeCarriedDialogs));
+    }
+    if (m_carriedDialogs.isEmpty()) return;
+    m_dialogsLead = lead;
+    m_carriedDialogWatch.append(connect(lead->window(), &KWin::Window::frameGeometryChanged,
+                                        this, &Effect::placeCarriedDialogs));
+}
+
+void Effect::placeCarriedDialogs()
+{
+    if (m_placingCarriedDialogs || !m_dialogsLead || m_dialogsLead->isDeleted()) return;
+    QScopedValueRollback<bool> placing(m_placingCarriedDialogs, true);
+    const KWin::RectF frame = m_dialogsLead->frameGeometry();
+    for (const auto &carried : std::as_const(m_carriedDialogs)) {
+        auto *dialog = carried.dialog.data();
+        if (!dialog || dialog->isDeleted() || !dialog->window()) continue;
+        const KWin::RectF box = dialog->frameGeometry();
+        const QPointF to = onLeadDisplay(frame, QSizeF(box.width(), box.height()),
+            QPointF(std::round(frame.x() + carried.place.x() * frame.width() - box.width() / 2.0),
+                    std::round(frame.y() + carried.place.y() * frame.height() - box.height() / 2.0)));
+        if (QPointF(box.x(), box.y()) != to) dialog->window()->move(to);
+    }
+}
+
+QPointF Effect::onLeadDisplay(const KWin::RectF &lead, const QSizeF &size, QPointF to)
+{
+    auto *output = KWin::effects->screenAt(lead.center().toPoint());
+    if (!output) return to;
+    const KWin::RectF area = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    to.setX(std::max(area.x(), std::min(to.x(), area.x() + area.width() - size.width())));
+    to.setY(std::max(area.y(), std::min(to.y(), area.y() + area.height() - size.height())));
+    return to;
+}
+
+void Effect::releaseCarriedDialogs()
+{
+    m_carriedDialogsRelease.stop();
+    placeCarriedDialogs();
+    for (const auto &connection : std::as_const(m_carriedDialogWatch)) disconnect(connection);
+    m_carriedDialogWatch.clear();
+    m_carriedDialogs.clear();
+    m_dialogsLead.clear();
+}
+
+QList<KWin::EffectWindow *> Effect::carriedDialogs() const
+{
+    QList<KWin::EffectWindow *> dialogs;
+    for (const auto &carried : std::as_const(m_carriedDialogs))
+        if (carried.dialog && !carried.dialog->isDeleted()) dialogs.append(carried.dialog);
+    return dialogs;
+}
+
+bool Effect::drawnWithCarriedCard(const KWin::EffectWindow *window) const
+{
+    if (!m_dialogsLead || m_dialogsLead->isDeleted()) return false;
+    const bool carried = std::any_of(m_carriedDialogs.cbegin(), m_carriedDialogs.cend(),
+        [window](const auto &entry) { return entry.dialog == window; });
+    if (!carried) return false;
+    KWin::EffectWindow *lead = m_dialogsLead;
+    return (lead == m_carriedWindow && m_carryRuntime)
+        || (lead == m_settlingWindow && dropSettleRect())
+        || bentoMotionRect(lead);
 }
 
 KWin::LogicalOutput *Effect::tabletOutput() const
@@ -1741,6 +1888,7 @@ void Effect::endNativeCarryPresentation()
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
     m_carryCardEntryOutput.clear();
+    if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
 }
@@ -2177,6 +2325,7 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         m_nativeCarrySource.clear();
         m_nativeCarryFromBento = false;
         KWin::effects->setElevatedWindow(window, false);
+        if (m_dialogsLead) m_carriedDialogsRelease.start();
     }
     m_desktopStage->handleWindowMoveResizeFinished(window);
     // Use KWin's completed output assignment, not the cursor: Escape restores
@@ -2806,6 +2955,7 @@ void Effect::beginCardGrab(const QPointF &position)
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
     m_cardStage->beginCardGrab(position);
+    if (m_cardStage->cardGrabActive()) takeCarriedDialogs(m_cardStage->selectedWindow());
 }
 
 void Effect::updateCardGrab(const QPointF &position)
@@ -2890,10 +3040,12 @@ void Effect::finishCardGrab(bool commit)
     m_cardStage->finishCardGrab(commit);
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
+    if (m_dialogsLead) m_carriedDialogsRelease.start();
 }
 
 bool Effect::finishCardGrabOnOutput(const QPointF &position)
 {
+    if (m_dialogsLead) m_carriedDialogsRelease.start();
     // A release cannot invent a destination that was never evaluated in motion.
     if (position != m_lineDestinationContact) {
         m_lineDestination.reset();
@@ -3185,6 +3337,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             break;
         }
     }
+    if (!m_heldDependents.isEmpty() || !m_drawnDialogs.empty()) updateDrawnDialogs();
     const auto neighbors = m_cardStage->preparationNeighbors();
     for (const auto &window : std::as_const(m_preparationNeighbors)) {
         if (window && !neighbors.contains(window)
@@ -3246,6 +3399,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)) {
         data.setTransformed(); data.setTranslucent();
     }
+    // Drawn with its card, not where it stands, so it hides nothing there.
+    if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -3511,6 +3666,9 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
         m_freshDependents.removeAll(window);
         scheduleDependentSync();
     }
+    // Let go before KWin destroys it; the hold names the window it holds.
+    m_drawnDialogs.erase(window);
+    if (window == m_dialogsLead) releaseCarriedDialogs();
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer
@@ -3786,6 +3944,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return;
+    // Drawn with its card in hand, after the card.
+    if (drawnWithCarriedCard(window)) return;
     // Keys are drawn only once they are known to be the person's.
     if (!m_keysForPerson && window == KWin::effects->inputPanel()) return;
     // A card flicked closed stays out of sight while its app closes.
@@ -3819,6 +3979,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data);
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
+        if (window == m_dialogsLead)
+            paintDialogsOn(renderTarget, viewport, window, carriedDialogs(), clip, data);
         return;
     }
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
@@ -4072,6 +4234,9 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureOrigin = {};
     m_fanApertureSize = {};
     m_fanApertureRadius = 0.0F;
+
+    // A dialog waiting with this application shows on its card.
+    paintDialogsOn(renderTarget, viewport, window, drawnDialogsOf(window), cardClip, data);
 }
 
 } // namespace Kadunce

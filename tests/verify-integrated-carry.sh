@@ -55,6 +55,7 @@ scenes=(
     dialog-runtime tablet
     dialog-late-runtime tablet
     dialog-electron-runtime tablet
+    dialog-card-runtime tablet
     dialog-waiting-runtime tablet
     desktop-switch-runtime tablet
     desktop-switch-bento-runtime tablet

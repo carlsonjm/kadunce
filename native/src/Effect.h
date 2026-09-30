@@ -26,6 +26,7 @@
 #include <QPointer>
 #include <QStringList>
 
+#include <map>
 #include <memory>
 #include <array>
 #include <optional>
@@ -498,6 +499,38 @@ private:
     bool m_cardDisplaySettleQueued = false;
     int m_cardDisplaySettleRounds = 0;
     bool m_holdingDependents = false;
+    // Waiting dialogs drawn on their cards in Spread. KWin keeps them hidden,
+    // so each is held paintable for as long as it is drawn.
+    std::map<KWin::EffectWindow *, std::unique_ptr<KWin::EffectWindowVisibleRef>> m_drawnDialogs;
+    void updateDrawnDialogs();
+    [[nodiscard]] QList<KWin::EffectWindow *> drawnDialogsOf(const KWin::EffectWindow *lead) const;
+    // Draws dialogs as their application was just drawn: the same scale and
+    // turn about the same point, so each stands where it stands over it.
+    void paintDialogsOn(const KWin::RenderTarget &renderTarget,
+                        const KWin::RenderViewport &viewport, KWin::EffectWindow *lead,
+                        const QList<KWin::EffectWindow *> &dialogs, const KWin::Region &clip,
+                        const KWin::WindowPaintData &leadData);
+    // The dialogs of a card in hand. Each keeps its place on the application
+    // as a share of its frame, so it lands where it stood on it, and is drawn
+    // with the card while the card is drawn anywhere but its own frame.
+    struct CarriedDialog {
+        QPointer<KWin::EffectWindow> dialog;
+        QPointF place;
+    };
+    QPointer<KWin::EffectWindow> m_dialogsLead;
+    QList<CarriedDialog> m_carriedDialogs;
+    QList<QMetaObject::Connection> m_carriedDialogWatch;
+    QTimer m_carriedDialogsRelease;
+    bool m_placingCarriedDialogs = false;
+    void takeCarriedDialogs(KWin::EffectWindow *lead);
+    // Where a dialog put at `to` over its application stands wholly on that
+    // application's display: over a pane narrower than itself it overhangs
+    // the pane, never the screen.
+    [[nodiscard]] static QPointF onLeadDisplay(const KWin::RectF &lead, const QSizeF &size, QPointF to);
+    void placeCarriedDialogs();
+    void releaseCarriedDialogs();
+    [[nodiscard]] QList<KWin::EffectWindow *> carriedDialogs() const;
+    [[nodiscard]] bool drawnWithCarriedCard(const KWin::EffectWindow *window) const;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;
     QString m_launcherGuestLaunchToken;
