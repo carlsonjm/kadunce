@@ -305,9 +305,10 @@ dragging, and no interaction history decides it.
 A card called forward releases into no side, so §8 decides which pane yields.
 Every display answers a call forward; not every display offers the side gesture.
 
-In Spread, a held card raises the group's pane under the finger; let go, it
-takes that pane's place, size and side, and the pane becomes a card just after
-the group (§9). A pane too small for the card does not rise.
+In Spread, the group's pane under a held card gives way to a cutout and the
+card slides under it; let go, the card takes that pane's place, size and side,
+the layout opens, and the pane becomes a card just after the group (§9). A pane
+too small for the card does not give way.
 
 ## 6. Spread selection
 

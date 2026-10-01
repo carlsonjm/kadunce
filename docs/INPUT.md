@@ -33,7 +33,7 @@ Browse everything and Files.
 | Hold a card | It rises under your finger to be carried; Spread stays three across. Held off the middle, the row slides under it, faster further out. |
 | Pull a held card down | The row zooms out to one set view; push it back up and it returns to three across. |
 | Let a held card go in a gap | It lands there as the row grows back to three across around it. |
-| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger rises, and the card takes its place; the pane becomes a card just after the group. |
+| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger gives way and the card slides under; let go and the layout opens with it there. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes. A stroke that moves does not close it, and a touch on the keys types into it. |
