@@ -2,9 +2,10 @@
 
 set -euo pipefail
 
-# Guest-centered Spread must compact its formerly selected neighbor.
+# Every Stack in the row is open, except beside the search launcher, where
+# guest-centered Spread compacts them, its formerly selected neighbor included.
 controller="$(dirname "$0")/../native/src/CardStageController.cpp"
-sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F '&& (!m_launcherGuestActive || m_launcherGuestArrival)' > /dev/null
+sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F 'if (!m_launcherGuestActive || m_launcherGuestArrival) {' > /dev/null
 rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

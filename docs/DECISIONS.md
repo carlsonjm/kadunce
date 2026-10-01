@@ -70,15 +70,15 @@ paired. It differs from the adoption question, which is asked of native windows,
 and neither stands in for the other. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
 
-### A Stack is a ring; the row is a line
+### A Stack is a ring that keeps its room; the row is a line
 
-From an open member, a side step goes round its Stack, the last card giving way
-to the first, and never moves on along the row (`CARD-LIFECYCLE.md` §9,
-`INPUT.md` § Active card). A Stack is a set made by hand, and one step too
-many should not drop you out of it; Spread and the dock are the ways out. The row keeps
-its two ends (§6): it is everything open, and an end is where it stops.
-Rejected: walking a Stack's cards and then moving on along the row, which
-turned the last step into a different kind of move.
+From an open member, a side step goes round its Stack and never moves on along
+the row (`CARD-LIFECYCLE.md` §9, `INPUT.md` § Active card). A Stack is a set
+made by hand, and one step too many should not drop you out of it; Spread and
+the dock are the ways out. The row keeps its two ends (§6). Every Stack shows
+its fan and keeps its room wherever it stands, so nothing in the row moves but
+under the finger. Rejected: walking a Stack and then moving on; and opening
+only the centred Stack, which re-centred the line after every landing.
 
 ### Overflow is deleted, not reconciled
 

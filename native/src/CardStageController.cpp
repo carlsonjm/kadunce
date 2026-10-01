@@ -6,6 +6,7 @@
 #include "CardStageController.h"
 
 #include "ActiveStep.h"
+#include "RowCardTarget.h"
 #include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
 #include "BentoCompositeGeometry.h"
@@ -760,41 +761,48 @@ KWin::Rect CardStageController::cardTargetForSlot(
     KWin::LogicalOutput *output, int slot, int selectedId) const
 {
     const KWin::RectF work = workArea(output);
-    if (std::abs(slot) >= 2) {
-        // Past the shoulders every entry is a shoulder-sized card one pitch on.
-        const SpreadLayout plain = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
-        const int side = slot < 0 ? -1 : 1;
-        auto target = cardTargetForSlot(output, side, selectedId);
-        target.translate(qRound(side * (std::abs(slot) - 1) * (plain.cards[1].width + plain.gutter)), 0);
-        return target;
-    }
     // A card held in its own Stack leaves the row as it stood.
     const bool rowStands = !m_cardGrabActive || m_carry.inStack;
-    const bool focusedPair = m_workspace.count() == 2
+    const bool focusedPair = m_workspace.count() == 2 && std::abs(slot) < 2
         && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
         : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
-    CardStackEnvelope envelope{0.0, 0.0};
-    if (m_presentation == CardPresentation::Spread && rowStands) {
-        const int memberCount = m_workspace.stackSizeForId(selectedId);
-        const bool bentoGroup = m_bentoProjectionSession
-            && usesBentoProjectionAperture(m_workspace.windows().value(selectedId - 1));
+    // Every Stack keeps the room its fan takes wherever it stands, so the gap
+    // between two entries never depends on which is centred, and the row lands
+    // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
+    const bool reserves = m_presentation == CardPresentation::Spread && rowStands;
+    const auto &spread = m_workspace.model();
+    const int centre = spread.entryIndexForId(selectedId);
+    const auto envelopeAt = [&](int offset) -> CardStackEnvelope {
+        const int index = centre + offset;
+        // Past either end of the row there is nothing; the row never wraps.
+        if (!reserves || centre < 0 || index < 0 || index >= spread.count()) return {0.0, 0.0};
+        const int id = spread.idAtOffset(index - spread.selectedIndex());
+        const int memberCount = spread.stackSizeForId(id);
+        if (memberCount <= 1) return {0.0, 0.0};
+        if (m_bentoProjectionSession
+            && usesBentoProjectionAperture(m_workspace.windows().value(id - 1))) {
+            return {0.0, 0.0};
+        }
         // A Stack parted for a held card keeps room for the cards either side
         // of its seam.
-        if (memberCount > 1 && !bentoGroup) {
-            envelope = m_cardGrabActive
-                ? makeInsertionStackEnvelope(memberCount, layout.cards[1].width,
-                                             layout.cards[1].height)
-                : makeOpenStackEnvelope(
-                    memberCount,
-                    m_workspace.stackActivePositionForId(selectedId),
-                    layout.cards[1].width, layout.cards[1].height);
+        if (m_cardGrabActive && offset == 0) {
+            return makeInsertionStackEnvelope(memberCount, layout.cards[1].width,
+                                              layout.cards[1].height);
         }
+        return makeOpenStackEnvelope(memberCount, spread.stackActivePositionForId(id),
+                                     layout.cards[1].width, layout.cards[1].height);
+    };
+    CardRect target;
+    if (focusedPair) {
+        const CardStackEnvelope own = envelopeAt(0);
+        target = makeReservedFocusedPairTarget(layout, slot, own);
+        const CardStackEnvelope other = slot == 0 ? CardStackEnvelope{0.0, 0.0} : envelopeAt(slot);
+        target.x += slot < 0 ? -other.right : slot > 0 ? -other.left : 0.0;
+    } else {
+        target = makeRowCardTarget(layout, slot, envelopeAt);
     }
-    const CardRect target = focusedPair
-        ? makeReservedFocusedPairTarget(layout, slot, envelope)
-        : makeReservedCardTarget(layout, slot, envelope);
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
 }
@@ -1125,8 +1133,10 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
             closed.y *= m_carry.scale;
             return closed;
         }
-        if (spread.sameStack(cardId, spread.selectedId())
-            && (!m_launcherGuestActive || m_launcherGuestArrival)) {
+        // Every Stack in the row shows its fan and keeps its room, so the row
+        // lands on one without anything moving. Beside the search launcher the
+        // row's Stacks close up.
+        if (!m_launcherGuestActive || m_launcherGuestArrival) {
             pose = makeOpenStackPose(
                 memberIndex, memberCount,
                 activeIndex, width);

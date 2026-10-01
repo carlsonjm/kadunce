@@ -75,6 +75,7 @@ scenes=(
     monitor-full-runtime tablet
     monitor-return-runtime tablet
     spread-bento-drop-runtime tablet
+    stack-still-runtime tablet
     lifetime-runtime tablet
     spread-fingers-runtime tablet
     guest-drawer-runtime tablet

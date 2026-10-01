@@ -7,8 +7,10 @@
 #include "FocusedPairLayout.h"
 #include "HeldCardGeometry.h"
 #include "NeighborStackPose.h"
+#include "RowCardTarget.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -320,6 +322,35 @@ int main()
     require(close(reservedRight.x - layout.gutter,
                   reservedCenter.right() + envelope.right),
             "Right neighbor did not preserve the gutter around the stack");
+
+    // A row where every Stack keeps its room: with only the centre a Stack it
+    // matches the reserved target, and the gap between any two entries is the
+    // same whichever entry is centred, so landing on a Stack moves nothing.
+    for (int slot : {-2, -1, 0, 1, 2}) {
+        const auto row = Kadunce::makeRowCardTarget(layout, slot, [&](int offset) {
+            return offset == 0 ? envelope : Kadunce::CardStackEnvelope{0.0, 0.0};
+        });
+        const auto reserved = Kadunce::makeReservedCardTarget(layout, std::clamp(slot, -1, 1), envelope);
+        if (std::abs(slot) < 2)
+            require(close(row.x, reserved.x), "A row with one Stack did not match the reserved target");
+    }
+    const Kadunce::CardStackEnvelope lone{0.0, 0.0};
+    const std::array<Kadunce::CardStackEnvelope, 5> entries{lone, envelope, lone, envelope, lone};
+    auto faceOf = [&](int entry, int centred) {
+        return Kadunce::makeRowCardTarget(layout, entry - centred, [&](int offset) {
+            const int at = centred + offset;
+            return at < 0 || at >= int(entries.size()) ? lone : entries[std::size_t(at)];
+        }).x;
+    };
+    for (int centred = 1; centred < int(entries.size()); ++centred) {
+        for (int entry = 0; entry + 1 < int(entries.size()); ++entry) {
+            require(close(faceOf(entry + 1, centred) - faceOf(entry, centred),
+                          faceOf(entry + 1, 0) - faceOf(entry, 0)),
+                    "Centring another entry changed the gap between two entries");
+        }
+    }
+    require(faceOf(2, 1) - faceOf(1, 1) > layout.gutter + center.width,
+            "A Stack's neighbour did not keep clear of its fan");
 
     const auto stableEnvelope = Kadunce::makeOpenStackEnvelope(
         20, 0, center.width, center.height);
