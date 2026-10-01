@@ -99,5 +99,5 @@ these inputs.
 | --- | --- |
 | Switch Kadunce off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
 | `Meta+Esc` | Every window on every display and desktop returns to the ordinary Plasma desktop. The next window to open on the card display starts cards again. |
-| Drag a Bento pane to the bottom edge | It returns to the ordinary Plasma desktop. |
+| Drag the Active card or a Bento pane to the bottom edge | It returns to the ordinary Plasma desktop where you let it go; other cards wait in Spread. |
 | Switch Kadunce on in the tray | The card display's windows become cards, the one in use the Active card. |

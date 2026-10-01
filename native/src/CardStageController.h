@@ -42,7 +42,16 @@ enum class CardPresentation {
     // individual cards and keeps them hidden, per CARD-LIFECYCLE.md §2: Bento
     // owns its panes, not the rest of the display.
     Bento,
+    // CARD-LIFECYCLE.md §2: the ordinary desktop is shown, with the window the
+    // person returned to it. Card Stage still owns its cards and holds them
+    // aside, out of sight and out of reach, until Spread opens or one is chosen.
+    Desktop,
 };
+
+// Marks a card held aside while the desktop is shown. KWin keeps the window
+// hidden, and this effect still knows it as a card. Effect data roles below
+// 1000 are KWin's.
+inline constexpr int CardAsideRole = 1000 + 0x4b41;
 
 // Product-wide operations stay explicit. Card Stage owns the logical card
 // transaction; its host owns output discovery, effect redirection, shortcuts,
@@ -120,6 +129,12 @@ public:
     // record; success retires only the departed card, never restores it on source.
     bool transferNativeCarryToDesktop(const PreparedCarrySource &source,
         KWin::LogicalOutput *destination, const KWin::RectF &geometry);
+    // CARD-LIFECYCLE.md §10: a card carried to its display's bottom edge
+    // returns to the ordinary desktop at `geometry`. The desktop is then shown
+    // with it, and any other cards are held aside, one swipe away in Spread;
+    // with none left the display's session ends.
+    bool releaseNativeCarryToDesktop(const PreparedCarrySource &source,
+        KWin::LogicalOutput *output, const KWin::RectF &geometry);
 
     [[nodiscard]] bool isActive() const;
     [[nodiscard]] CardPresentation presentation() const;
@@ -309,6 +324,11 @@ public:
     [[nodiscard]] bool spreadOpening() const { return m_openProgress.has_value(); }
 
     void syncSelectedElevation();
+    // §2 Desktop: the desktop is shown and every card is held aside.
+    void showDesktop();
+    // §10: `window`, not a card, was returned to the desktop of this stage's
+    // display while the stage holds cards, so the desktop is shown with it.
+    void returnWindowToDesktop(KWin::EffectWindow *window);
     void handleWindowActivated(KWin::EffectWindow *window);
     bool admitTransferredWindowToTablet(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
@@ -647,6 +667,14 @@ private:
     QElapsedTimer m_stackOutlineFade;
     // Spread was opened from the Bento layout, so going back resumes it.
     bool m_returnToGroup = false;
+    // Spread was opened from the desktop, so going back returns there.
+    bool m_returnToDesktop = false;
+    // Cards held aside while the desktop is shown, and the windows returned
+    // to it; activating one of those brings the desktop back.
+    QList<QPointer<KWin::EffectWindow>> m_aside;
+    QList<QPointer<KWin::EffectWindow>> m_returnedToDesktop;
+    void holdCardsAside();
+    void bringCardsBack();
     double m_launcherGuestOffset = 0.0;
     double m_launcherGuestTransitionFrom = 0.0;
     QElapsedTimer m_launcherGuestTransitionTimer;

@@ -15,6 +15,7 @@
 #include "SpreadLayout.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
+#include "NativePlacement.h"
 
 #include <core/output.h>
 #include <effect/effecthandler.h>
@@ -409,8 +410,10 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
         }
         return 99;
     }
-    if (m_presentation == CardPresentation::Bento) {
-        // The panes are the display. Individual cards stay owned and hidden.
+    if (m_presentation == CardPresentation::Bento
+        || m_presentation == CardPresentation::Desktop) {
+        // The panes, or the desktop, are the display. Individual cards stay
+        // owned and hidden.
         return 99;
     }
     if (m_presentation == CardPresentation::Active) {
@@ -1528,6 +1531,99 @@ bool CardStageController::transferNativeCarryToDesktop(const PreparedCarrySource
     return committed;
 }
 
+void CardStageController::holdCardsAside()
+{
+    for (const auto &window : std::as_const(m_workspace.windows())) {
+        if (!window || window->isDeleted() || !window->window()
+            || window->window()->isHidden() || m_aside.contains(window)) continue;
+        window->setData(CardAsideRole, true);
+        window->window()->setHidden(true);
+        m_aside.append(window);
+    }
+}
+
+void CardStageController::bringCardsBack()
+{
+    for (const auto &window : std::exchange(m_aside, {})) {
+        if (!window || window->isDeleted()) continue;
+        window->setData(CardAsideRole, QVariant());
+        if (window->window()) window->window()->setHidden(false);
+    }
+}
+
+void CardStageController::returnWindowToDesktop(KWin::EffectWindow *window)
+{
+    if (!m_active || !window || window->isDeleted() || liveCardIndex(window) >= 0) return;
+    finishCardGrab(false);
+    if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
+    m_returnedToDesktop.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
+    m_returnedToDesktop.append(window);
+    showDesktop();
+}
+
+void CardStageController::showDesktop()
+{
+    if (!m_active) return;
+    m_presentation = CardPresentation::Desktop;
+    m_returnToDesktop = false;
+    syncSelectedElevation();
+    m_host->setPagingShortcutsForCardStage(false);
+    // The window last returned to the desktop takes the keys first, so KWin
+    // has no hidden card to hand them on from.
+    m_returnedToDesktop.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    if (!m_returnedToDesktop.isEmpty() && m_returnedToDesktop.last()->window())
+        KWin::workspace()->activateWindow(m_returnedToDesktop.last()->window(), true);
+    holdCardsAside();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "showed the desktop, with" << m_aside.size() << "cards aside";
+}
+
+bool CardStageController::releaseNativeCarryToDesktop(const PreparedCarrySource &source,
+    KWin::LogicalOutput *output, const KWin::RectF &geometry)
+{
+    if (!m_active || m_launcherGuestActive || !nativeCarrySourceValid(source) || !output
+        || !m_host->isTabletOutputForCardStage(output)
+        || !KWin::effects->screens().contains(output) || !geometry.isValid()
+        || source.m_window->isUserMove() || source.m_window->isUserResize()) return false;
+    const QPointer<KWin::EffectWindow> leaving = source.m_window;
+    const QPointer<KWin::Window> client = leaving->window();
+    if (!client || liveCardIndex(leaving) < 0) return false;
+    const auto removal = m_workspace.prepareRemoval(leaving);
+    if (!removal || !m_workspace.commitRemoval(*removal)) return false;
+    // The card leaves Spread before any native work, which can reenter this
+    // stage, and its old geometry is never replayed: it lands where it was let go.
+    ++m_restoreGeneration;
+    forgetManagedRestore(leaving);
+    if (m_activeRestore.window == leaving) m_activeRestore = ActiveRestoreSnapshot{};
+    if (m_presentedActive == leaving) m_presentedActive = nullptr;
+    m_originalCardStackingOrder.removeAll(leaving);
+    m_activeSettleTimer.stop();
+    m_activeSettleRemaining = 0;
+    KWin::effects->setElevatedWindow(leaving, false);
+    m_host->unredirectForCardStage(leaving);
+    // §12: with no card left the display's session ends, and the next window
+    // to open there starts cards again. Otherwise the desktop shows, so the
+    // window is seen where it was let go.
+    m_presentation = CardPresentation::Spread;
+    m_active = !m_workspace.windows().isEmpty();
+    const QPointer<KWin::LogicalOutput> target = output;
+    const auto valid = [&] {
+        return target && KWin::effects->screens().contains(target.data())
+            && leaving && !leaving->isDeleted() && leaving->window() == client
+            && !leaving->isUserMove() && !leaving->isUserResize();
+    };
+    // Where the person let it go, with the keys; the cards go aside after,
+    // so KWin never has a hidden window to hand the focus on from.
+    if (applyNativePlacement(client.data(), target.data(), geometry, valid)) {
+        KWin::workspace()->raiseWindow(client);
+        if (valid()) KWin::workspace()->activateWindow(client, true);
+    }
+    if (m_active && leaving) returnWindowToDesktop(leaving);
+    m_host->setPagingShortcutsForCardStage(m_active && m_presentation != CardPresentation::Desktop);
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 void CardStageController::beginCardGrab(const QPointF &position)
 {
     if (!m_active || m_presentation != CardPresentation::Spread
@@ -2019,6 +2115,9 @@ bool CardStageController::finishCardGrabOnOutput(const QPointF &position)
 
 void CardStageController::syncSelectedElevation()
 {
+    // Whatever left the desktop, by Spread, a choice or an arrival, brings
+    // the cards held aside back first.
+    if (m_presentation != CardPresentation::Desktop) bringCardsBack();
     if (!m_active) {
         return;
     }
@@ -2083,7 +2182,13 @@ void CardStageController::toggle()
     if (m_lift.phase != Lift::Phase::None && m_lift.phase != Lift::Phase::Throw) endLift();
     if (m_active) {
         finishCardGrab(false);
-        if (m_presentation == CardPresentation::Spread) {
+        if (m_presentation == CardPresentation::Desktop) {
+            // The cards come back into the row, and going back returns here.
+            m_presentation = CardPresentation::Spread;
+            m_returnToDesktop = true;
+            bringCardsBack();
+            m_host->setPagingShortcutsForCardStage(true);
+        } else if (m_presentation == CardPresentation::Spread) {
             if (!enterActive()) {
                 return;
             }
@@ -2298,6 +2403,9 @@ bool CardStageController::resumeSelectedBentoProjection()
 
 void CardStageController::release()
 {
+    bringCardsBack();
+    m_returnToDesktop = false;
+    m_returnedToDesktop.clear();
     stopOpeningSpread();
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();
@@ -3219,6 +3327,10 @@ bool CardStageController::backFromSpread()
 {
     if (!m_active || m_presentation != CardPresentation::Spread || m_cardGrabActive
         || m_lift.phase != Lift::Phase::None) return false;
+    if (m_returnToDesktop) {
+        showDesktop();
+        return false;
+    }
     return selectReturnEntry();
 }
 
@@ -3287,6 +3399,10 @@ CardStageController::SpreadTap CardStageController::tapSpread(const QPointF &pos
     KWin::EffectWindow *window = cardAt(tablet, position);
     if (!window) {
         qInfo() << "Kadunce" << Revision << "tap on empty Spread: back to where the person was";
+        if (m_returnToDesktop) {
+            showDesktop();
+            return SpreadTap::None;
+        }
         return selectReturnEntry() ? SpreadTap::Open : SpreadTap::None;
     }
     const int cardId = liveCardIndex(window) + 1;
@@ -3540,6 +3656,10 @@ void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
 
 bool CardStageController::enterActive()
 {
+    // A card chosen from the desktop or from Spread opened there: the cards
+    // come back before one is shown.
+    m_returnToDesktop = false;
+    bringCardsBack();
     ++m_restoreGeneration;
     m_host->cancelInputForCardStage();
     clearCardTransition();
@@ -3930,6 +4050,8 @@ void CardStageController::finishNewArrival(KWin::EffectWindow *window,
 void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
 {
     m_originalCardStackingOrder.removeAll(window);
+    m_aside.removeAll(window);
+    m_returnedToDesktop.removeAll(window);
     const int closedIndex = liveCardIndex(window);
     if (!m_active || closedIndex < 0) {
         return;
@@ -4005,6 +4127,14 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     if (m_arrivalWindow) clearCardTransition(); // An explicit different activation wins.
     const int targetIndex = liveCardIndex(window);
     if (targetIndex < 0) {
+        // §2: a window returned to the desktop is shown on it, so asking for
+        // it shows the desktop; the cards would otherwise stand over it.
+        if (m_presentation != CardPresentation::Desktop && m_returnedToDesktop.contains(window)) {
+            m_host->cancelInputForCardStage();
+            finishCardGrab(false);
+            if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
+            showDesktop();
+        }
         return;
     }
     const int targetId = targetIndex + 1;

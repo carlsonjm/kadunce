@@ -182,7 +182,7 @@ rg -q 'QStringLiteral\("cardLine"\)' "${project_dir}/native/src/Effect.cpp" || {
     exit 1
 }
 # Keep in step with the presentations Effect::workspaceContext reports.
-reported_presentations='inactive|cardLine|bento|active'
+reported_presentations='inactive|cardLine|bento|desktop|active'
 if rg -o --no-filename 'presentation"?\s*(?:==|:)\s*"([A-Za-z]+)"' \
         "${project_dir}/tests" -r '$1' \
         | sort -u | rg -v "^(${reported_presentations})$"; then

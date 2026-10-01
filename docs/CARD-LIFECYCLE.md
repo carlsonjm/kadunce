@@ -61,6 +61,14 @@ it dimmed in its place, from the last frame its window showed, so it can be
 found; selecting it there, by touch, click or keys, wakes it and presents it
 as Active.
 
+### Desktop
+
+The display that owns cards shows the ordinary desktop, with the window you
+returned to it at its bottom edge (§10). Every card and the Bento group stay
+owned, held aside out of sight and reach. Spread brings them back, and going
+back from it returns here; choosing a card or opening an application presents
+one again, and asking for a returned window shows the desktop again.
+
 ### Native desktop
 
 The window has been explicitly released from Kadunce.
@@ -456,6 +464,10 @@ Spread's side edges on the display that owns cards are not edge actions.
 ### Bottom edge
 
 Release the carried window to the ordinary Plasma desktop.
+
+On the display that owns cards, §2's Desktop is then shown with it and the rest
+waits in Spread; a last card ends the display's session, as §12's last closure
+does.
 
 ### Cancel
 

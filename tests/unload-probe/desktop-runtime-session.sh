@@ -57,7 +57,9 @@ for scenario in edge edge-refresh edge-refresh-reject external withdrawn unload 
         sleep .1
     fi
     if [[ $scenario == withdrawn || $scenario == dock ]]; then
-        y=400; if [[ $scenario == dock ]]; then y=780; fi
+        # A card is carried into the dock short of the bottom edge, which
+        # §10 gives to release.
+        y=400; if [[ $scenario == dock ]]; then y=780; if [[ $tablet == 1 ]]; then y=760; fi; fi
         if [[ $kind == pointer ]]; then probe contactMotion 550 "$y"; else probe motion 52 550 "$y"; fi
     fi
     destination=$(kad nativeCarryState | jq -c '.destinationRect')

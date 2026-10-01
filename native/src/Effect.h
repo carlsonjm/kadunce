@@ -451,6 +451,9 @@ private:
     // to hold: its destination is the Active card target on this output.
     // CARD-LIFECYCLE.md §3 and §10 decide which of the two a gesture is.
     QPointer<KWin::LogicalOutput> m_carryCardEntryOutput;
+    // §10: a card carried to the bottom edge of its own display leaves for the
+    // ordinary desktop, which Card Stage commits without a Bento reservation.
+    QPointer<KWin::LogicalOutput> m_carryCardExitOutput;
     QPointer<KWin::LogicalOutput> m_lineCardEntryOutput;
     QPointer<KWin::EffectWindow> m_lineDestinationWindow;
     QPointF m_lineDestinationContact;
@@ -474,6 +477,9 @@ private:
     void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                          const QRectF &from, const QRectF &to);
     void clearDropSettle();
+    // §10 and §2: a pane returned to the card display's desktop is shown on
+    // it, and the rest of what Kadunce holds there goes aside into Spread.
+    void showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWindow *returned);
     [[nodiscard]] std::optional<QRectF> dropSettleRect() const;
     QPointer<KWin::EffectWindow> m_settlingWindow;
     QPointer<KWin::LogicalOutput> m_settlingOutput;

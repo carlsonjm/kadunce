@@ -253,6 +253,12 @@ intent, and a carry source is read-only provenance. Expressing those as
 ownership transitions would put placement back inside ownership tickets, which
 narrowing the ticket payload removed.
 
+### The card display shows cards or the desktop, never both
+
+A window let go at its bottom edge lands on the desktop, shown with it; the rest
+waits in Spread (`CARD-LIFECYCLE.md` §2). Rejected: windows over cards, which
+the keys, dock and Spread assume away; only the last card leaving.
+
 ## Transfer and native placement
 
 ### A displaced pane arrives through a different door than a carried window
@@ -382,20 +388,18 @@ arrival into a stack would need.
 
 ### The Active card makes room for the keys
 
-Decided 24 September 2026, replacing the 23 September pan. The keys never
+Decided 24 September 2026. The keys never
 reserve workspace; the Active card they type into gives up the room they take:
-its top edge, width and place stay, and its bottom edge rests a gutter above the
-keys, so what an application keeps at its bottom edge, a message box or a
-prompt, lands on them. Rejected: panning the contents to the text cursor, the
+its top edge, width and place stay and its bottom edge rests a gutter above the
+keys, so a message box at an application's bottom edge lands on them. Rejected: panning the contents to the text cursor, the
 only thing a client reports, which left the rest of the box covered.
 
 While the keys move, the card is drawn ending a gutter above them on every frame
 and its client is asked for a size once a motion (26 September 2026). Rejected:
-asking every frame, which made a client trail the keys and lay itself out at the
-display's refresh rate.
+asking every frame, which made a client trail the keys.
 
 KWin's own lift of the focused window would be a second authority over a card,
-so Kadunce declines `OverlayVirtualKeyboardOnWindows` in memory while loaded, as
+so Kadunce declines `OverlayVirtualKeyboardOnWindows` while loaded, as
 it does edge tiling. Only keys typing into the card or its own dialog make room;
 Spread, Bento panes and ordinary windows make none. Cards are laid out in the
 work area as it stood when the keys came until the dock takes its room back,

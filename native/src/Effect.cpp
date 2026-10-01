@@ -770,9 +770,11 @@ void Effect::refreshCardOutput()
 
 bool Effect::isCardWindow(const KWin::EffectWindow *window)
 {
+    // A card held aside while the desktop shows is hidden by Card Stage, and
+    // is still a card.
     return isApplicationWindow(window)
         && !window->isMinimized()
-        && !window->isHidden();
+        && (!window->isHidden() || window->data(CardAsideRole).toBool());
 }
 
 bool Effect::isApplicationWindow(const KWin::EffectWindow *window)
@@ -1428,7 +1430,8 @@ bool Effect::mayHoldWindowForCardStage(
     // §7 keeps a minimized window owned as an individual card, so what card
     // ownership may hold cannot exclude the one state the section is about.
     // `isCardWindow` answers what this effect can present, and excludes it.
-    return isApplicationWindow(window) && !window->isHidden();
+    return isApplicationWindow(window)
+        && (!window->isHidden() || window->data(CardAsideRole).toBool());
 }
 
 void Effect::setPagingShortcutsForCardStage(bool active)
@@ -1516,7 +1519,8 @@ WorkspacePresentation Effect::presentationForInput() const
     // owns its hidden individual cards, but none of its gestures apply, so the
     // router sees the same thing it saw before those cards could coexist.
     if (!m_cardStage->isActive() || !onOwnedDesktop()
-        || m_cardStage->presentation() == CardPresentation::Bento) {
+        || m_cardStage->presentation() == CardPresentation::Bento
+        || m_cardStage->presentation() == CardPresentation::Desktop) {
         return WorkspacePresentation::Inactive;
     }
     return m_cardStage->presentation() == CardPresentation::Spread
@@ -1898,7 +1902,7 @@ void Effect::endNativeCarryPresentation()
         unredirect(m_carriedWindow);
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
-    m_carryCardEntryOutput.clear();
+    m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -1941,8 +1945,9 @@ QString Effect::nativeCarryState() const
     // is the Active card target, and it shows the same placement outline.
     const bool cardEntry = m_carriedWindow ? bool(m_carryCardEntryOutput)
                                            : bool(m_lineCardEntryOutput);
+    const bool cardExit = m_carriedWindow && m_carryCardExitOutput;
     const bool previewValid = (m_carriedWindow || m_cardStage->cardGrabActive()) && preview
-        && (cardEntry || (reservation && m_desktopStage->cardDropValid(*reservation)));
+        && (cardEntry || cardExit || (reservation && m_desktopStage->cardDropValid(*reservation)));
     auto *tablet = tabletOutput();
     auto *selected = m_cardStage->selectedWindow();
     auto lineRect = tablet && selected
@@ -1963,9 +1968,9 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("dropRect"), settling ? geometryContext(KWin::RectF(*settling).toRect()) : QJsonObject{}},
         {QStringLiteral("destinationPreview"), previewValid},
         {QStringLiteral("placementOutline"),
-            previewValid && (cardEntry || reservation->showsPlacementOutline())},
+            previewValid && (cardEntry || cardExit || reservation->showsPlacementOutline())},
         {QStringLiteral("detachPreview"),
-            previewValid && !cardEntry && reservation->detachesToDesktop()},
+            previewValid && (cardExit || (!cardEntry && reservation->detachesToDesktop()))},
         {QStringLiteral("rendererActive"), isActive()},
         {QStringLiteral("destinationRect"), previewValid ? geometryContext(preview->toRect()) : QJsonObject{}},
         {QStringLiteral("lineAnimating"), m_cardStage->animationsRunning()},
@@ -1975,7 +1980,8 @@ QString Effect::nativeCarryState() const
             {QStringLiteral("height"), lineRect.height()}}},
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
         {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
-        {QStringLiteral("destination"), bool(m_carryDestination) || bool(m_carryCardEntryOutput)},
+        {QStringLiteral("destination"), bool(m_carryDestination) || bool(m_carryCardEntryOutput)
+            || bool(m_carryCardExitOutput)},
         {QStringLiteral("lineCarrying"), m_cardStage->cardGrabActive()},
         {QStringLiteral("lineDestination"),
             bool(m_lineDestination) || bool(m_lineCardEntryOutput)},
@@ -1992,6 +1998,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const auto traceDestination = qScopeGuard([this] {
         const QString state = m_carryCardEntryOutput
             ? QStringLiteral("destination-card:%1").arg(m_carryCardEntryOutput->name())
+            : m_carryCardExitOutput
+            ? QStringLiteral("destination-exit:%1").arg(m_carryCardExitOutput->name())
             : !m_carryDestination ? QStringLiteral("destination-none")
             : QStringLiteral("destination-%1:%2")
                 .arg(m_carryDestination->detachesToDesktop() ? "exit" : "placement",
@@ -2004,6 +2012,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const auto previousDestination = m_carryDestination;
     m_carryDestination.reset();
     m_carryCardEntryOutput.clear();
+    m_carryCardExitOutput.clear();
     m_carryPreview.reset();
     if (!m_carriedWindow || !m_carryRuntime->handoff.source()) return;
     auto &handoff = m_carryRuntime->handoff;
@@ -2030,23 +2039,59 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const QRectF area = nativeLandingAreaForOutput(target);
     // Landing clearance is separate from the physical-edge gesture target.
     const double exitBottom = area.bottom() - 10.0;
-    if (local && bento && !desktopWindow
-        && contact.y() >= double(target->geometry().bottom()) - 24.0) {
+    const bool atBottomEdge = contact.y() >= double(target->geometry().bottom()) - 24.0;
+    // Where a window let go at the bottom edge lands on the ordinary desktop:
+    // its floating size, centred under the contact, above the dock.
+    const auto exitBox = [&] {
         QSizeF size = QRectF(handoff.source()->restoreSnapshot().floatingGeometry).size();
         if (!size.isValid()) size = m_carryPickup.size();
         size.setWidth(std::clamp(size.width(), 200.0, std::max(200.0, area.width() * .8)));
         size.setHeight(std::clamp(size.height(), 150.0, std::max(150.0, area.height() * .8)));
         QRectF box(contact.x() - size.width() / 2, exitBottom - size.height(), size.width(), size.height());
         box.moveLeft(std::clamp(box.left(), area.left(), area.right() - box.width()));
+        return box;
+    };
+    // §10: the bottom edge releases a card to the ordinary desktop, as it does
+    // a pane, and the desktop is shown with it.
+    if (local && tablet && !bento && !desktopWindow && atBottomEdge
+        && m_cardStage->nativeCarrySourceValid(*handoff.source())) {
+        const KWin::RectF box(exitBox());
+        QPointer<KWin::EffectWindow> carried = m_carriedWindow;
+        QPointer<KWin::LogicalOutput> output = target;
+        m_carryCardExitOutput = target;
+        m_carryPreview = box;
+        handoff.previewDrop({CarryDestinationKind::NativeDesktop, target->name(), target->name(), 0, 0},
+            [carried, output] {
+                return carried && !carried->isDeleted() && output
+                    && KWin::effects->screens().contains(output.data()) && carried->screen() == output;
+            },
+            [this, output, box](const PreparedCarrySource &source) {
+                return m_cardStage->releaseNativeCarryToDesktop(source, output, box);
+            });
+        return;
+    }
+    if (local && bento && !desktopWindow && atBottomEdge) {
+        const QRectF box = exitBox();
         const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
             KWin::RectF(box), DesktopStageController::CardDropIntent::NativeDesktop);
         if (!reserved) return;
         m_carryDestination = reserved;
         m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+        QPointer<KWin::LogicalOutput> output = target;
+        QPointer<KWin::EffectWindow> released = m_carriedWindow;
         handoff.previewDrop({CarryDestinationKind::NativeDesktop, target->name(), target->name(), 0, 0},
             [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
-            [this, reserved](const PreparedCarrySource &source) {
-                return m_desktopStage->transferNativeCarryToDesktop(source, *reserved);
+            [this, reserved, output, released](const PreparedCarrySource &source) {
+                const bool committed = m_desktopStage->transferNativeCarryToDesktop(source, *reserved);
+                // §10 and §2 on the card display: the desktop is shown with
+                // the pane, and what Kadunce still holds there goes aside into
+                // Spread. It waits for the carry to finish, as a layout
+                // retiring into Spread cancels input.
+                if (committed && output && isTabletOutput(output))
+                    QTimer::singleShot(0, this, [this, output, released] {
+                        showDesktopWithReturned(output, released);
+                    });
+                return committed;
             });
         return;
     }
@@ -2202,6 +2247,25 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
             return committed;
         });
+}
+
+void Effect::showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWindow *returned)
+{
+    if (!tablet || !returned || returned->isDeleted() || !onOwnedDesktop()) return;
+    if (m_desktopStage->hasSessionOnOutput(tablet->name())) {
+        m_desktopStage->transferTabletSessionToSpread(tablet,
+            [this](const auto &projection, const auto &commit) {
+                return m_cardStage->admitBentoStack(projection, commit);
+            });
+        // A layout that cannot become its Spread group stays, and so does
+        // what it shows.
+        if (m_desktopStage->hasSessionOnOutput(tablet->name())) {
+            observeCardOwnership();
+            return;
+        }
+    }
+    m_cardStage->returnWindowToDesktop(returned);
+    observeCardOwnership();
 }
 
 void Effect::clearDropSettle()
@@ -2650,7 +2714,9 @@ QString Effect::workspaceContext() const
         : m_cardStage->presentation() == CardPresentation::Spread
             ? QStringLiteral("cardLine")
             : m_cardStage->presentation() == CardPresentation::Bento
-                ? QStringLiteral("bento") : QStringLiteral("active");
+                ? QStringLiteral("bento")
+            : m_cardStage->presentation() == CardPresentation::Desktop
+                ? QStringLiteral("desktop") : QStringLiteral("active");
 
     QJsonArray displays;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
@@ -3270,7 +3336,9 @@ void Effect::toggleOwnedPresentation()
             return;
         }
     }
-    if (m_cardStage->selectedIsBentoGroup()) {
+    // From the desktop, Spread opens whatever is selected in it.
+    if (m_cardStage->selectedIsBentoGroup()
+        && m_cardStage->presentation() != CardPresentation::Desktop) {
         if (!m_cardStage->resumeSelectedBentoProjection()) {
             qWarning() << "Kadunce" << Revision
                        << "declined to resume the selected Bento group";
@@ -3505,9 +3573,10 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
     const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
+    const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
     if (m_destinationShader && screen && preview
         && (m_carriedWindow || m_cardStage->cardGrabActive())
-        && (cardEntry == screen
+        && (cardEntry == screen || (cardExit && cardExit == screen)
             || (reservation && !cardEntry && reservation->showsPlacementOutline()
                 && reservation->destinationOutput() == screen
                 && m_desktopStage->cardDropValid(*reservation)))) {
@@ -3545,11 +3614,12 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
             if (!blended) glDisable(GL_BLEND);
         }
-        // The outline above is drawn for a Bento reservation or for a Card
-        // Stage entry, and only the first has a reservation to ask. §10 gives
-        // the bottom edge the only detaching release, and an entry is never
-        // one, so a card entry simply has no label to draw here.
-        if (reservation && !cardEntry && reservation->detachesToDesktop())
+        // The outline above is drawn for a Bento reservation, a Card Stage
+        // entry or a card leaving at the bottom edge. §10 gives the bottom edge
+        // the only detaching release, so a pane leaving its layout and a card
+        // leaving its display are labelled, and an entry never is.
+        if ((cardExit && cardExit == screen)
+            || (reservation && !cardEntry && reservation->detachesToDesktop()))
             m_detachLabel.render(renderTarget, viewport, box);
     }
     if (screen && screen == tabletOutput() && m_cardStage->isActive()
@@ -4027,9 +4097,13 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
     // owns, and a pane is not one of its cards, so it must not be routed here.
     // Nor is anything on a desktop the cards do not live on.
+    // While the desktop shows, what Card Stage does not own is drawn as it
+    // stands, and its cards are held aside where KWin draws nothing.
     if (!m_cardStage->isActive() || !m_paintingOutput
         || !(isCardWindow(window) || m_sleepingShown.contains(window))
-        || m_desktopStage->managesWindow(window) || !onOwnedDesktop()) {
+        || m_desktopStage->managesWindow(window) || !onOwnedDesktop()
+        || (m_cardStage->presentation() == CardPresentation::Desktop
+            && m_cardStage->liveCardIndex(window) < 0)) {
         KWin::effects->paintWindow(
             renderTarget, viewport, window, mask, deviceRegion, data);
         return;

@@ -57,6 +57,7 @@ scenes=(
     minimized-start-runtime tablet
     minimized-only-runtime tablet
     sleeping-spread-runtime tablet
+    card-exit-runtime tablet
     switcher-hidden-runtime tablet
     gap-runtime tablet
     dialog-runtime tablet
