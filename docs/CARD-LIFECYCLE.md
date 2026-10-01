@@ -131,8 +131,7 @@ Placement comes from the gesture:
 - Both become Bento panes.
 - No other window joins. Kadunce never fills an unrequested pane.
 
-Spread order selects which card becomes the partner. It never decides which side
-a pane takes.
+Spread order picks the partner, never a pane's side.
 
 Partner eligibility is defined under Eligible windows.
 
@@ -418,8 +417,8 @@ A stack:
 
 - Has one selected member
 - Remains separate from Bento
-- Brings its members forward in turn, as a ring that side steps never leave
-- Keeps its fan's room wherever it stands, so landing on it moves nothing
+- Brings its members forward in turn, a ring side steps never leave
+- Keeps its fan's room wherever it stands; landing on it moves nothing
 - Can release a member back into the Spread
 - Becomes an individual card when one member remains
 - Shows its active position in the label row
