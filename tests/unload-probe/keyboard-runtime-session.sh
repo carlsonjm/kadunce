@@ -93,20 +93,6 @@ printf 'room-bands gutter=%s inside=%s\n' "$gutter" "$inside"
 within "$gutter" 0 0.02
 within "$inside" 0.9 1
 echo 'PASS: the card keeps its top edge'
-# The keyboard changes height while it is up: the card follows it both ways.
-kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 32
-sleep 1
-record room-height-32
-jq -e --argjson r "$raised" '.panel.y > $r.panel.y
-    and .trackedFrame.height > $r.trackedFrame.height' <<<"$(state)"
-makes_room "$before" <<<"$(state)"
-kwriteconfig6 --notify --file plasmakeyboardrc --group General --key heightPercent 52
-sleep 1
-record room-height-52
-jq -e --argjson r "$raised" '.panel.y < $r.panel.y
-    and .trackedFrame.height < $r.trackedFrame.height' <<<"$(state)"
-makes_room "$before" <<<"$(state)"
-echo 'PASS: the card gives room to taller keys and takes it back from shorter ones'
 lower
 record room-lowered
 test "$(frame "Keyboard reveal probe")" = "$before"
@@ -120,23 +106,21 @@ sleep 1
 record room-stale
 test "$(frame "Keyboard reveal probe")" = "$before"
 echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
-# The Keyboard's own put-away: a finger carries the handle down. The keys claim
-# less room all the way out, never the whole Keyboard again as they go, and the
-# card ends at its own height.
+# The Keyboard's own put-away: a tap on its Hide key, in the bottom row right
+# of 123. The keys claim less room all the way out, never the whole Keyboard
+# again as they go, and the card ends at its own height.
 raise
 probe watchPanel
 keys=$(state | jq '.panel')
-x=$(jq '.x + .width / 2 | floor' <<<"$keys"); y=$(jq '.y + 12 | floor' <<<"$keys")
-probe down 1 "$x" "$y"
-for step in {1..10}; do probe motion 1 "$x" $((y + step * 30)); sleep .02; done
-probe up 1
+x=$(jq '.x + .width * 0.77 | floor' <<<"$keys"); y=$(jq '.y + .height * 0.87 | floor' <<<"$keys")
+probe down 1 "$x" "$y"; sleep .05; probe up 1
 sleep 1.5
 record room-put-away
 printf 'put-away panel heights %s\n' "$(probe panelHistory)"
 state | jq -e '.visible == false'
 probe panelHistory | jq -e 'length > 2 and (. as $h | all(range(1; length); $h[.] <= $h[. - 1]))'
 test "$(frame "Keyboard reveal probe")" = "$before"
-echo 'PASS: keys put away by the handle only ever shrink, and the card ends whole'
+echo 'PASS: keys put away by their Hide key only ever shrink, and the card ends whole'
 
 # Room is made for the keys, not for the cursor: a field they would never
 # reach, and a client that reports no cursor at all, both make it.

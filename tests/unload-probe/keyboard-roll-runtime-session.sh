@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# The Active card follows the keys on every frame they move, rising, carried
-# down by the handle, put away by an application, and leaving when typing
-# ends, for a client that draws at once and for one as slow as a browser. The
-# gap above the keys stays the gutter, and the client is asked for a new size
-# once a motion rather than once a frame.
+# The Active card follows the keys on every frame they move, rising, put away
+# by their Hide key, put away by an application, and leaving when typing ends,
+# for a client that draws at once and for one as slow as a browser. The gap
+# above the keys stays the gutter, and the client is asked for a new size once
+# a motion rather than once a frame.
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -euo pipefail
@@ -70,10 +70,9 @@ measure() {
 put_away() {
     local keys x y
     keys=$(state | jq '.panel')
-    x=$(jq '.x + .width / 2 | floor' <<<"$keys"); y=$(jq '.y + 12 | floor' <<<"$keys")
-    probe down 1 "$x" "$y"
-    for step in {1..10}; do probe motion 1 "$x" $((y + step * 30)); sleep .02; done
-    probe up 1
+    # The Hide key, in the bottom row right of 123.
+    x=$(jq '.x + .width * 0.77 | floor' <<<"$keys"); y=$(jq '.y + .height * 0.87 | floor' <<<"$keys")
+    probe down 1 "$x" "$y"; sleep .05; probe up 1
 }
 
 # A client that draws at once never shows more than the gutter; one as slow as
@@ -87,10 +86,10 @@ for title in "Keyboard reveal probe" "Keyboard slow probe"; do
     raise_now() { kad raiseKeyboard; }
     measure rise "$catch_up" 8 raise_now
     raise
-    measure handle "$catch_up" 8 put_away
+    measure hide-key "$catch_up" 8 put_away
     state | jq -e '.visible == false'
     # Keys an application puts away, and keys that go when typing ends, slide
-    # out as the handle carries them rather than vanishing.
+    # out as the Hide key's do rather than vanishing.
     raise
     measure hide "$catch_up" 8 probe hideKeyboard
     raise

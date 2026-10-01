@@ -428,13 +428,12 @@ Decided 24 September 2026: pointing lives in the latch at the space bar's end,
 which holds the keys up. Rejected after a build: a space-bar slide, whose clicks
 put the keys down.
 
-### The keys' handle takes them away
+### The Hide key puts the keys away
 
-Decided 24 and 28 September 2026. The handle on the keys carries them away by a
-drag down or a tap, and height is the right-edge scrub column's; the keys come
-from a text field or their tray entry, and the dock no longer carries a handle.
-Rejected: a drag on the handle resizing, which would make the edge that opens
-the keys upward shrink them downward.
+The keys come from a text field or their tray entry and go with the layout's
+Hide key; neither the dock nor the keys carry a handle, and their height is
+fixed. Rejected: a handle on the keys that carried them away by a drag or a tap,
+and a scrub column that set their height.
 
 ### Persistent membership is not promised across unload
 
