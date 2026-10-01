@@ -27,11 +27,22 @@ up() { test "$(vk visible)" = true; }
 down() { test "$(vk visible)" = false; }
 tap() { probe down 1 "$1" "$2"; sleep .05; probe up 1; }
 frame() { probe windowFacts | jq -c --arg t "$1" 'first(.[] | select(.caption == $t)) | {x, y, width, height}'; }
-# The Active card on a 1280x800 tablet above the 64 px band: its bottom edge
-# a gutter above the band's top edge at 736.
+# The Active card above the 64 px band: its bottom edge a gutter above the
+# band's top edge, whatever the tablet's size, read once Kadunce runs.
 band_top=736
 docked='{"x":10,"y":10,"width":1260,"height":716}'
-on_band() { jq -e --argjson top "$band_top" '.y + .height > $top - 10' <<<"$1"; }
+tablet_size() {
+    local geometry
+    geometry=$(kad workspaceContext | jq -c '.displayContext.displays[] | select(.role == "tablet") | .geometry')
+    tablet_width=$(jq '.width | floor' <<<"$geometry")
+    band_top=$(($(jq '.height | floor' <<<"$geometry") - 64))
+    docked=$(jq -nc --argjson w "$tablet_width" --argjson t "$band_top" '{x: 10, y: 10, width: ($w - 20), height: ($t - 20)}')
+}
+tablet_width=1280
+# At a fractional scale KWin puts a frame on whole device pixels, which moves
+# an edge by less than one logical pixel; that much is not a change.
+on_band() { jq -e --argjson top "$band_top" '.y + .height > $top - 9' <<<"$1"; }
+docked_at() { jq -e --argjson d "$docked" '[.x - $d.x, .y - $d.y, .width - $d.width, .height - $d.height] | map(fabs) | max <= 1' <<<"$1"; }
 # The frames the band watch recorded, read for what decides the checks: how
 # many, the frames where the compositor showed keys none of which were on
 # screen (the panel is then the Keyboard's two-pixel strip), the card's least
@@ -46,8 +57,8 @@ summary() {
         heldKeysTopAndCard: (map(select(.shown and .keysHeight <= 2) | "\(.keysTop)/\(.cardHeight)") | unique),
         lowestCardBottom: (map(.cardBottom) | max)}' <<<"$1"
 }
-no_room_while_held() { jq -e --argjson d "$docked" 'all(.[] | select(.shown and .keysHeight <= 2); .cardHeight >= $d.height)' <<<"$1"; }
-never_on_band() { jq -e --argjson top "$band_top" 'all(.[]; (.cardBottom // 0) <= $top - 10)' <<<"$1"; }
+no_room_while_held() { jq -e --argjson d "$docked" 'all(.[] | select(.shown and .keysHeight <= 2); .cardHeight >= $d.height - 1)' <<<"$1"; }
+never_on_band() { jq -e --argjson top "$band_top" 'all(.[]; (.cardBottom // 0) <= $top - 9)' <<<"$1"; }
 keys_line() { jq -c 'map({ms: (.ms | floor), visible, cursorY: .cursor.y, fingerY: .finger.y, panel: .panel.height})' <<<"$(probe keysHistory)"; }
 for attempt in {1..40}; do qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe && break; sleep .1; done
 for attempt in {1..40}; do [[ $(vk available 2>/dev/null) == true ]] && break; sleep .1; done
@@ -63,6 +74,8 @@ client textCompanion
 sleep 1.5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1
+tablet_size
+echo "  tablet ${tablet_width} wide, band from $band_top, docked card $docked"
 
 present() {
     local title=$1
@@ -79,7 +92,7 @@ present() {
 reveal='Keyboard reveal probe'
 present "$reveal"
 echo "  band $(client bandState) card $(frame "$reveal") work area $(probe keyboardState | jq -c '.workArea')"
-check 'the Active card stops at the band' test "$(frame "$reveal")" = "$docked"
+check 'the Active card stops at the band' docked_at "$(frame "$reveal")"
 read -r lx ly < <(client fieldCentre "$reveal" revealField)
 card=$(frame "$reveal")
 fx=$(($(jq '.x' <<<"$card") + lx)); fy=$(($(jq '.y' <<<"$card") + ly))
@@ -110,7 +123,7 @@ echo "  typing ends: keys $(vk visible) band $(client bandState) card $(frame "$
 echo "    frames $(summary "$history")"
 band_back() { down && jq -e '.reserving' <<<"$(client bandState)"; }
 check 'the keys gone, the band has its room back and the card stops at it' \
-    eval 'band_back && test "$(frame "$reveal")" = "$docked"'
+    eval 'band_back && docked_at "$(frame "$reveal")"'
 check 'the card never grows onto the band as the keys leave' never_on_band "$history"
 
 # An application that takes the focus back into its field, with nobody
@@ -122,7 +135,7 @@ sleep .5
 spread_rect() { kad workspaceContext | jq -c --arg t "$gtk" 'first(.applications[] | select(.title == $t)) | .spreadRect'; }
 # The row moves one card at a time until the GTK card stands on the display.
 for step in 1 2; do
-    jq -e '. != null and .x >= 0 and .x + .width <= 1280' <<<"$(spread_rect)" >/dev/null && break
+    jq -e --argjson w "$tablet_width" '. != null and .x >= 0 and .x + .width <= $w' <<<"$(spread_rect)" >/dev/null && break
     if (($(jq '.x // -1 | floor' <<<"$(spread_rect)") < 0)); then probe key 105 0; else probe key 106 0; fi
     sleep .6
 done

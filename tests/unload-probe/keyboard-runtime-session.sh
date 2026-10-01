@@ -17,6 +17,8 @@ kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 vk() { qdbus6 org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard."$@"; }
 state() { probe keyboardState; }
 frame() { probe frames | jq -c --arg t "$1" '.[$t]'; }
+# The same frame: a float's last digit can differ for the same device pixel.
+same_frame() { jq -e --argjson b "$2" '[.x - $b.x, .y - $b.y, .width - $b.width, .height - $b.height] | map(fabs) | max < 0.01' <<<"$1"; }
 record() { printf '%s %s %s\n' "$1" "$(state)" "$(probe frames)"; }
 raise() { kad raiseKeyboard; sleep 1; }
 # How much of a band of the display is the reveal probe's own colour.
@@ -44,6 +46,9 @@ test "$(state | jq '.overlayOption')" = false
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .role == "tablet")] | length == 1'
+# The Active card's full size, a gutter in from each edge of the tablet.
+read -r card_width card_height < <(kad workspaceContext | jq -r '.displayContext.displays[] | select(.role == "tablet")
+    | .geometry | "\((.width | floor) - 20) \((.height | floor) - 20)"')
 state | jq -e '.overlayOption == true'
 echo 'PASS: the compositor does not lift a window for the keyboard while Kadunce is loaded'
 
@@ -58,15 +63,17 @@ present() {
     client focusText "$title"
     sleep .5
     state | jq -e --arg t "$title" '.tracked == $t'
-    frame "$title" | jq -e '.width == 1260 and .height == 780'
+    # Within a logical pixel: at a fractional scale KWin puts a frame on whole
+    # device pixels.
+    frame "$title" | jq -e --argjson w "$card_width" --argjson h "$card_height" '(.width - $w | fabs) <= 1 and (.height - $h | fabs) <= 1'
 }
 
 # The Active card makes room for the keys: its top edge, its width and its
 # place stay, and its bottom edge ends one gutter above them.
 makes_room() {
     jq -e --argjson b "$1" '
-        .trackedFrame.x == $b.x and .trackedFrame.y == $b.y
-        and .trackedFrame.width == $b.width
+        ([.trackedFrame.x - $b.x, .trackedFrame.y - $b.y, .trackedFrame.width - $b.width]
+            | map(fabs) | max < 0.01)
         and ((.trackedFrame.y + .trackedFrame.height + 10 - .panel.y) | fabs) <= 1'
 }
 
@@ -96,16 +103,16 @@ within "$inside" 0.9 1
 echo 'PASS: the card keeps its top edge'
 lower
 record room-lowered
-test "$(frame "Keyboard reveal probe")" = "$before"
+same_frame "$(frame "Keyboard reveal probe")" "$before"
 echo 'PASS: the Active card returns exactly when the keyboard leaves'
 # KWin sends a size a moment after it is asked for, and sends nothing when the
 # size asked for is the one the client already has. Asked short and then full
 # again inside that moment, a client is sent only the short size and settles
 # there. The card is asked for its height again when that happens.
-client resizeCompanion "Keyboard reveal probe" 1260 420
+client resizeCompanion "Keyboard reveal probe" "$card_width" 420
 sleep 1
 record room-stale
-test "$(frame "Keyboard reveal probe")" = "$before"
+same_frame "$(frame "Keyboard reveal probe")" "$before"
 echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
 # The Keyboard's own put-away: a tap on its Hide key. The keys claim less room
 # all the way out, never the whole Keyboard again as they go, and the card ends
@@ -120,7 +127,7 @@ record room-put-away
 printf 'put-away panel heights %s\n' "$(probe panelHistory)"
 state | jq -e '.visible == false'
 probe panelHistory | jq -e 'length > 2 and (. as $h | all(range(1; length); $h[.] <= $h[. - 1]))'
-test "$(frame "Keyboard reveal probe")" = "$before"
+same_frame "$(frame "Keyboard reveal probe")" "$before"
 echo 'PASS: keys put away by their Hide key only ever shrink, and the card ends whole'
 
 # Room is made for the keys, not for the cursor: a field they would never
@@ -133,7 +140,7 @@ for title in "Keyboard top probe" "Keyboard blind probe"; do
     state | jq -e '.visible == true'
     makes_room "$before" <<<"$(state)"
     lower
-    test "$(frame "$title")" = "$before"
+    same_frame "$(frame "$title")" "$before"
 done
 echo 'PASS: every Active card makes room, whatever its cursor reports'
 
@@ -159,7 +166,7 @@ kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Vir
 client focusText "Keyboard reveal probe"
 sleep .5
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .bentoActive)] | length == 1'
-frame "Keyboard reveal probe" | jq -e '.width < 1260'
+frame "Keyboard reveal probe" | jq -e --argjson w "$card_width" '.width < $w'
 state | jq -e '.tracked == "Keyboard reveal probe"'
 all=$(probe frames)
 record bento-before

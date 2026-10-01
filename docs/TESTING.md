@@ -98,6 +98,9 @@ KADUNCE_PROBE_SESSION=start-cards-runtime-session.sh KADUNCE_RUNTIME_BUILD=<buil
   `shuffle-keyboard` otherwise; the put-away step needs Shuffle Keyboard 0a8a6ea
   or later, and the sliding keys dca6a09 or later. `KADUNCE_TEST_LAUNCHER` names
   the launcher the search scene opens, the installed `tettegouche` otherwise.
+- `KADUNCE_TEST_SCALE` runs the tablet as the Z13 panel, 2560x1600 at that
+  scale, for the Spread drop, flick-ask, keyboard and keyboard-offscreen
+  scenes, where logical and device pixels differ.
 - `KADUNCE_TEST_KWIN` names a disposable private KWin, as § Private compositor
   rules allows. The native takeover scene, `snap-session.sh`, needs `jq`.
 

@@ -33,10 +33,22 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-full-runtime-session.sh ]]
     output_width=2560 output_height=1440
 fi
 scale_args=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh && -n ${KADUNCE_TEST_SCALE:-} ]]; then
-    # The Z13 panel at its own scale.
+case ${KADUNCE_PROBE_SESSION:-session.sh} in
+    spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh) scalable=1 ;;
+    keyboard-runtime-session.sh|keyboard-offscreen-runtime-session.sh) scalable=1 ;;
+    *) scalable=0 ;;
+esac
+session_script="$project_dir/tests/unload-probe/${KADUNCE_PROBE_SESSION:-session.sh}"
+scaled_env=()
+if ((scalable)) && [[ -n ${KADUNCE_TEST_SCALE:-} ]]; then
+    # The Z13 panel at its own scale, where logical and device pixels differ.
     output_width=2560 output_height=1600
-    scale_args=(--scale "$KADUNCE_TEST_SCALE")
+    if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then
+        scale_args=(--scale "$KADUNCE_TEST_SCALE")
+    else
+        scaled_env=(KADUNCE_TEST_SCALE="$KADUNCE_TEST_SCALE" KADUNCE_SCALED_SESSION="$session_script")
+        session_script="$project_dir/tests/unload-probe/scale-tablet.bash"
+    fi
 fi
 echo "Isolated unload evidence: $unload_root"
 kwin_binary=${KADUNCE_TEST_KWIN:-kwin_wayland}
@@ -128,13 +140,13 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 # Every log line, Kadunce's included, goes to this session's log, not the
 # journal of the person whose machine runs the test.
-timeout "$session_timeout" env "${session_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \
+timeout "$session_timeout" env "${session_env[@]}" "${scaled_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \
     XDG_STATE_HOME="$unload_root/state" QT_PLUGIN_PATH="$unload_root/build/bin:${KADUNCE_RUNTIME_BUILD:-/nonexistent}/bin" \
     KADUNCE_UNLOAD_PROBE_BUILD="$unload_root/build" KWIN_COMPOSE=O2 \
     LIBGL_ALWAYS_SOFTWARE=1 QT_WAYLAND_RECONNECT=0 \
     dbus-run-session -- "${xwayland_launcher[@]}" "$kwin_binary" --virtual --width "$output_width" --height "$output_height" "${scale_args[@]}" --output-count "$output_count" \
     --no-lockscreen "${shortcut_args[@]}" --no-kactivities "${xwayland_args[@]}" "${input_method_args[@]}" \
-    --exit-with-session "$project_dir/tests/unload-probe/${KADUNCE_PROBE_SESSION:-session.sh}" >"$unload_root/session.log" 2>&1
+    --exit-with-session "$session_script" >"$unload_root/session.log" 2>&1
 rg '^PASS:' "$unload_root/session.log"
 # Keep bounded test artifacts/logs for inspection. Never install this probe.

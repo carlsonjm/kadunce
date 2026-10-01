@@ -89,11 +89,12 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     # Hold the card beside the group, then rest it with the finger over the
     # middle of one half of the group, where the group stands while it is held.
     context=$(kad workspaceContext)
+    width=$(jq '.displayContext.displays[] | select(.role == "tablet") | .geometry.width | floor' <<<"$context")
     groupRect() { kad workspaceContext | jq -r '[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect
         | "\(.x | floor) \(.y | floor) \(.width | floor) \(.height | floor)"'; }
     read -r gx gy gw gh < <(groupRect)
-    pick=$(jq -r --arg id "$held" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | (([.x, 0] | max) + ([.x + .width, 1280] | min)) / 2 | floor' <<<"$context")
+    pick=$(jq -r --arg id "$held" --argjson w "$width" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | (([.x, 0] | max) + ([.x + .width, $w] | min)) / 2 | floor' <<<"$context")
     y=$((gy + gh / 2))
     heldColour=$(colour "$((pick - 12))" "$((y - 12))" "$name-held-card")
     press "$pick" "$y"
@@ -109,7 +110,7 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     strip=$((gy - 30))
     # Nothing stands above the group's far right corner: the strip there is
     # what the display shows behind the row.
-    behind=$(colour 1240 "$strip" "$name-behind")
+    behind=$(colour "$((width - 40))" "$strip" "$name-behind")
     echo "$name: card picked at $pick $y; held, the group is at $gx $gy ${gw}x$gh; finger to $target; behind the row $behind"
     for step in 1 2 3 4 5 6; do
         drag "$((finger + (target - finger) * step / 6))" "$y"
@@ -156,7 +157,7 @@ for pass in left:touch right:pointer right:touch left:pointer; do
         check "$name: the card stands wholly right of the other pane" leftOf "$stays" "$held"
     fi
     check "$name: the other pane keeps its side" \
-        test "$(frame "$stays" | jq '.x < 640')" = "$([[ $half == right ]] && echo true || echo false)"
+        test "$(frame "$stays" | jq --argjson w "$width" '.x < $w / 2')" = "$([[ $half == right ]] && echo true || echo false)"
     check "$name: the replaced pane is a card of its own" alone "$replaced"
 
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
