@@ -86,6 +86,32 @@ probe up 55
 sleep .6
 stacked_pair || { echo "DIAG sideways: $(cards)"; false; }
 echo 'PASS: sideways travel keeps a held member in its Stack'
+# A Stack is a ring: from one of its open cards, side steps go round it and
+# never leave it, though another card stands beside it in the row.
+client titledCompanion "Ring outsider probe" 500 400
+chosen() { kad workspaceContext | jq -c '[.applications[] | select(.hasCard and .selected)][0] | {w: .windowId, n: .stackSize, p: .stackPosition}'; }
+three_cards() { kad workspaceContext | jq -e '[.applications[] | select(.hasCard)] | length == 3' >/dev/null; }
+for attempt in {1..25}; do three_cards && break; sleep .2; done
+three_cards || { echo "DIAG outsider: $(kad workspaceContext | jq -c '[.applications[] | {c: .hasCard, n: .stackSize, m: .minimized}]')"; false; }
+for k in 105 106 106; do
+    [[ $(chosen | jq '.n') == 2 ]] && break
+    probe key "$k" 0
+    sleep .4
+done
+chosen | jq -e '.n == 2'
+kad showActive
+sleep .6
+start=$(chosen)
+for meta_key in 106 106 106 105 105 105; do
+    probe key "$meta_key" 125
+    sleep .4
+    chosen | jq -e '.n == 2' >/dev/null || { echo "DIAG ring left the Stack: $(chosen)"; false; }
+done
+test "$(chosen | jq '.p')" = "$(jq '.p' <<<"$start")"
+probe key 106 125
+sleep .4
+test "$(chosen | jq '.p')" != "$(jq '.p' <<<"$start")"
+echo 'PASS: an open card steps round its Stack and never out of it'
 test "$(probe releaseRuntime)" = true
 sleep .8
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce

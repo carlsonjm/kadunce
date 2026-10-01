@@ -418,7 +418,8 @@ A stack:
 
 - Has one selected member
 - Remains separate from Bento
-- Brings its members forward in turn
+- Brings its members forward in turn, as a ring: from an open member, a side
+  step goes round the stack and never leaves it; Spread or the dock leave it
 - Can release a member back into the Spread
 - Becomes an individual card when one member remains
 - Shows its active position in the label row

@@ -499,7 +499,10 @@ rg -q 'Cycling a two-card stack moved its fixed reference layout fan' \
     "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'Vertical stack cycling changed the horizontal group envelope' \
     "${native_dir}/tests/SpreadLayoutTest.cpp"
-rg -q 'const bool activeStack = wasActive' "${effect_cpp}" "${card_cpp}"
+# An open card's side step goes round its Stack (CARD-LIFECYCLE.md §9).
+rg -q 'activeStack = step\.along == ActiveStep::Along::Stack' "${card_cpp}"
+rg -q 'if \(stackSize > 1\) return \{ActiveStep::Along::Stack, delta\};' \
+    "${native_dir}/src/ActiveStep.h"
 rg -q 'm_workspace\.pageStack\(delta\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'SpreadModel::detachSelectedMember' \
     "${native_dir}/src/SpreadModel.cpp"

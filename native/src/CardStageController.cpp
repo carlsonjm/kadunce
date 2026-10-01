@@ -4,6 +4,8 @@
 */
 
 #include "CardStageController.h"
+
+#include "ActiveStep.h"
 #include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
 #include "BentoCompositeGeometry.h"
@@ -2897,11 +2899,15 @@ void CardStageController::pageHorizontal(int delta)
     if (m_arrivalWindow) clearCardTransition();
     finishCardGrab(false);
     const bool wasActive = m_presentation == CardPresentation::Active;
-    const int stackSize = m_workspace.stackSizeForId(m_workspace.selectedId());
-    const int stackNext = m_workspace.stackActivePositionForId(m_workspace.selectedId()) + delta;
-    // An open card's side swipe walks its Stack's cards, then moves on.
-    const bool activeStack = wasActive && stackSize > 1 && stackNext >= 0 && stackNext < stackSize;
-    if (!activeStack && !m_launcherGuestActive) {
+    // An open card's side swipe goes round its Stack, which it never leaves;
+    // a card on its own walks the row. In Spread the row moves.
+    bool activeStack = false;
+    if (wasActive) {
+        const ActiveStep step = activeStep(m_workspace.stackSizeForId(m_workspace.selectedId()),
+            m_workspace.selectedIndex(), m_workspace.count(), delta);
+        activeStack = step.along == ActiveStep::Along::Stack;
+        delta = step.delta;
+    } else if (!m_launcherGuestActive) {
         // The row has two ends; paging stops at them.
         const int selectedIndex = m_workspace.selectedIndex();
         delta = std::clamp(delta, -selectedIndex, m_workspace.count() - 1 - selectedIndex);
