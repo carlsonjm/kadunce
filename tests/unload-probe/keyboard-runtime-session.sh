@@ -8,6 +8,7 @@
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/keyboard-keys.bash"
 trap 'echo "FAIL: keyboard runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -106,13 +107,13 @@ sleep 1
 record room-stale
 test "$(frame "Keyboard reveal probe")" = "$before"
 echo 'PASS: a card that answers a superseded size after the keys leave is asked again'
-# The Keyboard's own put-away: a tap on its Hide key, in the bottom row right
-# of 123. The keys claim less room all the way out, never the whole Keyboard
-# again as they go, and the card ends at its own height.
+# The Keyboard's own put-away: a tap on its Hide key. The keys claim less room
+# all the way out, never the whole Keyboard again as they go, and the card ends
+# at its own height.
 raise
 probe watchPanel
 keys=$(state | jq '.panel')
-x=$(jq '.x + .width * 0.77 | floor' <<<"$keys"); y=$(jq '.y + .height * 0.87 | floor' <<<"$keys")
+read -r x y < <(keyboard_key_point hide "$keys")
 probe down 1 "$x" "$y"; sleep .05; probe up 1
 sleep 1.5
 record room-put-away

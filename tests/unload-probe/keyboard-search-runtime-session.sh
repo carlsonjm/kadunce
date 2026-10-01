@@ -5,6 +5,7 @@
 # stay open while it does, and a touch outside both must still close it.
 # KADUNCE_TEST_LAUNCHER names the launcher build; the installed one otherwise.
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/keyboard-keys.bash"
 trap 'echo "FAIL: keyboard search $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -101,13 +102,10 @@ done
 state=$(probe keyboardState)
 printf 'hosted-keyboard %s\n' "$state"
 jq -e '.visible' <<<"$state"
-# A letter left of that area and right of the blank pointer edge: q or a on
-# the tablet, where the launcher's card does not reach.
-x=$(jq -n --argjson k "$state" --argjson g "$guest" '
-    [($g.x - 30), ($k.panel.x + $k.panel.width * 0.16)] | min | floor')
-y=$(jq '(.panel.y + .panel.height * 0.45) | floor' <<<"$state")
-jq -en --argjson k "$state" --argjson g "$guest" --argjson x "$x" '
-    $x < $g.x and $x > $k.panel.x + $k.panel.width * 0.1'
+# A letter outside that area: Z, low in its key, below the launcher's card.
+read -r x y < <(keyboard_key_point z "$(jq '.panel' <<<"$state")")
+jq -en --argjson g "$guest" --argjson x "$x" --argjson y "$y" '
+    $x < $g.x or $x > $g.x + $g.width or $y > $g.y + $g.height'
 printf 'hosted-key %s %s\n' "$x" "$y"
 type_letter
 first=$(probe keyboardState)

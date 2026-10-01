@@ -7,6 +7,7 @@
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/keyboard-keys.bash"
 trap 'echo "FAIL: keyboard roll runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -70,8 +71,7 @@ measure() {
 put_away() {
     local keys x y
     keys=$(state | jq '.panel')
-    # The Hide key, in the bottom row right of 123.
-    x=$(jq '.x + .width * 0.77 | floor' <<<"$keys"); y=$(jq '.y + .height * 0.87 | floor' <<<"$keys")
+    read -r x y < <(keyboard_key_point hide "$keys")
     probe down 1 "$x" "$y"; sleep .05; probe up 1
 }
 
