@@ -320,8 +320,7 @@ it stops at them. That order is also what names a Bento partner, and a partner
 search wraps, stepping over entries until it returns to where it started.
 
 Which entry is selected, and which side a two-entry Spread draws its neighbour
-on, are presentation. Neither decides which card becomes the partner, nor which
-side a pane takes.
+on, are presentation, deciding neither the partner nor a pane's side.
 
 ### Selecting an individual card
 
@@ -423,8 +422,8 @@ A stack:
 - Can release a member back into the Spread
 - Becomes an individual card when one member remains
 - Shows its active position in the label row
-- Takes no arrival from the native desktop; a carried window becomes an
-  individual card under §8, and joining a stack is a separate act on that card
+- Takes no arrival from the native desktop: a carried window becomes a card
+  under §8, and joining a stack is a separate act
 
 A Bento group:
 
