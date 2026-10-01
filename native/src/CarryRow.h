@@ -58,6 +58,11 @@ inline constexpr double CarryHeldRise = 1.05;
 // off than that.
 inline constexpr double CarryJoinReach = 0.32;
 inline constexpr double CarryJoinKeep = 1.3;
+// Over a Bento group the held card names the pane under the finger, so the
+// group is reached across nearly its whole width, and kept no further off
+// than its own edge.
+inline constexpr double CarryGroupReach = 0.45;
+inline constexpr double CarryGroupKeep = 0.5;
 inline constexpr int CarryJoinDwell = 250;
 // A new gap waits this long, so a card passing over another does not open
 // and close the row behind it.
@@ -197,6 +202,8 @@ struct CarryAim {
     Kind kind = Kind::Gap;
     // The gap before item `index`, or the item under the card.
     int index = 0;
+    // Over a Bento group, the pane under the finger; otherwise -1.
+    int part = -1;
     bool operator==(const CarryAim &other) const = default;
 };
 
@@ -211,10 +218,11 @@ inline int carryGapAt(double centre, const std::vector<double> &positions, int l
 }
 
 // What the held card's centre, at row coordinate `centre`, is over, given
-// where each item stands. `joinable` says which items a card may join; a gap
-// is kept between items `low` and `high`.
+// where each item stands. `reach` says, in card widths from each item's
+// centre, how near the held card must be to be over it, nothing where it
+// cannot be joined; a gap is kept between items `low` and `high`.
 inline CarryAim carryAim(double centre, const std::vector<double> &positions, double cardWidth,
-                         const std::vector<bool> &joinable, int low, int high)
+                         const std::vector<double> &reach, int low, int high)
 {
     const int items = static_cast<int>(positions.size());
     int nearest = -1;
@@ -226,10 +234,19 @@ inline CarryAim carryAim(double centre, const std::vector<double> &positions, do
             distance = d;
         }
     }
-    if (nearest >= 0 && static_cast<std::size_t>(nearest) < joinable.size()
-        && joinable[static_cast<std::size_t>(nearest)] && distance < CarryJoinReach * cardWidth)
+    if (nearest >= 0 && static_cast<std::size_t>(nearest) < reach.size()
+        && distance < reach[static_cast<std::size_t>(nearest)] * cardWidth)
         return {CarryAim::Kind::Card, nearest};
     return {CarryAim::Kind::Gap, carryGapAt(centre, positions, low, high)};
+}
+
+// The same, where every item a card may join is reached alike.
+inline CarryAim carryAim(double centre, const std::vector<double> &positions, double cardWidth,
+                         const std::vector<bool> &joinable, int low, int high)
+{
+    std::vector<double> reach(joinable.size(), 0.0);
+    for (std::size_t k = 0; k < joinable.size(); ++k) reach[k] = joinable[k] ? CarryJoinReach : 0.0;
+    return carryAim(centre, positions, cardWidth, reach, low, high);
 }
 
 // The row's reach: it slides until either end of the items from `low` to

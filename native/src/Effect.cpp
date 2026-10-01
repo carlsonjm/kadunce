@@ -1989,6 +1989,7 @@ QString Effect::nativeCarryState() const
         // under it has stepped back.
         {QStringLiteral("carryAim"), m_cardStage->carryAimName()},
         {QStringLiteral("carryIndex"), m_cardStage->carryAimIndex()},
+        {QStringLiteral("carryPane"), m_cardStage->carryAimPane()},
         {QStringLiteral("carryScale"), m_cardStage->carryScale()}
     }).toJson(QJsonDocument::Compact));
 }
@@ -3527,6 +3528,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                          KWin::LogicalOutput *screen)
 {
     m_paintingOutput = screen;
+    m_projectionBackdropDrawn = false;
     if (screen && screen == tabletOutput()) m_cardLabelTargets.clear();
     KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
     if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
@@ -4214,6 +4216,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
     KWin::Rect visualTarget = target;
     KWin::Rect projectionPaneClip;
+    bool risenPane = false;
     const bool bentoProjection =
         m_cardStage->usesBentoProjectionAperture(window);
     BentoCompositeGeometry composite;
@@ -4240,21 +4243,30 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         projectionPaneClip = KWin::Rect(qRound(pane->targetClip.x),
             qRound(pane->targetClip.y), qRound(pane->targetClip.width),
             qRound(pane->targetClip.height));
+        // The pane a held card would take rises out of the group, as a card
+        // does under one, growing about its own centre.
+        const auto rise = m_cardStage->carryPaneRise(window);
+        if (rise.scale != 1.0 || rise.lift != 0.0) {
+            const QPointF about = QRectF(projectionPaneClip).center();
+            const auto raise = [&](const KWin::Rect &rect) {
+                return KWin::Rect(qRound(about.x() + (rect.x() - about.x()) * rise.scale),
+                    qRound(about.y() + (rect.y() - about.y()) * rise.scale - rise.lift),
+                    qRound(rect.width() * rise.scale), qRound(rect.height() * rise.scale));
+            };
+            visualTarget = raise(visualTarget);
+            projectionPaneClip = raise(projectionPaneClip);
+            risenPane = true;
+        }
     } else if (bentoProjection) {
         return; // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
                 // minimized, so the group shows its panes and not this window.
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    bool paintProjectionBackdrop = false;
-    if (bentoProjection) {
-        for (auto *stacked : KWin::effects->stackingOrder()) {
-            if (stacked && !stacked->isDeleted() && !stacked->isMinimized()
-                && m_cardStage->isBentoProjectionPane(stacked)) {
-                paintProjectionBackdrop = stacked == window;
-                break;
-            }
-        }
-    }
+    // The group's backdrop goes under its panes, so the first pane drawn on
+    // this display draws it. KWin draws raised windows last, so that is not
+    // always the lowest pane in its stacking order.
+    const bool paintProjectionBackdrop = bentoProjection && !m_projectionBackdropDrawn;
+    if (paintProjectionBackdrop) m_projectionBackdropDrawn = true;
     if (!bentoProjection || paintProjectionBackdrop) {
         const auto surface = bentoProjection
             ? QRectF(composite.targetUnion.x, composite.targetUnion.y,
@@ -4312,7 +4324,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
-    const KWin::Region compositeFence = bentoProjection
+    // A risen pane stands out past the group's edge; its own clip bounds it.
+    const KWin::Region compositeFence = bentoProjection && !risenPane
         ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::Rect(
             qRound(composite.targetUnion.x), qRound(composite.targetUnion.y),
             qRound(composite.targetUnion.width), qRound(composite.targetUnion.height))))

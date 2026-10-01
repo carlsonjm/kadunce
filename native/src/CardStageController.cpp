@@ -598,7 +598,8 @@ QString CardStageController::carryAimName() const
     if (!m_cardGrabActive || !m_carry.moved) return {};
     if (m_carry.inStack) return QStringLiteral("place");
     switch (m_carry.aim.kind) {
-    case CarryAim::Kind::Card: return QStringLiteral("join");
+    case CarryAim::Kind::Card:
+        return m_carry.aim.part >= 0 ? QStringLiteral("pane") : QStringLiteral("join");
     case CarryAim::Kind::Gap:
         return m_carry.candidate.kind == CarryAim::Kind::Card
             ? QStringLiteral("over") : QStringLiteral("gap");
@@ -610,6 +611,26 @@ int CardStageController::carryAimIndex() const
 {
     if (!m_cardGrabActive || !m_carry.moved) return -1;
     return m_carry.inStack ? m_carry.paging.place : m_carry.aim.index;
+}
+
+QString CardStageController::carryAimPane() const
+{
+    if (!m_cardGrabActive || !m_carry.moved || m_carry.aim.kind != CarryAim::Kind::Card) return {};
+    const auto *pane = groupPane(m_carry.aim.part);
+    return pane ? pane->internalId().toString(QUuid::WithoutBraces) : QString();
+}
+
+CardStageController::PaneRise CardStageController::carryPaneRise(
+    const KWin::EffectWindow *window) const
+{
+    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0
+        || !window || groupPane(m_carry.risePart) != window
+        || carryItemOf(window) != m_carry.riseIndex) return {};
+    const auto frame = carryFrame(m_host->tabletOutputForCardStage());
+    if (!frame) return {};
+    // As a card under a held one rises, so does the one pane it would take.
+    return {1.0 + (CarryJoinRise - 1.0) * m_carry.rise,
+            0.04 * frame->height * m_carry.scale * m_carry.rise};
 }
 
 double CardStageController::carryScale() const
@@ -663,7 +684,8 @@ KWin::Rect CardStageController::carryTarget(KWin::LogicalOutput *output,
         + (carryItemPosition(item, frame->pitch) - m_carry.position) * m_carry.scale;
     double scale = m_carry.scale;
     double lift = 0.0;
-    if (item == m_carry.riseIndex) {
+    // Over a Bento group, the pane rises rather than the group (carryPaneRise).
+    if (item == m_carry.riseIndex && m_carry.risePart < 0) {
         scale *= 1.0 + (CarryJoinRise - 1.0) * m_carry.rise;
         lift = 0.04 * frame->height * m_carry.scale * m_carry.rise;
     }
@@ -1778,14 +1800,23 @@ void CardStageController::aimCarry()
     const double centre = carryRowAt(held.center().x(), *frame);
     const int items = int(m_carry.items.size());
     std::vector<double> positions(std::size_t(items), 0.0);
-    // A card joins any card but a Bento group.
-    std::vector<bool> joinable(std::size_t(items), false);
+    // A card joins any card. It takes a pane of a Bento group instead, and
+    // only a group that can take it is reached.
+    std::vector<double> reach(std::size_t(items), 0.0);
+    const bool groupTakes = groupTakesHeldCard();
+    int group = -1;
     for (int k = 0; k < items; ++k) {
         positions[std::size_t(k)] = carryItemPosition(k, frame->pitch);
         const int entry = m_carry.items[std::size_t(k)].entry;
         const auto face = m_workspace.windows().value(
             m_workspace.idAtOffset(entry - m_workspace.selectedIndex()) - 1);
-        joinable[std::size_t(k)] = face && !usesBentoProjectionAperture(face);
+        if (!face) continue;
+        if (!usesBentoProjectionAperture(face)) {
+            reach[std::size_t(k)] = CarryJoinReach;
+        } else if (groupTakes) {
+            reach[std::size_t(k)] = CarryGroupReach;
+            group = k;
+        }
     }
     if (m_carry.sliding) {
         // A row sliding under the card stands closed up and joins nothing:
@@ -1796,14 +1827,22 @@ void CardStageController::aimCarry()
         m_carry.candidateSince.restart();
         return;
     }
-    CarryAim aim = carryAim(centre, positions, frame->width, joinable, m_carry.low, m_carry.high);
+    CarryAim aim = carryAim(centre, positions, frame->width, reach, m_carry.low, m_carry.high);
     // A card that would join another keeps it until carried a little further
     // off, so a hand resting on it does not flicker between the two.
-    if (m_carry.aim.kind == CarryAim::Kind::Card && !(aim == m_carry.aim)
+    if (m_carry.aim.kind == CarryAim::Kind::Card
+        && (aim.kind != CarryAim::Kind::Card || aim.index != m_carry.aim.index)
         && m_carry.aim.index < items
         && std::abs(centre - positions[std::size_t(m_carry.aim.index)])
-            < CarryJoinReach * CarryJoinKeep * frame->width) {
-        aim = m_carry.aim;
+            < (m_carry.aim.index == group ? CarryGroupKeep : CarryJoinReach * CarryJoinKeep)
+                * frame->width) {
+        aim = {CarryAim::Kind::Card, m_carry.aim.index};
+    }
+    // Over a Bento group the pane under the finger is what it would take;
+    // a pane too small for it takes nothing, and the card is over a gap.
+    if (aim.kind == CarryAim::Kind::Card && aim.index == group) {
+        aim.part = groupPartFor(m_cardGrabPointer);
+        if (aim.part < 0) aim = {CarryAim::Kind::Gap, carryGapAt(centre, positions, m_carry.low, m_carry.high)};
     }
     if (!(aim == m_carry.candidate)) {
         m_carry.candidate = aim;
@@ -1817,7 +1856,12 @@ void CardStageController::aimCarry()
         if (waited < CarryJoinDwell) return;
         m_carry.aim = aim;
         m_carry.riseIndex = aim.index;
-        qInfo() << "Kadunce" << Revision << "held card would join item" << aim.index + 1;
+        m_carry.risePart = aim.part;
+        if (aim.part >= 0)
+            qInfo() << "Kadunce" << Revision << "held card would take pane" << aim.part + 1
+                    << "of the Bento group at item" << aim.index + 1;
+        else
+            qInfo() << "Kadunce" << Revision << "held card would join item" << aim.index + 1;
         break;
     case CarryAim::Kind::Gap:
         // The gap it is already in answers at once; a new one waits a moment.
@@ -1856,9 +1900,14 @@ void CardStageController::advanceCarry(double seconds)
     const int span = m_carry.high - m_carry.low;
     const bool onTablet = m_cardGrabDestinationOutput.isEmpty();
     const double finger = m_cardGrabStart.x() + m_cardGrabOffset.x();
+    // Resting on a Bento group, the finger moves between its panes, most of
+    // them off the middle: the row holds still under it until the card is
+    // carried off the group.
+    const bool onGroup = m_carry.moved && !m_carry.sliding
+        && m_carry.candidate.kind == CarryAim::Kind::Card && m_carry.candidate.part >= 0;
     if (m_carry.moved)
         m_carry.lean = carryLeanFollow(m_carry.lean, finger, frame->screenLeft, frame->screenWidth);
-    m_carry.depth = m_carry.moved && onTablet
+    m_carry.depth = m_carry.moved && onTablet && !onGroup
         ? carryLeanDepth(finger, m_carry.lean, frame->screenLeft, frame->screenWidth) : 0.0;
     // The row stays three across. Pulled down a short way, the card takes it
     // to one set zoom, and back up to three across, gliding either way.
@@ -1900,7 +1949,7 @@ void CardStageController::advanceCarry(double seconds)
                  seconds, 0.09, 0.3);
             m_carry.sliding = false;
         } else {
-            const double speed = onTablet
+            const double speed = onTablet && !onGroup
                 ? carrySlideSpeed(finger, m_carry.lean, frame->screenLeft, frame->screenWidth,
                                   m_carry.scale) : 0.0;
             const double before = m_carry.position;
@@ -1915,7 +1964,8 @@ void CardStageController::advanceCarry(double seconds)
         }
         // Come to rest over a card, the row settles it under the held one,
         // where the held card stood then; it does not follow the finger after.
-        if (m_carry.depth == 0.0 && !m_carry.sliding
+        // A Bento group stays where it is, so the pane under the finger does.
+        if (m_carry.depth == 0.0 && !m_carry.sliding && !onGroup
             && m_carry.candidate.kind == CarryAim::Kind::Card) {
             if (m_carry.settle != m_carry.candidate.index) {
                 m_carry.settle = m_carry.candidate.index;
@@ -1949,10 +1999,14 @@ void CardStageController::advanceCarry(double seconds)
         riseTarget = 1.0;
     } else if (m_carry.moved && m_carry.candidate.kind == CarryAim::Kind::Card) {
         m_carry.riseIndex = m_carry.candidate.index;
+        m_carry.risePart = m_carry.candidate.part;
         riseTarget = 0.6 * std::min(1.0, double(m_carry.candidateSince.elapsed()) / CarryJoinDwell);
     }
     ease(m_carry.rise, riseTarget, seconds, 0.05, 0.002);
-    if (riseTarget == 0.0 && m_carry.rise == 0.0) m_carry.riseIndex = -1;
+    if (riseTarget == 0.0 && m_carry.rise == 0.0) {
+        m_carry.riseIndex = -1;
+        m_carry.risePart = -1;
+    }
     // A card resting on another, or over a new gap, is still waiting to count.
     if (!(m_carry.candidate == m_carry.aim) && m_carry.moved) moving = true;
     m_carry.animating = moving;
@@ -2025,6 +2079,10 @@ void CardStageController::finishCardGrab(bool commit)
             restoreCarryOrigin();
         }
         outcome = stacked ? "reordered" : "stayed";
+    } else if (aim.kind == CarryAim::Kind::Card && aim.part >= 0) {
+        stacked = replaceGroupPane(aim.part);
+        if (!stacked) restoreCarryOrigin();
+        outcome = stacked ? "took a pane of the Bento group" : "stayed";
     } else if (aim.kind == CarryAim::Kind::Card) {
         const int entry = m_carry.items[std::size_t(aim.index)].entry;
         const int destinationId = m_workspace.idAtOffset(entry - m_workspace.selectedIndex());
@@ -3293,6 +3351,94 @@ bool CardStageController::pullPaneOutOfGroup(KWin::EffectWindow *pane)
         if (member && !member->isDeleted()) KWin::effects->setElevatedWindow(member, false);
     }
     return m_workspace.stackSizeForId(pulledId) == 1;
+}
+
+KWin::EffectWindow *CardStageController::groupPane(int part) const
+{
+    if (!m_bentoProjectionSession || part < 0 || part >= m_bentoProjectionSession->panes.size())
+        return nullptr;
+    return m_bentoProjectionSession->panes.at(part).window.data();
+}
+
+bool CardStageController::groupTakesHeldCard() const
+{
+    // A held card from the row is a card of its own; the partner test is the
+    // one that says a card, awake and on this display, may become a pane.
+    // A finger over another display is taking the card there instead.
+    auto *held = m_cardGrabActive && !m_carry.inStack && m_cardGrabDestinationOutput.isEmpty()
+        ? selectedWindow() : nullptr;
+    return m_bentoProjectionSession && held && m_workspace.selectedIsStandalone()
+        && isEligiblePartner(held) && managedRestore(held).has_value();
+}
+
+bool CardStageController::groupPaneHolds(int part) const
+{
+    auto *held = selectedWindow();
+    if (!held || !held->window() || !groupPane(part)) return false;
+    const auto &projection = *m_bentoProjectionSession;
+    const auto &area = projection.workspaceArea;
+    const auto stage = makeBentoStageArea(
+        {double(area.x()), double(area.y()), double(area.width()), double(area.height())});
+    const auto pixels = makePixelBentoLayout(projection.rects, int(std::lround(stage.x)),
+        int(std::lround(stage.y)), int(std::lround(stage.width)), int(std::lround(stage.height)));
+    if (std::size_t(part) >= pixels.size()) return false;
+    // The pane keeps its size, so a card it cannot hold does not take it.
+    const QSizeF minimum = held->window()->minSize();
+    const auto &pixel = pixels[std::size_t(part)];
+    return pixel.width >= minimum.width() && pixel.height >= minimum.height();
+}
+
+int CardStageController::groupPartFor(const QPointF &position) const
+{
+    auto *pane = groupPaneAt(m_host->tabletOutputForCardStage(), position);
+    if (!pane || !m_bentoProjectionSession) return -1;
+    const auto &panes = m_bentoProjectionSession->panes;
+    for (int part = 0; part < panes.size(); ++part)
+        if (panes.at(part).window == pane) return groupPaneHolds(part) ? part : -1;
+    return -1;
+}
+
+bool CardStageController::replaceGroupPane(int part)
+{
+    KWin::EffectWindow *held = selectedWindow();
+    KWin::EffectWindow *pane = groupPane(part);
+    const int heldId = liveCardIndex(held) + 1;
+    const int paneId = liveCardIndex(pane) + 1;
+    if (!pane || heldId <= 0 || paneId <= 0 || !groupTakesHeldCard() || !groupPaneHolds(part)
+        || m_workspace.stackSizeForId(paneId) < 2) return false;
+    const auto restore = managedRestore(held);
+    if (!restore) return false;
+    // The card takes the pane's rect, so every other pane keeps its window,
+    // its size and its side, and the group resumes with the card in it. The
+    // card comes with the record it has as a card, so release still returns
+    // it where it began.
+    BentoProjectionSession projection = *m_bentoProjectionSession;
+    projection.panes[part] = {held, *restore, false};
+    if (projection.lead == pane) projection.lead = held;
+    if (projection.sideWindow == pane) projection.sideWindow = held;
+    for (auto &stacked : projection.stackingOrder)
+        if (stacked == pane) stacked = held;
+    if (!validBentoProjectionShape(projectionShape(projection))) return false;
+    // In the row the card joins the group's Stack where the pane stood in it,
+    // and the pane leaves it to stand just after the group, as a pane pulled
+    // out does. Both or neither.
+    const int position = m_workspace.stackPositionForId(paneId);
+    SpreadModel trial = m_workspace.model();
+    if (!trial.stackSelectedWith(paneId, position) || !trial.releaseMember(paneId)) return false;
+    if (!m_workspace.stackSelectedWith(paneId, position) || !m_workspace.releaseMember(paneId))
+        return false;
+    if (m_activeRestore.window == held) parkActiveSnapshot();
+    retireActiveIdentity(held);
+    *m_bentoProjectionSession = projection;
+    for (auto *list : {&m_bentoProjectionWindows, &m_bentoProjectionPaneWindows})
+        for (auto &member : *list)
+            if (member == pane) member = held;
+    if (!pane->isDeleted()) KWin::effects->setElevatedWindow(pane, false);
+    ++m_restoreGeneration;
+    qInfo() << "Kadunce" << Revision << "card" << heldId << held->caption()
+            << "took pane" << part + 1 << "of the Bento group from" << pane->caption()
+            << "; it now stands alone at entry" << m_workspace.model().entryIndexForId(paneId) + 1;
+    return true;
 }
 
 bool CardStageController::cardAtPoint(const QPointF &position) const

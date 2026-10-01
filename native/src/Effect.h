@@ -156,6 +156,8 @@ private:
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
+    // Whether the Bento group's backdrop is drawn yet on the display painting.
+    bool m_projectionBackdropDrawn = false;
     QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);

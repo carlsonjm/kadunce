@@ -105,6 +105,17 @@ int main() {
     // Halfway between two cards is never over either.
     check(carryAim(2.5 * pitch, parted, card, joinable, 0, 3).kind == CarryAim::Kind::Gap,
           "the space between two cards joined one");
+    // A Bento group that can take the card is reached across nearly its
+    // whole width, so either pane can be named; a card is not.
+    const std::vector<double> reach{CarryJoinReach, CarryJoinReach, CarryGroupReach};
+    check(carryAim(3 * pitch + 0.4 * card, parted, card, reach, 0, 3)
+              == CarryAim{CarryAim::Kind::Card, 2},
+          "the far pane of a Bento group could not be reached");
+    check(carryAim(10 + 0.4 * card, parted, card, reach, 0, 3).kind == CarryAim::Kind::Gap,
+          "a card was joined from its edge");
+    check(carryAim(3 * pitch - 0.5 * pitch, parted, card, reach, 0, 3).kind == CarryAim::Kind::Gap,
+          "the space beside a Bento group joined it");
+    check(CarryGroupKeep * card < 0.5 * pitch, "a Bento group was kept past its neighbour's gap");
     // Sliding, the gap follows the card at once, over a card or not.
     const auto closed = positions({0.0, 0.0, 0.0}, pitch);
     check(carryGapAt(10, closed, 0, 3) == 1 && carryGapAt(2.4 * pitch, closed, 0, 3) == 3

@@ -228,6 +228,15 @@ public:
     [[nodiscard]] StackOutline stackOutline() const;
     [[nodiscard]] QString carryAimName() const;
     [[nodiscard]] int carryAimIndex() const;
+    // The pane of the Bento group a held card would take, by window id.
+    [[nodiscard]] QString carryAimPane() const;
+    // How a pane of the Bento group rises under a held card resting on it:
+    // its scale about its own centre, and its lift in logical pixels.
+    struct PaneRise {
+        double scale = 1.0;
+        double lift = 0.0;
+    };
+    [[nodiscard]] PaneRise carryPaneRise(const KWin::EffectWindow *window) const;
     [[nodiscard]] double carryScale() const;
     [[nodiscard]] bool animationsRunning() const;
     [[nodiscard]] bool launcherGuestActive() const;
@@ -476,6 +485,18 @@ private:
     // §5: a pane pulled down out of the Bento group leaves it, and a group
     // down to one pane ends, so on the tablet every member becomes a card.
     bool pullPaneOutOfGroup(KWin::EffectWindow *pane);
+    // The Bento group's pane `part`, in the order the group stores them.
+    [[nodiscard]] KWin::EffectWindow *groupPane(int part) const;
+    // Whether the held card may take a pane of the Bento group at all.
+    [[nodiscard]] bool groupTakesHeldCard() const;
+    // Whether the Bento group's pane `part` is large enough for the held card.
+    [[nodiscard]] bool groupPaneHolds(int part) const;
+    // The pane under `position` the held card would take, or -1 when that
+    // pane is too small for it.
+    [[nodiscard]] int groupPartFor(const QPointF &position) const;
+    // §5: a card let go on a pane of the Bento group in Spread takes that
+    // pane's place, and the pane becomes a card just after the group.
+    bool replaceGroupPane(int part);
     void browseStack(int delta);
     void commitRowStop();
     void dropRowMotion();
@@ -628,9 +649,11 @@ private:
         // held card's centre stood then, `settleX`.
         int settle = -1;
         double settleX = 0.0;
-        // The card a held one rests on rises; it settles as it is left.
+        // The card a held one rests on rises; it settles as it is left. Over
+        // a Bento group only the pane `risePart` rises.
         double rise = 0.0;
         int riseIndex = -1;
+        int risePart = -1;
         // Where on the card the finger holds it, as fractions of its size.
         QPointF grip;
         int heldIndex = 0;

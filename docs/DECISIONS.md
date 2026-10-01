@@ -150,8 +150,8 @@ most recently used resident, which moved two windows when you asked for
 one and changed the survivor's size and side. Fit alone answers what recency was
 for: a window that fits either pane takes the narrower, so a small tool never
 evicts the large window. What fit cannot answer is a small window you
-want in the wide pane; the side gesture outranks the rule where it exists, and a
-Spread drop that names its pane (12h) would give the tablet one.
+want in the wide pane; the side gesture outranks the rule where it exists, and on
+the tablet a Spread drop names its pane (`CARD-LIFECYCLE.md` §5).
 
 What a display owns and can hold decides what a gesture means; what the display
 is called decides nothing. Rejected: scoping automatic admission to external

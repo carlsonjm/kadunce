@@ -21,7 +21,7 @@ Browse everything and Files.
 | Input | What happens |
 | --- | --- |
 | Swipe up from the bottom edge | Spread opens and follows your finger; a quick flick opens it all the way. |
-| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if you let go before halfway; from a Bento layout or the desktop, Spread opens once the swipe passes halfway. KDE's Overview is set aside while Kadunce runs. |
+| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if let go before halfway; from a Bento layout or the desktop, Spread opens past halfway. KDE's Overview is set aside while Kadunce runs. |
 | `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout joins the row as one group card. |
 | Drag the row sideways, by finger or mouse | The row follows, coasts after a flick, settles on a card and springs back at either end. |
 | Wheel over the row | The row moves one card. |
@@ -30,10 +30,10 @@ Browse everything and Files.
 | Tap or click empty space, or press `Escape` | You go back to where you were: the card last open, or the layout you opened Spread from. |
 | Flick a card up | Its application closes; one that asks first comes forward with its question. A short lift springs back. The Bento group never closes this way. |
 | Pull down on the Bento group | The pane under your finger leaves the layout and becomes a card of its own. |
-| Hold a card | It rises under your finger and can be carried, and Spread stays three across. Held away from the middle, the row keeps sliding under it, faster further out. |
+| Hold a card | It rises under your finger to be carried; Spread stays three across. Held off the middle, the row slides under it, faster further out. |
 | Pull a held card down | The row zooms out to one set view; push it back up and it returns to three across. |
 | Let a held card go in a gap | It lands there as the row grows back to three across around it. |
-| Let a held card go on another card, once that card has risen | The two become a Stack. |
+| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger rises, and the card takes its place; the pane becomes a card just after the group. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes. A stroke that moves does not close it, and a touch on the keys types into it. |
@@ -50,7 +50,7 @@ are up, the bottom edge is theirs.
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
 | Pull a Stack's card down | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. A pull that stops short springs back. |
-| Hold a Stack's card | It lifts out, and the Stack parts at an outlined place where it would go; moving sideways moves that place, left toward the back. Let go and the card takes it, and the card then in front shows. Let go where it began and nothing changes. |
+| Hold a Stack's card | It lifts out, and the Stack parts at an outlined place where it would go; sideways moves that place, left toward the back. Let go and the card takes it, and the card then in front shows; where it began, nothing changes. |
 
 ## Active card
 
@@ -59,7 +59,7 @@ are up, the bottom edge is theirs.
 | Tap or click a card in Spread | It opens as the Active card; the Bento group opens as its layout. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
-| Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time you do this on the card display, every other window there becomes a card too. |
+| Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time on the card display, every other window there becomes a card too. |
 | Drag a window onto the card display | It becomes a card. |
 | Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. In a Stack, each of its cards comes in turn, from the end you arrive at, before the row moves on. |
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
@@ -72,9 +72,9 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on the side you let go. The partner is the Active card or, when the window is the Active card, its nearest neighbour on that side of the row. The upper half of the edge gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
+| Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on the side you let go. The partner is the Active card or, when the window is the Active card, its nearest neighbour on that side of the row. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
 | `Meta+B` | Starts or ends Bento on the largest attached monitor, or on the card display when none is attached. There it pairs the Active card, on the left, with the next card to its right. |
-| Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size at the top. With two or more there, every window joins one layout, the dragged one on the side you let it go; a window with no room waits in the dock. |
+| Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size at the top. With two or more there, every window joins one layout, the dragged one on the side you let go; one with no room waits in the dock. |
 | Hold a divider briefly, then drag | The panes on both sides resize; letting go keeps the new split. |
 | Drag a Bento pane onto another pane of its layout | The two swap places. Let go on its own place and nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, and that pane becomes a card. |

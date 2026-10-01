@@ -295,9 +295,8 @@ The remaining pane becomes an individual card.
 A display with a live Bento layout does not begin a new pair. A left or right
 snap targets that layout.
 
-An individual card returns to a live Bento either through an explicit
-left/right-edge action or by the user calling it forward. A display presenting
-its layout has no third answer, because §8 does not allow a card over live panes.
+An individual card returns to a live Bento through an explicit left/right-edge
+action, by the user calling it forward, or by a drop on its group in Spread.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
 Where the return was a side release, the pane that yields is the one occupying
@@ -306,6 +305,10 @@ dragging, and no interaction history decides it.
 
 A card called forward releases into no side, so §8 decides which pane yields.
 Every display answers a call forward; not every display offers the side gesture.
+
+In Spread, a held card raises the group's pane under the finger; let go, it
+takes that pane's place, size and side, and the pane becomes a card just after
+the group (§9). A pane too small for the card does not rise.
 
 ## 6. Spread selection
 
