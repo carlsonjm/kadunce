@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QCloseEvent>
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QPalette>
@@ -103,6 +104,19 @@ class SlowPaint : public QWidget {
 public:
  int delay = 0;
  void paintEvent(QPaintEvent *e) override { QThread::msleep(delay); QWidget::paintEvent(e); }
+};
+// Asks before it closes, as an editor holding unsaved work does: asked to
+// close, it stays and puts its question in a box over itself.
+class AsksFirst : public QWidget {
+protected:
+ void closeEvent(QCloseEvent *e) override {
+  e->ignore();
+  if (findChild<QMessageBox *>()) return;
+  auto *box = new QMessageBox(QMessageBox::Question, "Unsaved probe", "Close without saving?",
+                              QMessageBox::Yes | QMessageBox::No, this);
+  box->setAttribute(Qt::WA_DeleteOnClose);
+  box->open();
+ }
 };
 class Client : public QWidget {
  Q_OBJECT
@@ -276,6 +290,8 @@ public Q_SLOTS:
  // and wider than the smaller pane of a Bento pair.
  void tintedDialog() { auto *d = new QDialog(this); d->setWindowTitle("Tinted dialog probe"); tint(d, QColor(0xc0, 0x3a, 0x8a)); d->resize(700,300); d->setAttribute(Qt::WA_DeleteOnClose); d->show(); }
  void closeDialogs() { for (auto *d : findChildren<QDialog *>()) d->close(); }
+ // A window in a named colour that asks before it closes.
+ void askingCompanion(const QString &title, const QString &hex) { auto *w = new AsksFirst; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(560,420); w->show(); }
  // A tooltip over this window: a popup that no layout ever holds.
  void tooltip() { auto *w = new QWidget(this, Qt::ToolTip); w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("tooltip"); w->setGeometry(40,40,160,32); w->show(); }
  void closeTooltip() { for (auto *w : findChildren<QWidget *>("tooltip", Qt::FindDirectChildrenOnly)) w->close(); }

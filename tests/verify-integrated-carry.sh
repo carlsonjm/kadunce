@@ -77,6 +77,7 @@ scenes=(
     monitor-full-runtime tablet
     monitor-return-runtime tablet
     spread-bento-drop-runtime tablet
+    flick-ask-runtime tablet
     stack-still-runtime tablet
     lifetime-runtime tablet
     spread-fingers-runtime tablet
