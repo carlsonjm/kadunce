@@ -18,12 +18,12 @@ which lets any application interrupt whatever you are doing. The cost is a
 dialog that can go unnoticed, which is why the mark matters.
 
 The mark is Plasma's standard attention flag, so Kadunce and whatever shows it
-never depend on each other. Ambient is the place a waiting application shows,
-rather than a notification that pulls you to it: a waiting dialog is ongoing
-state with an owner and a truthful action, which is Ambient's admission rule,
-while Temperance keeps passing events. A Wayland dialog that names no parent is
-indistinguishable from an application and is admitted as one; such dialogs are
-found by survey rather than guessed at.
+never depend on each other. A waiting application shows in Ambient, not as
+a notification pulling you to it: a waiting dialog is ongoing state with an
+owner and a truthful action, Ambient's admission rule; Temperance keeps passing
+events. A Wayland dialog naming no parent is indistinguishable from an
+application and admitted as one; such dialogs are found by survey, not guessed
+at.
 
 ### Switching Kadunce on puts the tablet in cards
 
@@ -70,15 +70,12 @@ paired. It differs from the adoption question, which is asked of native windows,
 and neither stands in for the other. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
 
-### A Stack is a ring that keeps its room; the row is a line
+### A Stack is a ring that keeps its room
 
-From an open member, a side step goes round its Stack and never moves on along
-the row (`CARD-LIFECYCLE.md` §9, `INPUT.md` § Active card). A Stack is a set
-made by hand, and one step too many should not drop you out of it; Spread and
-the dock are the ways out. The row keeps its two ends (§6). Every Stack shows
-its fan and keeps its room wherever it stands, so nothing in the row moves but
-under the finger. Rejected: walking a Stack and then moving on; and opening
-only the centred Stack, which re-centred the line after every landing.
+A side step from an open member goes round its Stack, never on along the row
+(`CARD-LIFECYCLE.md` §9): a Stack is chosen by hand, and Spread or the dock
+leave it. Every Stack keeps its fan's room, so the row moves only under the
+finger. Rejected: moving on past a Stack's end; re-centring the row on landing.
 
 ### Overflow is deleted, not reconciled
 
@@ -143,13 +140,13 @@ growth-only admission, which answered a full layout by drawing the arrival in
 front of it, the one state §2 does not name: a card over live panes, the layout
 running underneath. A person who wants one window alone has Spread and stacks.
 Both arrival paths, launch and activation, retire the layout into a Spread group
-before an arrival no slot can hold becomes a card, and the card stage refuses a
-new window outright while its display presents Bento, so the order is enforced
-by the code rather than remembered by each caller.
+before an arrival no slot holds becomes a card, and the card stage refuses a new
+window while its display presents Bento, so code, not each caller, keeps the
+order.
 
-The accepted cost: a window that opens on its own can take a pane. On a display
-with room the layout grows and nothing is displaced; on a two-pane display the
-exchange is visible and the displaced window is one Spread entry away. Hiding a
+The accepted cost: a window that opens on its own can take a pane. With room the
+layout grows; on a two-pane display the exchange is visible, and the displaced
+window is one Spread entry away. Hiding a
 called window behind a layout was judged worse.
 
 ### The arrival claims one slot, and only its occupant leaves
@@ -163,10 +160,9 @@ evicts the large window. What fit cannot answer is a small window you
 want in the wide pane; the side gesture outranks the rule where it exists, and on
 the tablet a Spread drop names its pane (`CARD-LIFECYCLE.md` §5).
 
-What a display owns and can hold decides what a gesture means; what the display
-is called decides nothing. Rejected: scoping automatic admission to external
-displays, which keyed behaviour to a name-prefix guess at hardware when the
-property that matters is whether the work area has room.
+What a display owns and can hold decides what a gesture means, never its name.
+Rejected: scoping automatic admission to external displays, a name-prefix guess
+at hardware, when what matters is whether the work area has room.
 
 ### The Bento shortcut names a pair, and targets a display rather than the pointer
 
@@ -414,9 +410,9 @@ it does edge tiling. Only keys typing into the card or its own dialog make room;
 Spread, Bento panes and ordinary windows make none. Cards are laid out in the
 work area as it stood when the keys came until the dock takes its room back,
 because the dock yields to the keys (29 September 2026). Rejected: the live work
-area, which gave a card chosen meanwhile the dock's room. KWin moves only a
-window touching an edge that moved, so a panel taking or giving up room places
-the Active card again.
+area, which gave a card chosen meanwhile the dock's room. KWin moves only
+windows touching a moved edge, so a panel taking or giving up room places the
+Active card again.
 
 ### The keyboard comes up for the text, not for focus
 

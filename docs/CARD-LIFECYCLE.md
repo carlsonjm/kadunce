@@ -418,10 +418,8 @@ A stack:
 
 - Has one selected member
 - Remains separate from Bento
-- Brings its members forward in turn, as a ring: from an open member, a side
-  step goes round the stack and never leaves it; Spread or the dock leave it
-- Shows its fan and keeps the room the fan takes wherever it stands in the
-  row, so the row moves past it and lands on it without anything moving
+- Brings its members forward in turn, as a ring that side steps never leave
+- Keeps its fan's room wherever it stands, so landing on it moves nothing
 - Can release a member back into the Spread
 - Becomes an individual card when one member remains
 - Shows its active position in the label row

@@ -61,7 +61,7 @@ are up, the bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time on the card display, every other window there becomes a card too. |
 | Drag a window onto the card display | It becomes a card. |
-| Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. A Stack is a ring: arriving at one, its cards come in turn from the end you arrive at and round again, never on along the row. Spread or the dock leave it. |
+| Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. A Stack is a ring: its cards come in turn and round again; Spread or the dock leave it. |
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack as a swipe goes. Only while cards are shown; elsewhere these keys stay KDE's. |
 | `Meta+Up`, `Meta+Down` | The previous or next card of the current Stack. Only while cards are shown. |
