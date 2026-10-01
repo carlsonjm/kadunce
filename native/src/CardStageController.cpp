@@ -6,6 +6,7 @@
 #include "CardStageController.h"
 
 #include "ActiveStep.h"
+#include "HeldTuck.h"
 #include "RowCardTarget.h"
 #include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
@@ -623,17 +624,44 @@ QString CardStageController::carryAimPane() const
     return pane ? pane->internalId().toString(QUuid::WithoutBraces) : QString();
 }
 
-CardStageController::PaneRise CardStageController::carryPaneRise(
-    const KWin::EffectWindow *window) const
+double CardStageController::carryPaneRecess(const KWin::EffectWindow *window) const
 {
     if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0
         || !window || groupPane(m_carry.risePart) != window
-        || carryItemOf(window) != m_carry.riseIndex) return {};
-    const auto frame = carryFrame(m_host->tabletOutputForCardStage());
-    if (!frame) return {};
-    // As a card under a held one rises, so does the one pane it would take.
-    return {1.0 + (CarryJoinRise - 1.0) * m_carry.rise,
-            0.04 * frame->height * m_carry.scale * m_carry.rise};
+        || carryItemOf(window) != m_carry.riseIndex) return 0.0;
+    // The pane a held card would take gives way to a cutout as the card waits
+    // over it, and all the way once it would take it.
+    return m_carry.rise;
+}
+
+std::optional<CardStageController::HeldTuck> CardStageController::heldTuck() const
+{
+    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0) return std::nullopt;
+    auto *output = m_host->tabletOutputForCardStage();
+    KWin::EffectWindow *pane = groupPane(m_carry.risePart);
+    if (!output || !pane || carryItemOf(pane) != m_carry.riseIndex) return std::nullopt;
+    const KWin::Rect group = carryTarget(output, pane);
+    const KWin::Rect workspace = bentoProjectionWorkspace();
+    const auto stored = bentoProjectionRect(pane);
+    if (group.isEmpty() || workspace.isEmpty() || !stored) return std::nullopt;
+    // The cutout is where the group draws the pane, worked out as it does.
+    const auto composite = makeBentoCompositeGeometry(
+        {double(group.x()), double(group.y()), double(group.width()), double(group.height())},
+        {double(workspace.x()), double(workspace.y()), double(workspace.width()), double(workspace.height())});
+    const auto frame = pane->frameGeometry();
+    const auto expanded = pane->expandedGeometry();
+    const auto projected = makeBentoProjectedPaneGeometry(composite,
+        {double(workspace.x()), double(workspace.y()), double(workspace.width()), double(workspace.height())},
+        *stored, {frame.x(), frame.y(), frame.width(), frame.height()},
+        {expanded.x(), expanded.y(), expanded.width(), expanded.height()});
+    if (!projected) return std::nullopt;
+    const CardRect clip = projected->targetClip;
+    const auto pose = heldTuckPose(clip, {double(group.x()), double(group.y()),
+                                          double(group.width()), double(group.height())});
+    const auto round = [](const CardRect &r) {
+        return KWin::Rect(qRound(r.x), qRound(r.y), qRound(r.width), qRound(r.height));
+    };
+    return HeldTuck{m_carry.rise, round(pose.rect), pose.rotation, round(clip), group};
 }
 
 double CardStageController::carryScale() const
@@ -687,7 +715,8 @@ KWin::Rect CardStageController::carryTarget(KWin::LogicalOutput *output,
         + (carryItemPosition(item, frame->pitch) - m_carry.position) * m_carry.scale;
     double scale = m_carry.scale;
     double lift = 0.0;
-    // Over a Bento group, the pane rises rather than the group (carryPaneRise).
+    // Over a Bento group, its pane gives way rather than the group rising
+    // (carryPaneRecess).
     if (item == m_carry.riseIndex && m_carry.risePart < 0) {
         scale *= 1.0 + (CarryJoinRise - 1.0) * m_carry.rise;
         lift = 0.04 * frame->height * m_carry.scale * m_carry.rise;
@@ -2092,7 +2121,17 @@ void CardStageController::finishCardGrab(bool commit)
         }
         outcome = stacked ? "reordered" : "stayed";
     } else if (aim.kind == CarryAim::Kind::Card && aim.part >= 0) {
+        // Let go on a pane, the card takes it, and the group opens as its
+        // layout with the card growing from where it was tucked
+        // (CARD-LIFECYCLE.md §5).
+        const auto card = [](const QRectF &r) { return CardRect{r.x(), r.y(), r.width(), r.height()}; };
+        const QPointF offset = cardGrabOffset();
+        const QRectF free = QRectF(cardGrabTarget()).translated(offset);
+        const auto tuck = heldTuck();
+        const CardRect drawn = tuck
+            ? heldTuckBlend(card(free), card(QRectF(tuck->tucked)), tuck->progress) : card(free);
         stacked = replaceGroupPane(aim.part);
+        if (stacked) m_openGroupFrom = QRectF(drawn.x, drawn.y, drawn.width, drawn.height);
         if (!stacked) restoreCarryOrigin();
         outcome = stacked ? "took a pane of the Bento group" : "stayed";
     } else if (aim.kind == CarryAim::Kind::Card) {
@@ -2111,6 +2150,8 @@ void CardStageController::finishCardGrab(bool commit)
     resetCardGrabState(grabbed, stacked);
     qInfo() << "Kadunce" << Revision << "released Spread card"
             << m_workspace.selectedId() << outcome << "at entry" << m_workspace.selectedIndex() + 1;
+    if (const auto from = std::exchange(m_openGroupFrom, std::nullopt))
+        m_host->openGroupAfterDropForCardStage(*from);
 }
 
 void CardStageController::resetCardGrabState(

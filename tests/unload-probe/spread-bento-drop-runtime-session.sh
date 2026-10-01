@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §5, §6 and §9, INPUT.md § Spread: in Spread the Bento group
 # is a picture of its layout, and a card held over it names the pane under the
-# finger, which rises before the card is let go. Let go, the card becomes that
-# pane; the pane it replaces becomes a card of its own just after the group;
-# the pane on the other half keeps its window and its side, and the row holds
-# still while the finger moves between the panes.
+# finger. That pane gives way to a cutout and the card slides under the group in
+# its place, showing through it. Let go, the card becomes that pane and the
+# group opens as its layout; the pane it replaces becomes a card of its own; the
+# pane on the other half keeps its window and its side, and the row holds still
+# while the finger moves between the panes.
 #
 # The tablet holds a Bento pair beside one individual card. Spread opens on the
 # group, and the card beside it is held and let go over the group's left half,
 # then, from the same start, over its right half, each by touch and by pointer.
-# Each pass photographs the strip just above the group while the card is held:
-# the pane that would be replaced stands into it, and the other does not.
+# Each pass photographs the strip just above the group while the card is held,
+# where nothing rises now, and the middle of the pane that gives way, where the
+# held card shows through.
 #
 # Needs the tablet fixture: only a display that can own cards presents Spread.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -93,6 +95,7 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     pick=$(jq -r --arg id "$held" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
         | (([.x, 0] | max) + ([.x + .width, 1280] | min)) / 2 | floor' <<<"$context")
     y=$((gy + gh / 2))
+    heldColour=$(colour "$((pick - 12))" "$((y - 12))" "$name-held-card")
     press "$pick" "$y"
     sleep .4
     finger=$((pick < gx ? pick + 30 : pick - 30))
@@ -123,21 +126,24 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     check "$name: the row holds still under the finger" test "$arrivedX" = "$restedX"
     risen=$(colour "$((target - 12))" "$strip" "$name-target-held")
     otherHeld=$(colour "$((other - 12))" "$strip" "$name-other-held")
-    echo "$name: strip while held $risen / $otherHeld"
-    check "$name: the pane under the finger rises out of the group" apart "$risen" "$behind"
+    through=$(colour "$((target - 12))" "$((y - 12))" "$name-through-cutout")
+    # Beside the seam, inside the other pane: a card on top under the finger
+    # would cover it; a card under the group, in its pane's shape, does not.
+    if [[ $half == left ]]; then seam=$((gx + gw * 66 / 100)); else seam=$((gx + gw * 55 / 100)); fi
+    otherPane=$(colour "$((other - 12))" "$((y - 12))" "$name-other-pane")
+    # The whole group as it looks with the card under it, kept for review.
+    python3 "$(dirname "$0")/capture-png.py" "$((gx > 60 ? gx - 60 : 0))" "$((gy > 40 ? gy - 40 : 0))" \
+        "$((gw + 120))" "$((gh + 80))" "$shots/$name-tucked.png"
+    beside=$(colour "$((seam - 12))" "$((y - 12))" "$name-beside-seam")
+    echo "$name: strip while held $risen / $otherHeld; through the cutout $through; the card $heldColour; the other pane $otherPane, beside the seam $beside"
+    check "$name: nothing rises out of the group" near "$risen" "$behind"
     check "$name: the other pane stays where it is" near "$otherHeld" "$behind"
+    check "$name: the card shows through where the pane was" near "$through" "$heldColour"
+    check "$name: the card is under the group, not over the other pane" near "$beside" "$otherPane"
+    check "$name: the other pane is not the card" apart "$otherPane" "$heldColour"
     lift
+    # Let go, the group opens as its layout with the card in that pane.
     sleep 1.2
-    report "$name-dropped"
-    check "$name: the card joins the group" member "$held" "$stays"
-    check "$name: the pane on that half becomes a card of its own" alone "$replaced"
-    check "$name: that card stands just after the group" \
-        test "$(entryOf "$replaced")" = "$(( $(entryOf "$stays") + 1 ))"
-    check "$name: Spread stays open" context '.cardStage.presentation == "cardLine"'
-
-    # Called forward, the layout shows the card on the half it was let go on.
-    probe activateWindowId "$stays" >/dev/null
-    sleep 1
     report "$name-presented"
     echo "$name: held card at $(frame "$held" | jq -c '{x, width}'), staying pane at $(frame "$stays" | jq -c '{x, width}'), replaced pane at $(frame "$replaced" | jq -c '{x, width}')"
     check "$name: the layout holds two panes" twoPanes
@@ -151,7 +157,7 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     fi
     check "$name: the other pane keeps its side" \
         test "$(frame "$stays" | jq '.x < 640')" = "$([[ $half == right ]] && echo true || echo false)"
-    check "$name: the replaced pane stays a card" alone "$replaced"
+    check "$name: the replaced pane is a card of its own" alone "$replaced"
 
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .3

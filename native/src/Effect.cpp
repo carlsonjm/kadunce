@@ -10,6 +10,7 @@
 #include "LaunchIdentity.h"
 #include "SpreadLayout.h"
 #include "BentoCompositeGeometry.h"
+#include "HeldTuck.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
 #include "NativeLanding.h"
@@ -139,6 +140,63 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     shader->setUniform("outlineOpacity", outline);
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+    const bool blended = glIsEnabled(GL_BLEND);
+    const bool scissored = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissor[4];
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    GLint sr, dr, sa, da;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &sr); glGetIntegerv(GL_BLEND_DST_RGB, &dr);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &sa); glGetIntegerv(GL_BLEND_DST_ALPHA, &da);
+    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+    glEnable(GL_SCISSOR_TEST);
+    buffer->reset(); buffer->setVertices(vertices); buffer->render(clip, GL_TRIANGLES, true);
+    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
+    if (!scissored) glDisable(GL_SCISSOR_TEST);
+    glBlendFuncSeparate(sr, dr, sa, da);
+    if (!blended) glDisable(GL_BLEND);
+}
+// The cutout a pane of the Bento group leaves under a held card: its rim
+// shaded, deepest along the top, as a recess lit from above would be.
+constexpr auto CutoutFragment = R"GLSL(#version 140
+in vec2 point;
+out vec4 fragColor;
+uniform vec4 destinationBox;
+uniform float outlineRadius;
+uniform float strength;
+#include "colormanagement.glsl"
+void main() {
+    vec2 halfSize = destinationBox.zw * 0.5;
+    float radius = min(outlineRadius, min(halfSize.x, halfSize.y));
+    vec2 q = abs(point - destinationBox.xy - halfSize) - (halfSize - vec2(radius));
+    float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    float feather = max(fwidth(d), 0.5);
+    float inside = 1.0 - smoothstep(-feather, 0.0, d);
+    float rim = 1.0 - smoothstep(0.0, 14.0, -d);
+    float top = 1.0 - smoothstep(0.0, 22.0, point.y - destinationBox.y);
+    float alpha = strength * inside * clamp(0.55 * rim * rim + 0.35 * top, 0.0, 0.85);
+    vec4 color = vec4(0.0, 0.0, 0.0, alpha);
+    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
+}
+)GLSL";
+void paintCutout(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
+    const KWin::RenderViewport &viewport, const KWin::Region &clip,
+    const QRectF &box, float strength)
+{
+    if (!shader || box.isEmpty() || clip.isEmpty() || strength <= 0.0F) return;
+    QList<QVector2D> vertices;
+    vertices << QVector2D(box.topLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomLeft())
+             << QVector2D(box.bottomLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomRight());
+    KWin::ShaderBinder binder(shader);
+    auto matrix = viewport.projectionMatrix();
+    matrix.scale(viewport.scale(), viewport.scale());
+    shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+    shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+    shader->setUniform("outlineRadius", float(CardCornerRadius));
+    shader->setUniform("strength", strength);
+    shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+        renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+    // Leave blending and the scissor as they were found.
     const bool blended = glIsEnabled(GL_BLEND);
     const bool scissored = glIsEnabled(GL_SCISSOR_TEST);
     GLint previousScissor[4];
@@ -336,6 +394,8 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
+        m_cutoutShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(CutoutFragment));
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -3300,6 +3360,9 @@ void Effect::activateSelectedFromInput()
                 if (!m_cardStage->resumeSelectedBentoProjection()) {
                     qWarning() << "Kadunce" << Revision
                                << "declined to resume the selected Bento group";
+                } else if (m_paneArrivalWindow == requested) {
+                    // A card let go on a pane grows into it from where it was.
+                    startPaneArrival(requested, tabletOutput(), m_paneArrivalFrom);
                 }
             } else if (requested->isMinimized()) {
                 // §2: selecting a sleeping card wakes it and presents it as
@@ -3309,7 +3372,37 @@ void Effect::activateSelectedFromInput()
                 toggle();
             }
         }
+        m_paneArrivalWindow.clear();
     });
+}
+
+void Effect::openGroupAfterDropForCardStage(const QRectF &from)
+{
+    // CARD-LIFECYCLE.md §5: a card let go on a pane takes it, and the group
+    // opens as its layout, as choosing it in Spread does.
+    m_paneArrivalWindow = selectedWindow();
+    m_paneArrivalFrom = from;
+    activateSelectedFromInput();
+}
+
+void Effect::startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                              const QRectF &from)
+{
+    if (!window || window->isDeleted() || !window->window() || !output || !from.isValid()
+        || window->window()->moveResizeOutput() != output) return;
+    const QRectF to(window->window()->moveResizeGeometry());
+    if (to.isEmpty() || to == from) return;
+    // The window is already on its pane, sized once; only its picture travels,
+    // replacing whatever motion the layout gave it.
+    for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
+        if (it->window != window) { ++it; continue; }
+        unredirect(window);
+        it = m_bentoMotions.erase(it);
+    }
+    QElapsedTimer clock;
+    clock.start();
+    m_bentoMotions.append({window, output, from, to, QRectF(output->geometry()), clock});
+    KWin::effects->addRepaintFull();
 }
 
 void Effect::toggle()
@@ -4121,6 +4214,8 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const int slot = m_cardStage->paintSlot(window);
     const bool grabbedWindow = m_cardStage->cardGrabActive()
         && window == m_cardStage->selectedWindow();
+    // Resting on a pane of the Bento group, the held card slides under it.
+    const auto heldTuck = grabbedWindow ? m_cardStage->heldTuck() : std::nullopt;
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
         grabbedWindow);
@@ -4199,6 +4294,16 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target = m_cardStage->cardGrabTarget();
         const auto offset = m_cardStage->cardGrabOffset();
         target.translate(qRound(offset.x()), qRound(offset.y()));
+        // It takes the pane's shape as it goes (CARD-LIFECYCLE.md §5).
+        if (heldTuck) {
+            const auto blended = heldTuckBlend(
+                {double(target.x()), double(target.y()), double(target.width()), double(target.height())},
+                {double(heldTuck->tucked.x()), double(heldTuck->tucked.y()),
+                 double(heldTuck->tucked.width()), double(heldTuck->tucked.height())},
+                heldTuck->progress);
+            target = KWin::Rect(qRound(blended.x), qRound(blended.y),
+                                qRound(blended.width), qRound(blended.height));
+        }
     } else {
         target.translate(qRound(paintPose.x), qRound(paintPose.y));
     }
@@ -4211,12 +4316,12 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target.translate(qRound(direction * (1.0 - opacity) * target.width() * 0.25), 0);
     }
     paintPose.rotation += launcherGuestRotation;
+    if (heldTuck) paintPose.rotation += heldTuck->rotation * heldTuck->progress;
     if (!paintPose.visible) {
         return;
     }
     KWin::Rect visualTarget = target;
     KWin::Rect projectionPaneClip;
-    bool risenPane = false;
     const bool bentoProjection =
         m_cardStage->usesBentoProjectionAperture(window);
     BentoCompositeGeometry composite;
@@ -4243,20 +4348,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         projectionPaneClip = KWin::Rect(qRound(pane->targetClip.x),
             qRound(pane->targetClip.y), qRound(pane->targetClip.width),
             qRound(pane->targetClip.height));
-        // The pane a held card would take rises out of the group, as a card
-        // does under one, growing about its own centre.
-        const auto rise = m_cardStage->carryPaneRise(window);
-        if (rise.scale != 1.0 || rise.lift != 0.0) {
-            const QPointF about = QRectF(projectionPaneClip).center();
-            const auto raise = [&](const KWin::Rect &rect) {
-                return KWin::Rect(qRound(about.x() + (rect.x() - about.x()) * rise.scale),
-                    qRound(about.y() + (rect.y() - about.y()) * rise.scale - rise.lift),
-                    qRound(rect.width() * rise.scale), qRound(rect.height() * rise.scale));
-            };
-            visualTarget = raise(visualTarget);
-            projectionPaneClip = raise(projectionPaneClip);
-            risenPane = true;
-        }
+        // The pane a held card would take gives way to a cutout, so the card
+        // can slide under the group in its place (CARD-LIFECYCLE.md §5).
+        const double recess = m_cardStage->carryPaneRecess(window);
+        if (recess > 0.0) data.multiplyOpacity(1.0 - recess);
     } else if (bentoProjection) {
         return; // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
                 // minimized, so the group shows its panes and not this window.
@@ -4324,8 +4419,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
-    // A risen pane stands out past the group's edge; its own clip bounds it.
-    const KWin::Region compositeFence = bentoProjection && !risenPane
+    const KWin::Region compositeFence = bentoProjection
         ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::Rect(
             qRound(composite.targetUnion.x), qRound(composite.targetUnion.y),
             qRound(composite.targetUnion.width), qRound(composite.targetUnion.height))))
@@ -4354,9 +4448,33 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureRadius = useFanAperture
         ? static_cast<float>(apertureRadius) : 0.0F;
 
-    KWin::effects->paintWindow(
-        renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-        cardClip, data);
+    if (heldTuck) {
+        // Under the group the card shows only through the cutout and past the
+        // group's edge; the rest of it fades as it slides beneath.
+        const KWin::Region group(viewport.mapToDeviceCoordinatesAligned(heldTuck->group));
+        const KWin::Region hole(viewport.mapToDeviceCoordinatesAligned(heldTuck->pane));
+        const double under = heldTuckUnder(heldTuck->progress);
+        const KWin::Region over = cardClip & group.subtracted(hole);
+        if (under < 1.0 && !over.isEmpty()) {
+            KWin::WindowPaintData fading(data);
+            fading.multiplyOpacity(1.0 - under);
+            KWin::effects->paintWindow(
+                renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, over, fading);
+        }
+        KWin::effects->paintWindow(
+            renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
+            cardClip & outputFence.subtracted(group).united(hole), data);
+        // The rim darkens what shows through the cutout once the card is
+        // under it, and only the cutout while the card is still above.
+        const KWin::Region shaded = under >= 0.5 ? hole
+            : hole.subtracted(KWin::Region(viewport.mapToDeviceCoordinatesAligned(target)));
+        paintCutout(m_cutoutShader.get(), renderTarget, viewport, shaded,
+                    QRectF(heldTuck->pane), float(heldTuck->progress));
+    } else {
+        KWin::effects->paintWindow(
+            renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
+            cardClip, data);
+    }
 
     m_fanApertureWindow = nullptr;
     m_fanPaintSize = {};

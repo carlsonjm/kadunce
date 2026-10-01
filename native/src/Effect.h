@@ -169,6 +169,11 @@ private:
         QElapsedTimer timer;
     };
     QList<BentoMotion> m_bentoMotions;
+    // A card let go on a pane of the Bento group grows into that pane from
+    // where it was drawn, once the group has opened as its layout.
+    QPointer<KWin::EffectWindow> m_paneArrivalWindow;
+    QRectF m_paneArrivalFrom;
+    void startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
     QRectF bentoPresentationRect(KWin::EffectWindow *window) const override;
     void animateBentoLayout(KWin::LogicalOutput *output,
         const QList<QPointer<KWin::EffectWindow>> &windows,
@@ -198,6 +203,7 @@ private:
     void finishLiftFromInput(double velocity) override { m_cardStage->finishLift(velocity); }
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
+    void openGroupAfterDropForCardStage(const QRectF &from) override;
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
@@ -473,6 +479,7 @@ private:
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
+    std::unique_ptr<KWin::GLShader> m_cutoutShader;
     std::optional<KWin::RectF> m_carryPreview;
     DesktopExitLabel m_detachLabel;
     std::optional<KWin::RectF> m_linePreview;

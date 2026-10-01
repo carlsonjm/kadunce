@@ -104,6 +104,9 @@ public:
     // selected; open it so the question can be answered. A host that cannot
     // open a card leaves it selected in Spread.
     virtual void presentSelectedForCardStage() {}
+    // A card let go on a pane of the Bento group took that pane; open the
+    // group as its layout, the card growing from `from`, where it was drawn.
+    virtual void openGroupAfterDropForCardStage(const QRectF &) {}
     virtual void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) = 0;
     virtual void unredirectForCardStage(KWin::EffectWindow *window) = 0;
@@ -230,13 +233,20 @@ public:
     [[nodiscard]] int carryAimIndex() const;
     // The pane of the Bento group a held card would take, by window id.
     [[nodiscard]] QString carryAimPane() const;
-    // How a pane of the Bento group rises under a held card resting on it:
-    // its scale about its own centre, and its lift in logical pixels.
-    struct PaneRise {
-        double scale = 1.0;
-        double lift = 0.0;
+    // How far the pane of the Bento group a held card rests on has given way
+    // to a cutout, from 0 to 1; every other window, 0.
+    [[nodiscard]] double carryPaneRecess(const KWin::EffectWindow *window) const;
+    // Where a held card resting on a pane is drawn as it slides under the
+    // group (HeldTuck.h): how far, its tucked rect and tilt, and the cutout
+    // and group it slides under.
+    struct HeldTuck {
+        double progress = 0.0;
+        KWin::Rect tucked;
+        double rotation = 0.0;
+        KWin::Rect pane;
+        KWin::Rect group;
     };
-    [[nodiscard]] PaneRise carryPaneRise(const KWin::EffectWindow *window) const;
+    [[nodiscard]] std::optional<HeldTuck> heldTuck() const;
     [[nodiscard]] double carryScale() const;
     [[nodiscard]] bool animationsRunning() const;
     [[nodiscard]] bool launcherGuestActive() const;
@@ -606,6 +616,9 @@ private:
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
     KWin::Rect m_cardGrabTarget;
+    // Where a card that took a pane of the Bento group was drawn as it was
+    // let go, kept until the grab has ended and the group can open from it.
+    std::optional<QRectF> m_openGroupFrom;
     double m_cardGrabRotation = 0.0;
     QElapsedTimer m_cardGrabScaleTimer;
     QPointF m_cardGrabPointer;
