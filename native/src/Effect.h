@@ -487,7 +487,6 @@ private:
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
-    std::unique_ptr<KWin::GLShader> m_cutoutShader;
     std::optional<KWin::RectF> m_carryPreview;
     DesktopExitLabel m_detachLabel;
     std::optional<KWin::RectF> m_linePreview;

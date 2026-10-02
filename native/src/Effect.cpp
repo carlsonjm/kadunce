@@ -156,63 +156,6 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     glBlendFuncSeparate(sr, dr, sa, da);
     if (!blended) glDisable(GL_BLEND);
 }
-// The cutout a pane of the Bento group leaves under a held card: its rim
-// shaded, deepest along the top, as a recess lit from above would be.
-constexpr auto CutoutFragment = R"GLSL(#version 140
-in vec2 point;
-out vec4 fragColor;
-uniform vec4 destinationBox;
-uniform float outlineRadius;
-uniform float strength;
-#include "colormanagement.glsl"
-void main() {
-    vec2 halfSize = destinationBox.zw * 0.5;
-    float radius = min(outlineRadius, min(halfSize.x, halfSize.y));
-    vec2 q = abs(point - destinationBox.xy - halfSize) - (halfSize - vec2(radius));
-    float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
-    float feather = max(fwidth(d), 0.5);
-    float inside = 1.0 - smoothstep(-feather, 0.0, d);
-    float rim = 1.0 - smoothstep(0.0, 14.0, -d);
-    float top = 1.0 - smoothstep(0.0, 22.0, point.y - destinationBox.y);
-    float alpha = strength * inside * clamp(0.55 * rim * rim + 0.35 * top, 0.0, 0.85);
-    vec4 color = vec4(0.0, 0.0, 0.0, alpha);
-    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
-}
-)GLSL";
-void paintCutout(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
-    const KWin::RenderViewport &viewport, const KWin::Region &clip,
-    const QRectF &box, float strength)
-{
-    if (!shader || box.isEmpty() || clip.isEmpty() || strength <= 0.0F) return;
-    QList<QVector2D> vertices;
-    vertices << QVector2D(box.topLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomLeft())
-             << QVector2D(box.bottomLeft()) << QVector2D(box.topRight()) << QVector2D(box.bottomRight());
-    KWin::ShaderBinder binder(shader);
-    auto matrix = viewport.projectionMatrix();
-    matrix.scale(viewport.scale(), viewport.scale());
-    shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
-    shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    shader->setUniform("outlineRadius", float(CardCornerRadius));
-    shader->setUniform("strength", strength);
-    shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
-        renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
-    // Leave blending and the scissor as they were found.
-    const bool blended = glIsEnabled(GL_BLEND);
-    const bool scissored = glIsEnabled(GL_SCISSOR_TEST);
-    GLint previousScissor[4];
-    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
-    GLint sr, dr, sa, da;
-    glGetIntegerv(GL_BLEND_SRC_RGB, &sr); glGetIntegerv(GL_BLEND_DST_RGB, &dr);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &sa); glGetIntegerv(GL_BLEND_DST_ALPHA, &da);
-    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
-    glEnable(GL_SCISSOR_TEST);
-    buffer->reset(); buffer->setVertices(vertices); buffer->render(clip, GL_TRIANGLES, true);
-    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
-    if (!scissored) glDisable(GL_SCISSOR_TEST);
-    glBlendFuncSeparate(sr, dr, sa, da);
-    if (!blended) glDisable(GL_BLEND);
-}
 QString windowIdentity(const KWin::EffectWindow *window)
 {
     return window
@@ -394,8 +337,6 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
-        m_cutoutShader = KWin::ShaderManager::instance()->generateCustomShader(
-            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(CutoutFragment));
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -4501,12 +4442,6 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         KWin::effects->paintWindow(
             renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
             cardClip & outputFence.subtracted(group).united(hole), data);
-        // The rim darkens what shows through the cutout once the card is
-        // under it, and only the cutout while the card is still above.
-        const KWin::Region shaded = under >= 0.5 ? hole
-            : hole.subtracted(KWin::Region(viewport.mapToDeviceCoordinatesAligned(target)));
-        paintCutout(m_cutoutShader.get(), renderTarget, viewport, shaded,
-                    QRectF(heldTuck->pane), float(heldTuck->progress));
     } else {
         KWin::effects->paintWindow(
             renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
