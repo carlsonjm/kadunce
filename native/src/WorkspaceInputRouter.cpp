@@ -8,6 +8,7 @@
 #include "SpreadLayout.h"
 
 #include <input_event.h>
+#include <window.h>
 #include <QDebug>
 
 #include <algorithm>
@@ -332,6 +333,17 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
         m_target->pageRightFromInput();
     }
     return true;
+}
+
+void WorkspaceInputRouter::TouchEvents::touchDown(KWin::TouchDownEvent *event)
+{
+    window = KWin::input() ? KWin::input()->findToplevel(event->pos) : nullptr;
+    counted();
+}
+
+const KWin::Window *WorkspaceInputRouter::latestTouchWindow() const
+{
+    return m_touchEvents.window.data();
 }
 
 bool WorkspaceInputRouter::keepTouch(bool kept)

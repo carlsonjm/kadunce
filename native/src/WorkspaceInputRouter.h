@@ -11,6 +11,7 @@
 #include <input_event_spy.h>
 
 #include <QPointF>
+#include <QPointer>
 #include <QHash>
 #include <QElapsedTimer>
 #include <QRectF>
@@ -18,6 +19,7 @@
 #include <QTimer>
 
 #include <chrono>
+#include <limits>
 
 namespace Kadunce
 {
@@ -156,8 +158,14 @@ public:
     [[nodiscard]] bool latestTouchKept() const {
         return m_touchEvents.count != 0 && m_keptTouchEvent == m_touchEvents.count;
     }
-    // Every touch event so far, whoever received it.
+    // Every touch event so far, whoever received it, how long ago the latest
+    // one came, and the window under the latest finger to go down.
     [[nodiscard]] quint64 touchEvents() const { return m_touchEvents.count; }
+    [[nodiscard]] const KWin::Window *latestTouchWindow() const;
+    [[nodiscard]] qint64 msSinceLatestTouch() const {
+        return m_touchEvents.latest.isValid() ? m_touchEvents.latest.elapsed()
+                                              : std::numeric_limits<qint64>::max();
+    }
     // Native carry now owns this previously forwarded stream, including its up.
     void retireNativePointer(Qt::MouseButton button) { m_forwardedPointerButtons.remove(button); }
     void retireNativeTouch(qint32 id) {
@@ -169,10 +177,13 @@ private:
     // Counts every touch event before any filter sees it, so the count also
     // moves for touches Kadunce never receives.
     struct TouchEvents final : KWin::InputEventSpy {
-        void touchDown(KWin::TouchDownEvent *) override { ++count; }
-        void touchMotion(KWin::TouchMotionEvent *) override { ++count; }
-        void touchUp(KWin::TouchUpEvent *) override { ++count; }
+        void touchDown(KWin::TouchDownEvent *event) override;
+        void touchMotion(KWin::TouchMotionEvent *) override { counted(); }
+        void touchUp(KWin::TouchUpEvent *) override { counted(); }
+        void counted() { ++count; latest.start(); }
         quint64 count = 0;
+        QElapsedTimer latest;
+        QPointer<KWin::Window> window;
     };
     bool routeTouchDown(KWin::TouchDownEvent *event);
     bool routeTouchMotion(KWin::TouchMotionEvent *event);

@@ -418,19 +418,22 @@ private:
     std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
     QMetaObject::Connection m_inputPanelGeometry;
     // The keys come up only when the person asks for them: a tap on the line
-    // the text cursor sits on, or a request through raiseKeyboard. Anything
-    // else the compositor raises goes back down before it is drawn.
+    // the text cursor sits on or, just after it, anywhere in the window that
+    // asks, or a request through raiseKeyboard. Anything else the compositor
+    // raises goes back down before it is drawn.
     QElapsedTimer m_keyboardAskedSince;
     // Set once keys on screen are found asked for, and held until they go.
     // Until then they are not drawn, so keys raised for nobody are never seen
     // for the frame the compositor can paint before the decision reaches it.
     bool m_keysForPerson = false;
     // How many touch events there had been when keys the person had up last
-    // began to go. Those keys answered every one of them; a tap whose own
-    // field sends them away, as one in another window does, comes after.
+    // began to go, unless a touch had only just ended. Those keys answered
+    // every one of them.
     quint64 m_answeredTouchEvents = 0;
     void answerTouches();
-    [[nodiscard]] bool keyboardAskedFor(const KWin::InputMethod &method) const;
+    // Why keys the compositor raised are not the person's, or null when they
+    // asked for them.
+    [[nodiscard]] const char *keyboardRefusal(const KWin::InputMethod &method) const;
     void keepUnaskedKeyboardDown();
     // Keys the compositor hid while they still had a picture, drawn on until
     // the keyboard lets go of it, so a keyboard that slides out when typing

@@ -1395,14 +1395,14 @@ void Effect::raiseKeyboard()
     method->forceActivate();
 }
 
-bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
+const char *Effect::keyboardRefusal(const KWin::InputMethod &method) const
 {
     // A request through raiseKeyboard is the person's own, from a swipe up
     // from the bottom bezel or the precision surface. It is honoured for the
     // moment the raise takes.
     constexpr qint64 AskedMs = 1500;
     if (m_keyboardAskedSince.isValid() && m_keyboardAskedSince.elapsed() < AskedMs)
-        return true;
+        return nullptr;
     // Otherwise the compositor raised the keys because a field was enabled
     // soon after a touch, which is also true when the application focused
     // the field itself after a touch somewhere else in it. A tap on a field
@@ -1412,24 +1412,37 @@ bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
     // read.
     KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
     const KWin::Window *target = method.activeWindow();
-    if (!touch || KWin::input()->lastInputHandler() != touch || !target) return false;
+    if (!target) return "no window holds the text";
+    if (!touch || KWin::input()->lastInputHandler() != touch)
+        return "the last input was not a touch";
     // A touch Kadunce kept, such as the tap that chose a card in Spread,
     // reached no application, so wherever it landed it was not on the text.
-    if (m_inputRouter && m_inputRouter->latestTouchKept()) return false;
+    if (m_inputRouter && m_inputRouter->latestTouchKept())
+        return "the last touch was Kadunce's own";
     // Keys a tap brought have answered it once they are put away; with no
     // touch since, the application took the focus back on its own.
-    if (m_inputRouter && m_inputRouter->touchEvents() == m_answeredTouchEvents) return false;
+    if (m_inputRouter && m_inputRouter->touchEvents() == m_answeredTouchEvents)
+        return "keys put away since answered the last touch";
     const QPointF finger = touch->position();
     // Typing on the keys is asking for them.
     if (const KWin::EffectWindow *panel = KWin::effects->inputPanel();
-        panel && panel->frameGeometry().contains(finger)) return true;
-    if (!target->frameGeometry().contains(finger)) return false;
+        panel && panel->frameGeometry().contains(finger)) return nullptr;
+    if (!target->frameGeometry().contains(finger)) return "the last touch was outside its window";
+    // A field that asks within a moment of a tap in its own window is the one
+    // tapped. The cursor a browser reports then cannot be read: moving into a
+    // box in a frame from another site, it gives the last box's, or this
+    // one's from before the window last changed size.
+    constexpr qint64 TapJustNowMs = 1000;
+    if (m_inputRouter && m_inputRouter->msSinceLatestTouch() < TapJustNowMs
+        && m_inputRouter->latestTouchWindow() == target)
+        return nullptr;
     const KWin::RectF cursor = method.cursorRectangle();
     // A client that never says where its cursor is cannot be read; the touch
     // landing in its window is all there is to go on.
-    if (cursor.height() <= 0.0) return true;
+    if (cursor.height() <= 0.0) return nullptr;
     const double reach = cursor.height() / 2.0;
-    return finger.y() >= cursor.top() - reach && finger.y() <= cursor.bottom() + reach;
+    if (finger.y() >= cursor.top() - reach && finger.y() <= cursor.bottom() + reach) return nullptr;
+    return "the last touch was off the line of its text";
 }
 
 void Effect::keepUnaskedKeyboardDown()
@@ -1468,7 +1481,8 @@ void Effect::keepUnaskedKeyboardDown()
         m_leavingPanel.clear();
     }
     if (m_keysForPerson) return;
-    if (keyboardAskedFor(*method)) {
+    const char *refusal = keyboardRefusal(*method);
+    if (!refusal) {
         m_keysForPerson = true;
         if (KWin::EffectWindow *panel = KWin::effects->inputPanel())
             KWin::effects->addRepaint(panel->expandedGeometry().toAlignedRect());
@@ -1476,14 +1490,20 @@ void Effect::keepUnaskedKeyboardDown()
     }
     method->hide();
     const KWin::Window *target = method->activeWindow();
-    qInfo() << "Kadunce kept the keyboard down for"
-            << (target ? target->caption() : QStringLiteral("no window"))
-            << "; nobody tapped its text";
+    qInfo().nospace() << "Kadunce kept the keyboard down for "
+                      << (target ? target->caption() : QStringLiteral("no window"))
+                      << ": " << refusal;
 }
 
 void Effect::answerTouches()
 {
-    if (m_inputRouter) m_answeredTouchEvents = m_inputRouter->touchEvents();
+    // A touch that ended just before the keys began to go may be what sent
+    // them: a tap on another field, which a browser focuses only once the
+    // finger has lifted and the field before has let go. That field may still
+    // ask, so such a touch is left to ask.
+    constexpr qint64 SentAwayMs = 1000;
+    if (m_inputRouter && m_inputRouter->msSinceLatestTouch() >= SentAwayMs)
+        m_answeredTouchEvents = m_inputRouter->touchEvents();
 }
 
 void Effect::releaseLeavingKeys()

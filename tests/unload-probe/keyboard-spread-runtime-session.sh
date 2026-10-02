@@ -4,8 +4,10 @@
 # text, not for focus). The tap that chooses a card is Kadunce's own, never a
 # tap on the card's text, wherever on the card it lands; and once keys a tap
 # brought have been put away, the application taking the focus back into that
-# field is not that tap again. A new tap on the text still brings them, and a
-# tap from one field to another keeps them up.
+# field is not that tap again. A new tap on the text still brings them; a tap
+# from one field to another keeps them up, including one a browser answers
+# only once the field before has let go and the keys have gone; and a field
+# handing the focus to the next keeps the keys and the card's room still.
 #
 # Three windows: Qt fields at the bottom and halfway down, the second where a
 # card's middle lands once it opens, and a GTK field halfway down; GTK asks for
@@ -169,8 +171,23 @@ tap "$x" "$y"
 sleep 1.5
 echo "  the top field at $x $y of $gframe: keys $(vk visible) cursor $(probe keyboardState | jq -c '.cursor')"
 echo "    shown/hidden $(keys_line)"
-check 'a tap on its other field keeps them up' up
+check 'a tap on its other field, which takes the focus as a browser page does, brings them back up' up
 check 'and the text cursor moved into that field' jq -e --argjson f "$gframe" '.y < $f.y + 40' <<<"$(probe keyboardState | jq -c '.cursor')"
+probe watchKeys
+tap 59 "$line"
+sleep 1.5
+echo "  back to the middle field at 59 $line: keys $(vk visible) cursor $(probe keyboardState | jq -c '.cursor')"
+echo "    shown/hidden $(keys_line)"
+check 'a tap back on the first field keeps them up' up
+sleep .5
+echo "  after the hop: card $(frame "$gtk") keys $(probe keyboardState | jq -c '.panel')"
+check 'and the card keeps the room above the keys' jq -e --argjson p "$(probe keyboardState | jq -c '.panel')" '.y + .height <= $p.y' <<<"$(frame "$gtk")"
+probe watchPanel
+kill -USR2 "$gtk_pid"
+sleep 1.5
+echo "  handed between fields: keys $(vk visible) card $(frame "$gtk") panel heights $(probe panelHistory) cursor $(probe keyboardState | jq -c '.cursor')"
+check 'handed from field to field, the keys stay up' up
+check 'and the card keeps the room above them' jq -e --argjson p "$(probe keyboardState | jq -c '.panel')" '.y + .height <= $p.y' <<<"$(frame "$gtk")"
 probe hideKeyboard
 sleep 1
 
