@@ -425,6 +425,11 @@ private:
     // Until then they are not drawn, so keys raised for nobody are never seen
     // for the frame the compositor can paint before the decision reaches it.
     bool m_keysForPerson = false;
+    // How many touch events there had been when keys the person had up last
+    // began to go. Those keys answered every one of them; a tap whose own
+    // field sends them away, as one in another window does, comes after.
+    quint64 m_answeredTouchEvents = 0;
+    void answerTouches();
     [[nodiscard]] bool keyboardAskedFor(const KWin::InputMethod &method) const;
     void keepUnaskedKeyboardDown();
     // Keys the compositor hid while they still had a picture, drawn on until

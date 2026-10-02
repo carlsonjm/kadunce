@@ -36,6 +36,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     , m_target(target)
     , m_ownsSystemEdges(ownsSystemEdges)
 {
+    if (KWin::input()) KWin::input()->installInputEventSpy(&m_touchEvents);
     m_railHoldTimer.setSingleShot(true);
     m_railHoldTimer.setInterval(90);
     QObject::connect(&m_railHoldTimer, &QTimer::timeout, [this] {
@@ -333,7 +334,18 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
     return true;
 }
 
+bool WorkspaceInputRouter::keepTouch(bool kept)
+{
+    if (kept) m_keptTouchEvent = m_touchEvents.count;
+    return kept;
+}
+
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
+{
+    return keepTouch(routeTouchDown(event));
+}
+
+bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 {
     if (m_target->standsAsideForInput() && m_ownedTouchIds.isEmpty() && m_railTouch < 0) return false;
     m_observedTouchIds.insert(event->id);
@@ -421,6 +433,11 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    return keepTouch(routeTouchMotion(event));
+}
+
+bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
+{
     if (event->id == m_railTouch) {
         m_railPosition = event->pos;
         if (m_railReady) m_target->updateRailFromInput(event->pos);
@@ -491,6 +508,11 @@ bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 }
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
+{
+    return keepTouch(routeTouchUp(event));
+}
+
+bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
 {
     if (event->id == m_railTouch) {
         m_observedTouchIds.remove(event->id);

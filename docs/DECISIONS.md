@@ -420,7 +420,11 @@ Decided 23 and 24 September 2026: the keys come up only when you ask for them,
 by tapping a text field or Keyboard in Control Center or the tray. The Keyboard
 entry leaves the focus where it was; only a cold start, with no text box ready,
 borrows it. An application focusing a field on its own is not a request to type,
-so keys KWin raises for it are put back down and the dock stays.
+so keys KWin raises for it are put back down and the dock stays. The tap that
+opens a card in Spread is Kadunce's own, not a tap on the card's text, and a tap
+is answered once the keys it brought begin to go, so an application taking the
+focus back into that field does not raise them again. A time limit on a tap was
+rejected: it refused slow applications and the tray entry.
 
 ### The dock steps aside for the keys
 

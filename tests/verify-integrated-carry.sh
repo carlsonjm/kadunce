@@ -53,6 +53,8 @@ scenes=(
     keyboard-chosen-runtime tablet
     keyboard-search-runtime tablet
     keyboard-tap-runtime tablet
+    keyboard-offscreen-runtime tablet
+    keyboard-spread-runtime tablet
     start-cards-runtime tablet
     minimized-start-runtime tablet
     minimized-only-runtime tablet

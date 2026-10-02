@@ -6,6 +6,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     side-runtime-session.sh|escape-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh) ;;
+    keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|stack-still-runtime-session.sh) ;;
@@ -89,7 +90,13 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; t
         exit 1
     }
     input_method_args=(--inputmethod "$input_method")
-    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode 2
+    keyboard_mode=2
+    case ${KADUNCE_PROBE_SESSION:-session.sh} in
+        # Plasma's touch-only setting, as the tablet has it, from the first
+        # moment: what a touch unlocks is part of what these scenes measure.
+        keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh) keyboard_mode=1 ;;
+    esac
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode "$keyboard_mode"
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
@@ -104,6 +111,7 @@ session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh ]]; then session_timeout=120s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 # Every log line, Kadunce's included, goes to this session's log, not the
 # journal of the person whose machine runs the test.

@@ -8,6 +8,7 @@
 #include "SpreadStroke.h"
 
 #include <input.h>
+#include <input_event_spy.h>
 
 #include <QPointF>
 #include <QHash>
@@ -148,6 +149,15 @@ public:
         m_ownsSystemEdges = owns;
         cancelWorkspaceInteraction();
     }
+    // Whether Kadunce kept the latest touch for itself, so no application
+    // received it: the tap that chose a card, a stroke through Spread, a
+    // swipe from the bezel. A touch a filter answered before this one, as the
+    // lock screen does, was never Kadunce's.
+    [[nodiscard]] bool latestTouchKept() const {
+        return m_touchEvents.count != 0 && m_keptTouchEvent == m_touchEvents.count;
+    }
+    // Every touch event so far, whoever received it.
+    [[nodiscard]] quint64 touchEvents() const { return m_touchEvents.count; }
     // Native carry now owns this previously forwarded stream, including its up.
     void retireNativePointer(Qt::MouseButton button) { m_forwardedPointerButtons.remove(button); }
     void retireNativeTouch(qint32 id) {
@@ -156,6 +166,18 @@ public:
     }
 
 private:
+    // Counts every touch event before any filter sees it, so the count also
+    // moves for touches Kadunce never receives.
+    struct TouchEvents final : KWin::InputEventSpy {
+        void touchDown(KWin::TouchDownEvent *) override { ++count; }
+        void touchMotion(KWin::TouchMotionEvent *) override { ++count; }
+        void touchUp(KWin::TouchUpEvent *) override { ++count; }
+        quint64 count = 0;
+    };
+    bool routeTouchDown(KWin::TouchDownEvent *event);
+    bool routeTouchMotion(KWin::TouchMotionEvent *event);
+    bool routeTouchUp(KWin::TouchUpEvent *event);
+    bool keepTouch(bool kept);
     bool reconcileNativeInteraction();
     enum class TouchMode {
         None,
@@ -206,6 +228,8 @@ private:
     QPointF m_touchStart;
     QPointF m_touchCurrent;
     QSet<qint32> m_ownedTouchIds;
+    TouchEvents m_touchEvents;
+    quint64 m_keptTouchEvent = 0;
     QSet<qint32> m_drainingTouchIds;
     QSet<Qt::MouseButton> m_drainingPointerButtons;
     Qt::MouseButton m_guestPointerButton = Qt::NoButton;

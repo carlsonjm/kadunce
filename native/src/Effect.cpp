@@ -1306,7 +1306,11 @@ std::optional<double> Effect::inputPanelTopForCardStage(
     const KWin::RectF covered =
         KWin::RectF(panel->frameGeometry()).intersected(
             KWin::RectF(output->geometry()));
-    if (covered.isEmpty()) {
+    // Keys held below the screen's edge leave a sliver of panel a pixel or two
+    // tall. The dock steps aside only for keys on screen, and the card makes
+    // room only for them too.
+    constexpr double KeysOnScreen = 8.0;
+    if (covered.isEmpty() || covered.height() < KeysOnScreen) {
         return std::nullopt;
     }
     return covered.top();
@@ -1409,6 +1413,12 @@ bool Effect::keyboardAskedFor(const KWin::InputMethod &method) const
     KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
     const KWin::Window *target = method.activeWindow();
     if (!touch || KWin::input()->lastInputHandler() != touch || !target) return false;
+    // A touch Kadunce kept, such as the tap that chose a card in Spread,
+    // reached no application, so wherever it landed it was not on the text.
+    if (m_inputRouter && m_inputRouter->latestTouchKept()) return false;
+    // Keys a tap brought have answered it once they are put away; with no
+    // touch since, the application took the focus back on its own.
+    if (m_inputRouter && m_inputRouter->touchEvents() == m_answeredTouchEvents) return false;
     const QPointF finger = touch->position();
     // Typing on the keys is asking for them.
     if (const KWin::EffectWindow *panel = KWin::effects->inputPanel();
@@ -1435,6 +1445,7 @@ void Effect::keepUnaskedKeyboardDown()
         KWin::SurfaceInterface *surface = surfaceWindow ? surfaceWindow->surface() : nullptr;
         if (m_keysForPerson && panel && !panel->isDeleted() && surface && surface->isMapped()) {
             if (!m_leavingKeys) {
+                answerTouches();
                 m_leavingKeys = std::make_unique<KWin::EffectWindowVisibleRef>(
                     panel, KWin::EffectWindow::PAINT_DISABLED);
                 m_leavingPanel = panel;
@@ -1444,6 +1455,7 @@ void Effect::keepUnaskedKeyboardDown()
             }
             return;
         }
+        if (m_keysForPerson && !m_leavingKeys) answerTouches();
         releaseLeavingKeys();
         m_keysForPerson = false;
         return;
@@ -1467,6 +1479,11 @@ void Effect::keepUnaskedKeyboardDown()
     qInfo() << "Kadunce kept the keyboard down for"
             << (target ? target->caption() : QStringLiteral("no window"))
             << "; nobody tapped its text";
+}
+
+void Effect::answerTouches()
+{
+    if (m_inputRouter) m_answeredTouchEvents = m_inputRouter->touchEvents();
 }
 
 void Effect::releaseLeavingKeys()
