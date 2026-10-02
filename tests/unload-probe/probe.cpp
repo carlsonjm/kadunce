@@ -569,6 +569,12 @@ public Q_SLOTS:
         KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now(), &device);
         KWin::input()->pointer()->processFrame();
     }
+    // A mouse pressed and moved off in one go, as a quick drag arrives, with
+    // no pause between for any hold to end.
+    void contactPressAndMove(int x, int y) {
+        contactButton(true);
+        contactMotion(x, y);
+    }
     void contactCancel() { KWin::input()->touch()->cancel(); }
     void contactKeyboardMove() {
         if (contact && contact->client)

@@ -134,7 +134,8 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         if (!commit) m_drainingPointerButtons.insert(Qt::LeftButton);
         m_railPointer = false;
         m_railHoldTimer.stop();
-        m_target->finishRailFromInput(commit && m_railReady);
+        // A click that never moved leaves the split as it was.
+        m_target->finishRailFromInput(commit && m_railReady && m_railPosition != m_railStart);
         m_railReady = false;
         if (commit) return true;
     }
@@ -144,10 +145,12 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         && m_panelPointerButtons.isEmpty() && !m_target->nativeWindowInteractionForInput()
         && !m_target->launcherGuestActiveForInput() && !m_target->isPanelPoint(event->position)
         && m_target->beginRailFromInput(event->position)) {
+        // A finger rests on a divider before it drags; a mouse press there is
+        // already deliberate, and a quick press and drag moved off before any
+        // rest ended, so the pointer drags at once.
         m_railPointer = true;
         m_railStart = m_railPosition = event->position;
-        m_railReady = false;
-        m_railHoldTimer.start();
+        m_railReady = true;
         return true;
     }
     if (reconcileNativeInteraction()) {
