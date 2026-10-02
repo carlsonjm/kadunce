@@ -75,10 +75,10 @@ are up, the bottom edge is theirs.
 | Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on the side you let go. The partner is the Active card or, when the window is the Active card, its nearest neighbour on that side of the row. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
 | `Meta+B` | Starts or ends Bento on the largest attached monitor, or on the card display when none is attached. There it pairs the Active card, on the left, with the next card to its right. |
 | Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size at the top. With two or more there, every window joins one layout, the dragged one on the side you let go; one with no room waits in the dock. |
-| Hold a divider briefly with a finger, or press it with the mouse, then drag | The panes on both sides resize; letting go keeps the new split. A click alone changes nothing. |
-| Drag a Bento pane onto another pane of its layout | The two swap places. Let go on its own place and nothing changes. |
+| Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
+| Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, and that pane becomes a card. |
-| Press `Escape`, or add a finger, while dragging a window | The drag is cancelled and the window stays as it was. |
+| Press `Escape`, or add a finger, while dragging a window | The drag ends and the window stays as it was. |
 
 ## Table
 
