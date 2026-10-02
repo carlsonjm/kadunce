@@ -19,8 +19,8 @@ Temperance.
 | Bento group / grouped Card | Bento's single representation when viewed in Spread | Working |
 | Table | Spatial level above Workspace presentation, organizing real KDE virtual desktops | Locked for 1.0 |
 | Search | Consumer-facing Tettegouche launcher and search experience | Locked |
-| Browse everything | Alphabetical application catalogue inside Search | Current |
-| Explore files / Files | Tettegouche's integrated file-management experience | Current |
+| Apps | Alphabetical application catalogue inside Search | Current |
+| Files | Tettegouche's integrated file-management experience | Current |
 | Ambient | Ongoing context and activity: media, transfers, jobs | Locked |
 | Status Bar | Consumer-facing Temperance system and status surface | Locked |
 | Control Center | Temperance quick system controls | Current |

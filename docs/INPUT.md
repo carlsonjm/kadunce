@@ -14,7 +14,7 @@ happen. Anything else you do in an application stays with that application;
 
 Kadunce's keys sit on `Meta` and work only while it runs. `Ctrl` stays with
 applications, `Alt+Tab` with KDE, and `Meta+G` and `Meta+E` open Tettegouche's
-Browse everything and Files.
+Apps and Files.
 
 ## Spread
 
