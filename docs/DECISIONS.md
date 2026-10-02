@@ -60,14 +60,12 @@ have open.
 
 The partner walk wraps round the order, stepping over entries until it returns
 to where it started; the row's two ends (`CARD-LIFECYCLE.md` §6) are
-presentation and do not stop it. Which side a two-entry Spread draws its second
-entry on is presentation too, and reaches neither partner identity nor pane
-placement.
+presentation and do not stop it, nor does the side a two-entry Spread draws its
+second entry on.
 
 Partner eligibility (`CARD-LIFECYCLE.md` §4) is one question asked in one place,
 by both pairing cases, so neither can drift into its own idea of who may be
-paired. It differs from the adoption question, which is asked of native windows,
-and neither stands in for the other. A composed group or a stack is broken only
+paired. It is not the adoption question, asked of native windows. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
 
 ### A Stack is a ring that keeps its room
@@ -394,20 +392,20 @@ arrival into a stack would need.
 
 ### The Active card makes room for the keys
 
-Decided 24 September 2026. The keys never
-reserve workspace; the Active card they type into gives up the room they take:
-its top edge, width and place stay and its bottom edge rests a gutter above the
-keys, so a message box at an application's bottom edge lands on them. Rejected: panning the contents to the text cursor, the
-only thing a client reports, which left the rest of the box covered.
+Decided 24 September 2026. The keys reserve no workspace; the Active card they
+type into gives up their room, its bottom edge resting a gutter above them, so a
+message box at its bottom lands on them. Rejected: panning the contents to the
+text cursor, the only thing a client reports, which left the rest of the box
+covered.
 
 While the keys move, the card is drawn ending a gutter above them on every frame
 and its client is asked for a size once a motion (26 September 2026). Rejected:
 asking every frame, which made a client trail the keys.
 
-KWin's own lift of the focused window would be a second authority over a card,
-so Kadunce declines `OverlayVirtualKeyboardOnWindows` while loaded, as
-it does edge tiling. Only keys typing into the card or its own dialog make room;
-Spread, Bento panes and ordinary windows make none. Cards are laid out in the
+KWin's own lift of the focused window would be a second authority, so Kadunce
+declines `OverlayVirtualKeyboardOnWindows` while loaded, as it does edge tiling.
+Only keys on screen typing into the card or its own dialog make room; Spread,
+Bento panes and ordinary windows make none. Cards are laid out in the
 work area as it stood when the keys came until the dock takes its room back,
 because the dock yields to the keys (29 September 2026). Rejected: the live work
 area, which gave a card chosen meanwhile the dock's room. KWin moves only
@@ -421,10 +419,8 @@ by tapping a text field or Keyboard in Control Center or the tray. The Keyboard
 entry leaves the focus where it was; only a cold start, with no text box ready,
 borrows it. An application focusing a field on its own is not a request to type,
 so keys KWin raises for it are put back down and the dock stays. The tap that
-opens a card in Spread is Kadunce's own, not a tap on the card's text, and a tap
-is answered once the keys it brought begin to go, so an application taking the
-focus back into that field does not raise them again. A time limit on a tap was
-rejected: it refused slow applications and the tray entry.
+opens a card in Spread is Kadunce's own, and a tap is answered once its keys
+begin to go. Rejected: a time limit on a tap, which refused slow applications.
 
 ### The dock steps aside for the keys
 
