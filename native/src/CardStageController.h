@@ -308,6 +308,7 @@ public:
     // A card flicked away stays out of sight while its app closes, and while
     // it closes, so nothing is drawn at the window's own size.
     [[nodiscard]] bool thrownAway(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool askedInside(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool beginLauncherGuest();
     void updateLauncherGuest(double horizontalDelta);
     [[nodiscard]] bool finishLauncherGuest(double horizontalDelta);
@@ -515,6 +516,7 @@ private:
     void endLift();
     void checkThrownCards();
     void returnThrownCard(KWin::EffectWindow *window, bool present);
+    void forgetCloseAsk(const KWin::EffectWindow *window);
     void updateKeyboardRoom(bool resting = false);
     [[nodiscard]] KWin::Window *keyboardRoomClient() const;
     [[nodiscard]] double keyboardRoomFor(const KWin::Window *client, double keyboardTop) const;
@@ -575,6 +577,16 @@ private:
     };
     QList<Thrown> m_thrown;
     QTimer m_thrownTimer;
+    // A flicked card's app, since it was asked to close and since it first drew
+    // after that. One asking inside its own window draws its question; one
+    // closing is gone before it has stayed long enough for a drawing to count.
+    struct CloseAsk {
+        QPointer<KWin::EffectWindow> window;
+        QElapsedTimer asked;
+        QElapsedTimer drew;
+        QMetaObject::Connection damage;
+    };
+    QList<CloseAsk> m_closeAsks;
     // A card just closed in Spread; KWin's next activation is its hand-off.
     bool m_closeHandoff = false;
     QTimer m_arrivalTimer;

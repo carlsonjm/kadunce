@@ -55,6 +55,9 @@ constexpr double LauncherGuestDragPreview = 0.18;
 // How long a flicked app has to close before its card comes back, and the
 // most a card that asked a question waits to be answered in Spread.
 constexpr int ThrownCloseWait = 2000;
+// How long a flicked app that draws after it was asked to close has to go
+// before what it drew counts as a question asked inside its own window.
+constexpr int ThrownQuestionWait = 400;
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -2514,6 +2517,7 @@ bool CardStageController::resumeSelectedBentoProjection()
 
 void CardStageController::release()
 {
+    forgetCloseAsk(nullptr);
     bringCardsBack();
     m_returnToDesktop = false;
     m_returnedToDesktop.clear();
@@ -3312,6 +3316,15 @@ void CardStageController::throwLifted(double velocity)
     m_lift.velocity = std::min(velocity * 1000.0, -CloseThrowSpeed);
     qInfo() << "Kadunce" << Revision << "flicked card" << liveCardIndex(window) + 1
             << "closed:" << window->caption();
+    forgetCloseAsk(window);
+    CloseAsk ask{window, {}, {}, {}};
+    ask.asked.start();
+    ask.damage = QObject::connect(window, &KWin::EffectWindow::windowDamaged, &m_thrownTimer,
+                                  [this](KWin::EffectWindow *drawn) {
+        for (auto &ask : m_closeAsks)
+            if (ask.window == drawn && !ask.drew.isValid()) ask.drew.start();
+    });
+    m_closeAsks.append(ask);
     // Ask as it leaves the hand, so a quick app is gone by the time the card is.
     window->closeWindow();
 }
@@ -3747,18 +3760,41 @@ void CardStageController::checkThrownCards()
         // A closed window's card is gone; its thrown mark stays until KWin
         // lets the window go, so no close animation draws it full size.
         if (window->isDeleted() || liveCardIndex(window) < 0) continue;
-        if (window->findModal()) returnThrownCard(window, true);
+        if (window->findModal() || askedInside(window)) returnThrownCard(window, true);
         else if (m_thrown.at(i).since.elapsed() >= ThrownCloseWait) returnThrownCard(window, false);
     }
     if (m_thrown.isEmpty()) m_thrownTimer.stop();
 }
 
+bool CardStageController::askedInside(const KWin::EffectWindow *window) const
+{
+    for (const auto &ask : m_closeAsks)
+        if (ask.window == window)
+            return ask.drew.isValid() && ask.asked.elapsed() >= ThrownQuestionWait;
+    return false;
+}
+
+void CardStageController::forgetCloseAsk(const KWin::EffectWindow *window)
+{
+    for (int i = m_closeAsks.size() - 1; i >= 0; --i) {
+        const auto &asked = m_closeAsks.at(i).window;
+        if (window && asked && asked != window) continue;
+        QObject::disconnect(m_closeAsks.at(i).damage);
+        m_closeAsks.removeAt(i);
+    }
+}
+
 void CardStageController::returnThrownCard(KWin::EffectWindow *window, bool present)
 {
     m_thrown.removeIf([window](const Thrown &thrown) { return thrown.window == window; });
+    qint64 asked = -1;
+    for (const auto &ask : m_closeAsks)
+        if (ask.window == window) asked = ask.asked.elapsed();
+    forgetCloseAsk(window);
     if (!m_active || m_presentation != CardPresentation::Spread) return;
     qInfo() << "Kadunce" << Revision << "flicked card came back:" << window->caption()
-            << (present ? "it asked a question" : "it did not close");
+            << (present ? "it asked a question" : "it did not close")
+            << asked << "ms after it was asked to close";
     if (m_lift.phase == Lift::Phase::None && !m_cardGrabActive) {
         // Drops back into its place from above.
         auto *output = m_host->tabletOutputForCardStage();
@@ -4252,6 +4288,14 @@ void CardStageController::finishNewArrival(KWin::EffectWindow *window,
 
 void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
 {
+    for (const auto &ask : m_closeAsks) {
+        if (ask.window != window) continue;
+        qInfo() << "Kadunce" << Revision << "flicked card's app closed" << ask.asked.elapsed()
+                << "ms after it was asked;" << (ask.drew.isValid()
+                    ? qPrintable(QStringLiteral("it drew %1 ms after").arg(ask.asked.elapsed() - ask.drew.elapsed()))
+                    : "it drew nothing in between");
+    }
+    forgetCloseAsk(window);
     m_originalCardStackingOrder.removeAll(window);
     m_aside.removeAll(window);
     m_returnedToDesktop.removeAll(window);

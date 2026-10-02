@@ -11,6 +11,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QCloseEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QPalette>
@@ -116,6 +117,21 @@ protected:
                               QMessageBox::Yes | QMessageBox::No, this);
   box->setAttribute(Qt::WA_DeleteOnClose);
   box->open();
+ }
+};
+// Asks before it closes from inside its own window, as a terminal with a
+// running program does: no box of its own, only a question drawn over itself.
+class AsksInside : public QWidget {
+protected:
+ void closeEvent(QCloseEvent *e) override {
+  e->ignore();
+  if (findChild<QLabel *>("question")) return;
+  auto *question = new QLabel("Close without saving?", this);
+  question->setObjectName("question");
+  question->setAlignment(Qt::AlignCenter);
+  question->setAutoFillBackground(true);
+  question->setGeometry(rect().adjusted(60, 120, -60, -120));
+  question->show();
  }
 };
 class Client : public QWidget {
@@ -292,6 +308,8 @@ public Q_SLOTS:
  void closeDialogs() { for (auto *d : findChildren<QDialog *>()) d->close(); }
  // A window in a named colour that asks before it closes.
  void askingCompanion(const QString &title, const QString &hex) { auto *w = new AsksFirst; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(560,420); w->show(); }
+ // A window in a named colour that asks inside itself before it closes.
+ void insideAskingCompanion(const QString &title, const QString &hex) { auto *w = new AsksInside; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(560,420); w->show(); }
  // A tooltip over this window: a popup that no layout ever holds.
  void tooltip() { auto *w = new QWidget(this, Qt::ToolTip); w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("tooltip"); w->setGeometry(40,40,160,32); w->show(); }
  void closeTooltip() { for (auto *w : findChildren<QWidget *>("tooltip", Qt::FindDirectChildrenOnly)) w->close(); }
