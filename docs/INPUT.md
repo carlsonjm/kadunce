@@ -21,7 +21,7 @@ Apps and Files.
 | Input | What happens |
 | --- | --- |
 | Swipe up from the bottom edge | Spread opens and follows your finger; a quick flick opens it all the way. |
-| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if let go before halfway; from a Bento layout or the desktop, Spread opens past halfway. KDE's Overview is set aside while Kadunce runs. |
+| Three fingers down on the touchscreen, or four on a touchpad | Spread opens. From the Active card, the card shrinks into the row under your fingers and goes back if let go before halfway; from a Bento layout or the desktop, Spread opens past halfway. |
 | `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout joins the row as one group card. |
 | Drag the row sideways, by finger or mouse | The row follows, coasts after a flick, settles on a card and springs back at either end. |
 | Wheel over the row | The row moves one card. |
@@ -36,7 +36,7 @@ Apps and Files.
 | Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger gives way and the card slides under; let go and the layout opens with it there. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Right-click | Nothing: Spread has no window menu. |
-| Tap or click outside Search and the on-screen keys | Search closes. A stroke that moves does not close it, and a touch on the keys types into it. |
+| Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke does not close it, and the keys type into it. |
 | Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
 
 A swipe that starts on the dock stays with the dock, and while the on-screen keys
@@ -65,7 +65,7 @@ are up, the bottom edge is theirs.
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack as a swipe goes. Only while cards are shown; elsewhere these keys stay KDE's. |
 | `Meta+Up`, `Meta+Down` | The previous or next card of the current Stack. Only while cards are shown. |
-| Tap Keyboard in Control Center or the tray | The keys rise for the window in use, and the Active card makes room. |
+| Tap or click Keyboard in Control Center or the tray | The keys rise for the window in use, and the Active card makes room. |
 | Point or drag in the gutter around a card or Bento pane | The pointer stays an arrow, and nothing resizes the window from outside its edge. |
 
 ## Bento
@@ -84,7 +84,7 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Pull down from the top edge: above the Active card, or anywhere along the top in Spread, a Bento layout or the desktop | Table comes down as a row of tabs, one per workspace; sliding across them previews each workspace on every display. |
+| Pull down from the top edge: above the Active card, or anywhere along the top in Spread, a Bento layout or the desktop | Table comes down as a row of tabs, one per workspace; sliding across them previews each workspace on every display; over Spread, from its cards. |
 | Keep pulling past the tabs, then slide sideways | The tab under your finger stays chosen, its cards hanging below; sliding across them previews each. |
 | Lift on a tab | That workspace opens as it was left. |
 | Lift on a card | It opens as the Active card in its workspace. |

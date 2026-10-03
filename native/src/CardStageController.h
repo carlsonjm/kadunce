@@ -319,6 +319,9 @@ public:
     void updateLauncherGuest(double horizontalDelta);
     [[nodiscard]] bool finishLauncherGuest(double horizontalDelta);
     void endLauncherGuest();
+    // A tap beside Search ends it. On a card standing beside it, that card's
+    // entry is selected to open, as a tap on it in Spread would select it.
+    [[nodiscard]] bool endLauncherGuestOnCard(const QPointF &position);
 
     // A hold picks up the card under the finger, wherever it stands in the
     // row; let go still, it goes back as it was. Carried, the row parts where

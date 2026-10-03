@@ -58,6 +58,7 @@ scenes=(
     keyboard-table-runtime tablet
     keyboard-offscreen-runtime tablet
     keyboard-spread-runtime tablet
+    keyboard-click-runtime tablet
     start-cards-runtime tablet
     minimized-start-runtime tablet
     minimized-only-runtime tablet
@@ -65,6 +66,7 @@ scenes=(
     card-exit-runtime tablet
     switcher-hidden-runtime tablet
     gap-runtime tablet
+    bento-top-runtime tablet
     dialog-runtime tablet
     dialog-late-runtime tablet
     dialog-electron-runtime tablet
@@ -77,6 +79,7 @@ scenes=(
     table-pointer-runtime tablet
     table-stack-runtime tablet
     table-stack-layout-runtime tablet
+    table-spread-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
@@ -90,6 +93,7 @@ scenes=(
     lifetime-runtime tablet
     spread-fingers-runtime tablet
     guest-drawer-runtime tablet
+    guest-beside-runtime tablet
     x11-tablet-runtime tablet
 )
 

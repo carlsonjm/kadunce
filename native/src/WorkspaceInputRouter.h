@@ -112,7 +112,8 @@ public:
     virtual void followBezelSpreadFromInput(double) {}
     virtual void finishBezelSpreadFromInput(double, double, bool) {}
     virtual void dismissLauncherGuestFromInput() = 0;
-    virtual void navigateLauncherGuestFromInput(
+    // A still tap outside Search and the keys, where it touched down.
+    virtual void tapBesideLauncherGuestFromInput(
         const QPointF &position) = 0;
     virtual void pageLeftFromInput() = 0;
     virtual void pageRightFromInput() = 0;
@@ -129,6 +130,9 @@ public:
     // Above the Active card's top edge there is no application to reach, only
     // the edges of cards hidden behind it; a touch there is kept.
     [[nodiscard]] virtual bool aboveActiveCardForInput(const QPointF &) const { return false; }
+    // Outside every window's frame, where only the invisible resize border of
+    // a card or pane reaches.
+    [[nodiscard]] virtual bool inCardGapForInput(const QPointF &) const { return false; }
     virtual void beginTableFromInput(const QPointF &) {}
     // A finger, or else a pointer's button, pressed on an open Table.
     virtual void pressTableFromInput(const QPointF &, bool) {}

@@ -2,11 +2,11 @@
 set -euo pipefail
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    guest-drawer-runtime-session.sh|provenance-runtime-session.sh) ;;
+    guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|provenance-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
-    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh) ;;
+    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
-    keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh) ;;
+    keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
@@ -14,7 +14,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
     card-exit-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
-    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
+    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
     *) echo 'Unknown isolated probe session' >&2; exit 1 ;;
@@ -117,7 +117,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; t
     case ${KADUNCE_PROBE_SESSION:-session.sh} in
         # Plasma's touch-only setting, as the tablet has it, from the first
         # moment: what a touch unlocks is part of what these scenes measure.
-        keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh) keyboard_mode=1 ;;
+        keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh) keyboard_mode=1 ;;
     esac
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode "$keyboard_mode"
 fi
@@ -138,6 +138,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh ]]; then session_timeout=120s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh ]]; then session_timeout=90s; fi
 # Every log line, Kadunce's included, goes to this session's log, not the
 # journal of the person whose machine runs the test.
 timeout "$session_timeout" env "${session_env[@]}" "${scaled_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \

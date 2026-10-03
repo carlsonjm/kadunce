@@ -3159,6 +3159,22 @@ void CardStageController::endLauncherGuest()
     KWin::effects->addRepaintFull();
 }
 
+bool CardStageController::endLauncherGuestOnCard(const QPointF &position)
+{
+    // Read the card while the row still stands around Search: the card
+    // there is not the one under that point once the row closes up.
+    auto *tablet = m_host->tabletOutputForCardStage();
+    KWin::EffectWindow *window = m_launcherGuestActive && !m_launcherGuestArrival && tablet
+        ? cardAt(tablet, position) : nullptr;
+    const int cardId = window ? liveCardIndex(window) + 1 : 0;
+    endLauncherGuest();
+    const int entry = cardId > 0 ? m_workspace.model().entryIndexForId(cardId) : -1;
+    if (entry < 0) return false;
+    if (entry != m_workspace.selectedIndex()) m_workspace.selectIndex(entry);
+    qInfo() << "Kadunce" << Revision << "tap beside Search opens entry" << entry + 1;
+    return true;
+}
+
 void CardStageController::pageStack(int delta)
 {
     if (!m_active || m_presentation != CardPresentation::Spread

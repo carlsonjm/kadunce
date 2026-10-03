@@ -335,6 +335,7 @@ private:
     [[nodiscard]] int tableCardAt(const QPointF &local) const;
     [[nodiscard]] bool tableOpenForInput() const override { return m_table.isOpen(); }
     [[nodiscard]] bool aboveActiveCardForInput(const QPointF &position) const override;
+    [[nodiscard]] bool inCardGapForInput(const QPointF &position) const override { return inCardGap(position); }
     void beginTableFromInput(const QPointF &position) override;
     void pressTableFromInput(const QPointF &position, bool touch) override;
     void contextTableFromInput(const QPointF &position) override;
@@ -360,6 +361,8 @@ private:
     // Where the finger that pulled Table down first touched.
     QPointF m_tableStrokeFrom;
     QPointer<KWin::LogicalOutput> m_tableOutput;
+    // Table came down over Spread, which its tabs leave showing.
+    bool m_tableOverSpread = false;
     bool m_tableKeyboard = false;
     // Three fingers up, or four on a touchpad, and whether this swipe has
     // already opened or closed Table.
@@ -509,7 +512,7 @@ private:
     void followBezelSpreadFromInput(double rise) override;
     void finishBezelSpreadFromInput(double rise, double speed, bool cancelled) override;
     void dismissLauncherGuestFromInput() override;
-    void navigateLauncherGuestFromInput(
+    void tapBesideLauncherGuestFromInput(
         const QPointF &position) override;
     void pageLeftFromInput() override;
     void pageRightFromInput() override;

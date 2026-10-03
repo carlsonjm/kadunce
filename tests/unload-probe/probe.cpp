@@ -56,7 +56,7 @@ struct Target final : WorkspaceInputTarget {
     int actions = 0;
     int toggles = 0;
     int dismissals = 0;
-    int guestNavigations = 0;
+    QPointF lastGuestTap;
     bool grabbed = false;
     int grabStarts = 0;
     int grabCancels = 0;
@@ -78,7 +78,7 @@ struct Target final : WorkspaceInputTarget {
     bool cardAtForInput(const QPointF &p) const override { return centerCardContainsForInput(p); }
     void toggleFromInput() override { ++actions; ++toggles; if (onToggle) onToggle(); }
     void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
-    void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }
+    void tapBesideLauncherGuestFromInput(const QPointF &p) override { ++actions; ++dismissals; lastGuestTap = p; }
     void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
     void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
     void pageStackFromInput(int) override { ++actions; }

@@ -78,7 +78,6 @@ namespace
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 8.0;
 constexpr float BentoWorkspaceTintOpacity = 0.22F;
-constexpr double LauncherGuestCommitDistance = 58.0;
 // A swipe up from the bottom bezel has opened Spread all the way once it has
 // risen this share of the tablet's height past where it committed, about the
 // four centimetres KWin gives three fingers on the tablet.
@@ -1616,7 +1615,13 @@ void Effect::refreshTable()
         const TableCard &card = m_tableWorkspaces[shown].cards[m_table.shownCard()];
         if (!card.windows.isEmpty()) shownCard = card.windows.first();
     }
-    showDesktopPreview(shownValid ? m_tableWorkspaces[shown].desktop.data() : nullptr, shownCard);
+    // Over Spread, the tabs leave Spread showing: a pull previews once it
+    // reaches a workspace's cards, and a menu bar once a tap chooses
+    // another workspace's tab.
+    const bool keepSpread = m_tableOverSpread && m_table.level() == TableLevel::Tabs
+        && (m_table.scrubbing() || shown == m_table.current());
+    showDesktopPreview(shownValid && !keepSpread ? m_tableWorkspaces[shown].desktop.data() : nullptr,
+        shownCard);
 
     QVariantMap model;
     model[QStringLiteral("row")] = m_tableLayout.row;
@@ -1761,6 +1766,8 @@ void Effect::openTable(bool sticky, KWin::LogicalOutput *output)
         if (m_tableWorkspaces[i].current) current = i;
     if (current < 0) return;
     m_tableTime.start();
+    m_tableOverSpread = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread;
     m_table.open(current, tableNow(), sticky);
     m_tableKeyboard = KWin::effects->grabKeyboard(this);
     quietCardGap(KWin::effects->cursorPos());
@@ -1781,6 +1788,7 @@ void Effect::finishTable()
     if (m_tableKeyboard) KWin::effects->ungrabKeyboard();
     m_tableKeyboard = false;
     m_tableOutput.clear();
+    m_tableOverSpread = false;
     endDesktopPreview();
     m_tableCarried.clear();
     m_tableDrop.clear();
@@ -2846,6 +2854,11 @@ void Effect::raiseKeyboard()
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method) return;
     m_keyboardAskedSince.start();
+    // Plasma's touch-only setting shows the keys only while a touch or a pen
+    // was the last input, so a click on the tray's entry asked for nothing.
+    // A request here is the person's own however it was made, so it counts
+    // as a touch; KWin's next input of any kind sets it back.
+    if (KWin::input()) KWin::input()->setLastInputHandler(KWin::input()->touch());
     method->forceActivate();
 }
 
@@ -3203,38 +3216,14 @@ void Effect::dismissLauncherGuestFromInput()
     endLauncherGuest();
 }
 
-void Effect::navigateLauncherGuestFromInput(const QPointF &position)
+void Effect::tapBesideLauncherGuestFromInput(const QPointF &position)
 {
-    if (m_launcherGuestExpanded) return;
-    KWin::LogicalOutput *tablet = tabletOutput();
-    if (!tablet || !m_cardStage->launcherGuestActive()) {
-        return;
-    }
-    const KWin::Rect left =
-        m_cardStage->launcherGuestTargetForSlot(tablet, -1);
-    const KWin::Rect right =
-        m_cardStage->launcherGuestTargetForSlot(tablet, 1);
-    const int slot = left.contains(position.toPoint()) ? -1
-        : (right.contains(position.toPoint()) ? 1 : 0);
-    if (slot == 0) {
-        dismissLauncherGuestFromInput();
-        return;
-    }
-
-    if (!m_launcherGuestOwner.isEmpty()) {
-        QDBusMessage navigate = QDBusMessage::createMethodCall(
-            m_launcherGuestOwner,
-            QStringLiteral("/Launcher"),
-            QStringLiteral("io.github.carlsonjm.Tettegouche"),
-            QStringLiteral("completeGuestNavigation"));
-        navigate.setArguments({slot});
-        QDBusConnection::sessionBus().asyncCall(navigate);
-    }
-    // Moving the guest right reveals the left neighbor; moving it left reveals
-    // the right neighbor. CardStage applies the matching selection only when
-    // the transition completes.
-    finishLauncherGuest(slot < 0
-        ? LauncherGuestCommitDistance : -LauncherGuestCommitDistance);
+    // Search closes. A tap on a card beside it opens that card, as a tap on
+    // any card in Spread does; Search grown to the whole display has none.
+    const bool card = !m_launcherGuestExpanded
+        && m_cardStage->endLauncherGuestOnCard(position);
+    dismissLauncherGuestFromInput();
+    if (card) activateSelectedFromInput();
 }
 
 void Effect::pageLeftFromInput()

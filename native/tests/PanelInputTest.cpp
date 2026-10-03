@@ -29,7 +29,7 @@ struct Target : WorkspaceInputTarget {
     double bezelSpeed = -1.0;
     bool bezelCancelled = false;
     int dismissals = 0;
-    int guestNavigations = 0;
+    QPointF lastGuestTap;
     bool grabbed = false;
     int grabStarts = 0;
     int grabCancels = 0;
@@ -67,7 +67,7 @@ struct Target : WorkspaceInputTarget {
         ++actions; ++bezelFinishes; bezelRise = rise; bezelSpeed = speed; bezelCancelled = cancelled;
     }
     void dismissLauncherGuestFromInput() override { ++actions; ++dismissals; }
-    void navigateLauncherGuestFromInput(const QPointF &) override { ++actions; ++guestNavigations; }
+    void tapBesideLauncherGuestFromInput(const QPointF &p) override { ++actions; ++dismissals; lastGuestTap = p; }
     void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
     void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
     void pageStackFromInput(int) override { ++actions; }
@@ -728,7 +728,7 @@ int main(int argc, char **argv) {
         require(input.touchMotion(&motion) && input.touchUp(&up) && guest.actions == 0,
                 "Outside swipe became a tap");
         require(input.touchDown(&down) && input.touchUp(&up) && guest.dismissals == 1
-                    && guest.guestNavigations == 0, "Outside tap navigated instead of dismissing");
+                    && guest.lastGuestTap == QPointF(50,300), "Outside tap lost where it landed");
         require(input.touchDown(&down), "Cancel contact missing");
         input.touchCancel();
         require(!input.touchUp(&up) && guest.dismissals == 1, "Canceled touch dismissed guest");
@@ -737,8 +737,8 @@ int main(int argc, char **argv) {
         pointer.state = KWin::PointerButtonState::Pressed;
         require(input.pointerButton(&pointer) && guest.dismissals == 1, "Outside mouse press acted early");
         pointer.state = KWin::PointerButtonState::Released;
-        require(input.pointerButton(&pointer) && guest.dismissals == 2 && guest.guestNavigations == 0,
-                "Outside mouse click navigated instead of dismissing");
+        require(input.pointerButton(&pointer) && guest.dismissals == 2
+                    && guest.lastGuestTap == QPointF(50,300), "Outside mouse click lost where it landed");
         // Moving out and back is still a drag, not a fresh stationary click.
         pointer.state = KWin::PointerButtonState::Pressed;
         require(input.pointerButton(&pointer), "Outside drag press escaped");

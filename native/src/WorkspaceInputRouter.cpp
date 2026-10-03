@@ -227,7 +227,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
             m_launcherGuestNavigationPointer = false;
             const auto delta = event->position - m_guestOutsidePointerStart;
             if (!m_guestOutsidePointerMoved && std::hypot(delta.x(), delta.y()) <= CardHoldMotion)
-                m_target->dismissLauncherGuestFromInput();
+                m_target->tapBesideLauncherGuestFromInput(m_guestOutsidePointerStart);
         }
         return true;
     }
@@ -469,8 +469,11 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     }
     // Spread owns its top edge outright. Over an Active card the pull starts
     // in the gutter above it, which a bezel swipe reaches first, and the
-    // card's own title bar keeps its drag; anywhere else the client keeps a
-    // contact in the strip unless it becomes Table's pull.
+    // card's own title bar keeps its drag. Above a Bento pane the gutter is
+    // Kadunce's too: a window drawing its own title bar keeps an invisible
+    // resize border there, which would take the pull for a resize. Anywhere
+    // else the client keeps a contact in the strip unless it becomes Table's
+    // pull.
     const WorkspaceInputGeometry edges = m_target->geometryForInput();
     const WorkspacePresentation topPresentation = m_target->presentationForInput();
     const bool aboveActive = m_target->aboveActiveCardForInput(event->pos);
@@ -482,7 +485,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_topCandidateId = event->id;
         m_topCandidateStart = event->pos;
         m_topCandidateLast = event->pos;
-        m_topCandidateOwned = aboveActive;
+        m_topCandidateOwned = aboveActive || m_target->inCardGapForInput(event->pos);
         if (m_topCandidateOwned) m_ownedTouchIds.insert(event->id);
         return m_topCandidateOwned;
     }
@@ -681,9 +684,9 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
         m_topCandidateOwned = false;
     }
     if (m_launcherGuestNavigationTouchIds.remove(event->id)) {
-        m_guestOutsideTouchStarts.remove(event->id);
+        const QPointF start = m_guestOutsideTouchStarts.take(event->id);
         if (!m_guestOutsideMovedTouches.remove(event->id))
-            m_target->dismissLauncherGuestFromInput();
+            m_target->tapBesideLauncherGuestFromInput(start);
         return true;
     }
     if (m_launcherGuestTouchIds.remove(event->id)) {

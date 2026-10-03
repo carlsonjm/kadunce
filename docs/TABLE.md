@@ -39,6 +39,8 @@ presentation layer over them. Every input Table answers is in `INPUT.md`
 - The preview is the workspace itself at full size, not a thumbnail. While a tab
   or card is previewed, every display shows that workspace as it presents
   itself, without leaving yours; entering switches desktop.
+- Over Spread, the tabs leave Spread in view: a workspace previews once a pull
+  reaches its cards, or a tap in the menu bar chooses its tab.
 - Table appears where it is called: on the touchscreen for a finger, and on the
   display under the pointer for the mouse and the keys. There is one Table per
   session.

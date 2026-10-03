@@ -257,7 +257,7 @@ rg -q -- '-16\.0 \* liftBlend' "${effect_cpp}"
 rg -q 'slot < 0 \? -0\.8 : 0\.8' "${effect_cpp}"
 rg -q 'm_cardStage->endLauncherGuest' "${effect_cpp}"
 rg -q 'launcherGuestContainsForInput' "${router_cpp}" "${router_header}"
-rg -q 'navigateLauncherGuestFromInput' "${router_cpp}" "${router_header}" \
+rg -q 'tapBesideLauncherGuestFromInput' "${router_cpp}" "${router_header}" \
     "${effect_cpp}" "${effect_header}"
 rg -q 'm_launcherGuestTouchIds' "${router_cpp}" "${router_header}"
 rg -q 'm_launcherGuestNavigationTouchIds' "${router_cpp}" "${router_header}"
