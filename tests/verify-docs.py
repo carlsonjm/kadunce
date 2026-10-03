@@ -79,6 +79,7 @@ RETIRED_DOCUMENTS = {
     "docs/EXPERIENCE-AUDIT.md": "Git history",
     "docs/KNOWN-ISSUES.md": "docs/ROADMAP.md",
     "docs/SHUFFLE-KEYBOARD-1.0-CONCEPT.md": "the shuffle-keyboard repository",
+    "docs/KADUNCE-TABLE-1.0-CONCEPT.md": "docs/TABLE.md",
     "tests/unload-probe/README.md": "docs/TESTING.md",
     "patches/kwin/package/README.md": "patches/kwin/README.md",
 }

@@ -53,7 +53,9 @@ must reject unknown major versions instead of guessing at fields.
 - `cardStage`: whether Card Stage is active, its presentation, the selected
   card UUID, and ordered selected-stack member UUIDs. The presentation is one
   of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
-  layout while Card Stage holds its cards hidden), or `active`. `cardLine` is a
+  layout while Card Stage holds its cards hidden), `desktop` (the card display
+  shows the Plasma desktop while Card Stage holds its cards hidden), or
+  `active`. `cardLine` is a
   frozen interface value that Block 10b renames with a versioned migration.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `lastActivated`, optional on each application: an in-memory, monotonic

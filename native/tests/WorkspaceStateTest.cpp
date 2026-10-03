@@ -9,6 +9,36 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main() {
+    // A stack carried whole to another workspace arrives as it left: the same
+    // face in front and the same cards at the same depths behind it, among
+    // cards of the workspace's own (Table).
+    for (int depth = 2; depth <= 5; ++depth) {
+        CardWorkspaceState<QString> source;
+        QList<QString> members;
+        for (int i = 0; i < depth; ++i) members.append(u"member %1"_s.arg(i));
+        const auto plan = source.prepareStackAdmission(members);
+        require(plan && source.commitAdmission(*plan, [] { return true; }), "Could not build a source stack");
+        source.pageStack(1);
+        const QList<QString> leaving = source.stackFrontToBack(members.first());
+        require(leaving.size() == depth && leaving.first() == source.selectedWindow(),
+                "A stack's front-to-back order does not start with its face");
+        CardWorkspaceState<QString> destination;
+        QList<QString> arriving{u"own before"_s};
+        arriving.append(leaving);
+        arriving.append(u"own after"_s);
+        destination.reset(arriving, 0);
+        require(destination.stackBehind(leaving.first(), leaving.mid(1)), "A carried stack was not rebuilt");
+        require(destination.stackFrontToBack(leaving.first()) == leaving && destination.selectedWindow() == u"own before"_s
+                    && destination.count() == 3 && destination.cardCount() == depth + 2 && destination.invariantHolds(),
+                "A carried stack arrived with another face, order, membership or selection");
+        CardWorkspaceState<QString> onMember;
+        onMember.reset(leaving, depth - 1);
+        require(onMember.stackBehind(leaving.first(), leaving.mid(1)) && onMember.selectedWindow() == leaving.first(),
+                "A selection on one of the stack's cards did not move to its face");
+        require(!destination.stackBehind(u"own before"_s, {leaving.first()}), "A card already stacked was stacked again");
+        require(destination.stackFrontToBack(u"own after"_s).isEmpty(), "A card alone reported a stack");
+    }
+
     // Initial ownership is a complete membership commit, not a sequence of
     // selecting/activating individual faces. Restore owners can enumerate it once.
     for (int selected = 0; selected < 3; ++selected) {

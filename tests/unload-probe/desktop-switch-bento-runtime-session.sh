@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# The same rule for a Bento layout: a window opened on another desktop never
-# joins the first desktop's layout, and never takes the person back there.
-set -euo pipefail
+# Each desktop has its own layouts beside its own cards. A window opened on
+# another desktop becomes that desktop's card, never a pane of the first
+# desktop's layout, and never takes the person back there; the layout comes
+# back exactly as it was. A pane KWin's window menu sends to another desktop
+# leaves the layout, which ends into card ownership, and becomes that
+# desktop's card.
+set -Eeuo pipefail
 trap 'echo "FAIL: desktop switch bento $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -20,14 +24,9 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunc
 sleep .5
 client ordinaryCompanion
 sleep .8
-shots=$(dirname "$XDG_RUNTIME_DIR")
-report() {
-    python3 "$(dirname "$0")/capture-png.py" 0 0 2560 800 "$shots/$1.png"
-    printf '%s cards %s\n' "$1" "$(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId, apps: [.applications[] | {title, hasCard, focused}]}')"
-    printf '%s facts %s\n' "$1" "$(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, onCurrentDesktop, hidden, output, x, y, width, height})')"
-}
-context() { kad workspaceContext | jq -e "$1" >/dev/null; }
-window() { probe windowFacts | jq -e --arg c "$1" "first(.[] | select(.caption == \$c)) | $2" >/dev/null; }
+evidence=$(dirname "$XDG_RUNTIME_DIR")
+cards() { kad workspaceContext | jq -c '[.applications[] | select(.hasCard) | .title] | sort'; }
+desktops_of() { probe windowFacts | jq -r --arg c "$1" 'first(.[] | select(.caption == $c)) | .desktops | join(",")'; }
 kad showCardLine
 sleep .4
 kad showActive
@@ -44,16 +43,23 @@ switch() { qdbus6 org.kde.KWin /VirtualDesktopManager org.freedesktop.DBus.Prope
 switch "$two"
 client crossCompanion
 sleep 1
-report two-opened
 test "$(vdm org.kde.KWin.VirtualDesktopManager.current)" = "$two"
-window 'Cross ownership probe' '.onCurrentDesktop and (.hidden | not) and .width == 400 and .height == 300'
-kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
+kad outputStageState | rg '^Virtual-0\|tablet\|.*\|0$'
+test "$(cards)" = '["Cross ownership probe"]'
 python3 - "$(python3 "$(dirname "$0")/capture-band.py" 540 350 200 100 2e8b57)" <<'PY2'
 import sys; assert float(sys.argv[1]) > 0.9, sys.argv[1]
 PY2
-echo 'PASS: a window opened on another desktop never joins the layout or takes the person back'
+echo "PASS: a window opened on another desktop becomes that desktop's card, never a pane, and never takes the person back"
 switch "$one"
-report one-back
 kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
 test "$(probe windowFacts | jq -c '[.[] | select(.class == "unload-client" and .caption != "Cross ownership probe") | {id, x, y, width, height}] | sort_by(.id)')" = "$panes"
 echo 'PASS: the layout on the first desktop comes back exactly as it was'
+probe sendToDesktop 'Ordinary neighbor probe' "$two"
+sleep .8
+test "$(desktops_of 'Ordinary neighbor probe')" = "$two"
+kad outputStageState | rg '^Virtual-0\|tablet\|.*\|0$'
+test "$(cards)" = '["unload-client"]'
+switch "$two"
+test "$(cards)" = '["Cross ownership probe","Ordinary neighbor probe"]'
+test -z "$(kad ownershipViolations)"
+echo "PASS: a pane the window menu sends to another desktop ends the layout and becomes that desktop's card"

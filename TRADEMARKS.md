@@ -11,7 +11,8 @@ redistribute the source under its terms.
 The following are not licensed under the GPL and remain the property of the
 copyright holder, Jared Carlson:
 
-- The names **Shuffle**, **Kadunce**, **Tettegouche** and **Temperance**
+- The publisher name **Good Input** and the product name **Shuffle for Plasma**
+- The names **Kadunce**, **Tettegouche** and **Temperance**
 - The Kadunce logo
 
 This is the ordinary arrangement for free software: the code is free to
@@ -33,6 +34,13 @@ You may not:
   is not
 
 A fork is welcome. It needs its own name.
+
+## Not covered by this file
+
+The plus glyph in `native/src/table/lucide/` is a third-party Lucide icon,
+licensed under ISC, and one of Lucide's icons inherited from Feather, under MIT.
+Both licences are in `native/src/table/lucide/LICENSE`. It is not a project mark
+and nothing here claims any right in it.
 
 ## Permission
 

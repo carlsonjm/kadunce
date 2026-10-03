@@ -72,6 +72,53 @@ public:
         ++m_ownershipRevision;
         return true;
     }
+    // A stack's members front to back: its face, then the card at each depth
+    // behind it, as the closed stack shows them. Empty for a card alone.
+    QList<Handle> stackFrontToBack(const Handle &member) const {
+        const int id = indexOf(member) + 1;
+        const std::vector<int> cards = m_model.stackMembersForId(id);
+        if (cards.size() <= 1) return {};
+        const int count = static_cast<int>(cards.size());
+        const int active = m_model.stackActivePositionForId(id);
+        QList<Handle> result;
+        for (int depth = 0; depth < count; ++depth)
+            result.append(windowForId(cards[static_cast<std::size_t>((active - depth + count) % count)]));
+        return result;
+    }
+    // Stacks cards that stand alone behind face, each one deeper than the
+    // last, the face staying in front, so a stack carried to this workspace
+    // whole arrives as it left. The selection stays where it was, or on the
+    // face when it was on one of the stack's cards. All or nothing. Not an
+    // ownership transition: every card stays this workspace's.
+    bool stackBehind(const Handle &face, const QList<Handle> &behind) {
+        const int faceId = indexOf(face) + 1;
+        if (faceId <= 0 || behind.isEmpty() || !invariantHolds() || hasDetachedMember()
+            || m_model.stackSizeForId(faceId) != 1) return false;
+        SpreadModel model = m_model;
+        int previous = model.selectedId();
+        const auto select = [&model](int id) {
+            const int offset = spreadEntryOffset(model, id);
+            if (offset < 0) return false;
+            model.page(offset);
+            for (int step = 0; step < model.stackSizeForId(id) && model.selectedId() != id; ++step) model.pageStack(1);
+            return model.selectedId() == id;
+        };
+        for (int depth = 1; depth <= behind.size(); ++depth) {
+            const int id = indexOf(behind[depth - 1]) + 1;
+            if (id <= 0 || id == faceId || model.stackSizeForId(id) != 1 || !select(id)) return false;
+            if (id == previous) previous = faceId;
+            // The slot prepareStackInsertionAtDepth names for this depth.
+            const int count = model.stackSizeForId(faceId);
+            const int active = model.stackActivePositionForId(faceId);
+            if (!model.stackSelectedWith(faceId, (active - depth + 1 + count) % count,
+                    SpreadModel::InsertionSelection::DestinationCard)) return false;
+        }
+        if (!select(previous) || !model.invariantHolds()) return false;
+        m_model = std::move(model);
+        ++m_revision;
+        ++m_ownershipRevision;
+        return true;
+    }
     // A prepared removal is not membership ownership. Dropping this value
     // cancels without touching the source. Only this originating state may
     // commit it, and any intervening state command invalidates it.

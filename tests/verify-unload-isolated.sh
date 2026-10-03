@@ -5,7 +5,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|provenance-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh) ;;
-    keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh) ;;
+    keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
@@ -14,6 +14,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
     card-exit-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
+    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
     *) echo 'Unknown isolated probe session' >&2; exit 1 ;;
@@ -75,11 +76,21 @@ session_env=()
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
+    # Software rendering switches KWin's animations off; the slide must run
+    # for the session to prove a Table switch stays out of it.
+    session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 KWIN_EFFECTS_FORCE_ANIMATIONS=1)
+fi
 shortcut_args=(--no-global-shortcuts)
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then
-    # KWin's recogniser serves three fingers only with global shortcuts on;
-    # this compositor's input is its own either way.
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-pointer-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then
+    # Table's own key and a push into a top-left corner. KWin serves both only with
+    # global shortcuts on; this compositor's input is its own either way.
     shortcut_args=()
+fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-settings-runtime-session.sh ]]; then
+    # The person's own settings: per-display switching and the pop-up both on.
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Windows --key PerOutputVirtualDesktops true
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group Plugins --key desktopchangeosdEnabled true
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; then
     # Lets the session photograph its own private outputs.
@@ -107,7 +118,9 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key BorderSize None
 fi
+# Table's touch scene walks every gesture Table has, renaming included.
 session_timeout=40s
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then session_timeout=70s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh ]]; then session_timeout=120s; fi

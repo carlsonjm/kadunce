@@ -148,6 +148,10 @@ public:
     // pane. False leaves it for card ownership; nothing is ever parked.
     bool handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
+    // The window left this stage's virtual desktop by other means. Its layout
+    // lets it go back to where it stood before the layout, as §13 would, and
+    // reflows or ends as for a closed pane.
+    void releaseWindow(KWin::EffectWindow *window);
     void handleWindowMinimizedChanged(KWin::EffectWindow *window);
     void handleScreenRemoved(KWin::LogicalOutput *output);
     void handleScreenAdded(KWin::LogicalOutput *output) { m_retiredOutputs.removeAll(output); }

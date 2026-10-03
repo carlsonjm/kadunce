@@ -27,6 +27,12 @@ constexpr double BottomBezelWidth = 20.0;
 // A sample older than this when the finger lifts means it had stopped, so the
 // release is no flick.
 constexpr std::chrono::milliseconds BezelStillAfter{80};
+// Table's pull starts at the top bezel, as Spread's swipe starts at the bottom
+// one, and claims the contact once it has pulled down this far.
+constexpr double TopBezelWidth = 20.0;
+constexpr double TablePull = 20.0;
+// One notch of a mouse wheel; a touchpad's travel adds up to the same step.
+constexpr double TableWheelStep = 15.0;
 constexpr double CardHoldMotion = 12.0;
 constexpr int CardHoldDelay = 300;
 }
@@ -63,6 +69,13 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 {
     m_target->pointerMovedForInput(event->position);
+    // An open Table has the pointer: over its rows it previews, and a held
+    // button is a stroke like a finger's.
+    if (m_target->tableOpenForInput()) {
+        if (m_tablePointer) m_target->moveTableFromInput(event->position);
+        else m_target->hoverTableFromInput(event->position);
+        return true;
+    }
     if (m_railPointer) {
         m_railPosition = event->position;
         if (m_railReady) m_target->updateRailFromInput(event->position);
@@ -127,8 +140,29 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
-    if (event->state == KWin::PointerButtonState::Pressed && m_target->standsAsideForInput()
-        && !m_pointerPressed && !m_railPointer) return false;
+    if (m_target->tableOpenForInput() || m_tablePointer) {
+        // A button already held by a client when Table opened ends there.
+        if (event->state == KWin::PointerButtonState::Released && !m_tablePointer
+            && m_forwardedPointerButtons.remove(event->button)) return false;
+        if (event->state == KWin::PointerButtonState::Pressed && !m_tablePointer
+            && m_target->inputPanelContainsForInput(event->position)) {
+            m_forwardedPointerButtons.insert(event->button);
+            return false;
+        }
+        if (event->button == Qt::RightButton && event->state == KWin::PointerButtonState::Pressed && !m_tablePointer) {
+            m_target->contextTableFromInput(event->position);
+            return true;
+        }
+        if (event->button != Qt::LeftButton) return true;
+        if (event->state == KWin::PointerButtonState::Pressed && !m_tablePointer) {
+            m_tablePointer = true;
+            m_target->pressTableFromInput(event->position, false);
+        } else if (event->state == KWin::PointerButtonState::Released && m_tablePointer) {
+            m_tablePointer = false;
+            m_target->releaseTableFromInput(event->position);
+        }
+        return true;
+    }
     if (m_railPointer) {
         const bool commit = event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Released;
         if (!commit) m_drainingPointerButtons.insert(Qt::LeftButton);
@@ -294,6 +328,16 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 
 bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 {
+    if (m_target->tableOpenForInput()) {
+        m_tableWheel += event->deltaV120 != 0 ? event->deltaV120 / 120.0 * TableWheelStep : event->delta;
+        const int steps = int(m_tableWheel / TableWheelStep);
+        if (steps != 0) {
+            m_tableWheel -= steps * TableWheelStep;
+            m_target->wheelTableFromInput(steps);
+        }
+        return true;
+    }
+    m_tableWheel = 0.0;
     if (reconcileNativeInteraction()) return false;
     if (!m_pointerPressed && m_target->isPanelPoint(event->position)) return false;
     if (m_target->launcherGuestActiveForInput()
@@ -359,7 +403,6 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 {
-    if (m_target->standsAsideForInput() && m_ownedTouchIds.isEmpty() && m_railTouch < 0) return false;
     m_observedTouchIds.insert(event->id);
     if (m_railTouch >= 0) {
         m_drainingTouchIds.insert(m_railTouch);
@@ -367,6 +410,19 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_railTouch = -1;
         m_railHoldTimer.stop(); m_railReady = false;
         m_target->finishRailFromInput(false);
+        return true;
+    }
+    if (m_target->tableOpenForInput()) {
+        // The keys stay the keys while a name is typed into Table.
+        if (m_target->inputPanelContainsForInput(event->pos)) return false;
+        if (m_tableTouch < 0) {
+            m_tableTouch = event->id;
+            m_tablePosition = event->pos;
+            m_ownedTouchIds.insert(event->id);
+            m_target->pressTableFromInput(event->pos, true);
+        } else {
+            m_drainingTouchIds.insert(event->id);
+        }
         return true;
     }
     if (m_observedTouchIds.size() == 1 && !m_railPointer && !m_pointerPressed
@@ -410,6 +466,33 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         if (m_launcherGuestNavigationTouchIds.size() > 1)
             m_guestOutsideMovedTouches.unite(m_launcherGuestNavigationTouchIds);
         return true;
+    }
+    // Spread owns its top edge outright. Over an Active card the pull starts
+    // in the gutter above it, which a bezel swipe reaches first, and the
+    // card's own title bar keeps its drag; anywhere else the client keeps a
+    // contact in the strip unless it becomes Table's pull.
+    const WorkspaceInputGeometry edges = m_target->geometryForInput();
+    const WorkspacePresentation topPresentation = m_target->presentationForInput();
+    const bool aboveActive = m_target->aboveActiveCardForInput(event->pos);
+    const bool topStrip = m_ownsSystemEdges && edges.isValid()
+        && event->pos.y() < edges.tablet.y() + TopBezelWidth;
+    if (topStrip && m_touchId < 0 && m_observedTouchIds.size() == 1
+        && topPresentation != WorkspacePresentation::Spread
+        && (topPresentation != WorkspacePresentation::Active || aboveActive)) {
+        m_topCandidateId = event->id;
+        m_topCandidateStart = event->pos;
+        m_topCandidateLast = event->pos;
+        m_topCandidateOwned = aboveActive;
+        if (m_topCandidateOwned) m_ownedTouchIds.insert(event->id);
+        return m_topCandidateOwned;
+    }
+    // Each top-edge contact that cannot become Table's pull says why, so a
+    // pull that did not open it on the tablet can be read back.
+    if (topStrip) {
+        qInfo() << "Kadunce top-edge contact" << event->pos << "is not Table's:"
+                << (m_touchId >= 0 || m_observedTouchIds.size() != 1 ? "another finger is down"
+                    : topPresentation == WorkspacePresentation::Spread ? "Spread is open"
+                                                                      : "it landed on the Active card");
     }
     const TouchMode mode = touchModeAt(event->pos);
     if (mode == TouchMode::BottomEdge && m_target->surfaceOwnsTouchAt(event->pos)) {
@@ -456,9 +539,52 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
         else if (QLineF(m_railStart,event->pos).length() > 12) m_railHoldTimer.stop();
         return true;
     }
+    if (event->id == m_tableTouch) {
+        m_tablePosition = event->pos;
+        m_target->moveTableFromInput(event->pos);
+        return true;
+    }
+    if (event->id == m_topCandidateId) m_topCandidateLast = event->pos;
+    if (event->id == m_topCandidateId && m_topCandidateOwned) {
+        const QPointF delta = event->pos - m_topCandidateStart;
+        if (m_observedTouchIds.size() == 1 && delta.y() > TablePull
+            && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
+            m_topCandidateId = -1;
+            m_topCandidateOwned = false;
+            m_tableTouch = event->id;
+            m_tablePosition = event->pos;
+            m_target->beginTableFromInput(m_topCandidateStart);
+            m_target->moveTableFromInput(event->pos);
+        }
+        return true;
+    }
     const bool native = reconcileNativeInteraction();
     if (m_drainingTouchIds.contains(event->id)) return true;
     if (native) return false;
+    if (event->id == m_topCandidateId) {
+        const QPointF delta = event->pos - m_topCandidateStart;
+        if (delta.y() < -TablePull || (std::abs(delta.x()) > 40.0
+            && std::abs(delta.x()) > std::abs(delta.y()) * 1.2)) {
+            qInfo() << "Kadunce top-edge contact" << m_topCandidateStart << "left to the window: it moved"
+                    << (delta.y() < -TablePull ? "up" : "sideways") << delta;
+            m_topCandidateId = -1;
+            return false;
+        }
+        if (m_observedTouchIds.size() == 1 && delta.y() > TablePull
+            && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
+            m_topCandidateId = -1;
+            // The client under the edge, if any had it, loses the contact;
+            // with none, it was never anyone's.
+            (void)m_target->cancelForwardedTouchForInput();
+            m_tableTouch = event->id;
+            m_tablePosition = event->pos;
+            m_ownedTouchIds.insert(event->id);
+            m_target->beginTableFromInput(m_topCandidateStart);
+            m_target->moveTableFromInput(event->pos);
+            return true;
+        }
+        return false;
+    }
     if (event->id == m_bottomCandidateId) {
         const QPointF delta = event->pos - m_bottomCandidateStart;
         if (delta.y() > 40.0 || (std::abs(delta.x()) > 40.0
@@ -534,10 +660,26 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
         m_railReady = false;
         return true;
     }
+    if (event->id == m_tableTouch) {
+        // Released before the target acts: an action that cancels workspace
+        // input must find this contact already gone.
+        m_observedTouchIds.remove(event->id);
+        m_ownedTouchIds.remove(event->id);
+        m_tableTouch = -1;
+        if (m_touchId == event->id) resetTouch();
+        m_target->releaseTableFromInput(m_tablePosition);
+        return true;
+    }
     reconcileNativeInteraction();
     m_observedTouchIds.remove(event->id);
     if (m_drainingTouchIds.remove(event->id)) return true;
     if (m_bottomCandidateId == event->id) m_bottomCandidateId = -1;
+    if (m_topCandidateId == event->id) {
+        qInfo() << "Kadunce top-edge contact" << m_topCandidateStart << "lifted before it pulled"
+                << TablePull << "down; it moved" << (m_topCandidateLast - m_topCandidateStart);
+        m_topCandidateId = -1;
+        m_topCandidateOwned = false;
+    }
     if (m_launcherGuestNavigationTouchIds.remove(event->id)) {
         m_guestOutsideTouchStarts.remove(event->id);
         if (!m_guestOutsideMovedTouches.remove(event->id))
@@ -587,6 +729,12 @@ bool WorkspaceInputRouter::touchCancel()
     m_drainingTouchIds.clear();
     m_observedTouchIds.clear();
     m_bottomCandidateId = -1;
+    m_topCandidateId = -1;
+    m_topCandidateOwned = false;
+    if (m_tableTouch >= 0) {
+        m_tableTouch = -1;
+        m_target->cancelTableFromInput();
+    }
     m_launcherGuestTouchIds.clear();
     m_launcherGuestNavigationTouchIds.clear();
     m_guestOutsideTouchStarts.clear();
@@ -640,6 +788,12 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
     m_guestOutsideTouchStarts.clear();
     m_guestOutsideMovedTouches.clear();
     m_bottomCandidateId = -1;
+    // A top-edge candidate is only watched, never claimed, so it outlives the
+    // cancellation its own touch can cause by activating the window under it.
+    // Table's contact drains like any other; Table itself decides what an
+    // interrupted stroke leaves.
+    if (m_tableTouch >= 0) m_drainingTouchIds.insert(m_tableTouch);
+    m_tableTouch = -1;
     cancelSpreadStroke();
     // Clear ownership before calling the target, which may reenter lifecycle hooks.
     m_holdTimer.stop();
@@ -780,12 +934,13 @@ void WorkspaceInputRouter::updateTouchGesture()
         beginBezelSpread(m_touchCurrent, std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch()));
     } else if (m_touchMode == TouchMode::TopEdge
-               && delta.y() > 40.0 && vertical) {
-        if (m_target->presentationForInput()
-            == WorkspacePresentation::Spread) {
-            m_target->toggleFromInput();
-        }
+               && delta.y() > TablePull && vertical) {
+        // Spread's top edge pulls Table down too.
         m_touchCommitted = true;
+        m_tableTouch = m_touchId;
+        m_tablePosition = m_touchCurrent;
+        m_target->beginTableFromInput(m_touchStart);
+        m_target->moveTableFromInput(m_touchCurrent);
     }
 }
 

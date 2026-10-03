@@ -37,7 +37,7 @@ Apps and Files.
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes. A stroke that moves does not close it, and a touch on the keys types into it. |
-| Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. |
+| Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
 
 A swipe that starts on the dock stays with the dock, and while the on-screen keys
 are up, the bottom edge is theirs.
@@ -84,14 +84,33 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Pull down from the top edge | Table opens. |
-| `Meta+W` | Table opens, or closes. |
-| Push the pointer into a display's top-left corner | Table opens there. |
-| Three fingers up on the touchscreen, or four on a touchpad | Table opens; again, it closes. |
-| `Escape` | Table closes and nothing changes. |
-
-Table is part of Shuffle for Plasma; a Kadunce build without it doesn't answer
-these inputs.
+| Pull down from the top edge: above the Active card, or anywhere along the top in Spread, a Bento layout or the desktop | Table comes down as a row of tabs, one per workspace; sliding across them previews each workspace on every display. |
+| Keep pulling past the tabs, then slide sideways | The tab under your finger stays chosen, its cards hanging below; sliding across them previews each. |
+| Lift on a tab | That workspace opens as it was left. |
+| Lift on a card | It opens as the Active card in its workspace. |
+| Pull on past the cards | The card under your finger lifts to be moved. |
+| Let a lifted card go on a tab | Its window moves to that workspace. |
+| Let a lifted card go on `+` | A new workspace, named for the application, takes it. |
+| Let a lifted card go on its own place | It opens. |
+| Push back up to the edge and lift | Table closes and nothing changes; a lifted card goes back and the tabs stay. |
+| Flick down quickly | The tabs stay open as a menu bar, and nothing is chosen. |
+| In the menu bar: tap a tab, then tap it again | The first tap previews it; the second enters it. |
+| In the menu bar: tap a card, or the preview | What it shows opens. |
+| In the menu bar: drag a card | It is carried like a lifted card. |
+| In the menu bar: hold a tab | Its name can be typed, as a right-click does. |
+| Tap or lift on `+` | An empty workspace opens; its first application names it. |
+| Clear a workspace's name | Table offers to remove it (`TABLE.md`). |
+| `Meta+W` | Table opens as a menu bar on the display under the pointer, or closes. |
+| Push the pointer into a display's top-left corner | The menu bar opens there. The rest of the top edge stays with windows. |
+| Hover over a tab or a card | It previews. |
+| Click a tab or a card | It opens, a card as the Active card. |
+| Wheel | Steps across the tabs, or across the chosen tab's cards. |
+| `Left`, `Right` | The tab or card before or after is chosen. |
+| `Down`, `Up` | Into the chosen tab's cards, or back up to the tabs. |
+| `Enter` or `Space` | The chosen tab or card opens, a card as the Active card. |
+| `Escape` | Table closes and nothing changes; a name being typed keeps the old one. |
+| `F2` | The chosen workspace's name can be typed; `Enter` keeps it. |
+| Three fingers up on the touchscreen, or four on a touchpad | Table comes down as a menu bar once the swipe passes halfway, on the card display, or under the pointer from a touchpad; again closes it. |
 
 ## Plasma desktop
 

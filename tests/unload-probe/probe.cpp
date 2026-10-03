@@ -15,9 +15,13 @@
 #include <inputmethod.h>
 #include <inputpanelv1window.h>
 #include <main.h>
+#include <virtualdesktops.h>
 #include <window.h>
 #include <scene/windowitem.h>
 #include <wayland/surface.h>
+#include <workspace.h>
+#include <screenedge.h>
+#include <effect/effecthandler.h>
 #include <QDBusConnection>
 #include <QElapsedTimer>
 #include <QJsonArray>
@@ -343,6 +347,20 @@ public Q_SLOTS:
         }
         return false;
     }
+    // Which loaded effects KWin's top-left corners call, for the session that
+    // proves Table holds Overview's corner and gives it back, without
+    // opening Overview in a compositor that has no activities for it.
+    QStringList topLeftCornerHolders() {
+        QStringList holders;
+        for (const auto &edge : KWin::workspace()->screenEdges()->edges()) {
+            if (edge->border() != KWin::ElectricTopLeft) continue;
+            for (const QString &name : KWin::effects->loadedEffects()) {
+                if (edge->callBacks().contains(KWin::effects->findEffect(name)) && !holders.contains(name))
+                    holders.append(name);
+            }
+        }
+        return holders;
+    }
     // What KWin says about every client window, in stacking order, for the
     // sessions that measure which windows Kadunce should hold.
     QString windowFacts() {
@@ -362,9 +380,31 @@ public Q_SLOTS:
                 {"active", w->isActive()}, {"layer", int(w->layer())},
                 {"output", w->output() ? w->output()->name() : QString()},
                 {"onCurrentDesktop", w->isOnCurrentDesktop()},
+                {"desktops", QJsonArray::fromStringList(w->desktopIds())},
                 {"x", g.x()}, {"y", g.y()}, {"width", g.width()}, {"height", g.height()}});
         }
         return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
+    }
+    // What KWin's window menu does with Move to Desktop.
+    bool sendToDesktop(const QString &caption, const QString &desktopId) {
+        auto *desktop = KWin::VirtualDesktopManager::self()->desktopForId(desktopId);
+        for (auto *w : KWin::workspace()->windows())
+            if (desktop && !w->isDeleted() && w->caption() == caption) {
+                KWin::workspace()->sendWindowToDesktops(w, {desktop}, false);
+                return true;
+            }
+        return false;
+    }
+    // Whether each display switches desktops on its own, as KWin applies it.
+    bool perOutputDesktops() { return KWin::VirtualDesktopManager::self()->isPerOutputVirtualDesktops(); }
+    // What KWin's window menu does with On All Desktops.
+    bool setOnAllDesktops(const QString &caption, bool all) {
+        for (auto *w : KWin::workspace()->windows())
+            if (!w->isDeleted() && w->caption() == caption) {
+                w->setOnAllDesktops(all);
+                return true;
+            }
+        return false;
     }
     // What the dock or a task switcher does when a person picks a window.
     bool activateWindowId(const QString &id) {
@@ -595,6 +635,7 @@ public Q_SLOTS:
     void snapDrop() { snap.reset(); }
     void shift(bool pressed) { KWin::input()->keyboard()->processKey(42,
         pressed ? KWin::KeyboardKeyState::Pressed : KWin::KeyboardKeyState::Released, now()); }
+    void motion(int id, int x, int y) { KWin::input()->touch()->processMotion(id, {double(x), double(y)}, now()); KWin::input()->touch()->frame(); }
     // A continuous vertical scroll, as a touchpad or finger source sends one
     // per frame: no notch, only a delta, down for a positive one.
     void fingerScroll(double delta) {
@@ -620,7 +661,6 @@ public Q_SLOTS:
         keyboard->processKey(code, KWin::KeyboardKeyState::Released, now());
         if (modifier > 0) keyboard->processKey(modifier, KWin::KeyboardKeyState::Released, now());
     }
-    void motion(int id, int x, int y) { KWin::input()->touch()->processMotion(id, {double(x), double(y)}, now()); KWin::input()->touch()->frame(); }
     bool bentoInterrupt() { return bento.interrupt(); }
     bool sourcePrepare(bool bentoSource) { return bento.sourcePrepare(bentoSource); }
     bool nativeRestoreControlPrepare() { return bento.nativeRestoreControlPrepare(); }
@@ -695,6 +735,13 @@ public Q_SLOTS:
     void up(int id) { KWin::input()->touch()->processUp(id, now()); KWin::input()->touch()->frame(); }
     void pointer(int x, int y) { KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now()); KWin::input()->pointer()->processFrame(); }
     void button(bool pressed) { KWin::input()->pointer()->processButton(272, pressed ? KWin::PointerButtonState::Pressed : KWin::PointerButtonState::Released,now()); KWin::input()->pointer()->processFrame(); }
+    // The right button, pressed and let go.
+    void rightClick() {
+        for (const auto state : {KWin::PointerButtonState::Pressed, KWin::PointerButtonState::Released}) {
+            KWin::input()->pointer()->processButton(273, state, now());
+            KWin::input()->pointer()->processFrame();
+        }
+    }
     QString state() { return QString::fromUtf8(QJsonDocument(QJsonObject{{"starts",target.grabStarts},{"cancels",target.grabCancels},{"grabbed",target.grabbed}}).toJson(QJsonDocument::Compact)); }
     QString windowGeometry(const QString &id) {
         for (auto *window : KWin::effects->stackingOrder()) {

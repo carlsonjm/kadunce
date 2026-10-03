@@ -64,7 +64,9 @@ probe once, and runs:
   the tablet;
 - Spread transfer, stack insertion and browsing, cancellation, and interrupted
   motion;
-- candidate Bento transfer, restoration and unload, and independent safety checks.
+- candidate Bento transfer, restoration and unload, and independent safety checks;
+- Table by touch, pointer and keys, and each workspace keeping its own cards and
+  layouts across switching and displays.
 
 Each scene uses a private display, runtime directory and D-Bus session. The live
 control check at the end is read-only. The harness never installs, injects input
@@ -103,6 +105,14 @@ The probe compiles the real `WorkspaceInputRouter` against a test double, and a
 real Qt Wayland client counts delivered input, so ordinary delivery is the
 positive control and zero events alone never establish success. The probe is an
 input injector with no install rules: never load it into a real desktop.
+
+Table's scenes run with KWin's animations forced on, since software rendering
+turns them off; `table-preview-runtime` runs without Kadunce, through the
+test-only effect `table-proof.cpp`. `table-runtime` needs the tablet kit's
+direct edges, `keyboard-table-runtime` a real input method, and
+`table-pointer-runtime` and `spread-fingers-runtime` run with global shortcuts,
+which the corner and `Meta+W` need. `table-multidisplay-runtime` reads its result from one
+photograph through `capture-shares.py`.
 
 ## Promotion checks
 
@@ -175,7 +185,8 @@ scene re-run) and run the same scene against `main` to attribute it.
 - Qt logs to journald, so a probe reading a Qt program's stderr sees nothing
   unless that program runs with `QT_FORCE_STDERR_LOGGING=1`. The effect's own log
   lines never reach `session.log`; read state through
-  `qdbus6 org.kde.KWin /Kadunce workspaceContext` (or `nativeCarryState`).
+  `qdbus6 org.kde.KWin /Kadunce workspaceContext` (or `nativeCarryState`,
+  `tableState`), and require `ownershipViolations` to be empty.
 - Under parallel load, wait for a state with a bounded poll, never a fixed sleep.
 - Iterate with `KADUNCE_GATE_SCENES`, then run every scene once before a handover.
 

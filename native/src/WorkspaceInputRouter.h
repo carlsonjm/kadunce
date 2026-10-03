@@ -74,9 +74,6 @@ public:
     // The keys serve whatever holds the text focus, so a touch on them is
     // never a touch away from it.
     [[nodiscard]] virtual bool inputPanelContainsForInput(const QPointF &) const { return false; }
-    // Nothing on screen is Kadunce's: every new touch and press passes to the
-    // desktop untouched, including the bottom edge.
-    [[nodiscard]] virtual bool standsAsideForInput() const { return false; }
     [[nodiscard]] virtual bool cancelForwardedTouchForInput() = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
     [[nodiscard]] virtual bool selectedStackContains(
@@ -126,6 +123,23 @@ public:
     virtual void finishCardGrab(bool commit) = 0;
     [[nodiscard]] virtual bool finishCardGrabOnOutput(
         const QPointF &position) = 0;
+    // Table, pulled down from the top edge (TABLE.md).
+    // While it is open every touch is Table's; a target without it never is.
+    [[nodiscard]] virtual bool tableOpenForInput() const { return false; }
+    // Above the Active card's top edge there is no application to reach, only
+    // the edges of cards hidden behind it; a touch there is kept.
+    [[nodiscard]] virtual bool aboveActiveCardForInput(const QPointF &) const { return false; }
+    virtual void beginTableFromInput(const QPointF &) {}
+    // A finger, or else a pointer's button, pressed on an open Table.
+    virtual void pressTableFromInput(const QPointF &, bool) {}
+    // A right-click on an open Table.
+    virtual void contextTableFromInput(const QPointF &) {}
+    virtual void moveTableFromInput(const QPointF &) {}
+    virtual void releaseTableFromInput(const QPointF &) {}
+    virtual void cancelTableFromInput() {}
+    // A pointer over an open Table with no button held, and its wheel.
+    virtual void hoverTableFromInput(const QPointF &) {}
+    virtual void wheelTableFromInput(int) {}
 };
 
 class WorkspaceInputRouter final : public KWin::InputEventFilter
@@ -259,6 +273,19 @@ private:
         // asking, that cancellation leaves it its finger.
         bool asking = false;
     } m_bezelSpread;
+    // A contact in the top bezel strip reaches the client until it pulls down
+    // far enough to be Table's; the contact Table owns from then on.
+    qint32 m_topCandidateId = -1;
+    QPointF m_topCandidateStart;
+    QPointF m_topCandidateLast;
+    // A candidate begun above the Active card is kept rather than forwarded.
+    bool m_topCandidateOwned = false;
+    qint32 m_tableTouch = -1;
+    QPointF m_tablePosition;
+    // The pointer's own stroke on an open Table, and the wheel travel not yet
+    // a whole step.
+    bool m_tablePointer = false;
+    double m_tableWheel = 0.0;
     QSet<Qt::MouseButton> m_panelPointerButtons;
     QSet<qint32> m_launcherGuestTouchIds;
     QSet<qint32> m_launcherGuestNavigationTouchIds;

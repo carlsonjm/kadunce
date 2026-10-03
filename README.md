@@ -19,26 +19,30 @@ monitor you arrange them side by side.
 | Table | Pull down from the top edge | `Meta+W` |
 | Plasma desktop | Switch Kadunce off in the tray | `Meta+Esc` |
 
-Kadunce's keys work only while it runs. Table is part of Shuffle for Plasma; a
-Kadunce build without it doesn't answer those inputs. Every other gesture, tap
-and key is in [docs/INPUT.md](docs/INPUT.md).
+Kadunce's keys work only while it runs. Every other gesture, tap and key is in
+[docs/INPUT.md](docs/INPUT.md).
 
 If anything goes wrong, `Meta+Esc` puts every window back on the ordinary Plasma
 desktop, and the **Kadunce** switch in the system tray turns Kadunce off
 entirely.
 
-## Cards, Spread and Bento
+## Cards, Spread, Bento and Table
 
 - **Card:** an application window Kadunce holds. Opening an application adds a
   card; the cards you already have stay as they are.
 - **Active card:** the card you are using.
 - **Spread:** your cards in an ordered row. Choose one to make it the Active
   card.
-- **Stack:** related cards kept together, which you move through one at a time.
+- **Stack:** related cards kept together, which you move through one at a time,
+  round and round from the card you opened.
 - **Bento:** several cards side by side in one layout. In Spread the whole layout
   is one group card, and choosing it brings back the same panes and proportions.
   A window that leaves a layout becomes its own card. Each display has one Bento
   layout at a time.
+- **Table:** your workspaces as a row of tabs along the top, each with its cards
+  hanging below. Choose one to go there, or carry a card to another. Each
+  workspace keeps its own cards and Bento layouts, and one left empty goes away
+  unless you named it.
 
 ## Displays
 

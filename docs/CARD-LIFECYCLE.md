@@ -83,6 +83,11 @@ every other eligible window there becomes an individual nonselected card. When
 that display holds no card, the next application window to open there starts
 ownership the same way and becomes Active.
 
+Every virtual desktop has its own ownership session, begun as switching Kadunce
+on begins one, the first time it is shown. A window KWin sends to another
+desktop, Table's moves included (`TABLE.md`), leaves its session where it
+stands; that desktop takes it as a card once shown.
+
 On a display that cannot own cards, the first deliberate Bento action starts
 ownership. The edge entries below still answer a window carried onto a display
 Kadunce does not own.
@@ -131,12 +136,8 @@ Placement comes from the gesture:
 - Both become Bento panes.
 - No other window joins. Kadunce never fills an unrequested pane.
 
-Spread order picks the partner, never a pane's side.
-
-Partner eligibility is defined under Eligible windows.
-
-The partner is named when the edge is contacted, and the pair commits with that
-partner. A presentation change during the carry never substitutes another window.
+The partner is named when the edge is contacted, and a presentation change
+during the carry never substitutes another window.
 
 When no eligible partner is named, nothing pairs. The carried window becomes an
 individual Active card, unless it already is the Active card, in which case
@@ -179,6 +180,7 @@ Kadunce does not create independent cards for:
 - Temporary popups
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
+- Windows set to appear on every virtual desktop
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
@@ -269,6 +271,7 @@ The window becomes an independent Spread card when it is:
 - Displaced by a new pane combination
 - Removed because it no longer fits
 - Excluded from the current visible layout
+- Moved to another workspace
 
 It retains no saved Bento position or group association.
 
@@ -481,7 +484,7 @@ An edge action commits only when released inside its valid edge zone.
 
 ## 11. Multiple displays
 
-Each display has an independent ownership session.
+Each display, on each desktop, has an independent ownership session.
 
 An edge action reads that display's own state and what it can hold: whether
 Kadunce owns it, which card is Active, whether it has a live Bento layout, and
@@ -538,7 +541,7 @@ Explicit bottom-edge release affects only the carried window.
 
 Full Kadunce release or disable:
 
-- Restores every owned window exactly once
+- Restores every owned window, on every desktop, exactly once
 - Restores original geometry
 - Restores output and virtual desktop
 - Restores quick-tile, maximize, fullscreen, and minimized state
@@ -561,6 +564,7 @@ Kadunce does not persist card or Bento membership across unload or restart.
 - Presentation changes never consume or overwrite restoration records.
 - Cross-owner transfers follow `ARCHITECTURE.md` § Transfer transaction.
 - Failed or cancelled transitions preserve the exact prior state.
-- Other displays and virtual desktops remain untouched.
+- Other displays and desktops remain untouched, except where Table moves a
+  window.
 - Only explicit release or disable returns a managed window to the native desktop.
 

@@ -164,6 +164,12 @@ public:
     [[nodiscard]] const QList<QPointer<KWin::EffectWindow>> &liveCards() const;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
+    // The stack holding window, front to back from its face; empty for a card
+    // alone.
+    [[nodiscard]] QList<KWin::EffectWindow *> stackFrontToBack(const KWin::EffectWindow *window) const;
+    // Stacks cards that stand alone behind face, as a stack carried here from
+    // another desktop left it. Not an ownership transition.
+    bool stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
     // Presentation provenance only. These windows entered Spread while their
     // live surfaces still had Bento pane dimensions; membership and restoration
     // remain entirely in the ordinary workspace/restore owners.
@@ -406,12 +412,22 @@ public:
     // on went away arrives as one card. It is admitted unselected, so the
     // caller decides which arrival, if any, is presented.
     bool admitArrivalAsCard(KWin::EffectWindow *window);
+    // A stage owning nothing on a display presenting its layout starts behind
+    // it (§2), so what arrives becomes cards there; one that took nothing
+    // stops again.
+    bool startBehindLayout();
+    void stopBehindLayoutIfEmpty();
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.
     void leaveBentoPresentation();
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
     void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
+    // The window left this stage's virtual desktop by other means, such as
+    // KWin's window menu. It stops being a card here and goes back to the
+    // place its record holds, as a release does; its new desktop takes it
+    // from there. The rest of the stage is handled as for a closed card.
+    bool releaseCard(KWin::EffectWindow *window);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;

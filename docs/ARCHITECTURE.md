@@ -26,6 +26,14 @@ The native plugin has four principal owners:
 - `Effect` owns KWin registration and lifecycle, output discovery, controller
   coordination, context publication, shortcuts, and card rendering.
 
+There is one card stage and one layout stage per virtual desktop, each reaching
+the effect through that desktop's `SessionHost`. Table adds three owners beside
+them: `TableGesture` turns a stroke into an action, `TableLayout` places the rows
+so hit tests and drawing agree, and `TablePresenter` draws `table/Table.qml` in
+the compositor's frames through `OffscreenQuickScene`, taking no input. Table
+creates, renames and removes desktops through KWin; Kadunce keeps only which
+names are yours (`TABLE.md`).
+
 `CardWorkspaceState<Handle>` is the mutable authority for Spread membership and
 its `SpreadModel`. `SpreadModel`, `SpreadLayout`, `BentoLayout`, and the value
 transfer planners are headlessly testable domain primitives. Rendering consumes
@@ -137,7 +145,7 @@ paint route.
 ## Input ownership
 
 Each input stream has one owner until release or explicit cancellation. Panel input,
-application input, Tette guest input, Kadunce card input, and native KWin move/resize
+application input, Search's guest input, Kadunce card input, and native KWin move/resize
 must not steal one another's releases. Routing never infers ownership from paint
 state.
 
@@ -150,6 +158,7 @@ state.
 | Contact on Spread or Active chrome | Kadunce through the semantic transaction |
 | Provisional bottom-edge touch | Client until deliberate upward intent and successful native cancellation |
 | Foreign or unmatched release | Original route; it cannot activate a card |
+| Open Table | Kadunce: the keys grabbed and every touch Table's; a name being typed takes text focus |
 
 Touch and pointer state are independent. Canceling one device cannot clear the
 other device's hold, grab, timer, or forwarded ownership. Each timer and delayed
@@ -175,8 +184,10 @@ correlate `_NET_WM_MOVERESIZE` after KWin has accepted the request. The observer
 neither consumes nor replays the client request. Failed or ambiguous proof stays
 native.
 
-Automatic electric-border tiling and maximize behavior are suppressed in memory
-while Kadunce is active and restored on unload. Explicit Shift custom tiling and
+Automatic electric-border tiling and maximize behavior, KDE's per-display desktop
+switching, its desktop-change pop-up, and Overview's top-left corner unless you
+gave it elsewhere are held in memory while Kadunce is active and given back on
+unload. Explicit Shift custom tiling and
 keyboard/manual window operations remain KWin-owned.
 
 Source close, output loss, topology change, manual takeover, view release, effect
@@ -187,7 +198,7 @@ unload, or competing input cancels the affected actions and timers.
 Spread and Bento are presentations, not display-type restrictions. Bento may run
 on the tablet and monitor. A deliberate edge destination takes its meaning from
 the state and capability of the display it is released into, never from that
-display's hardware identity. Sessions are output-local; changing or releasing one
+display's hardware identity. Sessions are per output and per desktop; changing or releasing one
 output must not release another output's session.
 
 Dock safety uses the actual work area plus visible bottom dock frames. The bottom
@@ -203,9 +214,11 @@ Tettegouche reads Kadunce through the versioned, read-only context endpoint in
 or mutate compositor ownership. The guest-card protocol is opt-in, versioned, and
 separate from ordinary context publication.
 
-Shuffle Keyboard must use the system input-method stack for keymaps, locale, and
-application delivery; its product contract does not grant it a second input
-backend.
+Table uses KWin's virtual desktops for membership, switching and names. A preview
+stops other desktops' windows painting rather than switching, and entering runs
+as the full-screen effect so KDE's slide does not play. Shuffle Keyboard uses the
+system input-method stack for keymaps, locale, and application delivery. Neither
+gains a second window or input backend.
 
 ## Safety and teardown
 
@@ -214,8 +227,8 @@ second workspace authority. Its single checked switch loads the installed native
 effect when enabled. Disabling first requires KWin to confirm a safe effect
 unload and persists the disabled state; if KWin cannot confirm the release, the
 control restores the enabled configuration rather than risk a half-disabled
-workspace. A future Settings window may extend this helper without adding
-preference state to the compositor plugin. On unload, input
+workspace. Its Settings window holds preferences without adding preference state
+to the compositor plugin. On unload, input
 routes are canceled and destroyed while controllers remain alive, then every
 managed client is restored, as `CARD-LIFECYCLE.md` §13 lists, before the effect
 disappears. No timer, native observer, or callback survives its owner.
@@ -230,7 +243,7 @@ What each check proves, and the rules for private compositors, are
 3. Destination acceptance precedes source removal.
 4. Rendering reads state and never edits controller models.
 5. Input routing emits semantic commands and never edits models directly.
-6. Other outputs retain their independent sessions.
+6. Other outputs and desktops retain their independent sessions.
 7. Companion applications cannot enter compositor ownership through context APIs.
 8. Disable restores clients before unloading the effect.
 9. Safety-control failure blocks candidate promotion.

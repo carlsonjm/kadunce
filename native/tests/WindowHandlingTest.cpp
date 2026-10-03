@@ -6,6 +6,7 @@
 #include "RestoreOutputPlan.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
+#include "PerOutputDesktopsPolicy.h"
 #include "KeyboardRoom.h"
 #include <QCoreApplication>
 #include <QProcess>
@@ -111,6 +112,26 @@ int main(int argc, char **argv)
             require(options.overlay);
         }
         require(options.overlay == !overlay);
+    }
+    struct DesktopOptions {
+        bool perOutput = false;
+        bool isPerOutputVirtualDesktops() const { return perOutput; }
+        void setPerOutputVirtualDesktops(bool value) { perOutput = value; }
+    };
+    for (bool perOutput : {false, true}) {
+        DesktopOptions options{perOutput};
+        {
+            Kadunce::PerOutputDesktopsPolicy guard(&options);
+            require(!options.perOutput);
+        }
+        require(options.perOutput == perOutput);
+        {
+            Kadunce::PerOutputDesktopsPolicy guard(&options);
+            options.perOutput = !perOutput;
+            guard.refresh();
+            require(!options.perOutput);
+        }
+        require(options.perOutput == !perOutput);
     }
     // A card the keys do not reach keeps its height; one they reach ends a
     // gutter above them, and the room never grows a card past its own height

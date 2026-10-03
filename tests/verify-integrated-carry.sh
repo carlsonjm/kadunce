@@ -29,6 +29,8 @@ scenes=(
     trace-runtime production
     no-touch-runtime production
     provenance-runtime production
+    table-preview-runtime production
+    desktop-settings-runtime production
     active-admission production
     ownership production
     ownership-transition production
@@ -53,6 +55,7 @@ scenes=(
     keyboard-chosen-runtime tablet
     keyboard-search-runtime tablet
     keyboard-tap-runtime tablet
+    keyboard-table-runtime tablet
     keyboard-offscreen-runtime tablet
     keyboard-spread-runtime tablet
     start-cards-runtime tablet
@@ -69,6 +72,11 @@ scenes=(
     dialog-waiting-runtime tablet
     desktop-switch-runtime tablet
     desktop-switch-bento-runtime tablet
+    table-multidisplay-runtime tablet
+    table-runtime tablet
+    table-pointer-runtime tablet
+    table-stack-runtime tablet
+    table-stack-layout-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet

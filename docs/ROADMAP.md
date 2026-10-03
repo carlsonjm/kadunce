@@ -14,6 +14,10 @@ What is planned for Kadunce, and what it does not do yet.
 - Motion that follows the system's animation speed and reduced-motion setting
   everywhere.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
+- One package and interface namespace across the suite, with a documented
+  migration from today's identifiers.
+- From Spread, a pull from the top edge bringing Table's tabs over Spread, which
+  stays showing; the full-size previews come only past the tabs.
 
 ## Known limitations
 
@@ -22,7 +26,6 @@ What is planned for Kadunce, and what it does not do yet.
   shortcut, is not answered.
 - Whether switching Kadunce off returns a window to the right place after its
   display has moved in the desktop layout is not measured.
-- A card moved to another virtual desktop with the window menu is not handled.
 - A Wayland dialog that names no parent window becomes a card. No application
   surveyed so far does this.
 - The plugin is built for the KWin it is installed against and needs a rebuild

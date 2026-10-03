@@ -28,7 +28,7 @@ struct KeyContext {
     // Spread is shown and nothing else, such as the search launcher, has the
     // keys.
     bool spreadShown = false;
-    // This build carries Table.
+    // Table answers its key; a test can leave it out.
     bool table = false;
 };
 

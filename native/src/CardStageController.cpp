@@ -284,6 +284,27 @@ KWin::EffectWindow *CardStageController::selectedWindow() const
         ? m_workspace.windows().at(index).data() : nullptr;
 }
 
+QList<KWin::EffectWindow *> CardStageController::stackFrontToBack(const KWin::EffectWindow *window) const
+{
+    QList<KWin::EffectWindow *> result;
+    const int index = liveCardIndex(window);
+    if (index < 0) return result;
+    for (const auto &member : m_workspace.stackFrontToBack(m_workspace.windows().at(index)))
+        if (member) result.append(member.data());
+    return result;
+}
+
+bool CardStageController::stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
+{
+    if (!m_active || m_cardGrabActive || m_launcherGuestActive || !face) return false;
+    QList<QPointer<KWin::EffectWindow>> members;
+    for (auto *window : behind) members.append(window);
+    if (!m_workspace.stackBehind(face, members)) return false;
+    syncSelectedStackingOrder();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 int CardStageController::liveCardIndex(const KWin::EffectWindow *window) const
 {
     for (int index = 0; index < m_workspace.windows().size(); ++index) {
@@ -2557,8 +2578,11 @@ void CardStageController::release()
     restoreOriginalStackingOrder();
     // Replaying the old stack must not leave the released fullscreen client
     // underneath another application or without active-fullscreen treatment.
+    // Only on the desktop shown: activating a window elsewhere would switch
+    // desktops under the person while every desktop is being released.
     if (releasedWindow && !releasedWindow->isDeleted()
         && releasedWindow->window() && releasedWindow->window()->isFullScreen()
+        && releasedWindow->isOnCurrentDesktop()
         && KWin::effects->sessionState() == KWin::SessionState::Normal) {
         KWin::workspace()->raiseWindow(releasedWindow->window());
         KWin::workspace()->activateWindow(releasedWindow->window(), true);
@@ -2881,11 +2905,33 @@ bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
     m_originalCardStackingOrder.append(window);
     m_host->connectManagedWindowForCardStage(window);
     KWin::effects->setElevatedWindow(window, false);
+    // Behind a layout the card is drawn nowhere, so it must also be under the
+    // panes, or the touches on them would reach it.
+    if (m_presentation == CardPresentation::Bento) KWin::workspace()->lowerWindow(window->window());
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "took" << window->caption()
             << "as a card after its display went away;"
             << m_workspace.windows().size() << "individual cards";
     return true;
+}
+
+bool CardStageController::startBehindLayout()
+{
+    if (m_active || !m_workspace.windows().isEmpty()) return false;
+    // As for a sleeping pane: the display is showing panes, and a card behind
+    // them is drawn nowhere until the person calls it or opens Spread.
+    m_active = true;
+    m_presentation = CardPresentation::Bento;
+    m_host->setPagingShortcutsForCardStage(false);
+    return true;
+}
+
+void CardStageController::stopBehindLayoutIfEmpty()
+{
+    if (!m_active || !m_workspace.windows().isEmpty() || m_presentation != CardPresentation::Bento) return;
+    m_active = false;
+    m_presentation = CardPresentation::Spread;
+    m_originalCardStackingOrder.clear();
 }
 
 bool CardStageController::admitDisplacedPaneAsHiddenCard(
@@ -4353,6 +4399,52 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
+}
+
+bool CardStageController::releaseCard(KWin::EffectWindow *window)
+{
+    const int index = liveCardIndex(window);
+    if (!m_active || index < 0 || !window || window->isDeleted() || !window->window())
+        return false;
+    m_host->cancelInputForCardStage();
+    finishCardGrab(false);
+    clearCardTransition();
+    const bool wasActive = m_activeRestore.window == window;
+    // The Active card leaves at its own size, its keyboard room given back,
+    // and its record joins the others to be read below.
+    if (wasActive) parkActiveSnapshot();
+    std::optional<ActiveRestoreSnapshot> record;
+    for (const auto &saved : std::as_const(m_parkedRestores)) {
+        if (saved.window == window && saved.valid) {
+            record = saved;
+            break;
+        }
+    }
+    forgetManagedRestore(window);
+    const bool removed = m_workspace.removeAt(index);
+    m_originalCardStackingOrder.removeAll(window);
+    KWin::effects->setElevatedWindow(window, false);
+    m_host->unredirectForCardStage(window);
+    if (record) {
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        restoreWindowState(window->window(), *record, record->geometry, true);
+    }
+    qInfo() << "Kadunce" << Revision << "let" << window->caption()
+            << "go for another desktop;" << m_workspace.windows().size() << "individual cards";
+    if (m_workspace.windows().isEmpty()) {
+        release();
+        return true;
+    }
+    if (!removed) {
+        if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
+        m_presentation = CardPresentation::Spread;
+        rebuildLiveCards();
+    } else if (wasActive) {
+        m_presentation = CardPresentation::Spread;
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 void CardStageController::handleWindowActivated(KWin::EffectWindow *window)

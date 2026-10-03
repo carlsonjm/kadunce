@@ -21,5 +21,11 @@ set_target_properties(kadunce_unload_probe PROPERTIES PREFIX "" LIBRARY_OUTPUT_D
 # Deliberately no install rules: this input injector is only for a private test bus.
 target_include_directories(kadunce_unload_probe PRIVATE ../../native/src)
 target_link_libraries(kadunce_unload_probe PRIVATE KWin::kwin Qt6::DBus KF6::ConfigCore Wayland::Server KDecoration3::KDecoration XCB::XCB)
+# What Table needs from KWin, proved on KWin alone; also never installed.
+add_library(kadunce_table_proof MODULE table-proof.cpp)
+set_target_properties(kadunce_table_proof PROPERTIES PREFIX "" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/kwin/effects/plugins")
+target_link_libraries(kadunce_table_proof PRIVATE KWin::kwin Qt6::DBus)
+add_executable(table-proof-client table-client.cpp)
+target_link_libraries(table-proof-client PRIVATE Qt6::Gui Qt6::DBus)
 add_executable(unload-client client.cpp)
 target_link_libraries(unload-client PRIVATE Qt6::Widgets Qt6::DBus XCB::XCB LayerShellQt::Interface)

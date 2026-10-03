@@ -271,6 +271,11 @@ void DesktopStageController::handleWindowClosed(KWin::EffectWindow *window)
     removeWindow(window, false);
 }
 
+void DesktopStageController::releaseWindow(KWin::EffectWindow *window)
+{
+    removeWindow(window, true);
+}
+
 void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *window)
 {
     if (m_restoring || m_parking || !window || !window->window()) return;

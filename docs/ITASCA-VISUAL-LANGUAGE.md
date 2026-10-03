@@ -36,7 +36,8 @@ A rounded rectangle means content, context, or a bounded region of information.
   close take 12 px: pop-ups, menus, alerts and the dock sheet. Anything whose
   job is to be pressed is a pill.
 - Nothing but a pill is rounder than the surface that holds it.
-- Keyboard keys are paper, since round keys read as dots.
+- Keyboard keys are paper, since round keys read as dots; Table's cards keep
+  their own corners.
 - Information boxes may contain pills. The outer box remains distinct from the
   controls within it.
 - Do not make informational status button-shaped unless the whole object acts.

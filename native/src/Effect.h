@@ -12,15 +12,22 @@
 #include "NativeCarryRuntime.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
+#include "PerOutputDesktopsPolicy.h"
+#include "TableGesture.h"
+#include "TableLayout.h"
+#include "TablePresenter.h"
 #include "KeyRoute.h"
 #include <options.h>
 
+#include <effect/effectwindow.h>
 #include <effect/offscreeneffect.h>
 #include "DesktopExitLabel.h"
 #include "CardLabelRenderer.h"
 
 #include <QList>
 #include <QHash>
+#include <QIcon>
+#include <QTimer>
 #include <QDBusContext>
 #include <QElapsedTimer>
 #include <QPointer>
@@ -29,11 +36,17 @@
 #include <map>
 #include <memory>
 #include <array>
+#include <map>
 #include <optional>
 
 class QAction;
 class QDBusServiceWatcher;
 class QFileSystemWatcher;
+
+namespace KWin
+{
+class SurfaceInterface;
+}
 
 namespace Kadunce
 {
@@ -84,19 +97,25 @@ public:
     [[nodiscard]] bool blocksDirectScanout() const override
     {
         return (m_cardStage && m_cardStage->isActive())
-            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty();
+            || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
+            || bool(m_previewDesktop);
     }
 
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || keysAwaitingPerson();
+            || keysAwaitingPerson() || bool(m_previewDesktop);
     }
 
     // Keys on screen that are not yet known to be the person's are painted
     // through this effect, which withholds them, whether or not it holds any
     // card. Once they are the person's, or gone, it asks for nothing.
+    // Table by pointer and keyboard: a push into a display's top-left corner
+    // opens it there, and while it is open the keys move through it.
+    bool borderActivated(KWin::ElectricBorder border) override;
+    void grabbedKeyboardEvent(QKeyEvent *event) override;
+
     [[nodiscard]] bool keysAwaitingPerson() const
     {
         const KWin::EffectWindow *panel = KWin::effects->inputPanel();
@@ -104,6 +123,10 @@ public:
     }
 
 private Q_SLOTS:
+    // Table's corner is every display's top-left, which KDE gives Overview.
+    // Overview's reservation is held off while this runs and given back on
+    // unload; a corner the person gave to something else stays theirs.
+    void holdTableCorner();
     void toggle();
     void release();
     void pageLeft();
@@ -142,6 +165,22 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
+    // Table's preview: another desktop drawn on every display in place of the
+    // current one, as it stands, without switching to it. An empty id, or the
+    // current desktop's, ends the preview and changes nothing.
+    Q_SCRIPTABLE bool previewDesktop(const QString &desktopId);
+    // Makes the previewed desktop current, with KWin's switching effects
+    // standing aside, and ends the preview.
+    Q_SCRIPTABLE bool commitDesktopPreview();
+    // Table as it stands, for a test: whether it is open, which level, which
+    // workspace and card the finger is on, and every workspace's cards.
+    Q_SCRIPTABLE QString tableState() const;
+    // Opens Table on the display under the pointer, as its shortcut does, or
+    // closes it.
+    Q_SCRIPTABLE void toggleTable();
+    // Every ownership violation observed since load, in words, so a test can
+    // require none; a warning in the journal is not something a test can read.
+    Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
 
 Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
@@ -212,19 +251,150 @@ private:
     // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
     [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
     void refreshCardOutput();
-    static bool isCardWindow(const KWin::EffectWindow *window);
-    static bool isApplicationWindow(const KWin::EffectWindow *window);
+    // Both answer for the desktop of the session being worked on.
+    [[nodiscard]] bool isCardWindow(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool isApplicationWindow(const KWin::EffectWindow *window) const;
     // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
     // it belongs to, follows the application window at the root of that chain
     // and is never a card or a pane. Null for a window that belongs to none.
     static KWin::EffectWindow *dependentLead(const KWin::EffectWindow *window);
-    // Cards and layouts live on one virtual desktop. On any other desktop
-    // Kadunce stands aside entirely.
-    [[nodiscard]] bool onOwnedDesktop() const;
-    void noteOwnedDesktop();
+    // CARD-LIFECYCLE.md gives every virtual desktop its own ownership
+    // session: its own cards and its own layouts, which carry on unseen while
+    // another desktop is shown.
+    struct DesktopSession;
+    class SessionHost;
+    class SessionScope;
+    DesktopSession *sessionFor(KWin::VirtualDesktop *desktop);
+    // The session whose cards or layouts hold the window, if any does.
+    [[nodiscard]] DesktopSession *sessionHolding(const KWin::EffectWindow *window) const;
+    void scopeTo(DesktopSession *session);
+    // Runs f once with each session's stages named by m_cardStage and
+    // m_desktopStage, for what reaches every desktop: a window closing,
+    // a display going away, release.
+    template<typename F> void forEachSession(F &&f);
+    [[nodiscard]] bool scopedToCurrent() const { return m_scopedSession == m_currentSession; }
     void handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current);
+    void handleDesktopRemoved(KWin::VirtualDesktop *desktop);
+    // A window KWin moved to another desktop leaves the session it was owned
+    // by, and the desktop it now stands on takes it as that desktop's own. One
+    // put on every desktop leaves and stays a plain window.
+    void handleWindowDesktopsChanged(KWin::EffectWindow *window);
     void toggleOwnedPresentation();
-    [[nodiscard]] bool standsAsideForInput() const override { return !onOwnedDesktop(); }
+    // KWin draws another desktop's windows only while showing it as well, as
+    // its slide does between desktops. That desktop's cards stay hidden but for
+    // the one it presents Active; its layouts' panes are real windows and show.
+    [[nodiscard]] bool hiddenOnOtherDesktop(const KWin::EffectWindow *window) const;
+    // While a desktop is previewed, the current desktop's own windows are not
+    // drawn; what every desktop shares, the dock and the desktop itself, is.
+    [[nodiscard]] bool hiddenByDesktopPreview(const KWin::EffectWindow *window) const;
+    // KWin draws a desktop that is not current only for a window held visible,
+    // so each window of the previewed desktop is held while it is shown.
+    void syncDesktopPreview();
+    void endDesktopPreview();
+    QPointer<KWin::VirtualDesktop> m_previewDesktop;
+    // The card a preview shows in front of its desktop, when Table's finger is
+    // on one; otherwise the desktop's own front card.
+    QPointer<KWin::EffectWindow> m_previewCard;
+    QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_previewRefs;
+    void showDesktopPreview(KWin::VirtualDesktop *desktop, KWin::EffectWindow *card);
+
+    // Table (TABLE.md): every workspace as tabs under the top edge of the
+    // display that holds cards, one stroke choosing a workspace or a card, and
+    // a card carried to a tab or to +.
+    struct TableCard {
+        QList<QPointer<KWin::EffectWindow>> windows;
+        QString application;
+        QString title;
+        QIcon icon;
+        // A stack is one card, its face first in windows and the cards
+        // behind it after; this counts those behind.
+        int stacked = 0;
+    };
+    struct TableWorkspace {
+        QPointer<KWin::VirtualDesktop> desktop;
+        QString name;
+        // The person named it, which keeps it.
+        bool named = false;
+        bool current = false;
+        QList<TableCard> cards;
+    };
+    [[nodiscard]] QList<TableWorkspace> tableWorkspaces();
+    // The display Table opened on: the tablet for a finger, the display under
+    // the pointer for the pointer and the keyboard.
+    [[nodiscard]] KWin::LogicalOutput *tableOutput() const;
+    [[nodiscard]] QRectF tableDisplay() const;
+    [[nodiscard]] qint64 tableNow() const;
+    void openTable(bool sticky, KWin::LogicalOutput *output = nullptr);
+    void closeTable();
+    void finishTable();
+    void relayoutTable();
+    void refreshTable();
+    void applyTableAction(const TableAction &action);
+    void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination);
+    [[nodiscard]] TableHit tableHitAt(const QPointF &local) const;
+    [[nodiscard]] int tableCardAt(const QPointF &local) const;
+    [[nodiscard]] bool tableOpenForInput() const override { return m_table.isOpen(); }
+    [[nodiscard]] bool aboveActiveCardForInput(const QPointF &position) const override;
+    void beginTableFromInput(const QPointF &position) override;
+    void pressTableFromInput(const QPointF &position, bool touch) override;
+    void contextTableFromInput(const QPointF &position) override;
+    void moveTableFromInput(const QPointF &position) override;
+    void releaseTableFromInput(const QPointF &position) override;
+    void cancelTableFromInput() override;
+    void hoverTableFromInput(const QPointF &position) override;
+    void wheelTableFromInput(int steps) override;
+    QPointer<KWin::LogicalOutput> m_pointerCorner;
+    void tracePointerAtTop(const QPointF &position);
+    QString m_topPointer;
+    QElapsedTimer m_topPointerLogged;
+    TableGesture m_table;
+    QList<TableWorkspace> m_tableWorkspaces;
+    TableLayout m_tableLayout;
+    std::unique_ptr<TablePresenter> m_tablePresenter;
+    QElapsedTimer m_tableTime;
+    // The card in hand as last drawn, and the landing of the last card moved.
+    QVariantMap m_tableCarried;
+    QVariantMap m_tableDrop;
+    int m_tableDrops = 0;
+    QPointer<KWin::LogicalOutput> m_tablePresenterOutput;
+    // Where the finger that pulled Table down first touched.
+    QPointF m_tableStrokeFrom;
+    QPointer<KWin::LogicalOutput> m_tableOutput;
+    bool m_tableKeyboard = false;
+    // Three fingers up, or four on a touchpad, and whether this swipe has
+    // already opened or closed Table.
+    QAction *m_tableGestureAction = nullptr;
+    QAction *m_tablePadGestureAction = nullptr;
+    bool m_tableGestureDone = false;
+    // A workspace with no cards dissolves unless the person named it
+    // KDE keeps the name; which names are the
+    // person's is Kadunce's, kept by desktop id in kaduncerc.
+    QStringList m_namedDesktops;
+    void loadNamedDesktops();
+    void saveNamedDesktops();
+    // The tab being renamed, what has been typed into it, and whether a
+    // press landed while it was.
+    int m_tableRenaming = -1;
+    QString m_tableRenameText;
+    bool m_tableRenamePress = false;
+    // A finger began it, so the keys are up for it.
+    bool m_tableRenameByTouch = false;
+    // The application field that had the keys' text before the name took it.
+    QPointer<KWin::SurfaceInterface> m_tableTextFocus;
+    // A menu bar's press held still becomes a rename.
+    QTimer m_tableHold;
+    bool m_tablePressTouch = false;
+    // Stacks carried by Table to a desktop, front to back, by desktop id:
+    // their windows become cards when the desktop is next shown, one by one,
+    // and then are stacked again as they left.
+    QHash<QString, QList<QList<QPointer<KWin::EffectWindow>>>> m_pendingDecks;
+    void restackCarriedDecks();
+    void beginTableRename(int workspace, bool touch);
+    void endTableRename(bool commit);
+    void removeTableWorkspace(int workspace);
+    void scheduleDissolve();
+    void dissolveEmptyWorkspaces();
+    bool m_dissolveQueued = false;
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.
@@ -308,6 +478,7 @@ private:
     [[nodiscard]] SpreadGesture::Mode beginSpreadGesture();
     Q_INVOKABLE void finishSpreadGesture();
     void holdOverviewOff();
+    void followTableGesture(qreal progress, KWin::LogicalOutput *output);
     [[nodiscard]] WorkspacePresentation presentationForInput() const override;
     [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;
     [[nodiscard]] bool cardGrabActiveForInput() const override;
@@ -408,6 +579,7 @@ private:
     // against it; it is never repaired from them.
     CardOwnershipLedger m_ownership;
     std::vector<OwnershipViolation> m_observedOwnershipViolations;
+    QStringList m_ownershipViolationLog;
 
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
@@ -416,6 +588,15 @@ private:
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;
+    std::unique_ptr<PerOutputDesktopsPolicy<KWin::Options>> m_perOutputDesktopsPolicy;
+    // KDE's desktop-name pop-up is a KWin script, held unloaded while this
+    // effect runs; KWin loads it again on every reconfigure. Unload lets KWin
+    // load it again as the person's own settings say.
+    void holdDesktopPopupOff();
+    bool m_desktopPopupHeld = false;
+    void giveTableCornerBack();
+    bool m_tableCornerReserved = false;
+    bool m_overviewCornerHeld = false;
     QMetaObject::Connection m_inputPanelGeometry;
     // The keys come up only when the person asks for them: a tap on the line
     // the text cursor sits on or, just after it, anywhere in the window that
@@ -474,8 +655,14 @@ private:
     QPointer<KWin::EffectWindow> m_lineDestinationWindow;
     QPointF m_lineDestinationContact;
     DeferredCommandGuard m_inputActivationGuard;
-    std::unique_ptr<DesktopStageController> m_desktopStage;
-    std::unique_ptr<CardStageController> m_cardStage;
+    // Every desktop's session, by desktop id. The two stage pointers name the
+    // session being worked on: the current desktop's, except inside a
+    // SessionScope that reaches another desktop's.
+    std::map<QString, std::unique_ptr<DesktopSession>> m_sessions;
+    DesktopSession *m_currentSession = nullptr;
+    DesktopSession *m_scopedSession = nullptr;
+    DesktopStageController *m_desktopStage = nullptr;
+    CardStageController *m_cardStage = nullptr;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
     bool m_continueRepaint = false;
     QList<QPointer<KWin::EffectWindow>> m_preparationNeighbors;
@@ -518,7 +705,6 @@ private:
     double guestNeighborOpacity() const;
     KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
-    QPointer<KWin::VirtualDesktop> m_ownedDesktop;
     QString m_cardOutputName;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;

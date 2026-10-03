@@ -188,6 +188,7 @@ public Q_SLOTS:
  void paneCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Pane admission probe"); w->setMinimumSize(700,600); w->resize(700,600); w->show(); }
  void widerCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
+ // A window in a named colour, so a photograph says which one is drawn.
  void colouredCompanion(const QString &title, const QString &hex, int width, int height) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(width, height); w->show(); }
  void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); tint(w, QColor(0x2e, 0x8b, 0x57)); w->resize(400,300); w->show(); }
  // A client whose own minimum grows while its layout is not live, the way one
@@ -296,6 +297,13 @@ public Q_SLOTS:
    if (w->isWindow() && w->windowTitle().contains(title)) {
     w->setFocusPolicy(Qt::StrongFocus); w->setFocus();
    }
+ }
+ // What a window's field holds.
+ QString fieldText(const QString &title) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title))
+    if (auto *field = w->findChild<QLineEdit *>()) return field->text();
+  return {};
  }
  // The dialogs an application opens over itself: a save dialog and a
  // confirmation, both modal to this window, and a plain dialog that is not.

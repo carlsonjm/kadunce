@@ -351,7 +351,7 @@ switching is built into KWin and stays KDE's.
 The Active card and a Bento layout keep the same gutter on all four sides.
 Rejected: a doubled bottom gutter, left over from a dock that floated above the
 work area; the Shuffle dock reserves its own space, and the doubled gap was the
-one edge that did not match (22 September 2026). The keys never change a card's
+one edge that did not match. The keys never change a card's
 gutter.
 
 ### The platform's answer wins where it has one
@@ -367,7 +367,9 @@ gesture built for the Shuffle Dock.
 The Shuffle Dock starts from everything Plasma's Icons-only Task Manager does; a
 stock feature it lacks is a defect. One dock lists every display's windows, so a
 window a monitor layout sent there is picked up where you already look (24
-September 2026, against a dock on each display).
+September 2026, against a dock on each display). It lists the current
+desktop's windows, a pinned application opening on the desktop in use: Table
+connects desktops.
 
 ### Spread gives every move one meaning
 
@@ -384,7 +386,7 @@ push-20260921`).
 ### A stack takes no arrival from the desktop
 
 A window carried in from the native desktop becomes an individual card and never
-lands in a stack. This is the intended shape (21 September 2026): an arriving
+lands in a stack. This is the intended shape: an arriving
 window needs card status, which an edge already grants, and organizing cards
 into a stack is a second, separate act. It keeps arrival's rules in §8 and stack
 membership in §9, and removes the atomic membership-and-insertion transaction an
@@ -399,7 +401,7 @@ text cursor, the only thing a client reports, which left the rest of the box
 covered.
 
 While the keys move, the card is drawn ending a gutter above them on every frame
-and its client is asked for a size once a motion (26 September 2026). Rejected:
+and its client is asked for a size once a motion. Rejected:
 asking every frame, which made a client trail the keys.
 
 KWin's own lift of the focused window would be a second authority, so Kadunce
@@ -407,7 +409,7 @@ declines `OverlayVirtualKeyboardOnWindows` while loaded, as it does edge tiling.
 Only keys on screen typing into the card or its own dialog make room; Spread,
 Bento panes and ordinary windows make none. Cards are laid out in the
 work area as it stood when the keys came until the dock takes its room back,
-because the dock yields to the keys (29 September 2026). Rejected: the live work
+because the dock yields to the keys. Rejected: the live work
 area, which gave a card chosen meanwhile the dock's room. KWin moves only
 windows touching a moved edge, so a panel taking or giving up room places the
 Active card again.
@@ -426,7 +428,7 @@ begin to go. Rejected: a time limit on a tap, which refused slow applications.
 
 Decided 23 September 2026: KWin seats the keys on the work area's bottom, so a
 dock that stays holds them up by its height. The dock gives up its room while
-keys are on screen, not merely asked for (24 September 2026).
+keys are on screen, not merely asked for.
 
 ### The latched trackpad is the pointer
 
@@ -468,9 +470,9 @@ one global session, which makes every tablet gesture a multi-display event.
 
 Decided 23 September 2026; `CARD-LIFECYCLE.md` §11 states the rule. A window
 with no room waits in the dock, never moves to another display on its own, and
-comes back when room frees up (24 September 2026). An application too big for
+comes back when room frees up. An application too big for
 any slot takes the Active size, because one you just opened has to appear.
-Overflow stays in the dock (26 September 2026); rejected: another desktop.
+Overflow stays in the dock; rejected: another desktop.
 
 The tablet names each window it pairs; this is the opposite answer on purpose.
 On the tablet a person places each card; a monitor is where Plasma windows pile
@@ -511,7 +513,7 @@ Recovery lives outside the compositor plugin (`ARCHITECTURE.md` § Safety and
 teardown), because the failure it exists for is the plugin not loading: a
 control hosted by the thing it recovers cannot recover it, which is why no
 effect test can stand in for it. It must be reachable on every build that is
-tested or shipped (23 September 2026), though not on screen at every moment: it
+tested or shipped, though not on screen at every moment: it
 leaves with the dock while the dock steps aside for the keys.
 
 ### A frozen identity needs a guard that watches both directions
@@ -536,9 +538,18 @@ development machines the guided repair is adequate.
 
 ## Across the suite
 
-### Table ships in 1.0
+### Table is required and uses virtual desktops
 
-Table ships in 1.0, replacing the earlier tentative 1.1.
+Decided 23 September 2026. Table ships in 1.0, and every virtual desktop keeps
+its own cards and layouts (`TABLE.md`). Rejected: KDE's per-display desktop
+switching, under which a window moved between displays changes desktop.
+
+### Table is tabs pulled from the top edge
+
+Decided 25 September 2026. Pull depth picks a workspace or a card and sideways
+picks which, so any window is one stroke away (`INPUT.md` § Table). Rejected:
+surfaces of small Spreads, a reskinned Overview, a list with submenus, and a
+diagonal hand-off from the edge.
 
 ### Cards follow the touchscreen
 

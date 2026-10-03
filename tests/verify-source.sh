@@ -453,6 +453,8 @@ rg -Fq 'KWin::effects->inputPanel()' "${effect_cpp}"
 rg -Fq 'EffectsHandler::inputPanelChanged' "${effect_cpp}"
 rg -Fq 'std::make_unique<KeyboardOverlayPolicy<KWin::Options>>(KWin::options)' "${effect_cpp}"
 rg -Fq 'm_keyboardOverlayPolicy->refresh()' "${effect_cpp}"
+rg -Fq 'std::make_unique<PerOutputDesktopsPolicy<KWin::Options>>(KWin::options)' "${effect_cpp}"
+rg -Fq 'm_perOutputDesktopsPolicy->refresh()' "${effect_cpp}"
 
 rg -q 'SpreadModel::stackSelectedWith' \
     "${native_dir}/src/SpreadModel.cpp"

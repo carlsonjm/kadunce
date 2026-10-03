@@ -15,7 +15,7 @@ install(FILES ../assets/studio.warbler.kadunce-logo.png
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui Widgets)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui GuiPrivate Widgets Quick)
 find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config Service)
 find_package(KWin 6.7 REQUIRED COMPONENTS kwineffects)
 find_package(KDecoration3 REQUIRED)
@@ -42,8 +42,18 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/WorkspaceInputRouter.h
         src/Effect.cpp
         src/Effect.h
+        src/TableGesture.h
+        src/TableLayout.h
+        src/TablePresenter.cpp
+        src/TablePresenter.h
         src/plugin.cpp
     INSTALL_NAMESPACE "kwin/effects/plugins/"
+)
+
+qt_add_resources(kwin4_effect_kadunce "kadunce_table"
+    PREFIX "/kadunce"
+    BASE src
+    FILES src/table/Table.qml
 )
 
 target_link_libraries(kwin4_effect_kadunce
@@ -52,7 +62,9 @@ target_link_libraries(kwin4_effect_kadunce
     Qt6::Core
     Qt6::DBus
     Qt6::Gui
+    Qt6::GuiPrivate
     Qt6::Widgets
+    Qt6::Quick
     KF6::GlobalAccel
     KF6::ConfigCore
     KF6::Service
@@ -66,6 +78,14 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-card-label-presentation-test PRIVATE src)
     target_link_libraries(kadunce-card-label-presentation-test PRIVATE Qt6::Core)
     add_test(NAME card-label-presentation COMMAND kadunce-card-label-presentation-test)
+    add_executable(kadunce-table-gesture-test tests/TableGestureTest.cpp)
+    target_include_directories(kadunce-table-gesture-test PRIVATE src)
+    target_link_libraries(kadunce-table-gesture-test PRIVATE Qt6::Core)
+    add_test(NAME table-gesture COMMAND kadunce-table-gesture-test)
+    add_executable(kadunce-table-layout-test tests/TableLayoutTest.cpp)
+    target_include_directories(kadunce-table-layout-test PRIVATE src)
+    target_link_libraries(kadunce-table-layout-test PRIVATE Qt6::Core)
+    add_test(NAME table-layout COMMAND kadunce-table-layout-test)
     add_executable(kadunce-row-page-motion-test tests/RowPageMotionTest.cpp)
     target_include_directories(kadunce-row-page-motion-test PRIVATE src)
     target_link_libraries(kadunce-row-page-motion-test PRIVATE Qt6::Core)

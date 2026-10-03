@@ -1,36 +1,45 @@
 # Shuffle terminology
 
-Shuffle is the suite these three repositories form, and this is its suite-wide
-language contract. Terms are approved by the maintainer; this document records
-them and the rules for applying them. It covers Kadunce, Tettegouche and
-Temperance.
+The suite's language contract: the terms every component uses and the rules for
+applying them. It covers Kadunce, Tettegouche, Temperance, Shuffle, the Shuffle
+Keyboard and Split Rock.
 
 ## Approved language
 
 | Term | Meaning | Status |
 | --- | --- | --- |
 | Shuffle for Plasma | Public product descriptor | Locked |
-| Workspace | Consumer-facing Kadunce system; the spatial working environment | Locked |
-| Card | A normal application window managed spatially by Workspace | Locked |
-| Active | The Card currently being used | Locked |
-| Card Spread / Spread | The surrounding ordered field of Cards used for browsing. Card Spread is the full name of the action; Spread is the short form and both are approved | Locked |
-| Stack | Related individual Cards grouped for sequential paging | Locked |
-| Bento | Multiple simultaneously visible Cards composed into one layout | Locked |
-| Bento group / grouped Card | Bento's single representation when viewed in Spread | Working |
-| Table | Spatial level above Workspace presentation, organizing real KDE virtual desktops | Locked for 1.0 |
-| Search | Consumer-facing Tettegouche launcher and search experience | Locked |
-| Apps | Alphabetical application catalogue inside Search | Current |
-| Files | Tettegouche's integrated file-management experience | Current |
-| Ambient | Ongoing context and activity: media, transfers, jobs | Locked |
+| Workspace | One KDE virtual desktop as Table shows it: its cards, layouts and windows, across every display | Current |
+| Named workspace | A workspace you named; it stays when empty | Current |
+| Card | An application window Kadunce holds on the card display | Locked |
+| Active card | The card in use, shown alone | Locked |
+| Spread | The ordered row of cards, Stacks and the Bento group you browse | Locked |
+| Stack | Cards grouped by hand into one Spread entry; stepping through it goes round it as a ring | Locked |
+| Bento | Two or more windows shown together in one layout | Locked |
+| Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
+| Bento group | A Bento layout as one card in Spread | Current |
+| Sleeping card | A minimized card, drawn dimmed in Spread | Current |
+| Card display | The display a touchscreen drives; the only one that holds cards | Current |
+| Plasma desktop | The ordinary KDE desktop outside cards | Current |
+| Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces | Locked |
+| Tab, menu bar, `+` | A workspace's pill in Table; Table left open by a flick, `Meta+W` or the corner; the tab that makes a workspace | Current |
+| Search | Tettegouche's launcher and search, opened from the dot | Locked |
+| Apps | Search's drawer of applications, A to Z | Current |
+| Files | Search's file manager, which opens every folder | Current |
+| Ambient | What is under way or waiting on you now: media, transfers, jobs, an application's question, a shared screen | Locked |
+| Island | One kind of Ambient activity in the panel; what does not fit folds into a counted bubble | Current |
 | Status Bar | Consumer-facing Temperance system and status surface | Locked |
+| Ticker | The Status Bar's line of what just happened | Current |
+| Notifications & Events | The history the bell opens | Current |
 | Control Center | Temperance quick system controls | Current |
 | System Tray | Temperance's organized presentation of Plasma tray entries | Current |
-| Shuffle Keyboard | Touch keyboard, editing surface and precision input | Locked for 1.0 |
-| Scrub column | Near-invisible vertical control on each side of the Keyboard: history left, key height right | Working |
-| Precision surface | Full keyboard footprint acting as pointer and scroll input, entered from the latch at the space bar's end | Locked concept |
-| Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked for 1.0 |
-| Bottom Surface | Single layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Working |
-| Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Working |
+| Shuffle Keyboard | Touch keyboard, editing surface and precision input | Locked |
+| Hide key | The key that puts the keys away | Current |
+| Precision surface | The whole keyboard latched as a trackpad, from the trackpad mark at the space bar's end | Locked |
+| Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked |
+| Bottom Surface | Single layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Current |
+| Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Current |
+| Split Rock | The desktop assistant; inside Shuffle, the workspace assistant | Working |
 
 ## Retired language
 
@@ -39,8 +48,16 @@ Never appears in live source, live documentation or user-visible text.
 | Retired | Replacement |
 | --- | --- |
 | Card Line | Spread |
+| Card Spread | Spread |
+| Browse everything | Apps |
+| Explore files, Tette Files | Files |
+| Pinned workspace | Named workspace |
+| Scrub column | Hide key; height and history moved to the dock's handle |
 | WebOS, Project WebOS, Palm, ChromeOS | no replacement; unrelated products |
 | Itasca (as a product or repository name) | Shuffle; Itasca remains only the visual-language name |
+
+`docs/archive/` is exempt. Archived evidence preserves the language of its own
+candidate, and rewriting it would destroy provenance.
 
 ## Three layers, three rules
 
@@ -55,8 +72,8 @@ terms are defects here.
 
 ### 2. Component and internal names
 
-Kadunce, Tettegouche and Temperance remain the open-source component and
-repository names. Internal symbols may use component vocabulary that never
+Kadunce, Tettegouche, Temperance and Split Rock remain the open-source component
+and repository names. Internal symbols may use component vocabulary that never
 reaches a user, such as `CardStageController` or `DesktopStageController`.
 
 Internal symbols must not use *retired* vocabulary. `CardLineModel` becomes
@@ -72,19 +89,18 @@ versioned release, never as part of a vocabulary pass.
 
 Current identity is not shared across the suite: `studio.warbler.*` names
 Kadunce, Temperance and the Tettegouche plugin, and `io.github.carlsonjm.*` the
-Tettegouche desktop entry. Block 10b unifies them in one coordinated change
-across all three repositories.
+Tettegouche desktop entry. One coordinated change unifies them across the
+suite (`ROADMAP.md`).
 
 ## Enforcement
 
 A terminology regression breaks a check rather than waiting for a reader to
 notice. Kadunce's `tests/verify-source.sh` and `tests/verify-docs.py` fail when
-retired language returns, the guard file itself exempt, and
+retired language returns, `docs/archive/` and the guard file itself exempt, and
 Tettegouche's `tests/verify-source.sh` fails on retired identity in its source.
-Temperance has no guard yet (Block 10b).
+Temperance has no guard yet.
 
 Kadunce's guard permits two layer-3 spellings and nothing else: the
 `showCardLine` scriptable method and the `cardLine` workspace-context value,
-both consumed by Tettegouche. Block 10b retires them together with a
-documented migration. A third, the `Kadunce Card Line` global-shortcut
-identity, went with Kadunce's `Ctrl` keys on 28 September.
+both consumed by Tettegouche. The identity change retires them together with a
+documented migration.
