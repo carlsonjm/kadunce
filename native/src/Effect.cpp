@@ -4437,6 +4437,11 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
             QJsonDocument(reply).toJson(QJsonDocument::Compact));
     }
 
+    // The card that has focus as the guest arrives is where KWin hands focus
+    // back as the guest goes.
+    if (auto *focused = KWin::effects->activeWindow(); isApplicationWindow(focused)) {
+        m_lastActiveApplication = focused;
+    }
     if (presentationForInput() != WorkspacePresentation::Spread) {
         if (!openSpread) {
             return QString::fromUtf8(
@@ -4535,12 +4540,12 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
         // The layer-shell guest relinquishes keyboard focus when it hides.
         // That restoration is not a request to expand a card.
         auto *focusReturn = KWin::effects->activeWindow();
-        m_guestSwipeFocusReturn = isApplicationWindow(focusReturn)
+        m_guestFocusReturn = isApplicationWindow(focusReturn)
             ? focusReturn : m_cardStage->selectedWindow();
         const auto generation = m_guestGeneration;
         QTimer::singleShot(1000, this, [this, generation]() {
             if (generation == m_guestGeneration || !m_cardStage->launcherGuestActive())
-                m_guestSwipeFocusReturn.clear();
+                m_guestFocusReturn.clear();
         });
         QTimer::singleShot(220, this, [this, generation]() {
             if (generation == m_guestGeneration && m_cardStage->launcherGuestActive()) {
@@ -4583,6 +4588,18 @@ void Effect::cancelLauncherGuestLaunch()
 
 void Effect::endLauncherGuest()
 {
+    // The guest's surface gives up the keyboard as it goes, and KWin hands
+    // focus back to the card that had it: Spread stays for that, as it does
+    // for any way a guest closes.
+    if (!m_launcherGuestOwner.isEmpty()
+        && presentationForInput() == WorkspacePresentation::Spread
+        && !m_guestFocusReturn && m_lastActiveApplication) {
+        m_guestFocusReturn = m_lastActiveApplication;
+        const auto generation = ++m_guestFocusReturnGeneration;
+        QTimer::singleShot(1000, this, [this, generation]() {
+            if (generation == m_guestFocusReturnGeneration) m_guestFocusReturn.clear();
+        });
+    }
     m_launcherGuestExpanded = false;
     m_guestNeighborMotion.invalidate();
     cancelLauncherGuestLaunch();
@@ -5521,12 +5538,18 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     }
     if (m_settlingWindow && window != m_settlingWindow) clearDropSettle();
     if (m_carriedWindow && window != m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
-    if (isApplicationWindow(window) && m_guestSwipeFocusReturn) {
-        const bool restored = window == m_guestSwipeFocusReturn;
-        m_guestSwipeFocusReturn.clear();
-        if (restored) return;
+    if (isApplicationWindow(window) && m_guestFocusReturn) {
+        const bool restored = window == m_guestFocusReturn;
+        m_guestFocusReturn.clear();
+        if (restored) {
+            qInfo() << "Kadunce" << Revision << "kept Spread as focus returned to"
+                    << window->caption();
+            return;
+        }
     }
+    const QPointer<KWin::EffectWindow> focusedBefore = m_lastActiveApplication;
     if (isApplicationWindow(window)) {
+        m_lastActiveApplication = window;
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
         Q_EMIT workspaceContextChanged();
     }
@@ -5537,6 +5560,14 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
             return;
         }
         if (!m_launcherGuestLaunchApps.isEmpty()) return; // Completion is already settling.
+        // A guest gives up the keyboard as it hides, and KWin hands focus back
+        // to the card that held it before. That is the guest going, not a
+        // request to open the card.
+        if (window == focusedBefore) {
+            qInfo() << "Kadunce" << Revision << "kept Spread as focus returned to"
+                    << window->caption();
+            return;
+        }
         dismissLauncherGuestFromInput();
     }
     if (admitActivatedCardToLiveBento(window)) return;

@@ -171,5 +171,10 @@ included, is the launcher guest's. Two rules differ:
   Kadunce sends the one it replaces `dismissGuest` first; the launcher guest
   follows the same rule.
 
+A guest's surface gives up the keyboard as it closes, and KWin hands focus back
+to the card that had it before. In Spread that restoration, within a second of
+any guest closing, is not a request to open the card: Spread stays, so a
+companion opened as Search closes can still take the center.
+
 A companion is a layer-shell surface, as the launcher is. An ordinary window
 is a card, so it cannot hold the center.

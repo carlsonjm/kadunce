@@ -96,6 +96,7 @@ scenes=(
     guest-drawer-runtime tablet
     guest-beside-runtime tablet
     companion-guest-runtime tablet
+    companion-focus-runtime tablet
     active-launch-runtime tablet
     x11-tablet-runtime tablet
 )

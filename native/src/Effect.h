@@ -717,7 +717,11 @@ private:
     double m_guestNeighborFrom = 1.0;
     double guestNeighborOpacity() const;
     KWin::Rect launcherGuestExpandedTarget(KWin::LogicalOutput *output) const;
-    QPointer<KWin::EffectWindow> m_guestSwipeFocusReturn;
+    // The card KWin will hand focus back to as a guest gives up the keyboard,
+    // and the application card that last held focus.
+    QPointer<KWin::EffectWindow> m_guestFocusReturn;
+    quint64 m_guestFocusReturnGeneration = 0;
+    QPointer<KWin::EffectWindow> m_lastActiveApplication;
     QString m_cardOutputName;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
