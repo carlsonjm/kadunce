@@ -58,7 +58,8 @@ probe once, and runs:
 - all native CTests;
 - pointer and touch cross-output carry and destination footprints;
 - same-output Bento exchange, return-home, dock exclusion, and restoration;
-- ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration;
+- ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration,
+  and a monitor pane let go at the bottom edge landing at its own size;
 - tablet Active departure and Bento return into Spread;
 - a monitor unplugged and plugged back in, leaving every card and its window on
   the tablet;

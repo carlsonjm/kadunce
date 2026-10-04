@@ -3596,8 +3596,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // Where a window let go at the bottom edge lands on the ordinary desktop:
     // its floating size, centred under the contact, above the dock.
     const auto exitBox = [&] {
-        QSizeF size = QRectF(handoff.source()->restoreSnapshot().floatingGeometry).size();
-        if (!size.isValid()) size = m_carryPickup.size();
+        // KWin keeps a floating geometry only for a window it maximized, tiled
+        // or made full screen; any other window's own size is the geometry it
+        // had before Kadunce placed it.
+        const auto &saved = handoff.source()->restoreSnapshot();
+        const bool heldAside = saved.maximizeMode != KWin::MaximizeRestore
+            || saved.quickTileMode != KWin::QuickTileMode{} || saved.fullScreen;
+        // An empty size, which KWin reports for a window it never had to
+        // restore, is no size: the next record answers instead.
+        QSizeF size = QRectF(heldAside ? saved.floatingGeometry : saved.geometry).size();
+        if (size.isEmpty()) size = QRectF(saved.floatingGeometry).size();
+        if (size.isEmpty()) size = m_carryPickup.size();
         size.setWidth(std::clamp(size.width(), 200.0, std::max(200.0, area.width() * .8)));
         size.setHeight(std::clamp(size.height(), 150.0, std::max(150.0, area.height() * .8)));
         QRectF box(contact.x() - size.width() / 2, exitBottom - size.height(), size.width(), size.height());
