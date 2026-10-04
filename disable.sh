@@ -13,7 +13,7 @@ kwriteconfig6 --file kwinrc --group Plugins \
 if ! qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
         "${native_effect_id}" >/dev/null 2>&1; then
     echo "Kadunce could not confirm the Active restore/unload." >&2
-    echo "Press Ctrl+Esc before logging out or rebooting." >&2
+    echo "Press Meta+Esc before logging out or rebooting." >&2
     exit 1
 fi
 
