@@ -37,6 +37,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/BentoLayout.cpp
         src/BentoLayout.h
         src/DesktopStageController.cpp
+        src/DesktopZones.cpp
         src/DesktopStageController.h
         src/WorkspaceInputRouter.cpp
         src/WorkspaceInputRouter.h

@@ -327,4 +327,84 @@ int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
     return chosen;
 }
 
+std::optional<ZoneAdmission> chooseZoneAdmission(
+    const std::vector<BentoCandidate> &candidates,
+    const std::vector<BentoPixelRect> &zones,
+    const std::vector<int> &currentZones, int required)
+{
+    const int candidateCount = static_cast<int>(candidates.size());
+    const int zoneCount = static_cast<int>(zones.size());
+    if (candidateCount == 0 || zoneCount == 0 || required >= candidateCount) return std::nullopt;
+    for (const auto &candidate : candidates) {
+        if (!std::isfinite(candidate.minimumWidth) || !std::isfinite(candidate.minimumHeight)
+            || candidate.minimumWidth < 0 || candidate.minimumHeight < 0) return std::nullopt;
+    }
+    // Zones by size, largest first: the rank a zone has here is the rank the
+    // candidate it would suit best has in the candidates' order.
+    std::vector<int> zoneOrder(zones.size());
+    std::iota(zoneOrder.begin(), zoneOrder.end(), 0);
+    std::stable_sort(zoneOrder.begin(), zoneOrder.end(), [&zones](int first, int second) {
+        return double(zones[first].width) * zones[first].height
+            > double(zones[second].width) * zones[second].height;
+    });
+    std::vector<int> zoneRank(zones.size());
+    for (int rank = 0; rank < zoneCount; ++rank) zoneRank[zoneOrder[rank]] = rank;
+    const auto keeps = [&](int candidate, int zone) {
+        return candidate < static_cast<int>(currentZones.size()) && currentZones[candidate] == zone;
+    };
+
+    // The best zones for one chosen set of candidates, or false if some
+    // candidate fits no zone left to it.
+    const auto assign = [&](const std::vector<int> &subset, std::vector<int> &best) {
+        std::vector<bool> used(zones.size(), false);
+        std::vector<int> current(subset.size(), -1);
+        double bestCost = std::numeric_limits<double>::max();
+        best.clear();
+        const auto search = [&](const auto &self, int position, double cost) -> void {
+            if (position == static_cast<int>(subset.size())) {
+                if (cost < bestCost) { bestCost = cost; best = current; }
+                return;
+            }
+            const int candidateIndex = subset[position];
+            const BentoCandidate &candidate = candidates[candidateIndex];
+            for (int zone = 0; zone < zoneCount; ++zone) {
+                if (used[zone] || !fits(candidate, zones[zone])) continue;
+                used[zone] = true;
+                current[position] = zone;
+                const double keepCost = keeps(candidateIndex, zone) ? -4.0 : 0.0;
+                self(self, position + 1, cost + keepCost
+                    + assignmentCost(candidate, zones[zone], position, zoneRank[zone]));
+                current[position] = -1;
+                used[zone] = false;
+            }
+        };
+        search(search, 0, 0.0);
+        return !best.empty();
+    };
+
+    // As many as fit, the earliest candidates first, as the curated library
+    // chooses its subsets.
+    const int most = std::min(candidateCount, zoneCount);
+    for (int count = most; count >= 1; --count) {
+        std::vector<int> subset;
+        std::vector<int> zonesFor;
+        const auto choose = [&](const auto &self, int next) -> bool {
+            if (static_cast<int>(subset.size()) == count) {
+                if (required >= 0 && std::find(subset.begin(), subset.end(), required) == subset.end())
+                    return false;
+                return assign(subset, zonesFor);
+            }
+            const int needed = count - static_cast<int>(subset.size());
+            for (int index = next; index <= candidateCount - needed; ++index) {
+                subset.push_back(index);
+                if (self(self, index + 1)) return true;
+                subset.pop_back();
+            }
+            return false;
+        };
+        if (choose(choose, 0)) return ZoneAdmission{subset, zonesFor};
+    }
+    return std::nullopt;
+}
+
 } // namespace Kadunce

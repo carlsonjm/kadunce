@@ -191,13 +191,11 @@ live one.
 
 ### The tablet keeps two panes; the three-pane grammar stays dormant
 
-Decided 19 September 2026. A three-pane grammar was built as far as its shapes
-and contact mapping and raised questions not worth answering to reach an
-install: which resident holds which pane, what the shapes mean in portrait, and
-whether the mapping extends to the monitor. It stays in the source behind
-`BentoContactGrammarPaneCap`, which no display's cap reaches; every admission
-path reads one pane cap per display. Raising the cap to three reopens those
-questions and owes the coverage the retired `column-runtime` scene carried.
+A three-pane grammar was built as far as its shapes and contact mapping, and
+raised questions not worth an install: which resident holds which pane, and what
+the shapes mean in portrait. It stays behind `BentoContactGrammarPaneCap`, which
+no display reaches; raising it reopens them and owes the retired
+`column-runtime` scene's coverage.
 
 ### Both stages own windows on the same display
 
@@ -471,11 +469,10 @@ one global session, which makes every tablet gesture a multi-display event.
 
 ### A display without cards organizes everything it shows
 
-Decided 23 September 2026; `CARD-LIFECYCLE.md` §11 states the rule. A window
-with no room waits in the dock, never moves to another display on its own, and
-comes back when room frees up. An application too big for
-any slot takes the Active size, because one you just opened has to appear.
-Overflow stays in the dock; rejected: another desktop.
+`CARD-LIFECYCLE.md` §11 states the rule. A window with no room waits in the
+dock, never moves to another display on its own, and comes back when room frees
+up. An application too big for any slot takes the Active size, because one you
+just opened has to appear. Rejected: overflow on another desktop.
 
 The tablet names each window it pairs; this is the opposite answer on purpose.
 On the tablet a person places each card; a monitor is where Plasma windows pile
@@ -483,6 +480,10 @@ up under a mouse, and the value is organizing the pile in one move. Rejected:
 pairing on the monitor, which traded that for control, and sending overflow to
 the tablet, which moved windows between screens without you and had no
 destination on a machine without a touchscreen.
+
+Zones drawn with Meta+T are the layout: KDE draws any arrangement, and its
+edges replace the dividers. KWin ignores minimum sizes, so Kadunce assigns the
+zones. Rejected: presets written over drawn zones; dividers fighting KWin's.
 
 ### A display coming or going keeps every card on the card display
 

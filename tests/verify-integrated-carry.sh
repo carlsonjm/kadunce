@@ -89,6 +89,7 @@ scenes=(
     monitor-full-runtime tablet
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
+    monitor-zones-runtime tablet
     spread-bento-drop-runtime tablet
     flick-ask-runtime tablet
     stack-still-runtime tablet

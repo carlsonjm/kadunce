@@ -4,6 +4,7 @@
 */
 
 #include "DesktopStageController.h"
+#include "DesktopZones.h"
 #include "BentoCompositeGeometry.h"
 #include "BentoSessionTransfer.h"
 #include "OwnershipHandoff.h"
@@ -28,6 +29,25 @@
 
 namespace Kadunce
 {
+
+namespace {
+BentoPixelRect pixelRect(const QRectF &rect)
+{
+    return {int(std::lround(rect.x())), int(std::lround(rect.y())),
+            std::max(1, int(std::lround(rect.width()))), std::max(1, int(std::lround(rect.height())))};
+}
+
+// A pane in a KWin zone sits where KWin rounds the zone's rectangle, which can
+// differ from this rounding by a pixel.
+bool onPixel(const KWin::RectF &frame, const BentoPixelRect &pixel, bool zoned)
+{
+    const KWin::Rect target(pixel.x, pixel.y, pixel.width, pixel.height);
+    if (!zoned) return frame.toRect() == target;
+    return std::abs(frame.x() - pixel.x) <= 1.5 && std::abs(frame.y() - pixel.y) <= 1.5
+        && std::abs(frame.width() - pixel.width) <= 1.5 && std::abs(frame.height() - pixel.height) <= 1.5;
+}
+} // namespace
+
 
 namespace
 {
@@ -388,8 +408,7 @@ std::optional<int> DesktopStageController::slotForArrival(
         || session.windows.isEmpty()
         || session.windows.size() != int(session.rects.size())) return std::nullopt;
     const KWin::Rect area = stageArea(output);
-    const auto pixels = makePixelBentoLayout(session.rects, area.x(), area.y(),
-                                             area.width(), area.height());
+    const auto pixels = sessionPixels(session, area);
     if (pixels.size() != session.rects.size()) return std::nullopt;
     const QSizeF minimum = arrival->window()->minSize();
     const int slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
@@ -526,8 +545,7 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
     auto drop = prepareCardDrop(window, output, geometry);
     const auto *session = sessionForOutput(output);
     if (!drop || !session || !session->windows.contains(window)) return std::nullopt;
-    const auto pixels = makePixelBentoLayout(session->rects, drop->area.x(), drop->area.y(),
-        drop->area.width(), drop->area.height());
+    const auto pixels = sessionPixels(*session, drop->area);
     for (int i = 0; i < session->windows.size() && i < static_cast<int>(pixels.size()); ++i) {
         const auto &p = pixels.at(i);
         if (!QRectF(p.x, p.y, p.width, p.height).contains(contact)) continue;
@@ -561,8 +579,7 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
     if (!drop.localTarget) return std::nullopt;
     const int from = session->windows.indexOf(drop.window);
     const int to = session->windows.indexOf(drop.localTarget);
-    const auto pixels = makePixelBentoLayout(session->rects, drop.area.x(), drop.area.y(),
-        drop.area.width(), drop.area.height());
+    const auto pixels = sessionPixels(*session, drop.area);
     if (from < 0 || to < 0 || from >= static_cast<int>(pixels.size())
         || to >= static_cast<int>(pixels.size())) return std::nullopt;
     const auto fits = [&](const auto &window, int index) {
@@ -679,8 +696,7 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
         : prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr,
                                drop.side, drop.pairPartner);
     const auto index = plan ? plan->windows.indexOf(drop.window) : -1;
-    const auto pixels = plan ? makePixelBentoLayout(plan->rects, drop.area.x(), drop.area.y(),
-        drop.area.width(), drop.area.height()) : std::vector<BentoPixelRect>{};
+    const auto pixels = plan ? sessionPixels(*plan, drop.area) : std::vector<BentoPixelRect>{};
     std::optional<KWin::RectF> preview;
     if (index >= 0 && index < static_cast<int>(pixels.size())) {
         const auto &pixel = pixels.at(index);
@@ -1225,6 +1241,58 @@ bool DesktopStageController::planSession(Session &session,
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
+    // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
+    // it in KDE's tile editor, when there are any. A window keeps the zone it
+    // has while it fits, and one that fits no zone left waits as remainder.
+    if (parksOverflow(session.outputName)) {
+        const QList<DrawnZone> drawn = drawnZones(output);
+        if (!drawn.isEmpty()) {
+            const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
+            std::vector<BentoPixelRect> zonePixels;
+            for (const auto &zone : drawn) zonePixels.push_back(pixelRect(zone.window));
+            std::vector<BentoCandidate> candidates;
+            std::vector<int> current;
+            for (int index = 0; index < considered.size(); ++index) {
+                KWin::EffectWindow *window = considered.at(index);
+                const QSizeF minimum = window->window()->minSize();
+                const KWin::RectF geometry = window->frameGeometry();
+                candidates.push_back({minimum.width(), minimum.height(),
+                                      geometry.width(), geometry.height(), index == 0});
+                const int held = session.windows.indexOf(window);
+                QObject *tile = held >= 0 && held < session.zones.size() ? session.zones.at(held).data() : nullptr;
+                int zone = -1;
+                for (int z = 0; tile && z < drawn.size(); ++z)
+                    if (drawn.at(z).tile == tile) zone = z;
+                current.push_back(zone);
+            }
+            const int required = requirePreferred ? int(considered.indexOf(preferred)) : -1;
+            if (requirePreferred && required < 0) return false;
+            const auto admission = chooseZoneAdmission(candidates, zonePixels, current, required);
+            if (!admission) return false;
+            const KWin::Rect area = stageArea(output);
+            session.windows.clear();
+            session.zones.clear();
+            session.rects.clear();
+            for (std::size_t k = 0; k < admission->candidateIndices.size(); ++k) {
+                const auto &zone = drawn.at(admission->zoneIndices.at(k));
+                session.windows.append(considered.at(admission->candidateIndices.at(k)));
+                session.zones.append(zone.tile);
+                session.rects.push_back({(zone.window.x() - area.x()) / std::max(1, area.width()),
+                                         (zone.window.y() - area.y()) / std::max(1, area.height()),
+                                         zone.window.width() / std::max(1, area.width()),
+                                         zone.window.height() / std::max(1, area.height())});
+            }
+            session.side.reset();
+            session.sideWindow.clear();
+            session.lone = false;
+            QList<QPointer<KWin::EffectWindow>> remainder;
+            for (const auto &window : std::as_const(owned))
+                if (!session.windows.contains(window)) remainder.append(window);
+            report(remainder);
+            return true;
+        }
+    }
+    session.zones.clear();
     if (session.side && owned.contains(session.sideWindow)) {
         // Existing edge occupancy outranks a new whole-display side preset.
         // This operates on the same value plan for preview and commit.
@@ -1646,8 +1714,7 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
             && outputForKey(key) == output && m_sessions.contains(key);
     };
     const KWin::Rect area = stageArea(output);
-    const std::vector<BentoPixelRect> pixels = makePixelBentoLayout(
-        plan.rects, area.x(), area.y(), area.width(), area.height());
+    const std::vector<BentoPixelRect> pixels = sessionPixels(plan, area);
     QList<QRectF> motionFrom, motionTo;
     for (int i = 0; i < plan.windows.size() && i < int(pixels.size()); ++i) {
         motionFrom.append(m_host->bentoPresentationRect(plan.windows[i]));
@@ -1672,7 +1739,13 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
         const BentoPixelRect &pixel = pixels.at(index);
         const KWin::RectF target(pixel.x, pixel.y, pixel.width, pixel.height);
         if (!applyNativePlacement(client.data(), output.data(), target, valid)) return false;
+        // KWin's zone takes the pane from here: its geometry, and the edges
+        // it shares with the panes beside it.
+        if (index < plan.zones.size() && plan.zones.at(index) && valid()
+            && placeInZone(plan.zones.at(index), client.data()) && !m_zoned.contains(client))
+            m_zoned.append(client);
     }
+    releaseStrayZones();
     const QPointer<KWin::EffectWindow> lead = plan.windows.value(0);
     if (activateLead && current() && lead && !lead->isDeleted() && lead->window()) {
         KWin::workspace()->raiseWindow(lead->window());
@@ -1744,8 +1817,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
     if (session == m_sessions.cend() || session->applying || !output
         || session->windows.size() != static_cast<int>(session->rects.size())) return;
     const auto area = stageArea(output);
-    const auto pixels = makePixelBentoLayout(session->rects, area.x(), area.y(),
-        area.width(), area.height());
+    const auto pixels = sessionPixels(*session, area);
     QList<QPointer<KWin::EffectWindow>> unsettled;
     for (int index = 0; index < session->windows.size(); ++index) {
         const auto &window = session->windows.at(index);
@@ -1755,8 +1827,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         if (window->isMinimized()) continue;
         const auto &pixel = pixels.at(std::size_t(index));
         if (window->screen() == output
-            && window->frameGeometry().toRect()
-                == KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height)) continue;
+            && onPixel(window->frameGeometry(), pixel, !session->zones.isEmpty())) continue;
         unsettled.append(window);
     }
     for (const auto &window : std::as_const(unsettled)) {
@@ -1776,13 +1847,13 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
     auto *output = outputForKey(session.outputName);
     if (!output || session.windows.size() != static_cast<int>(session.rects.size())) return false;
     const auto area = stageArea(output);
-    const auto pixels = makePixelBentoLayout(session.rects, area.x(), area.y(), area.width(), area.height());
+    const auto pixels = sessionPixels(session, area);
     for (int index = 0; index < session.windows.size(); ++index) {
         const auto &window = session.windows.at(index);
         if (!window || window->isDeleted() || !window->window()) return false;
         const auto &pixel = pixels.at(index);
         if (window->screen() != output || window->isMinimized()
-            || window->frameGeometry().toRect() != KWin::Rect(pixel.x, pixel.y, pixel.width, pixel.height)) return false;
+            || !onPixel(window->frameGeometry(), pixel, !session.zones.isEmpty())) return false;
     }
     return true;
 }
@@ -1825,6 +1896,12 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
             continue;
         }
         QPointer<KWin::Window> client = snapshot.window->window();
+        // Release gives the window back as it was before the layout, which
+        // was outside any KWin zone Kadunce placed it in.
+        if (m_zoned.contains(client)) {
+            m_zoned.removeAll(client);
+            leaveZone(client);
+        }
         QPointer<KWin::LogicalOutput> originalOutput = outputForKey(snapshot.outputName);
         const auto clientValid = [&] {
             return snapshot.window && !snapshot.window->isDeleted() && client
@@ -2408,7 +2485,11 @@ void DesktopStageController::handleWindowMoveResizeFinished(KWin::EffectWindow *
     if (source == m_sessions.end()) {
         return;
     }
-    if (resized) {
+    if (!source->zones.isEmpty()) {
+        // A pane resized in its zone moved the zone's edges, which KWin owns;
+        // one moved into another zone takes that zone.
+        syncZonesFromKde(source.value());
+    } else if (resized) {
         adjustRail(source.value(), window, start,
                         window->frameGeometry());
     }
@@ -2421,7 +2502,9 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
     if (m_restoring || m_interactionWindow) return rails;
     for (const auto &session : m_sessions) {
         auto *output = outputForKey(session.outputName);
-        if (!output || session.applying || !sessionGeometryMatches(session)) continue;
+        // KWin owns the edges between panes in its zones.
+        if (!output || session.applying || !session.zones.isEmpty()
+            || !sessionGeometryMatches(session)) continue;
         const QRectF area(stageArea(output));
         for (int i = 0; i < int(session.rects.size()); ++i) {
             const auto &a = session.rects[i];
@@ -2709,6 +2792,48 @@ void DesktopStageController::handleScreenRemoved(KWin::LogicalOutput *output)
     if (m_sessions.contains(key)) {
         restoreSession(key, true);
     }
+}
+
+std::vector<BentoPixelRect> DesktopStageController::sessionPixels(const Session &session,
+                                                                  const KWin::Rect &area) const
+{
+    auto pixels = makePixelBentoLayout(session.rects, area.x(), area.y(), area.width(), area.height());
+    for (int index = 0; index < session.zones.size() && index < int(pixels.size()); ++index) {
+        const QRectF rect = zoneWindowRect(session.zones.at(index));
+        if (rect.width() >= 1 && rect.height() >= 1) pixels[std::size_t(index)] = pixelRect(rect);
+    }
+    return pixels;
+}
+
+void DesktopStageController::syncZonesFromKde(Session &session) const
+{
+    for (int index = 0; index < session.windows.size() && index < session.zones.size(); ++index) {
+        const auto &window = session.windows.at(index);
+        if (!window || window->isDeleted() || !window->window()) continue;
+        QObject *tile = zoneOf(window->window());
+        if (!tile || tile == session.zones.at(index)) continue;
+        const int other = session.zones.indexOf(tile);
+        if (other >= 0) {
+            session.zones.swapItemsAt(index, other);
+            std::swap(session.rects[std::size_t(index)], session.rects[std::size_t(other)]);
+        } else {
+            session.zones[index] = tile;
+        }
+    }
+}
+
+void DesktopStageController::releaseStrayZones()
+{
+    m_zoned.removeIf([this](const QPointer<KWin::Window> &client) {
+        if (!client) return true;
+        for (const auto &session : std::as_const(m_sessions)) {
+            if (session.zones.isEmpty()) continue;
+            for (const auto &window : session.windows)
+                if (window && window->window() == client) return false;
+        }
+        leaveZone(client);
+        return true;
+    });
 }
 
 } // namespace Kadunce

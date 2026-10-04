@@ -60,6 +60,9 @@ probe once, and runs:
 - same-output Bento exchange, return-home, dock exclusion, and restoration;
 - ordinary monitor entry, edge withdrawal, cancellation, unload, and restoration,
   and a monitor pane let go at the bottom edge landing at its own size;
+- a monitor's drawn zones as its layout: windows placed by minimum size, a moved
+  edge followed, an arrival taking a zone and its occupant waiting in the dock,
+  and release leaving every zone;
 - tablet Active departure and Bento return into Spread;
 - a monitor unplugged and plugged back in, leaving every card and its window on
   the tablet;
