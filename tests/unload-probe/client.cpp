@@ -190,6 +190,9 @@ public Q_SLOTS:
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A window in a named colour, so a photograph says which one is drawn.
  void colouredCompanion(const QString &title, const QString &hex, int width, int height) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(width, height); w->show(); }
+ // A window that maximizes itself a moment after it is shown, as an
+ // application restoring its saved state does at sign-in.
+ void lateMaximizedCompanion(const QString &title, const QString &hex, int delayMs) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(560, 420); w->show(); QTimer::singleShot(delayMs, w, [w] { w->showMaximized(); }); }
  void crossCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Cross ownership probe"); tint(w, QColor(0x2e, 0x8b, 0x57)); w->resize(400,300); w->show(); }
  // A client whose own minimum grows while its layout is not live, the way one
  // does on a font or scale change. The rect its session stored is then a size

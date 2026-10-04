@@ -2539,6 +2539,7 @@ bool CardStageController::resumeSelectedBentoProjection()
 void CardStageController::release()
 {
     forgetCloseAsk(nullptr);
+    m_heldInPlace.clear();
     bringCardsBack();
     m_returnToDesktop = false;
     m_returnedToDesktop.clear();
@@ -4064,6 +4065,52 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
 }
 
+void CardStageController::holdCardInActivePlace(KWin::EffectWindow *window)
+{
+    // §3: an application that restores its saved state maximizes its window a
+    // moment after showing it, by which time another card may stand in front.
+    // Its wish is kept in its restore record, so release gives it back
+    // maximized, and the card goes back to the Active place. A card is put
+    // back at most every half second, and one whose minimum size cannot fit
+    // the place is left alone, so no application is fought in a loop.
+    if (m_applyingWindowState || m_cardGrabActive || !window || window->isDeleted()
+        || !window->window() || liveCardIndex(window) < 0
+        || m_bentoProjectionWindows.contains(window)
+        || !m_host->isManagedWindowForCardStage(window)) return;
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet || window->screen() != tablet) return;
+    KWin::Window *client = window->window();
+    if (client->isInteractiveMove() || client->isInteractiveResize()) return;
+    const KWin::RectF target(activeTarget(tablet));
+    const bool asked = client->isRequestedFullScreen()
+        || client->requestedMaximizeMode() != KWin::MaximizeRestore
+        || client->requestedQuickTileMode() != KWin::QuickTileMode{};
+    const KWin::RectF placed = client->moveResizeGeometry();
+    const bool reaches = placed.bottom() > target.bottom() + 1
+        || placed.right() > target.right() + 1;
+    if (!asked && !reaches) return;
+    const QSizeF minimum = client->minSize();
+    if (minimum.width() > target.width() || minimum.height() > target.height()) return;
+    auto &since = m_heldInPlace[window];
+    if (since.isValid() && since.elapsed() < 500) return;
+    since.start();
+    if (asked) {
+        for (auto &saved : m_parkedRestores) {
+            if (saved.window != window) continue;
+            saved.maximizeMode = client->requestedMaximizeMode();
+            saved.fullScreen = client->isRequestedFullScreen();
+            saved.quickTileMode = client->requestedQuickTileMode();
+            break;
+        }
+    }
+    const QPointer<KWin::EffectWindow> held(window);
+    QTimer::singleShot(0, &m_activeSettleTimer, [this, held] {
+        if (!held || held->isDeleted() || !held->window() || !m_active
+            || liveCardIndex(held) < 0 || m_activeRestore.window == held) return;
+        settleCardsInActivePlace({held});
+    });
+}
+
 void CardStageController::restoreActiveSnapshot()
 {
     ++m_restoreGeneration;
@@ -4568,6 +4615,10 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
 void CardStageController::handleActiveGeometryChanged(
     KWin::EffectWindow *window)
 {
+    if (m_active && window && m_activeRestore.window != window) {
+        holdCardInActivePlace(window);
+        return;
+    }
     if (!m_active || m_presentation != CardPresentation::Active
         || !m_activeRestore.valid || m_activeRestore.window != window
         || !window->window()) {

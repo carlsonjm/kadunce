@@ -93,7 +93,7 @@ ownership. The edge entries below still answer a window carried onto a display
 Kadunce does not own.
 
 Kadunce atomically adopts every eligible open application window on that display,
-each awake card in the Active card's place.
+each awake card held in the Active card's place.
 
 Kadunce owns a display from that moment until its session ends, whether it
 holds cards, stacks or a Bento group. Adoption happens once; every later edge

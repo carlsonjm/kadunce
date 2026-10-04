@@ -36,10 +36,11 @@ The rule it replaced waited for a first edge action, so every sign-in met the
 least reliable path, the first carry. A display with no card left starts again
 with the next window to open, so no state exists that §2 does not name.
 
-Every card taken stands in the Active card's place at once (§3): a maximized
-one left behind the Active card kept a panel watching for windows that reach
-it, as Shuffle's band and Plasma's adaptive panel do, opaque. Rejected: panels
-ignoring cards behind the Active card.
+Every card taken stands in the Active card's place and stays there
+(§3): a maximized one behind the Active card, or one its application
+maximized at sign-in, kept a panel watching for windows that reach it, as
+Shuffle's band does, opaque; the application's wish goes in its restore record.
+Rejected: panels ignoring cards behind the Active card.
 
 ### A side snap admits one card; Bento needs two named windows
 

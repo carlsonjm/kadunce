@@ -20,6 +20,7 @@
 #include <effect/effectwindow.h>
 
 #include <QElapsedTimer>
+#include <QHash>
 #include <QList>
 #include <QPointer>
 #include <QStringList>
@@ -455,6 +456,9 @@ private:
     // Every awake card stands in the Active card's place; each keeps its own
     // in its restore record.
     void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards);
+    // A card behind the Active one that its application maximized, or that
+    // otherwise reaches past the Active place, goes back to that place.
+    void holdCardInActivePlace(KWin::EffectWindow *window);
     void retainManagedOwnership(KWin::EffectWindow *window);
     void captureCardTransition(bool includeGuest = false, bool includeGrab = false);
     void clearCardTransition();
@@ -617,6 +621,7 @@ private:
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
+    QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     ActiveRestoreSnapshot m_activeRestore;

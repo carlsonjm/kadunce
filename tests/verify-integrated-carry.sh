@@ -98,6 +98,7 @@ scenes=(
     companion-guest-runtime tablet
     companion-focus-runtime tablet
     adopt-reach-runtime tablet
+    late-maximize-runtime tablet
     active-launch-runtime tablet
     x11-tablet-runtime tablet
 )
