@@ -50,7 +50,9 @@ it when resolved.
 Batch two or three related physical checks into one candidate; freeze what
 passed, and later candidates touch only failures. Keep feasibility, a minimal
 prototype and product implementation separate. Unfinished architecture work
-lives on a named WIP branch; only physically accepted behavior reaches `main`.
+lives on a named WIP branch. Behavior that saved tests fully prove reaches
+`main` once its checks pass; how a gesture feels and real hardware reach it only
+after the physical pass.
 
 ## Where writing goes
 
@@ -113,11 +115,11 @@ new product capability advances the minor version.
 
 ## Installation handover
 
-Installing, restarting the graphical session and logging out are performed by
-the session owner, never by an agent, and no task packet changes that. An agent
-builds and verifies the candidate and hands the installation over as one
-copy-pasteable command; the suite record's `HANDOVER.md` states what the
-handover carries. After installation, `bash tests/verify-live-control.sh` runs
+An agent on the device with the session owner's permission may run
+`./install.sh` itself. Restarting the graphical session and logging out wait for
+the owner's go, and no task packet changes that. Otherwise an agent hands the
+verified candidate over as one copy-pasteable command; the suite record's
+`HANDOVER.md` states what it carries. After installation, `bash tests/verify-live-control.sh` runs
 in the graphical session and confirms the controller is wanted by
 `graphical-session.target`. Do not toggle the live effect or publish unless the
 task says so in words.
