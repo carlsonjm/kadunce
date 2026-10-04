@@ -108,6 +108,42 @@ check "a tapped tab previews its workspace" is "$(table '.preview')" "$two"
 escape
 check "Escape closes it and nothing changed" is "$(table '.open') $(current)" "false $one"
 
+# Spread with Search in it, as the Tette Dot opens it, is Spread to Table.
+hosted() { kad workspaceContext | jq -e '.. | objects | select(has("launcherGuestActive")) | .launcherGuestActive' >/dev/null; }
+python3 - <<'PY' &
+import dbus, json, time
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+assert json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))["accepted"]
+time.sleep(60)
+PY
+owner_pid=$!
+for attempt in {1..40}; do hosted && break; sleep .1; done
+sleep .5
+check "Search is in Spread" hosted
+pull 640
+sleep .3
+report search-pulled
+check "with Search: Table is open on the tabs" is "$(table '.open') $(table '.level')" "true tabs"
+check "with Search: Spread shows, not a preview" is "$(table '.preview')" ""
+check "with Search: Spread stays open" is "$(presentation)" cardLine
+slide "$(at '.layout.tabs[1][0]')" "$(row)"
+slide "$(at '.layout.tabs[1][0]')" "$(row)"
+check "with Search: another tab, Spread still shows" is "$(table '.hovered') $(table '.preview')" "1 "
+slide "$(at '.layout.tabs[1][0]')" "$(cards_row)"
+report search-cards
+check "with Search: its cards preview that workspace" is "$(table '.level') $(table '.preview')" "cards $two"
+slide "$(at '.layout.tabs[1][0]')" "$(row)"
+check "with Search: back on the tabs, Spread shows again" is "$(table '.level') $(table '.preview')" "tabs "
+slide "$(at '.layout.tabs[1][0]')" 20
+lift
+report search-cancelled
+check "with Search: cancelled, nothing changed" is "$(table '.open') $(current) $(presentation)" "false $one cardLine"
+check "with Search: Search is still in Spread" hosted
+kill "$owner_pid" 2>/dev/null
+wait "$owner_pid" 2>/dev/null
+for attempt in {1..40}; do hosted || break; sleep .1; done
+
 # From the Active card nothing changes: the tabs preview from the start.
 probe activateWindowId "$(id_of 'One A')" >/dev/null
 sleep .8

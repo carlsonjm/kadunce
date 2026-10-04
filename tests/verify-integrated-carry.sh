@@ -64,6 +64,7 @@ scenes=(
     minimized-only-runtime tablet
     sleeping-spread-runtime tablet
     card-exit-runtime tablet
+    bento-exit-partner-runtime tablet
     switcher-hidden-runtime tablet
     gap-runtime tablet
     bento-top-runtime tablet

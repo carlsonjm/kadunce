@@ -611,9 +611,24 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
         return false;
     }
     if (m_launcherGuestNavigationTouchIds.contains(event->id)) {
-        const auto delta = event->pos - m_guestOutsideTouchStarts.value(event->id);
+        const QPointF start = m_guestOutsideTouchStarts.value(event->id);
+        const auto delta = event->pos - start;
         if (std::hypot(delta.x(), delta.y()) > CardHoldMotion)
             m_guestOutsideMovedTouches.insert(event->id);
+        // Spread with Search in it is still Spread: its top edge pulls Table
+        // down, and only a tap there closes Search.
+        if (m_launcherGuestNavigationTouchIds.size() == 1 && m_tableTouch < 0
+            && touchModeAt(start) == TouchMode::TopEdge
+            && delta.y() > TablePull && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
+            m_launcherGuestNavigationTouchIds.remove(event->id);
+            m_guestOutsideTouchStarts.remove(event->id);
+            m_guestOutsideMovedTouches.remove(event->id);
+            m_ownedTouchIds.insert(event->id);
+            m_tableTouch = event->id;
+            m_tablePosition = event->pos;
+            m_target->beginTableFromInput(start);
+            m_target->moveTableFromInput(event->pos);
+        }
         return true;
     }
     if (m_launcherGuestTouchIds.contains(event->id)) {
