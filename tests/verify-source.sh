@@ -37,6 +37,10 @@ ownership = section('void CardStageController::retainManagedOwnership(',
                     'bool CardStageController::enterActive()')
 for mutation in ('enterActive(', 'moveResize(', 'maximize(', 'setFullScreen('):
     assert mutation not in entry + ownership, 'Entry ownership must not activate/resize cards'
+# CARD-LIFECYCLE.md §3: entry stands every card in the Active place only once
+# every origin is recorded, through its own placement step.
+assert entry.index('publishOwnershipThenRecord(') < entry.index('settleCardsInActivePlace('), \
+    'Cards are placed only after every origin is recorded'
 transfer = section('bool CardStageController::admitTransferredWindowToTablet(',
                    'void CardStageController::startArrivalTimer(')
 assert 'if (sameOutput && m_active && !managedRestore(arrival))' in transfer

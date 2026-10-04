@@ -138,9 +138,9 @@ kad outputStageState | rg -q '^Virtual-1\|external\|.*\|2$'
 kad workspaceContext | jq -e --arg id "$(id_of 'Two front')" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id' >/dev/null
 echo 'PASS: committing switches without the slide, and every card and layout stays where it was'
 
-# The first desktop's card behind never stood in front, so it keeps its own
-# full size and reaches the tablet's gutter: a preview that drew it would show.
-probe windowFacts | jq -e 'first(.[] | select(.caption == "One behind")) | .x <= 0 and .width >= 1270' >/dev/null
+# The first desktop's card behind never stood in front, yet it stands in the
+# Active card's place (CARD-LIFECYCLE.md §3), under the front card.
+probe windowFacts | jq -e 'first(.[] | select(.caption == "One behind")) | .x >= 10 and .width <= 1260' >/dev/null
 test "$(kad previewDesktop "$one")" = true
 sleep .4
 test "$(current)" = "$two"

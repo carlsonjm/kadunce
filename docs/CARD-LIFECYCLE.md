@@ -92,14 +92,15 @@ On a display that cannot own cards, the first deliberate Bento action starts
 ownership. The edge entries below still answer a window carried onto a display
 Kadunce does not own.
 
-Kadunce atomically adopts every eligible open application window on that display.
+Kadunce atomically adopts every eligible open application window on that display,
+each awake card in the Active card's place.
 
-Kadunce owns a display from that moment until its session ends, whether what it
-holds is individual cards, stacks or a Bento group. Adoption happens once. Every
-later edge action on that display reads the ownership it already has.
+Kadunce owns a display from that moment until its session ends, whether it
+holds cards, stacks or a Bento group. Adoption happens once; every later edge
+action there reads the ownership it already has.
 
-A window arriving from another display starts ownership the same way, whether it
-was carried there or left a layout that could not show it. It arrives as one
+A window arriving from another display starts ownership the same way, carried
+there or leaving a layout that could not show it. It arrives as one
 card; arrival adopts nothing else.
 
 ### First edge entry

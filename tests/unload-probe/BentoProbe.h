@@ -1,6 +1,7 @@
 #pragma once
 #include "DesktopStageController.h"
 #include "CardStageController.h"
+#include <optional>
 #include <effect/effecthandler.h>
 #include <core/output.h>
 #include <window.h>
@@ -87,12 +88,17 @@ struct BentoProbe {
         ownershipCards->toggle();
         if (!ownershipCards->isActive()
             || ownershipCards->presentation() != Kadunce::CardPresentation::Spread) return false;
+        // CARD-LIFECYCLE.md §3: entry records every origin before it places
+        // anything, and every awake card stands in the one Active place.
+        std::optional<KWin::RectF> place;
         for (const auto &[w, geometry] : ownershipExpected) {
             const auto saved = ownershipCards->managedRestore(w);
-            if (!saved || saved->geometry != geometry || w->window()->moveResizeGeometry() != geometry) {
-                ownershipEvidence = QStringLiteral("Initial member has no retained origin or entry changed native geometry");
+            const KWin::RectF now = w->window()->moveResizeGeometry();
+            if (!saved || saved->geometry != geometry || (place && now != *place)) {
+                ownershipEvidence = QStringLiteral("Initial member has no retained origin or entry left cards in different places");
                 return false;
             }
+            place = now;
         }
         // Later visits cannot overwrite the shared-entry records.
         ownershipCards->toggle();

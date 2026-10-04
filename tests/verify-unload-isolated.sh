@@ -2,7 +2,7 @@
 set -euo pipefail
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh) ;;
+    guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh|adopt-reach-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;

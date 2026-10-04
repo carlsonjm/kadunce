@@ -452,6 +452,9 @@ private:
     };
 
     void rebuildLiveCards();
+    // Every awake card stands in the Active card's place; each keeps its own
+    // in its restore record.
+    void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards);
     void retainManagedOwnership(KWin::EffectWindow *window);
     void captureCardTransition(bool includeGuest = false, bool includeGrab = false);
     void clearCardTransition();

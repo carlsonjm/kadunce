@@ -3930,6 +3930,7 @@ void CardStageController::rebuildLiveCards()
             for (const auto &window : admitted) retainManagedOwnership(window);
             if (!admitted.isEmpty()) m_originalCardStackingOrder = admitted;
         });
+    settleCardsInActivePlace(admitted);
 }
 
 void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
@@ -4032,6 +4033,35 @@ bool CardStageController::enterActive()
     qInfo() << "Kadunce" << Revision
             << "entered interactive Active with" << effectWindow->caption();
     return true;
+}
+
+void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards)
+{
+    // §3: a card behind the one presented stands where it would as Active. A
+    // window taken maximized would otherwise still reach the bottom of the
+    // work area, where a panel that watches for windows reaching it stays
+    // opaque until each card has been brought forward once. Its own place is
+    // already in its restore record, so release gives it back.
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) return;
+    const KWin::RectF target(activeTarget(tablet));
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    int settled = 0;
+    for (const auto &window : cards) {
+        if (!window || window->isDeleted() || !window->window()
+            || !m_host->isManagedWindowForCardStage(window)
+            || window->screen() != tablet) continue;
+        KWin::Window *client = window->window();
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore) client->maximize(KWin::MaximizeRestore);
+        if (client->quickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
+        if (client->moveResizeGeometry() == target) continue;
+        client->moveResize(target);
+        ++settled;
+    }
+    if (settled > 0)
+        qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
 }
 
 void CardStageController::restoreActiveSnapshot()
