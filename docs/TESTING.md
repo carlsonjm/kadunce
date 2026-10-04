@@ -154,6 +154,8 @@ restructure freely while it preserves the authority boundaries in
 | Native move and panel input keep their ownership | panel and input routes | KWin and touchscreen ordering |
 | Guest outside-tap dismisses; movement is not a tap | guest input | real closure, swipe collapse |
 | A new application replaces the guest center before Active | arrival, launch identity | splash, main window, focus |
+| A companion holds the guest center only in Spread, and a second one closes the first | companion guest | a real companion's card and keys |
+| An application launched over the Active card takes its place, Spread never shown | active launch | a surface grown over the card handing over |
 | The disable control survives independently | control, live control, repair | the hand toggle |
 
 ## Reading a probe run

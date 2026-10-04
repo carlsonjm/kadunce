@@ -156,6 +156,11 @@ public Q_SLOTS:
     Q_SCRIPTABLE void keyboardHeading(double height, int durationMs);
     Q_SCRIPTABLE int launcherGuestProtocolVersion() const;
     Q_SCRIPTABLE QString beginLauncherGuest(const QString &ownerService);
+    // Any application may hold Spread's centre while Spread is shown, answered
+    // on its own object (TETTEGOUCHE-CONTEXT.md § Companion guests).
+    Q_SCRIPTABLE int companionGuestProtocolVersion() const;
+    Q_SCRIPTABLE QString beginCompanionGuest(const QString &ownerService,
+        const QString &objectPath, const QString &interfaceName);
     Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
     Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
@@ -247,6 +252,9 @@ private:
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
+    QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
+        const QString &interfaceName, int protocol, bool openSpread);
+    void callLauncherGuestOwner(const QString &method, const QVariantList &arguments = {});
     void handleLaunchWindowChanged();
     // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
     [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
@@ -702,6 +710,8 @@ private:
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
     QString m_launcherGuestOwner;
+    QString m_launcherGuestPath;
+    QString m_launcherGuestInterface;
     bool m_launcherGuestExpanded = false;
     QElapsedTimer m_guestNeighborMotion;
     double m_guestNeighborFrom = 1.0;

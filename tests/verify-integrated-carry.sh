@@ -95,6 +95,8 @@ scenes=(
     spread-fingers-runtime tablet
     guest-drawer-runtime tablet
     guest-beside-runtime tablet
+    companion-guest-runtime tablet
+    active-launch-runtime tablet
     x11-tablet-runtime tablet
 )
 

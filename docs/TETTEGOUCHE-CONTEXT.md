@@ -143,3 +143,33 @@ Neither side restarts the compositor or automatically renegotiates a lost lease.
 left neighbor and `1` for the right, remains in protocol 3, but Kadunce does not
 currently call it: a tap on a neighbor closes the launcher. The guest's motion
 is `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
+
+
+## Companion guests
+
+Any application may hold Spread's center the same way, answered on an object
+of its own rather than Tettegouche's. It checks
+`companionGuestProtocolVersion` first and asks only when the result is exactly
+`1`.
+
+```text
+companionGuestProtocolVersion() -> integer
+beginCompanionGuest(uniqueOwner, objectPath, interfaceName) -> compact JSON reply
+```
+
+The reply is the launcher guest's, with `protocol: 1`. Kadunce answers on
+`objectPath` and `interfaceName` with the launcher guest's `dismissGuest` and
+`completeGuestLaunch(requestToken)`; every other call, launch preparation
+included, is the launcher guest's. Two rules differ:
+
+- A companion is accepted only while Spread is presented. Over an Active card
+  it is refused and Spread is not opened for it: the companion draws its own
+  card there, and an application it launches takes the Active card's place,
+  with Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
+  Active).
+- Spread has one center. A guest asking while another holds it takes it, and
+  Kadunce sends the one it replaces `dismissGuest` first; the launcher guest
+  follows the same rule.
+
+A companion is a layer-shell surface, as the launcher is. An ordinary window
+is a card, so it cannot hold the center.

@@ -564,7 +564,7 @@ rg -q 'captureCardTransition\(replacesGuest\)' "${card_cpp}"
 rg -q 'setPairNeighborSide\(m_launcherGuestPrimarySide\)' "${card_cpp}"
 completion=$(sed -n '/^bool Effect::completeLauncherGuestForWindow(/,/^}/p' "${effect_cpp}")
 arrival_line=$(printf '%s\n' "$completion" | rg -n 'stageWindowArrival\(window\)' | cut -d: -f1)
-ready_line=$(printf '%s\n' "$completion" | rg -n 'QDBusMessage ready' | cut -d: -f1)
+ready_line=$(printf '%s\n' "$completion" | rg -n 'callLauncherGuestOwner\(QStringLiteral\("completeGuestLaunch"\)' | cut -d: -f1)
 test -n "$arrival_line" && test "$arrival_line" -lt "$ready_line"
 rg -q 'makeFocusedPairLayout' "${card_cpp}"
 rg -q 'm_workspace.count\(\) == 2' "${card_cpp}"

@@ -3205,15 +3205,17 @@ void Effect::finishBezelSpreadFromInput(double rise, double speed, bool cancelle
 
 void Effect::dismissLauncherGuestFromInput()
 {
-    if (!m_launcherGuestOwner.isEmpty()) {
-        QDBusMessage request = QDBusMessage::createMethodCall(
-            m_launcherGuestOwner,
-            QStringLiteral("/Launcher"),
-            QStringLiteral("io.github.carlsonjm.Tettegouche"),
-            QStringLiteral("dismissGuest"));
-        QDBusConnection::sessionBus().asyncCall(request);
-    }
+    callLauncherGuestOwner(QStringLiteral("dismissGuest"));
     endLauncherGuest();
+}
+
+void Effect::callLauncherGuestOwner(const QString &method, const QVariantList &arguments)
+{
+    if (m_launcherGuestOwner.isEmpty()) return;
+    QDBusMessage request = QDBusMessage::createMethodCall(m_launcherGuestOwner,
+        m_launcherGuestPath, m_launcherGuestInterface, method);
+    request.setArguments(arguments);
+    QDBusConnection::sessionBus().asyncCall(request);
 }
 
 void Effect::tapBesideLauncherGuestFromInput(const QPointF &position)
@@ -4395,8 +4397,38 @@ int Effect::launcherGuestProtocolVersion() const
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
 {
+    return acceptLauncherGuest(ownerService, QStringLiteral("/Launcher"),
+        QStringLiteral("io.github.carlsonjm.Tettegouche"), launcherGuestProtocolVersion(), true);
+}
+
+int Effect::companionGuestProtocolVersion() const
+{
+    return 1;
+}
+
+QString Effect::beginCompanionGuest(const QString &ownerService,
+    const QString &objectPath, const QString &interfaceName)
+{
+    static const QRegularExpression path(QStringLiteral("^(/[A-Za-z0-9_]+)+$"));
+    static const QRegularExpression dbusInterface(
+        QStringLiteral("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$"));
+    if (!path.match(objectPath).hasMatch() || !dbusInterface.match(interfaceName).hasMatch()) {
+        return QString::fromUtf8(QJsonDocument(QJsonObject{
+            {QStringLiteral("protocol"), companionGuestProtocolVersion()},
+            {QStringLiteral("accepted"), false},
+        }).toJson(QJsonDocument::Compact));
+    }
+    // A companion takes the centre of a Spread already shown. Over an Active
+    // card it draws its own card and needs nothing from Kadunce.
+    return acceptLauncherGuest(ownerService, objectPath, interfaceName,
+        companionGuestProtocolVersion(), false);
+}
+
+QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
+    const QString &interfaceName, int protocol, bool openSpread)
+{
     QJsonObject reply{
-        {QStringLiteral("protocol"), launcherGuestProtocolVersion()},
+        {QStringLiteral("protocol"), protocol},
         {QStringLiteral("accepted"), false},
     };
     const QString owner = ownerService.trimmed();
@@ -4406,6 +4438,10 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
     }
 
     if (presentationForInput() != WorkspacePresentation::Spread) {
+        if (!openSpread) {
+            return QString::fromUtf8(
+                QJsonDocument(reply).toJson(QJsonDocument::Compact));
+        }
         showCardLine();
     }
     KWin::LogicalOutput *tablet = tabletOutput();
@@ -4414,6 +4450,11 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
             QJsonDocument(reply).toJson(QJsonDocument::Compact));
     }
 
+    // One centre: the guest standing there is told to close, rather than
+    // finding later that it no longer holds the place it is drawn in.
+    if (!m_launcherGuestOwner.isEmpty() && m_launcherGuestOwner != owner) {
+        callLauncherGuestOwner(QStringLiteral("dismissGuest"));
+    }
     if (m_launcherGuestWatcher) {
         m_launcherGuestWatcher->deleteLater();
     }
@@ -4422,6 +4463,8 @@ QString Effect::beginLauncherGuest(const QString &ownerService)
         QDBusServiceWatcher::WatchForUnregistration, this);
     m_launcherGuestWatcher = watcher;
     m_launcherGuestOwner = owner;
+    m_launcherGuestPath = objectPath;
+    m_launcherGuestInterface = interfaceName;
     ++m_guestGeneration;
     m_launcherGuestLaunchPending = false;
     m_launcherGuestLaunchApps.clear();
@@ -5565,11 +5608,7 @@ bool Effect::completeLauncherGuestForWindow(KWin::EffectWindow *window)
     m_launcherGuestLaunchPending = false;
     const auto generation = ++m_guestGeneration;
     m_cardStage->stageWindowArrival(window);
-    QDBusMessage ready = QDBusMessage::createMethodCall(m_launcherGuestOwner,
-        QStringLiteral("/Launcher"), QStringLiteral("io.github.carlsonjm.Tettegouche"),
-        QStringLiteral("completeGuestLaunch"));
-    ready.setArguments({m_launcherGuestLaunchToken});
-    QDBusConnection::sessionBus().asyncCall(ready);
+    callLauncherGuestOwner(QStringLiteral("completeGuestLaunch"), {m_launcherGuestLaunchToken});
     QTimer::singleShot(220, this, [this, generation]() {
         if (generation != m_guestGeneration) return;
         endLauncherGuest();
