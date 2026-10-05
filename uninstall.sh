@@ -28,7 +28,13 @@ command -v update-desktop-database >/dev/null 2>&1 \
     || true
 
 echo "Requesting permission to remove the native Kadunce plugin..."
-pkexec /usr/bin/rm -f -- "${native_plugin}"
+install_key=/usr/local/libexec/shuffle/install-step
+if [[ -x "${install_key}" ]] \
+        && sudo -n -l "${install_key}" kadunce remove >/dev/null 2>&1; then
+    sudo -n "${install_key}" kadunce remove
+else
+    pkexec /usr/bin/rm -f -- "${native_plugin}"
+fi
 
 kwriteconfig6 --file kwinrc --group Plugins \
     --key "${native_effect_id}Enabled" --delete
