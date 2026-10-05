@@ -7,7 +7,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh) ;;
-    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh) ;;
+    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
@@ -92,6 +92,11 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
     # Software rendering switches KWin's animations off; the slide must run
     # for the session to prove a Table switch stays out of it.
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 KWIN_EFFECTS_FORCE_ANIMATIONS=1)
+fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-zones-runtime-session.sh ]]; then
+    # The scene reads KWin's zones through scripts, whose printed lines are
+    # kept only at debug level.
+    session_env+=("QT_LOGGING_RULES=kwin_scripting.debug=true;js.debug=true;qml.debug=true")
 fi
 shortcut_args=(--no-global-shortcuts)
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-pointer-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then

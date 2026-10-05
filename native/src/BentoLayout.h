@@ -106,4 +106,22 @@ inline constexpr int BentoCuratedPaneCap = 8;
 [[nodiscard]] int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
                                       double minimumWidth, double minimumHeight);
 
+// Zones drawn for a display with KDE's tile editor, which give a display
+// without cards its shape in place of the curated library (CARD-LIFECYCLE.md
+// §11). Each chosen candidate goes to one zone whose pixel size satisfies its
+// minimum; as many candidates are shown as fit, earlier candidates first, and
+// a zone nobody fits stays empty. A candidate keeps the zone currentZones
+// gives it while it still fits, so an arrival never moves the windows
+// already there; otherwise the first candidate takes the largest zone it
+// fits. required, when not -1, must be among those shown.
+struct ZoneAdmission
+{
+    std::vector<int> candidateIndices;
+    std::vector<int> zoneIndices;
+};
+[[nodiscard]] std::optional<ZoneAdmission> chooseZoneAdmission(
+    const std::vector<BentoCandidate> &candidates,
+    const std::vector<BentoPixelRect> &zones,
+    const std::vector<int> &currentZones = {}, int required = -1);
+
 } // namespace Kadunce

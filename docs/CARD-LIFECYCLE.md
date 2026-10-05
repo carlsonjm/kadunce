@@ -226,19 +226,15 @@ when it comes from the native desktop it must be eligible for adoption.
 
 Each display can have only one live Bento layout.
 
-Bento owns only the windows currently visible in its pane combination.
-
-Bento does not own hidden overflow.
-
-Bento does not retain minimized or displaced panes.
+Bento owns only the windows visible in its panes: never hidden overflow, nor
+minimized or displaced panes.
 
 ### Pane limit
 
-Each display has one maximum visible pane count, and every admission path reads
-the same value for that display.
+Each display has one maximum visible pane count, read by every admission path.
 
-The tablet's maximum is two. A larger display uses the curated layout library up
-to eight panes.
+The tablet's maximum is two; a larger display, the curated library's eight, or
+the zones drawn for it (§11).
 
 Layout orientation follows the work area's own proportions, never the display's
 hardware identity.
@@ -487,13 +483,12 @@ An edge action commits only when released inside its valid edge zone.
 
 Each display, on each desktop, has an independent ownership session.
 
-An edge action reads that display's own state and what it can hold: whether
-Kadunce owns it, which card is Active, whether it has a live Bento layout, and
-its maximum visible pane count. The rules are the same on every display; only
-these values differ.
+An edge action reads the display's own state: whether Kadunce owns it, its
+Active card, its live Bento layout and its pane cap. The rules are the same on
+every display; only these values differ.
 
-The display that can own cards is the one a touchscreen drives, found by that
-capability and never by a display's name or hardware identity
+The display that can own cards is the one a touchscreen drives, never found by
+a display's name or hardware identity
 (`DECISIONS.md` § Cards follow the touchscreen). It may contain:
 
 - Individual cards
@@ -506,10 +501,13 @@ Any other display shows ordinary Plasma windows or one Bento layout, never
 both, and never cards or Spread. One window snapped to a side takes half the
 display, and snapped to the top takes the Active card's size. With two or more
 windows, a snap to an edge organizes every window there into one layout, as many
-as their minimum sizes allow. A window without room goes to the dock and never
-to another display on its own. Carrying a card there from the card display is a
+as their minimum sizes allow; one without room goes to the dock, never to
+another display on its own. Carrying a card there from the card display is a
 deliberate handoff; ordinary movement, resizing and focus stay with KWin
 (`DECISIONS.md` § A display without cards organizes everything it shows).
+
+Zones drawn there with Meta+T, but not KWin's default, are the layout: each
+window keeps a zone it fits, and KWin owns the edges until release.
 
 Moving a card between displays, with its restoration record, is a transfer under
 `ARCHITECTURE.md` § Transfer transaction. A failed transfer changes neither
