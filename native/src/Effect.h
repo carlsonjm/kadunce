@@ -12,6 +12,7 @@
 #include "NativeCarryRuntime.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
+#include "PaintResult.h"
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
 #include "TableLayout.h"
@@ -71,18 +72,18 @@ public:
     void prePaintWindow(KWin::RenderView *view,
                         KWin::EffectWindow *window,
                         KWin::WindowPrePaintData &data) override;
-    void paintScreen(const KWin::RenderTarget &renderTarget,
+    PaintResult paintScreen(const KWin::RenderTarget &renderTarget,
                      const KWin::RenderViewport &viewport,
                      int mask,
                      const KWin::Region &deviceRegion,
                      KWin::LogicalOutput *screen) override;
-    void paintWindow(const KWin::RenderTarget &renderTarget,
+    PaintResult paintWindow(const KWin::RenderTarget &renderTarget,
                      const KWin::RenderViewport &viewport,
                      KWin::EffectWindow *window,
                      int mask,
                      const KWin::Region &deviceRegion,
                      KWin::WindowPaintData &data) override;
-    void drawWindow(const KWin::RenderTarget &renderTarget,
+    PaintResult drawWindow(const KWin::RenderTarget &renderTarget,
                     const KWin::RenderViewport &viewport,
                     KWin::EffectWindow *window,
                     int mask,
@@ -738,7 +739,7 @@ private:
     [[nodiscard]] QList<KWin::EffectWindow *> drawnDialogsOf(const KWin::EffectWindow *lead) const;
     // Draws dialogs as their application was just drawn: the same scale and
     // turn about the same point, so each stands where it stands over it.
-    void paintDialogsOn(const KWin::RenderTarget &renderTarget,
+    bool paintDialogsOn(const KWin::RenderTarget &renderTarget,
                         const KWin::RenderViewport &viewport, KWin::EffectWindow *lead,
                         const QList<KWin::EffectWindow *> &dialogs, const KWin::Region &clip,
                         const KWin::WindowPaintData &leadData);

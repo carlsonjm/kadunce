@@ -116,6 +116,15 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
+// The shape a window's border asks the pointer for. KWin 6.8 no longer
+// exposes it, and there it reads as none.
+template<typename Window>
+QByteArray borderCursorName(Window *window)
+{
+    if constexpr (requires { window->cursor().name(); }) return window->cursor().name();
+    else return QByteArray();
+}
+
 // Card backing and vacant seam share one rigid transform and neutral material.
 void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
@@ -1984,7 +1993,7 @@ void Effect::tracePointerAtTop(const QPointF &position)
     const KWin::PlatformCursorImage cursor = KWin::effects->cursorImage();
     const QImage image = cursor.image();
     const size_t picture = image.isNull() ? 0 : qHashBits(image.constBits(), size_t(image.sizeInBytes()));
-    const QByteArray border = under ? under->cursor().name() : QByteArray();
+    const QByteArray border = under ? borderCursorName(under) : QByteArray();
     const QString seen = QStringLiteral("%1 %2 %3").arg(quintptr(under)).arg(QString::fromLatin1(border)).arg(picture);
     // An animated pointer changes its image by itself, so the log is held
     // to one line in 150 ms.
@@ -2542,7 +2551,7 @@ QList<KWin::EffectWindow *> Effect::drawnDialogsOf(const KWin::EffectWindow *lea
     return dialogs;
 }
 
-void Effect::paintDialogsOn(const KWin::RenderTarget &renderTarget,
+bool Effect::paintDialogsOn(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, KWin::EffectWindow *lead,
                             const QList<KWin::EffectWindow *> &dialogs, const KWin::Region &clip,
                             const KWin::WindowPaintData &leadData)
@@ -2562,9 +2571,13 @@ void Effect::paintDialogsOn(const KWin::RenderTarget &renderTarget,
             data.setRotationAngle(leadData.rotationAngle());
             data.setRotationOrigin(QVector3D(origin.x() - offset.x(), origin.y() - offset.y(), origin.z()));
         }
-        KWin::effects->paintWindow(renderTarget, viewport, dialog,
-            PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, clip, data);
+        if (!painted([&] {
+                return KWin::effects->paintWindow(renderTarget, viewport, dialog,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, clip, data);
+            }))
+            return false;
     }
+    return true;
 }
 
 void Effect::takeCarriedDialogs(KWin::EffectWindow *lead)
@@ -5229,7 +5242,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
 }
 
-void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
+PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                          const KWin::RenderViewport &viewport,
                          int mask,
                          const KWin::Region &deviceRegion,
@@ -5238,9 +5251,9 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingOutput = screen;
     m_projectionBackdropDrawn = false;
     if (screen && screen == tabletOutput()) m_cardLabelTargets.clear();
-    KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+    if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // Labels, rails and outlines belong to the current desktop's presentation.
-    if (m_previewDesktop) return;
+    if (m_previewDesktop) return paintResult(true);
     if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
         && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
         QList<QRectF> pills;
@@ -5372,6 +5385,7 @@ void Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     m_paintingOutput = nullptr;
+    return paintResult(true);
 }
 
 void Effect::observeCardOwnership()
@@ -5716,7 +5730,7 @@ void Effect::redirectPreviewSource(KWin::EffectWindow *window)
     redirect(window);
 }
 
-void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
+PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
                         const KWin::RenderViewport &viewport,
                         KWin::EffectWindow *window,
                         int mask,
@@ -5738,9 +5752,9 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         // to KWin's exact r20 direct path.
         unredirect(window);
         m_previewSourceBounds.remove(window);
-        KWin::OffscreenEffect::drawWindow(
-            renderTarget, viewport, window, mask, deviceRegion, data);
-        return;
+        if (!painted([&] { return KWin::OffscreenEffect::drawWindow(
+            renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
 
     redirectPreviewSource(window);
@@ -5765,9 +5779,10 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
     glActiveTexture(GL_TEXTURE0);
 
-    KWin::OffscreenEffect::drawWindow(
-        renderTarget, viewport, window, mask, deviceRegion, data);
+    const bool drawn = painted([&] { return KWin::OffscreenEffect::drawWindow(
+        renderTarget, viewport, window, mask, deviceRegion, data); });
     KWin::ShaderManager::instance()->popShader();
+    if (!drawn) return paintResult(false);
     // Remain inside the draw-chain callback: OffscreenEffect's internal render
     // must continue AFTER this effect, not re-enter our drawWindow from paintScreen.
     // An empty final clip populates the live texture without painting on any output.
@@ -5788,15 +5803,16 @@ void Effect::drawWindow(const KWin::RenderTarget &renderTarget,
                 redirectPreviewSource(neighbor);
                 setShader(neighbor, nullptr);
                 KWin::WindowPaintData preparation;
-                KWin::OffscreenEffect::drawWindow(renderTarget, viewport, neighbor,
+                if (!painted([&] { return KWin::OffscreenEffect::drawWindow(renderTarget, viewport, neighbor,
                     PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT,
-                    KWin::Region(), preparation);
+                    KWin::Region(), preparation); })) return paintResult(false);
             }
         }
     }
+    return paintResult(true);
 }
 
-void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
+PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::RenderViewport &viewport,
                          KWin::EffectWindow *window,
                          int mask,
@@ -5805,35 +5821,35 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
 {
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
-    if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return;
+    if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);
     // Drawn with its card in hand, after the card.
-    if (drawnWithCarriedCard(window)) return;
+    if (drawnWithCarriedCard(window)) return paintResult(true);
     // Keys are drawn only once they are known to be the person's.
-    if (!m_keysForPerson && window == KWin::effects->inputPanel()) return;
+    if (!m_keysForPerson && window == KWin::effects->inputPanel()) return paintResult(true);
     // A card flicked closed stays out of sight while its app closes.
-    if (m_cardStage->thrownAway(window)) return;
+    if (m_cardStage->thrownAway(window)) return paintResult(true);
     // A previewed desktop is drawn as it stands, with nothing of the current
     // desktop's presentation over or under it.
     if (m_previewDesktop) {
         if (!hiddenByDesktopPreview(window))
-            KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data);
-        return;
+            if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
-    if (hiddenOnOtherDesktop(window)) return;
+    if (hiddenOnOtherDesktop(window)) return paintResult(true);
     // A sleeping card stands in Spread dimmed, so it can be found and woken.
     if (m_sleepingShown.contains(window)) data.multiplyOpacity(SleepingCardOpacity);
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
-        && m_cardStage->paintSlot(window) != 99) return;
+        && m_cardStage->paintSlot(window) != 99) return paintResult(true);
     const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
-        && window->window()->moveResizeOutput() != m_paintingOutput) return;
+        && window->window()->moveResizeOutput() != m_paintingOutput) return paintResult(true);
     if (((window == m_carriedWindow && m_carryRuntime) || settle) && m_paintingOutput) {
         const auto plan = settle
             ? carryPaintPlan(*settle, settle->topLeft(), QRectF(m_paintingOutput->geometry()))
             : carryPaintPlan(m_carryPickup, m_carryRuntime->handoff.carry().position(),
                              QRectF(m_paintingOutput->geometry()));
-        if (!plan || plan->clip.isEmpty()) return;
+        if (!plan || plan->clip.isEmpty()) return paintResult(true);
         KWin::Rect logicalRegion = window->expandedGeometry().toRect();
         const KWin::Rect target = KWin::RectF(plan->target).toRect();
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
@@ -5848,12 +5864,13 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const auto clip = deviceRegion
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan->clip)))
             & (rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
-        KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data);
+        const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
+        if (!drawn) return paintResult(false);
         if (window == m_dialogsLead)
-            paintDialogsOn(renderTarget, viewport, window, carriedDialogs(), clip, data);
-        return;
+            return paintResult(paintDialogsOn(renderTarget, viewport, window, carriedDialogs(), clip, data));
+        return paintResult(true);
     }
     // A Bento pane is the desktop stage's to paint. Card Stage hides what it
     // owns, and a pane is not one of its cards, so it must not be routed here.
@@ -5864,16 +5881,16 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         || m_desktopStage->managesWindow(window)
         || (m_cardStage->presentation() == CardPresentation::Desktop
             && m_cardStage->liveCardIndex(window) < 0)) {
-        KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask, deviceRegion, data);
-        return;
+        if (!painted([&] { return KWin::effects->paintWindow(
+            renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
 
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet) {
-        KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask, deviceRegion, data);
-        return;
+        if (!painted([&] { return KWin::effects->paintWindow(
+            renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
 
     const int slot = m_cardStage->paintSlot(window);
@@ -5884,14 +5901,14 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
         grabbedWindow);
-    if (route == CardPaintRoute::Hidden) return;
+    if (route == CardPaintRoute::Hidden) return paintResult(true);
     if (route == CardPaintRoute::Native) {
         // Only the carried item may cross the fence. Passive tablet neighbors
         // remain hidden externally; the carrier is clipped per output.
         const auto outputClip = viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry());
-        KWin::effects->paintWindow(renderTarget, viewport, window, mask,
-            window == m_nativeCarry ? deviceRegion & KWin::Region(outputClip) : deviceRegion, data);
-        return;
+        if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask,
+            window == m_nativeCarry ? deviceRegion & KWin::Region(outputClip) : deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
 
     if (m_cardStage->presentation() == CardPresentation::Active) {
@@ -5901,13 +5918,13 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             const KWin::RectF output = m_paintingOutput->geometry();
             const KWin::RectF above(output.x(), output.y(), output.width(),
                                     std::max(0.0, *edge - output.y()));
-            KWin::effects->paintWindow(renderTarget, viewport, window, mask,
-                deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data);
-            return;
+            if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask,
+                deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data); })) return paintResult(false);
+            return paintResult(true);
         }
-        KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask, deviceRegion, data);
-        return;
+        if (!painted([&] { return KWin::effects->paintWindow(
+            renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
     }
 
     // A card held in its own Stack is lifted out of it; the place it would
@@ -5983,7 +6000,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     paintPose.rotation += launcherGuestRotation;
     if (heldTuck) paintPose.rotation += heldTuck->rotation * heldTuck->progress;
     if (!paintPose.visible) {
-        return;
+        return paintResult(true);
     }
     KWin::Rect visualTarget = target;
     KWin::Rect projectionPaneClip;
@@ -6006,7 +6023,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             {frame.x(), frame.y(), frame.width(), frame.height()},
             {expanded.x(), expanded.y(), expanded.width(), expanded.height()})
             : std::nullopt;
-        if (!pane) return;
+        if (!pane) return paintResult(true);
         visualTarget = KWin::Rect(qRound(pane->targetSurface.x),
             qRound(pane->targetSurface.y), qRound(pane->targetSurface.width),
             qRound(pane->targetSurface.height));
@@ -6018,7 +6035,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const double recess = m_cardStage->carryPaneRecess(window);
         if (recess > 0.0) data.multiplyOpacity(1.0 - recess);
     } else if (bentoProjection) {
-        return; // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
+        return paintResult(true); // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
                 // minimized, so the group shows its panes and not this window.
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
@@ -6113,6 +6130,7 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureRadius = useFanAperture
         ? static_cast<float>(apertureRadius) : 0.0F;
 
+    bool drawn = true;
     if (heldTuck) {
         // Under the group the card shows only through the cutout and past the
         // group's edge; the rest of it fades as it slides beneath.
@@ -6123,16 +6141,16 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         if (under < 1.0 && !over.isEmpty()) {
             KWin::WindowPaintData fading(data);
             fading.multiplyOpacity(1.0 - under);
-            KWin::effects->paintWindow(
-                renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, over, fading);
+            drawn = painted([&] { return KWin::effects->paintWindow(
+                renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, over, fading); });
         }
-        KWin::effects->paintWindow(
+        drawn = drawn && painted([&] { return KWin::effects->paintWindow(
             renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-            cardClip & outputFence.subtracted(group).united(hole), data);
+            cardClip & outputFence.subtracted(group).united(hole), data); });
     } else {
-        KWin::effects->paintWindow(
+        drawn = painted([&] { return KWin::effects->paintWindow(
             renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-            cardClip, data);
+            cardClip, data); });
     }
 
     m_fanApertureWindow = nullptr;
@@ -6140,9 +6158,10 @@ void Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureOrigin = {};
     m_fanApertureSize = {};
     m_fanApertureRadius = 0.0F;
+    if (!drawn) return paintResult(false);
 
     // A dialog waiting with this application shows on its card.
-    paintDialogsOn(renderTarget, viewport, window, drawnDialogsOf(window), cardClip, data);
+    return paintResult(paintDialogsOn(renderTarget, viewport, window, drawnDialogsOf(window), cardClip, data));
 }
 
 } // namespace Kadunce
