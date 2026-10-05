@@ -86,8 +86,18 @@ systemctl --user is-active --quiet kadunce-control.service
 # effects; the administrator prompt authorizes this one file only.
 echo "[5/6] Requesting permission for the one native plugin file..."
 echo "Do not reboot until this window reports all six steps complete."
-pkexec /usr/bin/install -Dm755 "${native_plugin_source}" \
-    "${native_plugin_system_target}"
+# Shuffle's install key, where it is set up, places this one file with no
+# password: a root-owned helper takes it as a stream and puts it only here.
+install_key=/usr/local/libexec/shuffle/install-step
+if [[ -x "${install_key}" ]] \
+        && sudo -n -l "${install_key}" kadunce install >/dev/null 2>&1; then
+    tar -C "$(dirname -- "${native_plugin_source}")" -cf - \
+        "$(basename -- "${native_plugin_source}")" \
+        | sudo -n "${install_key}" kadunce install
+else
+    pkexec /usr/bin/install -Dm755 "${native_plugin_source}" \
+        "${native_plugin_system_target}"
+fi
 cmp "${native_plugin_source}" "${native_plugin_system_target}"
 
 # Only a fully built, copied, byte-verified candidate may disturb the running

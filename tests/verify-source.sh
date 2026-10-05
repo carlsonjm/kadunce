@@ -199,7 +199,7 @@ fi
 # byte-verified copy must finish before the accepted live effect is disabled.
 native_build_line="$(rg -n 'cmake --build "\$\{native_build_dir\}"' \
     "${install_script}" | cut -d: -f1)"
-native_copy_line="$(rg -n '^pkexec /usr/bin/install' \
+native_copy_line="$(rg -n '^install_key=' \
     "${install_script}" | cut -d: -f1)"
 native_disable_line="$(rg -n -- '--key "\$\{native_effect_id\}Enabled" false' \
     "${install_script}" | cut -d: -f1)"
