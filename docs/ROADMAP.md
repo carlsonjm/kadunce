@@ -18,6 +18,9 @@ What is planned for Kadunce, and what it does not do yet.
   migration from today's identifiers.
 - From Spread, a pull from the top edge bringing Table's tabs over Spread, which
   stays showing; the full-size previews come only past the tabs.
+- A placement request (`REQUESTS.md`) taking a card onto another display, a
+  window from another display onto the card display, and a pane out of its
+  layout.
 
 ## Known limitations
 
