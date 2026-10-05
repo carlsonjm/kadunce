@@ -106,6 +106,14 @@ inline constexpr int BentoCuratedPaneCap = 8;
 [[nodiscard]] int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
                                       double minimumWidth, double minimumHeight);
 
+// CARD-LIFECYCLE.md §5: the pane a full layout gives up to a side release is
+// the one occupying the side released into. A pane occupies a side when it
+// reaches the outermost edge on that side, so gaps and margins do not matter;
+// where a stack shares the edge, an upper contact names its highest pane and a
+// lower contact its lowest. Returns -1 when there are no panes.
+[[nodiscard]] int bentoPaneOnSide(const std::vector<BentoPixelRect> &panes,
+                                  bool right, bool upper);
+
 // Zones drawn for a display with KDE's tile editor, which give a display
 // without cards its shape in place of the curated library (CARD-LIFECYCLE.md
 // §11). Each chosen candidate goes to one zone whose pixel size satisfies its

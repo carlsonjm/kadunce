@@ -1552,23 +1552,47 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
 bool DesktopStageController::shortenToShowable(Session &session, const RestoreSnapshot &arrival,
     std::optional<BentoSidePlacement> side, KWin::EffectWindow *sideWindow) const
 {
-    Session probe = session;
-    probe.snapshots.append(arrival);
-    if (side) { probe.side = side; probe.sideWindow = sideWindow; }
+    const auto plan = [&](const Session &base, QList<QPointer<KWin::EffectWindow>> *unshowable) {
+        Session probe = base;
+        probe.snapshots.append(arrival);
+        if (side) { probe.side = side; probe.sideWindow = sideWindow; }
+        return planSession(probe, arrival.window, true, unshowable);
+    };
     QList<QPointer<KWin::EffectWindow>> unshowable;
-    if (!planSession(probe, arrival.window, true, &unshowable) || unshowable.isEmpty())
+    if (!plan(session, &unshowable) || unshowable.isEmpty())
         return true;
     // §5: the yield needs somewhere to go. Where nothing can hold it, nothing
     // leaves, and refusing here is what keeps the combination the layout has.
     if (!canPlaceEvictedCard() && !parksOverflow(session.outputName)) return false;
-    for (const auto &yielding : std::as_const(unshowable)) {
-        if (!yielding || yielding == arrival.window) continue;
+    const auto yield = [&session](const QPointer<KWin::EffectWindow> &yielding) {
         const int index = session.windows.indexOf(yielding);
         if (index >= 0 && index < static_cast<int>(session.rects.size()))
             session.rects.erase(session.rects.begin() + index);
+        if (index >= 0 && index < session.zones.size()) session.zones.removeAt(index);
         session.windows.removeAll(yielding);
         session.snapshots.removeIf(
             [&yielding](const auto &saved) { return saved.window == yielding; });
+    };
+    // §5: a side release displaces the pane occupying the side it was released
+    // into, which is the pane the preview covers while dragging. The solve
+    // decides nothing about that pane; it names only what the arrival still
+    // leaves unshowable, as it does for an arrival that names no side.
+    KWin::LogicalOutput *output = outputForKey(session.outputName);
+    if (side && output) {
+        const auto pixels = sessionPixels(session, stageArea(output));
+        const int index = pixels.size() == std::size_t(session.windows.size())
+            ? bentoPaneOnSide(pixels, side->right, side->large) : -1;
+        const QPointer<KWin::EffectWindow> occupant =
+            index >= 0 ? session.windows.at(index) : nullptr;
+        if (occupant && occupant != arrival.window) {
+            yield(occupant);
+            unshowable.clear();
+            if (!plan(session, &unshowable)) return true;
+        }
+    }
+    for (const auto &yielding : std::as_const(unshowable)) {
+        if (!yielding || yielding == arrival.window) continue;
+        yield(yielding);
     }
     return true;
 }

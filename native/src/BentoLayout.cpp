@@ -327,6 +327,31 @@ int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
     return chosen;
 }
 
+int bentoPaneOnSide(const std::vector<BentoPixelRect> &panes, bool right, bool upper)
+{
+    const auto edge = [right](const BentoPixelRect &pane) {
+        return right ? pane.x + pane.width : -pane.x;
+    };
+    int outermost = 0;
+    bool any = false;
+    for (const auto &pane : panes) {
+        if (pane.width <= 0 || pane.height <= 0) continue;
+        if (!any || edge(pane) > outermost) outermost = edge(pane);
+        any = true;
+    }
+    int chosen = -1;
+    for (int index = 0; index < static_cast<int>(panes.size()); ++index) {
+        const auto &pane = panes[index];
+        // One pixel of rounding still reaches the edge.
+        if (pane.width <= 0 || pane.height <= 0 || edge(pane) < outermost - 1) continue;
+        if (chosen < 0) { chosen = index; continue; }
+        const auto &best = panes[chosen];
+        if (upper ? pane.y < best.y : pane.y + pane.height > best.y + best.height)
+            chosen = index;
+    }
+    return chosen;
+}
+
 std::optional<ZoneAdmission> chooseZoneAdmission(
     const std::vector<BentoCandidate> &candidates,
     const std::vector<BentoPixelRect> &zones,

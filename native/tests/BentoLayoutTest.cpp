@@ -347,6 +347,35 @@ int main()
     require(bentoSlotForArrival({}, 200, 200) == -1,
         "A layout with no slots offered one");
 
+    // CARD-LIFECYCLE.md §5: a side release onto a full layout displaces the
+    // pane occupying that side. With a full-height pane on the left and a
+    // stack on the right, separated by gaps, the left release names the
+    // full-height pane wherever it lands, and the right release names the
+    // stacked pane the contact's half names.
+    const std::vector<BentoPixelRect> beside{
+        {8, 8, 1200, 1584}, {1216, 8, 1376, 788}, {1216, 804, 1376, 788}};
+    require(bentoPaneOnSide(beside, false, true) == 0 && bentoPaneOnSide(beside, false, false) == 0,
+        "A left release did not name the pane against the left edge");
+    require(bentoPaneOnSide(beside, true, true) == 1,
+        "An upper right release did not name the upper pane of the right stack");
+    require(bentoPaneOnSide(beside, true, false) == 2,
+        "A lower right release did not name the lower pane of the right stack");
+    // Order carries no meaning: the same shape listed another way names the
+    // same panes, and a pane one pixel short of the edge still occupies it.
+    const std::vector<BentoPixelRect> reordered{
+        {1216, 804, 1375, 788}, {8, 8, 1200, 1584}, {1216, 8, 1376, 788}};
+    require(bentoPaneOnSide(reordered, true, false) == 0
+        && bentoPaneOnSide(reordered, true, true) == 2
+        && bentoPaneOnSide(reordered, false, false) == 1,
+        "Which pane occupies a side turned on the order the panes were listed in");
+    // Three across: only the outer pane on each side occupies it.
+    const std::vector<BentoPixelRect> across{
+        {0, 0, 800, 1600}, {800, 0, 1000, 1600}, {1800, 0, 800, 1600}};
+    require(bentoPaneOnSide(across, false, false) == 0 && bentoPaneOnSide(across, true, true) == 2,
+        "A middle pane was named as occupying a side");
+    require(bentoPaneOnSide({}, true, true) == -1,
+        "A layout with no panes named one on a side");
+
     // Zones drawn with KDE's tile editor: a quarter, a half and a quarter of
     // a 2560 by 1440 monitor.
     const std::vector<BentoPixelRect> zones{{0, 0, 640, 1440}, {640, 0, 1280, 1440}, {1920, 0, 640, 1440}};
