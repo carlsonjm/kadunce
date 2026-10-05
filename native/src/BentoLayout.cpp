@@ -129,6 +129,74 @@ bool findSubsetAssignment(const std::vector<BentoCandidate> &candidates,
     return search(search, 0);
 }
 
+// Past the curated eight the library is an even grid, so one window fits any
+// cell when it fits the smallest, and the panes are the first candidates that
+// do, in order. That keeps a large display's solve linear in its windows.
+bool findGridAssignment(const std::vector<BentoCandidate> &candidates,
+                        int count, const std::vector<BentoRect> &rects,
+                        int areaWidth, int areaHeight,
+                        std::vector<int> &assignment, int required = -1)
+{
+    const auto pixels = makePixelBentoLayout(rects, 0, 0, areaWidth, areaHeight);
+    if (pixels.empty() || static_cast<int>(pixels.size()) != count) return false;
+    BentoPixelRect cell = pixels.front();
+    for (const auto &pixel : pixels) {
+        cell.width = std::min(cell.width, pixel.width);
+        cell.height = std::min(cell.height, pixel.height);
+    }
+    if (required >= 0 && (required >= static_cast<int>(candidates.size())
+        || !fits(candidates[required], cell))) return false;
+    std::vector<int> chosen;
+    for (int index = 0; index < static_cast<int>(candidates.size())
+         && static_cast<int>(chosen.size()) < count; ++index) {
+        if (index == required || fits(candidates[index], cell)) chosen.push_back(index);
+    }
+    if (required >= 0 && std::find(chosen.begin(), chosen.end(), required) == chosen.end()) {
+        if (chosen.empty()) return false;
+        chosen.back() = required;
+    }
+    if (static_cast<int>(chosen.size()) != count) return false;
+    assignment = std::move(chosen);
+    return true;
+}
+
+// The curated search over the first BentoCuratedCandidates candidates, with
+// the required one always among them; indices come back in the caller's terms.
+bool findCuratedAssignment(const std::vector<BentoCandidate> &candidates,
+                           int count, const std::vector<BentoRect> &rects,
+                           int areaWidth, int areaHeight,
+                           std::vector<int> &assignment, int required = -1)
+{
+    if (static_cast<int>(candidates.size()) <= BentoCuratedCandidates)
+        return findSubsetAssignment(candidates, count, rects, areaWidth, areaHeight,
+                                    assignment, required);
+    std::vector<int> window;
+    for (int index = 0; index < static_cast<int>(candidates.size())
+         && static_cast<int>(window.size()) < BentoCuratedCandidates; ++index)
+        window.push_back(index);
+    if (required >= BentoCuratedCandidates) window.back() = required;
+    std::vector<BentoCandidate> considered;
+    for (const int index : window) considered.push_back(candidates[index]);
+    const int localRequired = required < 0 ? -1
+        : static_cast<int>(std::find(window.begin(), window.end(), required) - window.begin());
+    std::vector<int> local;
+    if (!findSubsetAssignment(considered, count, rects, areaWidth, areaHeight,
+                              local, localRequired)) return false;
+    for (int &index : local) index = index >= 0 ? window[index] : index;
+    assignment = std::move(local);
+    return true;
+}
+
+bool findAssignment(const std::vector<BentoCandidate> &candidates,
+                    int count, const std::vector<BentoRect> &rects,
+                    int areaWidth, int areaHeight,
+                    std::vector<int> &assignment, int required = -1)
+{
+    return count > BentoCuratedPaneCap
+        ? findGridAssignment(candidates, count, rects, areaWidth, areaHeight, assignment, required)
+        : findCuratedAssignment(candidates, count, rects, areaWidth, areaHeight, assignment, required);
+}
+
 } // namespace
 
 std::vector<BentoRect> makeBentoLayout(int count, bool landscape)
@@ -193,8 +261,18 @@ std::vector<BentoRect> makeBentoLayout(int count, bool landscape)
         return rects;
     }
 
-    const int columns = static_cast<int>(std::ceil(std::sqrt(
-        count * (landscape ? 1.6 : 0.7))));
+    return makeGridBentoLayout(count, bentoGridColumns(count, landscape));
+}
+
+int bentoGridColumns(int count, bool landscape)
+{
+    return std::max(1, static_cast<int>(std::ceil(std::sqrt(
+        count * (landscape ? 1.6 : 0.7)))));
+}
+
+std::vector<BentoRect> makeGridBentoLayout(int count, int columns)
+{
+    if (count <= 0 || columns <= 0) return {};
     const int rows = static_cast<int>(std::ceil(
         count / static_cast<double>(columns)));
     std::vector<BentoRect> rects;
@@ -253,6 +331,35 @@ std::vector<BentoPixelRect> makePixelBentoLayout(
     return pixels;
 }
 
+namespace
+{
+
+// The shapes one pane count offers. Past the curated eight they are every
+// even grid with no empty row, the library's own proportion first and the
+// rest by how far their column count is from it, so a minimum that misses one
+// grid's cells can still meet another's.
+std::vector<std::vector<BentoRect>> bentoShapes(int count, bool landscape)
+{
+    std::vector<std::vector<BentoRect>> layouts{makeBentoLayout(count, landscape)};
+    if (count == 2) layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
+    if (count == 3) layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
+    if (count > BentoCuratedPaneCap) {
+        const int preferred = bentoGridColumns(count, landscape);
+        std::vector<int> columns;
+        for (int c = 1; c <= count; ++c) {
+            const int rows = (count + c - 1) / c;
+            if (c != preferred && rows * c - count < c) columns.push_back(c);
+        }
+        std::stable_sort(columns.begin(), columns.end(), [preferred](int a, int b) {
+            return std::abs(a - preferred) < std::abs(b - preferred);
+        });
+        for (const int c : columns) layouts.push_back(makeGridBentoLayout(count, c));
+    }
+    return layouts;
+}
+
+} // namespace
+
 BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
     int areaWidth, int areaHeight, int maximumVisible)
@@ -262,18 +369,10 @@ BentoAdmission chooseBentoAdmission(
                                   static_cast<int>(candidates.size())});
     const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
     for (int count = visible; count >= 1; --count) {
-        std::vector<std::vector<BentoRect>> layouts{
-            makeBentoLayout(count, landscape)};
-        if (count == 2) {
-            layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
-        }
-        if (count == 3) {
-            layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
-        }
-        for (const std::vector<BentoRect> &layout : layouts) {
+        for (const std::vector<BentoRect> &layout : bentoShapes(count, landscape)) {
             std::vector<int> assignment;
-            if (findSubsetAssignment(candidates, count, layout,
-                                     areaWidth, areaHeight, assignment)) {
+            if (findAssignment(candidates, count, layout,
+                               areaWidth, areaHeight, assignment)) {
                 return {std::move(assignment), layout};
             }
         }
@@ -297,13 +396,10 @@ std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
     for (int count = std::min({maximumVisible, bentoPaneCap(areaWidth, areaHeight),
                                static_cast<int>(candidates.size())}); count >= 1; --count) {
-        std::vector<std::vector<BentoRect>> layouts{makeBentoLayout(count, landscape)};
-        if (count == 2) layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
-        if (count == 3) layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
-        for (const auto &layout : layouts) {
+        for (const auto &layout : bentoShapes(count, landscape)) {
             std::vector<int> assignment;
-            if (findSubsetAssignment(candidates, count, layout, areaWidth, areaHeight,
-                                     assignment, arrivingIndex))
+            if (findAssignment(candidates, count, layout, areaWidth, areaHeight,
+                               assignment, arrivingIndex))
                 return BentoAdmission{std::move(assignment), layout};
         }
     }
@@ -323,6 +419,31 @@ int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
         if (double(slot.width) < minimumWidth || double(slot.height) < minimumHeight) continue;
         const double area = double(slot.width) * double(slot.height);
         if (chosen < 0 || area < chosenArea) { chosen = index; chosenArea = area; }
+    }
+    return chosen;
+}
+
+int bentoPaneOnSide(const std::vector<BentoPixelRect> &panes, bool right, bool upper)
+{
+    const auto edge = [right](const BentoPixelRect &pane) {
+        return right ? pane.x + pane.width : -pane.x;
+    };
+    int outermost = 0;
+    bool any = false;
+    for (const auto &pane : panes) {
+        if (pane.width <= 0 || pane.height <= 0) continue;
+        if (!any || edge(pane) > outermost) outermost = edge(pane);
+        any = true;
+    }
+    int chosen = -1;
+    for (int index = 0; index < static_cast<int>(panes.size()); ++index) {
+        const auto &pane = panes[index];
+        // One pixel of rounding still reaches the edge.
+        if (pane.width <= 0 || pane.height <= 0 || edge(pane) < outermost - 1) continue;
+        if (chosen < 0) { chosen = index; continue; }
+        const auto &best = panes[chosen];
+        if (upper ? pane.y < best.y : pane.y + pane.height > best.y + best.height)
+            chosen = index;
     }
     return chosen;
 }

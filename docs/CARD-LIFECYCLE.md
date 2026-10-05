@@ -233,8 +233,8 @@ minimized or displaced panes.
 
 Each display has one maximum visible pane count, read by every admission path.
 
-The tablet's maximum is two; a larger display, the curated library's eight, or
-the zones drawn for it (§11).
+The tablet's maximum is two; a larger display, what minimum sizes allow, or its
+zones (§11).
 
 Layout orientation follows the work area's own proportions, never the display's
 hardware identity.
@@ -506,7 +506,8 @@ another display on its own. Carrying a card there from the card display is a
 deliberate handoff; ordinary movement, resizing and focus stay with KWin
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
-Zones drawn there with Meta+T, but not KWin's default, are the layout: each
+Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
+not KWin's default, are the layout: each
 window keeps a zone it fits, and KWin owns the edges until release.
 
 Moving a card between displays, with its restoration record, is a transfer under

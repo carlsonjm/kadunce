@@ -7,7 +7,9 @@
 # fill the 2560x1440 monitor at the layout's pane count, and the carried card,
 # at least 940x500, fits only the pattern's large slot. That slot is on the left
 # of the library pattern, so a snap to the right edge has to bring it there.
-# Every check is reported.
+# The pane that waits after the side snap is the one that occupied the right
+# edge where the contact was, its upper half (CARD-LIFECYCLE.md §5), and the
+# preview covers it while dragging. Every check is reported.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -50,6 +52,18 @@ for scenario in side top; do
     check "$scenario: eight windows fill the monitor" shown 8
     check "$scenario: the layout holds eight panes" panes 8
 
+    occupant=
+    if [[ $scenario == side ]]; then
+        # The pane against the monitor's right edge highest up, which the
+        # contact's upper half names.
+        occupant=$(for id in $(kad workspaceContext | jq -r "$monitor[] | .windowId"); do
+                probe windowGeometry "$id" | jq -c --arg id "$id" '. + {id: $id}'
+            done | jq -rs 'map(select(.width > 0)) | (map(.x + .width) | max) as $edge
+                | map(select(.x + .width >= $edge - 1)) | min_by(.y) | .id')
+        echo "occupant $occupant $(probe windowGeometry "$occupant")"
+        check 'side: a pane occupies the right edge' test -n "$occupant"
+    fi
+
     probe contactFocus
     probe pointer 700 500
     client armMove
@@ -62,6 +76,13 @@ for scenario in side top; do
     check "$scenario: the edge shows a preview" jq -e '. != null and .width > 0' <<<"$preview"
     check "$scenario: the preview is one slot, not the whole monitor" \
         jq -e '.width < 2000 or .height < 1100' <<<"$preview"
+    if [[ -n $occupant ]]; then
+        held=$(probe windowGeometry "$occupant")
+        check 'side: the preview covers the pane that will yield' jq -en \
+            --argjson a "$preview" --argjson b "$held" \
+            '$a.x < $b.x + $b.width and $a.x + $a.width > $b.x
+             and $a.y < $b.y + $b.height and $a.y + $a.height > $b.y'
+    fi
     probe contactButton false
     sleep 1.5
     report "$scenario-dropped"
@@ -77,6 +98,10 @@ for scenario in side top; do
     check "$scenario: still eight panes" panes 8
     check "$scenario: eight show" shown 8
     check "$scenario: the one it replaced waits in the dock" waiting 1
+    if [[ -n $occupant ]]; then
+        check 'side: the pane that occupied the right edge is the one waiting' \
+            test "$(probe windowMinimized "$occupant")" = true
+    fi
 
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .3

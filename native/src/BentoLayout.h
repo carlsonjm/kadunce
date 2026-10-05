@@ -55,12 +55,21 @@ inline constexpr int BentoCompactPaneCap = 2;
 // caps at this today, so that grammar is dormant; raising a cap to it revives
 // the grammar without touching the mapping.
 inline constexpr int BentoContactGrammarPaneCap = 3;
+// The curated library's own size. Past it the library is an even grid, and
+// the windows' minimum sizes decide how many panes a larger display shows.
 inline constexpr int BentoCuratedPaneCap = 8;
+// The curated library considers two alternates beyond its eight panes, which
+// is enough to resolve minimum-size conflicts without the subset search
+// growing with a desktop's whole window history.
+inline constexpr int BentoCuratedCandidates = 10;
+// Not a pane count anyone sees: minimum sizes stop a grid long before it. It
+// keeps the candidates any one solve reads finite.
+inline constexpr int BentoPaneBound = 24;
 
 [[nodiscard]] constexpr int bentoPaneCap(int areaWidth, int areaHeight)
 {
     return areaWidth < BentoCompactAreaWidth || areaHeight < BentoCompactAreaHeight
-        ? BentoCompactPaneCap : BentoCuratedPaneCap;
+        ? BentoCompactPaneCap : BentoPaneBound;
 }
 
 // Orientation is a proportion of the work area. A landscape-shaped work area
@@ -72,6 +81,10 @@ inline constexpr int BentoCuratedPaneCap = 8;
 
 [[nodiscard]] std::vector<BentoRect> makeBentoLayout(
     int count, bool landscape);
+// Past the curated eight: an even grid, row by row, with any empty cells at
+// the end of the last row. bentoGridColumns is the library's own proportion.
+[[nodiscard]] int bentoGridColumns(int count, bool landscape);
+[[nodiscard]] std::vector<BentoRect> makeGridBentoLayout(int count, int columns);
 [[nodiscard]] std::vector<BentoRect> makeAlternateTwoPaneBentoLayout(
     bool landscape);
 // The second permitted three-pane shape: three panes across the long axis,
@@ -86,7 +99,7 @@ inline constexpr int BentoCuratedPaneCap = 8;
 // bounds it either way.
 [[nodiscard]] BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
-    int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
+    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound);
 
 // A transfer is accepted only if the arriving candidate has a visible pane.
 // Leaving any candidate out is not a private matter either way: the caller
@@ -94,7 +107,7 @@ inline constexpr int BentoCuratedPaneCap = 8;
 // admission that would drop a resident a refusal rather than a rearrangement.
 [[nodiscard]] std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
-    int areaWidth, int areaHeight, int maximumVisible = BentoCuratedPaneCap);
+    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound);
 
 // CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one slot,
 // and only that slot's occupant leaves. The slot is the smallest whose pixel
@@ -105,6 +118,14 @@ inline constexpr int BentoCuratedPaneCap = 8;
 // Returns -1 when no slot fits, which is the arrival §8 answers with a card.
 [[nodiscard]] int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
                                       double minimumWidth, double minimumHeight);
+
+// CARD-LIFECYCLE.md §5: the pane a full layout gives up to a side release is
+// the one occupying the side released into. A pane occupies a side when it
+// reaches the outermost edge on that side, so gaps and margins do not matter;
+// where a stack shares the edge, an upper contact names its highest pane and a
+// lower contact its lowest. Returns -1 when there are no panes.
+[[nodiscard]] int bentoPaneOnSide(const std::vector<BentoPixelRect> &panes,
+                                  bool right, bool upper);
 
 // Zones drawn for a display with KDE's tile editor, which give a display
 // without cards its shape in place of the curated library (CARD-LIFECYCLE.md

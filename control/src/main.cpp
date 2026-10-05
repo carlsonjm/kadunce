@@ -219,13 +219,23 @@ public:
                 refresh();
             }
         });
+        // A monitor fills itself unless asked to take the zones drawn there
+        // with Meta+T; Meta+Shift+B switches the same choice.
+        m_zones = m_menu->addAction(QStringLiteral("Monitors use my zones (Meta+T)"));
+        m_zones->setCheckable(true);
+        QObject::connect(m_zones, &QAction::triggered, [](bool uses) {
+            (void)runCommand(QStringLiteral("qdbus6"), {
+                QStringLiteral("org.kde.KWin"), QStringLiteral("/Kadunce"),
+                QStringLiteral("setUsesDrawnZones"), uses ? QStringLiteral("true") : QStringLiteral("false"),
+            });
+        });
         m_menu->addSeparator();
         QAction *settings = m_menu->addAction(QStringLiteral("Settings…"));
         QObject::connect(settings, &QAction::triggered, [this]() { showSettings(); });
         m_notifier.setContextMenu(m_menu);
 
         QObject::connect(m_menu, &QMenu::aboutToShow,
-                         [this]() { probe(); updateHealth(); refresh(); });
+                         [this]() { probe(); updateHealth(); refresh(); readZones(); });
         QObject::connect(m_toggle, &QAction::triggered,
                          [this](bool enabled) {
             if (enabled) {
@@ -377,6 +387,16 @@ private:
                     : QStringLiteral("Workspace disabled"));
     }
 
+    // Asked only as the menu opens: the effect is the one that keeps it.
+    void readZones()
+    {
+        const auto result = runCommand(QStringLiteral("qdbus6"), {
+            QStringLiteral("org.kde.KWin"), QStringLiteral("/Kadunce"), QStringLiteral("usesDrawnZones"),
+        });
+        m_zones->setEnabled(result.succeeded);
+        m_zones->setChecked(result.succeeded && result.output.trimmed() == "true");
+    }
+
     void setBusy(bool busy)
     {
         m_busy = busy;
@@ -471,6 +491,7 @@ private:
     QAction *m_toggle;
     QAction *m_health;
     QAction *m_repairAction;
+    QAction *m_zones = nullptr;
     QProcess m_probe;
     QProcess m_repair;
     QString m_kwinVersion;

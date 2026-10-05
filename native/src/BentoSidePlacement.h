@@ -286,8 +286,10 @@ inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement
     int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0)
 {
     const int cap = bentoPaneCap(width, height);
-    const int count = std::min(10, int(candidates.size()));
-    if (count == 0 || required < 0 || required >= count) return std::nullopt;
+    // The side proportions are the curated library's, so they read its
+    // candidates; the grid past it reads them all below.
+    const int count = std::min(BentoCuratedCandidates, int(candidates.size()));
+    if (count == 0 || required < 0 || required >= int(candidates.size())) return std::nullopt;
     std::optional<BentoAdmission> best;
     for (unsigned mask = 0; mask < (1u << (count - 1)); ++mask) {
         std::vector<int> indices{0};

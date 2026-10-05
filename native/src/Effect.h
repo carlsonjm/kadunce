@@ -179,6 +179,9 @@ public Q_SLOTS:
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
+    // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
+    Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
+    Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
     // Table's preview: another desktop drawn on every display in place of the
@@ -431,9 +434,11 @@ private:
     // Electron's native boxes do on Wayland. Taken for a card or a pane
     // before then, it leaves them and waits with its application from now on.
     void handleTransientChanged();
+    void handleWindowOutputChanged();
     KWin::LogicalOutput *tabletOutput() const;
     [[nodiscard]] bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool usesDrawnZonesForDesktopStage() const override { return m_usesDrawnZones; }
     [[nodiscard]] bool allowsDesktopStageOnOutput(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool isManagedWindowForDesktopStage(
@@ -523,6 +528,9 @@ private:
     void quietCardGap(const QPointF &position);
     [[nodiscard]] bool inCardGap(const QPointF &position) const;
     bool m_gapHeld = false;
+    // kaduncerc's choice, so a monitor keeps it across sessions.
+    bool m_usesDrawnZones = false;
+    void switchZoneMode();
     [[nodiscard]] int activeSideForPoint(
         const QPointF &position) const override;
     [[nodiscard]] bool selectedStackContains(
@@ -779,6 +787,11 @@ private:
     [[nodiscard]] PlacementAim placementAimAt(QPointF point) const;
     [[nodiscard]] std::optional<KWin::RectF> placementPreview(const PlacementAim &aim, QPointF point) const;
     bool placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QPointF point);
+    bool placeCardOnDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+        const PlacementAim &aim, QPointF point);
+    // The destination a card placed by request was reserved, while it is handed
+    // over; admitCardToDesktopStage reads it as it reads a carry's.
+    std::optional<DesktopStageController::PreparedDrop> m_placementDrop;
     void completePlacementForWindow(KWin::EffectWindow *window);
     void drawDestinationOutline(const KWin::RenderTarget &renderTarget,
                                 const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,

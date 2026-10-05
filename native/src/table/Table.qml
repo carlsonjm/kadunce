@@ -32,6 +32,13 @@ Item {
     // them out, since a soft shade reads later than solid pills and the dark
     // must never arrive after the tabs.
     property bool shown: false
+    // Plasma's animation speed, as KWin's animation time factor: 1 at the
+    // default, smaller when faster, 0 for instant. Kadunce sets it as Table
+    // opens, and every duration here passes through ms().
+    property real motionFactor: 1
+    function ms(base) {
+        return motionFactor > 0 ? Math.max(1, Math.round(base * motionFactor)) : 1;
+    }
     property real reveal: 0
     property real bandReveal: 0
     // Started here, each with its own duration, so neither reads the other
@@ -46,17 +53,17 @@ Item {
     // ease on the band's whole opacity restarted on every frame of the fade
     // in and held the band back until it ended (measured 26 September).
     property real cancelShade: model.cancelling ? 0.4 : 1
-    Behavior on cancelShade { NumberAnimation { duration: 200 } }
+    Behavior on cancelShade { NumberAnimation { duration: root.ms(200) } }
     property real pull: model.pull ?? 1
-    Behavior on pull { enabled: !root.scrubbing; NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+    Behavior on pull { enabled: !root.scrubbing; NumberAnimation { duration: root.ms(150); easing.type: Easing.OutCubic } }
     onShownChanged: {
         rowsFade.stop();
         rowsFade.to = shown ? 1 : 0;
-        rowsFade.duration = shown ? 260 : 200;
+        rowsFade.duration = root.ms(shown ? 260 : 200);
         rowsFade.start();
         bandFade.stop();
         bandFade.to = shown ? 1 : 0;
-        bandFade.duration = shown ? 150 : 320;
+        bandFade.duration = root.ms(shown ? 150 : 320);
         bandFade.start();
     }
     readonly property real drift: -12 * (1 - reveal)
@@ -91,8 +98,8 @@ Item {
     readonly property int ease: Easing.OutCubic
     // A piece rises under the finger and settles a little faster once it
     // has gone, so paging across hands the lift from one to the next.
-    readonly property int rise: 180
-    readonly property int settle: 140
+    readonly property int rise: ms(180)
+    readonly property int settle: ms(140)
     // How much a lifted piece grows: its share, but never more than `side`
     // on each side, which keeps Itasca's 4 between it and a neighbour
     // (TableSizes: tabs 8 apart, cards 12).
@@ -254,7 +261,7 @@ Item {
         transform: [
             Translate {
                 y: root.model.cancelling ? -8 : 0
-                Behavior on y { NumberAnimation { duration: 220; easing.type: root.ease } }
+                Behavior on y { NumberAnimation { duration: root.ms(220); easing.type: root.ease } }
             },
             Translate { y: root.drift }
         ]
@@ -293,9 +300,9 @@ Item {
                     : entry.state === "locked" || editing ? root.selectedFill
                     : entry.state === "hover" ? root.hoverFill
                     : root.raised
-                Behavior on color { ColorAnimation { duration: 160 } }
-                Behavior on x { NumberAnimation { duration: 160; easing.type: root.ease } }
-                Behavior on width { NumberAnimation { duration: 160; easing.type: root.ease } }
+                Behavior on color { ColorAnimation { duration: root.ms(160) } }
+                Behavior on x { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
+                Behavior on width { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
 
                 Row {
                     x: tab.numbersOnly ? (tab.width - 20) / 2 : 13
@@ -311,7 +318,7 @@ Item {
                         color: tab.target ? root.accentText : tab.quiet ? Qt.rgba(1, 1, 1, 0.4) : root.text
                         font.pixelSize: 12
                         font.weight: Font.DemiBold
-                        Behavior on color { ColorAnimation { duration: 160 } }
+                        Behavior on color { ColorAnimation { duration: root.ms(160) } }
                     }
                     Text {
                         visible: !tab.numbersOnly && !tab.editing && (tab.entry.nameWidth || 0) > 0
@@ -322,7 +329,7 @@ Item {
                         elide: Text.ElideRight
                         font.pixelSize: 14
                         font.weight: Font.Medium
-                        Behavior on color { ColorAnimation { duration: 160 } }
+                        Behavior on color { ColorAnimation { duration: root.ms(160) } }
                     }
                     TextInput {
                         id: editor
@@ -405,9 +412,9 @@ Item {
             shadow.yOffset: 3 * lift
             shadow.color: Qt.rgba(0, 0, 0, 0.3 * lift)
             color: target ? root.accent : entry.hover === true ? root.hoverFill : root.raised
-            Behavior on color { ColorAnimation { duration: 160 } }
-            Behavior on x { NumberAnimation { duration: 160; easing.type: root.ease } }
-            Behavior on width { NumberAnimation { duration: 160; easing.type: root.ease } }
+            Behavior on color { ColorAnimation { duration: root.ms(160) } }
+            Behavior on x { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
+            Behavior on width { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
             Row {
                 anchors.centerIn: parent
                 spacing: 6
@@ -462,7 +469,7 @@ Item {
                 shadow.color: Qt.rgba(0, 0, 0, held * (0.3 + 0.15 * root.lean))
                 color: Qt.tint(root.surface, Qt.rgba(root.chosenCard.r, root.chosenCard.g, root.chosenCard.b, held))
                 opacity: entry.carried || arriving ? 0 : 0.45 + 0.55 * root.approach
-                Behavior on x { NumberAnimation { duration: 160; easing.type: root.ease } }
+                Behavior on x { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
                 Slivers { count: card.stacked }
                 CardFace { entry: card.entry }
             }
@@ -507,8 +514,8 @@ Item {
             onVisibleChanged: if (visible) popping.restart()
             SequentialAnimation {
                 id: popping
-                NumberAnimation { target: lifted; property: "pop"; from: 1.0; to: 1.14; duration: 90; easing.type: Easing.OutQuad }
-                NumberAnimation { target: lifted; property: "pop"; to: 1.04; duration: 240; easing.type: Easing.OutBack }
+                NumberAnimation { target: lifted; property: "pop"; from: 1.0; to: 1.14; duration: root.ms(90); easing.type: Easing.OutQuad }
+                NumberAnimation { target: lifted; property: "pop"; to: 1.04; duration: root.ms(240); easing.type: Easing.OutBack }
             }
             Slivers { count: lifted.stacked }
             CardFace { entry: lifted.entry || ({}) }
@@ -539,9 +546,9 @@ Item {
             }
             ParallelAnimation {
                 id: landingAnimation
-                NumberAnimation { target: ghost; property: "x"; to: (ghost.drop.toX ?? 0) + ghost.stacked * root.sliverStep; duration: 300; easing.type: Easing.OutCubic }
-                NumberAnimation { target: ghost; property: "y"; to: ghost.drop.toY ?? 0; duration: 300; easing.type: Easing.OutCubic }
-                NumberAnimation { target: ghost; property: "scale"; to: 1.0; duration: 300; easing.type: Easing.OutCubic }
+                NumberAnimation { target: ghost; property: "x"; to: (ghost.drop.toX ?? 0) + ghost.stacked * root.sliverStep; duration: root.ms(300); easing.type: Easing.OutCubic }
+                NumberAnimation { target: ghost; property: "y"; to: ghost.drop.toY ?? 0; duration: root.ms(300); easing.type: Easing.OutCubic }
+                NumberAnimation { target: ghost; property: "scale"; to: 1.0; duration: root.ms(300); easing.type: Easing.OutCubic }
                 onFinished: ghost.visible = false
             }
             Slivers { count: ghost.stacked }

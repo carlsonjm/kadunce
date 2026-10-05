@@ -57,6 +57,7 @@ scenes=(
     keyboard-tap-runtime tablet
     keyboard-table-runtime tablet
     keyboard-offscreen-runtime tablet
+    keyboard-first-runtime tablet
     keyboard-spread-runtime tablet
     keyboard-click-runtime tablet
     start-cards-runtime tablet
@@ -87,6 +88,12 @@ scenes=(
     monitor-overflow-runtime tablet
     monitor-lone-runtime tablet
     monitor-full-runtime tablet
+    monitor-grid-runtime tablet
+    monitor-sent-runtime tablet
+    monitor-side-runtime tablet
+    first-entry-runtime tablet
+    bottom-release-runtime tablet
+    divider-tablet-runtime tablet
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
@@ -103,6 +110,7 @@ scenes=(
     late-maximize-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
+    placement-display-runtime tablet
     x11-tablet-runtime tablet
 )
 

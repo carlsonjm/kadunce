@@ -162,20 +162,20 @@ int main() {
     require(!prepareBentoActivation(first, monitor, 1, true, duplicateMember),
         "Batch duplicated a member");
     // A batch the planner cannot show in full is refused rather than parked:
-    // twelve windows against a curated cap of eight has no hidden remainder to
-    // put the other four in. The caller shortens the batch and gives what it
+    // four windows past the most panes a display shows have no hidden
+    // remainder to go to. The caller shortens the batch and gives what it
     // drops to card ownership, and the shortened batch shows in full.
     QList<Snapshot> crowded;
-    for (int i = 1; i <= 12; ++i) crowded.append(Snapshot{i});
-    require(!prepareBentoActivation(first, crowded, 12, true, planner),
+    for (int i = 1; i <= BentoPaneBound + 4; ++i) crowded.append(Snapshot{i});
+    require(!prepareBentoActivation(first, crowded, BentoPaneBound + 4, true, planner),
         "A batch the layout cannot show in full was accepted");
     QList<Snapshot> shortened;
-    for (int i = 1; i <= BentoCuratedPaneCap; ++i) shortened.append(Snapshot{i});
-    const auto fitted = prepareBentoActivation(first, shortened, BentoCuratedPaneCap,
+    for (int i = 1; i <= BentoPaneBound; ++i) shortened.append(Snapshot{i});
+    const auto fitted = prepareBentoActivation(first, shortened, BentoPaneBound,
         true, planner);
     require(fitted && fitted->windows.size() == fitted->snapshots.size()
-        && fitted->windows.size() == BentoCuratedPaneCap
-        && fitted->windows.contains(BentoCuratedPaneCap),
+        && fitted->windows.size() == BentoPaneBound
+        && fitted->windows.contains(BentoPaneBound),
         "Pre-shortened batch refused or lost a member");
 
     // §7: a sleeping window is owned without being shown, so it is the one
@@ -187,13 +187,13 @@ int main() {
         "A sleeping window was mistaken for a member of the visible combination");
 
     // §8: admission grows the layout or refuses. A destination already at the
-    // cap cannot take a ninth window, and the caller makes it a card instead.
+    // cap cannot take one more window, and the caller makes it a card instead.
     require(fitted && !prepareBentoAdmission(*fitted, 99, Snapshot{99}, planner),
         "Growth-only admission accepted a window the layout cannot show");
     auto yielded = *fitted;
-    yielded.windows.removeAll(BentoCuratedPaneCap);
+    yielded.windows.removeAll(BentoPaneBound);
     yielded.snapshots.removeIf([](const auto &saved) {
-        return saved.window == BentoCuratedPaneCap; });
+        return saved.window == BentoPaneBound; });
     const auto grown = prepareBentoAdmission(yielded, 99, Snapshot{99}, planner);
     require(grown && grown->windows.size() == grown->snapshots.size()
         && grown->windows.contains(99),

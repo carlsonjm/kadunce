@@ -4,7 +4,8 @@
 # right half split top and bottom), and three windows there are organized:
 # each takes one zone, a window too wide for a quarter takes the half, KWin
 # holds each in its zone, a moved edge carries both panes with it and
-# Kadunce leaves them there, and switching off gives every window back out of
+# Kadunce leaves them there, switching to filling and back moves them out of
+# their zones and in again, and switching off gives every window back out of
 # its zone as it was. Needs the tablet fixture, so that a card display exists
 # beside the monitor. Every check is reported.
 set -uo pipefail
@@ -95,6 +96,10 @@ check "the layout drawn has three zones" test "$(zone_rects 0 | wc -l)" -eq 3
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep .8
+# A monitor fills itself until it is switched to its zones.
+check "a monitor starts filling itself" test "$(kad usesDrawnZones)" = false
+kad setUsesDrawnZones true
+check "the switch takes the zones" test "$(kad usesDrawnZones)" = true
 test "$(kad toggleBentoOnOutput Virtual-1)" = true
 sleep 1.5
 report organized
@@ -133,6 +138,28 @@ read_zones 4
 check "arrival: the new window sits in a zone" on_zone 'Zone Four' 4
 check "arrival: one earlier window waits in the dock" \
     bash -c "$(declare -f probe facts); facts | jq -e '[.[] | select(.minimized)] | length == 1'"
+
+# Switched back, the layout fills the monitor again and KWin holds no window
+# in a zone; switched to zones once more, the windows take them again.
+kad setUsesDrawnZones false
+sleep 1.5
+report filling
+read_zones 5
+for caption in unload-client Zone_Two Zone_Three; do
+    check "filling: KWin no longer holds $caption in a zone" test "$(tile_of 5 "$caption")" = none
+done
+check "filling: the monitor still holds one layout" \
+    bash -c "$(declare -f kad); kad outputStageState | grep -Eq '^Virtual-1\|.*\|[1-9]'"
+kad setUsesDrawnZones true
+sleep 1.5
+report zones-again
+read_zones 6
+# The window the dock holds stays there; every shown one takes a zone again.
+shown=$(facts | jq -r '.[] | select(.minimized | not) | .caption')
+check "zones again: three windows are shown" test "$(grep -c . <<<"$shown")" -eq 3
+while IFS= read -r caption; do
+    [[ -n $caption ]] && check "zones again: $caption sits in a zone" on_zone "$caption" 6
+done <<<"$shown"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep 1

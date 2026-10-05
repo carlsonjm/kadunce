@@ -240,8 +240,8 @@ int main()
     constexpr int monitorWidth = 2540;
     constexpr int monitorHeight = 1410;
     require(bentoPaneCap(tabletWidth, tabletHeight) == 2
-        && bentoPaneCap(monitorWidth, monitorHeight) == 8,
-        "The tablet work area does not cap at two panes, or a monitor lost the library");
+        && bentoPaneCap(monitorWidth, monitorHeight) == BentoPaneBound,
+        "The tablet work area does not cap at two panes, or a monitor kept a count of eight");
     require(bentoLandscapeArea(tabletWidth, tabletHeight)
         && !bentoLandscapeArea(tabletHeight, tabletWidth),
         "Layout orientation did not follow the work area's own proportions");
@@ -262,6 +262,45 @@ int main()
             .candidateIndices.size() == 5
         && monitorSide && monitorSide->candidateIndices.size() == 5,
         "A larger display lost panes to the compact cap");
+
+    // Past eight panes, minimum sizes decide the count. On the 2560x1440
+    // monitor twelve 600x450 windows fill a four-by-three grid, and a
+    // thirteenth fits no five-by-three cell, so it is the one left out.
+    const std::vector<BentoCandidate> twelve(12, {600, 450, 800, 600, false});
+    const auto grid = chooseBentoAdmission(twelve, 2560, 1440);
+    require(grid.candidateIndices.size() == 12,
+        "Twelve windows that each fit a twelfth of the monitor did not all show");
+    for (const auto &pixel : makePixelBentoLayout(grid.rects, 0, 0, 2560, 1440))
+        require(pixel.width + 2 >= 600 && pixel.height + 2 >= 450,
+            "A grid pane is smaller than its window's minimum");
+    const std::vector<BentoCandidate> thirteen(13, {600, 450, 800, 600, false});
+    const auto crowded = chooseBentoAdmission(thirteen, 2560, 1440);
+    require(crowded.candidateIndices.size() == 12
+        && std::find(crowded.candidateIndices.begin(), crowded.candidateIndices.end(), 12)
+            == crowded.candidateIndices.end(),
+        "Thirteen windows did not stop at the twelve whose minimums fit");
+    // An arrival that must show takes a grid pane from the last resident in
+    // order, not from one the person was using earlier.
+    const auto arriving = chooseBentoTransferAdmission(thirteen, 12, 2560, 1440);
+    require(arriving && arriving->candidateIndices.size() == 12
+        && std::count(arriving->candidateIndices.begin(), arriving->candidateIndices.end(), 12) == 1
+        && std::count(arriving->candidateIndices.begin(), arriving->candidateIndices.end(), 11) == 0,
+        "A required arrival did not take the grid's last resident's place");
+    // Windows too large for any grid cell keep the curated library, and a
+    // display's whole window history does not make that search slow: two
+    // dozen of them settle within its candidates.
+    const std::vector<BentoCandidate> large(BentoPaneBound, {700, 500, 800, 600, false});
+    const auto curated = chooseBentoAdmission(large, 2560, 1440);
+    require(!curated.candidateIndices.empty()
+        && curated.candidateIndices.size() <= BentoCuratedPaneCap,
+        "Windows too large for any grid did not keep the curated library");
+    for (const int index : curated.candidateIndices)
+        require(index < BentoCuratedCandidates,
+            "The curated search read past its candidates");
+    const auto lateArrival = chooseBentoTransferAdmission(large, BentoPaneBound - 1, 2560, 1440);
+    require(lateArrival && std::count(lateArrival->candidateIndices.begin(),
+            lateArrival->candidateIndices.end(), BentoPaneBound - 1) == 1,
+        "An arrival past the curated candidates was not shown");
 
     // Both three-pane shapes exist, cover the area and do not overlap. The
     // curated library offers them on a display large enough to hold three.
@@ -346,6 +385,35 @@ int main()
         "A slot was offered to an arrival no pane can hold");
     require(bentoSlotForArrival({}, 200, 200) == -1,
         "A layout with no slots offered one");
+
+    // CARD-LIFECYCLE.md §5: a side release onto a full layout displaces the
+    // pane occupying that side. With a full-height pane on the left and a
+    // stack on the right, separated by gaps, the left release names the
+    // full-height pane wherever it lands, and the right release names the
+    // stacked pane the contact's half names.
+    const std::vector<BentoPixelRect> beside{
+        {8, 8, 1200, 1584}, {1216, 8, 1376, 788}, {1216, 804, 1376, 788}};
+    require(bentoPaneOnSide(beside, false, true) == 0 && bentoPaneOnSide(beside, false, false) == 0,
+        "A left release did not name the pane against the left edge");
+    require(bentoPaneOnSide(beside, true, true) == 1,
+        "An upper right release did not name the upper pane of the right stack");
+    require(bentoPaneOnSide(beside, true, false) == 2,
+        "A lower right release did not name the lower pane of the right stack");
+    // Order carries no meaning: the same shape listed another way names the
+    // same panes, and a pane one pixel short of the edge still occupies it.
+    const std::vector<BentoPixelRect> reordered{
+        {1216, 804, 1375, 788}, {8, 8, 1200, 1584}, {1216, 8, 1376, 788}};
+    require(bentoPaneOnSide(reordered, true, false) == 0
+        && bentoPaneOnSide(reordered, true, true) == 2
+        && bentoPaneOnSide(reordered, false, false) == 1,
+        "Which pane occupies a side turned on the order the panes were listed in");
+    // Three across: only the outer pane on each side occupies it.
+    const std::vector<BentoPixelRect> across{
+        {0, 0, 800, 1600}, {800, 0, 1000, 1600}, {1800, 0, 800, 1600}};
+    require(bentoPaneOnSide(across, false, false) == 0 && bentoPaneOnSide(across, true, true) == 2,
+        "A middle pane was named as occupying a side");
+    require(bentoPaneOnSide({}, true, true) == -1,
+        "A layout with no panes named one on a side");
 
     // Zones drawn with KDE's tile editor: a quarter, a half and a quarter of
     // a 2560 by 1440 monitor.

@@ -49,6 +49,8 @@ That window is admitted as every arrival is, then placed, and
 `placementSettled` reports it. A wait that ends unanswered, is cancelled or is
 replaced by a newer launch settles with `placed` false.
 
-Kadunce refuses, with `false`, a window it cannot place by request: a card
-asked onto another display, a window on another display asked onto the card
-display, and a Bento pane asked anywhere but its own display.
+A card asked onto another display goes there as the Active card carried there
+would, from where it was before it was a card. An ordinary window on another
+display asked onto the card display becomes a card there, and is then placed
+as a card already there would be. Kadunce refuses, with `false`, a Bento pane
+asked anywhere but its own display.

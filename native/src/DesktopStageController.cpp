@@ -1244,7 +1244,7 @@ bool DesktopStageController::planSession(Session &session,
     // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
     // it in KDE's tile editor, when there are any. A window keeps the zone it
     // has while it fits, and one that fits no zone left waits as remainder.
-    if (parksOverflow(session.outputName)) {
+    if (parksOverflow(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
         const QList<DrawnZone> drawn = drawnZones(output);
         if (!drawn.isEmpty()) {
             const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
@@ -1328,7 +1328,7 @@ bool DesktopStageController::planSession(Session &session,
         };
         const auto area = stageArea(output);
         std::vector<BentoCandidate> candidates;
-        for (int i = 0; i < std::min(10, int(owned.size())); ++i)
+        for (int i = 0; i < std::min(BentoPaneBound, int(owned.size())); ++i)
             candidates.push_back(candidate(owned[i]));
         const auto admission = chooseBentoSideAdmission(*session.side, area.width(), area.height(),
             candidates, requirePreferred ? owned.indexOf(preferred) : 0);
@@ -1351,11 +1351,11 @@ bool DesktopStageController::planSession(Session &session,
         report(remainder);
         return true;
     }
-    // The curated library has eight panes. Two alternate candidates are
-    // enough to resolve minimum-size conflicts without making the bounded
-    // subset search grow with a desktop's entire window history. How many of
-    // them this display shows is bentoPaneCap, which the edge path reads too.
-    const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
+    // The curated library reads its eight panes and two alternates; past it an
+    // even grid reads the rest, so minimum sizes decide how many panes a large
+    // display shows. BentoPaneBound keeps that finite, and how many this
+    // display shows is bentoPaneCap, which the edge path reads too.
+    const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, BentoPaneBound);
     const KWin::Rect area = stageArea(output);
     std::vector<BentoCandidate> candidates;
     candidates.reserve(considered.size());
@@ -1544,7 +1544,8 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
         if (!m_host->admitDisplacedPaneToTablet(window, [] { return true; },
                 &eviction.record)) {
             qWarning() << "Kadunce" << Revision
-                       << "could not give a window the layout cannot show to card ownership";
+                       << "could not give a window the layout cannot show to card ownership:"
+                       << window->caption();
         }
     }
 }
@@ -1552,23 +1553,47 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
 bool DesktopStageController::shortenToShowable(Session &session, const RestoreSnapshot &arrival,
     std::optional<BentoSidePlacement> side, KWin::EffectWindow *sideWindow) const
 {
-    Session probe = session;
-    probe.snapshots.append(arrival);
-    if (side) { probe.side = side; probe.sideWindow = sideWindow; }
+    const auto plan = [&](const Session &base, QList<QPointer<KWin::EffectWindow>> *unshowable) {
+        Session probe = base;
+        probe.snapshots.append(arrival);
+        if (side) { probe.side = side; probe.sideWindow = sideWindow; }
+        return planSession(probe, arrival.window, true, unshowable);
+    };
     QList<QPointer<KWin::EffectWindow>> unshowable;
-    if (!planSession(probe, arrival.window, true, &unshowable) || unshowable.isEmpty())
+    if (!plan(session, &unshowable) || unshowable.isEmpty())
         return true;
     // §5: the yield needs somewhere to go. Where nothing can hold it, nothing
     // leaves, and refusing here is what keeps the combination the layout has.
     if (!canPlaceEvictedCard() && !parksOverflow(session.outputName)) return false;
-    for (const auto &yielding : std::as_const(unshowable)) {
-        if (!yielding || yielding == arrival.window) continue;
+    const auto yield = [&session](const QPointer<KWin::EffectWindow> &yielding) {
         const int index = session.windows.indexOf(yielding);
         if (index >= 0 && index < static_cast<int>(session.rects.size()))
             session.rects.erase(session.rects.begin() + index);
+        if (index >= 0 && index < session.zones.size()) session.zones.removeAt(index);
         session.windows.removeAll(yielding);
         session.snapshots.removeIf(
             [&yielding](const auto &saved) { return saved.window == yielding; });
+    };
+    // §5: a side release displaces the pane occupying the side it was released
+    // into, which is the pane the preview covers while dragging. The solve
+    // decides nothing about that pane; it names only what the arrival still
+    // leaves unshowable, as it does for an arrival that names no side.
+    KWin::LogicalOutput *output = outputForKey(session.outputName);
+    if (side && output) {
+        const auto pixels = sessionPixels(session, stageArea(output));
+        const int index = pixels.size() == std::size_t(session.windows.size())
+            ? bentoPaneOnSide(pixels, side->right, side->large) : -1;
+        const QPointer<KWin::EffectWindow> occupant =
+            index >= 0 ? session.windows.at(index) : nullptr;
+        if (occupant && occupant != arrival.window) {
+            yield(occupant);
+            unshowable.clear();
+            if (!plan(session, &unshowable)) return true;
+        }
+    }
+    for (const auto &yielding : std::as_const(unshowable)) {
+        if (!yielding || yielding == arrival.window) continue;
+        yield(yielding);
     }
     return true;
 }
@@ -2820,6 +2845,33 @@ void DesktopStageController::syncZonesFromKde(Session &session) const
             session.zones[index] = tile;
         }
     }
+}
+
+void DesktopStageController::zoneModeChanged()
+{
+    const auto keys = m_sessions.keys();
+    for (const auto &key : keys) {
+        if (!parksOverflow(key)) continue;
+        auto found = m_sessions.find(key);
+        if (found == m_sessions.end() || found->windows.isEmpty()) continue;
+        const QPointer<KWin::EffectWindow> lead = found->windows.first();
+        // A window the dock holds is asked again: the new arrangement may have
+        // room for it. What it cannot show waits in the dock, as it does for
+        // any arrival, before the rest is laid out again.
+        QList<QPointer<KWin::EffectWindow>> waking;
+        for (auto &saved : found->snapshots)
+            if (saved.parked && saved.window) { saved.parked = false; waking.append(saved.window); }
+        if (!lead || !shedUnshowable(key, found.value(), lead, false)) continue;
+        found = m_sessions.find(key);
+        if (found == m_sessions.end() || !reflowSession(found.value(), lead, false, true)) continue;
+        // Kadunce's own unminimize is not the person's, as its minimize is not.
+        const bool wasParking = std::exchange(m_parking, true);
+        for (const auto &window : std::as_const(waking))
+            if (window && window->window() && found->windows.contains(window)) window->window()->setMinimized(false);
+        m_parking = wasParking;
+        if (applySession(found.value(), false)) scheduleSettle();
+    }
+    releaseStrayZones();
 }
 
 void DesktopStageController::releaseStrayZones()

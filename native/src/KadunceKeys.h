@@ -17,6 +17,7 @@ enum class KeyAction {
     StackPrevious,
     StackNext,
     Bento,
+    ZoneMode,
     Release,
     Open,
     Back,
@@ -49,6 +50,9 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         default: return KeyAction::None;
         }
     }
+    // Monitors switch between filling themselves and the zones drawn there.
+    if (relevant == (Qt::MetaModifier | Qt::ShiftModifier) && key == Qt::Key_B)
+        return KeyAction::ZoneMode;
     if (relevant == Qt::NoModifier && context.spreadShown) {
         switch (key) {
         case Qt::Key_Left: return KeyAction::Previous;

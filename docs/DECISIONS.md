@@ -478,12 +478,12 @@ The tablet names each window it pairs; this is the opposite answer on purpose.
 On the tablet a person places each card; a monitor is where Plasma windows pile
 up under a mouse, and the value is organizing the pile in one move. Rejected:
 pairing on the monitor, which traded that for control, and sending overflow to
-the tablet, which moved windows between screens without you and had no
-destination on a machine without a touchscreen.
+the tablet, which moved windows between screens without you.
 
-Zones drawn with Meta+T are the layout: KDE draws any arrangement, and its
-edges replace the dividers. KWin ignores minimum sizes, so Kadunce assigns the
-zones. Rejected: presets written over drawn zones; dividers fighting KWin's.
+Switched to zones, those drawn with Meta+T are the layout: KDE draws any
+arrangement, and its edges replace the dividers. KWin ignores minimum sizes, so
+Kadunce assigns the zones. Otherwise a monitor fills itself. Rejected: presets
+over drawn zones; dividers fighting KWin's; deleting zones to fill again.
 
 ### A display coming or going keeps every card on the card display
 

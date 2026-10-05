@@ -16,6 +16,8 @@ int main() {
     for (const auto &context : {desktop, active, spread}) {
         check(keyActionFor(Qt::Key_S, Qt::MetaModifier, context) == KeyAction::Spread, "Meta+S did not open Spread");
         check(keyActionFor(Qt::Key_B, Qt::MetaModifier, context) == KeyAction::Bento, "Meta+B did not start Bento");
+        check(keyActionFor(Qt::Key_B, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::ZoneMode,
+              "Meta+Shift+B did not switch the monitors' zones");
         check(keyActionFor(Qt::Key_Escape, Qt::MetaModifier, context) == KeyAction::Release, "Meta+Esc did not let go");
         for (int key : {Qt::Key_S, Qt::Key_B, Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down, Qt::Key_Escape})
             check(keyActionFor(key, Qt::ControlModifier, context) == KeyAction::None, "A Ctrl key was taken from applications");

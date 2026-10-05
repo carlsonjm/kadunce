@@ -10,6 +10,7 @@
 #include "RowCardTarget.h"
 #include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
+#include "MotionTime.h"
 #include "BentoCompositeGeometry.h"
 #include "OwnershipHandoff.h"
 #include "NeighborStackPose.h"
@@ -89,7 +90,7 @@ CardStageController::CardStageController(CardStageHost *host)
         if (!m_arrivalExpanding) {
             captureCardTransition();
             m_arrivalExpanding = true;
-            m_arrivalTimer.start(ArrivalExpandDuration);
+            m_arrivalTimer.start(motion(ArrivalExpandDuration));
         } else {
             clearCardTransition();
             (void)enterActive();
@@ -603,9 +604,9 @@ CardStageController::StackOutline CardStageController::stackOutline() const
 {
     constexpr double Strength = 0.65;
     if (heldInStack()) return {heldStackSeam(), Strength * m_carry.lift};
-    if (!m_stackOutlineFade.isValid() || m_stackOutlineFade.elapsed() >= StackOutlineFadeDuration)
+    if (!m_stackOutlineFade.isValid() || m_stackOutlineFade.elapsed() >= motion(StackOutlineFadeDuration))
         return {};
-    const double left = 1.0 - double(m_stackOutlineFade.elapsed()) / StackOutlineFadeDuration;
+    const double left = 1.0 - double(m_stackOutlineFade.elapsed()) / motion(StackOutlineFadeDuration);
     return {m_stackOutlineRect, m_stackOutlineFrom * left * left};
 }
 
@@ -756,24 +757,29 @@ bool CardStageController::animationsRunning() const
     return m_row.moving() || m_lift.phase == Lift::Phase::Return
         || m_lift.phase == Lift::Phase::Throw
         || (m_cardGrabActive && (m_carry.animating || (m_cardGrabScaleTimer.isValid()
-            && m_cardGrabScaleTimer.elapsed() < HeldPickupDuration)))
+            && m_cardGrabScaleTimer.elapsed() < motion(HeldPickupDuration))))
         || (m_previewTransition.isValid() && m_previewTransition.elapsed() < transitionDuration())
-        || (m_stackOutlineFade.isValid() && m_stackOutlineFade.elapsed() < StackOutlineFadeDuration)
+        || (m_stackOutlineFade.isValid() && m_stackOutlineFade.elapsed() < motion(StackOutlineFadeDuration))
         || (m_openProgress && m_openReturn.isValid())
         || (m_launcherGuestTransitionTimer.isValid()
             && m_launcherGuestTransitionTimer.elapsed()
-                < LauncherGuestTransitionDuration);
+                < motion(LauncherGuestTransitionDuration));
+}
+
+int CardStageController::motion(int base)
+{
+    return motionDuration(base, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
 }
 
 int CardStageController::transitionDuration() const
 {
-    if (m_landTransition) return CarryLandDuration;
-    if (m_stackStepTransition) return HeldStackStepDuration;
-    if (m_pickupTransition) return HeldPickupDuration;
-    if (m_rowPageTransition) return RowPageDuration;
-    if (m_stackBrowseDirection) return StackBrowseDuration;
-    if (m_arrivalExpanding) return ArrivalExpandDuration;
-    return PreviewTransitionDuration;
+    if (m_landTransition) return motion(CarryLandDuration);
+    if (m_stackStepTransition) return motion(HeldStackStepDuration);
+    if (m_pickupTransition) return motion(HeldPickupDuration);
+    if (m_rowPageTransition) return motion(RowPageDuration);
+    if (m_stackBrowseDirection) return motion(StackBrowseDuration);
+    if (m_arrivalExpanding) return motion(ArrivalExpandDuration);
+    return motion(PreviewTransitionDuration);
 }
 
 bool CardStageController::launcherGuestActive() const
@@ -796,7 +802,7 @@ double CardStageController::launcherGuestTransitionProgress() const
     }
     const double elapsed = std::clamp(
         static_cast<double>(m_launcherGuestTransitionTimer.elapsed())
-            / LauncherGuestTransitionDuration,
+            / motion(LauncherGuestTransitionDuration),
         0.0, 1.0);
     const double eased = QEasingCurve(QEasingCurve::OutCubic)
         .valueForProgress(elapsed);
@@ -912,7 +918,7 @@ int CardStageController::paintSlot(const KWin::EffectWindow *window) const
         return 99;
     }
     if (slot != 99 || !m_rowPageTransition || !m_previewTransition.isValid()
-        || m_previewTransition.elapsed() >= RowPageDuration) return slot;
+        || m_previewTransition.elapsed() >= motion(RowPageDuration)) return slot;
     for (const auto &origin : m_previewOrigins)
         if (origin.window == window && origin.visible) return origin.slot;
     return 99;
@@ -1004,7 +1010,7 @@ KWin::Rect CardStageController::restingPreviewTarget(
         return KWin::Rect(blend(from.x(), to.x()), blend(from.y(), to.y()),
                           blend(from.width(), to.width()), blend(from.height(), to.height()));
     }
-    const int duration = m_arrivalExpanding ? ArrivalExpandDuration : PreviewTransitionDuration;
+    const int duration = m_arrivalExpanding ? motion(ArrivalExpandDuration) : motion(PreviewTransitionDuration);
     if (!m_previewTransition.isValid() || m_cardGrabActive || m_poseTransition
         || m_presentation != CardPresentation::Spread
         || m_previewTransition.elapsed() >= duration) return target;
@@ -1152,7 +1158,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
     if (!tablet) return {0.0, 0.0, 0.0, true};
     if (m_cardGrabActive && window == selectedWindow()) {
         const double t = m_cardGrabScaleTimer.isValid()
-            ? heldPickupProgress(m_cardGrabScaleTimer.elapsed()) : 1.0;
+            ? heldPickupProgress(m_cardGrabScaleTimer.elapsed(), motion(HeldPickupDuration)) : 1.0;
         return {0.0, 0.0, m_cardGrabRotation * (1.0 - t), true};
     }
     const auto &spread = m_workspace.model();
@@ -1988,9 +1994,9 @@ void CardStageController::advanceCarry(double seconds)
     }
     const double level = m_carry.zoomed
         ? carryZoomLevel(span, frame->pitch, frame->width, frame->screenWidth) : 1.0;
-    const bool gliding = m_carry.zoomSince.isValid() && m_carry.zoomSince.elapsed() < CarryZoomDuration;
+    const bool gliding = m_carry.zoomSince.isValid() && m_carry.zoomSince.elapsed() < motion(CarryZoomDuration);
     const double scale = gliding
-        ? carryZoomAt(m_carry.zoomFrom, level, double(m_carry.zoomSince.elapsed()) / CarryZoomDuration)
+        ? carryZoomAt(m_carry.zoomFrom, level, double(m_carry.zoomSince.elapsed()) / motion(CarryZoomDuration))
         : level;
     if (gliding) moving = true;
     // The zoom moves around the held card, so what is under it stays under it.
@@ -2940,12 +2946,24 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     const NativeMoveSnapshot *restore)
 {
     QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
-    if (!m_active || m_presentation != CardPresentation::Bento || m_cardGrabActive
-        || m_launcherGuestActive || !tablet || !window || window->isDeleted()
-        || !window->window() || !window->isNormalWindow()
-        || !m_host->isManagedWindowForCardStage(window)
-        || window->isUserMove() || window->isUserResize()
-        || liveCardIndex(window) >= 0) return false;
+    // Each refusal says which rule refused, so a pane left plain on hardware
+    // can be traced to it.
+    const char *refusal = !m_active ? "cards are not active"
+        : m_presentation != CardPresentation::Bento ? "the display is not presenting Bento"
+        : m_cardGrabActive ? "a card is held"
+        : m_launcherGuestActive ? "the launcher guest is open"
+        : !tablet ? "there is no card display"
+        : !window || window->isDeleted() || !window->window() ? "the window is gone"
+        : !window->isNormalWindow() ? "the window is not a normal window"
+        : !m_host->isManagedWindowForCardStage(window) ? "the window is not one cards hold"
+        : window->isUserMove() || window->isUserResize() ? "the window is being moved or resized"
+        : liveCardIndex(window) >= 0 ? "the window is already a card"
+        : nullptr;
+    if (refusal) {
+        qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:" << refusal
+                << (window ? window->caption() : QString());
+        return false;
+    }
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
     const auto ticket = m_transferGuard.issue();
@@ -2966,7 +2984,11 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
         .valid = true,
     };
     const auto admission = m_workspace.prepareAdmission(arrival, false);
-    if (!admission) return false;
+    if (!admission) {
+        qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:"
+                << "the card workspace refused it" << window->caption();
+        return false;
+    }
     if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
     m_originalCardStackingOrder.append(arrival);
     const auto valid = [&] {
@@ -3649,7 +3671,7 @@ void CardStageController::finishOpenSpread(bool open)
     } else {
         m_openReturnFrom = *m_openProgress;
         m_openReturn.start();
-        m_openReturnTimer.start(OpenSpreadReturnDuration);
+        m_openReturnTimer.start(motion(OpenSpreadReturnDuration));
     }
     KWin::effects->addRepaintFull();
 }
@@ -3658,7 +3680,7 @@ double CardStageController::spreadOpenProgress() const
 {
     if (!m_openProgress) return 1.0;
     if (!m_openReturn.isValid()) return *m_openProgress;
-    const double u = std::clamp(double(m_openReturn.elapsed()) / OpenSpreadReturnDuration, 0.0, 1.0);
+    const double u = std::clamp(double(m_openReturn.elapsed()) / motion(OpenSpreadReturnDuration), 0.0, 1.0);
     return m_openReturnFrom * (1.0 - QEasingCurve(QEasingCurve::OutCubic).valueForProgress(u));
 }
 
@@ -4323,7 +4345,7 @@ void CardStageController::startArrivalTimer(KWin::EffectWindow *window)
     m_arrivalWindow = window;
     m_arrivalExpanding = false;
     m_arrivalWait.start();
-    m_arrivalTimer.start(PreviewTransitionDuration);
+    m_arrivalTimer.start(motion(PreviewTransitionDuration));
     qInfo() << "Kadunce new app settling at center" << window->caption();
 }
 

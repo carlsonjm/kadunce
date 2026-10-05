@@ -4,31 +4,29 @@ What is planned for Kadunce, and what it does not do yet.
 
 ## Planned
 
-- In Bento, replacing a pane by dropping a window on its side.
-- Curated monitor layouts past eight panes, and a window KWin moves to a
-  monitor by other means joining that monitor's layout.
+- A card or pane KWin moves to a monitor by other means joining that
+  monitor's layout.
 - A display unplugged and plugged back in getting its drawn zones' panes back
   in place, as KWin itself does.
 - Panes and ordinary windows making room for the on-screen keys, as the Active
   card does.
 - The on-screen keys coming up for the first text field of a session, and for a
   tap just after a card is chosen.
-- Motion that follows the system's animation speed and reduced-motion setting
-  everywhere.
+- Under a reduced-motion preference, where the platform exposes one apart
+  from Plasma's instant speed, short fades in place of travel.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
+- A placement request (`REQUESTS.md`) taking a pane out of its layout.
 - One package and interface namespace across the suite, with a documented
   migration from today's identifiers.
 - From Spread, a pull from the top edge bringing Table's tabs over Spread, which
   stays showing; the full-size previews come only past the tabs.
-- A placement request (`REQUESTS.md`) taking a card onto another display, a
-  window from another display onto the card display, and a pane out of its
-  layout.
 
 ## Known limitations
 
-- A display change is answered once KWin has moved windows for it. A window
-  sent to another display some other way, such as KWin's own window-to-screen
-  shortcut, is not answered.
+- A display change is answered once KWin has moved windows for it. An
+  ordinary window sent to another display some other way, such as KWin's own
+  window-to-screen shortcut, is answered as one that opened there; a card or
+  pane sent that way is not.
 - Whether switching Kadunce off returns a window to the right place after its
   display has moved in the desktop layout is not measured.
 - A Wayland dialog that names no parent window becomes a card. No application
