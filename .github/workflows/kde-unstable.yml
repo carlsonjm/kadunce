@@ -1,0 +1,61 @@
+name: Next Plasma (kde-unstable)
+
+# Builds and checks Kadunce against the next Plasma before it ships, from Arch
+# Linux's kde-unstable repository, the stock KWin included. A red run here is
+# an early warning about the coming release, not a failure of the released one.
+# A push that changes the native plugin runs it too, so a port to the next
+# KWin is checked before it merges.
+on:
+  schedule:
+    - cron: "37 7 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/kde-unstable.yml"
+      - "native/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kde-unstable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Next Plasma
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 60
+    steps:
+      - name: Enable kde-unstable and the testing repositories it builds on
+        run: |
+          # kde-unstable sits above the testing repositories, which sit above
+          # the stable ones, as Arch documents for this repository.
+          sed -i '0,/^\[core\]/s//[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[extra-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf
+          grep -n '^\[' /etc/pacman.conf
+          pacman -Syu --noconfirm --needed \
+            base-devel cmake extra-cmake-modules git ripgrep python file perl dbus \
+            qt6-base qt6-declarative \
+            kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
+            kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Record the KDE and Qt versions checked
+        run: |
+          {
+            echo "### Tested against"
+            echo '```'
+            pacman -Q kwin kdecoration qt6-base extra-cmake-modules kcoreaddons
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run ./verify.sh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          dbus-run-session -- ./verify.sh
