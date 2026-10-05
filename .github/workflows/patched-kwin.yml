@@ -104,8 +104,12 @@ jobs:
           export XDG_RUNTIME_DIR=$(mktemp -d)
           chmod 700 "$XDG_RUNTIME_DIR"
           test=$(find . -type f -name testMoveResize -perm -u+x | head -1)
-          if dbus-run-session -- "$test" testTouchMoveAfterInterruption; then
-            echo "The added cases pass without the correction, so they no longer prove it" >&2
+          # Each of the six added cases must fail on its own assertion, not
+          # the run as a whole for some other reason.
+          dbus-run-session -- "$test" testTouchMoveAfterInterruption > stock.log 2>&1 || true
+          cat stock.log
+          if ! grep -q '^Totals: .*, 6 failed,' stock.log; then
+            echo "Stock KWin did not fail all six added cases, so they no longer prove the correction" >&2
             exit 1
           fi
-          echo "The added cases fail against stock KWin, as they should."
+          echo "All six added cases fail against stock KWin, as they should."
