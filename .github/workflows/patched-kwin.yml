@@ -1,0 +1,155 @@
+name: Patched KWin (next Plasma)
+
+# Builds the next Plasma's KWin from Arch Linux's kde-unstable repository with
+# the touch-lifetime correction in patches/kwin, and runs the cases the patch
+# adds against both the stock and the patched source. It proves the patch
+# before the tablet is asked to build and install it; it publishes no package.
+on:
+  schedule:
+    - cron: "53 8 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/patched-kwin.yml"
+      - "patches/kwin/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/patched-kwin.yml"
+      - "patches/kwin/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patched-kwin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  patched-kwin:
+    name: Patched KWin
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 120
+    steps:
+      - name: Enable kde-unstable and install KWin's build dependencies
+        run: |
+          sed -i '0,/^\[core\]/s//[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[extra-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf
+          # Installing kwin itself brings in every runtime dependency at the
+          # matching version; the rest are its build and test dependencies.
+          pacman -Syu --noconfirm --needed \
+            base-devel cmake ninja git python dbus \
+            kwin extra-cmake-modules kdoctools krunner \
+            plasma-wayland-protocols vulkan-headers wayland-protocols \
+            xorg-xwayland
+
+      - uses: actions/checkout@v5
+
+      - name: Fetch the KWin source that kde-unstable packages
+        id: source
+        run: |
+          version=$(pacman -Q kwin | awk '{print $2}' | cut -d- -f1)
+          patchlevel=$(echo "$version" | cut -d. -f3)
+          # A .90 or later patch level is a beta or candidate, published
+          # under unstable/; a release is under stable/.
+          if [ "${patchlevel:-0}" -ge 90 ]; then channel=unstable; else channel=stable; fi
+          url="https://download.kde.org/$channel/plasma/$version/kwin-$version.tar.xz"
+          echo "KWin $version from $url"
+          curl -fsSL --retry 4 -o "kwin-$version.tar.xz" "$url"
+          tar -xf "kwin-$version.tar.xz"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Patched KWin"
+            echo '```'
+            echo "source  kwin-$version.tar.xz  $(sha256sum "kwin-$version.tar.xz" | cut -d' ' -f1)"
+            echo "patch   $(sha256sum patches/kwin/0001-bound-native-touch-to-move-lifetime.patch)"
+            pacman -Q kwin qt6-base
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply the patch without fuzz
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cp src/input.cpp ../input.cpp.stock
+          patch -p1 --fuzz=0 < ../patches/kwin/0001-bound-native-touch-to-move-lifetime.patch
+
+      - name: Build the move and resize integration test
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_LIBEXECDIR=lib \
+            -DBUILD_TESTING=ON
+          target=$(ninja -C build -t targets all | sed -n 's/^\(testMoveResize\): .*/\1/p' | head -1)
+          test -n "$target"
+          ninja -C build "$target"
+
+      - name: Run the move and resize cases against the patched source
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}/build"
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          chmod 700 "$XDG_RUNTIME_DIR"
+          test=$(find . -type f -name testMoveResize -perm -u+x | head -1)
+          # The added cases first, then the whole class so the patch is seen
+          # not to break the cases that were there before it.
+          dbus-run-session -- "$test" testTouchMoveAfterInterruption
+          dbus-run-session -- "$test"
+
+      - name: Show the added cases fail against the stock source
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cp ../input.cpp.stock src/input.cpp
+          ninja -C build testMoveResize
+          cd build
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          chmod 700 "$XDG_RUNTIME_DIR"
+          test=$(find . -type f -name testMoveResize -perm -u+x | head -1)
+          # Each of the six added cases must fail on its own assertion, not
+          # the run as a whole for some other reason.
+          dbus-run-session -- "$test" testTouchMoveAfterInterruption > stock.log 2>&1 || true
+          cat stock.log
+          if ! grep -q '^Totals: .*, 6 failed,' stock.log; then
+            echo "Stock KWin did not fail all six added cases, so they no longer prove the correction" >&2
+            exit 1
+          fi
+          echo "All six added cases fail against stock KWin, as they should."
+
+  recipe:
+    name: Patched KWin recipe
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 30
+    steps:
+      - name: Enable kde-unstable and install the packaging tools
+        run: |
+          sed -i '0,/^\[core\]/s//[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[extra-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf
+          pacman -Syu --noconfirm --needed base-devel git python gnupg kwin
+
+      - uses: actions/checkout@v5
+
+      - name: Derive the local recipe from the official one
+        run: |
+          release=$(pacman -Q kwin | awk '{print $2}')
+          base=https://gitlab.archlinux.org/archlinux/packaging/packages/kwin/-/raw
+          # The official recipe for the packaged release, by its tag.
+          curl -fsSL --retry 4 -o official.PKGBUILD "$base/$release/PKGBUILD"
+          mkdir recipe
+          cp patches/kwin/0001-bound-native-touch-to-move-lifetime.patch recipe/
+          python3 patches/kwin/package/derive-pkgbuild.py official.PKGBUILD \
+            recipe/0001-bound-native-touch-to-move-lifetime.patch > recipe/PKGBUILD
+          {
+            echo "### Recipe derived from official kwin $release"
+            echo '```diff'
+            diff -u official.PKGBUILD recipe/PKGBUILD || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the signed source and apply the patch through the recipe
+        run: |
+          useradd -m builder
+          chown -R builder recipe
+          keys=$(cd recipe && bash -c 'source PKGBUILD; echo "${validpgpkeys[@]}"')
+          # makepkg checks the upstream signature against the recipe's keys;
+          # nothing here weakens that check.
+          su builder -c "gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $keys"
+          su builder -c "cd recipe && makepkg --verifysource --noconfirm && makepkg --nobuild --nodeps --noconfirm"
