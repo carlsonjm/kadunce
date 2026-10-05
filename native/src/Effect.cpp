@@ -3121,6 +3121,8 @@ bool Effect::admitCardToDesktopStage(
 {
     if (m_carryDestination && window == m_carriedWindow)
         return m_desktopStage->transferPreparedCard(*m_carryDestination, commitSource, releaseSource);
+    if (m_placementDrop && window == m_placementDrop->window)
+        return m_desktopStage->transferPreparedCard(*m_placementDrop, commitSource, releaseSource);
     if (m_cardStage->cardGrabActive()) {
         if (!m_lineDestination || m_lineDestinationWindow != window) return false;
         const auto reserved = *m_lineDestination;
@@ -4621,8 +4623,16 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
     if (!output || !window || window->isDeleted() || !window->window()) return false;
     const bool card = m_cardStage->isActive() && m_cardStage->liveCardIndex(window) >= 0;
     if (m_cardStage->canOwnCards(output)) {
-        // A window shown elsewhere does not come to the card display yet.
-        if (!card && window->screen() != output) return false;
+        // An ordinary window shown elsewhere comes to the card display as one
+        // carried there would, and is then handled as a card already here. A
+        // pane keeps its layout.
+        if (!card && window->screen() != output) {
+            if (m_carriedWindow || m_nativeCarry || m_desktopStage->managesWindow(window)
+                || !admitTransferredWindowToTablet(window, [] { return true; })
+                || m_cardStage->liveCardIndex(window) < 0) return false;
+            (void)m_cardStage->promoteToActive(window);
+            observeCardOwnership();
+        }
         if (!activateApplicationWindow(windowIdentity(window))) return false;
         if (aim.kind == PlacementAimKind::Card) return true;
         // CARD-LIFECYCLE.md §3, as the Active card carried to that edge.
@@ -4637,9 +4647,9 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
         });
         return true;
     }
-    // A card does not leave the card display by request yet, and a pane keeps
-    // its layout.
-    if (card) return false;
+    // A card goes to another display as the Active card carried there would.
+    // A pane keeps its layout.
+    if (card) return placeCardOnDisplay(window, output, aim, point);
     if (m_desktopStage->managesWindow(window)) {
         return aim.kind == PlacementAimKind::Display && window->screen() == output
             && activateApplicationWindow(windowIdentity(window));
@@ -4655,6 +4665,49 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
                                               : DesktopStageController::CardDropIntent::ActivateBento, side);
     if (!drop) return false;
     const bool placed = m_desktopStage->transferPreparedCard(*drop, [] { return true; }, [] {});
+    observeCardOwnership();
+    return placed;
+}
+
+bool Effect::placeCardOnDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+    const PlacementAim &aim, QPointF point)
+{
+    if (!card || !output || m_cardStage->canOwnCards(output) || card->screen() == output
+        || m_carriedWindow || m_nativeCarry || m_placementDrop) return false;
+    std::optional<BentoSidePlacement> side;
+    if (aim.kind == PlacementAimKind::Left || aim.kind == PlacementAimKind::Right)
+        side = bentoSideChoice(aim.kind == PlacementAimKind::Right, point.y(),
+                               QRectF(output->geometry()).center().y());
+    // A layout begins or is joined at an edge; anywhere else the card opens
+    // there, at the size it had before it was a card, around the point.
+    const auto intent = aim.kind == PlacementAimKind::Display
+        ? DesktopStageController::CardDropIntent::OpenSpace
+        : DesktopStageController::CardDropIntent::ActivateBento;
+    const QRectF area = QRectF(output->geometry());
+    const auto landingFor = [&](QSizeF size) {
+        size = size.boundedTo(area.size());
+        QRectF landing(QPointF(), size);
+        landing.moveCenter(point);
+        landing.moveLeft(std::clamp(landing.left(), area.left(), area.right() - size.width()));
+        landing.moveTop(std::clamp(landing.top(), area.top(), area.bottom() - size.height()));
+        return KWin::RectF(landing);
+    };
+    // The destination accepts before anything about the card changes, so a
+    // refusal leaves the card as it was.
+    if (!m_desktopStage->prepareCardDrop(card, output, landingFor(QSizeF(card->frameGeometry().width(), card->frameGeometry().height())),
+            intent, side)) return false;
+    // The card leaves as the Active card does, with the record of where it
+    // was before it was a card.
+    if (m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->selectedWindow() != card) (void)m_cardStage->promoteToActive(card);
+    const auto source = m_cardStage->prepareNativeCarrySource(card);
+    if (!source) return false;
+    const KWin::RectF landing = landingFor(QSizeF(source->restoreSnapshot().geometry.width(),
+        source->restoreSnapshot().geometry.height()));
+    m_placementDrop = m_desktopStage->prepareCardDrop(card, output, landing, intent, side);
+    if (!m_placementDrop) return false;
+    const bool placed = m_cardStage->transferNativeCarryToDesktop(*source, output, landing);
+    m_placementDrop.reset();
     observeCardOwnership();
     return placed;
 }

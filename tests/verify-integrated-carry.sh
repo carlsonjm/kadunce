@@ -105,6 +105,7 @@ scenes=(
     late-maximize-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
+    placement-display-runtime tablet
     x11-tablet-runtime tablet
 )
 

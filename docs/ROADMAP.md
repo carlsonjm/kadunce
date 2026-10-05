@@ -15,13 +15,11 @@ What is planned for Kadunce, and what it does not do yet.
 - Under a reduced-motion preference, where the platform exposes one apart
   from Plasma's instant speed, short fades in place of travel.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
+- A placement request (`REQUESTS.md`) taking a pane out of its layout.
 - One package and interface namespace across the suite, with a documented
   migration from today's identifiers.
 - From Spread, a pull from the top edge bringing Table's tabs over Spread, which
   stays showing; the full-size previews come only past the tabs.
-- A placement request (`REQUESTS.md`) taking a card onto another display, a
-  window from another display onto the card display, and a pane out of its
-  layout.
 
 ## Known limitations
 

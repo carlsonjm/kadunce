@@ -780,6 +780,11 @@ private:
     [[nodiscard]] PlacementAim placementAimAt(QPointF point) const;
     [[nodiscard]] std::optional<KWin::RectF> placementPreview(const PlacementAim &aim, QPointF point) const;
     bool placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QPointF point);
+    bool placeCardOnDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+        const PlacementAim &aim, QPointF point);
+    // The destination a card placed by request was reserved, while it is handed
+    // over; admitCardToDesktopStage reads it as it reads a carry's.
+    std::optional<DesktopStageController::PreparedDrop> m_placementDrop;
     void completePlacementForWindow(KWin::EffectWindow *window);
     void drawDestinationOutline(const KWin::RenderTarget &renderTarget,
                                 const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
