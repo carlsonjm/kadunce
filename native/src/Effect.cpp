@@ -534,6 +534,10 @@ public:
         SessionScope scope(m_effect, m_session);
         return layouts().isTabletOutputForDesktopStage(output);
     }
+    bool usesDrawnZonesForDesktopStage() const override
+    {
+        return layouts().usesDrawnZonesForDesktopStage();
+    }
     bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session);
@@ -677,6 +681,8 @@ Effect::Effect()
     m_currentSession = sessionFor(KWin::effects->currentDesktop());
     scopeTo(m_currentSession);
     loadNamedDesktops();
+    m_usesDrawnZones = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Bento"))
+        .readEntry(QStringLiteral("UseDrawnZones"), false);
     // A menu bar's tab held still becomes a rename.
     m_tableHold.setSingleShot(true);
     m_tableHold.setTimerType(Qt::PreciseTimer);
@@ -2365,6 +2371,28 @@ void Effect::loadNamedDesktops()
         group.deleteEntry(QStringLiteral("PinnedDesktops"));
         saveNamedDesktops();
     }
+}
+
+void Effect::setUsesDrawnZones(bool uses)
+{
+    if (uses == m_usesDrawnZones) return;
+    m_usesDrawnZones = uses;
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Bento"));
+    group.writeEntry(QStringLiteral("UseDrawnZones"), uses);
+    group.sync();
+    forEachSession([this] { m_desktopStage->zoneModeChanged(); });
+}
+
+// Meta+Shift+B says which arrangement the monitors now take, as Plasma's own
+// switches do.
+void Effect::switchZoneMode()
+{
+    setUsesDrawnZones(!m_usesDrawnZones);
+    auto message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
+        QStringLiteral("/org/kde/osdService"), QStringLiteral("org.kde.osdService"), QStringLiteral("showText"));
+    message << QStringLiteral("view-grid")
+            << (m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill"));
+    QDBusConnection::sessionBus().asyncCall(message);
 }
 
 void Effect::saveNamedDesktops()
@@ -5255,6 +5283,7 @@ void Effect::runKeyAction(KeyAction action)
     case KeyAction::StackPrevious: pageStackUp(); break;
     case KeyAction::StackNext: pageStackDown(); break;
     case KeyAction::Bento: toggleBento(); break;
+    case KeyAction::ZoneMode: switchZoneMode(); break;
     case KeyAction::Release: release(); break;
     case KeyAction::Open: activateSelectedFromInput(); break;
     case KeyAction::Back:

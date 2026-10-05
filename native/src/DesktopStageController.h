@@ -41,6 +41,9 @@ public:
 
     [[nodiscard]] virtual bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const = 0;
+    // Whether a display without cards takes the zones drawn for it with
+    // Meta+T, or fills itself as though none were drawn.
+    [[nodiscard]] virtual bool usesDrawnZonesForDesktopStage() const { return false; }
     [[nodiscard]] virtual bool allowsDesktopStageOnOutput(
         const KWin::LogicalOutput *output) const = 0;
     [[nodiscard]] virtual bool isManagedWindowForDesktopStage(
@@ -140,6 +143,9 @@ public:
     bool beginRail(QPointF position);
     void updateRail(QPointF position);
     void finishRail(bool commit);
+    // The host's choice between drawn zones and filling changed: every layout
+    // on a display without cards is laid out again under it.
+    void zoneModeChanged();
     QList<QRectF> railPreview(const QString &output) const;
     bool handoffLeadToOutput(const QString &sourceName,
                              const QString &destinationName);

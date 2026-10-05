@@ -1244,7 +1244,7 @@ bool DesktopStageController::planSession(Session &session,
     // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
     // it in KDE's tile editor, when there are any. A window keeps the zone it
     // has while it fits, and one that fits no zone left waits as remainder.
-    if (parksOverflow(session.outputName)) {
+    if (parksOverflow(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
         const QList<DrawnZone> drawn = drawnZones(output);
         if (!drawn.isEmpty()) {
             const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
@@ -2844,6 +2844,24 @@ void DesktopStageController::syncZonesFromKde(Session &session) const
             session.zones[index] = tile;
         }
     }
+}
+
+void DesktopStageController::zoneModeChanged()
+{
+    const auto keys = m_sessions.keys();
+    for (const auto &key : keys) {
+        if (!parksOverflow(key)) continue;
+        auto found = m_sessions.find(key);
+        if (found == m_sessions.end() || found->windows.isEmpty()) continue;
+        const QPointer<KWin::EffectWindow> lead = found->windows.first();
+        // What the new arrangement cannot show waits in the dock, as it does
+        // for any arrival, before the rest is laid out again.
+        if (!lead || !shedUnshowable(key, found.value(), lead, false)) continue;
+        found = m_sessions.find(key);
+        if (found == m_sessions.end() || !reflowSession(found.value(), lead, false, true)) continue;
+        if (applySession(found.value(), false)) scheduleSettle();
+    }
+    releaseStrayZones();
 }
 
 void DesktopStageController::releaseStrayZones()

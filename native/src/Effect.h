@@ -179,6 +179,9 @@ public Q_SLOTS:
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
+    // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
+    Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
+    Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
     // Table's preview: another desktop drawn on every display in place of the
@@ -435,6 +438,7 @@ private:
     KWin::LogicalOutput *tabletOutput() const;
     [[nodiscard]] bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool usesDrawnZonesForDesktopStage() const override { return m_usesDrawnZones; }
     [[nodiscard]] bool allowsDesktopStageOnOutput(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool isManagedWindowForDesktopStage(
@@ -524,6 +528,9 @@ private:
     void quietCardGap(const QPointF &position);
     [[nodiscard]] bool inCardGap(const QPointF &position) const;
     bool m_gapHeld = false;
+    // kaduncerc's choice, so a monitor keeps it across sessions.
+    bool m_usesDrawnZones = false;
+    void switchZoneMode();
     [[nodiscard]] int activeSideForPoint(
         const QPointF &position) const override;
     [[nodiscard]] bool selectedStackContains(

@@ -72,9 +72,10 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on the side you let go. The partner is the Active card or, when the window is the Active card, its nearest neighbour on that side of the row. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
-| `Meta+B` | Starts or ends Bento on the largest attached monitor, or on the card display when none is attached. There it pairs the Active card, on the left, with the next card to its right. |
-| Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size at the top. With two or more, all join one layout, the dragged one on your side; one without room waits in the dock. Zones drawn there with `Meta+T` are the layout, with KDE's own edges. |
+| Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on the side you let go. The partner is the Active card or, for the Active card itself, its nearest neighbour on that side. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
+| `Meta+B` | Starts or ends Bento on the largest monitor, or on the card display when none is attached, pairing the Active card with the next card to its right. |
+| `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
+| Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size on top. With two or more, all join one layout, the dragged one on your side; one without room waits in the dock. Switched to zones, those drawn with `Meta+T` are the layout, with KDE's edges. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
 | Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, and that pane becomes a card. |
@@ -117,6 +118,6 @@ are up, the bottom edge is theirs.
 | Input | What happens |
 | --- | --- |
 | Switch Kadunce off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
-| `Meta+Esc` | Every window on every display and desktop returns to the ordinary Plasma desktop. The next window to open on the card display starts cards again. |
+| `Meta+Esc` | Every window everywhere returns to the plain Plasma desktop. The next window on the card display starts cards again. |
 | Drag the Active card or a Bento pane to the bottom edge | It returns to the ordinary Plasma desktop where you let it go; other cards wait in Spread. |
 | Switch Kadunce on in the tray | The card display's windows become cards, the one in use the Active card. |
