@@ -42,6 +42,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/WorkspaceInputRouter.h
         src/Effect.cpp
         src/Effect.h
+        src/PaintResult.h
         src/TableGesture.h
         src/TableLayout.h
         src/TablePresenter.cpp

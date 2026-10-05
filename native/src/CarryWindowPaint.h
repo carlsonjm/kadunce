@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 #include "CarryPaintPlan.h"
+#include "PaintResult.h"
 #include <core/renderviewport.h>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
@@ -22,8 +23,9 @@ inline bool paintCarryWindow(const KWin::RenderTarget &renderTarget,
     KWin::Effect::setPositionTransformations(data, logicalRegion, window,
         KWin::RectF(plan.target).toRect(), Qt::KeepAspectRatioByExpanding);
     const KWin::Region clip(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan.clip)));
-    KWin::effects->paintWindow(renderTarget, viewport, window,
-        mask | KWin::Effect::PAINT_WINDOW_TRANSFORMED, region & clip, data);
-    return true;
+    return painted([&] {
+        return KWin::effects->paintWindow(renderTarget, viewport, window,
+            mask | KWin::Effect::PAINT_WINDOW_TRANSFORMED, region & clip, data);
+    });
 }
 } // namespace Kadunce
