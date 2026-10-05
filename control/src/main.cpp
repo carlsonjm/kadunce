@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QIcon>
 #include <QLockFile>
 #include <QMenu>
@@ -181,11 +182,11 @@ public:
         QObject::connect(&m_probe, &QProcess::finished, [this](int code, QProcess::ExitStatus status) {
             m_kwinVersion = code == 0 && status == QProcess::NormalExit
                 ? Compatibility::kwinVersion(QString::fromUtf8(m_probe.readAllStandardOutput())) : QString();
-            refresh();
+            updateHealth();
         });
         QObject::connect(&m_probe, &QProcess::errorOccurred, [this](QProcess::ProcessError) {
             m_kwinVersion.clear();
-            refresh();
+            updateHealth();
         });
         QObject::connect(&m_repair, &QProcess::readyRead, [this]() {
             m_repairOutput += QString::fromUtf8(m_repair.readAll());
@@ -208,6 +209,7 @@ public:
             message->setAttribute(Qt::WA_DeleteOnClose);
             message->show();
             probe();
+            updateHealth();
             refresh();
         });
         QObject::connect(&m_repair, &QProcess::errorOccurred, [this](QProcess::ProcessError error) {
@@ -223,7 +225,7 @@ public:
         m_notifier.setContextMenu(m_menu);
 
         QObject::connect(m_menu, &QMenu::aboutToShow,
-                         [this]() { probe(); refresh(); });
+                         [this]() { probe(); updateHealth(); refresh(); });
         QObject::connect(m_toggle, &QAction::triggered,
                          [this](bool enabled) {
             if (enabled) {
@@ -233,11 +235,17 @@ public:
             }
         });
 
-        m_refresh.setInterval(5000);
-        QObject::connect(&m_refresh, &QTimer::timeout,
-                         [this]() { refresh(); });
-        m_refresh.start();
+        // The switch can also change from a script or KWin's own settings, so
+        // follow kwinrc itself. A save replaces the file, which ends its watch.
+        QObject::connect(&m_kwinrcWatch, &QFileSystemWatcher::fileChanged,
+                         [this](const QString &) { watchKWinConfig(); refresh(); });
+        QObject::connect(&m_kwinrcWatch, &QFileSystemWatcher::directoryChanged,
+                         [this](const QString &) {
+            if (watchKWinConfig()) refresh();
+        });
+        watchKWinConfig();
         probe();
+        updateHealth();
         refresh();
     }
 
@@ -315,12 +323,26 @@ private:
 
     QPointer<QDialog> m_settings;
 
-    void refresh()
+    // Returns true when kwinrc has just come back after being missing.
+    bool watchKWinConfig()
     {
-        const bool enabled = effectEnabled();
-        m_toggle->setText(QStringLiteral("Kadunce enabled"));
-        m_toggle->setChecked(enabled);
-        m_toggle->setEnabled(!m_busy);
+        const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+            + QStringLiteral("/kwinrc");
+        if (QFileInfo::exists(path)) {
+            const bool cameBack = !m_kwinrcWatch.directories().isEmpty();
+            if (cameBack) m_kwinrcWatch.removePaths(m_kwinrcWatch.directories());
+            if (!m_kwinrcWatch.files().contains(path)) m_kwinrcWatch.addPath(path);
+            return cameBack;
+        }
+        const QString directory = QFileInfo(path).absolutePath();
+        if (!m_kwinrcWatch.directories().contains(directory)) {
+            m_kwinrcWatch.addPath(directory);
+        }
+        return false;
+    }
+
+    void updateHealth()
+    {
         const QPluginLoader plugin(QStringLiteral("/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"));
         const QString built = Compatibility::pluginVersion(plugin.metaData().value(QStringLiteral("IID")).toString());
         m_mismatch = Compatibility::mismatch(built, m_kwinVersion);
@@ -329,11 +351,25 @@ private:
             : built.isEmpty() || m_kwinVersion.isEmpty()
                 ? QStringLiteral("KWin compatibility could not be determined")
                 : QStringLiteral("Built for installed KWin %1").arg(built));
+    }
+
+    void refresh()
+    {
+        const bool enabled = effectEnabled();
+        m_toggle->setText(QStringLiteral("Kadunce enabled"));
+        m_toggle->setChecked(enabled);
+        m_toggle->setEnabled(!m_busy);
         m_repairAction->setText(m_repairing ? QStringLiteral("Repair in progress…") : QStringLiteral("Repair for current KWin…"));
         m_repairAction->setEnabled(!m_repairing && QFileInfo::exists(repairDirectory() + QStringLiteral("/source.tar")));
         const QString icon = enabled
             ? QStringLiteral(":/icons/assets/kadunce-enabled.svg")
             : QStringLiteral(":/icons/assets/kadunce-disabled.svg");
+        // Every icon or tooltip change wakes the tray host, so send them only
+        // when the state they show has changed.
+        if (m_shownEnabled == int(enabled)) {
+            return;
+        }
+        m_shownEnabled = int(enabled);
         m_notifier.setIconByPixmap(QIcon(icon));
         m_notifier.setToolTip(
             QIcon(icon), QStringLiteral("Kadunce"),
@@ -358,6 +394,7 @@ private:
         if (m_busy || effectEnabled()) {
             return;
         }
+        updateHealth();
         if (m_mismatch) {
             m_notifier.showMessage(QStringLiteral("Kadunce needs a rebuild"),
                 QStringLiteral("KWin was updated. Choose ‘Repair for current KWin’ from this tray menu. If you have not restarted since the system update, finish it with a normal logout/login first."),
@@ -441,7 +478,8 @@ private:
     bool m_mismatch = false;
     bool m_repairing = false;
     unsigned m_probeGeneration = 0;
-    QTimer m_refresh;
+    QFileSystemWatcher m_kwinrcWatch;
+    int m_shownEnabled = -1;
     bool m_busy = false;
 };
 

@@ -41,6 +41,12 @@ rg -q 'unloadEffect' "${source_file}"
 rg -q 'loadEffect' "${source_file}"
 rg -q 'writeEffectEnabled\(true\)' "${source_file}"
 rg -q 'writeEffectEnabled\(false\)' "${source_file}"
+# The tray follows kwinrc rather than polling it, so it never wakes on its own.
+if rg -q 'setInterval|m_refresh' "${source_file}"; then
+    echo "kadunce-control must not poll on a timer" >&2
+    exit 1
+fi
+rg -q 'QFileSystemWatcher' "${source_file}"
 rg -q '^Restart=always$' "${service_file}"
 rg -q '^StartLimitIntervalSec=0$' "${service_file}"
 rg -q '^PartOf=graphical-session.target$' "${service_file}"
