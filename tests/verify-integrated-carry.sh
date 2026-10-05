@@ -101,6 +101,7 @@ scenes=(
     adopt-reach-runtime tablet
     late-maximize-runtime tablet
     active-launch-runtime tablet
+    placement-runtime tablet
     x11-tablet-runtime tablet
 )
 

@@ -8,6 +8,8 @@
 #include <fstream>
 #include <string>
 #include "LaunchIdentity.h"
+#include "PendingLaunch.h"
+#include "PlacementAim.h"
 #include "SpreadLayout.h"
 #include "BentoCompositeGeometry.h"
 #include "HeldTuck.h"
@@ -3278,13 +3280,18 @@ KWin::LogicalOutput *Effect::externalDesktopOutput() const
 
 bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output)
 {
-    auto *active = m_cardStage->activeCardIdentity();
-    if (!output || !active) return false;
     // CARD-LIFECYCLE.md §3 places by the gesture, and this gesture contacts no
     // edge, so the side is stated rather than read: the Active card keeps the
     // left pane and its partner is named by walking right from it.
-    const BentoSidePlacement side{false, true};
-    auto *partner = m_cardStage->partnerForSideSnap(active, false);
+    return pairActiveCardIntoBento(output, BentoSidePlacement{false, true}, false);
+}
+
+bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output,
+    BentoSidePlacement side, bool walkLeft)
+{
+    auto *active = m_cardStage->activeCardIdentity();
+    if (!output || !active) return false;
+    auto *partner = m_cardStage->partnerForSideSnap(active, walkLeft);
     if (!partner) return false;
     const auto reserved = m_desktopStage->prepareCardDrop(active, output,
         KWin::RectF(active->frameGeometry()),
@@ -4412,6 +4419,202 @@ bool Effect::activateApplicationWindow(const QString &windowId)
     return false;
 }
 
+// Placement requests (docs/REQUESTS.md). The dock, or any other requester,
+// carries an application to a point; Kadunce shows where it would go and puts
+// it there when it is let go.
+int Effect::placementProtocolVersion() const
+{
+    return 1;
+}
+
+QList<PlacementOutput> Effect::placementOutputs() const
+{
+    QList<PlacementOutput> outputs;
+    for (auto *output : KWin::effects->screens()) {
+        if (output) outputs.append({output->name(), QRectF(output->geometry()), m_cardStage->canOwnCards(output)});
+    }
+    return outputs;
+}
+
+PlacementAim Effect::placementAimAt(QPointF point) const
+{
+    auto aim = placementAim(placementOutputs(), point);
+    // CARD-LIFECYCLE.md §3: a side snap on a display Kadunce does not yet own
+    // gives an Active card, as the middle does.
+    if ((aim.kind == PlacementAimKind::Left || aim.kind == PlacementAimKind::Right)
+        && !m_cardStage->isActive()) {
+        for (auto *output : KWin::effects->screens()) {
+            if (output && output->name() == aim.output && m_cardStage->canOwnCards(output))
+                aim.kind = PlacementAimKind::Card;
+        }
+    }
+    return aim;
+}
+
+std::optional<KWin::RectF> Effect::placementPreview(const PlacementAim &aim, QPointF point) const
+{
+    KWin::LogicalOutput *output = nullptr;
+    for (auto *candidate : KWin::effects->screens()) {
+        if (candidate && candidate->name() == aim.output) output = candidate;
+    }
+    if (!output) return std::nullopt;
+    QRectF area = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, output))
+        .intersected(QRectF(output->geometry()));
+    area.setBottom(std::min(area.bottom(), double(output->geometry().bottom()) - PlacementDockBand));
+    switch (aim.kind) {
+    case PlacementAimKind::Card:
+    case PlacementAimKind::Top:
+        return KWin::RectF(m_cardStage->activeTarget(output));
+    case PlacementAimKind::Left:
+    case PlacementAimKind::Right: {
+        const bool right = aim.kind == PlacementAimKind::Right;
+        const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        const double width = area.width() * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
+        return KWin::RectF(right ? area.right() - width : area.left(), area.top(), width, area.height());
+    }
+    case PlacementAimKind::Display:
+        return KWin::RectF(area);
+    case PlacementAimKind::None:
+        break;
+    }
+    return std::nullopt;
+}
+
+QString Effect::aimPlacement(double x, double y)
+{
+    const QPointF point(x, y);
+    const auto aim = placementAimAt(point);
+    const auto preview = aim.kind == PlacementAimKind::None ? std::nullopt : placementPreview(aim, point);
+    m_placementAim = aim;
+    m_placementPreview = preview;
+    m_placementPreviewOutput.clear();
+    for (auto *output : KWin::effects->screens()) {
+        if (output && preview && output->name() == aim.output) m_placementPreviewOutput = output;
+    }
+    KWin::effects->addRepaintFull();
+    return placementAimName(aim.kind);
+}
+
+void Effect::clearPlacementAim()
+{
+    if (!m_placementAim && !m_placementPreview) return;
+    m_placementAim.reset();
+    m_placementPreview.reset();
+    m_placementPreviewOutput.clear();
+    KWin::effects->addRepaintFull();
+}
+
+bool Effect::placeApplication(const QStringList &applicationIds, const QString &windowId,
+                              double x, double y, const QString &requestToken)
+{
+    const QPointF point(x, y);
+    const auto aim = placementAimAt(point);
+    const auto aimed = m_placementAim;
+    clearPlacementAim();
+    // A request is placed only where it was last aimed, never where a release
+    // happens to land.
+    if (requestToken.isEmpty() || aim.kind == PlacementAimKind::None || !aimed || *aimed != aim)
+        return false;
+    QString requested = windowId.trimmed();
+    requested.remove(QLatin1Char('{')).remove(QLatin1Char('}'));
+    if (requested.isEmpty()) {
+        auto launch = PendingLaunch::make(applicationIds, requestToken);
+        if (!launch) return false;
+        if (m_placementLaunch)
+            Q_EMIT placementSettled(m_placementLaunch->token, QString(), false);
+        m_placementLaunch = std::move(*launch);
+        m_placementLaunchAim = aim;
+        m_placementLaunchPoint = point;
+        const auto generation = ++m_placementGeneration;
+        QTimer::singleShot(PlacementLaunchTimeoutMs, this, [this, generation] {
+            if (generation == m_placementGeneration && m_placementLaunch) cancelPlacement(m_placementLaunch->token);
+        });
+        return true;
+    }
+    KWin::EffectWindow *window = nullptr;
+    for (auto *candidate : KWin::effects->stackingOrder()) {
+        if (isApplicationWindow(candidate) && candidate->window()
+            && windowIdentity(candidate).compare(requested, Qt::CaseInsensitive) == 0) window = candidate;
+    }
+    if (!window) return false;
+    const bool placed = placeWindow(window, aim, point);
+    Q_EMIT placementSettled(requestToken, windowIdentity(window), placed);
+    return placed;
+}
+
+void Effect::cancelPlacement(const QString &requestToken)
+{
+    if (!m_placementLaunch || m_placementLaunch->token != requestToken) return;
+    ++m_placementGeneration;
+    const auto token = m_placementLaunch->token;
+    m_placementLaunch.reset();
+    Q_EMIT placementSettled(token, QString(), false);
+}
+
+void Effect::completePlacementForWindow(KWin::EffectWindow *window)
+{
+    if (!m_placementLaunch || !isApplicationWindow(window)
+        || !m_placementLaunch->matches(applicationIdentity(window))) return;
+    const auto token = m_placementLaunch->token;
+    const auto aim = m_placementLaunchAim;
+    const auto point = m_placementLaunchPoint;
+    m_placementLaunch.reset();
+    ++m_placementGeneration;
+    // The arrival is admitted first, as every arrival is, and placed from there.
+    QPointer<KWin::EffectWindow> arrival = window;
+    QTimer::singleShot(0, this, [this, arrival, token, aim, point] {
+        const bool placed = arrival && !arrival->isDeleted() && placeWindow(arrival, aim, point);
+        Q_EMIT placementSettled(token, windowIdentity(arrival), placed);
+    });
+}
+
+bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QPointF point)
+{
+    KWin::LogicalOutput *output = nullptr;
+    for (auto *candidate : KWin::effects->screens()) {
+        if (candidate && candidate->name() == aim.output) output = candidate;
+    }
+    if (!output || !window || window->isDeleted() || !window->window()) return false;
+    const bool card = m_cardStage->isActive() && m_cardStage->liveCardIndex(window) >= 0;
+    if (m_cardStage->canOwnCards(output)) {
+        // A window shown elsewhere does not come to the card display yet.
+        if (!card && window->screen() != output) return false;
+        if (!activateApplicationWindow(windowIdentity(window))) return false;
+        if (aim.kind == PlacementAimKind::Card) return true;
+        // CARD-LIFECYCLE.md §3, as the Active card carried to that edge.
+        const bool right = aim.kind == PlacementAimKind::Right;
+        const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        QPointer<KWin::LogicalOutput> destination = output;
+        QPointer<KWin::EffectWindow> placed = window;
+        QTimer::singleShot(0, this, [this, destination, placed, side, right] {
+            if (!destination || !placed || m_cardStage->activeCardIdentity() != placed) return;
+            (void)pairActiveCardIntoBento(destination, side, !right);
+            observeCardOwnership();
+        });
+        return true;
+    }
+    // A card does not leave the card display by request yet, and a pane keeps
+    // its layout.
+    if (card) return false;
+    if (m_desktopStage->managesWindow(window)) {
+        return aim.kind == PlacementAimKind::Display && window->screen() == output
+            && activateApplicationWindow(windowIdentity(window));
+    }
+    if (aim.kind == PlacementAimKind::Display && window->screen() == output)
+        return activateApplicationWindow(windowIdentity(window));
+    std::optional<BentoSidePlacement> side;
+    if (aim.kind == PlacementAimKind::Left || aim.kind == PlacementAimKind::Right)
+        side = bentoSideChoice(aim.kind == PlacementAimKind::Right, point.y(),
+                               QRectF(output->geometry()).center().y());
+    const auto drop = m_desktopStage->prepareCardDrop(window, output, KWin::RectF(window->frameGeometry()),
+        aim.kind == PlacementAimKind::Display ? DesktopStageController::CardDropIntent::OpenSpace
+                                              : DesktopStageController::CardDropIntent::ActivateBento, side);
+    if (!drop) return false;
+    const bool placed = m_desktopStage->transferPreparedCard(*drop, [] { return true; }, [] {});
+    observeCardOwnership();
+    return placed;
+}
+
 int Effect::launcherGuestProtocolVersion() const
 {
     return 3;
@@ -5242,6 +5445,45 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
 }
 
+void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
+    const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
+    KWin::LogicalOutput *screen, const QRectF &box)
+{
+    QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
+        .intersected(QRectF(screen->geometry()));
+    clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
+    QList<QVector2D> vertices;
+    for (const auto &dirty : deviceRegion.rects()) {
+        const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
+            .intersected(clip).intersected(box);
+        if (part.isEmpty()) continue;
+        vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                 << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+    }
+    if (!vertices.isEmpty()) {
+        KWin::ShaderBinder binder(m_destinationShader.get());
+        auto matrix = viewport.projectionMatrix();
+        matrix.scale(viewport.scale(), viewport.scale());
+        m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+        m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+        m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
+        m_destinationShader->setUniform("surfaceFill", QVector4D(0.88f, 0.88f, 0.88f, 0.035f));
+        m_destinationShader->setUniform("outlineOpacity", 0.65f);
+        m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+            renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+        const bool blended = glIsEnabled(GL_BLEND);
+        GLint srcRgb, dstRgb, srcAlpha, dstAlpha;
+        glGetIntegerv(GL_BLEND_SRC_RGB, &srcRgb); glGetIntegerv(GL_BLEND_DST_RGB, &dstRgb);
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha); glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+        buffer->reset(); buffer->setVertices(vertices); buffer->render(GL_TRIANGLES);
+        glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+        if (!blended) glDisable(GL_BLEND);
+    }
+}
+
 PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                          const KWin::RenderViewport &viewport,
                          int mask,
@@ -5306,39 +5548,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 && reservation->destinationOutput() == screen
                 && m_desktopStage->cardDropValid(*reservation)))) {
         const QRectF box(*preview);
-        QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
-            .intersected(QRectF(screen->geometry()));
-        clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
-        QList<QVector2D> vertices;
-        for (const auto &dirty : deviceRegion.rects()) {
-            const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
-                .intersected(clip).intersected(box);
-            if (part.isEmpty()) continue;
-            vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
-                     << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
-        }
-        if (!vertices.isEmpty()) {
-            KWin::ShaderBinder binder(m_destinationShader.get());
-            auto matrix = viewport.projectionMatrix();
-            matrix.scale(viewport.scale(), viewport.scale());
-            m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
-            m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-            m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
-            m_destinationShader->setUniform("surfaceFill", QVector4D(0.88f, 0.88f, 0.88f, 0.035f));
-            m_destinationShader->setUniform("outlineOpacity", 0.65f);
-            m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
-                renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
-            const bool blended = glIsEnabled(GL_BLEND);
-            GLint srcRgb, dstRgb, srcAlpha, dstAlpha;
-            glGetIntegerv(GL_BLEND_SRC_RGB, &srcRgb); glGetIntegerv(GL_BLEND_DST_RGB, &dstRgb);
-            glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha); glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-            auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
-            buffer->reset(); buffer->setVertices(vertices); buffer->render(GL_TRIANGLES);
-            glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
-            if (!blended) glDisable(GL_BLEND);
-        }
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, box);
         // The outline above is drawn for a Bento reservation, a Card Stage
         // entry or a card leaving at the bottom edge. §10 gives the bottom edge
         // the only detaching release, so a pane leaving its layout and a card
@@ -5347,6 +5557,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             || (reservation && !cardEntry && reservation->detachesToDesktop()))
             m_detachLabel.render(renderTarget, viewport, box);
     }
+    // Where a placement request is aimed, as a carried card's destination is.
+    if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen)
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, QRectF(*m_placementPreview));
     if (screen && screen == tabletOutput() && m_cardStage->isActive()
         && m_cardStage->presentation() == CardPresentation::Spread) {
         const auto &model = m_cardStage->model();
@@ -5492,11 +5705,15 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         }
         if (m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
+            completePlacementForWindow(candidate);
             return;
         }
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
-        if (!m_cardStage->isActive() && startTabletInCards(candidate)) return;
+        if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
+            completePlacementForWindow(candidate);
+            return;
+        }
         // §8: the layout could not take it, so the layout leaves the screen
         // before the card stage puts a card where the panes were. Without
         // this the card is drawn over a running layout, which is the one
@@ -5505,6 +5722,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         (void)m_cardStage->handleWindowAdded(candidate);
         completeLauncherGuestForWindow(candidate);
         observeCardOwnership();
+        completePlacementForWindow(candidate);
     };
     QTimer::singleShot(0, this, admitReadyWindow);
     if (window->window() && !window->window()->readyForPainting())

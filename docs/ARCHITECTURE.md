@@ -212,7 +212,9 @@ oversized windows retain a reachable title bar instead of being resized.
 Tettegouche reads Kadunce through the versioned, read-only context endpoint in
 `TETTEGOUCHE-CONTEXT.md`. Companion applications cannot join Kadunce's card registry
 or mutate compositor ownership. The guest-card protocol is opt-in, versioned, and
-separate from ordinary context publication.
+separate from ordinary context publication. Placement requests (`REQUESTS.md`)
+name an application and a point; Kadunce decides what the point means and places
+the window through the same transitions a carried window takes.
 
 Table uses KWin's virtual desktops for membership, switching and names. A preview
 stops other desktops' windows painting rather than switching, and entering runs
