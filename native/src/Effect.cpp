@@ -4,6 +4,7 @@
 */
 
 #include "Effect.h"
+#include "MotionTime.h"
 #include <QScopeGuard>
 #include <fstream>
 #include <string>
@@ -74,6 +75,15 @@
 
 namespace Kadunce
 {
+
+namespace
+{
+// A custom motion's duration at Plasma's animation speed (MotionTime.h).
+int motion(int base)
+{
+    return motionDuration(base, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
+}
+}
 
 namespace
 {
@@ -3898,12 +3908,12 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
     for (const auto &m : m_bentoMotions) {
         if (m.window != window) continue;
         if (!window || window->isDeleted() || !window->window() || !m.output
-            || !m.timer.isValid() || m.timer.elapsed() >= 220
+            || !m.timer.isValid() || m.timer.elapsed() >= motion(220)
             || window->isUserMove() || window->isUserResize() || window->isMinimized()
             || QRectF(m.output->geometry()) != m.outputGeometry
             || window->window()->moveResizeOutput() != m.output
             || QRectF(window->window()->moveResizeGeometry()) != m.to) return std::nullopt;
-        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m.timer.elapsed()/220.0);
+        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m.timer.elapsed() / double(motion(220)));
         return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
             m.from.size()+(m.to.size()-m.from.size())*t);
     }
@@ -3974,7 +3984,7 @@ void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *ou
 
 std::optional<QRectF> Effect::dropSettleRect() const
 {
-    constexpr double Duration = 220.0;
+    const double Duration = motion(220);
     if (!m_settlingWindow || m_settlingWindow->isDeleted() || !m_settlingOutput
         || !m_dropSettleTimer.isValid() || m_dropSettleTimer.elapsed() >= Duration
         || !m_settlingWindow->window()
@@ -4784,9 +4794,9 @@ KWin::Rect Effect::launcherGuestExpandedTarget(KWin::LogicalOutput *output) cons
 double Effect::guestNeighborOpacity() const
 {
     const double target = m_launcherGuestExpanded ? 0.0 : 1.0;
-    if (!m_guestNeighborMotion.isValid() || m_guestNeighborMotion.elapsed() >= 220) return target;
+    if (!m_guestNeighborMotion.isValid() || m_guestNeighborMotion.elapsed() >= motion(220)) return target;
     const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
-        m_guestNeighborMotion.elapsed() / 220.0);
+        m_guestNeighborMotion.elapsed() / double(motion(220)));
     return m_guestNeighborFrom + (target - m_guestNeighborFrom) * t;
 }
 
@@ -4806,7 +4816,7 @@ bool Effect::finishLauncherGuest(double horizontalDelta)
             if (generation == m_guestGeneration || !m_cardStage->launcherGuestActive())
                 m_guestFocusReturn.clear();
         });
-        QTimer::singleShot(220, this, [this, generation]() {
+        QTimer::singleShot(motion(220), this, [this, generation]() {
             if (generation == m_guestGeneration && m_cardStage->launcherGuestActive()) {
                 endLauncherGuest();
             }
@@ -5394,7 +5404,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
     if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
-        && m_guestNeighborMotion.elapsed() < 220) {
+        && m_guestNeighborMotion.elapsed() < motion(220)) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
         m_continueRepaint = true;
     }
@@ -5915,7 +5925,7 @@ bool Effect::completeLauncherGuestForWindow(KWin::EffectWindow *window)
     const auto generation = ++m_guestGeneration;
     m_cardStage->stageWindowArrival(window);
     callLauncherGuestOwner(QStringLiteral("completeGuestLaunch"), {m_launcherGuestLaunchToken});
-    QTimer::singleShot(220, this, [this, generation]() {
+    QTimer::singleShot(motion(220), this, [this, generation]() {
         if (generation != m_guestGeneration) return;
         endLauncherGuest();
     });

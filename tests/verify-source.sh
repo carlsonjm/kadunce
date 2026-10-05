@@ -112,7 +112,7 @@ PY_RESUME
 stack_browse=$(sed -n '/^void CardStageController::pageStack(int delta)/,/^void CardStageController::rebuildLiveCards()/p' "$card_cpp")
 printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?m_stackBrowseOutgoing = selectedWindow\(\);.*?m_workspace.pageStack\(delta\);.*?m_stackBrowseDirection =.*?syncSelectedElevation\(\)/s)'
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
-rg -Fq 'if (m_stackBrowseDirection) return StackBrowseDuration;' "$card_cpp"
+rg -Fq 'if (m_stackBrowseDirection) return motion(StackBrowseDuration);' "$card_cpp"
 # A held card is drawn above the row, which keeps its own stacking order.
 rg -Fq 'if (selectedIsBentoProjection() || m_cardGrabActive) return;' "$card_cpp"
 pickup=$(sed -n '/^void CardStageController::beginCardGrab(/,/^void CardStageController::updateCardGrab(/p' "$card_cpp")

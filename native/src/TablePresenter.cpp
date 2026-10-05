@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "TablePresenter.h"
+#include "MotionTime.h"
 
+#include <effect/effecthandler.h>
 #include <effect/offscreenquickview.h>
 
 #include <QFont>
@@ -16,7 +18,7 @@
 namespace Kadunce
 {
 
-// Long enough for Table.qml's 260 ms pour to finish.
+// Long enough for Table.qml's 260 ms pour to finish, at the default speed.
 constexpr int ClosingMs = 300;
 
 TablePresenter::TablePresenter()
@@ -53,6 +55,7 @@ void TablePresenter::show(const QRect &geometry, qreal scale, const QVariantMap 
     m_scene->show();
     if (QQuickItem *root = m_scene->rootItem()) {
         root->setProperty("model", model);
+        root->setProperty("motionFactor", KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
         root->setProperty("shown", true);
     }
 }
@@ -61,7 +64,7 @@ void TablePresenter::close()
 {
     if (!m_scene || !m_scene->isVisible() || m_closing.isActive()) return;
     if (QQuickItem *root = m_scene->rootItem()) root->setProperty("shown", false);
-    m_closing.start();
+    m_closing.start(motionDuration(ClosingMs, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0));
 }
 
 void TablePresenter::hide()

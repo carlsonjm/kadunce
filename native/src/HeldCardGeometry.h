@@ -5,9 +5,9 @@
 namespace Kadunce {
 inline constexpr double HeldCardFraction = 0.44;
 inline constexpr int HeldPickupDuration = 180;
-inline double heldPickupProgress(double elapsed)
+inline double heldPickupProgress(double elapsed, double duration = HeldPickupDuration)
 {
-    const double t = std::clamp(elapsed / HeldPickupDuration, 0.0, 1.0);
+    const double t = std::clamp(elapsed / std::max(1.0, duration), 0.0, 1.0);
     return 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t);
 }
 // Immutable pickup plus contact-relative scale; drag translation is applied once

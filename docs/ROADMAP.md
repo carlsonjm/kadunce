@@ -12,8 +12,8 @@ What is planned for Kadunce, and what it does not do yet.
   card does.
 - The on-screen keys coming up for the first text field of a session, and for a
   tap just after a card is chosen.
-- Motion that follows the system's animation speed and reduced-motion setting
-  everywhere.
+- Under a reduced-motion preference, where the platform exposes one apart
+  from Plasma's instant speed, short fades in place of travel.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
 - One package and interface namespace across the suite, with a documented
   migration from today's identifiers.
