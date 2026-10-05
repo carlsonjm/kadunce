@@ -68,6 +68,14 @@ the change lives in the library, and use an isolated runtime, display and D-Bus.
 `tests/verify-unload-isolated.sh` takes an explicit private `KADUNCE_TEST_KWIN`,
 never pointed at the live session.
 
+## Next Plasma
+
+The `Patched KWin` workflow builds the KWin that Arch's kde-unstable packages,
+applies the patch without fuzz, runs the move and resize class against it and
+shows the added cases fail against the stock source. It proves the patch on the
+coming release; the package to install is still built on the device, against its
+own libraries, as above.
+
 ## Rollback and upgrade
 
 The verified signed rollback package is

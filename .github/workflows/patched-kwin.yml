@@ -1,0 +1,111 @@
+name: Patched KWin (next Plasma)
+
+# Builds the next Plasma's KWin from Arch Linux's kde-unstable repository with
+# the touch-lifetime correction in patches/kwin, and runs the cases the patch
+# adds against both the stock and the patched source. It proves the patch
+# before the tablet is asked to build and install it; it publishes no package.
+on:
+  schedule:
+    - cron: "53 8 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/patched-kwin.yml"
+      - "patches/kwin/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/patched-kwin.yml"
+      - "patches/kwin/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patched-kwin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  patched-kwin:
+    name: Patched KWin
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 120
+    steps:
+      - name: Enable kde-unstable and install KWin's build dependencies
+        run: |
+          sed -i '0,/^\[core\]/s//[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[extra-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf
+          # Installing kwin itself brings in every runtime dependency at the
+          # matching version; the rest are its build and test dependencies.
+          pacman -Syu --noconfirm --needed \
+            base-devel cmake ninja git python dbus \
+            kwin extra-cmake-modules kdoctools krunner \
+            plasma-wayland-protocols vulkan-headers wayland-protocols \
+            xorg-xwayland
+
+      - uses: actions/checkout@v5
+
+      - name: Fetch the KWin source that kde-unstable packages
+        id: source
+        run: |
+          version=$(pacman -Q kwin | awk '{print $2}' | cut -d- -f1)
+          patchlevel=$(echo "$version" | cut -d. -f3)
+          # A .90 or later patch level is a beta or candidate, published
+          # under unstable/; a release is under stable/.
+          if [ "${patchlevel:-0}" -ge 90 ]; then channel=unstable; else channel=stable; fi
+          url="https://download.kde.org/$channel/plasma/$version/kwin-$version.tar.xz"
+          echo "KWin $version from $url"
+          curl -fsSL --retry 4 -o "kwin-$version.tar.xz" "$url"
+          tar -xf "kwin-$version.tar.xz"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Patched KWin"
+            echo '```'
+            echo "source  kwin-$version.tar.xz  $(sha256sum "kwin-$version.tar.xz" | cut -d' ' -f1)"
+            echo "patch   $(sha256sum patches/kwin/0001-bound-native-touch-to-move-lifetime.patch)"
+            pacman -Q kwin qt6-base
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply the patch without fuzz
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cp src/input.cpp ../input.cpp.stock
+          patch -p1 --fuzz=0 < ../patches/kwin/0001-bound-native-touch-to-move-lifetime.patch
+
+      - name: Build the move and resize integration test
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_LIBEXECDIR=lib \
+            -DBUILD_TESTING=ON
+          target=$(ninja -C build -t targets all | sed -n 's/^\(testMoveResize\): .*/\1/p' | head -1)
+          test -n "$target"
+          ninja -C build "$target"
+
+      - name: Run the move and resize cases against the patched source
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}/build"
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          chmod 700 "$XDG_RUNTIME_DIR"
+          test=$(find . -type f -name testMoveResize -perm -u+x | head -1)
+          # The added cases first, then the whole class so the patch is seen
+          # not to break the cases that were there before it.
+          dbus-run-session -- "$test" testTouchMoveAfterInterruption
+          dbus-run-session -- "$test"
+
+      - name: Show the added cases fail against the stock source
+        run: |
+          cd "kwin-${{ steps.source.outputs.version }}"
+          cp ../input.cpp.stock src/input.cpp
+          ninja -C build testMoveResize
+          cd build
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          chmod 700 "$XDG_RUNTIME_DIR"
+          test=$(find . -type f -name testMoveResize -perm -u+x | head -1)
+          if dbus-run-session -- "$test" testTouchMoveAfterInterruption; then
+            echo "The added cases pass without the correction, so they no longer prove it" >&2
+            exit 1
+          fi
+          echo "The added cases fail against stock KWin, as they should."
