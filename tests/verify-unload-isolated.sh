@@ -129,7 +129,7 @@ fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
 fi
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == divider-tablet-runtime-session.sh ]]; then
     # Breeze with no borders keeps an invisible resize border outside a
     # window's frame, as an application drawing its own title bar does.
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
