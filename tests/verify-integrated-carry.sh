@@ -57,6 +57,7 @@ scenes=(
     keyboard-tap-runtime tablet
     keyboard-table-runtime tablet
     keyboard-offscreen-runtime tablet
+    keyboard-first-runtime tablet
     keyboard-spread-runtime tablet
     keyboard-click-runtime tablet
     start-cards-runtime tablet
