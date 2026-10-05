@@ -116,6 +116,15 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
+// The shape a window's border asks the pointer for. KWin 6.8 no longer
+// exposes it, and there it reads as none.
+template<typename Window>
+QByteArray borderCursorName(Window *window)
+{
+    if constexpr (requires { window->cursor().name(); }) return window->cursor().name();
+    else return QByteArray();
+}
+
 // Card backing and vacant seam share one rigid transform and neutral material.
 void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
@@ -1984,7 +1993,7 @@ void Effect::tracePointerAtTop(const QPointF &position)
     const KWin::PlatformCursorImage cursor = KWin::effects->cursorImage();
     const QImage image = cursor.image();
     const size_t picture = image.isNull() ? 0 : qHashBits(image.constBits(), size_t(image.sizeInBytes()));
-    const QByteArray border = under ? under->cursor().name() : QByteArray();
+    const QByteArray border = under ? borderCursorName(under) : QByteArray();
     const QString seen = QStringLiteral("%1 %2 %3").arg(quintptr(under)).arg(QString::fromLatin1(border)).arg(picture);
     // An animated pointer changes its image by itself, so the log is held
     // to one line in 150 ms.
