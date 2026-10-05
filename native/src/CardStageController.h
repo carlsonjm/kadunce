@@ -518,6 +518,9 @@ private:
     void restoreCarryOrigin();
     bool selectReturnEntry();
     void stopOpeningSpread();
+    // Where the Bento group card draws its pane `pane`.
+    [[nodiscard]] std::optional<CardRect> groupPaneDrawn(KWin::LogicalOutput *output,
+                                                         KWin::EffectWindow *pane) const;
     // The Bento group's pane under `position`, or the nearest to it.
     [[nodiscard]] KWin::EffectWindow *groupPaneAt(KWin::LogicalOutput *output,
                                                   const QPointF &position) const;
@@ -531,8 +534,9 @@ private:
     // Whether the Bento group's pane `part` is large enough for the held card.
     [[nodiscard]] bool groupPaneHolds(int part) const;
     // The pane under `position` the held card would take, or -1 when that
-    // pane is too small for it.
-    [[nodiscard]] int groupPartFor(const QPointF &position) const;
+    // pane is too small for it; the pane `kept`, named before, stays while
+    // the finger is near it (carryGroupPart).
+    [[nodiscard]] int groupPartFor(const QPointF &position, int kept) const;
     // §5: a card let go on a pane of the Bento group in Spread takes that
     // pane's place, and the pane becomes a card just after the group.
     bool replaceGroupPane(int part);
