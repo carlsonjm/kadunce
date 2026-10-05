@@ -93,6 +93,7 @@ scenes=(
     monitor-side-runtime tablet
     first-entry-runtime tablet
     bottom-release-runtime tablet
+    divider-tablet-runtime tablet
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
