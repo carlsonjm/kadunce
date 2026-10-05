@@ -13,6 +13,8 @@
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
+#include "PendingLaunch.h"
+#include "PlacementAim.h"
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
 #include "TableLayout.h"
@@ -137,6 +139,7 @@ private Q_SLOTS:
     void toggleBento();
     [[nodiscard]] KWin::LogicalOutput *externalDesktopOutput() const;
     bool pairActiveCardIntoBento(KWin::LogicalOutput *output);
+    bool pairActiveCardIntoBento(KWin::LogicalOutput *output, BentoSidePlacement side, bool walkLeft);
 
 public Q_SLOTS:
     Q_SCRIPTABLE void showCardLine();
@@ -168,6 +171,13 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken);
     Q_SCRIPTABLE void cancelLauncherGuestLaunch();
     Q_SCRIPTABLE void endLauncherGuest();
+    // Placement requests: docs/REQUESTS.md.
+    Q_SCRIPTABLE int placementProtocolVersion() const;
+    Q_SCRIPTABLE QString aimPlacement(double x, double y);
+    Q_SCRIPTABLE void clearPlacementAim();
+    Q_SCRIPTABLE bool placeApplication(const QStringList &applicationIds, const QString &windowId,
+                                       double x, double y, const QString &requestToken);
+    Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
@@ -191,6 +201,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
     Q_SCRIPTABLE void bridgeUnavailable();
+    Q_SCRIPTABLE void placementSettled(const QString &requestToken, const QString &windowId, bool placed);
 
 private:
     // The tablet kit decides which backend owns the top and bottom edges, and it
@@ -764,6 +775,22 @@ private:
     void releaseCarriedDialogs();
     [[nodiscard]] QList<KWin::EffectWindow *> carriedDialogs() const;
     [[nodiscard]] bool drawnWithCarriedCard(const KWin::EffectWindow *window) const;
+    [[nodiscard]] QList<PlacementOutput> placementOutputs() const;
+    [[nodiscard]] PlacementAim placementAimAt(QPointF point) const;
+    [[nodiscard]] std::optional<KWin::RectF> placementPreview(const PlacementAim &aim, QPointF point) const;
+    bool placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QPointF point);
+    void completePlacementForWindow(KWin::EffectWindow *window);
+    void drawDestinationOutline(const KWin::RenderTarget &renderTarget,
+                                const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
+                                KWin::LogicalOutput *screen, const QRectF &box);
+    static constexpr int PlacementLaunchTimeoutMs = 10000;
+    std::optional<PlacementAim> m_placementAim;
+    std::optional<KWin::RectF> m_placementPreview;
+    QPointer<KWin::LogicalOutput> m_placementPreviewOutput;
+    std::optional<PendingLaunch> m_placementLaunch;
+    PlacementAim m_placementLaunchAim;
+    QPointF m_placementLaunchPoint;
+    quint64 m_placementGeneration = 0;
     bool m_launcherGuestLaunchPending = false;
     QStringList m_launcherGuestLaunchApps;
     QString m_launcherGuestLaunchToken;
