@@ -4981,6 +4981,11 @@ void Effect::quietCardGap(const QPointF &position)
 // position decides.
 bool Effect::inCardGap(const QPointF &position) const
 {
+    // A divider between panes lies in their gutter, and its press is the
+    // router's: held here, KWin would hand that press to this effect and the
+    // divider would never hear it.
+    for (const auto &rail : m_desktopStage->grabRails())
+        if (rail.hitArea.contains(position)) return false;
     const auto stack = KWin::workspace()->stackingOrder();
     for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
         KWin::Window *window = *it;
