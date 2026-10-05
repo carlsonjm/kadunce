@@ -59,6 +59,10 @@ jobs:
           set -uo pipefail
           root="$RUNNER_TEMP/scenes"
           failed=0
+          # Arch's kwin_wayland carries file capabilities a container may not
+          # grant, so exec refuses it; a plain copy runs as an ordinary binary.
+          cp "$(command -v kwin_wayland)" /tmp/kwin_wayland
+          export KADUNCE_TEST_KWIN=/tmp/kwin_wayland
           for scene in $SCENES; do
             build=$(awk -v s="$scene" '$1 == s { print $2 }' tests/verify-integrated-carry.sh)
             [[ -n $build ]] || { echo "::error::$scene is not a gate scene"; failed=1; continue; }
