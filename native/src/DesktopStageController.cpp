@@ -2855,11 +2855,20 @@ void DesktopStageController::zoneModeChanged()
         auto found = m_sessions.find(key);
         if (found == m_sessions.end() || found->windows.isEmpty()) continue;
         const QPointer<KWin::EffectWindow> lead = found->windows.first();
-        // What the new arrangement cannot show waits in the dock, as it does
-        // for any arrival, before the rest is laid out again.
+        // A window the dock holds is asked again: the new arrangement may have
+        // room for it. What it cannot show waits in the dock, as it does for
+        // any arrival, before the rest is laid out again.
+        QList<QPointer<KWin::EffectWindow>> waking;
+        for (auto &saved : found->snapshots)
+            if (saved.parked && saved.window) { saved.parked = false; waking.append(saved.window); }
         if (!lead || !shedUnshowable(key, found.value(), lead, false)) continue;
         found = m_sessions.find(key);
         if (found == m_sessions.end() || !reflowSession(found.value(), lead, false, true)) continue;
+        // Kadunce's own unminimize is not the person's, as its minimize is not.
+        const bool wasParking = std::exchange(m_parking, true);
+        for (const auto &window : std::as_const(waking))
+            if (window && window->window() && found->windows.contains(window)) window->window()->setMinimized(false);
+        m_parking = wasParking;
         if (applySession(found.value(), false)) scheduleSettle();
     }
     releaseStrayZones();

@@ -1,0 +1,77 @@
+name: Scenes
+
+# Runs chosen private-compositor scenes on Arch's stock KWin, headless, so a
+# change to placement or input can be proved before the device gate. The
+# device gate still runs every scene before a handover.
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      scenes:
+        description: Scene names, as verify-integrated-carry.sh lists them
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scenes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scenes:
+    name: Scenes
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 45
+    env:
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime divider-tablet-runtime side-runtime' }}
+    steps:
+      - name: Install build and session dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel cmake extra-cmake-modules git ripgrep python file perl dbus jq patch \
+            qt6-base qt6-declarative qt6-tools qt6-wayland \
+            kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
+            kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader mesa xorg-xwayland
+
+      - uses: actions/checkout@v5
+
+      - name: Build the plugin, the tablet fixture and the probe
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/scenes"
+          mkdir -p "$root"
+          cmake -S native -B "$root/production" -DBUILD_TESTING=OFF >"$root/build.log" 2>&1 || { tail -50 "$root/build.log"; exit 1; }
+          cmake --build "$root/production" -j4 >>"$root/build.log" 2>&1 || { tail -50 "$root/build.log"; exit 1; }
+          mkdir "$root/fixture"
+          cp -a native "$root/fixture/native"
+          patch --batch --fuzz=0 -d "$root/fixture" -p1 <tests/virtual-tablet.patch
+          cmake -S "$root/fixture/native" -B "$root/tablet" -DBUILD_TESTING=OFF >"$root/fixture.log" 2>&1
+          cmake --build "$root/tablet" -j4 >>"$root/fixture.log" 2>&1 || { tail -50 "$root/fixture.log"; exit 1; }
+          cmake -S tests/unload-probe -B "$root/probe" -DBUILD_TESTING=OFF >"$root/probe.log" 2>&1
+          cmake --build "$root/probe" -j4 >>"$root/probe.log" 2>&1 || { tail -50 "$root/probe.log"; exit 1; }
+
+      - name: Run the scenes
+        run: |
+          set -uo pipefail
+          root="$RUNNER_TEMP/scenes"
+          failed=0
+          for scene in $SCENES; do
+            build=$(awk -v s="$scene" '$1 == s { print $2 }' tests/verify-integrated-carry.sh)
+            [[ -n $build ]] || { echo "::error::$scene is not a gate scene"; failed=1; continue; }
+            log="$root/$scene.log"
+            if KADUNCE_PROBE_SESSION="$scene-session.sh" KADUNCE_RUNTIME_BUILD="$root/$build" \
+                KADUNCE_PROBE_BUILD="$root/probe" bash tests/verify-unload-isolated.sh >"$log" 2>&1; then
+              echo "ok    $scene"
+            else
+              echo "::error::$scene failed"
+              failed=1
+            fi
+            echo "::group::$scene"
+            cat "$log"
+            evidence=$(sed -n 's/^Isolated unload evidence: //p' "$log" | head -1)
+            [[ -n $evidence && -f $evidence/session.log ]] && rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )' "$evidence/session.log" | tail -150
+            echo "::endgroup::"
+          done
+          exit "$failed"
