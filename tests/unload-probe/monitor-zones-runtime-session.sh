@@ -154,7 +154,12 @@ kad setUsesDrawnZones true
 sleep 1.5
 report zones-again
 read_zones 6
-check "zones again: unload-client sits in a zone" on_zone unload-client 6
+# The window the dock holds stays there; every shown one takes a zone again.
+shown=$(facts | jq -r '.[] | select(.minimized | not) | .caption')
+check "zones again: three windows are shown" test "$(grep -c . <<<"$shown")" -eq 3
+while IFS= read -r caption; do
+    [[ -n $caption ]] && check "zones again: $caption sits in a zone" on_zone "$caption" 6
+done <<<"$shown"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep 1
