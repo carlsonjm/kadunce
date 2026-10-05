@@ -431,6 +431,7 @@ private:
     // Electron's native boxes do on Wayland. Taken for a card or a pane
     // before then, it leaves them and waits with its application from now on.
     void handleTransientChanged();
+    void handleWindowOutputChanged();
     KWin::LogicalOutput *tabletOutput() const;
     [[nodiscard]] bool isTabletOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;

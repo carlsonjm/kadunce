@@ -2474,6 +2474,38 @@ void Effect::syncDependentWindows()
     if (focus) KWin::workspace()->activateWindow(focus);
 }
 
+void Effect::handleWindowOutputChanged()
+{
+    auto *client = qobject_cast<KWin::Window *>(sender());
+    const QPointer<KWin::EffectWindow> window = client ? client->effectWindow() : nullptr;
+    if (!window) return;
+    // A window KWin sends to another display some other way than a display
+    // change, such as its window-to-screen shortcut, is answered as one that
+    // opened there. KWin reports the change inside the move that makes it, so
+    // the turn after sees where the window stands. A card, a pane or a window
+    // being carried already has an owner deciding where it goes.
+    QTimer::singleShot(0, this, [this, window] {
+        if (!window || m_releasing || !isCardWindow(window) || isDependentWindow(window)
+            || !window->window() || !window->window()->readyForPainting()
+            || !window->isOnCurrentDesktop() || window->isUserMove() || window->isUserResize()
+            || window == m_carriedWindow || window == m_nativeCarry
+            || sessionHolding(window)) return;
+        KWin::LogicalOutput *tablet = tabletOutput();
+        if (tablet && window->window()->moveResizeOutput() == tablet) {
+            // The card display hides any window that is not a card, so the
+            // arrival becomes one the way a window a display change moved does.
+            scheduleCardDisplaySettle();
+            return;
+        }
+        // A display presenting a layout takes it as a pane; one without a
+        // layout leaves it an ordinary window.
+        if (m_desktopStage->handleWindowAdded(window)) {
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+        }
+    });
+}
+
 void Effect::handleTransientChanged()
 {
     auto *client = qobject_cast<KWin::Window *>(sender());
@@ -3361,6 +3393,8 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
                 this, &Effect::handleManagedStateChanged, Qt::UniqueConnection);
         connect(window->window(), &KWin::Window::transientChanged,
                 this, &Effect::handleTransientChanged, Qt::UniqueConnection);
+        connect(window->window(), &KWin::Window::outputChanged,
+                this, &Effect::handleWindowOutputChanged, Qt::UniqueConnection);
     }
     connect(window, &KWin::EffectWindow::windowFrameGeometryChanged,
             this, &Effect::handleActiveGeometryChanged,

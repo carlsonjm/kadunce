@@ -4,8 +4,8 @@ What is planned for Kadunce, and what it does not do yet.
 
 ## Planned
 
-- A window KWin moves to a monitor by other means joining that monitor's
-  layout.
+- A card or pane KWin moves to a monitor by other means joining that
+  monitor's layout.
 - A display unplugged and plugged back in getting its drawn zones' panes back
   in place, as KWin itself does.
 - Panes and ordinary windows making room for the on-screen keys, as the Active
@@ -25,9 +25,10 @@ What is planned for Kadunce, and what it does not do yet.
 
 ## Known limitations
 
-- A display change is answered once KWin has moved windows for it. A window
-  sent to another display some other way, such as KWin's own window-to-screen
-  shortcut, is not answered.
+- A display change is answered once KWin has moved windows for it. An
+  ordinary window sent to another display some other way, such as KWin's own
+  window-to-screen shortcut, is answered as one that opened there; a card or
+  pane sent that way is not.
 - Whether switching Kadunce off returns a window to the right place after its
   display has moved in the desktop layout is not measured.
 - A Wayland dialog that names no parent window becomes a card. No application
