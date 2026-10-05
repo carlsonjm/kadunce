@@ -89,6 +89,7 @@ scenes=(
     monitor-full-runtime tablet
     monitor-grid-runtime tablet
     monitor-sent-runtime tablet
+    monitor-side-runtime tablet
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
