@@ -1544,7 +1544,8 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
         if (!m_host->admitDisplacedPaneToTablet(window, [] { return true; },
                 &eviction.record)) {
             qWarning() << "Kadunce" << Revision
-                       << "could not give a window the layout cannot show to card ownership";
+                       << "could not give a window the layout cannot show to card ownership:"
+                       << window->caption();
         }
     }
 }

@@ -2946,12 +2946,24 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     const NativeMoveSnapshot *restore)
 {
     QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
-    if (!m_active || m_presentation != CardPresentation::Bento || m_cardGrabActive
-        || m_launcherGuestActive || !tablet || !window || window->isDeleted()
-        || !window->window() || !window->isNormalWindow()
-        || !m_host->isManagedWindowForCardStage(window)
-        || window->isUserMove() || window->isUserResize()
-        || liveCardIndex(window) >= 0) return false;
+    // Each refusal says which rule refused, so a pane left plain on hardware
+    // can be traced to it.
+    const char *refusal = !m_active ? "cards are not active"
+        : m_presentation != CardPresentation::Bento ? "the display is not presenting Bento"
+        : m_cardGrabActive ? "a card is held"
+        : m_launcherGuestActive ? "the launcher guest is open"
+        : !tablet ? "there is no card display"
+        : !window || window->isDeleted() || !window->window() ? "the window is gone"
+        : !window->isNormalWindow() ? "the window is not a normal window"
+        : !m_host->isManagedWindowForCardStage(window) ? "the window is not one cards hold"
+        : window->isUserMove() || window->isUserResize() ? "the window is being moved or resized"
+        : liveCardIndex(window) >= 0 ? "the window is already a card"
+        : nullptr;
+    if (refusal) {
+        qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:" << refusal
+                << (window ? window->caption() : QString());
+        return false;
+    }
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
     const auto ticket = m_transferGuard.issue();
@@ -2972,7 +2984,11 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
         .valid = true,
     };
     const auto admission = m_workspace.prepareAdmission(arrival, false);
-    if (!admission) return false;
+    if (!admission) {
+        qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:"
+                << "the card workspace refused it" << window->caption();
+        return false;
+    }
     if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
     m_originalCardStackingOrder.append(arrival);
     const auto valid = [&] {
