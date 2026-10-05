@@ -59,6 +59,24 @@ for kind in pointer touch; do
     sleep .6
     probe windowGeometry "$main" | jq -e --argjson old "$before" '.width > $old.width+20'
 done
+# A mouse drags the divider at once, with no rest first; a click on it alone
+# changes nothing.
+before=$(probe windowGeometry "$main")
+neighbor=$(probe windowGeometry "$other")
+read -r rx ry <<<"$(jq -nr --argjson a "$before" --argjson b "$neighbor" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height*.15)] | map(floor) | @tsv')"
+probe pointer "$rx" "$ry"
+probe contactPressAndMove "$((rx+40))" "$ry"
+probe contactButton false
+sleep .6
+probe windowGeometry "$main" | jq -e --argjson old "$before" '.width > $old.width+20'
+before=$(probe windowGeometry "$main")
+neighbor=$(probe windowGeometry "$other")
+read -r rx ry <<<"$(jq -nr --argjson a "$before" --argjson b "$neighbor" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height*.15)] | map(floor) | @tsv')"
+probe pointer "$rx" "$ry"
+probe contactButton true
+probe contactButton false
+sleep .4
+test "$(probe windowGeometry "$main")" = "$before"
 before=$(probe windowGeometry "$main")
 neighbor=$(probe windowGeometry "$other")
 read -r rx ry <<<"$(jq -nr --argjson a "$before" --argjson b "$neighbor" '[($a.x+$a.width+$b.x)/2,($a.y+$a.height/2)] | map(floor) | @tsv')"
@@ -68,7 +86,7 @@ probe motion 72 "$((rx-100))" "$ry"
 probe contactCancel
 sleep .2
 test "$(probe windowGeometry "$main")" = "$before"
-echo 'PASS: pill rail previews without native resize, commits mouse/touch and cancels touch unchanged'
+echo 'PASS: pill rail previews without native resize, commits mouse/touch, drags at once by mouse, ignores a click and cancels touch unchanged'
 probe minimizeWindow "$other" true
 sleep .6
 probe windowGeometry "$main" | jq -e '.width > 1200'
