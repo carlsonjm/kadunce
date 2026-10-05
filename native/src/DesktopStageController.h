@@ -179,6 +179,7 @@ public:
     public:
         std::optional<BentoSidePlacement> sidePlacement() const { return side; }
         KWin::EffectWindow *namedPartner() const { return pairPartner.data(); }
+        KWin::EffectWindow *card() const { return window.data(); }
         KWin::LogicalOutput *destinationOutput() const { return output.data(); }
         bool detachesToDesktop() const { return intent == CardDropIntent::NativeDesktop && leavingBento; }
         bool showsPlacementOutline() const { return intent != CardDropIntent::NativeDesktop || leavingBento; }

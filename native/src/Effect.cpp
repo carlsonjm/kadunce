@@ -3121,7 +3121,7 @@ bool Effect::admitCardToDesktopStage(
 {
     if (m_carryDestination && window == m_carriedWindow)
         return m_desktopStage->transferPreparedCard(*m_carryDestination, commitSource, releaseSource);
-    if (m_placementDrop && window == m_placementDrop->window)
+    if (m_placementDrop && window == m_placementDrop->card())
         return m_desktopStage->transferPreparedCard(*m_placementDrop, commitSource, releaseSource);
     if (m_cardStage->cardGrabActive()) {
         if (!m_lineDestination || m_lineDestinationWindow != window) return false;
