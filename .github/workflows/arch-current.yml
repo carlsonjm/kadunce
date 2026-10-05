@@ -31,14 +31,14 @@ jobs:
             base-devel cmake extra-cmake-modules git ripgrep python file perl dbus \
             qt6-base qt6-declarative \
             kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
-            kstatusnotifieritem libxcb
+            kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Record the KDE and Qt versions checked
-        run: pacman -Q kwin kdecoration qt6-base extra-cmake-modules kcoreaddons
+        run: pacman -Q kwin kdecoration qt6-base extra-cmake-modules kcoreaddons vulkan-headers
 
       - name: Run ./verify.sh
         env:
