@@ -14,6 +14,11 @@ safety-control rule and who installs; this document owns the procedure.
 | `bash tests/verify-live-control.sh` | Live, read-only | The tray control is registered, exposes its switch, and is wanted at session start | Any gesture |
 | Physical review | Live, by hand | What only the real tablet shows: feel, touch, bezel, folio, displays, keys | Anything a saved test already proves |
 
+The `Arch current` GitHub check runs `./verify.sh` on every pull request, on
+`main` and daily, against Arch Linux's current KDE and Qt packages. It builds
+against stock KWin, not the corrected one in `../patches/kwin/`, and a pull
+request merges only once it passes.
+
 A fifth class, live mutation, installs, toggles the effect, injects input,
 restarts or logs out of the real session. Installation, session restart and
 logout are performed by the session owner and handed over as one command
