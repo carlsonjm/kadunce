@@ -87,6 +87,7 @@ scenes=(
     monitor-overflow-runtime tablet
     monitor-lone-runtime tablet
     monitor-full-runtime tablet
+    monitor-grid-runtime tablet
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet

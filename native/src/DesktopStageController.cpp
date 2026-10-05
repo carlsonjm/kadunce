@@ -1328,7 +1328,7 @@ bool DesktopStageController::planSession(Session &session,
         };
         const auto area = stageArea(output);
         std::vector<BentoCandidate> candidates;
-        for (int i = 0; i < std::min(10, int(owned.size())); ++i)
+        for (int i = 0; i < std::min(BentoPaneBound, int(owned.size())); ++i)
             candidates.push_back(candidate(owned[i]));
         const auto admission = chooseBentoSideAdmission(*session.side, area.width(), area.height(),
             candidates, requirePreferred ? owned.indexOf(preferred) : 0);
@@ -1351,11 +1351,11 @@ bool DesktopStageController::planSession(Session &session,
         report(remainder);
         return true;
     }
-    // The curated library has eight panes. Two alternate candidates are
-    // enough to resolve minimum-size conflicts without making the bounded
-    // subset search grow with a desktop's entire window history. How many of
-    // them this display shows is bentoPaneCap, which the edge path reads too.
-    const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
+    // The curated library reads its eight panes and two alternates; past it an
+    // even grid reads the rest, so minimum sizes decide how many panes a large
+    // display shows. BentoPaneBound keeps that finite, and how many this
+    // display shows is bentoPaneCap, which the edge path reads too.
+    const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, BentoPaneBound);
     const KWin::Rect area = stageArea(output);
     std::vector<BentoCandidate> candidates;
     candidates.reserve(considered.size());

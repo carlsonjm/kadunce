@@ -4,9 +4,8 @@ What is planned for Kadunce, and what it does not do yet.
 
 ## Planned
 
-- In Bento, replacing a pane by dropping a window on its side.
-- Curated monitor layouts past eight panes, and a window KWin moves to a
-  monitor by other means joining that monitor's layout.
+- A window KWin moves to a monitor by other means joining that monitor's
+  layout.
 - A display unplugged and plugged back in getting its drawn zones' panes back
   in place, as KWin itself does.
 - Panes and ordinary windows making room for the on-screen keys, as the Active
