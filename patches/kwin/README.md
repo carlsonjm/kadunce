@@ -72,9 +72,11 @@ never pointed at the live session.
 
 The `Patched KWin` workflow builds the KWin that Arch's kde-unstable packages,
 applies the patch without fuzz, runs the move and resize class against it and
-shows the added cases fail against the stock source. It proves the patch on the
-coming release; the package to install is still built on the device, against its
-own libraries, as above.
+shows the added cases fail against the stock source. `package/derive-pkgbuild.py`
+writes the local recipe from the official one, and the workflow checks that
+recipe's signed source and patch step too. It proves the patch on the coming
+release; the package to install is still built on the device, against its own
+libraries, as above.
 
 ## Rollback and upgrade
 

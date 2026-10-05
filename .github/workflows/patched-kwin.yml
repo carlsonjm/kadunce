@@ -113,3 +113,43 @@ jobs:
             exit 1
           fi
           echo "All six added cases fail against stock KWin, as they should."
+
+  recipe:
+    name: Patched KWin recipe
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 30
+    steps:
+      - name: Enable kde-unstable and install the packaging tools
+        run: |
+          sed -i '0,/^\[core\]/s//[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[extra-testing]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf
+          pacman -Syu --noconfirm --needed base-devel git python gnupg kwin
+
+      - uses: actions/checkout@v5
+
+      - name: Derive the local recipe from the official one
+        run: |
+          release=$(pacman -Q kwin | awk '{print $2}')
+          base=https://gitlab.archlinux.org/archlinux/packaging/packages/kwin/-/raw
+          # The official recipe for the packaged release, by its tag.
+          curl -fsSL --retry 4 -o official.PKGBUILD "$base/$release/PKGBUILD"
+          mkdir recipe
+          cp patches/kwin/0001-bound-native-touch-to-move-lifetime.patch recipe/
+          python3 patches/kwin/package/derive-pkgbuild.py official.PKGBUILD \
+            recipe/0001-bound-native-touch-to-move-lifetime.patch > recipe/PKGBUILD
+          {
+            echo "### Recipe derived from official kwin $release"
+            echo '```diff'
+            diff -u official.PKGBUILD recipe/PKGBUILD || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the signed source and apply the patch through the recipe
+        run: |
+          useradd -m builder
+          chown -R builder recipe
+          keys=$(cd recipe && bash -c 'source PKGBUILD; echo "${validpgpkeys[@]}"')
+          # makepkg checks the upstream signature against the recipe's keys;
+          # nothing here weakens that check.
+          su builder -c "gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys $keys"
+          su builder -c "cd recipe && makepkg --verifysource --noconfirm && makepkg --nobuild --nodeps --noconfirm"
