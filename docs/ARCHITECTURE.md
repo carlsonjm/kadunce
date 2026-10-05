@@ -188,7 +188,10 @@ Automatic electric-border tiling and maximize behavior, KDE's per-display deskto
 switching, its desktop-change pop-up, and Overview's top-left corner unless you
 gave it elsewhere are held in memory while Kadunce is active and given back on
 unload. Explicit Shift custom tiling and
-keyboard/manual window operations remain KWin-owned.
+keyboard/manual window operations remain KWin-owned. On a display without cards
+whose zones are drawn, Kadunce places each pane in KWin's own zone through the
+tile objects KWin publishes to scripting, reads each pane's rectangle from its
+zone, and takes every pane out of its zone before restoring it.
 
 Source close, output loss, topology change, manual takeover, view release, effect
 unload, or competing input cancels the affected actions and timers.

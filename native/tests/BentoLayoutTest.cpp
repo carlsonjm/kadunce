@@ -347,6 +347,50 @@ int main()
     require(bentoSlotForArrival({}, 200, 200) == -1,
         "A layout with no slots offered one");
 
+    // Zones drawn with KDE's tile editor: a quarter, a half and a quarter of
+    // a 2560 by 1440 monitor.
+    const std::vector<BentoPixelRect> zones{{0, 0, 640, 1440}, {640, 0, 1280, 1440}, {1920, 0, 640, 1440}};
+    const BentoCandidate any{100, 100, 800, 600, true};
+    const BentoCandidate plain{100, 100, 800, 600, false};
+    const BentoCandidate halfOnly{900, 100, 1000, 600, false};
+    {
+        // The first window takes the largest zone; one window leaves two empty.
+        const auto lone = chooseZoneAdmission({any}, zones);
+        require(lone && lone->candidateIndices == std::vector<int>{0} && lone->zoneIndices == std::vector<int>{1},
+            "A lone window did not take the largest zone");
+        // Three windows fill three zones, each in one.
+        const auto three = chooseZoneAdmission({any, plain, plain}, zones);
+        require(three && three->candidateIndices.size() == 3
+            && std::set<int>(three->zoneIndices.begin(), three->zoneIndices.end()).size() == 3,
+            "Three windows did not fill three zones");
+        // A fourth has no zone and is left out; the earliest three are shown.
+        const auto four = chooseZoneAdmission({any, plain, plain, plain}, zones);
+        require(four && four->candidateIndices == std::vector<int>({0, 1, 2}),
+            "A window past the last zone was shown, or an earlier one left out");
+        // A window too wide for a quarter goes to the half, whoever is first.
+        const auto fit = chooseZoneAdmission({any, halfOnly}, zones);
+        require(fit && fit->candidateIndices == std::vector<int>({0, 1}) && fit->zoneIndices[1] == 1,
+            "A window too wide for a quarter was not given the half");
+        // Two windows that need the half cannot both be shown: the first is.
+        const auto clash = chooseZoneAdmission({halfOnly, halfOnly}, zones);
+        require(clash && clash->candidateIndices == std::vector<int>{0},
+            "Two windows needing one zone were both shown");
+        // An arrival that must be shown is, and the residents keep their zones.
+        const auto kept = chooseZoneAdmission({any, plain, plain}, zones, {-1, 0, 2}, 0);
+        require(kept && kept->zoneIndices == std::vector<int>({1, 0, 2}),
+            "An arrival moved a resident out of its zone");
+        // A resident's zone is kept even when the arrival is first.
+        const auto stay = chooseZoneAdmission({any, plain}, zones, {-1, 1}, 0);
+        require(stay && stay->zoneIndices[1] == 1 && stay->zoneIndices[0] != 1,
+            "An arrival took the zone a resident holds");
+        // A required window that fits no zone makes no admission.
+        const BentoCandidate huge{3000, 100, 3000, 600, false};
+        require(!chooseZoneAdmission({plain, huge}, zones, {}, 1),
+            "A required window that fits no zone was admitted");
+        require(!chooseZoneAdmission({}, zones) && !chooseZoneAdmission({plain}, {}),
+            "An admission was made with no windows or no zones");
+    }
+
     std::cout << "Bento layout/admission checks passed\n";
     return 0;
 }

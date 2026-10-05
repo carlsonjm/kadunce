@@ -264,6 +264,10 @@ private:
         QList<QPointer<KWin::EffectWindow>> windows;
         QList<RestoreSnapshot> snapshots;
         std::vector<BentoRect> rects;
+        // On a display with zones drawn in KDE's tile editor, KWin's zone for
+        // each pane, in the order of windows; empty under the curated library.
+        // KWin then owns each pane's geometry and the edges between them.
+        QList<QPointer<QObject>> zones;
         bool applying = false;
         bool participationDirty = false;
         // One window snapped to a side of a display without cards takes half
@@ -272,6 +276,17 @@ private:
         bool lone = false;
         quint64 applicationToken = 0;
     };
+    // Each pane's rectangle as it stands now: KWin's zones where the session
+    // has them, the curated layout otherwise.
+    [[nodiscard]] std::vector<BentoPixelRect> sessionPixels(const Session &session,
+                                                            const KWin::Rect &area) const;
+    // Zones KDE moved a pane into by hand become the pane's zone, and a pane
+    // that took another's zone swaps with it.
+    void syncZonesFromKde(Session &session) const;
+    // Kadunce's placements in KWin's zones, so a pane leaving a layout leaves
+    // its zone too.
+    QList<QPointer<KWin::Window>> m_zoned;
+    void releaseStrayZones();
     struct RailDrag {
         GrabRail rail;
         Session original;
