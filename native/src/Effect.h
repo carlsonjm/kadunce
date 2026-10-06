@@ -702,6 +702,17 @@ private:
     CardStageController *m_cardStage = nullptr;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
     bool m_continueRepaint = false;
+    // A quiet record of frames the card display waited for while Kadunce was
+    // moving something, with what the frame before cost, so a stall seen on
+    // hardware can be told apart from Kadunce's own drawing.
+    QElapsedTimer m_frameClock;
+    qint64 m_frameStartedAt = -1;
+    qint64 m_frameWork = 0;
+    bool m_frameWanted = false;
+    bool m_framingTablet = false;
+    int m_framePreviewsMade = 0;
+    void noteTabletFrameStart();
+    void noteTabletFrameEnd(bool wanted);
     QList<QPointer<KWin::EffectWindow>> m_preparationNeighbors;
     bool m_neighborPreparedThisFrame = false;
     unsigned int m_neighborPreparationCursor = 0;
