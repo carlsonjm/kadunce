@@ -4372,6 +4372,11 @@ bool CardStageController::growSelectedToActive()
         || !m_host->isManagedWindowForCardStage(window)) return false;
     captureCardTransition();
     if (!m_previewTransition.isValid()) return false;
+    // KWin picks the window a press goes to before Kadunce sees the press, by
+    // its own stacking, and the cards behind stand in the Active place too.
+    // The growing card is on top for KWin as it is on screen, so a press that
+    // ends the growth reaches it and not the card that was Active before.
+    KWin::workspace()->raiseWindow(window->window());
     m_arrivalWindow = window;
     m_arrivalExpanding = true;
     m_growingChosen = true;
