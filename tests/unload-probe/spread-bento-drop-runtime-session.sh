@@ -143,8 +143,21 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     check "$name: the card is under the group, not over the other pane" near "$beside" "$otherPane"
     check "$name: the other pane is not the card" apart "$otherPane" "$heldColour"
     lift
+    # Let go, the card grows into its pane from where it was let go: it may
+    # wait there a moment for its client, then moves the whole way.
+    arrivals=()
+    for sample in {1..20}; do
+        arrivals+=("$(kad nativeCarryState | jq -c --arg id "$held" \
+            '[.bentoMotion[] | select(.window == $id and .arrival)][0] // empty | {started, rect, target}')")
+        sleep .03
+    done
+    printf '%s\n' "${arrivals[@]}" | grep . | sed "s/^/$name: arrival /"
+    check "$name: the card grows into its pane from where it was let go" \
+        grep -q started < <(printf '%s\n' "${arrivals[@]}")
+    check "$name: it is drawn moving, not set down in its pane" \
+        grep -q '"started":true' < <(printf '%s\n' "${arrivals[@]}")
     # Let go, the group opens as its layout with the card in that pane.
-    sleep 1.2
+    sleep .6
     report "$name-presented"
     echo "$name: held card at $(frame "$held" | jq -c '{x, width}'), staying pane at $(frame "$stays" | jq -c '{x, width}'), replaced pane at $(frame "$replaced" | jq -c '{x, width}')"
     check "$name: the layout holds two panes" twoPanes

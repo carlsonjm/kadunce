@@ -16,6 +16,7 @@
 #include "HeldTuck.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
+#include "PaneArrival.h"
 #include "NativeLanding.h"
 #include "MonitorDropIntent.h"
 #include "DeliberateEdgeEntry.h"
@@ -3582,7 +3583,9 @@ QString Effect::nativeCarryState() const
         if (pose) bentoMotion.append(QJsonObject{
             {QStringLiteral("window"), windowIdentity(m.window)},
             {QStringLiteral("rect"), geometryContext(KWin::RectF(*pose).toRect())},
-            {QStringLiteral("target"), geometryContext(KWin::RectF(m.to).toRect())}});
+            {QStringLiteral("target"), geometryContext(KWin::RectF(m.to).toRect())},
+            {QStringLiteral("arrival"), m.arrival},
+            {QStringLiteral("started"), m.timer.isValid()}});
     }
     const auto settling = dropSettleRect();
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
@@ -3937,13 +3940,19 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
 {
     for (const auto &m : m_bentoMotions) {
         if (m.window != window) continue;
+        // An arrival not yet drawn moving stands where the card was let go,
+        // and is dropped if no frame draws it at all.
+        const bool started = m.timer.isValid();
+        const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
         if (!window || window->isDeleted() || !window->window() || !m.output
-            || !m.timer.isValid() || m.timer.elapsed() >= motion(220)
+            || (started ? m.timer.elapsed() >= duration
+                        : !m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon)
             || window->isUserMove() || window->isUserResize() || window->isMinimized()
             || QRectF(m.output->geometry()) != m.outputGeometry
             || window->window()->moveResizeOutput() != m.output
             || QRectF(window->window()->moveResizeGeometry()) != m.to) return std::nullopt;
-        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m.timer.elapsed() / double(motion(220)));
+        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+            paneArrivalProgress(started, started ? m.timer.elapsed() : 0, duration));
         return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
             m.from.size()+(m.to.size()-m.from.size())*t);
     }
@@ -3998,8 +4007,10 @@ void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *ou
 {
     clearDropSettle();
     // Logical commitment is not proof of native placement. Require KWin's
-    // accepted target, not a late client buffer/frame acknowledgement. Painting
-    // maps whichever buffer is current; never hold input or retry geometry.
+    // accepted target; the client's buffer may follow it late. Painting maps
+    // whichever buffer is current. A move may wait a short, bounded time for
+    // that buffer, as a card arriving in a pane does (PaneArrival.h), but it
+    // never holds input or retries geometry.
     if (!window || window->isDeleted() || !output || isTabletOutput(output)
         || !from.isValid() || !to.isValid() || from == to
         || !window->window() || window->window()->moveResizeOutput() != output
@@ -5347,15 +5358,18 @@ void Effect::startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *o
     const QRectF to(window->window()->moveResizeGeometry());
     if (to.isEmpty() || to == from) return;
     // The window is already on its pane, sized once; only its picture travels,
-    // replacing whatever motion the layout gave it.
+    // replacing whatever motion the layout gave it. It waits where it was let
+    // go for its client to draw the pane's shape, a short while at most, and
+    // then moves the whole way (PaneArrival.h).
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (it->window != window) { ++it; continue; }
         unredirect(window);
         it = m_bentoMotions.erase(it);
     }
-    QElapsedTimer clock;
-    clock.start();
-    m_bentoMotions.append({window, output, from, to, QRectF(output->geometry()), clock});
+    BentoMotion arrival{window, output, from, to, QRectF(output->geometry())};
+    arrival.arrival = true;
+    arrival.asked.start();
+    m_bentoMotions.append(arrival);
     KWin::effects->addRepaintFull();
 }
 
@@ -5500,6 +5514,15 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             if (it->window && !it->window->isDeleted()) unredirect(it->window);
             it = m_bentoMotions.erase(it);
         } else {
+            // An arrival moves once its client draws the pane's shape or has
+            // had long enough to; this frame draws it at its start, and its
+            // clock runs from when the frame is done (postPaintScreen).
+            if (it->arrival && !it->drawnMoving && it->output == data.screen) {
+                const auto frame = it->window->frameGeometry();
+                it->drawnMoving = !paneArrivalWaits(
+                    paneArrivalShaped(frame.width(), frame.height(), it->to.width(), it->to.height()),
+                    it->asked.elapsed());
+            }
             data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
             m_continueRepaint = true;
             ++it;
@@ -5527,6 +5550,8 @@ void Effect::postPaintScreen()
     // expiring during this frame still gets one exact final-state frame.
     const bool continueRepaint = m_continueRepaint;
     m_continueRepaint = false;
+    for (auto &m : m_bentoMotions)
+        if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     KWin::effects->postPaintScreen();
     if (continueRepaint) {
         KWin::effects->addRepaintFull();

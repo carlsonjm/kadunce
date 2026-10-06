@@ -226,6 +226,12 @@ private:
         QPointer<KWin::LogicalOutput> output;
         QRectF from, to, outputGeometry;
         QElapsedTimer timer;
+        // A card let go on a pane waits at `from` from when its move was
+        // `asked` for, and its `timer` starts once a frame has drawn it
+        // moving (PaneArrival.h).
+        bool arrival = false;
+        bool drawnMoving = false;
+        QElapsedTimer asked;
     };
     QList<BentoMotion> m_bentoMotions;
     // A card let go on a pane of the Bento group grows into that pane from
