@@ -5334,7 +5334,7 @@ void Effect::activateSelectedFromInput()
                 // Active, as picking it from the dock does.
                 KWin::effects->activateWindow(requested);
             } else {
-                toggle();
+                toggleOwnedPresentation(true);
             }
         }
         m_paneArrivalWindow.clear();
@@ -5378,7 +5378,7 @@ void Effect::toggle()
     toggleOwnedPresentation();
 }
 
-void Effect::toggleOwnedPresentation()
+void Effect::toggleOwnedPresentation(bool growToActive)
 {
     if (m_cardStage->launcherGuestActive()) {
         dismissLauncherGuestFromInput();
@@ -5407,7 +5407,7 @@ void Effect::toggleOwnedPresentation()
         observeCardOwnership();
         return;
     }
-    m_cardStage->toggle();
+    m_cardStage->toggle(growToActive);
     observeCardOwnership();
 }
 

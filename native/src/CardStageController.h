@@ -280,7 +280,8 @@ public:
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 
-    void toggle();
+    // A card chosen by touch or key grows into Active; other callers enter at once.
+    void toggle(bool growToActive = false);
     void release();
     void pageHorizontal(int delta);
     void pageStack(int delta);
@@ -463,6 +464,7 @@ private:
     void captureCardTransition(bool includeGuest = false, bool includeGrab = false);
     void clearCardTransition();
     void startArrivalTimer(KWin::EffectWindow *window);
+    bool growSelectedToActive();
     void finishNewArrival(KWin::EffectWindow *window, bool animateArrival, int previousSelection);
     bool enterActive();
     void restoreActiveSnapshot();

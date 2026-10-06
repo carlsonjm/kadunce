@@ -2316,7 +2316,7 @@ void CardStageController::restoreOriginalStackingOrder()
     }
 }
 
-void CardStageController::toggle()
+void CardStageController::toggle(bool growToActive)
 {
     stopOpeningSpread();
     m_host->cancelInputForCardStage();
@@ -2331,6 +2331,9 @@ void CardStageController::toggle()
             bringCardsBack();
             m_host->setPagingShortcutsForCardStage(true);
         } else if (m_presentation == CardPresentation::Spread) {
+            // The chosen card grows to its Active place first, as a new app's
+            // card does, and the arrival timer enters Active when it is there.
+            if (growToActive && growSelectedToActive()) return;
             if (!enterActive()) {
                 return;
             }
@@ -4350,6 +4353,29 @@ bool CardStageController::admitTransferredWindowToTablet(
             KWin::effects->addRepaintFull();
         }
     }
+    return true;
+}
+
+bool CardStageController::growSelectedToActive()
+{
+    KWin::EffectWindow *window = selectedWindow();
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    // A second tap while it grows takes it straight in.
+    if (m_arrivalExpanding && window && window == m_arrivalWindow) return false;
+    // Instant motion, or a card with nothing to draw yet, goes straight in.
+    if (motion(ArrivalExpandDuration) <= 1 || !tablet || m_launcherGuestActive
+        || m_cardGrabActive || !window || window->isDeleted() || window->isMinimized()
+        || window->screen() != tablet || !window->window()
+        || !window->window()->readyForPainting() || !window->window()->isShown()
+        || !m_host->isManagedWindowForCardStage(window)) return false;
+    captureCardTransition();
+    if (!m_previewTransition.isValid()) return false;
+    m_arrivalWindow = window;
+    m_arrivalExpanding = true;
+    m_arrivalWait.start();
+    m_arrivalTimer.start(motion(ArrivalExpandDuration));
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "growing the chosen card to Active" << window->caption();
     return true;
 }
 

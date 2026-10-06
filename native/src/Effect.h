@@ -308,7 +308,7 @@ private:
     // by, and the desktop it now stands on takes it as that desktop's own. One
     // put on every desktop leaves and stays a plain window.
     void handleWindowDesktopsChanged(KWin::EffectWindow *window);
-    void toggleOwnedPresentation();
+    void toggleOwnedPresentation(bool growToActive = false);
     // KWin draws another desktop's windows only while showing it as well, as
     // its slide does between desktops. That desktop's cards stay hidden but for
     // the one it presents Active; its layouts' panes are real windows and show.

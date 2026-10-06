@@ -56,7 +56,7 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click a card in Spread | It opens as the Active card; the Bento group opens as its layout. |
+| Tap or click a card in Spread | It grows into the Active card; the Bento group opens as its layout. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time on the card display, every other window there becomes a card too. |
