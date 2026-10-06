@@ -32,6 +32,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/BentoProjectionSession.h
         src/CardLabelPresentation.h
         src/CardLabelRenderer.h
+        src/GestureNote.h
+        src/GestureNoteLabel.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
@@ -153,6 +155,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-deliberate-edge-entry-test PRIVATE src)
     target_link_libraries(kadunce-deliberate-edge-entry-test PRIVATE Qt6::Core)
     add_test(NAME deliberate-edge-entry COMMAND kadunce-deliberate-edge-entry-test)
+    add_executable(kadunce-gesture-note-test tests/GestureNoteTest.cpp)
+    target_include_directories(kadunce-gesture-note-test PRIVATE src)
+    target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core)
+    add_test(NAME gesture-note COMMAND kadunce-gesture-note-test)
     add_executable(kadunce-touch-display-test tests/TouchDisplayTest.cpp)
     target_include_directories(kadunce-touch-display-test PRIVATE src)
     target_link_libraries(kadunce-touch-display-test PRIVATE Qt6::Core)

@@ -25,6 +25,7 @@
 #include <effect/effectwindow.h>
 #include <effect/offscreeneffect.h>
 #include "DesktopExitLabel.h"
+#include "GestureNoteLabel.h"
 #include "CardLabelRenderer.h"
 
 #include <QList>
@@ -101,14 +102,14 @@ public:
     {
         return (m_cardStage && m_cardStage->isActive())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || bool(m_previewDesktop);
+            || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || keysAwaitingPerson() || bool(m_previewDesktop);
+            || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     // Keys on screen that are not yet known to be the person's are painted
@@ -725,6 +726,24 @@ private:
     std::unique_ptr<KWin::GLShader> m_destinationShader;
     std::optional<KWin::RectF> m_carryPreview;
     DesktopExitLabel m_detachLabel;
+    // A refused gesture springs back and says why (GestureNote.h). The refusal
+    // is decided while the carry moves, never invented at release, and shown
+    // only when letting go commits nothing.
+    struct CarryRefusal {
+        QPointer<KWin::LogicalOutput> output;
+        QPointF contact;
+        GestureRefusal reason = GestureRefusal::Unplaced;
+    };
+    std::optional<CarryRefusal> m_carryRefusal;
+    struct ShownGestureNote {
+        QPointer<KWin::LogicalOutput> output;
+        QRectF box;
+        QString text;
+        QElapsedTimer shown;
+    };
+    std::optional<ShownGestureNote> m_gestureNote;
+    GestureNoteLabel m_gestureNoteLabel;
+    void showGestureNote(KWin::LogicalOutput *output, QPointF contact, GestureRefusal reason);
     std::optional<KWin::RectF> m_linePreview;
     void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                          const QRectF &from, const QRectF &to);

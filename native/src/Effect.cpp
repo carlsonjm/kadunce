@@ -936,7 +936,12 @@ Effect::Effect()
         }
         return false;
     };
-    m_carryRuntime->ended = [this] { endNativeCarryPresentation(); };
+    m_carryRuntime->released = [this](bool committed) {
+        const auto refused = std::exchange(m_carryRefusal, std::nullopt);
+        if (!committed && refused && refused->output)
+            showGestureNote(refused->output, refused->contact, refused->reason);
+    };
+    m_carryRuntime->ended = [this] { m_carryRefusal.reset(); endNativeCarryPresentation(); };
     m_carryRuntime->nativeReleased = [this](KWin::Window *window, QPointF contact) {
         const QPointer<KWin::Window> guarded = window;
         // Let KWin finish its native release first. Cancel/Escape/extra contact
@@ -3670,6 +3675,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryCardEntryOutput.clear();
     m_carryCardExitOutput.clear();
     m_carryPreview.reset();
+    m_carryRefusal.reset();
     if (!m_carriedWindow || !m_carryRuntime->handoff.source()) return;
     auto &handoff = m_carryRuntime->handoff;
     handoff.withdrawDrop(); // Leaving an exit/edge must retire its commit callback too.
@@ -3684,6 +3690,14 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool tablet = isTabletOutput(target);
     const auto edge = isPanelPoint(contact) ? std::nullopt
         : monitorCarryEdge(QRectF(target->geometry()), contact);
+    // Every return below that leaves an edge without a drop names why, and a
+    // drop that is previewed but then refused at release cannot go there.
+    std::optional<GestureRefusal> refusal;
+    const auto noteRefusal = qScopeGuard([&] {
+        if (!edge) return;
+        if (handoff.hasDrop()) refusal = GestureRefusal::Unplaced;
+        if (refusal) m_carryRefusal = CarryRefusal{target, contact, *refusal};
+    });
     std::optional<BentoSidePlacement> side;
     if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
         side = bentoSideChoice(*edge == CarryEdge::Right, contact.y(),
@@ -3792,6 +3806,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         QPointer<KWin::LogicalOutput> output = target;
         const auto destination = monitorDropIntent(target->name(), 0, std::nullopt, edge);
+        refusal = edgeEntryRefusal(outcome, isCardWindow(m_carriedWindow));
         switch (outcome) {
         case EdgeEntryOutcome::Refuse:
         case EdgeEntryOutcome::Unchanged:
@@ -3799,7 +3814,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         case EdgeEntryOutcome::ComposeDisplayBento:
             break; // A display that cannot own cards reserves below as before.
         case EdgeEntryOutcome::PairIntoBento: {
+            refusal = GestureRefusal::Unplaced;
             if (!side || !destination) return;
+            refusal = GestureRefusal::NoRoom;
             const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
                 KWin::RectF(QRectF(handoff.carry().position(), m_carryPickup.size())),
                 DesktopStageController::CardDropIntent::ActivateBento, side, partner);
@@ -3827,6 +3844,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         case EdgeEntryOutcome::MakeActive: {
             // §10: a card that is already owned and not Active cannot be carried
             // natively, so only adoption and a native arrival reach here.
+            refusal = GestureRefusal::Unplaced;
             if (!destination) return;
             const bool adopt = outcome == EdgeEntryOutcome::AdoptDisplay;
             if (!adopt && m_cardStage->liveCardIndex(carried) >= 0) return;
@@ -3878,6 +3896,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
     if (tablet && !bento) return;
+    // From here an edge asks the layout solve for room, which is the one
+    // reason left for it to refuse.
+    if (edge) refusal = GestureRefusal::NoRoom;
     QRectF landing(handoff.carry().position(), m_carryPickup.size());
     if (stayNative && inNativeDockReleaseZone(contact, QRectF(target->geometry()), area))
         landing = safeNativeLanding(landing, area);
@@ -5200,9 +5221,31 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
         m_lineDestinationWindow.clear();
         return true;
     }
+    // A card let go on a display that cannot hold cards joins its layout, and
+    // one the layout has no room for springs back into the row.
+    QPointer<KWin::EffectWindow> grabbed = selectedWindow();
+    QPointer<KWin::LogicalOutput> destination = KWin::effects->screenAt(position.toPoint());
+    const bool toLayout = grabbed && destination
+        && QRectF(destination->geometry()).contains(position)
+        && !m_cardStage->canOwnCards(destination);
     const bool result = m_cardStage->finishCardGrabOnOutput(position);
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
+    if (result && toLayout && grabbed && destination && m_cardStage->liveCardIndex(grabbed) >= 0)
+        showGestureNote(destination, position, GestureRefusal::NoRoom);
     return result;
+}
+
+void Effect::showGestureNote(KWin::LogicalOutput *output, QPointF contact, GestureRefusal reason)
+{
+    if (!output) return;
+    const QString text = gestureRefusalText(reason);
+    if (m_gestureNote) KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
+    ShownGestureNote note{output, gestureNoteBox(QRectF(output->geometry()), contact,
+                                                 m_gestureNoteLabel.size(text)), text, {}};
+    note.shown.start();
+    qInfo() << "Kadunce" << Revision << "refused a gesture on" << output->name() << ":" << text;
+    m_gestureNote = std::move(note);
+    KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
 }
 
 
@@ -5541,6 +5584,15 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true; }
     }
     if (m_carriedWindow) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+    if (m_gestureNote) {
+        if (!m_gestureNote->output
+            || m_gestureNote->shown.elapsed() >= GestureNoteTiming::TotalMs) {
+            KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
+            m_gestureNote.reset();
+        } else {
+            m_continueRepaint = true;
+        }
+    }
     if (m_cardStage->isActive()
         && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -5790,6 +5842,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                     m_cardStage->shownStackPosition(cardId), count, bentoGroup)});
         }
     }
+    // A refused gesture's note, over everything on the display it was let go on.
+    if (m_gestureNote && screen && m_gestureNote->output == screen)
+        m_gestureNoteLabel.render(renderTarget, viewport, m_gestureNote->box, m_gestureNote->text,
+                                  gestureNoteOpacity(m_gestureNote->shown.elapsed()));
     m_paintingOutput = nullptr;
     return paintResult(true);
 }
