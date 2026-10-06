@@ -53,6 +53,9 @@ public:
     virtual void finishRailFromInput(bool) {}
 
     [[nodiscard]] virtual WorkspacePresentation presentationForInput() const = 0;
+    // A press arrives: a chosen card still growing into Active is there now,
+    // so the press reaches it as it would a moment later.
+    virtual void settleChosenCardForInput() {}
     // KWin owns the complete transaction for an ordinary window move/resize.
     [[nodiscard]] virtual bool nativeWindowInteractionForInput() const = 0;
     [[nodiscard]] virtual WorkspaceInputGeometry geometryForInput() const = 0;

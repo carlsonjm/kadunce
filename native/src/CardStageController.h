@@ -282,6 +282,8 @@ public:
 
     // A card chosen by touch or key grows into Active; other callers enter at once.
     void toggle(bool growToActive = false);
+    // Ends a chosen card's growth in Active at once; true when there was one.
+    bool finishGrowToActive();
     void release();
     void pageHorizontal(int delta);
     void pageStack(int delta);
@@ -465,6 +467,7 @@ private:
     void clearCardTransition();
     void startArrivalTimer(KWin::EffectWindow *window);
     bool growSelectedToActive();
+    bool m_growingChosen = false;
     void finishNewArrival(KWin::EffectWindow *window, bool animateArrival, int previousSelection);
     bool enterActive();
     void restoreActiveSnapshot();

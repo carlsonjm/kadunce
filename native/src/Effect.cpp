@@ -3191,6 +3191,11 @@ WorkspacePresentation Effect::presentationForInput() const
         : WorkspacePresentation::Active;
 }
 
+void Effect::settleChosenCardForInput()
+{
+    if (m_cardStage->finishGrowToActive()) observeCardOwnership();
+}
+
 WorkspaceInputGeometry Effect::geometryForInput() const
 {
     KWin::LogicalOutput *tablet = tabletOutput();

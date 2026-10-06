@@ -514,6 +514,7 @@ private:
     void holdOverviewOff();
     void followTableGesture(qreal progress, KWin::LogicalOutput *output);
     [[nodiscard]] WorkspacePresentation presentationForInput() const override;
+    void settleChosenCardForInput() override;
     [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;
     [[nodiscard]] bool cardGrabActiveForInput() const override;
     [[nodiscard]] bool nativeWindowInteractionForInput() const override;

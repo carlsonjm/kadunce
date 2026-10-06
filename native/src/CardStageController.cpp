@@ -871,6 +871,7 @@ void CardStageController::clearCardTransition()
     m_arrivalTimer.stop();
     m_arrivalWindow.clear();
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_previewTransition.invalidate();
     m_previewOrigins.clear();
     m_poseTransition = false;
@@ -3080,6 +3081,7 @@ bool CardStageController::beginLauncherGuest()
     m_arrivalTimer.stop();
     m_arrivalWindow.clear();
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_launcherGuestGroupCount = m_workspace.count();
     m_launcherGuestArrival = false;
     m_launcherGuestPrimarySide = m_workspace.count() == 2
@@ -4372,6 +4374,7 @@ bool CardStageController::growSelectedToActive()
     if (!m_previewTransition.isValid()) return false;
     m_arrivalWindow = window;
     m_arrivalExpanding = true;
+    m_growingChosen = true;
     m_arrivalWait.start();
     m_arrivalTimer.start(motion(ArrivalExpandDuration));
     KWin::effects->addRepaintFull();
@@ -4379,10 +4382,18 @@ bool CardStageController::growSelectedToActive()
     return true;
 }
 
+bool CardStageController::finishGrowToActive()
+{
+    if (!m_growingChosen || !m_arrivalExpanding || !m_active
+        || m_presentation != CardPresentation::Spread || selectedWindow() != m_arrivalWindow) return false;
+    return enterActive();
+}
+
 void CardStageController::startArrivalTimer(KWin::EffectWindow *window)
 {
     m_arrivalWindow = window;
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_arrivalWait.start();
     m_arrivalTimer.start(motion(PreviewTransitionDuration));
     qInfo() << "Kadunce new app settling at center" << window->caption();
