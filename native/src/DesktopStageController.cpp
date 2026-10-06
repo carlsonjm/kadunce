@@ -964,6 +964,23 @@ bool DesktopStageController::hasSessionOnOutput(
     return m_sessions.contains(outputName);
 }
 
+bool DesktopStageController::inPaneGutter(QPointF position) const
+{
+    for (const auto &session : m_sessions) {
+        if (session.windows.size() < 2) continue;
+        QRectF panes;
+        bool onPane = false;
+        for (const auto &window : session.windows) {
+            if (!window || window->isDeleted()) continue;
+            const QRectF frame(window->frameGeometry());
+            panes = panes.united(frame);
+            onPane = onPane || frame.contains(position);
+        }
+        if (!onPane && panes.contains(position)) return true;
+    }
+    return false;
+}
+
 QString DesktopStageController::outputKey(const KWin::LogicalOutput *output) const
 {
     return output ? output->name() : QString();

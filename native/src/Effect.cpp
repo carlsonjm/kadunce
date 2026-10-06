@@ -6075,6 +6075,8 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
         || m_cardStage->liveCardIndex(window) < 0) return false;
     KWin::LogicalOutput *output = window->screen();
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
+    qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"
+            << window->caption();
     if (m_desktopStage->admitCardToLiveBento(window,
             [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
         observeCardOwnership();

@@ -246,9 +246,15 @@ private:
         const QList<QRectF> &from, const QList<QRectF> &to) override;
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
     void clearBentoMotions();
+    // On the card display a divider is Bento's only while Bento is what the
+    // display presents; the cards it hides behind the layout do not take it.
     bool beginRailFromInput(QPointF p) override {
         return !m_carriedWindow && !m_cardStage->cardGrabActive()
-            && !(isTabletPoint(p) && m_cardStage->isActive()) && m_desktopStage->beginRail(p);
+            && !(isTabletPoint(p) && m_cardStage->isActive() && !m_cardStage->presentsBento())
+            && m_desktopStage->beginRail(p);
+    }
+    [[nodiscard]] bool inPaneGutterForInput(const QPointF &p) const override {
+        return isTabletPoint(p) && m_cardStage->presentsBento() && m_desktopStage->inPaneGutter(p);
     }
     void updateRailFromInput(QPointF p) override { m_desktopStage->updateRail(p); }
     void finishRailFromInput(bool commit) override { m_desktopStage->finishRail(commit); }
