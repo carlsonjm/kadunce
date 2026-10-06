@@ -153,6 +153,8 @@ bool prepareWaylandEnvironment()
     return true;
 }
 
+const QString SwitchLabel = QStringLiteral("Cards");
+
 class ControlMenu final
 {
 public:
@@ -161,7 +163,9 @@ public:
         , m_menu(new QMenu)
         , m_toggle(m_menu->addAction(QStringLiteral("Kadunce enabled")))
     {
-        m_notifier.setTitle(QStringLiteral("Kadunce"));
+        // The tray and Control Center show the title as the switch's label,
+        // so it names what switches rather than the component.
+        m_notifier.setTitle(SwitchLabel);
         m_notifier.setCategory(KStatusNotifierItem::SystemServices);
         // This is the user's emergency workspace switch, so it remains
         // discoverable in the live tray instead of drifting into overflow.
@@ -382,7 +386,7 @@ private:
         m_shownEnabled = int(enabled);
         m_notifier.setIconByPixmap(QIcon(icon));
         m_notifier.setToolTip(
-            QIcon(icon), QStringLiteral("Kadunce"),
+            QIcon(icon), SwitchLabel,
             enabled ? QStringLiteral("Workspace enabled")
                     : QStringLiteral("Workspace disabled"));
     }

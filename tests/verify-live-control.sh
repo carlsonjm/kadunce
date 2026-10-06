@@ -8,8 +8,8 @@ for attempt in {1..20}; do
         [[ $item == */* ]] || continue
         owner=${item%%/*}
         path=/${item#*/}
-        title=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Title 2>/dev/null || true)
-        [[ $title == Kadunce ]] || continue
+        id=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Id 2>/dev/null || true)
+        [[ $id == kadunce-control ]] || continue
         status=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Status 2>/dev/null || true)
         [[ $status == Active ]] || continue
         menu=$(gdbus call --session --dest "$owner" --object-path "$path" \
