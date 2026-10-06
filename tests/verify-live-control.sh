@@ -9,7 +9,9 @@ for attempt in {1..20}; do
         owner=${item%%/*}
         path=/${item#*/}
         id=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Id 2>/dev/null || true)
-        [[ $id == kadunce-control ]] || continue
+        # KStatusNotifierItem may prefix the id it was given with the
+        # application's name, as kadunce-control_kadunce-control.
+        [[ $id == kadunce-control || $id == *_kadunce-control ]] || continue
         status=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Status 2>/dev/null || true)
         [[ $status == Active ]] || continue
         menu=$(gdbus call --session --dest "$owner" --object-path "$path" \
