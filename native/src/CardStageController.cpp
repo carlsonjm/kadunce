@@ -69,6 +69,11 @@ KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *outpu
 CardStageController::CardStageController(CardStageHost *host)
     : m_host(host)
 {
+    m_settings.onGutterChanged([this]() {
+        const int moved = applyGutter();
+        qInfo() << "Kadunce" << Revision << "Active card gutter is now"
+                << m_settings.gutter() << "px;" << moved << "cards took it";
+    });
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {
         const auto window = m_arrivalWindow;
@@ -2892,6 +2897,42 @@ int CardStageController::returnCardsToDisplay()
     if (presented) m_activeSettleRemaining = 2;
     KWin::effects->addRepaintFull();
     return returned;
+}
+
+int CardStageController::applyGutter()
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !tablet || !KWin::effects->screens().contains(tablet)) return 0;
+    const KWin::EffectWindow *presented =
+        m_presentation == CardPresentation::Active ? selectedWindow() : nullptr;
+    // Keys up over the Active card: the room is made from the new target.
+    if (m_keyboardRoom && m_keyboardRoom->window && m_keyboardRoom->window == presented) {
+        m_keyboardRoom->base = KWin::RectF(activeTarget(tablet));
+        refreshKeyboardRoom();
+    }
+    int moved = 0;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    for (const QPointer<KWin::EffectWindow> &window : std::as_const(m_workspace.windows())) {
+        if (!window || window->isDeleted() || !window->window() || window->isMinimized()
+            || isBentoProjectionPane(window)) continue;
+        KWin::Window *client = window->window();
+        // A Bento pane keeps its layout's own place. A card held, carried or being resized by hand is left where it is;
+        // it takes the gutter when it is set down.
+        if (client->moveResizeOutput() != tablet || client->isInteractiveMove()
+            || client->isInteractiveResize() || client->isFullScreen()
+            || client->maximizeMode() != KWin::MaximizeRestore
+            || client->quickTileMode() != KWin::QuickTileMode{}
+            || (m_cardGrabActive && window == selectedWindow())) continue;
+        const KWin::Rect target = window == presented
+            ? activePlacement(tablet) : activeTarget(tablet);
+        if (client->moveResizeGeometry().toRect() == target) continue;
+        client->moveResize(KWin::RectF(target));
+        ++moved;
+    }
+    if (moved == 0) return 0;
+    if (presented) m_activeSettleRemaining = 2;
+    KWin::effects->addRepaintFull();
+    return moved;
 }
 
 bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)

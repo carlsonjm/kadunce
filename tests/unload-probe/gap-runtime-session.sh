@@ -5,7 +5,8 @@
 # borders keeps one the same way, and stands in for it here. With the window
 # a card, the pointer in the gutter belongs to no window, and a press and drag
 # there moves and resizes nothing; back over the card the window has it
-# again, and switching Kadunce off leaves no hold.
+# again, and switching Kadunce off leaves no hold. The gutter is a setting,
+# and a change to it moves the standing card at once.
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
 set -Eeuo pipefail
@@ -61,6 +62,21 @@ point $(( left + 60 )) "$middle"
 test "$(probe mouseIntercepted)" = false
 test "$(probe pointerFocus)" = "$caption"
 echo "PASS: back over the card, its window has the pointer again"
+
+# The Active card gutter is a setting. Changed while the card stands, the card
+# takes the new gutter at once, on every edge, and the old one back again.
+frame() { card '[.x, .y, .width, .height] | map(floor) | join(",")'; }
+gutter() {
+    kwriteconfig6 --file kwinrc --group Effect-kadunce --key ActiveCardGutter "$1" --notify
+    for attempt in {1..30}; do [[ $(frame) == "$2" ]] && return; sleep .1; done
+    echo "gutter $1: card at $(frame), expected $2" >&2
+    false
+}
+IFS=, read -r x0 y0 w0 h0 <<<"$(frame)"
+gutter 24 "$(( x0 + 14 )),$(( y0 + 14 )),$(( w0 - 28 )),$(( h0 - 28 ))"
+gutter 16 "$(( x0 + 6 )),$(( y0 + 6 )),$(( w0 - 12 )),$(( h0 - 12 ))"
+gutter 10 "$x0,$y0,$w0,$h0"
+echo "PASS: the Active card takes a gutter of 24, 16 and 10 the moment it is set"
 
 point "$gap" "$middle"
 test "$(probe mouseIntercepted)" = true

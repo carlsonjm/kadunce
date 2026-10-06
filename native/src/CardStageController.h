@@ -415,6 +415,9 @@ public:
     // disable, so a card KWin moved off this display comes back to it, and the
     // card and its window never name different displays. Returns how many.
     int returnCardsToDisplay();
+    // The Active card gutter changed in the settings: every card on this
+    // display stands where the Active card does, so each takes the new one now.
+    int applyGutter();
     // §3: a window KWin moved onto this display because the display it stood
     // on went away arrives as one card. It is admitted unselected, so the
     // caller decides which arrival, if any, is presented.
