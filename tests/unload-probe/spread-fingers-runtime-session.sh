@@ -146,6 +146,22 @@ echo '--- first contact in the gutter above the Active card, over a hidden card'
 real_swipe G 90 '' 0.01
 echo "NOTE fingers-from-gutter selected=$(selected) (2 would be where the person was)"
 
+# INPUT.md: a card chosen in Spread grows into the Active card rather than
+# cutting to it. Enter takes the same path as a tap.
+echo '--- Enter in Spread grows the card into Active'
+kad showCardLine
+sleep .5
+rest_w=$(kad workspaceContext | jq '[.applications[] | select(.selected) | .spreadRect.width] | first')
+probe key 28 0
+sleep .08
+mid=$(kad workspaceContext | jq -c '{p: .cardStage.presentation, w: ([.applications[] | select(.selected) | .spreadRect.width] | first)}')
+sleep .6
+after=$(kad workspaceContext | jq -r '.cardStage.presentation')
+echo "RESULT enter-grows rest=$rest_w mid=$mid after=$after"
+jq -e --argjson r "$rest_w" '.p == "cardLine" and .w > $r' <<<"$mid" >/dev/null || fail=1
+[[ $after == active ]] || fail=1
+test "$(selected)" = 2 || fail=1
+
 echo "SUMMARY fail=$fail"
 ((fail == 0))
 echo 'PASS: three fingers open Spread on the card the person was on, whatever arrives with them'

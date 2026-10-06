@@ -280,7 +280,10 @@ public:
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 
-    void toggle();
+    // A card chosen by touch or key grows into Active; other callers enter at once.
+    void toggle(bool growToActive = false);
+    // Ends a chosen card's growth in Active at once; true when there was one.
+    bool finishGrowToActive();
     void release();
     void pageHorizontal(int delta);
     void pageStack(int delta);
@@ -412,6 +415,9 @@ public:
     // disable, so a card KWin moved off this display comes back to it, and the
     // card and its window never name different displays. Returns how many.
     int returnCardsToDisplay();
+    // The Active card gutter changed in the settings: every card on this
+    // display stands where the Active card does, so each takes the new one now.
+    int applyGutter();
     // §3: a window KWin moved onto this display because the display it stood
     // on went away arrives as one card. It is admitted unselected, so the
     // caller decides which arrival, if any, is presented.
@@ -463,6 +469,8 @@ private:
     void captureCardTransition(bool includeGuest = false, bool includeGrab = false);
     void clearCardTransition();
     void startArrivalTimer(KWin::EffectWindow *window);
+    bool growSelectedToActive();
+    bool m_growingChosen = false;
     void finishNewArrival(KWin::EffectWindow *window, bool animateArrival, int previousSelection);
     bool enterActive();
     void restoreActiveSnapshot();

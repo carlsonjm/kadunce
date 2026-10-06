@@ -90,6 +90,7 @@ namespace
 {
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 8.0;
+constexpr qint64 FrameStallMs = 50;
 constexpr float BentoWorkspaceTintOpacity = 0.22F;
 // A swipe up from the bottom bezel has opened Spread all the way once it has
 // risen this share of the tablet's height past where it committed, about the
@@ -3190,6 +3191,11 @@ WorkspacePresentation Effect::presentationForInput() const
         : WorkspacePresentation::Active;
 }
 
+void Effect::settleChosenCardForInput()
+{
+    if (m_cardStage->finishGrowToActive()) observeCardOwnership();
+}
+
 WorkspaceInputGeometry Effect::geometryForInput() const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
@@ -5334,7 +5340,7 @@ void Effect::activateSelectedFromInput()
                 // Active, as picking it from the dock does.
                 KWin::effects->activateWindow(requested);
             } else {
-                toggle();
+                toggleOwnedPresentation(true);
             }
         }
         m_paneArrivalWindow.clear();
@@ -5378,7 +5384,7 @@ void Effect::toggle()
     toggleOwnedPresentation();
 }
 
-void Effect::toggleOwnedPresentation()
+void Effect::toggleOwnedPresentation(bool growToActive)
 {
     if (m_cardStage->launcherGuestActive()) {
         dismissLauncherGuestFromInput();
@@ -5407,7 +5413,7 @@ void Effect::toggleOwnedPresentation()
         observeCardOwnership();
         return;
     }
-    m_cardStage->toggle();
+    m_cardStage->toggle(growToActive);
     observeCardOwnership();
 }
 
@@ -5478,6 +5484,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 {
     if (m_tablePresenter && m_tablePresenter->visible() && data.screen == m_tablePresenterOutput)
         m_tablePresenter->prePaint(data.frame);
+    m_framingTablet = isTabletOutput(data.screen);
+    if (m_framingTablet) noteTabletFrameStart();
     // A released row, a returning card or a thrown one moves once per frame.
     if (isTabletOutput(data.screen)) m_cardStage->advanceMotion();
     showSleepingCardsInSpread();
@@ -5553,9 +5561,38 @@ void Effect::postPaintScreen()
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     KWin::effects->postPaintScreen();
+    if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
     }
+}
+
+void Effect::noteTabletFrameStart()
+{
+    if (!m_frameClock.isValid()) m_frameClock.start();
+    const qint64 now = m_frameClock.elapsed();
+    const qint64 gap = m_frameStartedAt < 0 ? 0 : now - m_frameStartedAt;
+    // A frame is due about every 16 ms while motion runs; a gap of three is
+    // one a person sees. Only gaps after a frame that asked for the next count.
+    if (m_frameWanted && gap >= FrameStallMs) {
+        qInfo() << "Kadunce" << Revision << "frame stall of" << gap << "ms on the card display:"
+                << "the frame before spent" << m_frameWork << "ms painting and made"
+                << m_framePreviewsMade << "new previews;"
+                << (!m_cardStage->isActive() ? "cards off"
+                    : m_cardStage->presentation() == CardPresentation::Spread ? "Spread"
+                    : m_cardStage->presentation() == CardPresentation::Bento ? "Bento"
+                    : m_cardStage->presentation() == CardPresentation::Desktop ? "desktop" : "Active")
+                << (m_cardStage->cardGrabActive() ? "with a card held" : "")
+                << (m_carriedWindow ? "with a window carried" : "");
+    }
+    m_frameStartedAt = now;
+    m_framePreviewsMade = 0;
+}
+
+void Effect::noteTabletFrameEnd(bool wanted)
+{
+    if (m_frameStartedAt >= 0) m_frameWork = m_frameClock.elapsed() - m_frameStartedAt;
+    m_frameWanted = wanted;
 }
 
 // CARD-LIFECYCLE.md §2: a sleeping card is chosen in Spread to wake it, so
@@ -6100,6 +6137,8 @@ void Effect::redirectPreviewSource(KWin::EffectWindow *window)
                 << "expanded" << (*previousBounds)[2] << "->" << sourceBounds[2];
         unredirect(window);
     }
+    if (previousBounds == m_previewSourceBounds.cend() || *previousBounds != sourceBounds)
+        ++m_framePreviewsMade;
     m_previewSourceBounds.insert(window, sourceBounds);
     redirect(window);
 }

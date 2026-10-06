@@ -5,6 +5,7 @@
 #include <KSharedConfig>
 #include <QObject>
 #include <algorithm>
+#include <functional>
 
 namespace Kadunce {
 class ActiveSettings : public QObject
@@ -21,14 +22,20 @@ public:
             });
     }
     int gutter() const { return m_gutter; }
+    // Called after the gutter changes while Kadunce runs, so the cards already
+    // standing in it take the new one at once.
+    void onGutterChanged(std::function<void()> changed) { m_changed = std::move(changed); }
 private:
     void reload()
     {
+        const int before = m_gutter;
         m_gutter = std::clamp(KConfigGroup(m_config, QStringLiteral("Effect-kadunce"))
             .readEntry("ActiveCardGutter", 10), 6, 48);
+        if (m_gutter != before && m_changed) m_changed();
     }
     KSharedConfig::Ptr m_config;
     KConfigWatcher::Ptr m_watcher;
     int m_gutter = 10;
+    std::function<void()> m_changed;
 };
 }

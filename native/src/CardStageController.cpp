@@ -69,6 +69,11 @@ KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *outpu
 CardStageController::CardStageController(CardStageHost *host)
     : m_host(host)
 {
+    m_settings.onGutterChanged([this]() {
+        const int moved = applyGutter();
+        qInfo() << "Kadunce" << Revision << "Active card gutter is now"
+                << m_settings.gutter() << "px;" << moved << "cards took it";
+    });
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {
         const auto window = m_arrivalWindow;
@@ -871,6 +876,7 @@ void CardStageController::clearCardTransition()
     m_arrivalTimer.stop();
     m_arrivalWindow.clear();
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_previewTransition.invalidate();
     m_previewOrigins.clear();
     m_poseTransition = false;
@@ -2316,7 +2322,7 @@ void CardStageController::restoreOriginalStackingOrder()
     }
 }
 
-void CardStageController::toggle()
+void CardStageController::toggle(bool growToActive)
 {
     stopOpeningSpread();
     m_host->cancelInputForCardStage();
@@ -2331,6 +2337,9 @@ void CardStageController::toggle()
             bringCardsBack();
             m_host->setPagingShortcutsForCardStage(true);
         } else if (m_presentation == CardPresentation::Spread) {
+            // The chosen card grows to its Active place first, as a new app's
+            // card does, and the arrival timer enters Active when it is there.
+            if (growToActive && growSelectedToActive()) return;
             if (!enterActive()) {
                 return;
             }
@@ -2890,6 +2899,42 @@ int CardStageController::returnCardsToDisplay()
     return returned;
 }
 
+int CardStageController::applyGutter()
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !tablet || !KWin::effects->screens().contains(tablet)) return 0;
+    const KWin::EffectWindow *presented =
+        m_presentation == CardPresentation::Active ? selectedWindow() : nullptr;
+    // Keys up over the Active card: the room is made from the new target.
+    if (m_keyboardRoom && m_keyboardRoom->window && m_keyboardRoom->window == presented) {
+        m_keyboardRoom->base = KWin::RectF(activeTarget(tablet));
+        refreshKeyboardRoom();
+    }
+    int moved = 0;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    for (const QPointer<KWin::EffectWindow> &window : std::as_const(m_workspace.windows())) {
+        if (!window || window->isDeleted() || !window->window() || window->isMinimized()
+            || isBentoProjectionPane(window)) continue;
+        KWin::Window *client = window->window();
+        // A Bento pane keeps its layout's own place. A card held, carried or being resized by hand is left where it is;
+        // it takes the gutter when it is set down.
+        if (client->moveResizeOutput() != tablet || client->isInteractiveMove()
+            || client->isInteractiveResize() || client->isFullScreen()
+            || client->maximizeMode() != KWin::MaximizeRestore
+            || client->quickTileMode() != KWin::QuickTileMode{}
+            || (m_cardGrabActive && window == selectedWindow())) continue;
+        const KWin::Rect target = window == presented
+            ? activePlacement(tablet) : activeTarget(tablet);
+        if (client->moveResizeGeometry().toRect() == target) continue;
+        client->moveResize(KWin::RectF(target));
+        ++moved;
+    }
+    if (moved == 0) return 0;
+    if (presented) m_activeSettleRemaining = 2;
+    KWin::effects->addRepaintFull();
+    return moved;
+}
+
 bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
 {
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
@@ -3077,6 +3122,7 @@ bool CardStageController::beginLauncherGuest()
     m_arrivalTimer.stop();
     m_arrivalWindow.clear();
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_launcherGuestGroupCount = m_workspace.count();
     m_launcherGuestArrival = false;
     m_launcherGuestPrimarySide = m_workspace.count() == 2
@@ -4353,10 +4399,47 @@ bool CardStageController::admitTransferredWindowToTablet(
     return true;
 }
 
+bool CardStageController::growSelectedToActive()
+{
+    KWin::EffectWindow *window = selectedWindow();
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    // A second tap while it grows takes it straight in.
+    if (m_arrivalExpanding && window && window == m_arrivalWindow) return false;
+    // Instant motion, or a card with nothing to draw yet, goes straight in.
+    if (motion(ArrivalExpandDuration) <= 1 || !tablet || m_launcherGuestActive
+        || m_cardGrabActive || !window || window->isDeleted() || window->isMinimized()
+        || window->screen() != tablet || !window->window()
+        || !window->window()->readyForPainting() || !window->window()->isShown()
+        || !m_host->isManagedWindowForCardStage(window)) return false;
+    captureCardTransition();
+    if (!m_previewTransition.isValid()) return false;
+    // KWin picks the window a press goes to before Kadunce sees the press, by
+    // its own stacking, and the cards behind stand in the Active place too.
+    // The growing card is on top for KWin as it is on screen, so a press that
+    // ends the growth reaches it and not the card that was Active before.
+    KWin::workspace()->raiseWindow(window->window());
+    m_arrivalWindow = window;
+    m_arrivalExpanding = true;
+    m_growingChosen = true;
+    m_arrivalWait.start();
+    m_arrivalTimer.start(motion(ArrivalExpandDuration));
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "growing the chosen card to Active" << window->caption();
+    return true;
+}
+
+bool CardStageController::finishGrowToActive()
+{
+    if (!m_growingChosen || !m_arrivalExpanding || !m_active
+        || m_presentation != CardPresentation::Spread || selectedWindow() != m_arrivalWindow) return false;
+    return enterActive();
+}
+
 void CardStageController::startArrivalTimer(KWin::EffectWindow *window)
 {
     m_arrivalWindow = window;
     m_arrivalExpanding = false;
+    m_growingChosen = false;
     m_arrivalWait.start();
     m_arrivalTimer.start(motion(PreviewTransitionDuration));
     qInfo() << "Kadunce new app settling at center" << window->caption();

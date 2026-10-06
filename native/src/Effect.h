@@ -308,7 +308,7 @@ private:
     // by, and the desktop it now stands on takes it as that desktop's own. One
     // put on every desktop leaves and stays a plain window.
     void handleWindowDesktopsChanged(KWin::EffectWindow *window);
-    void toggleOwnedPresentation();
+    void toggleOwnedPresentation(bool growToActive = false);
     // KWin draws another desktop's windows only while showing it as well, as
     // its slide does between desktops. That desktop's cards stay hidden but for
     // the one it presents Active; its layouts' panes are real windows and show.
@@ -514,6 +514,7 @@ private:
     void holdOverviewOff();
     void followTableGesture(qreal progress, KWin::LogicalOutput *output);
     [[nodiscard]] WorkspacePresentation presentationForInput() const override;
+    void settleChosenCardForInput() override;
     [[nodiscard]] WorkspaceInputGeometry geometryForInput() const override;
     [[nodiscard]] bool cardGrabActiveForInput() const override;
     [[nodiscard]] bool nativeWindowInteractionForInput() const override;
@@ -702,6 +703,17 @@ private:
     CardStageController *m_cardStage = nullptr;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
     bool m_continueRepaint = false;
+    // A quiet record of frames the card display waited for while Kadunce was
+    // moving something, with what the frame before cost, so a stall seen on
+    // hardware can be told apart from Kadunce's own drawing.
+    QElapsedTimer m_frameClock;
+    qint64 m_frameStartedAt = -1;
+    qint64 m_frameWork = 0;
+    bool m_frameWanted = false;
+    bool m_framingTablet = false;
+    int m_framePreviewsMade = 0;
+    void noteTabletFrameStart();
+    void noteTabletFrameEnd(bool wanted);
     QList<QPointer<KWin::EffectWindow>> m_preparationNeighbors;
     bool m_neighborPreparedThisFrame = false;
     unsigned int m_neighborPreparationCursor = 0;

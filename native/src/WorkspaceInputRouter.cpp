@@ -140,6 +140,7 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
 
 bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
 {
+    if (event->state == KWin::PointerButtonState::Pressed) m_target->settleChosenCardForInput();
     if (m_target->tableOpenForInput() || m_tablePointer) {
         // A button already held by a client when Table opened ends there.
         if (event->state == KWin::PointerButtonState::Released && !m_tablePointer
@@ -406,6 +407,7 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 {
+    m_target->settleChosenCardForInput();
     m_observedTouchIds.insert(event->id);
     if (m_railTouch >= 0) {
         m_drainingTouchIds.insert(m_railTouch);
