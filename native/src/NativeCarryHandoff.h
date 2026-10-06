@@ -149,6 +149,7 @@ public:
     }
     bool ownsNativeFinish(const KWin::Window *window) const { return m_takeover.ownsNativeFinish(window); }
     void withdrawDrop() { m_drop.reset(); }
+    bool hasDrop() const { return m_drop.has_value(); }
     NativeMoveTakeover &carry() { return m_takeover; }
     const std::optional<PreparedCarrySource> &source() const { return m_ownedSource; }
     std::optional<CarryOutcome> takeOutcome()

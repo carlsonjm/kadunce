@@ -188,6 +188,11 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_railReady = true;
         return true;
     }
+    if (event->state == KWin::PointerButtonState::Pressed
+        && m_target->inPaneGutterForInput(event->position)) {
+        m_drainingPointerButtons.insert(event->button);
+        return true;
+    }
     if (reconcileNativeInteraction()) {
         if (event->state == KWin::PointerButtonState::Released) {
             m_forwardedPointerButtons.remove(event->button);
@@ -438,6 +443,10 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_railStart = m_railPosition = event->pos;
         m_railReady = false;
         m_railHoldTimer.start();
+        return true;
+    }
+    if (m_target->inPaneGutterForInput(event->pos)) {
+        m_drainingTouchIds.insert(event->id);
         return true;
     }
     if (reconcileNativeInteraction()) return false;

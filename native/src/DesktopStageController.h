@@ -115,6 +115,9 @@ public:
     // §7 sleeping window, which is a display with no card owner to shed it to.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
+    // Between a layout's panes, inside the box they fill together: the gutter a
+    // press there must not reach whatever window lies behind the layout.
+    [[nodiscard]] bool inPaneGutter(QPointF position) const;
     void restoreAllSessions();
     // Synchronous ownership transfer; no restoration or placement on success.
     bool transferTabletSessionToSpread(KWin::LogicalOutput *output,

@@ -24,6 +24,8 @@ public:
     std::function<bool(const PreparedCarrySource &, QPointF)> entryRequested;
     std::function<void(KWin::Window *)> deferred;
     std::function<void(KWin::Window *, QPointF)> nativeReleased;
+    // A carry this filter owns was let go; committed says whether its drop landed.
+    std::function<void(bool)> released;
     NativeCarryRuntime() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
         observer.identified = [this](KWin::Window *w, auto ticket, QPointF pos, auto proof) {
@@ -80,6 +82,7 @@ public:
             const auto result = handoff.releaseDrop(owner);
             if (observed) observed(nullptr, result && result->committed ? "drop-committed" : "drop-not-committed");
             if (observed && result && !result->committed && result->refusal) observed(nullptr, result->refusal);
+            if (released && result) released(result->committed);
             if (ended) ended();
         } else if (action == A::Cancel) cancel();
         return action != A::Pass;
