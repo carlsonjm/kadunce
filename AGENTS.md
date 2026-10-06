@@ -3,9 +3,10 @@
 For every task, read only this startup set, in order:
 
 1. `AGENTS.md`
-2. The suite record, kept privately in the Shuffle repository and read from its
-   checkout beside this one: `../shuffle/docs/suite/CURRENT_STATE.md`,
-   `../shuffle/docs/suite/ROADMAP-CC.md` and `../shuffle/docs/suite/SWARM.md`.
+2. The suite record, kept privately in the Shuffle checkout beside this one:
+   `../shuffle/docs/suite/CURRENT_STATE.md`, `../shuffle/docs/suite/SWARM.md`,
+   and of `../shuffle/docs/suite/ROADMAP-CC.md` only § Current target, § Not
+   current and the task's blocks.
    Its `README.md` says how the record is written. When it is not checked out,
    say that the suite plan was unavailable rather than inventing an order.
 
