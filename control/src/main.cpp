@@ -161,7 +161,7 @@ public:
     ControlMenu()
         : m_notifier(QStringLiteral("kadunce-control"))
         , m_menu(new QMenu)
-        , m_toggle(m_menu->addAction(QStringLiteral("Kadunce enabled")))
+        , m_toggle(m_menu->addAction(QStringLiteral("Cards on")))
     {
         // The tray and Control Center show the title as the switch's label,
         // so it names what switches rather than the component.
@@ -202,7 +202,7 @@ public:
             m_repairOutput += QString::fromUtf8(m_repair.readAll());
             auto *message = new QMessageBox(code == 0 && status == QProcess::NormalExit
                     ? QMessageBox::Information : QMessageBox::Warning,
-                QStringLiteral("Kadunce repair"),
+                QStringLiteral("Repair cards"),
                 code == 0 && status == QProcess::NormalExit
                     ? QStringLiteral("Rebuilt and installed for the current KWin. Your enabled/disabled choice was preserved. "
                                      "No session restart was performed. If KWin still rejects it, save your work and log out and back in.")
@@ -219,7 +219,7 @@ public:
         QObject::connect(&m_repair, &QProcess::errorOccurred, [this](QProcess::ProcessError error) {
             if (error == QProcess::FailedToStart) {
                 m_repairing = false;
-                m_notifier.showMessage(QStringLiteral("Kadunce repair could not start"), m_repair.errorString(), QStringLiteral("dialog-error"));
+                m_notifier.showMessage(QStringLiteral("Repair could not start"), m_repair.errorString(), QStringLiteral("dialog-error"));
                 refresh();
             }
         });
@@ -285,7 +285,7 @@ private:
     void repair()
     {
         if (m_repairing) return;
-        auto *question = new QMessageBox(QMessageBox::Question, QStringLiteral("Repair Kadunce?"),
+        auto *question = new QMessageBox(QMessageBox::Question, QStringLiteral("Repair cards?"),
             QStringLiteral("Rebuild the source saved during installation for your current KWin? "
                            "No downloads or development-folder changes are used. Checks run before an administrator prompt installs the plugin. "
                            "Your workspace switch stays available; nothing will restart automatically."),
@@ -310,7 +310,7 @@ private:
         auto *dialog = new QDialog;
         m_settings = dialog;
         dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->setWindowTitle(QStringLiteral("Kadunce settings"));
+        dialog->setWindowTitle(QStringLiteral("Cards settings"));
         auto *layout = new QFormLayout(dialog);
         auto *gutter = new QSpinBox(dialog);
         gutter->setRange(6, 48);
@@ -370,7 +370,7 @@ private:
     void refresh()
     {
         const bool enabled = effectEnabled();
-        m_toggle->setText(QStringLiteral("Kadunce enabled"));
+        m_toggle->setText(QStringLiteral("Cards on"));
         m_toggle->setChecked(enabled);
         m_toggle->setEnabled(!m_busy);
         m_repairAction->setText(m_repairing ? QStringLiteral("Repair in progress…") : QStringLiteral("Repair for current KWin…"));
@@ -387,8 +387,7 @@ private:
         m_notifier.setIconByPixmap(QIcon(icon));
         m_notifier.setToolTip(
             QIcon(icon), SwitchLabel,
-            enabled ? QStringLiteral("Workspace enabled")
-                    : QStringLiteral("Workspace disabled"));
+            enabled ? QStringLiteral("On") : QStringLiteral("Off"));
     }
 
     // Asked only as the menu opens: the effect is the one that keeps it.
@@ -405,7 +404,7 @@ private:
     {
         m_busy = busy;
         if (busy) {
-            m_toggle->setText(QStringLiteral("Changing Kadunce…"));
+            m_toggle->setText(QStringLiteral("Changing cards…"));
             m_toggle->setEnabled(false);
             QApplication::processEvents();
         } else {
@@ -420,7 +419,7 @@ private:
         }
         updateHealth();
         if (m_mismatch) {
-            m_notifier.showMessage(QStringLiteral("Kadunce needs a rebuild"),
+            m_notifier.showMessage(QStringLiteral("Cards need a rebuild"),
                 QStringLiteral("KWin was updated. Choose ‘Repair for current KWin’ from this tray menu. If you have not restarted since the system update, finish it with a normal logout/login first."),
                 QStringLiteral("dialog-warning"));
             refresh();
@@ -441,7 +440,7 @@ private:
             reconfigureKWin();
             setBusy(false);
             m_notifier.showMessage(
-                QStringLiteral("Kadunce was not enabled"),
+                QStringLiteral("Cards stayed off"),
                 QStringLiteral("KWin did not accept the workspace effect. "
                                "The previous disabled state was preserved."),
                 QStringLiteral("dialog-error"));
@@ -450,7 +449,7 @@ private:
         setDisabledMarker(false);
         setBusy(false);
         m_notifier.showMessage(
-            QStringLiteral("Kadunce enabled"),
+            QStringLiteral("Cards on"),
             QStringLiteral("Spread and Bento are ready."),
             QStringLiteral("dialog-information"));
     }
@@ -475,7 +474,7 @@ private:
             reconfigureKWin();
             setBusy(false);
             m_notifier.showMessage(
-                QStringLiteral("Kadunce remains enabled"),
+                QStringLiteral("Cards stayed on"),
                 QStringLiteral("KWin could not confirm a safe release, so "
                                "the enabled state was restored."),
                 QStringLiteral("dialog-warning"));
@@ -485,7 +484,7 @@ private:
         reconfigureKWin();
         setBusy(false);
         m_notifier.showMessage(
-            QStringLiteral("Kadunce disabled"),
+            QStringLiteral("Cards off"),
             QStringLiteral("Managed windows were safely released."),
             QStringLiteral("dialog-information"));
     }

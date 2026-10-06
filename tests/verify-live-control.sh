@@ -18,7 +18,7 @@ for attempt in {1..20}; do
         [[ -n $menu_path ]] || continue
         layout=$(gdbus call --session --dest "$owner" --object-path "$menu_path" \
             --method com.canonical.dbusmenu.GetLayout -- 0 -1 '[]' 2>/dev/null || true)
-        if [[ $layout == *"'Kadunce enabled'"* && $layout == *"'toggle-type': <'checkmark'>"* ]]; then
+        if [[ $layout == *"'Cards on'"* && $layout == *"'toggle-type': <'checkmark'>"* ]]; then
             echo 'Kadunce safety control is registered, Active, and exposes its kill switch.'
             exit 0
         fi

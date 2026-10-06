@@ -11,7 +11,7 @@ result does to a window.
 | Active card | Tap a card in Spread | `Enter` in Spread |
 | Bento | Drag a window to the left or right edge | `Meta+B` |
 | Table | Pull down from the top edge | `Meta+W` |
-| Plasma desktop | Switch Kadunce off in the tray | `Meta+Esc` |
+| Plasma desktop | Switch Cards off in the tray | `Meta+Esc` |
 
 Kadunce's keys sit on `Meta` and work only while it runs. `Ctrl` stays with
 applications, `Alt+Tab` with KDE, and `Meta+G` and `Meta+E` open Tettegouche's
@@ -118,7 +118,7 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Switch Kadunce off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
+| Switch Cards off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
 | `Meta+Esc` | Every window everywhere returns to the plain Plasma desktop. The next window on the card display starts cards again. |
 | Drag the Active card or a Bento pane to the bottom edge | It returns to the ordinary Plasma desktop where you let it go; other cards wait in Spread. |
-| Switch Kadunce on in the tray | The card display's windows become cards, the one in use the Active card. |
+| Switch Cards on in the tray | The card display's windows become cards, the one in use the Active card. |
