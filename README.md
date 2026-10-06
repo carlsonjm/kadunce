@@ -17,13 +17,13 @@ monitor you arrange them side by side.
 | Active card | Tap a card in Spread | `Enter` in Spread |
 | Bento | Drag a window to the left or right edge | `Meta+B` |
 | Table | Pull down from the top edge | `Meta+W` |
-| Plasma desktop | Switch Kadunce off in the tray | `Meta+Esc` |
+| Plasma desktop | Switch Cards off in the tray | `Meta+Esc` |
 
 Kadunce's keys work only while it runs. Every other gesture, tap and key is in
 [docs/INPUT.md](docs/INPUT.md).
 
 If anything goes wrong, `Meta+Esc` puts every window back on the ordinary Plasma
-desktop, and the **Kadunce** switch in the system tray turns Kadunce off
+desktop, and the **Cards** switch in the system tray turns Kadunce off
 entirely.
 
 ## Cards, Spread, Bento and Table
@@ -79,7 +79,7 @@ versions need the KWin touch correction in `patches/kwin/README.md`.
 ```
 
 `disable.sh` returns every window to Plasma and turns Kadunce off until you turn
-it on again. The **Kadunce** switch stays in the system tray, so you can always
+it on again. The **Cards** switch stays in the system tray, so you can always
 turn Kadunce off completely. `uninstall.sh` removes what was installed and leaves
 this folder as it is; log out and back in if the plugin is still loaded in the
 current session.

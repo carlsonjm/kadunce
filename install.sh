@@ -35,6 +35,12 @@ cleanup() {
             "${previous_native_enabled}" || true
         qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure \
             >/dev/null 2>&1 || true
+        # Registration unloaded the effect, and reconfiguring does not load
+        # it again, so an effect that was on is asked for by name.
+        if [[ "${previous_native_enabled}" == true ]]; then
+            qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
+                "${native_effect_id}" >/dev/null 2>&1 || true
+        fi
         echo "Kadunce installation stopped before completion." >&2
         echo "The previous effect configuration was restored." >&2
         command -v notify-send >/dev/null 2>&1 \

@@ -8,8 +8,10 @@ for attempt in {1..20}; do
         [[ $item == */* ]] || continue
         owner=${item%%/*}
         path=/${item#*/}
-        title=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Title 2>/dev/null || true)
-        [[ $title == Kadunce ]] || continue
+        id=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Id 2>/dev/null || true)
+        # KStatusNotifierItem may prefix the id it was given with the
+        # application's name, as kadunce-control_kadunce-control.
+        [[ $id == kadunce-control || $id == *_kadunce-control ]] || continue
         status=$(qdbus6 "$owner" "$path" org.kde.StatusNotifierItem.Status 2>/dev/null || true)
         [[ $status == Active ]] || continue
         menu=$(gdbus call --session --dest "$owner" --object-path "$path" \
@@ -18,7 +20,7 @@ for attempt in {1..20}; do
         [[ -n $menu_path ]] || continue
         layout=$(gdbus call --session --dest "$owner" --object-path "$menu_path" \
             --method com.canonical.dbusmenu.GetLayout -- 0 -1 '[]' 2>/dev/null || true)
-        if [[ $layout == *"'Kadunce enabled'"* && $layout == *"'toggle-type': <'checkmark'>"* ]]; then
+        if [[ $layout == *"'Cards on'"* && $layout == *"'toggle-type': <'checkmark'>"* ]]; then
             echo 'Kadunce safety control is registered, Active, and exposes its kill switch.'
             exit 0
         fi
