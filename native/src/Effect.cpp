@@ -5057,6 +5057,10 @@ bool Effect::inCardGap(const QPointF &position) const
         KWin::Window *window = *it;
         if (!window || window->isDeleted() || !window->isShown() || !window->isOnCurrentDesktop()
             || window->isHiddenByShowDesktop()) continue;
+        // The cards a presented layout hides lie behind its panes, and the
+        // gutter between the panes is the layout's, not theirs.
+        if (m_cardStage->presentsBento() && window->effectWindow()
+            && m_cardStage->liveCardIndex(window->effectWindow()) >= 0) continue;
         if (window->frameGeometry().contains(position)) return false;
         if (!window->hitTest(position)) continue;
         const KWin::EffectWindow *effectWindow = window->effectWindow();
