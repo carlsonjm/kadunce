@@ -153,6 +153,9 @@ struct NoteGeometry {
 // Gooseberry says otherwise. A hold on a fanned note, or on a stack for its
 // top note, carries that note, and letting it go on another card asks
 // Gooseberry to stick it there. Any other press is not the notes'.
+// Gooseberry's reply to a toggle confirms the guess or ends it: a reply that
+// fails, or that names the other state, drops the guess and asks for a fresh
+// read, since no signal follows a toggle that changed nothing.
 class StuckNotesSpread
 {
 public:
@@ -243,6 +246,20 @@ public:
         if (!still || contact != Contact::Stack || !entryFor(pressedOn)) return std::nullopt;
         m_expected.insert(pressedOn, !fanned(pressedOn));
         return Request{Request::Kind::Toggle, pressedOn, {}};
+    }
+
+    // Gooseberry answered a toggle of the window's notes: whether they are
+    // shown now, or nothing when the call failed. True when the guess made
+    // for it was wrong and dropped, so Windows() is to be read again. A reply
+    // that comes after Gooseberry has already said what it holds changes
+    // nothing, since its word has replaced the guess.
+    bool toggleAnswered(const QUuid &window, std::optional<bool> shown)
+    {
+        const auto guess = m_expected.constFind(window);
+        if (guess == m_expected.cend()) return false;
+        if (shown && *shown == *guess) return false;
+        m_expected.erase(guess);
+        return true;
     }
 
     // The contact was taken away, or Spread closed under it: nothing is asked.

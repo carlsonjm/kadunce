@@ -155,9 +155,30 @@ void StuckNotesWatcher::pause(bool paused)
     send(QStringLiteral("Pause"), {paused});
 }
 
-void StuckNotesWatcher::toggle(const QString &windowId, const QString &caption, const QString &app)
+void StuckNotesWatcher::toggle(const QString &windowId, const QString &caption, const QString &app,
+                               std::function<void(std::optional<bool>)> answered)
 {
-    send(QStringLiteral("Toggle"), {windowId, caption, app});
+    if (m_owner.isEmpty()) {
+        if (answered) answered(std::nullopt);
+        return;
+    }
+    auto message = QDBusMessage::createMethodCall(Service, Path, Interface, QStringLiteral("Toggle"));
+    message.setAutoStartService(false);
+    message.setArguments({windowId, caption, app});
+    auto *call = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
+    connect(call, &QDBusPendingCallWatcher::finished, this,
+            [windowId, answered = std::move(answered)](QDBusPendingCallWatcher *finished) {
+        finished->deleteLater();
+        const QDBusMessage reply = finished->reply();
+        std::optional<bool> shown;
+        if (reply.type() == QDBusMessage::ReplyMessage && !reply.arguments().isEmpty()
+            && reply.arguments().first().metaType() == QMetaType::fromType<bool>())
+            shown = reply.arguments().first().toBool();
+        else
+            qInfo() << "Kadunce's toggle of the notes on" << windowId << "had no answer from Gooseberry:"
+                    << (reply.type() == QDBusMessage::ErrorMessage ? reply.errorName() : QStringLiteral("no shown state"));
+        if (answered) answered(shown);
+    });
 }
 
 void StuckNotesWatcher::stickTo(const QString &noteId, const QString &windowId,

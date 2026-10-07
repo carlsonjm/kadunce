@@ -41,6 +41,10 @@
 #include <opengl/glshadermanager.h>
 #include <opengl/glutils.h>
 #include <opengl/glvertexbuffer.h>
+#include <scene/item.h>
+#include <scene/itemrenderer.h>
+#include <scene/scene.h>
+#include <scene/workspacescene.h>
 #include <window.h>
 #include <workspace.h>
 #include <virtualdesktops.h>
@@ -140,6 +144,60 @@ QByteArray borderCursorName(Window *window)
 {
     if constexpr (requires { window->cursor().name(); }) return window->cursor().name();
     else return QByteArray();
+}
+
+// The renderer that draws a view's scene. From KWin 6.8 each render device
+// has its own; earlier KWin has one.
+template<typename SceneT, typename View>
+KWin::ItemRenderer *sceneRenderer(SceneT *scene, View *view)
+{
+    if constexpr (requires { scene->renderer(view->renderDevice()); }) return scene->renderer(view->renderDevice());
+    else return scene->renderer();
+}
+
+// Draws the pointer again over what Kadunce painted after the scene, so no
+// label, note or outline ever covers it. KWin draws the pointer inside the
+// scene when it has no cursor plane, such as with a software cursor, and then
+// anything an effect paints after the scene lands on top of it. The pointer
+// is drawn again only where Kadunce painted, `overlaid` in logical pixels, and
+// only when KWin composited it into this display's scene, so a pointer on its
+// own hardware plane, or one nothing covered, is never doubled. False when
+// drawing failed and painting is to stop.
+bool paintPointerAbove(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                       const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
+                       const QList<QRectF> &overlaid)
+{
+    if (overlaid.isEmpty()) return true;
+    auto *scene = KWin::kwinApp() ? KWin::kwinApp()->scene() : nullptr;
+    KWin::Item *pointer = scene ? scene->cursorItem() : nullptr;
+    if (!screen || !pointer || !pointer->isVisible()) return true;
+    const KWin::RectF bounds = pointer->mapToScene(pointer->boundingRect());
+    if (bounds.isEmpty() || !QRectF(bounds).intersects(QRectF(screen->geometry()))) return true;
+    KWin::Region covered;
+    for (const QRectF &rect : overlaid) {
+        const QRectF under = rect.intersected(QRectF(bounds));
+        if (!under.isEmpty()) covered |= KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(under)));
+    }
+    if (covered.isEmpty()) return true;
+    KWin::SceneView *drawnIn = nullptr;
+    for (KWin::RenderView *view : scene->views()) {
+        auto *sceneView = qobject_cast<KWin::SceneView *>(view);
+        if (!sceneView || sceneView->logicalOutput() != screen) continue;
+        // On its own plane for any view of this display: not in the scene.
+        if (!sceneView->shouldRenderItem(pointer)) return true;
+        if (!drawnIn) drawnIn = sceneView;
+    }
+    if (!drawnIn) return true;
+    KWin::ItemRenderer *renderer = sceneRenderer(scene, drawnIn);
+    if (!renderer) return true;
+    const KWin::Region region = deviceRegion & covered;
+    if (region.isEmpty()) return true;
+    return painted([&] {
+        return renderer->renderItem(renderTarget, viewport, pointer, KWin::Scene::PAINT_SCREEN_TRANSFORMED,
+            region, KWin::WindowPaintData{},
+            [drawnIn](KWin::Item *item) { return !drawnIn->shouldRenderItem(item); },
+            [](KWin::Item *) { return false; });
+    });
 }
 
 // Card backing and vacant seam share one rigid transform and neutral material.
@@ -980,7 +1038,11 @@ Effect::Effect()
     // Gooseberry's notes, while it runs; without it Spread draws none.
     m_stuckNotesWatcher = new StuckNotesWatcher(this);
     connect(m_stuckNotesWatcher, &StuckNotesWatcher::windowsChanged, this, [this](const QVariantList &windows) {
-        m_stuckNotes.setEntries(stuckNotesEntries(windows));
+        const auto entries = stuckNotesEntries(windows);
+        const auto shown = std::count_if(entries.cbegin(), entries.cend(),
+                                         [](const StuckNotesEntry &entry) { return entry.shown; });
+        qInfo() << "Kadunce reads notes on" << entries.size() << "windows from Gooseberry," << shown << "shown";
+        m_stuckNotes.setEntries(entries);
         syncNotesPause();
         if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
     });
@@ -5389,9 +5451,18 @@ void Effect::releaseNotesFromInput(const QPointF &position, bool still)
     if (!window || !m_stuckNotesWatcher) return;
     // Gooseberry acts and says so; what Spread draws follows its word.
     const QString windowId = window->internalId().toString();
-    if (request->kind == StuckNotesSpread::Request::Kind::Toggle)
-        m_stuckNotesWatcher->toggle(windowId, window->caption(), applicationIdentity(window));
-    else
+    if (request->kind == StuckNotesSpread::Request::Kind::Toggle) {
+        // A toggle that fails, or that changes nothing, brings no signal, so
+        // its reply is what ends a wrong guess.
+        m_stuckNotesWatcher->toggle(windowId, window->caption(), applicationIdentity(window),
+            [this, id = request->window](std::optional<bool> shown) {
+                if (!m_stuckNotes.toggleAnswered(id, shown)) return;
+                qInfo() << "Kadunce reads Gooseberry's notes again after a toggle of" << id
+                        << (shown ? "answered otherwise" : "went unanswered");
+                if (m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
+                if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
+            });
+    } else
         m_stuckNotesWatcher->stickTo(request->noteId, windowId, window->caption(),
                                      applicationIdentity(window));
 }
@@ -5417,7 +5488,7 @@ void Effect::cancelNotesFromInput()
 
 void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                              const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
-                             const QRectF &heldRect)
+                             const QRectF &heldRect, QList<QRectF> &drawn)
 {
     if (m_stuckNotes.isEmpty() || m_cardStage->launcherGuestActive()) return;
     const auto &model = m_cardStage->model();
@@ -5443,6 +5514,7 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
             colours.append(entry->notes.at(layer).colourHex);
         }
         m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->count);
+        drawn << sheets;
         if (m_stuckNotes.fanned(window->internalId()) && window != held)
             fanned.append({entry, *target});
     }
@@ -5455,14 +5527,18 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
             const bool lifted = carried && carried->id == note.id;
             m_noteStackRenderer.renderNote(renderTarget, viewport, rects.at(index), note, lifted ? 0.35 : 1.0);
         }
+        drawn << rects;
     }
     if (carried) {
         if (auto *target = notesCardWindow(m_stuckNotes.dropTarget(notesCards()));
             target && m_destinationShader) {
-            if (const auto box = m_cardLabelTargets.constFind(target); box != m_cardLabelTargets.cend())
+            if (const auto box = m_cardLabelTargets.constFind(target); box != m_cardLabelTargets.cend()) {
                 drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, *box);
+                drawn.append(*box);
+            }
         }
         m_noteStackRenderer.renderNote(renderTarget, viewport, m_stuckNotes.carriedRect(), *carried, 1.0);
+        drawn.append(m_stuckNotes.carriedRect());
     }
 }
 
@@ -5749,9 +5825,12 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     // A released row, a returning card or a thrown one moves once per frame.
     if (isTabletOutput(data.screen)) m_cardStage->advanceMotion();
     if (isTabletOutput(data.screen)) {
-        m_notesSpreadShown = m_cardStage->isActive()
-            && m_cardStage->presentation() == CardPresentation::Spread;
+        const bool wasShown = std::exchange(m_notesSpreadShown, m_cardStage->isActive()
+            && m_cardStage->presentation() == CardPresentation::Spread);
         if (!m_notesSpreadShown) m_stuckNotes.cancel();
+        // Spread opening reads every entry again, so a missed signal cannot
+        // leave a card's fan disagreeing with its window.
+        if (m_notesSpreadShown && !wasShown && m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
         syncNotesPause();
     }
     showSleepingCardsInSpread();
@@ -5964,6 +6043,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // Labels, rails and outlines belong to the current desktop's presentation.
     if (m_previewDesktop) return paintResult(true);
+    // Where anything below is painted over the scene, and so over the
+    // pointer when KWin composites it.
+    QList<QRectF> overlaid;
     if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
         && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
         QList<QRectF> pills;
@@ -6002,6 +6084,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         };
         for (const auto &box : previews) drawRailShape(box,false);
         if (!previews.isEmpty()) for (const auto &pill : pills) drawRailShape(pill,true);
+        if (!previews.isEmpty()) overlaid << previews << pills;
     }
     // Draw only from a still-owned reservation. No layout solve, timers, native
     // outline window, or input grab belongs in the paint pass.
@@ -6017,6 +6100,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 && m_desktopStage->cardDropValid(*reservation)))) {
         const QRectF box(*preview);
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, box);
+        overlaid.append(box);
         // The outline above is drawn for a Bento reservation, a Card Stage
         // entry or a card leaving at the bottom edge. §10 gives the bottom edge
         // the only detaching release, so a pane leaving its layout and a card
@@ -6026,8 +6110,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             m_detachLabel.render(renderTarget, viewport, box);
     }
     // Where a placement request is aimed, as a carried card's destination is.
-    if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen)
+    if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, QRectF(*m_placementPreview));
+        overlaid.append(QRectF(*m_placementPreview));
+    }
     if (screen && screen == tabletOutput() && m_cardStage->isActive()
         && m_cardStage->presentation() == CardPresentation::Spread) {
         const auto &model = m_cardStage->model();
@@ -6063,15 +6149,20 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 *target,
                 {applicationName, stackPositionLabel(
                     m_cardStage->shownStackPosition(cardId), count, bentoGroup)});
+            overlaid.append(CardLabelRenderer::labelRect(*target));
         }
-        paintStuckNotes(renderTarget, viewport, deviceRegion, screen, heldRect);
+        paintStuckNotes(renderTarget, viewport, deviceRegion, screen, heldRect, overlaid);
     }
     // A refused gesture's note, over everything on the display it was let go on.
-    if (m_gestureNote && screen && m_gestureNote->output == screen)
+    if (m_gestureNote && screen && m_gestureNote->output == screen) {
         m_gestureNoteLabel.render(renderTarget, viewport, m_gestureNote->box, m_gestureNote->text,
                                   gestureNoteOpacity(m_gestureNote->shown.elapsed()));
+        overlaid.append(m_gestureNote->box);
+    }
+    // The pointer stays above everything Kadunce draws.
+    const bool pointerPainted = paintPointerAbove(renderTarget, viewport, deviceRegion, screen, overlaid);
     m_paintingOutput = nullptr;
-    return paintResult(true);
+    return paintResult(pointerPainted);
 }
 
 void Effect::observeCardOwnership()

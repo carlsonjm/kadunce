@@ -114,6 +114,34 @@ int main()
     require(notes.fanned(Centre), "A tapped stack did not fan while Gooseberry answered");
     notes.setEntries(entries);
     require(!notes.fanned(Centre), "A guess outlived Gooseberry's answer");
+    // A reply after Gooseberry has already said what it holds changes nothing.
+    require(!notes.toggleAnswered(Centre, std::nullopt) && !notes.fanned(Centre),
+        "A late reply overrode Gooseberry's word");
+
+    // Gooseberry's reply to a toggle confirms the guess or ends it, since a
+    // toggle that changes nothing brings no signal.
+    (void)notes.press(centreStackPoint, Cards);
+    (void)notes.release(centreStackPoint, true, Cards);
+    require(!notes.toggleAnswered(Centre, true) && notes.fanned(Centre),
+        "A reply that agreed with the guess dropped it or asked for a read");
+    notes.setEntries(entries);
+    (void)notes.press(centreStackPoint, Cards);
+    (void)notes.release(centreStackPoint, true, Cards);
+    require(notes.toggleAnswered(Centre, false) && !notes.fanned(Centre),
+        "A reply that contradicted the guess left Spread disagreeing with the window");
+    (void)notes.press(centreStackPoint, Cards);
+    (void)notes.release(centreStackPoint, true, Cards);
+    require(notes.toggleAnswered(Centre, std::nullopt) && !notes.fanned(Centre),
+        "A failed toggle left its guess standing");
+    require(!notes.toggleAnswered(Centre, std::nullopt), "A reply with no guess left asked for a read");
+    // Only the window answered for loses its guess.
+    (void)notes.press(centreStackPoint, Cards);
+    (void)notes.release(centreStackPoint, true, Cards);
+    (void)notes.press(leftStackPoint, Cards);
+    (void)notes.release(leftStackPoint, true, Cards);
+    require(notes.toggleAnswered(Left, std::nullopt) && notes.fanned(Centre) && !notes.fanned(Left),
+        "A failed toggle on one card dropped another card's guess");
+    notes.setEntries(entries);
     auto shownEntries = entries;
     shownEntries[0].shown = true;
     notes.setEntries(shownEntries);

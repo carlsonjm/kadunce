@@ -595,7 +595,7 @@ private:
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                          const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
-                         const QRectF &heldRect);
+                         const QRectF &heldRect, QList<QRectF> &drawn);
     StuckNotesWatcher *m_stuckNotesWatcher = nullptr;
     StuckNotesSpread m_stuckNotes;
     NoteStackRenderer m_noteStackRenderer;
