@@ -14,4 +14,12 @@ namespace Kadunce {
     if (!std::isfinite(factor) || factor <= 0.0) return 1;
     return std::max(1, static_cast<int>(std::lround(base * factor)));
 }
+
+// Motion that carries on from the hand, such as a flicked row gliding to its
+// card or a row parting under a carried one, keeps the hand's own pace at
+// every speed but instant, where it lands at once.
+[[nodiscard]] inline bool motionInstant(double factor)
+{
+    return !std::isfinite(factor) || factor <= 0.0;
+}
 }

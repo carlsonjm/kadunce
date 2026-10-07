@@ -222,6 +222,24 @@ inline bool stepRow(RowMotion &motion, const RowStops &row, double seconds)
     return true;
 }
 
+// Where a released row comes to rest, at once: the card a glide or spring is
+// bound for, or for a coast, where its slide stops or the end it reaches.
+inline void finishRow(RowMotion &motion, const RowStops &row)
+{
+    if (motion.mode == RowMotion::Mode::Coast) {
+        const double speed = std::abs(motion.velocity);
+        const double direction = motion.velocity > 0 ? 1.0 : -1.0;
+        const double slide = motion.position + direction * speed * speed / (2.0 * RowFriction);
+        motion.target = slide < row.first() ? row.first()
+            : slide > row.last() ? row.last() : nearestRowStop(row, slide);
+    } else if (motion.mode != RowMotion::Mode::Glide && motion.mode != RowMotion::Mode::Spring) {
+        return;
+    }
+    motion.position = motion.target;
+    motion.velocity = 0.0;
+    motion.mode = RowMotion::Mode::Rest;
+}
+
 // A card lifted off the row by an upward or downward stroke. Travel is the
 // finger's vertical distance, negative upward; velocity is pixels per
 // millisecond, negative upward. Up closes; down takes a card out of its Stack.

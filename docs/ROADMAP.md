@@ -14,6 +14,7 @@ What is planned for Kadunce, and what it does not do yet.
   tap just after a card is chosen.
 - Under a reduced-motion preference, where the platform exposes one apart
   from Plasma's instant speed, short fades in place of travel.
+- Spread and the Active card named for a screen reader, as Table is.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
 - A placement request (`REQUESTS.md`) taking a pane out of its layout.
 - One package and interface namespace across the suite, with a documented

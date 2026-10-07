@@ -60,6 +60,9 @@ presentation layer over them. Every input Table answers is in `INPUT.md`
 - The depth and lift lines sit 25 px under the row above them, 5 mm on a
   tablet at 1.75 scale. Accent marks only the drop destination; the rest
   follows `ITASCA-VISUAL-LANGUAGE.md`.
+- A screen reader names each piece: a tab as its workspace's number and name,
+  `+` as New workspace, a card by its application and title and whether it is
+  a Stack, and the card in hand as moving.
 
 ## Invariants
 

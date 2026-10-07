@@ -140,6 +140,18 @@ int main() {
           "vertical stroke did not lift");
     check(scrubSteps(-89) == 0 && scrubSteps(-91) == 1 && scrubSteps(185) == -2, "scrub steps wrong");
 
+    // At instant speed a released row lands where its motion would have.
+    for (double speed : {100.0, 2400.0, 4800.0, -2400.0, 30000.0, -30000.0}) {
+        RowMotion moving = held(500);
+        releaseRow(moving, row, speed);
+        RowMotion now = moving;
+        finishRow(now, row);
+        const RowMotion later = settle(moving, row);
+        check(now.mode == RowMotion::Mode::Rest && now.velocity == 0, "instant row is still moving");
+        check(rowStopIndex(row, now.position) >= 0, "instant row stopped between cards");
+        check(now.position == later.position, "instant row landed on a different card");
+    }
+
     // Release speed comes from the stroke's last moments, not its start.
     StrokeVelocity velocity;
     for (int t = 0; t <= 300; t += 10) velocity.add(t, t < 200 ? 0.0 : (t - 200) * 2.0, 0);

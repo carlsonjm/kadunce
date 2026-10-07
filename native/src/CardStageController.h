@@ -520,6 +520,7 @@ private:
     [[nodiscard]] int transitionDuration() const;
     // A motion's duration at Plasma's animation speed (MotionTime.h).
     [[nodiscard]] static int motion(int base);
+    [[nodiscard]] static bool motionIsInstant();
     void aimCarry();
     // Put a held card back as it was picked up: in its Stack, with the Stack's
     // face and the row's selection as they were.

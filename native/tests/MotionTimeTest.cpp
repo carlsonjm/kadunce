@@ -29,5 +29,9 @@ int main()
         "instant motion was not one millisecond");
     check(motionDuration(1, 0.25) == 1 && motionDuration(0, 1.0) == 1,
         "a duration fell below one millisecond");
+    check(motionInstant(0.0) && motionInstant(-1.0) && motionInstant(std::nan("")),
+        "instant speed did not land the hand's motion at once");
+    check(!motionInstant(0.25) && !motionInstant(1.0) && !motionInstant(2.0),
+        "a speed other than instant landed the hand's motion at once");
     std::cout << "Motion time checks passed\n";
 }
