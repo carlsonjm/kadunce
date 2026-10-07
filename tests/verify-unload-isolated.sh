@@ -135,6 +135,24 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh || ${KADUNC
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key BorderSize None
 fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == divider-tablet-runtime-session.sh ]]; then
+    # A cursor theme with the shapes the gutters hold, so the scene reads the
+    # shape KWin shows rather than an image no theme drew.
+    python3 - "$unload_root/data/icons/kadunce-test/cursors" <<'XCURSOR'
+import pathlib, struct, sys
+target = pathlib.Path(sys.argv[1])
+target.mkdir(parents=True)
+size = 24
+pixels = struct.pack('<' + 'I' * size * size, *([0xff000000] * size * size))
+image = struct.pack('<9I', 36, 0xfffd0002, size, 1, size, size, 0, 0, 0) + pixels
+data = struct.pack('<4sIII', b'Xcur', 16, 0x10000, 1) + struct.pack('<3I', 0xfffd0002, size, 28) + image
+for name in ('default', 'col-resize', 'row-resize', 'kadunce-page-left', 'kadunce-page-right'):
+    (target / name).write_bytes(data)
+XCURSOR
+    kwriteconfig6 --file "$unload_root/config/kcminputrc" --group Mouse --key cursorTheme kadunce-test
+    kwriteconfig6 --file "$unload_root/config/kcminputrc" --group Mouse --key cursorSize 24
+    session_env+=(XCURSOR_THEME=kadunce-test XCURSOR_SIZE=24)
+fi
 # Table's touch scene walks every gesture Table has, renaming included.
 session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then session_timeout=70s; fi

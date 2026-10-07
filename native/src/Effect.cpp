@@ -21,6 +21,8 @@
 #include "MonitorDropIntent.h"
 #include "DeliberateEdgeEntry.h"
 #include "TouchDisplay.h"
+#include <cursor.h>
+#include <cursorsource.h>
 #include <core/inputdevice.h>
 
 #include <core/output.h>
@@ -1978,6 +1980,7 @@ void Effect::wheelTableFromInput(int steps)
 
 void Effect::pointerMovedForInput(const QPointF &position)
 {
+    m_pointerResting = false;
     quietCardGap(position);
     tracePointerAtTop(position);
     // Each arrival at a display's top-left corner says whether Table opened,
@@ -5013,14 +5016,17 @@ bool Effect::handoffBentoLeadToOutput(
         sourceName, destinationName);
 }
 
-// The gutters are quiet. Every card and Bento pane
-// stands a gutter in from the display's edges and from its neighbours, and an
-// application drawing its own title bar keeps an invisible resize border wider
-// than that, so in a gutter the pointer was over a resize border and took a
-// resize shape. While the pointer is in the gutter around one of Kadunce's own
-// cards or panes, Kadunce holds it: a plain arrow, and nothing there takes a
-// press. KWin picks the pointer's window before any input filter runs, so the
-// hold is the mouse interception KWin gives effects such as Overview.
+// The gutters are Kadunce's. Every card and Bento pane stands a gutter in from
+// the display's edges and from its neighbours, and an application drawing its
+// own title bar keeps an invisible resize border wider than that, so in a
+// gutter the pointer was over a resize border and took a resize shape. While
+// the pointer is in the gutter around one of Kadunce's own cards or panes,
+// Kadunce holds it, and its shape says what a press there does: a page tab in
+// the gap beside the Active card, a divider's resize across a divider's whole
+// reach, panes included, and an arrow elsewhere, where nothing takes a press.
+// KWin picks the pointer's window before any input filter runs, so the hold
+// is the mouse interception KWin gives effects such as Overview; the input
+// router comes before KWin's effect filter, so its presses still arrive.
 void Effect::quietCardGap(const QPointF &position)
 {
     // An open Table holds the pointer too, as Overview does: it is drawn over
@@ -5029,17 +5035,72 @@ void Effect::quietCardGap(const QPointF &position)
     // the pointer move again. While a finger types a name
     // on the keys it lets go: while an effect holds the pointer KWin finds no
     // window under any touch, so the keys would never feel their own taps.
-    bool quiet = !(m_tableRenaming >= 0 && m_tableRenameByTouch);
-    if (!m_table.isOpen()) {
+    HeldPointerPlace place;
+    HeldPointer held = HeldPointer::None;
+    if (m_table.isOpen()) {
+        place.tableOpen = true;
+        place.tableCarrying = m_table.carrying();
+        if (!(m_tableRenaming >= 0 && m_tableRenameByTouch)) held = heldPointer(place);
+    } else {
         // A press, a drag and a move or resize under way keep what they have.
         if (KWin::input()->pointer()->areButtonsPressed() || KWin::waylandServer()->seat()->isDragPointer()
             || KWin::workspace()->moveResizeWindow()) return;
-        quiet = inCardGap(position);
+        // Since the last touch the pointer is hidden and still: a hold would
+        // keep every touch from the window under it.
+        if (m_pointerResting) held = HeldPointer::None;
+        else {
+            for (const auto &rail : m_desktopStage->grabRails())
+                if (rail.hitArea.contains(position)) place.divider = rail.vertical ? 1 : 2;
+            // The dock, the keys and Search beside the Active card keep their
+            // own pointer.
+            if (!isPanelPoint(position) && !inputPanelContainsForInput(position)
+                && !(launcherGuestActiveForInput() && launcherGuestContainsForInput(position)))
+                place.activeSide = activeSideForPoint(position);
+            place.cardGap = place.divider == 0 && inCardGap(position);
+            held = heldPointer(place);
+        }
     }
-    if (quiet == m_gapHeld) return;
-    m_gapHeld = quiet;
-    if (quiet) KWin::effects->startMouseInterception(this, Qt::ArrowCursor);
-    else KWin::effects->stopMouseInterception(this);
+    if (held == m_heldPointer) return;
+    const bool wasHeld = m_heldPointer != HeldPointer::None;
+    m_heldPointer = held;
+    m_gapHeld = held != HeldPointer::None;
+    if (!m_gapHeld) {
+        KWin::effects->stopMouseInterception(this);
+        return;
+    }
+    showHeldPointer(held, wasHeld);
+}
+
+// KWin lets an effect holding the pointer choose among Qt's shapes, which the
+// arrow, the resize shapes and grabbing are. A page tab is named in the
+// cursor theme, so it is set on the source KWin shows for the hold; a theme
+// without it shows the arrow.
+void Effect::showHeldPointer(HeldPointer held, bool wasHeld)
+{
+    const Qt::CursorShape shape = held == HeldPointer::ResizeColumns ? Qt::SplitHCursor
+        : held == HeldPointer::ResizeRows ? Qt::SplitVCursor
+        : held == HeldPointer::Carrying ? Qt::ClosedHandCursor
+        : Qt::ArrowCursor;
+    if (wasHeld) KWin::effects->defineCursor(shape);
+    else KWin::effects->startMouseInterception(this, shape);
+    if (held != HeldPointer::PageLeft && held != HeldPointer::PageRight) return;
+    // Another effect's hold, a drag or the lock screen shows a source of its
+    // own, which keeps its shape.
+    auto *source = qobject_cast<KWin::ShapeCursorSource *>(KWin::Cursors::self()->mouse()->source());
+    if (!source || source->shape() != KWin::CursorShape(shape).name()) return;
+    source->setShape(heldPointerName(held));
+    if (source->image().isNull()) source->setShape(shape);
+}
+
+// A touch puts the pointer to rest, hidden where it was, until it moves
+// again; an open Table keeps its own hold.
+void Effect::touchBeganForInput()
+{
+    m_pointerResting = true;
+    if (m_table.isOpen() || m_heldPointer == HeldPointer::None) return;
+    m_heldPointer = HeldPointer::None;
+    m_gapHeld = false;
+    KWin::effects->stopMouseInterception(this);
 }
 
 // Outside every window's frame, but inside the margin a card or pane keeps
