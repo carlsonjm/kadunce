@@ -105,6 +105,15 @@ public:
     // A tap in Spread: the card under it opens, or comes forward in its Stack,
     // and empty space goes back to where the person was.
     virtual void tapSpreadFromInput(const QPointF &) {}
+    // Notes on Spread's cards (INPUT.md § Notes on cards). A press the notes
+    // take is theirs through release: it never moves the row, lifts a card or
+    // taps one. Held still for a card's hold, it carries a note; `still` says
+    // the contact never moved further than a tap may.
+    [[nodiscard]] virtual bool pressNotesFromInput(const QPointF &) { return false; }
+    virtual void moveNotesFromInput(const QPointF &) {}
+    virtual void holdNotesFromInput() {}
+    virtual void releaseNotesFromInput(const QPointF &, bool) {}
+    virtual void cancelNotesFromInput() {}
 
     virtual void toggleFromInput() = 0;
     // A swipe up from the bottom bezel opens Spread under the finger: begun
@@ -216,6 +225,11 @@ private:
     bool routeTouchMotion(KWin::TouchMotionEvent *event);
     bool routeTouchUp(KWin::TouchUpEvent *event);
     bool keepTouch(bool kept);
+    // The one contact the notes on Spread's cards hold, pointer or touch.
+    [[nodiscard]] bool notesHeld() const { return m_notesPointer || m_notesTouch >= 0; }
+    void moveNotes(const QPointF &position);
+    void releaseNotes(const QPointF &position);
+    void cancelNotes();
     bool reconcileNativeInteraction();
     enum class TouchMode {
         None,
@@ -261,6 +275,11 @@ private:
     QPointF m_railStart;
     QPointF m_railPosition;
     bool m_ownsSystemEdges = true;
+    bool m_notesPointer = false;
+    qint32 m_notesTouch = -1;
+    QPointF m_notesStart;
+    bool m_notesMoved = false;
+    QTimer m_notesHoldTimer;
     QPointF m_pointerStart;
     QPointF m_pointerCurrent;
     QPointF m_touchStart;

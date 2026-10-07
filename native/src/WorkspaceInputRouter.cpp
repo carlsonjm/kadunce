@@ -52,6 +52,11 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
         m_railReady = true;
         m_target->updateRailFromInput(m_railPosition);
     });
+    m_notesHoldTimer.setSingleShot(true);
+    m_notesHoldTimer.setInterval(CardHoldDelay);
+    QObject::connect(&m_notesHoldTimer, &QTimer::timeout, [this] {
+        if (notesHeld() && !m_notesMoved) m_target->holdNotesFromInput();
+    });
     m_holdTimer.setSingleShot(true);
     m_holdTimer.setInterval(CardHoldDelay);
     QObject::connect(&m_holdTimer, &QTimer::timeout, [this]() {
@@ -81,6 +86,10 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
         m_railPosition = event->position;
         if (m_railReady) m_target->updateRailFromInput(event->position);
         else if (QLineF(m_railStart,event->position).length() > 12) m_railHoldTimer.stop();
+        return true;
+    }
+    if (m_notesPointer) {
+        moveNotes(event->position);
         return true;
     }
     if (reconcileNativeInteraction()) return false;
@@ -175,6 +184,12 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_railReady = false;
         if (commit) return true;
     }
+    if (m_notesPointer) {
+        // Other buttons go nowhere while a note is pressed or carried.
+        if (event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Released)
+            releaseNotes(event->position);
+        return true;
+    }
     if (event->state == KWin::PointerButtonState::Pressed && event->button == Qt::LeftButton
         && m_railTouch < 0 && m_observedTouchIds.isEmpty() && !m_pointerPressed
         && m_forwardedPointerButtons.isEmpty() && m_drainingPointerButtons.isEmpty()
@@ -242,7 +257,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         return true;
     }
     if ((m_touchId >= 0 || !m_launcherGuestNavigationTouchIds.isEmpty()
-         || !m_ownedTouchIds.isEmpty())
+         || !m_ownedTouchIds.isEmpty() || m_notesTouch >= 0)
         && event->state == KWin::PointerButtonState::Pressed
         && m_target->isTabletPoint(event->position)
         && (m_target->presentationForInput() == WorkspacePresentation::Spread
@@ -263,6 +278,17 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_guestPointerButton = event->button;
         m_guestOutsidePointerStart = event->position;
         m_guestOutsidePointerMoved = false;
+        return true;
+    }
+    if (event->state == KWin::PointerButtonState::Pressed && event->button == Qt::LeftButton
+        && !m_pointerPressed && m_target->isTabletPoint(event->position)
+        && m_target->presentationForInput() == WorkspacePresentation::Spread
+        && !m_target->cardGrabActiveForInput()
+        && m_target->pressNotesFromInput(event->position)) {
+        m_notesPointer = true;
+        m_notesStart = event->position;
+        m_notesMoved = false;
+        m_notesHoldTimer.start();
         return true;
     }
     const bool finishingCrossOutputGrab = m_pointerPressed
@@ -355,7 +381,7 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
         return false;
     }
     if (m_target->isTabletPoint(event->position)
-        && (m_touchId >= 0 || m_pointerPressed
+        && (m_touchId >= 0 || m_pointerPressed || notesHeld()
             || !m_launcherGuestNavigationTouchIds.isEmpty())) return true;
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
@@ -426,6 +452,13 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_target->finishRailFromInput(false);
         return true;
     }
+    if (m_notesTouch >= 0) {
+        // A second finger is no part of a note's tap or carry: both drain.
+        m_drainingTouchIds.insert(m_notesTouch);
+        m_drainingTouchIds.insert(event->id);
+        cancelNotes();
+        return true;
+    }
     if (m_target->tableOpenForInput()) {
         // The keys stay the keys while a name is typed into Table.
         if (m_target->inputPanelContainsForInput(event->pos)) return false;
@@ -467,7 +500,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     }
     if (!m_target->launcherGuestContainsForInput(event->pos)
         && touchModeAt(event->pos) != TouchMode::None
-        && (m_pointerPressed || m_launcherGuestNavigationPointer
+        && (m_pointerPressed || m_launcherGuestNavigationPointer || m_notesPointer
             || (m_touchId < 0 && !m_ownedTouchIds.isEmpty()))) {
         m_drainingTouchIds.insert(event->id);
         return true;
@@ -533,6 +566,14 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     if (mode == TouchMode::None) {
         return false;
     }
+    if (mode == TouchMode::Spread && m_touchId < 0 && m_observedTouchIds.size() == 1
+        && !m_target->cardGrabActiveForInput() && m_target->pressNotesFromInput(event->pos)) {
+        m_notesTouch = event->id;
+        m_notesStart = event->pos;
+        m_notesMoved = false;
+        m_notesHoldTimer.start();
+        return true;
+    }
     if (m_touchId < 0) {
         m_touchId = event->id;
         m_touchStart = event->pos;
@@ -563,6 +604,10 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
     if (event->id == m_tableTouch) {
         m_tablePosition = event->pos;
         m_target->moveTableFromInput(event->pos);
+        return true;
+    }
+    if (event->id == m_notesTouch) {
+        moveNotes(event->pos);
         return true;
     }
     if (event->id == m_topCandidateId) m_topCandidateLast = event->pos;
@@ -706,6 +751,11 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
         m_target->releaseTableFromInput(m_tablePosition);
         return true;
     }
+    if (event->id == m_notesTouch) {
+        m_observedTouchIds.remove(event->id);
+        releaseNotes(event->pos);
+        return true;
+    }
     reconcileNativeInteraction();
     m_observedTouchIds.remove(event->id);
     if (m_drainingTouchIds.remove(event->id)) return true;
@@ -754,6 +804,10 @@ bool WorkspaceInputRouter::touchCancel()
         m_railTouch = -1;
         m_target->finishRailFromInput(false);
     }
+    if (m_notesTouch >= 0) {
+        m_observedTouchIds.remove(m_notesTouch);
+        cancelNotes();
+    }
     // Cancellation belongs to the touch stream, not the pointer stream.
     // Let it continue to clients if any contact was forwarded to them.
     QSet<qint32> forwarded = m_observedTouchIds;
@@ -790,7 +844,7 @@ bool WorkspaceInputRouter::reconcileNativeInteraction()
 {
     if (!m_target->nativeWindowInteractionForInput()) return false;
     m_bottomCandidateId = -1;
-    if (m_pointerPressed || m_touchId >= 0 || m_launcherGuestNavigationPointer
+    if (m_pointerPressed || m_touchId >= 0 || m_launcherGuestNavigationPointer || notesHeld()
         || !m_launcherGuestNavigationTouchIds.isEmpty()
         || m_holdSource != HoldSource::None) {
         cancelWorkspaceInteraction();
@@ -809,6 +863,9 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
     m_railPointer = false;
     m_railTouch = -1;
     m_target->finishRailFromInput(false);
+    if (m_notesPointer) m_drainingPointerButtons.insert(Qt::LeftButton);
+    if (m_notesTouch >= 0) m_drainingTouchIds.insert(m_notesTouch);
+    cancelNotes();
     const bool rollback = m_holdSource != HoldSource::None
         && m_target->cardGrabActiveForInput();
     m_drainingTouchIds.unite(m_ownedTouchIds);
@@ -848,6 +905,37 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
     }
     if (rollback) m_target->finishCardGrab(false);
     // Forwarded panel, client and Tette contacts retain their original owner.
+}
+
+void WorkspaceInputRouter::moveNotes(const QPointF &position)
+{
+    // Moved further than a tap before the hold came, the press is spent: it
+    // neither taps nor carries, and the row stays where it is.
+    if (QLineF(m_notesStart, position).length() > CardHoldMotion) {
+        m_notesMoved = true;
+        m_notesHoldTimer.stop();
+    }
+    m_target->moveNotesFromInput(position);
+}
+
+void WorkspaceInputRouter::releaseNotes(const QPointF &position)
+{
+    const bool still = !m_notesMoved && QLineF(m_notesStart, position).length() <= CardHoldMotion;
+    m_notesPointer = false;
+    m_notesTouch = -1;
+    m_notesMoved = false;
+    m_notesHoldTimer.stop();
+    m_target->releaseNotesFromInput(position, still);
+}
+
+void WorkspaceInputRouter::cancelNotes()
+{
+    const bool held = notesHeld();
+    m_notesPointer = false;
+    m_notesTouch = -1;
+    m_notesMoved = false;
+    m_notesHoldTimer.stop();
+    if (held) m_target->cancelNotesFromInput();
 }
 
 QPointF WorkspaceInputRouter::holdStart() const

@@ -34,6 +34,10 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/CardLabelRenderer.h
         src/GestureNote.h
         src/GestureNoteLabel.h
+        src/StuckNotes.h
+        src/StuckNotesWatcher.cpp
+        src/StuckNotesWatcher.h
+        src/NoteStackRenderer.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
@@ -164,6 +168,11 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-gesture-note-test PRIVATE src)
     target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core)
     add_test(NAME gesture-note COMMAND kadunce-gesture-note-test)
+    add_executable(kadunce-stuck-notes-test tests/StuckNotesTest.cpp)
+    target_include_directories(kadunce-stuck-notes-test PRIVATE src)
+    target_link_libraries(kadunce-stuck-notes-test PRIVATE Qt6::Core)
+    target_compile_options(kadunce-stuck-notes-test PRIVATE -UNDEBUG)
+    add_test(NAME stuck-notes COMMAND kadunce-stuck-notes-test)
     add_executable(kadunce-touch-display-test tests/TouchDisplayTest.cpp)
     target_include_directories(kadunce-touch-display-test PRIVATE src)
     target_link_libraries(kadunce-touch-display-test PRIVATE Qt6::Core)
