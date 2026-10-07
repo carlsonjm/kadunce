@@ -84,6 +84,8 @@ public:
     [[nodiscard]] virtual std::optional<QSet<qint32>> touchesDownForInput() const { return std::nullopt; }
     // Each contact that reaches the router at all.
     virtual void touchReachedRouterForInput(qint32) {}
+    // Whether the router kept a contact as it came down.
+    virtual void touchRoutedForInput(qint32, bool) {}
     // Every pointer motion, before anything takes it.
     virtual void pointerMovedForInput(const QPointF &) {}
     // The keys serve whatever holds the text focus, so a touch on them is

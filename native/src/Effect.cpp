@@ -1062,6 +1062,9 @@ Effect::Effect()
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
             return m_inputRouter && isTabletPoint(position) && m_inputRouter->inBottomBezel(position);
         };
+        m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
+            return describeTitleTouch(position);
+        };
         if (m_carryRuntime) m_carryRuntime->touchStillDown = [this](qint64 id) {
             return !m_touchWitness || m_touchWitness->down().contains(qint32(id));
         };
@@ -3611,6 +3614,13 @@ QString Effect::applicationDisplayName(KWin::EffectWindow *window)
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    if (window && window->window()) {
+        qInfo() << "Kadunce sees KWin begin a" << (window->isUserResize() ? "resize" : "move")
+                << "of" << window->window()->resourceClass()
+                << (window->isUserMove() || window->isUserResize() ? "by hand" : "by itself")
+                << "at" << window->window()->frameGeometry();
+        if (m_touchWitness) m_touchWitness->moveStarted();
+    }
     // Active-sized cards do not become ordinary windows through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
@@ -4467,6 +4477,49 @@ bool Effect::clientReceivesTouchAt(const QPointF &position) const
     // client ever holds it.
     const KWin::Window *window = KWin::input()->findToplevel(position);
     return window && (!window->decoration() || QRectF(window->clientGeometry()).contains(position));
+}
+
+QString Effect::describeTitleTouch(const QPointF &position) const
+{
+    // Only while Cards is up on the tablet, and only on a title: on the
+    // decoration of the window KWin would deliver the touch to, or along the
+    // top of the chosen card, whatever lies there.
+    if (!m_cardStage || !m_cardStage->isActive() || !isTabletPoint(position)) return {};
+    const KWin::EffectWindow *chosen = m_cardStage->selectedWindow();
+    const KWin::Window *card = chosen ? chosen->window() : nullptr;
+    const KWin::Window *under = KWin::input()->findToplevel(position);
+    const bool onDecoration = under && under->decoration()
+        && !QRectF(under->clientGeometry()).contains(position);
+    bool onCardTop = false;
+    if (card) {
+        const QRectF frame(card->frameGeometry());
+        onCardTop = position.x() >= frame.left() && position.x() < frame.right()
+            && position.y() >= frame.top() - 12.0 && position.y() < frame.top() + 60.0;
+    }
+    if (!onDecoration && !onCardTop) return {};
+    const auto name = [](const KWin::Window *window) {
+        return window ? QStringLiteral("%1 \"%2\"").arg(window->resourceClass(), window->caption().left(40))
+                      : QStringLiteral("nothing");
+    };
+    QString presentation = QStringLiteral("Spread");
+    if (m_cardStage->presentation() == CardPresentation::Active) presentation = QStringLiteral("Active");
+    else if (m_cardStage->presentation() == CardPresentation::Bento) presentation = QStringLiteral("Bento");
+    const KWin::Window *moving = KWin::workspace()->moveResizeWindow();
+    const auto box = [](const KWin::Window *window) {
+        const QRectF frame(window->frameGeometry());
+        return QStringLiteral(" frame %1,%2 %3x%4").arg(frame.x()).arg(frame.y()).arg(frame.width()).arg(frame.height());
+    };
+    QString line;
+    QDebug(&line).nospace().noquote() << "in " << presentation << "; KWin delivers it to " << name(under)
+        << (under ? (onDecoration ? " on its title or border" : " inside its client area") : "")
+        << (under ? box(under) : QString())
+        << "; the chosen card is " << name(card)
+        << (card ? box(card) + (card->isActive() ? QStringLiteral(", focused") : QStringLiteral(", not focused"))
+                       + (card->isMinimized() ? QStringLiteral(", minimized") : QString()) : QString())
+        << (under && under == card ? " (the same window)" : " (a different window)")
+        << "; KWin is moving " << name(moving)
+        << "; Kadunce is carrying " << (m_carriedWindow ? "a window" : "nothing");
+    return line;
 }
 
 bool Effect::inputPanelContainsForInput(const QPointF &position) const

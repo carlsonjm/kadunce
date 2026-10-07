@@ -548,6 +548,10 @@ private:
     void touchReachedRouterForInput(qint32 id) override {
         if (m_touchWitness) m_touchWitness->reachedRouter(id);
     }
+    void touchRoutedForInput(qint32 id, bool kept) override {
+        if (m_touchWitness) m_touchWitness->routed(id, kept);
+    }
+    [[nodiscard]] QString describeTitleTouch(const QPointF &position) const;
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;

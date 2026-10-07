@@ -458,7 +458,9 @@ bool WorkspaceInputRouter::keepTouch(bool kept)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
-    return keepTouch(routeTouchDown(event));
+    const bool kept = keepTouch(routeTouchDown(event));
+    m_target->touchRoutedForInput(event->id, kept);
+    return kept;
 }
 
 bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
