@@ -80,11 +80,14 @@ struct NotesCard {
 // card's scale, so a near card's notes are no easier to hit than a far one's.
 struct NoteGeometry {
     static constexpr double Square = 28.0;
-    static constexpr double Step = 5.0;
+    // Spread's closed card stack, scaled to a note: up to three edges behind
+    // the top note, seven pixels apart, showing to its left
+    // (SpreadLayout's makeClosedStackPose, TableSizes::SliverStep).
+    static constexpr double Step = 7.0;
     static constexpr double Inset = 12.0;
     // A finger's reach around the stack, so a 38 px stack is a 54 px target.
     static constexpr double Reach = 8.0;
-    static constexpr int Layers = 3;
+    static constexpr int Layers = 4;
     static constexpr double NoteWidth = 136.0;
     static constexpr double NoteHeight = 88.0;
     static constexpr double NoteGap = 8.0;
@@ -92,8 +95,8 @@ struct NoteGeometry {
 };
 
 // The stack's sheets at the card's bottom-right corner, the deepest first and
-// the top note last: one sheet for each note, up to three, each further one
-// stepped up and to the left behind it.
+// the top note last: one sheet for each note, up to four, each further one
+// stepped to the left behind it, as a closed stack of cards shows its edges.
 [[nodiscard]] inline QList<QRectF> noteStackSquares(const QRectF &card, int count)
 {
     using G = NoteGeometry;
@@ -102,7 +105,7 @@ struct NoteGeometry {
     const int layers = std::min(count, G::Layers);
     const QPointF front(card.right() - G::Inset - G::Square, card.bottom() - G::Inset - G::Square);
     for (int layer = layers - 1; layer >= 0; --layer)
-        squares.append(QRectF(front - QPointF(G::Step * layer, G::Step * layer),
+        squares.append(QRectF(front - QPointF(G::Step * layer, 0.0),
                               QSizeF(G::Square, G::Square)));
     return squares;
 }
