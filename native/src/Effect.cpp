@@ -1023,7 +1023,11 @@ Effect::Effect()
     };
     m_carryRuntime->interrupted = [this] { clearDropSettle(); clearBentoMotions(); };
     connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
-            [this] { if (m_carryRuntime) m_carryRuntime->cancel(); });
+            [this] {
+                if (m_carryRuntime) m_carryRuntime->cancel();
+                // The lock screen takes the releases from here on.
+                if (m_touchWitness) (void)m_touchWitness->touchCancel();
+            });
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         connectManagedWindow(window);
     }
@@ -1053,6 +1057,11 @@ Effect::Effect()
             static_cast<WorkspaceInputTarget *>(this),
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
+        // After the carry filter, so that it sees every contact first.
+        m_touchWitness = std::make_unique<TouchWitness>();
+        m_touchWitness->inBottomBezel = [this](const QPointF &position) {
+            return m_inputRouter && isTabletPoint(position) && m_inputRouter->inBottomBezel(position);
+        };
     }
 
     if (!m_usesDirectSystemEdges) watchForTabletKit();
@@ -1137,6 +1146,7 @@ Effect::~Effect()
     // Roll back input while its target/controllers are alive, then unregister
     // the filter before restoration can reenter KWin or destroy those owners.
     cancelInputForCardStage();
+    m_touchWitness.reset();
     m_carryRuntime.reset();
     m_inputRouter.reset();
     Q_EMIT bridgeUnavailable();
@@ -4468,7 +4478,12 @@ bool Effect::inputPanelContainsForInput(const QPointF &position) const
 bool Effect::isTabletPoint(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
-    return tablet && tablet->geometry().contains(position.toPoint());
+    if (!tablet) return false;
+    // Half-open and unrounded: the display's last physical rows map to within
+    // a pixel of its logical bottom, and rounding them carried them off it.
+    const QRectF area(tablet->geometry());
+    return position.x() >= area.left() && position.x() < area.right()
+        && position.y() >= area.top() && position.y() < area.bottom();
 }
 
 QStringList Effect::outputStageState() const

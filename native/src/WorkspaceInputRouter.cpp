@@ -463,8 +463,16 @@ bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 {
+    m_target->touchReachedRouterForInput(event->id);
+    forgetLiftedTouches(event->id);
     m_target->settleChosenCardForInput();
     m_observedTouchIds.insert(event->id);
+    // Each contact in the bottom swipe's band says where it went, so a swipe
+    // that did not open Spread can be read back.
+    const bool bottomBand = touchModeAt(event->pos) == TouchMode::BottomEdge;
+    const auto bottomNote = [&](const char *why) {
+        if (bottomBand) qInfo() << "Kadunce bottom-edge contact" << event->pos << why;
+    };
     if (m_railTouch >= 0) {
         m_drainingTouchIds.insert(m_railTouch);
         m_drainingTouchIds.insert(event->id);
@@ -497,6 +505,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         && m_forwardedPointerButtons.isEmpty() && m_panelPointerButtons.isEmpty()
         && !m_target->nativeWindowInteractionForInput() && !m_target->launcherGuestActiveForInput()
         && !m_target->isPanelPoint(event->pos) && m_target->beginRailFromInput(event->pos)) {
+        bottomNote("is a Bento divider's");
         m_railTouch = event->id;
         m_railStart = m_railPosition = event->pos;
         m_railReady = false;
@@ -504,10 +513,14 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         return true;
     }
     if (m_target->inPaneGutterForInput(event->pos)) {
+        bottomNote("lands between Bento panes and does nothing");
         m_drainingTouchIds.insert(event->id);
         return true;
     }
-    if (reconcileNativeInteraction()) return false;
+    if (reconcileNativeInteraction()) {
+        bottomNote("is KWin's: a window is being moved or resized");
+        return false;
+    }
     if (m_observedTouchIds.size() > 1) m_bottomCandidateId = -1;
     // Preserve the native bottom-edge swipe in Active/Inactive; only the
     // overview's blanket touch capture needs a panel exclusion, and the bezel,
@@ -523,6 +536,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         && touchModeAt(event->pos) != TouchMode::None
         && (m_pointerPressed || m_launcherGuestNavigationPointer || m_notesPointer
             || (m_touchId < 0 && !m_ownedTouchIds.isEmpty()))) {
+        bottomNote("does nothing: another contact or the pointer is still held");
         m_drainingTouchIds.insert(event->id);
         return true;
     }
@@ -571,6 +585,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     }
     const TouchMode mode = touchModeAt(event->pos);
     if (mode == TouchMode::BottomEdge && m_target->surfaceOwnsTouchAt(event->pos)) {
+        bottomNote("belongs to a surface of its own");
         return false;
     }
     if (mode == TouchMode::BottomEdge
@@ -597,6 +612,9 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         if (m_observedTouchIds.size() == 1) {
             m_bottomCandidateId = event->id;
             m_bottomCandidateStart = event->pos;
+            bottomNote("goes to the window under it until it rises");
+        } else {
+            bottomNote("stays with the window under it: another finger is down");
         }
         // A bottom-edge contact is not yet a gesture. Let the client receive
         // taps and small movements; claim only a deliberate single-finger swipe.
@@ -701,10 +719,11 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
         if (m_observedTouchIds.size() == 1 && delta.y() < -40.0
             && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
             m_bottomCandidateId = -1;
+            // With no application holding the contact there is nothing to
+            // cancel, and the rise is still the swipe.
             if (!m_target->cancelForwardedTouchForInput()) {
                 qInfo() << "Kadunce bottom-edge contact" << m_bottomCandidateStart
-                        << "rose but stays where it landed: no client delivery could be cancelled";
-                return false;
+                        << "rose with no application holding it";
             }
             m_touchId = event->id;
             m_touchStart = m_bottomCandidateStart;
@@ -882,6 +901,47 @@ bool WorkspaceInputRouter::touchCancel()
     m_ownedTouchIds.clear();
     resetTouch();
     return owned && forwarded.isEmpty();
+}
+
+void WorkspaceInputRouter::forgetLiftedTouches(qint32 arriving)
+{
+    // A filter ahead of this one can take a contact's release, as a native
+    // carry does. Without this, the router would count that finger as down
+    // until the next cancellation and treat every later contact as a second.
+    const auto down = m_target->touchesDownForInput();
+    if (!down) return;
+    QSet<qint32> held = m_observedTouchIds;
+    held.unite(m_ownedTouchIds).unite(m_drainingTouchIds)
+        .unite(m_launcherGuestTouchIds).unite(m_launcherGuestNavigationTouchIds);
+    for (qint32 id : {m_touchId, m_railTouch, m_notesTouch, m_tableTouch,
+                      m_bottomCandidateId, m_topCandidateId})
+        if (id >= 0) held.insert(id);
+    QSet<qint32> lifted = held;
+    lifted.subtract(*down);
+    // A new contact under an id still held means the old one lifted.
+    if (held.contains(arriving)) lifted.insert(arriving);
+    if (lifted.isEmpty()) return;
+    qInfo() << "Kadunce forgets contacts" << lifted << "lifted where workspace input never saw them";
+    const bool gesture = lifted.contains(m_touchId) || lifted.contains(m_railTouch)
+        || lifted.contains(m_notesTouch) || lifted.contains(m_tableTouch);
+    if (gesture || held == lifted) {
+        (void)touchCancel();
+        return;
+    }
+    for (qint32 id : std::as_const(lifted)) {
+        m_observedTouchIds.remove(id);
+        m_ownedTouchIds.remove(id);
+        m_drainingTouchIds.remove(id);
+        m_launcherGuestTouchIds.remove(id);
+        m_launcherGuestNavigationTouchIds.remove(id);
+        m_guestOutsideTouchStarts.remove(id);
+        m_guestOutsideMovedTouches.remove(id);
+        if (m_bottomCandidateId == id) m_bottomCandidateId = -1;
+        if (m_topCandidateId == id) {
+            m_topCandidateId = -1;
+            m_topCandidateOwned = false;
+        }
+    }
 }
 
 bool WorkspaceInputRouter::reconcileNativeInteraction()

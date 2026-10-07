@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <functional>
+#include <optional>
 
 using namespace Kadunce;
 struct Target : WorkspaceInputTarget {
@@ -50,6 +51,9 @@ struct Target : WorkspaceInputTarget {
     // Where KWin keeps a touch from every client: a window's frame, or bare screen.
     QRectF kwinOwn;
     bool clientReceivesTouchAt(const QPointF &p) const override { return !kwinOwn.contains(p); }
+    // The contacts down as a witness ahead of every filter sees them.
+    std::optional<QSet<qint32>> down;
+    std::optional<QSet<qint32>> touchesDownForInput() const override { return down; }
     bool inputPanelContainsForInput(const QPointF &p) const override { return keys.contains(p); }
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
@@ -527,13 +531,34 @@ int main(int argc, char **argv) {
         require(!router.touchMotion(&move) && !router.touchUp(&up),
                 "Disqualified horizontal drag became an upward swipe");
         require(target.cancellations == 1, "Disqualified drag canceled client delivery");
+        // A rise no application holds has nothing to cancel and is still the swipe.
         target.canCancel = false;
-        require(!router.touchDown(&down) && !router.touchMotion(&move) && !router.touchUp(&up),
-                "Failed client cancellation still stole touch ownership");
-        require(target.bezelBegins == 1, "Failed client cancellation still began Spread");
+        require(!router.touchDown(&down) && router.touchMotion(&move) && router.touchUp(&up),
+                "A rise no application held stayed where it landed");
+        require(target.bezelBegins == 2 && target.bezelFinishes == 2,
+                "A rise no application held did not open Spread");
+        target.canCancel = true;
         require(!router.touchDown(&down), "Cancel test contact stolen");
         router.touchCancel();
         require(!router.touchMotion(&move) && !router.touchUp(&up), "Canceled candidate remained armed");
+    }
+    for (qint32 next : {21, 20}) {
+        // A filter ahead of the router took a contact's release. The router
+        // forgets it once the witness shows it lifted, whether the next
+        // contact has a new id or the same one, and the swipe still opens Spread.
+        Target target; target.presentation = WorkspacePresentation::Active;
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent lost{20,{500,795},{}};
+        target.down = QSet<qint32>{20};
+        require(!router.touchDown(&lost), "The contact whose release goes missing was stolen");
+        KWin::TouchDownEvent down{next,{500,795},{}};
+        KWin::TouchMotionEvent move{next,{501,745},{}};
+        KWin::TouchUpEvent up{next,{}};
+        target.down = QSet<qint32>{next};
+        require(!router.touchDown(&down) && router.touchMotion(&move) && router.touchUp(&up),
+                "A contact whose release went missing kept the next swipe from Spread");
+        require(target.bezelBegins == 1 && target.bezelFinishes == 1,
+                "A swipe after a missing release did not open Spread");
     }
     for (auto presentation : {WorkspacePresentation::Active, WorkspacePresentation::Inactive}) {
         // A bezel contact on a window's frame, as a Bento pane's can reach,

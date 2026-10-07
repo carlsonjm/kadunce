@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <limits>
+#include <optional>
 
 namespace Kadunce
 {
@@ -77,6 +78,12 @@ public:
     // a contact there is never a client's to cancel, so the bottom swipe has
     // to claim it at once or not at all.
     [[nodiscard]] virtual bool clientReceivesTouchAt(const QPointF &) const { return true; }
+    // The contacts down now, as seen ahead of every KWin handler, or nothing
+    // where no one watches. A contact this router still holds that is not
+    // among them was lifted where the router never saw it.
+    [[nodiscard]] virtual std::optional<QSet<qint32>> touchesDownForInput() const { return std::nullopt; }
+    // Each contact that reaches the router at all.
+    virtual void touchReachedRouterForInput(qint32) {}
     // Every pointer motion, before anything takes it.
     virtual void pointerMovedForInput(const QPointF &) {}
     // The keys serve whatever holds the text focus, so a touch on them is
@@ -190,6 +197,10 @@ public:
     // The Z13 tablet kit can appear after the effect loads, handing the top and
     // bottom edges from Plasma to this router mid-session. Any interaction in
     // flight belongs to the previous backend and is cancelled rather than split.
+    // Whether a contact here would start in the bottom swipe's band.
+    [[nodiscard]] bool inBottomBezel(const QPointF &position) const {
+        return touchModeAt(position) == TouchMode::BottomEdge;
+    }
     void setOwnsSystemEdges(bool owns) {
         if (m_ownsSystemEdges == owns) return;
         m_ownsSystemEdges = owns;
@@ -245,6 +256,7 @@ private:
     void releaseNotes(const QPointF &position);
     void cancelNotes();
     bool reconcileNativeInteraction();
+    void forgetLiftedTouches(qint32 arriving);
     enum class TouchMode {
         None,
         Spread,

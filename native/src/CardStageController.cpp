@@ -4307,7 +4307,18 @@ void CardStageController::restoreActiveSnapshot()
         if (!snapshot.valid || !snapshot.window || snapshot.window->isDeleted()
             || !snapshot.window->window()) continue;
         auto *client = snapshot.window->window();
+        // Each window given back says from where and to what, so a window
+        // that did not go back can be read back.
+        qInfo() << "Kadunce" << Revision << "gives" << client->resourceClass()
+                << "back its place" << snapshot.geometry << "from" << client->moveResizeGeometry()
+                << "maximized" << int(snapshot.maximizeMode) << "fullscreen" << snapshot.fullScreen
+                << "minimized" << snapshot.minimized;
         restoreWindowState(client, snapshot, snapshot.geometry, true, true, false);
+        if (!snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
+            && snapshot.quickTileMode == KWin::QuickTileMode{}
+            && client->moveResizeGeometry() != snapshot.geometry)
+            qInfo() << "Kadunce" << Revision << client->resourceClass()
+                    << "was given back but stands at" << client->moveResizeGeometry();
         if (snapshot.minimized && snapshot.window && !snapshot.window->isDeleted())
             m_restoredMinimizations.push_back(std::make_unique<RestoredMinimization>(client,
                 RestoredMinimization::Target{client->moveResizeGeometry(), snapshot.maximizeMode,

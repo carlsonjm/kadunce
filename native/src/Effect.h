@@ -10,6 +10,7 @@
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
+#include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
@@ -540,6 +541,13 @@ private:
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
     [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
     [[nodiscard]] bool clientReceivesTouchAt(const QPointF &position) const override;
+    [[nodiscard]] std::optional<QSet<qint32>> touchesDownForInput() const override {
+        if (!m_touchWitness) return std::nullopt;
+        return m_touchWitness->down();
+    }
+    void touchReachedRouterForInput(qint32 id) override {
+        if (m_touchWitness) m_touchWitness->reachedRouter(id);
+    }
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;
@@ -722,6 +730,7 @@ private:
     void followKeysWorkArea();
     void releaseKeysWorkArea();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
+    std::unique_ptr<TouchWitness> m_touchWitness;
     // Kadunce is giving windows back: one returning from minimized then was
     // not picked by the person.
     bool m_releasing = false;
