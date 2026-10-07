@@ -83,7 +83,7 @@ struct NoteGeometry {
     static constexpr double Square = 30.0;
     // The count's badge, on the note's top-right corner.
     static constexpr double Badge = 18.0;
-    static constexpr double BadgeInset = 3.0;
+    static constexpr double BadgeInset = 7.0;
     static constexpr double Inset = 12.0;
     // A finger's reach around the note, so a 30 px note is a 46 px target and
     // more with its badge.
