@@ -53,18 +53,14 @@ inside the session. Requiring a deliberate pair removes that class of defect at
 its source. A side snap that pairs with nothing presents its window as an
 ordinary Active card, because a one-window Bento must not exist.
 
-### Spread order selects the partner; the gesture places it
+### The card used before selects the partner; the gesture places it
 
-The order answers who, and the gesture answers where (`CARD-LIFECYCLE.md` §3).
-The carried window takes the edge it was released into and the partner the
-opposite side. Rejected:
-letting the partner keep the side it sat on in Spread, which reads well until the
-two disagree and a window dragged to the right edge lands on the left.
-
-The partner walk wraps round the order, stepping over entries until it returns
-to where it started; the row's two ends (`CARD-LIFECYCLE.md` §6) are
-presentation and do not stop it, nor does the side a two-entry Spread draws its
-second entry on.
+Use answers who, and the gesture where (`CARD-LIFECYCLE.md` §3): the window
+meant is the one used just before, visible without opening Spread. Rejected:
+the Spread neighbour first, which nobody could predict from the screen; it is
+the fallback, and its walk wraps, the row's ends (§6) being presentation. The
+carried window takes its release edge and the partner the other. Rejected: the
+partner keeping its Spread side, so a window dragged right could land left.
 
 Partner eligibility (`CARD-LIFECYCLE.md` §4) is one question asked in one place,
 by both pairing cases, so neither can drift into its own idea of who may be

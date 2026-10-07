@@ -151,8 +151,8 @@ public:
     // Adoption eligibility is a different question and never stands in for it.
     [[nodiscard]] bool isEligiblePartner(const KWin::EffectWindow *window) const;
     // §3 names the partner: the Active card when something else is carried,
-    // otherwise the nearest eligible card on the contacted side of the carried
-    // card in Spread order. Read-only — a prepared carry embeds the workspace
+    // otherwise the card used just before it, or failing that the nearest
+    // eligible card on the contacted side of the carried card in Spread order. Read-only — a prepared carry embeds the workspace
     // revision, so naming a partner must not move selection or the pair side.
     // With `why`, the same walk says in words how it named the partner, or
     // why it named none, for the journal.
@@ -646,6 +646,10 @@ private:
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     ActiveRestoreSnapshot m_activeRestore;
     QPointer<KWin::EffectWindow> m_presentedActive;
+    // The last two cards presented Active, newest first: what a side snap of
+    // the Active card names as its partner (CARD-LIFECYCLE.md §3).
+    QPointer<KWin::EffectWindow> m_usedActive;
+    QPointer<KWin::EffectWindow> m_usedBefore;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     bool m_applyingWindowState = false;

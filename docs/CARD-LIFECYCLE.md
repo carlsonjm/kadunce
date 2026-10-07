@@ -124,11 +124,10 @@ window. The other is the partner, and one of two rules names it.
 When the carried window is not the Active card — a window still on the native
 desktop — the partner is the Active card. A card carried in Spread never pairs.
 
-When the carried window is the Active card, the partner is the nearest eligible
-card on the contacted side of it in Spread order. The walk begins at the Spread
-entry holding the carried window: its own entry, or the stack it is the selected
-member of. A left snap walks left from that entry, a right snap walks right, and
-the walk is cyclic. When only one other eligible card exists, both sides name it.
+When the carried window is the Active card, the partner is the card Active just
+before it, from either side. Failing that, it is the nearest eligible card on the
+contacted side in Spread order, walking cyclically from the entry holding the
+carried window.
 
 Placement comes from the gesture:
 
@@ -158,8 +157,7 @@ A Bento action is a request without a carried window or a contacted edge
 that cannot own cards, or to the display that can when no other is attached.
 
 On a display Kadunce owns that can own cards, it names a pair the way a side
-snap does. The Active card keeps the left side and its partner is the nearest
-eligible card to its right in Spread order. With no Active card, or no eligible
+snap does, from the right: the Active card keeps the left side. With no Active card, or no eligible
 card to pair with, nothing happens.
 
 On a display that cannot own cards, it composes across the display.
@@ -217,7 +215,7 @@ partner or the carried window.
 
 A partner search passes over every Spread entry that fails this test, and over
 every ordinary stack. A card leaves a stack for Bento only when the user named
-it, never because a search walked past it.
+it by using it, never because a search walked past it.
 
 This test names the partner only. The carried window is named by the gesture, and
 when it comes from the native desktop it must be eligible for adoption.
@@ -316,8 +314,9 @@ too small for the card does not give way.
 
 The Spread has one order. Its entries are individual cards, ordinary stacks and
 the display's Bento group. The row that shows it has two ends, and moving along
-it stops at them. That order is also what names a Bento partner, and a partner
-search wraps, stepping over entries until it returns to where it started.
+it stops at them. When the card used before the Active card cannot pair, that
+order names a Bento partner, and a partner search wraps, stepping over entries
+until it returns to where it started.
 
 Which entry is selected, and which side a two-entry Spread draws its neighbour
 on, are presentation, deciding neither the partner nor a pane's side.

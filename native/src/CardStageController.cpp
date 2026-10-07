@@ -256,14 +256,25 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
         else say(QStringLiteral("none: the Active card %1 cannot pair (asleep, or not on this display or desktop)").arg(app(active)));
         return isEligiblePartner(active) ? active : nullptr;
     }
-    // §3: the Active card was carried, so the partner is the nearest eligible
-    // card on the contacted side of it. The walk begins at the entry holding
-    // that card and is cyclic, stopping where it started.
     const int carriedId = liveCardIndex(carried) + 1;
     if (carriedId <= 0) {
         say(QStringLiteral("none: the carried window is not a card"));
         return nullptr;
     }
+    // §3: the Active card was carried, so the partner is the card used just
+    // before it, whichever edge was contacted.
+    if (m_usedActive == carried && m_usedBefore && m_usedBefore != carried
+        && isEligiblePartner(m_usedBefore)) {
+        say(QStringLiteral("%1, the card used before the Active card").arg(app(m_usedBefore)));
+        return m_usedBefore;
+    }
+    const QString before = m_usedActive == carried && m_usedBefore
+        ? QStringLiteral("the card used before it, %1, cannot pair (asleep, gone, or not a card); ")
+              .arg(app(m_usedBefore))
+        : QStringLiteral("no card was used before it; ");
+    // Failing that, the nearest eligible card on the contacted side of it.
+    // The walk begins at the entry holding that card and is cyclic, stopping
+    // where it started.
     const QString side = leftEdge ? QStringLiteral("left") : QStringLiteral("right");
     QStringList passed;
     const int direction = leftEdge ? -1 : 1;
@@ -278,7 +289,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
             continue;
         }
         if (candidate && candidate != carried && isEligiblePartner(candidate)) {
-            say(QStringLiteral("%1, the nearest card to the %2 of the Active card in Spread order%3")
+            say(before + QStringLiteral("%1, the nearest card to the %2 of the Active card in Spread order%3")
                 .arg(app(candidate), side,
                      passed.isEmpty() ? QString()
                                       : QStringLiteral(", passing ") + passed.join(QStringLiteral(", "))));
@@ -286,7 +297,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
         }
         passed.append(QStringLiteral("%1 (asleep or not a card)").arg(app(candidate)));
     }
-    say(QStringLiteral("none: no awake card stands to the %1 of the Active card in Spread order%2")
+    say(before + QStringLiteral("none: no awake card stands to the %1 of the Active card in Spread order%2")
         .arg(side, passed.isEmpty() ? QString()
                                     : QStringLiteral(", which holds only ") + passed.join(QStringLiteral(", "))));
     return nullptr;
@@ -4183,6 +4194,10 @@ bool CardStageController::enterActive()
     // not be mistaken for a second task-manager request.
     m_presentation = CardPresentation::Active;
     m_presentedActive = effectWindow;
+    if (m_usedActive != effectWindow) {
+        m_usedBefore = m_usedActive;
+        m_usedActive = effectWindow;
+    }
     m_returnToGroup = false;
     // All entry paths must retire Spread's temporary compositor elevation.
     // Active is a native window; panel popups must retain their normal layers.
