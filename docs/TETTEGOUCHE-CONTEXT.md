@@ -178,3 +178,38 @@ companion opened as Search closes can still take the center.
 
 A companion is a layer-shell surface, as the launcher is. An ordinary window
 is a card, so it cannot hold the center.
+
+## Stuck notes from Gooseberry
+
+Kadunce also reads from Gooseberry, the optional notes application, which may
+stick notes to a window. Gooseberry is found at run time and never required or
+started: while its name is absent from the session bus, Spread draws no notes
+and every other behaviour is unchanged.
+
+```text
+service:   io.github.carlsonjm.gooseberry
+path:      /StuckNotes
+interface: io.github.carlsonjm.Gooseberry.StuckNotes
+```
+
+| Kadunce uses | When |
+| --- | --- |
+| `Windows()` | Gooseberry appears on the bus, or a signal comes from a sender not yet heard from |
+| signal `WindowsChanged(windows)` | It replaces everything Kadunce holds; Kadunce keeps no notes of its own |
+| `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
+| `Hide()` | Spread opens, so notes Gooseberry shows over a window do not float over the cards |
+
+Every call is asynchronous, asks the bus not to start Gooseberry, and is never
+waited for while drawing. An entry belongs to a card when one of its
+`windowIds` is the card's window UUID, compared as a UUID with or without
+braces; `StickTo` names the target by that UUID with braces, its title, and its
+desktop file name. Kadunce reads each entry's count and its notes' ids, titles
+and colours, top note first.
+
+In Spread each card with notes shows them as a small stack at its bottom-right
+corner, the same size on every card, with the count when there are several. A
+tap fans them over the card, and holding a note carries it to another card
+(`INPUT.md` § Spread). This takes up Gooseberry's requests for a card's notes
+on its corner in Spread and for carrying a note between cards. Spread never
+moves or resizes a window for a note, and the Bento group and the Active card
+show none.

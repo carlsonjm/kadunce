@@ -214,6 +214,10 @@ they preserve these relationships and respect the user's animation settings.
   no final geometry. Dragging previews only the first 18% of its travel: the
   shoulder lifts 16 px and leans by less than a degree, then falls flat into the
   centre while the opposite neighbour stays still.
+- A card's stuck notes in Spread are 28 px sheets in their notes' colours, up
+  to three stepped 5 px behind one another 12 px inside the card's
+  bottom-right corner; fanned, each note is 136 by 88 px. Both keep their size
+  on every card, and take the paper corner.
 
 ## Type hierarchy and casing
 
