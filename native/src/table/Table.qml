@@ -12,6 +12,9 @@ import org.kde.kirigami as Kirigami
 
 Item {
     id: root
+    // A screen reader names Table and each piece in it by what it is to you.
+    Accessible.role: Accessible.Pane
+    Accessible.name: "Table"
     anchors.fill: parent
 
     property var model: ({})
@@ -103,6 +106,13 @@ Item {
     // How much a lifted piece grows: its share, but never more than `side`
     // on each side, which keeps Itasca's 4 between it and a neighbour
     // (TableSizes: tabs 8 apart, cards 12).
+    // A card as a screen reader says it: its application, its window's title,
+    // and whether it is a Stack.
+    function cardName(entry) {
+        const parts = [entry.application || "", entry.title || ""].filter(p => p.length > 0);
+        if ((entry.stacked || 0) > 0) parts.push("Stack");
+        return parts.join(", ");
+    }
     function growth(width, share, side) {
         return width > 0 ? Math.min(share, 2 * side / width) : 0;
     }
@@ -176,6 +186,8 @@ Item {
         text: root.model.hint || ""
         color: root.text2
         font.pixelSize: 13
+        Accessible.role: Accessible.StaticText
+        Accessible.name: text
     }
 
     // A Lucide glyph (ITASCA-VISUAL-LANGUAGE.md § Icons), its path copied
@@ -188,6 +200,7 @@ Item {
         property real size: 16
         width: size
         height: size
+        Accessible.ignored: true
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
             strokeColor: glyph.stroke
@@ -216,6 +229,7 @@ Item {
             height: parent ? parent.height : 0
             radius: 14
             color: root.sliverFills[Math.min(index, root.sliverFills.length - 1)]
+            Accessible.ignored: true
         }
     }
 
@@ -282,6 +296,9 @@ Item {
                 // The workspace the person is in is the brightest; the
                 // others' labels step back until the finger comes to them.
                 readonly property bool quiet: entry.current !== true && !touched && !target
+                Accessible.role: Accessible.PageTab
+                Accessible.name: "Workspace " + (entry.number || "") + (entry.name ? ", " + entry.name : "")
+                Accessible.selected: entry.current === true
                 property real lift: touched ? 1 : 0
                 Behavior on lift {
                     id: tabLift
@@ -334,6 +351,8 @@ Item {
                     TextInput {
                         id: editor
                         visible: tab.editing
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: "Workspace name"
                         width: tab.entry.nameWidth || 0
                         anchors.verticalCenter: parent.verticalCenter
                         clip: true
@@ -375,6 +394,8 @@ Item {
         Rectangle {
             readonly property var entry: root.model.remove || ({})
             visible: entry.visible === true
+            Accessible.role: Accessible.Button
+            Accessible.name: entry.label || "Remove workspace"
             x: entry.x || 0
             y: entry.y || 0
             width: entry.width || 0
@@ -396,6 +417,8 @@ Item {
             id: plus
             readonly property var entry: root.model.plus || ({})
             readonly property bool target: entry.target === true
+            Accessible.role: Accessible.Button
+            Accessible.name: "New workspace"
             property real lift: entry.hover === true && !target ? 1 : 0
             Behavior on lift {
                 id: plusLift
@@ -445,6 +468,9 @@ Item {
                 readonly property var entry: root.cards[index] || ({})
                 readonly property bool chosen: entry.chosen === true
                 readonly property bool arriving: ghost.visible && index === (ghost.drop.card ?? -1)
+                Accessible.role: Accessible.ListItem
+                Accessible.name: root.cardName(entry)
+                Accessible.selected: chosen
                 // How lifted the chosen card is, eased, so the dip, the size,
                 // the light and the shadow hand over from one card to its
                 // neighbour as the finger pages across; the
@@ -478,6 +504,8 @@ Item {
         Rectangle {
             readonly property var empty: root.model.empty || ({})
             visible: empty.visible === true
+            Accessible.role: Accessible.StaticText
+            Accessible.name: empty.text || ""
             x: empty.x || 0
             y: (empty.y || 0) - 10 * (1 - root.approach)
             width: empty.width || 0
@@ -501,6 +529,8 @@ Item {
             readonly property int stacked: entry ? entry.stacked || 0 : 0
             property real pop: 1.04
             visible: entry !== null
+            Accessible.role: Accessible.ListItem
+            Accessible.name: entry ? "Moving " + root.cardName(entry) : ""
             x: entry ? entry.x + stacked * root.sliverStep : 0
             y: entry ? entry.y : 0
             width: entry ? entry.width - stacked * root.sliverStep : 0
@@ -527,6 +557,7 @@ Item {
             id: ghost
             readonly property var drop: root.model.drop || ({})
             readonly property int seq: drop.seq ?? 0
+            Accessible.ignored: true
             readonly property int stacked: drop.stacked || 0
             visible: false
             width: (drop.width || 0) - stacked * root.sliverStep

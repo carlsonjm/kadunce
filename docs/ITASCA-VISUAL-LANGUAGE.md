@@ -200,6 +200,9 @@ they preserve these relationships and respect the user's animation settings.
 ### Reduced motion
 
 - Follow the platform animation scale and accessibility preference where exposed.
+- Motion that carries on from the hand (a flicked row, a row parting under a
+  carried card, a card springing back or thrown away) keeps the hand's pace at
+  every speed, and at instant lands where it was going on the next frame.
 - Under reduced motion, preserve state communication with short opacity/color
   changes and final geometry; remove travel, overshoot, and stagger.
 - Never make animation the only indication of state.

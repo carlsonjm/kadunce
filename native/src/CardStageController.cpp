@@ -776,6 +776,11 @@ int CardStageController::motion(int base)
     return motionDuration(base, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
 }
 
+bool CardStageController::motionIsInstant()
+{
+    return motionInstant(KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
+}
+
 int CardStageController::transitionDuration() const
 {
     if (m_landTransition) return motion(CarryLandDuration);
@@ -1957,7 +1962,14 @@ void CardStageController::advanceCarry(double seconds)
     const auto frame = carryFrame(tablet);
     if (!m_cardGrabActive || !frame) return;
     bool moving = false;
+    // The row parting and closing under the card keeps the hand's pace, and
+    // at instant stands where it is going.
+    const bool instant = motionIsInstant();
     const auto ease = [&](double &value, double target, double seconds_, double tau, double close) {
+        if (instant) {
+            value = target;
+            return;
+        }
         value += (target - value) * (1.0 - std::exp(-seconds_ / tau));
         if (std::abs(target - value) < close) value = target;
         else moving = true;
@@ -3819,20 +3831,26 @@ void CardStageController::advanceMotion()
     if (!m_motionClock.isValid()) return;
     const double seconds = std::min(0.05, m_motionClock.restart() / 1000.0);
     auto *output = m_host->tabletOutputForCardStage();
+    // At Plasma's instant speed, what the hand set going lands on this frame.
+    const bool instant = motionIsInstant();
     if (m_cardGrabActive) advanceCarry(seconds);
     if (m_row.moving()) {
         if (!rowMotionApplies() || !output) m_row = {};
-        else if (!stepRow(m_row, rowStops(output), seconds)) commitRowStop();
+        else if (instant) {
+            finishRow(m_row, rowStops(output));
+            commitRowStop();
+        } else if (!stepRow(m_row, rowStops(output), seconds)) commitRowStop();
     }
     if (m_lift.phase == Lift::Phase::Return) {
-        springToward(m_lift.y, m_lift.velocity, 0.0, LiftSpring, seconds);
+        if (instant) m_lift.y = m_lift.velocity = 0.0;
+        else springToward(m_lift.y, m_lift.velocity, 0.0, LiftSpring, seconds);
         if (std::abs(m_lift.y) < 1.0 && std::abs(m_lift.velocity) < 20.0) endLift();
     } else if (m_lift.phase == Lift::Phase::Throw) {
         m_lift.y += m_lift.velocity * seconds;
         const auto window = m_lift.window;
         const auto rect = output && window ? previewTargetForWindow(output, window) : KWin::Rect();
         const auto work = output ? workArea(output) : KWin::RectF();
-        if (!window || window->isDeleted() || rect.width() <= 0 || rect.bottom() < work.top()) {
+        if (instant || !window || window->isDeleted() || rect.width() <= 0 || rect.bottom() < work.top()) {
             // Out of sight: the next card can be lifted while this one closes.
             if (window && !window->isDeleted() && liveCardIndex(window) >= 0) {
                 Thrown thrown{window, {}};
