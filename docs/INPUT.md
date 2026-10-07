@@ -36,7 +36,7 @@ Apps and Files.
 | Let a held card go in a gap | It lands there as the row grows back to three across. |
 | Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger gives way and the card slides under; let go and the layout opens with it there. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
-| Tap or click a card's stack of Gooseberry notes | They fan out over the card; a tap off them folds them. Hold one, or the stack for its top note, and let go on another card to stick it there. |
+| Tap or click a card's stack of Gooseberry notes | They fan out over the card, and its window, until tapped again. Hold one, or the stack for its top note, and let go on another card to stick it there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke does not close it, and the keys type into it. |
 | Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. Three fingers up bring Table. |

@@ -981,6 +981,7 @@ Effect::Effect()
     m_stuckNotesWatcher = new StuckNotesWatcher(this);
     connect(m_stuckNotesWatcher, &StuckNotesWatcher::windowsChanged, this, [this](const QVariantList &windows) {
         m_stuckNotes.setEntries(stuckNotesEntries(windows));
+        syncNotesPause();
         if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
     });
 
@@ -5363,10 +5364,7 @@ KWin::EffectWindow *Effect::notesCardWindow(const QUuid &id) const
 
 bool Effect::pressNotesFromInput(const QPointF &position)
 {
-    if (!notesShownInSpread() || !m_cardStage->rowStill()) {
-        m_stuckNotes.fold();
-        return false;
-    }
+    if (!notesShownInSpread() || !m_cardStage->rowStill()) return false;
     const bool taken = m_stuckNotes.press(position, notesCards());
     if (taken) KWin::effects->addRepaintFull();
     return taken;
@@ -5385,13 +5383,30 @@ void Effect::holdNotesFromInput()
 
 void Effect::releaseNotesFromInput(const QPointF &position, bool still)
 {
-    const auto stick = m_stuckNotes.release(position, still, notesCards());
+    const auto request = m_stuckNotes.release(position, still, notesCards());
     KWin::effects->addRepaintFull();
-    auto *window = stick ? notesCardWindow(stick->window) : nullptr;
+    auto *window = request ? notesCardWindow(request->window) : nullptr;
     if (!window || !m_stuckNotesWatcher) return;
-    // Gooseberry moves the note and says so; what Spread draws follows that.
-    m_stuckNotesWatcher->stickTo(stick->noteId, window->internalId().toString(),
-                                 window->caption(), applicationIdentity(window));
+    // Gooseberry acts and says so; what Spread draws follows its word.
+    const QString windowId = window->internalId().toString();
+    if (request->kind == StuckNotesSpread::Request::Kind::Toggle)
+        m_stuckNotesWatcher->toggle(windowId, window->caption(), applicationIdentity(window));
+    else
+        m_stuckNotesWatcher->stickTo(request->noteId, windowId, window->caption(),
+                                     applicationIdentity(window));
+}
+
+void Effect::syncNotesPause()
+{
+    // Gooseberry's notes over the windows step aside while Spread covers them,
+    // and come back as it closes, still out.
+    if (!m_stuckNotesWatcher || !m_stuckNotesWatcher->present()) {
+        m_notesPaused = false;
+        return;
+    }
+    if (m_notesPaused == m_notesSpreadShown) return;
+    m_notesPaused = m_notesSpreadShown;
+    m_stuckNotesWatcher->pause(m_notesPaused);
 }
 
 void Effect::cancelNotesFromInput()
@@ -5408,8 +5423,7 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
     const auto &model = m_cardStage->model();
     const auto &windows = m_cardStage->liveCards();
     auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
-    const StuckNotesEntry *fanned = nullptr;
-    QRectF fannedCard;
+    QList<std::pair<const StuckNotesEntry *, QRectF>> fanned;
     for (int index = 0; index < windows.size(); ++index) {
         auto *window = windows.at(index).data();
         if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99
@@ -5429,16 +5443,14 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
             colours.append(entry->notes.at(layer).colourHex);
         }
         m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->count);
-        if (window->internalId() == m_stuckNotes.fanned() && window != held) {
-            fanned = entry;
-            fannedCard = *target;
-        }
+        if (m_stuckNotes.fanned(window->internalId()) && window != held)
+            fanned.append({entry, *target});
     }
     const auto carried = m_stuckNotes.carriedNote();
-    if (fanned) {
-        const auto rects = fannedNoteRects(fannedCard, fanned->notes.size());
+    for (const auto &[entry, card] : std::as_const(fanned)) {
+        const auto rects = fannedNoteRects(card, entry->notes.size());
         for (int index = 0; index < rects.size(); ++index) {
-            const auto &note = fanned->notes.at(index);
+            const auto &note = entry->notes.at(index);
             // The note in hand leaves a faint place behind.
             const bool lifted = carried && carried->id == note.id;
             m_noteStackRenderer.renderNote(renderTarget, viewport, rects.at(index), note, lifted ? 0.35 : 1.0);
@@ -5737,13 +5749,10 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     // A released row, a returning card or a thrown one moves once per frame.
     if (isTabletOutput(data.screen)) m_cardStage->advanceMotion();
     if (isTabletOutput(data.screen)) {
-        // Notes Gooseberry shows over a window are put away as Spread opens,
-        // and Spread's own fan folds as it closes.
-        const bool spread = m_cardStage->isActive()
+        m_notesSpreadShown = m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::Spread;
-        if (spread && !m_notesSpreadShown && m_stuckNotesWatcher) m_stuckNotesWatcher->hide();
-        if (!spread && m_notesSpreadShown) m_stuckNotes.fold();
-        m_notesSpreadShown = spread;
+        if (!m_notesSpreadShown) m_stuckNotes.cancel();
+        syncNotesPause();
     }
     showSleepingCardsInSpread();
     // Presentation changes repaint, so a frame is where a dependent's

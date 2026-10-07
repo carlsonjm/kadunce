@@ -196,20 +196,24 @@ interface: io.github.carlsonjm.Gooseberry.StuckNotes
 | --- | --- |
 | `Windows()` | Gooseberry appears on the bus, or a signal comes from a sender not yet heard from |
 | signal `WindowsChanged(windows)` | It replaces everything Kadunce holds; Kadunce keeps no notes of its own |
+| `Toggle(windowId, caption, app)` | A card's stack is tapped |
 | `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
-| `Hide()` | Spread opens, so notes Gooseberry shows over a window do not float over the cards |
+| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored |
 
 Every call is asynchronous, asks the bus not to start Gooseberry, and is never
 waited for while drawing. An entry belongs to a card when one of its
 `windowIds` is the card's window UUID, compared as a UUID with or without
-braces; `StickTo` names the target by that UUID with braces, its title, and its
-desktop file name. Kadunce reads each entry's count and its notes' ids, titles
-and colours, top note first.
+braces; `Toggle` and `StickTo` name the window by that UUID with braces, its
+title, and its desktop file name. Kadunce reads each entry's count, whether its
+notes are `shown`, and its notes' ids, titles and colours, top note first.
 
 In Spread each card with notes shows them as a small stack at its bottom-right
-corner, the same size on every card, with the count when there are several. A
-tap fans them over the card, and holding a note carries it to another card
-(`INPUT.md` § Spread). This takes up Gooseberry's requests for a card's notes
-on its corner in Spread and for carrying a note between cards. Spread never
-moves or resizes a window for a note, and the Bento group and the Active card
-show none.
+corner, the same size on every card, with the count when there are several.
+A card's notes are fanned over it exactly while Gooseberry says they are shown
+over its window, so the two stay one state: notes out over a window arrive
+fanned, and notes fanned in Spread are still out after it closes. A tap on the
+stack toggles them, drawn at once and then as Gooseberry answers; nothing else
+folds them. Holding a note carries it to another card (`INPUT.md` § Spread).
+This takes up Gooseberry's requests for a card's notes on its corner in Spread
+and for carrying a note between cards. Spread never moves or resizes a window
+for a note, and the Bento group and the Active card show none.

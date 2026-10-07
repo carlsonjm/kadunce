@@ -579,8 +579,8 @@ private:
     [[nodiscard]] bool cardAtForInput(const QPointF &position) const override;
     void tapSpreadFromInput(const QPointF &position) override;
     // Gooseberry's notes on Spread's cards (TETTEGOUCHE-CONTEXT.md § Stuck
-    // notes from Gooseberry): a stack at each card's corner, fanned out by a
-    // tap, a note carried to another card by a hold.
+    // notes from Gooseberry): a stack at each card's corner, fanned while
+    // Gooseberry shows those notes, a note carried to another card by a hold.
     [[nodiscard]] bool pressNotesFromInput(const QPointF &position) override;
     void moveNotesFromInput(const QPointF &position) override;
     void holdNotesFromInput() override;
@@ -599,9 +599,11 @@ private:
     StuckNotesWatcher *m_stuckNotesWatcher = nullptr;
     StuckNotesSpread m_stuckNotes;
     NoteStackRenderer m_noteStackRenderer;
-    // Spread was shown on the last frame, so its first frame puts away the
-    // notes Gooseberry shows over a window, and leaving it folds the fan.
+    // Spread was shown on the last frame, and whether Gooseberry was last
+    // asked to pause its notes over the windows for it.
     bool m_notesSpreadShown = false;
+    bool m_notesPaused = false;
+    void syncNotesPause();
     void syncSelectedElevation();
     void activateSelectedFromInput() override;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;

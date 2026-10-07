@@ -23,8 +23,12 @@ public:
 
     // Whether Gooseberry has answered since it last appeared.
     [[nodiscard]] bool present() const { return !m_owner.isEmpty(); }
-    // Puts away the notes Gooseberry shows over a window.
-    void hide();
+    // While Spread covers the windows, Gooseberry's surface over them steps
+    // aside without putting any note away. A build without Pause answers
+    // with an error, which nothing waits for.
+    void pause(bool paused);
+    // Shows a window's notes over it, or puts them away.
+    void toggle(const QString &windowId, const QString &caption, const QString &app);
     // Sticks a note to another window.
     void stickTo(const QString &noteId, const QString &windowId,
                  const QString &caption, const QString &app);

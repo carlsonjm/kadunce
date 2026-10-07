@@ -150,9 +150,14 @@ void StuckNotesWatcher::send(const QString &method, const QVariantList &argument
     QDBusConnection::sessionBus().asyncCall(message);
 }
 
-void StuckNotesWatcher::hide()
+void StuckNotesWatcher::pause(bool paused)
 {
-    send(QStringLiteral("Hide"), {});
+    send(QStringLiteral("Pause"), {paused});
+}
+
+void StuckNotesWatcher::toggle(const QString &windowId, const QString &caption, const QString &app)
+{
+    send(QStringLiteral("Toggle"), {windowId, caption, app});
 }
 
 void StuckNotesWatcher::stickTo(const QString &noteId, const QString &windowId,

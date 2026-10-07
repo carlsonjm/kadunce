@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <QHash>
 #include <QList>
 #include <QPointF>
 #include <QRectF>
@@ -34,6 +35,8 @@ struct StuckNotesEntry {
     int count = 0;
     // The top note first.
     QList<StuckNote> notes;
+    // Its notes are out over the window, which Spread shows as fanned.
+    bool shown = false;
 };
 
 // The entries of Windows() or WindowsChanged, each already a map. An entry
@@ -58,6 +61,7 @@ struct StuckNotesEntry {
             entry.notes.append({id, note.value(QStringLiteral("title")).toString(),
                                 note.value(QStringLiteral("colourHex")).toString()});
         }
+        entry.shown = map.value(QStringLiteral("shown")).toBool();
         entry.count = std::max<int>(map.value(QStringLiteral("count")).toInt(), entry.notes.size());
         if (entry.windowIds.isEmpty() || entry.notes.isEmpty()) continue;
         entries.append(entry);
@@ -138,24 +142,30 @@ struct NoteGeometry {
     return rects;
 }
 
-// Notes on Spread's cards: which card's notes are fanned out, and the one
-// contact the notes hold, from press to release. A tap on a stack fans its
-// notes over the card, and a tap on it again or anywhere off a fanned note
-// folds them. A hold on a fanned note, or on a stack for its top note,
-// carries that note, and letting it go on another card sticks it there.
+// Notes on Spread's cards, and the one contact the notes hold from press to
+// release. Whether a card's notes are fanned is Gooseberry's: they are fanned
+// exactly while its entry says they are shown over the window, so notes out
+// over a window arrive fanned and stay out after Spread closes. A tap on a
+// stack asks Gooseberry to toggle them, and shows the answer it expects until
+// Gooseberry says otherwise. A hold on a fanned note, or on a stack for its
+// top note, carries that note, and letting it go on another card asks
+// Gooseberry to stick it there. Any other press is not the notes'.
 class StuckNotesSpread
 {
 public:
-    enum class Contact { None, Stack, Note, Fold };
-    struct Stick {
-        QString noteId;
+    enum class Contact { None, Stack, Note };
+    struct Request {
+        enum class Kind { Toggle, Stick };
+        Kind kind = Kind::Toggle;
         QUuid window;
+        QString noteId;
     };
 
+    // Gooseberry's word replaces every guess made since it last spoke.
     void setEntries(const QList<StuckNotesEntry> &entries)
     {
         m_entries = entries;
-        if (!m_fanned.isNull() && !entryFor(m_fanned)) m_fanned = {};
+        m_expected.clear();
         if (m_carry && !noteOn(m_carry->from, m_carry->note.id)) m_carry.reset();
     }
 
@@ -169,37 +179,33 @@ public:
         return nullptr;
     }
 
-    [[nodiscard]] QUuid fanned() const { return m_fanned; }
+    [[nodiscard]] bool fanned(const QUuid &window) const
+    {
+        const auto *entry = entryFor(window);
+        return entry && m_expected.value(window, entry->shown);
+    }
+
     [[nodiscard]] Contact contact() const { return m_contact; }
 
-    // A press in Spread. True when it is the notes': on a stack, on a fanned
-    // note, or anywhere while notes are fanned, which folds them at once.
+    // A press in Spread. True when it is the notes': on a stack, or on a note
+    // fanned over its card. Cards run nearest the eye first.
     bool press(const QPointF &position, const QList<NotesCard> &cards)
     {
         cancel();
-        if (!m_fanned.isNull()) {
-            if (const auto card = cardOf(m_fanned, cards)) {
-                const auto *entry = entryFor(m_fanned);
-                if (noteStackReach(card->rect, entry->count).contains(position)) {
-                    begin(Contact::Stack, m_fanned, entry->notes.first(), position);
-                    return true;
-                }
-                const auto rects = fannedNoteRects(card->rect, entry->notes.size());
-                for (int index = 0; index < rects.size(); ++index) {
-                    if (!rects.at(index).contains(position)) continue;
-                    begin(Contact::Note, m_fanned, entry->notes.at(index), position);
-                    return true;
-                }
-            }
-            m_fanned = {};
-            m_contact = Contact::Fold;
-            return true;
-        }
         for (const auto &card : cards) {
             const auto *entry = entryFor(card.id);
-            if (!entry || !noteStackReach(card.rect, entry->count).contains(position)) continue;
-            begin(Contact::Stack, card.id, entry->notes.first(), position);
-            return true;
+            if (!entry) continue;
+            if (noteStackReach(card.rect, entry->count).contains(position)) {
+                begin(Contact::Stack, card.id, entry->notes.first(), position);
+                return true;
+            }
+            if (!fanned(card.id)) continue;
+            const auto rects = fannedNoteRects(card.rect, entry->notes.size());
+            for (int index = 0; index < rects.size(); ++index) {
+                if (!rects.at(index).contains(position)) continue;
+                begin(Contact::Note, card.id, entry->notes.at(index), position);
+                return true;
+            }
         }
         return false;
     }
@@ -207,8 +213,7 @@ public:
     // The press was held still long enough: its note is carried.
     bool hold()
     {
-        if (m_contact != Contact::Stack && m_contact != Contact::Note) return false;
-        if (!m_pressed || m_carry) return false;
+        if (m_contact == Contact::None || !m_pressed || m_carry) return false;
         m_carry = Carry{m_pressedOn, *m_pressed, m_pressedAt};
         return true;
     }
@@ -219,9 +224,9 @@ public:
     }
 
     // The contact lifts; `still` when it never moved further than a tap may.
-    // Returns the stick to ask for when a carried note was let go on another
-    // card; anything else changes no note.
-    std::optional<Stick> release(const QPointF &position, bool still, const QList<NotesCard> &cards)
+    // Returns what to ask Gooseberry: to toggle a stack tapped still, or to
+    // stick a carried note let go on another card. Nothing else asks.
+    std::optional<Request> release(const QPointF &position, bool still, const QList<NotesCard> &cards)
     {
         const Contact contact = std::exchange(m_contact, Contact::None);
         const QUuid pressedOn = std::exchange(m_pressedOn, {});
@@ -230,27 +235,20 @@ public:
             const Carry carry = *std::exchange(m_carry, std::nullopt);
             const QUuid target = cardAt(position, cards);
             if (target.isNull() || target == carry.from) return std::nullopt;
-            m_fanned = {};
-            return Stick{carry.note.id, target};
+            return Request{Request::Kind::Stick, target, carry.note.id};
         }
-        if (still && contact == Contact::Stack)
-            m_fanned = m_fanned == pressedOn ? QUuid() : pressedOn;
-        return std::nullopt;
+        if (!still || contact != Contact::Stack || !entryFor(pressedOn)) return std::nullopt;
+        m_expected.insert(pressedOn, !fanned(pressedOn));
+        return Request{Request::Kind::Toggle, pressedOn, {}};
     }
 
+    // The contact was taken away, or Spread closed under it: nothing is asked.
     void cancel()
     {
         m_contact = Contact::None;
         m_pressedOn = {};
         m_pressed.reset();
         m_carry.reset();
-    }
-
-    // Leaving Spread folds whatever was fanned and drops whatever was carried.
-    void fold()
-    {
-        m_fanned = {};
-        cancel();
     }
 
     [[nodiscard]] bool carrying() const { return m_carry.has_value(); }
@@ -302,13 +300,6 @@ private:
                            [&](const StuckNote &note) { return note.id == noteId; });
     }
 
-    static std::optional<NotesCard> cardOf(const QUuid &id, const QList<NotesCard> &cards)
-    {
-        for (const auto &card : cards)
-            if (card.id == id) return card;
-        return std::nullopt;
-    }
-
     static QUuid cardAt(const QPointF &position, const QList<NotesCard> &cards)
     {
         for (const auto &card : cards)
@@ -317,7 +308,8 @@ private:
     }
 
     QList<StuckNotesEntry> m_entries;
-    QUuid m_fanned;
+    // Toggles asked of Gooseberry and not yet answered, by window.
+    QHash<QUuid, bool> m_expected;
     Contact m_contact = Contact::None;
     QUuid m_pressedOn;
     std::optional<StuckNote> m_pressed;
