@@ -15,6 +15,16 @@ namespace Kadunce {
     return std::clamp(keyboardTop - gutter - cardTop, 0.0, cardHeight);
 }
 
+// Where the Active card's top edge goes while the keyboard is up. A client
+// that cannot be as short as the room keeps its least height, and the card
+// rises by what that leaves over, so the field at its bottom edge still ends
+// a gutter above the keys and only its top goes out of sight.
+[[nodiscard]] inline double keyboardRoomTop(
+    double cardTop, double height, double keyboardTop, double gutter)
+{
+    return cardTop - std::max(0.0, cardTop + height - (keyboardTop - gutter));
+}
+
 // The height to ask the Active card's client for as the keys move, if any.
 // The card is drawn ending a gutter above the keys on every frame whatever
 // size its client has, so the client is asked only where the drawn card would

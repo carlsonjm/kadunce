@@ -139,7 +139,7 @@ CardStageController::CardStageController(CardStageHost *host)
                      &m_keyboardHeadingTimer, [this]() {
         auto *client = keyboardRoomClient();
         if (!client || !m_keyboardHeadingTop) return;
-        askKeyboardRoom(client, keyboardRoomFor(client, *m_keyboardHeadingTop));
+        askKeyboardRoom(client, keyboardRoomFor(client, *m_keyboardHeadingTop), *m_keyboardHeadingTop);
     });
     // A flicked card's app either closes, asks a question with a dialog of its
     // own, or keeps running; the card is looked at until one of those is true.
@@ -1273,8 +1273,10 @@ KWin::Rect CardStageController::activePlacement(
     }
     KWin::RectF placement = m_keyboardRoom->base;
     if (m_host->inputPanelTopForCardStage(output).has_value()
-        && m_host->keyboardTypesIntoForCardStage(m_keyboardRoom->window))
+        && m_host->keyboardTypesIntoForCardStage(m_keyboardRoom->window)) {
+        placement.moveTop(m_keyboardRoom->top);
         placement.setHeight(m_keyboardRoom->height);
+    }
     return placement.toRect();
 }
 
@@ -1334,11 +1336,13 @@ double CardStageController::keyboardRoomFor(const KWin::Window *client,
         client->constrainFrameSize(QSizeF(base.width(), room)).height());
 }
 
-void CardStageController::askKeyboardRoom(KWin::Window *client, double height)
+void CardStageController::askKeyboardRoom(KWin::Window *client, double height,
+                                          double keyboardTop)
 {
     m_keyboardRoom->height = height;
     const KWin::RectF base = m_keyboardRoom->base;
-    const KWin::Rect target = KWin::RectF(base.x(), base.y(), base.width(), height).toRect();
+    m_keyboardRoom->top = keyboardRoomTop(base.y(), height, keyboardTop, m_settings.gutter());
+    const KWin::Rect target = KWin::RectF(base.x(), m_keyboardRoom->top, base.width(), height).toRect();
     // Measured against what was asked for, not the frame: a client still
     // drawing its last size, or one that trims itself to whole rows as a
     // terminal does, is not asked again.
@@ -1365,7 +1369,7 @@ void CardStageController::keyboardHeading(double top, int durationMs)
     // word, which reaches here before they start: a client that answers
     // before the keys are there stands clear of them.
     const double heading = keyboardRoomFor(client, top);
-    if (heading > m_keyboardRoom->height) askKeyboardRoom(client, heading);
+    if (heading > m_keyboardRoom->height) askKeyboardRoom(client, heading, top);
     else if (heading < m_keyboardRoom->height) m_keyboardHeadingPending = true;
 }
 
@@ -1462,8 +1466,9 @@ void CardStageController::updateKeyboardRoom(bool resting)
         // the keys close. Any of these can land the client somewhere else
         // after the room is given back, so the settle asks again when it does.
         m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
-        if (m_keyboardRoom->height < base.height()) {
+        if (m_keyboardRoom->height < base.height() || m_keyboardRoom->top != base.y()) {
             m_keyboardRoom->height = base.height();
+            m_keyboardRoom->top = base.y();
             QScopedValueRollback<bool> applying(m_applyingWindowState, true);
             client->moveResize(base);
             KWin::effects->addRepaintFull();
@@ -1478,7 +1483,7 @@ void CardStageController::updateKeyboardRoom(bool resting)
         // The placement asked for rather than the frame, which still shows the
         // old size while a card that has just arrived acknowledges its new one.
         const KWin::RectF base = client->moveResizeGeometry();
-        m_keyboardRoom = KeyboardRoom{window, base, base.height()};
+        m_keyboardRoom = KeyboardRoom{window, base, base.height(), base.y()};
     }
     // The card is drawn ending a gutter above the keys on every frame they
     // move (keyboardRoomEdge), so its client is asked for a size once a
@@ -1506,7 +1511,8 @@ void CardStageController::updateKeyboardRoom(bool resting)
     }
     if (const auto ask = keyboardRoomAsk(m_keyboardRoom->height, now, heading,
             m_keyboardRoom->base.height(), resting)) {
-        askKeyboardRoom(client, *ask);
+        askKeyboardRoom(client, *ask,
+                        !resting && m_keyboardHeadingTop ? *m_keyboardHeadingTop : *keyboardTop);
     }
 }
 

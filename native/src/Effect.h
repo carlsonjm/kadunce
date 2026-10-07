@@ -548,6 +548,10 @@ private:
     void showHeldPointer(HeldPointer held, bool wasHeld);
     [[nodiscard]] bool inCardGap(const QPointF &position) const;
     void touchBeganForInput() override;
+    // A terminal's field is enabled for as long as it has the focus and never
+    // asks for the keys again, so a tap in it asks on its behalf.
+    void tapEndedForInput(const KWin::Window *window) override;
+    void raiseKeysForTerminalTap(QPointer<KWin::Window> window, quint64 touchEvents);
     bool m_gapHeld = false;
     HeldPointer m_heldPointer = HeldPointer::None;
     // A touch hides the pointer where it stands; it holds nothing until it moves.

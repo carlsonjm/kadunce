@@ -150,6 +150,10 @@ public:
     [[nodiscard]] virtual bool inPaneGutterForInput(const QPointF &) const { return false; }
     // A finger came down, before KWin's filters look for the window under it.
     virtual void touchBeganForInput() {}
+    // One finger touched and lifted again, still and briefly, with no other
+    // finger down meanwhile; `window` was under it. Told whoever received
+    // the touch.
+    virtual void tapEndedForInput(const KWin::Window *) {}
     virtual void beginTableFromInput(const QPointF &) {}
     // A finger, or else a pointer's button, pressed on an open Table.
     virtual void pressTableFromInput(const QPointF &, bool) {}
@@ -213,13 +217,18 @@ private:
     // moves for touches Kadunce never receives.
     struct TouchEvents final : KWin::InputEventSpy {
         void touchDown(KWin::TouchDownEvent *event) override;
-        void touchMotion(KWin::TouchMotionEvent *) override { counted(); }
-        void touchUp(KWin::TouchUpEvent *) override { counted(); }
+        void touchMotion(KWin::TouchMotionEvent *event) override;
+        void touchUp(KWin::TouchUpEvent *event) override;
         void counted() { ++count; latest.start(); }
         WorkspaceInputTarget *target = nullptr;
         quint64 count = 0;
         QElapsedTimer latest;
         QPointer<KWin::Window> window;
+        // The contacts down now, and whether the first of them is a tap yet.
+        int fingers = 0;
+        bool tapping = false;
+        QPointF tapStart;
+        QElapsedTimer tapTime;
     };
     bool routeTouchDown(KWin::TouchDownEvent *event);
     bool routeTouchMotion(KWin::TouchMotionEvent *event);
