@@ -144,6 +144,11 @@ int main(int argc, char **argv)
     require(room(10, 780, 797) == 777);
     require(room(10, 780, 397) == 377);
     require(room(10, 780, 15) == 0);
+    // A client that cannot be that short rises instead, by what its least
+    // height leaves over; one that fits, or that the keys do not reach, stays.
+    require(Kadunce::keyboardRoomTop(10, 377, 397, 10) == 10);
+    require(Kadunce::keyboardRoomTop(10, 780, 900, 10) == 10);
+    require(Kadunce::keyboardRoomTop(10, 600, 397, 10) == -213);
     // A client is asked for a size once a motion, not on every frame of it:
     // all the room the keys give back at once, the room they take once they
     // rest, and nothing while they rise or stand still.

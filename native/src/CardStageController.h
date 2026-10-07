@@ -561,7 +561,7 @@ private:
     void updateKeyboardRoom(bool resting = false);
     [[nodiscard]] KWin::Window *keyboardRoomClient() const;
     [[nodiscard]] double keyboardRoomFor(const KWin::Window *client, double keyboardTop) const;
-    void askKeyboardRoom(KWin::Window *client, double height);
+    void askKeyboardRoom(KWin::Window *client, double height, double keyboardTop);
     void putBackKeyboardRoom();
     void forgetManagedRestore(KWin::EffectWindow *window);
     void retireActiveIdentity(const KWin::EffectWindow *window);
@@ -654,6 +654,7 @@ private:
         QPointer<KWin::EffectWindow> window;
         KWin::RectF base;
         double height = 0.0;
+        double top = 0.0;
     };
     std::optional<KeyboardRoom> m_keyboardRoom;
     QTimer m_keyboardRoomTimer;
