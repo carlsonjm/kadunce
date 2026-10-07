@@ -18,7 +18,7 @@ void require(bool value, const char *message)
 QVariantMap note(const QString &id, const QString &title, const QString &colour)
 {
     return {{QStringLiteral("id"), id}, {QStringLiteral("title"), title},
-            {QStringLiteral("text"), title + QStringLiteral(" and more")},
+            {QStringLiteral("text"), QString(title + QStringLiteral(" and more"))},
             {QStringLiteral("colour"), QStringLiteral("yellow")},
             {QStringLiteral("colourHex"), colour}};
 }

@@ -278,6 +278,8 @@ private:
     bool m_notesPointer = false;
     qint32 m_notesTouch = -1;
     QPointF m_notesStart;
+    // Where the notes contact was last seen; a touch lifts with no position.
+    QPointF m_notesLast;
     bool m_notesMoved = false;
     QTimer m_notesHoldTimer;
     QPointF m_pointerStart;

@@ -287,6 +287,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         && m_target->pressNotesFromInput(event->position)) {
         m_notesPointer = true;
         m_notesStart = event->position;
+        m_notesLast = event->position;
         m_notesMoved = false;
         m_notesHoldTimer.start();
         return true;
@@ -570,6 +571,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         && !m_target->cardGrabActiveForInput() && m_target->pressNotesFromInput(event->pos)) {
         m_notesTouch = event->id;
         m_notesStart = event->pos;
+        m_notesLast = event->pos;
         m_notesMoved = false;
         m_notesHoldTimer.start();
         return true;
@@ -753,7 +755,7 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
     }
     if (event->id == m_notesTouch) {
         m_observedTouchIds.remove(event->id);
-        releaseNotes(event->pos);
+        releaseNotes(m_notesLast);
         return true;
     }
     reconcileNativeInteraction();
@@ -909,6 +911,7 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
 
 void WorkspaceInputRouter::moveNotes(const QPointF &position)
 {
+    m_notesLast = position;
     // Moved further than a tap before the hold came, the press is spent: it
     // neither taps nor carries, and the row stays where it is.
     if (QLineF(m_notesStart, position).length() > CardHoldMotion) {
