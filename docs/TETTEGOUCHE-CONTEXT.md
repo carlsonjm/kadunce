@@ -198,7 +198,7 @@ interface: io.github.carlsonjm.Gooseberry.StuckNotes
 | signal `WindowsChanged(windows)` | It replaces everything Kadunce holds; Kadunce keeps no notes of its own |
 | `Toggle(windowId, caption, app)` | A card's stack is tapped; its reply, whether the notes are shown now, is read when it comes |
 | `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
-| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored |
+| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn Gooseberry's layer surface that takes no keys, the notes over a window, fading or not |
 
 Every call is asynchronous, asks the bus not to start Gooseberry, and is never
 waited for while drawing. An entry belongs to a card when one of its

@@ -5394,6 +5394,22 @@ bool Effect::notesShownInSpread() const
         && !m_cardStage->cardGrabActive() && !m_table.isOpen() && !m_previewDesktop;
 }
 
+// Gooseberry's notes over a window are its layer surface that takes no keys;
+// its quick-note card takes them. While Spread is up the notes are drawn on
+// the cards instead, so that surface is left undrawn from the frame Spread
+// opens, and through its fade as it goes, rather than once Gooseberry answers
+// the pause: the notes read as one set moving onto the card.
+bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
+{
+    if (!m_notesSpreadShown || !window || !window->window()
+        || !window->window()->inherits("KWin::LayerShellV1Window")) {
+        return false;
+    }
+    return !window->acceptsFocus()
+        && applicationIdentity(window).compare(QStringLiteral("io.github.carlsonjm.Gooseberry"),
+                                               Qt::CaseInsensitive) == 0;
+}
+
 QList<NotesCard> Effect::notesCards() const
 {
     QList<NotesCard> cards;
@@ -5983,6 +5999,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     }
     // Left undrawn, so it must not hide what is under it from the scene.
     if (m_previewDesktop ? hiddenByDesktopPreview(window) : hiddenOnOtherDesktop(window)) data.setTranslucent();
+    // Left undrawn while Spread draws its notes on the card.
+    if (notesSurfaceStepsAside(window)) data.setTranslucent();
     // Drawn with its card, not where it stands, so it hides nothing there.
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     if (m_cardStage->isActive()
@@ -6615,6 +6633,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);
     // Drawn with its card in hand, after the card.
     if (drawnWithCarriedCard(window)) return paintResult(true);
+    // Gooseberry's notes over a window, while Spread draws them on its card.
+    if (notesSurfaceStepsAside(window)) return paintResult(true);
     // Keys are drawn only once they are known to be the person's.
     if (!m_keysForPerson && window == KWin::effects->inputPanel()) return paintResult(true);
     // A card flicked closed stays out of sight while its app closes.

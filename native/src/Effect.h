@@ -589,6 +589,7 @@ private:
     // Notes are shown and answered only in Spread at rest on the card
     // display, with no guest in its centre and no card in hand.
     [[nodiscard]] bool notesShownInSpread() const;
+    [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
     // stand at rest; the Bento group carries no notes.
     [[nodiscard]] QList<NotesCard> notesCards() const;
