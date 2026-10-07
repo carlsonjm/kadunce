@@ -10,6 +10,8 @@
 #include <QDebug>
 #include <QVariantMap>
 
+#include <utility>
+
 namespace Kadunce
 {
 namespace
@@ -110,19 +112,20 @@ void StuckNotesWatcher::fetch()
         if (generation != m_generation) return;
         const QDBusMessage reply = finished->reply();
         if (reply.type() != QDBusMessage::ReplyMessage) {
-            if (!m_owner.isEmpty()) vanish();
+            if (m_present) vanish();
             return;
         }
-        if (m_owner != reply.service())
-            qInfo() << "Kadunce reads stuck notes from Gooseberry at" << reply.service();
-        m_owner = reply.service();
+        // A reply need not name its sender, so being answered is what
+        // counts: Kadunce knew no owner, and so never paused or toggled.
+        if (!m_present) qInfo() << "Kadunce reads stuck notes from Gooseberry";
+        m_present = true;
         Q_EMIT windowsChanged(windowsOf(reply));
     });
 }
 
 void StuckNotesWatcher::receiveWindowsChanged(const QDBusMessage &message)
 {
-    if (m_owner.isEmpty() || message.service() != m_owner) {
+    if (!m_present) {
         // Someone new speaks for Gooseberry, or it started before it was
         // seen: ask it directly rather than trust an unknown sender.
         fetch();
@@ -135,15 +138,14 @@ void StuckNotesWatcher::receiveWindowsChanged(const QDBusMessage &message)
 void StuckNotesWatcher::vanish()
 {
     ++m_generation;
-    const bool had = !m_owner.isEmpty();
-    m_owner.clear();
+    const bool had = std::exchange(m_present, false);
     if (had) qInfo() << "Kadunce no longer sees Gooseberry's stuck notes";
     Q_EMIT windowsChanged({});
 }
 
 void StuckNotesWatcher::send(const QString &method, const QVariantList &arguments)
 {
-    if (m_owner.isEmpty()) return;
+    if (!m_present) return;
     auto message = QDBusMessage::createMethodCall(Service, Path, Interface, method);
     message.setAutoStartService(false);
     message.setArguments(arguments);
@@ -158,7 +160,7 @@ void StuckNotesWatcher::pause(bool paused)
 void StuckNotesWatcher::toggle(const QString &windowId, const QString &caption, const QString &app,
                                std::function<void(std::optional<bool>)> answered)
 {
-    if (m_owner.isEmpty()) {
+    if (!m_present) {
         if (answered) answered(std::nullopt);
         return;
     }

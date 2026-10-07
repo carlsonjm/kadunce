@@ -25,7 +25,7 @@ public:
     explicit StuckNotesWatcher(QObject *parent = nullptr);
 
     // Whether Gooseberry has answered since it last appeared.
-    [[nodiscard]] bool present() const { return !m_owner.isEmpty(); }
+    [[nodiscard]] bool present() const { return m_present; }
     // While Spread covers the windows, Gooseberry's surface over them steps
     // aside without putting any note away. A build without Pause answers
     // with an error, which nothing waits for.
@@ -57,7 +57,8 @@ private:
     QDBusServiceWatcher *m_watcher = nullptr;
     // Gooseberry's unique name on the bus once it has answered; signals from
     // anyone else only prompt a fresh read.
-    QString m_owner;
+    // Gooseberry answered the last read of its windows and has not gone.
+    bool m_present = false;
     // Bumped by every read asked for, every signal taken and every departure,
     // so a reply older than any of them is dropped.
     quint64 m_generation = 0;
