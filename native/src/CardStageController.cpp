@@ -234,30 +234,61 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
 }
 
 KWin::EffectWindow *CardStageController::partnerForSideSnap(
-    const KWin::EffectWindow *carried, bool leftEdge) const
+    const KWin::EffectWindow *carried, bool leftEdge, QString *why) const
 {
-    if (!m_active || !carried || carried->isDeleted()) return nullptr;
+    const auto say = [why](const QString &text) { if (why) *why = text; };
+    const auto app = [](const KWin::EffectWindow *window) {
+        return window && window->window() ? window->window()->resourceClass()
+                                          : QStringLiteral("a closed window");
+    };
+    if (!m_active || !carried || carried->isDeleted()) {
+        say(QStringLiteral("none: no cards are held here"));
+        return nullptr;
+    }
     auto *active = activeCardIdentity();
     // §3: when the carried window is not the Active card, the Active card is
     // the partner. It qualifies whether it stands alone or is a stack's
     // selected member, because the user named it Active.
-    if (active != carried) return isEligiblePartner(active) ? active : nullptr;
+    if (active != carried) {
+        if (!active) say(QStringLiteral("none: the carried window is not a card and no card is Active"));
+        else if (isEligiblePartner(active))
+            say(QStringLiteral("the Active card %1, because the carried window is not a card").arg(app(active)));
+        else say(QStringLiteral("none: the Active card %1 cannot pair (asleep, or not on this display or desktop)").arg(app(active)));
+        return isEligiblePartner(active) ? active : nullptr;
+    }
     // §3: the Active card was carried, so the partner is the nearest eligible
     // card on the contacted side of it. The walk begins at the entry holding
     // that card and is cyclic, stopping where it started.
     const int carriedId = liveCardIndex(carried) + 1;
-    if (carriedId <= 0) return nullptr;
+    if (carriedId <= 0) {
+        say(QStringLiteral("none: the carried window is not a card"));
+        return nullptr;
+    }
+    const QString side = leftEdge ? QStringLiteral("left") : QStringLiteral("right");
+    QStringList passed;
     const int direction = leftEdge ? -1 : 1;
     for (int step = 1; step < m_workspace.count(); ++step) {
         const int face = m_workspace.faceAtStepsFrom(carriedId, direction * step);
         if (face <= 0 || face == carriedId) break;
         // §4: a search passes over every ordinary stack, so no walk breaks a
         // composed group. A stacked card reaches Bento only as the Active card.
-        if (m_workspace.stackSizeForId(face) > 1) continue;
         auto *candidate = m_workspace.windowForId(face).data();
-        if (candidate && candidate != carried && isEligiblePartner(candidate))
+        if (m_workspace.stackSizeForId(face) > 1) {
+            passed.append(QStringLiteral("a Stack fronted by %1").arg(app(candidate)));
+            continue;
+        }
+        if (candidate && candidate != carried && isEligiblePartner(candidate)) {
+            say(QStringLiteral("%1, the nearest card to the %2 of the Active card in Spread order%3")
+                .arg(app(candidate), side,
+                     passed.isEmpty() ? QString()
+                                      : QStringLiteral(", passing ") + passed.join(QStringLiteral(", "))));
             return candidate;
+        }
+        passed.append(QStringLiteral("%1 (asleep or not a card)").arg(app(candidate)));
     }
+    say(QStringLiteral("none: no awake card stands to the %1 of the Active card in Spread order%2")
+        .arg(side, passed.isEmpty() ? QString()
+                                    : QStringLiteral(", which holds only ") + passed.join(QStringLiteral(", "))));
     return nullptr;
 }
 
@@ -1584,6 +1615,28 @@ std::optional<PreparedCarrySource> CardStageController::prepareNativeCarrySource
     return source;
 }
 
+QString CardStageController::nativeCarryRefusal(KWin::EffectWindow *window) const
+{
+    // The conditions of prepareNativeCarrySource, in its order, named.
+    auto *output = m_host->tabletOutputForCardStage();
+    if (!m_active) return QStringLiteral("no cards are held on this desktop");
+    if (m_applyingWindowState) return QStringLiteral("a card is still being placed");
+    if (m_cardGrabActive) return QStringLiteral("a card is held in Spread");
+    if (m_launcherGuestActive) return QStringLiteral("Search is open");
+    if (m_presentation != CardPresentation::Active)
+        return m_presentation == CardPresentation::Bento ? QStringLiteral("Bento is shown")
+            : m_presentation == CardPresentation::Desktop ? QStringLiteral("the desktop is shown")
+            : QStringLiteral("Spread is shown");
+    if (!window || window->isDeleted() || !window->window()) return QStringLiteral("the window is gone");
+    if (selectedWindow() != window) return QStringLiteral("it is not the Active card");
+    if (!m_activeRestore.valid || m_activeRestore.window != window)
+        return QStringLiteral("the Active card has no restore record yet");
+    if (!output || window->screen() != output) return QStringLiteral("it is not on the card display");
+    if (window->isUserResize()) return QStringLiteral("it is being resized");
+    if (window->isMinimized()) return QStringLiteral("it is minimized");
+    return {};
+}
+
 bool CardStageController::nativeCarrySourceValid(const PreparedCarrySource &source) const
 {
     if (source.m_owner.lock() != m_carrySourceIdentity) return false;
@@ -2768,8 +2821,11 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "paired two cards into Bento;"
-            << m_workspace.windows().size() << "individual cards remain";
+    qInfo() << "Kadunce" << Revision << "paired two cards into Bento:"
+            << (carried && carried->window() ? carried->window()->resourceClass() : QString())
+            << "with"
+            << (partner && partner->window() ? partner->window()->resourceClass() : QString())
+            << ";" << m_workspace.windows().size() << "individual cards remain";
     return true;
 }
 
@@ -4789,6 +4845,8 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
         || !m_activeRestore.valid || m_activeRestore.window != window) return;
     // The user's new state wins. Release presentation without replaying the
     // old snapshot over an in-progress move/resize or explicit state request.
+    qInfo() << "Kadunce" << Revision << "lets every card go: KWin itself moved or resized the Active card"
+            << (window && window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     release();
 }

@@ -2868,6 +2868,7 @@ void Effect::retireOutputFromDesktopStage(KWin::LogicalOutput *output)
 void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)
 {
     if (output && isTabletOutput(output) && m_cardStage->isActive()) {
+        qInfo() << "Kadunce" << Revision << "lets the cards go for a layout across" << output->name();
         m_cardStage->release(); // Do not release Bento sessions on other displays.
     }
 }
@@ -3627,11 +3628,21 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                                      : m_cardStage->nativeCarrySourceValid(saved);
                 }, [this, guarded] { if (guarded) beginLegacyNativeMove(guarded); })) {
                 traceNativeMove(window, source->isDesktopWindow() ? "staged-ordinary" : "staged-card");
+                qInfo() << "Kadunce" << Revision << "carries" << applicationIdentity(window)
+                        << "by its title bar as"
+                        << (!fromBento ? "the Active card"
+                            : source->isDesktopWindow() ? "an ordinary window" : "a Bento pane");
                 return;
             }
             traceNativeMove(window, "stage-refused");
+            qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
+                    << "to KWin: the carry could not be staged";
         } else {
             traceNativeMove(window, "no-carry-source");
+            // A drag Kadunce does not carry is KWin's own move, and edges do
+            // nothing Kadunce's. Say why, so a drag that did nothing is legible.
+            qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
+                    << "to KWin: as a card," << m_cardStage->nativeCarryRefusal(window);
         }
     }
     beginLegacyNativeMove(window);
@@ -3657,6 +3668,7 @@ void Effect::endNativeCarryPresentation()
 {
     if (m_carriedWindow) traceNativeMove(m_carriedWindow, "presentation-ended");
     m_lastCarryDestinationTrace.clear();
+    m_lastEdgeEntryLog.clear();
     if (m_carriedWindow) {
         KWin::effects->setElevatedWindow(m_carriedWindow, false);
         unredirect(m_carriedWindow);
@@ -3892,8 +3904,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         // §3 names the partner from Spread order. Naming is read-only: the
         // prepared carry embeds the workspace revision, so it must not move
         // selection or the pair side.
+        QString partnerReason;
         auto *partner = sideEdge
-            ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge) : nullptr;
+            ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge, &partnerReason) : nullptr;
         const auto outcome = planEdgeEntry({
             .edge = *edge,
             // §3: a display with a live layout is owned, whether or not this
@@ -3909,6 +3922,27 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         QPointer<KWin::LogicalOutput> output = target;
         const auto destination = monitorDropIntent(target->name(), 0, std::nullopt, edge);
         refusal = edgeEntryRefusal(outcome, isCardWindow(m_carriedWindow));
+        {
+            // Once per edge and outcome in a carry: what this edge would do
+            // with the window, and for a side, which partner and why.
+            const char *meaning = outcome == EdgeEntryOutcome::Refuse ? "nothing (refused)"
+                : outcome == EdgeEntryOutcome::Unchanged ? "nothing: no partner"
+                : outcome == EdgeEntryOutcome::ComposeDisplayBento ? "a layout across the display"
+                : outcome == EdgeEntryOutcome::PairIntoBento ? "a Bento pair"
+                : outcome == EdgeEntryOutcome::AdoptDisplay ? "cards, starting with this window"
+                : "the Active card";
+            const QString line = QStringLiteral("%1 at the %2 edge would make %3%4")
+                .arg(applicationIdentity(m_carriedWindow),
+                     *edge == CarryEdge::Top ? QStringLiteral("top")
+                         : *edge == CarryEdge::Bottom ? QStringLiteral("bottom")
+                         : leftEdge ? QStringLiteral("left") : QStringLiteral("right"),
+                     QString::fromLatin1(meaning),
+                     sideEdge ? QStringLiteral("; partner: ") + partnerReason : QString());
+            if (line != m_lastEdgeEntryLog) {
+                m_lastEdgeEntryLog = line;
+                qInfo() << "Kadunce" << Revision << qPrintable(line);
+            }
+        }
         switch (outcome) {
         case EdgeEntryOutcome::Refuse:
         case EdgeEntryOutcome::Unchanged:
@@ -4411,6 +4445,15 @@ bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
     const KWin::Window *window = KWin::input()->findToplevel(position);
     return window && window->inherits("KWin::LayerShellV1Window")
         && !window->isDock() && !window->isDesktop() && !window->isAppletPopup();
+}
+
+bool Effect::clientReceivesTouchAt(const QPointF &position) const
+{
+    // The window KWin would deliver the touch to. On its frame or the resize
+    // border beyond it, KWin's decoration handling takes the contact and no
+    // client ever holds it.
+    const KWin::Window *window = KWin::input()->findToplevel(position);
+    return window && (!window->decoration() || QRectF(window->clientGeometry()).contains(position));
 }
 
 bool Effect::inputPanelContainsForInput(const QPointF &position) const

@@ -575,6 +575,24 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     }
     if (mode == TouchMode::BottomEdge
         && m_target->presentationForInput() != WorkspacePresentation::Spread
+        && m_touchId < 0 && m_observedTouchIds.size() == 1
+        && !m_target->clientReceivesTouchAt(event->pos)) {
+        // A window frame reaches the bezel, as a Bento pane's can, or nothing
+        // does. KWin would keep the contact from every client, so there would
+        // be no delivery to cancel once it became a swipe: claim it now. A
+        // lift that never rose does nothing.
+        qInfo() << "Kadunce bottom-edge contact" << event->pos
+                << "claimed at once: no application or panel would receive it";
+        m_touchId = event->id;
+        m_touchStart = event->pos;
+        m_touchCurrent = event->pos;
+        m_touchCommitted = false;
+        m_touchMode = TouchMode::BottomEdge;
+        m_ownedTouchIds.insert(event->id);
+        return true;
+    }
+    if (mode == TouchMode::BottomEdge
+        && m_target->presentationForInput() != WorkspacePresentation::Spread
         && m_touchId < 0) {
         if (m_observedTouchIds.size() == 1) {
             m_bottomCandidateId = event->id;
@@ -683,7 +701,11 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
         if (m_observedTouchIds.size() == 1 && delta.y() < -40.0
             && std::abs(delta.y()) > std::abs(delta.x()) * 1.2) {
             m_bottomCandidateId = -1;
-            if (!m_target->cancelForwardedTouchForInput()) return false;
+            if (!m_target->cancelForwardedTouchForInput()) {
+                qInfo() << "Kadunce bottom-edge contact" << m_bottomCandidateStart
+                        << "rose but stays where it landed: no client delivery could be cancelled";
+                return false;
+            }
             m_touchId = event->id;
             m_touchStart = m_bottomCandidateStart;
             m_touchCurrent = event->pos;

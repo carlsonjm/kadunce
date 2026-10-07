@@ -72,6 +72,11 @@ public:
     // starts on it, even inside the bottom swipe's starting band. The band
     // reaches above the dock, where such a surface can have a pull of its own.
     [[nodiscard]] virtual bool surfaceOwnsTouchAt(const QPointF &) const { return false; }
+    // Whether a touch here would reach an application or panel surface. A
+    // window's frame and resize border are KWin's own, and so is bare screen:
+    // a contact there is never a client's to cancel, so the bottom swipe has
+    // to claim it at once or not at all.
+    [[nodiscard]] virtual bool clientReceivesTouchAt(const QPointF &) const { return true; }
     // Every pointer motion, before anything takes it.
     virtual void pointerMovedForInput(const QPointF &) {}
     // The keys serve whatever holds the text focus, so a touch on them is

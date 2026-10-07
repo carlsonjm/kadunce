@@ -284,6 +284,8 @@ private:
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
+    // The last edge decision written to the journal in this carry.
+    QString m_lastEdgeEntryLog;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
         const QString &interfaceName, int protocol, bool openSpread);
@@ -537,6 +539,7 @@ private:
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
     [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
+    [[nodiscard]] bool clientReceivesTouchAt(const QPointF &position) const override;
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;
