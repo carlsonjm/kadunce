@@ -5507,6 +5507,12 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
         // A held card is above the row, so no stack of the row shows through it.
         if (window != held && !heldRect.isEmpty()
             && noteStackReach(*target, entry->count).intersects(heldRect)) continue;
+        // Out over the card, the notes take the stack's place: one or the
+        // other, never both.
+        if (m_stuckNotes.fanned(window->internalId()) && window != held) {
+            fanned.append({entry, *target});
+            continue;
+        }
         const auto sheets = noteStackSquares(*target, entry->count);
         QStringList colours;
         for (int sheet = 0; sheet < sheets.size(); ++sheet) {
@@ -5515,8 +5521,6 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
         }
         m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->count);
         drawn << sheets;
-        if (m_stuckNotes.fanned(window->internalId()) && window != held)
-            fanned.append({entry, *target});
     }
     const auto carried = m_stuckNotes.carriedNote();
     for (const auto &[entry, card] : std::as_const(fanned)) {

@@ -125,8 +125,8 @@ struct NoteGeometry {
                           NoteGeometry::Reach, NoteGeometry::Reach);
 }
 
-// The notes fanned out over the card, the top note beside the stack, which
-// stays to fold them, and the rest in rows leftward and then upward from it,
+// The notes fanned out over the card in the stack's place, the top note in
+// its corner, and the rest in rows leftward and then upward from it,
 // as many as the card holds. A card too small for one still shows the top
 // note beside its corner.
 [[nodiscard]] inline QList<QRectF> fannedNoteRects(const QRectF &card, int count)
@@ -137,14 +137,13 @@ struct NoteGeometry {
     const auto fits = [](double length, double size) {
         return std::max(1, int((length - 2 * G::Inset + G::NoteGap) / (size + G::NoteGap)));
     };
-    const double stack = G::Square + G::Reach + G::NoteGap;
-    const int columns = fits(card.width() - stack, G::NoteWidth);
+    const int columns = fits(card.width(), G::NoteWidth);
     const int rows = fits(card.height(), G::NoteHeight);
     const int shown = std::min(count, columns * rows);
     for (int index = 0; index < shown; ++index) {
         const int column = index % columns;
         const int row = index / columns;
-        rects.append(QRectF(card.right() - stack - G::Inset - G::NoteWidth - column * (G::NoteWidth + G::NoteGap),
+        rects.append(QRectF(card.right() - G::Inset - G::NoteWidth - column * (G::NoteWidth + G::NoteGap),
                             card.bottom() - G::Inset - G::NoteHeight - row * (G::NoteHeight + G::NoteGap),
                             G::NoteWidth, G::NoteHeight));
     }
@@ -154,11 +153,13 @@ struct NoteGeometry {
 // Notes on Spread's cards, and the one contact the notes hold from press to
 // release. Whether a card's notes are fanned is Gooseberry's: they are fanned
 // exactly while its entry says they are shown over the window, so notes out
-// over a window arrive fanned and stay out after Spread closes. A tap on a
-// stack asks Gooseberry to toggle them, and shows the answer it expects until
-// Gooseberry says otherwise. A hold on a fanned note, or on a stack for its
-// top note, carries that note, and letting it go on another card asks
-// Gooseberry to stick it there. Any other press is not the notes'.
+// over a window arrive fanned and stay out after Spread closes. A card shows
+// one or the other, never both: the stack while folded, the fan in its place
+// while out. A tap on the stack, or on a fanned note, asks Gooseberry to
+// toggle them, and shows the answer it expects until Gooseberry says
+// otherwise. A hold on a fanned note, or on a stack for its top note, carries
+// that note, and letting it go on another card asks Gooseberry to stick it
+// there. Any other press is not the notes'.
 // Gooseberry's reply to a toggle confirms the guess or ends it: a reply that
 // fails, or that names the other state, drops the guess and asks for a fresh
 // read, since no signal follows a toggle that changed nothing.
@@ -207,11 +208,13 @@ public:
         for (const auto &card : cards) {
             const auto *entry = entryFor(card.id);
             if (!entry) continue;
-            if (noteStackReach(card.rect, entry->count).contains(position)) {
-                begin(Contact::Stack, card.id, entry->notes.first(), position);
-                return true;
+            if (!fanned(card.id)) {
+                if (noteStackReach(card.rect, entry->count).contains(position)) {
+                    begin(Contact::Stack, card.id, entry->notes.first(), position);
+                    return true;
+                }
+                continue;
             }
-            if (!fanned(card.id)) continue;
             const auto rects = fannedNoteRects(card.rect, entry->notes.size());
             for (int index = 0; index < rects.size(); ++index) {
                 if (!rects.at(index).contains(position)) continue;
@@ -236,7 +239,8 @@ public:
     }
 
     // The contact lifts; `still` when it never moved further than a tap may.
-    // Returns what to ask Gooseberry: to toggle a stack tapped still, or to
+    // Returns what to ask Gooseberry: to toggle a stack or a fanned note
+    // tapped still, or to
     // stick a carried note let go on another card. Nothing else asks.
     std::optional<Request> release(const QPointF &position, bool still, const QList<NotesCard> &cards)
     {
@@ -249,7 +253,7 @@ public:
             if (target.isNull() || target == carry.from) return std::nullopt;
             return Request{Request::Kind::Stick, target, carry.note.id};
         }
-        if (!still || contact != Contact::Stack || !entryFor(pressedOn)) return std::nullopt;
+        if (!still || contact == Contact::None || !entryFor(pressedOn)) return std::nullopt;
         m_expected.insert(pressedOn, !fanned(pressedOn));
         return Request{Request::Kind::Toggle, pressedOn, {}};
     }

@@ -92,12 +92,9 @@ int main()
             require(!fan.at(i).intersects(fan.at(j)), "Two fanned notes overlapped");
     }
     require(qAbs(fan.first().bottom() - centreStack.last().bottom()) < 0.5
-                && fan.first().right() < noteStackReach(CentreCard, 4).left()
-                && noteStackReach(CentreCard, 4).left() - fan.first().right() < 16,
-        "The top note did not fan out beside the stack");
+                && qAbs(fan.first().right() - centreStack.last().right()) < 0.5,
+        "The top note did not fan out in the stack's corner");
     require(fannedNoteRects(QRectF(0, 0, 60, 40), 3).size() == 1, "A tiny card lost its top note");
-    for (const QRectF &rect : fan)
-        require(!rect.intersects(noteStackReach(CentreCard, 4)), "A fanned note covered the stack");
 
     using Kind = StuckNotesSpread::Request::Kind;
     const QPointF centreStackPoint = centreStack.last().center();
@@ -184,9 +181,12 @@ int main()
     require(stick && stick->kind == Kind::Stick && stick->noteId == QStringLiteral("c") && stick->window == Right,
         "Letting a carried note go on another card did not stick it there");
     require(!notes.carrying() && notes.fanned(Centre), "Sticking a note changed what is fanned");
-    // A tap on a fanned note asks nothing.
+    // The fan takes the stack's place: a tap on a fanned note folds them.
     (void)notes.press(third, Cards);
-    require(!notes.release(third, true, Cards), "A tap on a fanned note asked Gooseberry something");
+    const auto fold = notes.release(third, true, Cards);
+    require(fold && fold->kind == Kind::Toggle && fold->window == Centre && !notes.fanned(Centre),
+        "A tap on a fanned note did not fold them");
+    notes.setEntries(shownEntries);
 
     // Holding the stack carries its top note; let go off every card, nothing.
     require(notes.press(centreStackPoint, Cards) && notes.hold(), "Holding a stack carried nothing");

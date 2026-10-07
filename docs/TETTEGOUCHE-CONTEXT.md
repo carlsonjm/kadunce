@@ -212,8 +212,9 @@ its bottom-right corner, the same size on every card, with the count in a badge
 when there are several.
 A card's notes are fanned over it exactly while Gooseberry says they are shown
 over its window, so the two stay one state: notes out over a window arrive
-fanned, and notes fanned in Spread are still out after it closes. A tap on the
-stack toggles them, drawn at once and then as Gooseberry answers; a toggle that
+fanned, and notes fanned in Spread are still out after it closes. Fanned, the
+notes take the stack's place, so a card shows one or the other. A tap on the
+stack, or on a fanned note, toggles them, drawn at once and then as Gooseberry answers; a toggle that
 fails or answers otherwise is drawn as Gooseberry's fresh `Windows()` says, and
 nothing else folds them. Holding a note carries it to another card (`INPUT.md` § Spread).
 This takes up Gooseberry's requests for a card's notes on its corner in Spread
