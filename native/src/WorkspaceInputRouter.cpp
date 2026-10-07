@@ -35,6 +35,8 @@ constexpr double TablePull = 20.0;
 constexpr double TableWheelStep = 15.0;
 constexpr double CardHoldMotion = 12.0;
 constexpr int CardHoldDelay = 300;
+// A tap is shorter than a hold and moves no further than one may.
+constexpr qint64 TapLongestMs = CardHoldDelay;
 }
 
 WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
@@ -422,7 +424,25 @@ void WorkspaceInputRouter::TouchEvents::touchDown(KWin::TouchDownEvent *event)
     // none while an effect holds the pointer.
     if (target) target->touchBeganForInput();
     window = KWin::input() ? KWin::input()->findToplevel(event->pos) : nullptr;
+    tapping = fingers++ == 0;
+    tapStart = event->pos;
+    tapTime.start();
     counted();
+}
+
+void WorkspaceInputRouter::TouchEvents::touchMotion(KWin::TouchMotionEvent *event)
+{
+    if (tapping && QLineF(tapStart, event->pos).length() > CardHoldMotion) tapping = false;
+    counted();
+}
+
+void WorkspaceInputRouter::TouchEvents::touchUp(KWin::TouchUpEvent *)
+{
+    counted();
+    fingers = std::max(0, fingers - 1);
+    if (fingers != 0 || !tapping) return;
+    tapping = false;
+    if (target && tapTime.elapsed() <= TapLongestMs) target->tapEndedForInput(window.data());
 }
 
 const KWin::Window *WorkspaceInputRouter::latestTouchWindow() const

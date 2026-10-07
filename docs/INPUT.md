@@ -67,7 +67,7 @@ are up, the bottom edge is theirs.
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack as a swipe goes. Only while cards are shown; elsewhere these keys stay KDE's. |
 | `Meta+Up`, `Meta+Down` | The previous or next card of the current Stack, likewise. |
-| Tap or click Keyboard in Control Center or the tray | The keys rise for the window in use, and the Active card makes room. |
+| Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. |
 | Point in any other gutter | An arrow; nothing resizes there. |
 
 ## Bento

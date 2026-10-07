@@ -51,6 +51,7 @@
 #include <wayland_server.h>
 #include <wayland/seat.h>
 #include <wayland/surface.h>
+#include <wayland/textinput_v3.h>
 
 #include <KConfigGroup>
 #include <KSharedConfig>
@@ -3027,6 +3028,32 @@ void Effect::raiseKeyboard()
     // as a touch; KWin's next input of any kind sets it back.
     if (KWin::input()) KWin::input()->setLastInputHandler(KWin::input()->touch());
     method->forceActivate();
+}
+
+void Effect::tapEndedForInput(const KWin::Window *window)
+{
+    if (!window || !m_inputRouter) return;
+    // An application that asks for the keys itself does so as the finger
+    // lifts; this waits long enough for it to have done so.
+    constexpr int OwnAskMs = 250;
+    QTimer::singleShot(OwnAskMs, this,
+                       [this, tapped = QPointer<KWin::Window>(const_cast<KWin::Window *>(window)),
+                        events = m_inputRouter->touchEvents()] { raiseKeysForTerminalTap(tapped, events); });
+}
+
+void Effect::raiseKeysForTerminalTap(QPointer<KWin::Window> window, quint64 touchEvents)
+{
+    // Another touch since belongs to whatever that touch does.
+    if (!window || !m_inputRouter || m_inputRouter->touchEvents() != touchEvents
+        || m_inputRouter->latestTouchKept()) return;
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (!method || !method->isEnabled() || method->isVisible()) return;
+    KWin::TextInputV3Interface *input = KWin::waylandServer()->seat()->textInputV3();
+    if (!input || !input->isEnabled()
+        || input->contentPurpose() != KWin::TextInputContentPurpose::Terminal) return;
+    const KWin::Window *target = method->activeWindow();
+    if (!target || (target != window.data() && !window->hasTransient(target, true))) return;
+    raiseKeyboard();
 }
 
 const char *Effect::keyboardRefusal(const KWin::InputMethod &method) const
