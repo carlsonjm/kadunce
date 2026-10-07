@@ -62,12 +62,12 @@ are up, the bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time on the card display, every other window there becomes a card too. |
 | Drag a window onto the card display | It becomes a card. |
-| Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. A Stack is a ring: its cards come in turn and round again; Spread or the dock leave it. |
+| Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. A Stack is a ring: its cards come in turn and round again; Spread or the dock leave it. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack as a swipe goes. Only while cards are shown; elsewhere these keys stay KDE's. |
 | `Meta+Up`, `Meta+Down` | The previous or next card of the current Stack. Only while cards are shown. |
 | Tap or click Keyboard in Control Center or the tray | The keys rise for the window in use, and the Active card makes room. |
-| Point or drag in the gutter around a card or Bento pane | The pointer stays an arrow, and nothing resizes the window from outside its edge. |
+| Point in any other gutter | An arrow; nothing resizes from there. |
 
 ## Bento
 
@@ -77,7 +77,7 @@ are up, the bottom edge is theirs.
 | `Meta+B` | Starts or ends Bento on the largest monitor, or on the card display without one, pairing the Active card with the next card to its right. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size on top. With two or more, all join one layout, the dragged one on your side; one without room waits in the dock. Switched to zones, those drawn with `Meta+T` are the layout, with KDE's edges. |
-| Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
+| Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. The pointer there, panes' edges included, is a resize shape. |
 | Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, and that pane becomes a card. |
 | Press `Escape`, or add a finger, while dragging a window | The drag is cancelled. |

@@ -57,11 +57,9 @@ ordinary Active card, because a one-window Bento must not exist.
 
 The order answers who, and the gesture answers where (`CARD-LIFECYCLE.md` §3).
 The carried window takes the edge it was released into and the partner the
-opposite side, whichever side of the order the partner came from. Rejected:
+opposite side. Rejected:
 letting the partner keep the side it sat on in Spread, which reads well until the
-two disagree and a window dragged to the right edge lands on the left. The
-gesture is what you just did; the order describes a view you may not
-have open.
+two disagree and a window dragged to the right edge lands on the left.
 
 The partner walk wraps round the order, stepping over entries until it returns
 to where it started; the row's two ends (`CARD-LIFECYCLE.md` §6) are
@@ -70,7 +68,7 @@ second entry on.
 
 Partner eligibility (`CARD-LIFECYCLE.md` §4) is one question asked in one place,
 by both pairing cases, so neither can drift into its own idea of who may be
-paired. It is not the adoption question, asked of native windows. A composed group or a stack is broken only
+paired. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
 
 ### A Stack is a ring that keeps its room
@@ -357,6 +355,12 @@ work area; the Shuffle dock reserves its own space, and the doubled gap was the
 one edge that did not match. The keys never change a card's
 gutter.
 
+### The gutters hold the pointer
+
+Its shape names the press there (`INPUT.md`). A touch lets go, as KWin finds
+no window under a touch while an effect holds the pointer. Rejected: an arrow
+everywhere, which hid the paging gap.
+
 ### The platform's answer wins where it has one
 
 Where the desktop already answers an interaction, Shuffle uses that answer: a
@@ -397,7 +401,7 @@ arrival into a stack would need.
 
 ### The Active card makes room for the keys
 
-Decided 24 September 2026. The keys reserve no workspace; the Active card they
+The keys reserve no workspace; the Active card they
 type into gives up their room, its bottom edge resting a gutter above them.
 Rejected: panning the contents to the text cursor, which left the rest of the
 box covered.

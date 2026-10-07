@@ -20,6 +20,7 @@
 #include "TableLayout.h"
 #include "TablePresenter.h"
 #include "KeyRoute.h"
+#include "HeldPointer.h"
 #include <options.h>
 
 #include <effect/effectwindow.h>
@@ -540,8 +541,13 @@ private:
     void pointerMovedForInput(const QPointF &position) override;
     // The gutter around Kadunce's own cards and panes holds the pointer.
     void quietCardGap(const QPointF &position);
+    void showHeldPointer(HeldPointer held, bool wasHeld);
     [[nodiscard]] bool inCardGap(const QPointF &position) const;
+    void touchBeganForInput() override;
     bool m_gapHeld = false;
+    HeldPointer m_heldPointer = HeldPointer::None;
+    // A touch hides the pointer where it stands; it holds nothing until it moves.
+    bool m_pointerResting = false;
     // kaduncerc's choice, so a monitor keeps it across sessions.
     bool m_usesDrawnZones = false;
     void switchZoneMode();

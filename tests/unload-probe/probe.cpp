@@ -10,6 +10,10 @@
 #include <input.h>
 #include <touch_input.h>
 #include <pointer_input.h>
+#include <cursor.h>
+#include <cursorsource.h>
+#include <wayland_server.h>
+#include <wayland/seat.h>
 #include <input_event.h>
 #include <options.h>
 #include <inputmethod.h>
@@ -337,6 +341,14 @@ public Q_SLOTS:
     }
     // Whether an effect holds the pointer.
     bool mouseIntercepted() { return KWin::effects->isMouseInterception(); }
+    // The cursor theme's name for the shape the pointer shows; empty when a
+    // client's own surface is the pointer.
+    QString pointerShape() {
+        auto *source = qobject_cast<KWin::ShapeCursorSource *>(KWin::Cursors::self()->mouse()->source());
+        return source && !source->image().isNull() ? QString::fromLatin1(source->shape()) : QString();
+    }
+    // Whether a touch has reached a client's surface.
+    bool touchOnSurface() { return KWin::waylandServer()->seat()->isTouchSequence(); }
     // Whether a point is outside the named window's frame and still its
     // input: the margin a client keeps around its frame for resizing.
     bool inMargin(const QString &caption, int x, int y) {

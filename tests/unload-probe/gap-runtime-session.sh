@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# The gutter around a card is quiet. An application drawing its own title bar
+# The gutter around a card is Kadunce's. An application drawing its own title bar
 # keeps an invisible resize border outside its frame, wider than the gutter a
 # card keeps, and over it the pointer takes a resize shape; Breeze with no
 # borders keeps one the same way, and stands in for it here. With the window
 # a card, the pointer in the gutter belongs to no window, and a press and drag
 # there moves and resizes nothing; back over the card the window has it
-# again, and switching Kadunce off leaves no hold. The gutter is a setting,
+# again, and switching Kadunce off leaves no hold. Beside the card the pointer
+# is a page tab, and a touch lets the hold go. The gutter is a setting,
 # and a change to it moves the standing card at once.
 #
 # Needs the tablet fixture: only a display that can own cards presents Active.
@@ -46,6 +47,12 @@ echo "PASS: the card keeps a resize border in the gutter, and over the card its 
 point "$gap" "$middle"
 test "$(probe mouseIntercepted)" = true
 test -z "$(probe pointerFocus)"
+# A press in the gap pages, and the pointer there says which way.
+test "$(probe pointerShape)" = kadunce-page-left
+right=$(( $(card '.x + .width | floor') + 3 ))
+point "$right" "$middle"
+test "$(probe pointerShape)" = kadunce-page-right
+point "$gap" "$middle"
 before=$(card '[.x, .y, .width, .height] | map(floor) | join(",")')
 probe button true
 sleep .1
@@ -57,6 +64,20 @@ probe button false
 sleep .5
 test "$(card '[.x, .y, .width, .height] | map(floor) | join(",")')" = "$before"
 echo "PASS: in the gutter the pointer is no window's, and a press and drag there moves and resizes nothing"
+
+# A touch lets go of the hold, so the window under the finger has it; the
+# pointer stays put and holds nothing until it moves.
+test "$(probe mouseIntercepted)" = true
+probe down 71 $(( left + 60 )) "$middle"
+sleep .1
+test "$(probe mouseIntercepted)" = false
+test "$(probe touchOnSurface)" = true
+probe up 71
+sleep .3
+test "$(probe mouseIntercepted)" = false
+point "$gap" "$middle"
+test "$(probe mouseIntercepted)" = true
+echo "PASS: a touch lets the gutter's hold go, and reaches the window under it"
 
 point $(( left + 60 )) "$middle"
 test "$(probe mouseIntercepted)" = false

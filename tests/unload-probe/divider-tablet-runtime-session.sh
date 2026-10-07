@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# INPUT.md § Bento on the display that can own cards: a mouse pressed on the
-# divider between a Bento pair drags it at once, a click alone changes
-# nothing, and a finger that rests first drags it too.
+# INPUT.md § Bento on the display that can own cards: the pointer over the
+# divider between a Bento pair takes its resize shape, a mouse pressed there
+# drags it at once, a click alone changes nothing, and a finger that rests
+# first drags it too.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -57,6 +58,14 @@ divider() {
 step=40
 if ! jq -e --argjson b "$(probe windowGeometry "$neighbour")" '.x < $b.x' <<<"$(probe windowGeometry "$main")" >/dev/null; then step=-40; fi
 read -r rx ry <<<"$(divider)"
+
+# The divider's whole reach, a pane's edge included, is held with one resize
+# shape.
+probe pointer "$rx" "$ry"; sleep .15; probe pointer "$rx" "$((ry+1))"; sleep .15
+check "the divider holds the pointer" test "$(probe mouseIntercepted)" = true
+check "the divider shows a column resize" test "$(probe pointerShape)" = col-resize
+probe pointer "$((rx-12))" "$ry"; sleep .15
+check "a pane's edge by the divider shows the same resize" test "$(probe pointerShape)" = col-resize
 
 # A mouse pressed and moved off in one go.
 before=$(probe windowGeometry "$main")

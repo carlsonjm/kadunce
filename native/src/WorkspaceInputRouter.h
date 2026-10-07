@@ -139,6 +139,8 @@ public:
     // Between the panes of a layout the card display presents, where the cards
     // it hides lie behind; a press there is kept so it never calls one.
     [[nodiscard]] virtual bool inPaneGutterForInput(const QPointF &) const { return false; }
+    // A finger came down, before KWin's filters look for the window under it.
+    virtual void touchBeganForInput() {}
     virtual void beginTableFromInput(const QPointF &) {}
     // A finger, or else a pointer's button, pressed on an open Table.
     virtual void pressTableFromInput(const QPointF &, bool) {}
@@ -205,6 +207,7 @@ private:
         void touchMotion(KWin::TouchMotionEvent *) override { counted(); }
         void touchUp(KWin::TouchUpEvent *) override { counted(); }
         void counted() { ++count; latest.start(); }
+        WorkspaceInputTarget *target = nullptr;
         quint64 count = 0;
         QElapsedTimer latest;
         QPointer<KWin::Window> window;

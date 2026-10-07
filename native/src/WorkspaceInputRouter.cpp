@@ -43,6 +43,7 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     , m_target(target)
     , m_ownsSystemEdges(ownsSystemEdges)
 {
+    m_touchEvents.target = target;
     if (KWin::input()) KWin::input()->installInputEventSpy(&m_touchEvents);
     m_railHoldTimer.setSingleShot(true);
     m_railHoldTimer.setInterval(90);
@@ -390,6 +391,9 @@ bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
 
 void WorkspaceInputRouter::TouchEvents::touchDown(KWin::TouchDownEvent *event)
 {
+    // A pointer held in a gutter would leave this touch no window: KWin finds
+    // none while an effect holds the pointer.
+    if (target) target->touchBeganForInput();
     window = KWin::input() ? KWin::input()->findToplevel(event->pos) : nullptr;
     counted();
 }
