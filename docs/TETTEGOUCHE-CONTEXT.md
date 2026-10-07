@@ -207,8 +207,9 @@ braces; `Toggle` and `StickTo` name the window by that UUID with braces, its
 title, and its desktop file name. Kadunce reads each entry's count, whether its
 notes are `shown`, and its notes' ids, titles and colours, top note first.
 
-In Spread each card with notes shows them as a small stack at its bottom-right
-corner, the same size on every card, with the count when there are several.
+In Spread each card with notes shows its top note as one small sticky note at
+its bottom-right corner, the same size on every card, with the count in a badge
+when there are several.
 A card's notes are fanned over it exactly while Gooseberry says they are shown
 over its window, so the two stay one state: notes out over a window arrive
 fanned, and notes fanned in Spread are still out after it closes. A tap on the

@@ -79,42 +79,48 @@ struct NotesCard {
 // The stack and the fan are the same size on every card, whatever the
 // card's scale, so a near card's notes are no easier to hit than a far one's.
 struct NoteGeometry {
-    static constexpr double Square = 28.0;
-    // Spread's closed card stack, scaled to a note: up to three edges behind
-    // the top note, seven pixels apart, showing to its left
-    // (SpreadLayout's makeClosedStackPose, TableSizes::SliverStep).
-    static constexpr double Step = 7.0;
+    // The top note alone stands for them all (J, 7 October: option A).
+    static constexpr double Square = 30.0;
+    // The count's badge, on the note's top-right corner.
+    static constexpr double Badge = 18.0;
+    static constexpr double BadgeInset = 3.0;
     static constexpr double Inset = 12.0;
-    // A finger's reach around the stack, so a 38 px stack is a 54 px target.
+    // A finger's reach around the note, so a 30 px note is a 46 px target and
+    // more with its badge.
     static constexpr double Reach = 8.0;
-    static constexpr int Layers = 4;
     static constexpr double NoteWidth = 136.0;
     static constexpr double NoteHeight = 88.0;
     static constexpr double NoteGap = 8.0;
     static constexpr double Radius = 8.0;
 };
 
-// The stack's sheets at the card's bottom-right corner, the deepest first and
-// the top note last: one sheet for each note, up to four, each further one
-// stepped to the left behind it, as a closed stack of cards shows its edges.
+// The stack at the card's bottom-right corner: one sheet, the top note,
+// however many there are. Kept as a list so the drawing and the reach read it
+// the same way.
 [[nodiscard]] inline QList<QRectF> noteStackSquares(const QRectF &card, int count)
 {
     using G = NoteGeometry;
-    QList<QRectF> squares;
-    if (card.isEmpty() || count <= 0) return squares;
-    const int layers = std::min(count, G::Layers);
-    const QPointF front(card.right() - G::Inset - G::Square, card.bottom() - G::Inset - G::Square);
-    for (int layer = layers - 1; layer >= 0; --layer)
-        squares.append(QRectF(front - QPointF(G::Step * layer, 0.0),
-                              QSizeF(G::Square, G::Square)));
-    return squares;
+    if (card.isEmpty() || count <= 0) return {};
+    return {QRectF(card.right() - G::Inset - G::Square, card.bottom() - G::Inset - G::Square,
+                   G::Square, G::Square)};
+}
+
+// The count's badge over the top note's top-right corner, shown when there
+// is more than one note.
+[[nodiscard]] inline QRectF noteStackBadge(const QRectF &top)
+{
+    using G = NoteGeometry;
+    if (top.isEmpty()) return {};
+    return QRectF(top.right() - G::Badge / 2 - G::BadgeInset, top.top() - G::Badge / 2 + G::BadgeInset,
+                  G::Badge, G::Badge);
 }
 
 [[nodiscard]] inline QRectF noteStackReach(const QRectF &card, int count)
 {
-    QRectF reach;
-    for (const QRectF &square : noteStackSquares(card, count)) reach |= square;
-    if (reach.isEmpty()) return {};
+    const auto squares = noteStackSquares(card, count);
+    if (squares.isEmpty()) return {};
+    QRectF reach = squares.last();
+    if (count > 1) reach |= noteStackBadge(squares.last());
     return reach.adjusted(-NoteGeometry::Reach, -NoteGeometry::Reach,
                           NoteGeometry::Reach, NoteGeometry::Reach);
 }
@@ -131,7 +137,7 @@ struct NoteGeometry {
     const auto fits = [](double length, double size) {
         return std::max(1, int((length - 2 * G::Inset + G::NoteGap) / (size + G::NoteGap)));
     };
-    const double stack = G::Square + G::Step * (G::Layers - 1) + G::Reach + G::NoteGap;
+    const double stack = G::Square + G::Reach + G::NoteGap;
     const int columns = fits(card.width() - stack, G::NoteWidth);
     const int rows = fits(card.height(), G::NoteHeight);
     const int shown = std::min(count, columns * rows);
