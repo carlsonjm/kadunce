@@ -543,7 +543,8 @@ Full Kadunce release or disable:
 - Restores every owned window, on every desktop, exactly once
 - Restores original geometry
 - Restores output and virtual desktop
-- Restores quick-tile, maximize, fullscreen, and minimized state
+- Restores quick-tile, maximize, fullscreen, and minimized state; a window
+  minimized while held stays minimized
 - Clears individual cards, stacks, Bento, and presentation state
 - Returns complete authority to Plasma
 
