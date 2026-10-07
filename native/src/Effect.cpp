@@ -60,6 +60,7 @@
 
 #include <QAction>
 #include <QKeyEvent>
+#include <QLineF>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
@@ -99,6 +100,8 @@ namespace
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 8.0;
 constexpr qint64 FrameStallMs = 50;
+// How far the Active card must travel under a KWin move before the cards let go.
+constexpr double ActiveMoveTravel = 12.0;
 constexpr float BentoWorkspaceTintOpacity = 0.22F;
 // A swipe up from the bottom bezel has opened Spread all the way once it has
 // risen this share of the tablet's height past where it committed, about the
@@ -3679,7 +3682,20 @@ void Effect::beginLegacyNativeMove(KWin::EffectWindow *window)
         m_nativeCarrySource = window->screen() ? window->screen()->name() : QString();
         m_nativeCarryFromBento = m_desktopStage->managesWindow(window);
     }
-    m_cardStage->handleManualWindowChange(window);
+    // An application may start a move on a tap in its own title area, which
+    // then ends where it began. The cards are let go only once the Active card
+    // travels, so a tap leaves them as they were.
+    if (window->isUserMove() && !window->isUserResize() && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->selectedWindow() == window) {
+        m_heldActiveMove = window;
+        m_heldActiveMoveOrigin = QRectF(window->frameGeometry()).topLeft();
+        qInfo() << "Kadunce" << Revision << "keeps the cards while" << applicationIdentity(window)
+                << "has not moved yet";
+    } else {
+        m_heldActiveMove.clear();
+        m_cardStage->handleManualWindowChange(window);
+    }
     m_desktopStage->handleWindowMoveResizeStarted(window);
     if (m_nativeCarry == window) {
         KWin::effects->setElevatedWindow(window, true);
@@ -4241,6 +4257,12 @@ void Effect::handleManagedStateChanged()
 void Effect::handleWindowMoveResizeStepped(
     KWin::EffectWindow *window, const KWin::RectF &geometry)
 {
+    if (window && window == m_heldActiveMove
+        && QLineF(m_heldActiveMoveOrigin, QRectF(geometry).topLeft()).length() > ActiveMoveTravel) {
+        m_heldActiveMove.clear();
+        qInfo() << "Kadunce" << Revision << applicationIdentity(window) << "travelled, so the cards let go";
+        m_cardStage->handleManualWindowChange(window);
+    }
     m_desktopStage->handleWindowMoveResizeStepped(window, geometry);
 }
 
@@ -4258,6 +4280,17 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         m_nativeCarryFromBento = false;
         KWin::effects->setElevatedWindow(window, false);
         if (m_dialogsLead) m_carriedDialogsRelease.start();
+    }
+    if (window && window == m_heldActiveMove) {
+        m_heldActiveMove.clear();
+        if (QLineF(m_heldActiveMoveOrigin, QRectF(window->frameGeometry()).topLeft()).length() > ActiveMoveTravel) {
+            qInfo() << "Kadunce" << Revision << applicationIdentity(window) << "travelled, so the cards let go";
+            m_cardStage->handleManualWindowChange(window);
+        } else {
+            qInfo() << "Kadunce" << Revision << "keeps the cards: the move of" << applicationIdentity(window)
+                    << "went nowhere";
+            m_cardStage->followWorkArea();
+        }
     }
     m_desktopStage->handleWindowMoveResizeFinished(window);
     // Use KWin's completed output assignment, not the cursor: Escape restores

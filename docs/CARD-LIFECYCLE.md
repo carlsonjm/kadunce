@@ -548,6 +548,9 @@ Full Kadunce release or disable:
 - Clears individual cards, stacks, Bento, and presentation state
 - Returns complete authority to Plasma
 
+KWin moving the Active card releases everything only once the
+card travels; a tap read as a move leaves the cards as they were.
+
 Kadunce does not persist card or Bento membership across unload or restart.
 
 ## 14. Required invariants

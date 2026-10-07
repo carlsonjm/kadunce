@@ -784,6 +784,11 @@ private:
     int m_neighborPreparationFrames = 0;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
+    // The Active card under a KWin move that has not yet gone anywhere, and
+    // where it began. A tap an application reads as a move does not let the
+    // cards go; travel does.
+    QPointer<KWin::EffectWindow> m_heldActiveMove;
+    QPointF m_heldActiveMoveOrigin;
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
