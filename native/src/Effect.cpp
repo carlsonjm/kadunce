@@ -1062,6 +1062,9 @@ Effect::Effect()
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
             return m_inputRouter && isTabletPoint(position) && m_inputRouter->inBottomBezel(position);
         };
+        if (m_carryRuntime) m_carryRuntime->touchStillDown = [this](qint64 id) {
+            return !m_touchWitness || m_touchWitness->down().contains(qint32(id));
+        };
     }
 
     if (!m_usesDirectSystemEdges) watchForTabletKit();

@@ -5,6 +5,7 @@
 #include "NativeMoveObserver.h"
 #include "CarryInputRoute.h"
 #include <input_event.h>
+#include <QDebug>
 
 namespace Kadunce {
 // Effect-owned input adapter. Passive until a correlated native move is adopted.
@@ -26,6 +27,8 @@ public:
     std::function<void(KWin::Window *, QPointF)> nativeReleased;
     // A carry this filter owns was let go; committed says whether its drop landed.
     std::function<void(bool)> released;
+    // Whether a touch is still down, as seen ahead of this filter.
+    std::function<bool(qint64)> touchStillDown;
     NativeCarryRuntime() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
         observer.identified = [this](KWin::Window *w, auto ticket, QPointF pos, auto proof) {
@@ -106,6 +109,12 @@ public:
     bool touchDown(KWin::TouchDownEvent *e) override {
         clearDeferred();
         if (interrupted) interrupted();
+        const auto forgot = route.forgetLiftedTouches(e->id,
+            [this](qint64 id) { return !touchStillDown || touchStillDown(id); });
+        if (forgot != CarryInputRoute::Action::Pass) {
+            qInfo() << "Kadunce forgets a carried contact that lifted where the carry never saw it";
+            if (forgot == CarryInputRoute::Action::Cancel) cancel();
+        }
         const CarryOwner owner{CarryDevice::Touch, 1, e->id}; return dispatch(route.down(owner), owner, e->pos);
     }
     bool touchMotion(KWin::TouchMotionEvent *e) override {
