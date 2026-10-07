@@ -70,12 +70,10 @@ int main()
     // The stack is the same size on a near card and a far one, at the corner.
     const auto centreStack = noteStackSquares(CentreCard, 4);
     const auto leftStack = noteStackSquares(LeftCard, 1);
-    require(centreStack.size() == 1 && leftStack.size() == 1 && noteStackSquares(CentreCard, 9).size() == 1,
-        "The stack was not one note");
-    require(noteStackReach(CentreCard, 4).contains(noteStackBadge(centreStack.last())),
-        "The count's badge was outside the stack's reach");
-    require(noteStackReach(LeftCard, 1).width() < noteStackReach(CentreCard, 4).width(),
-        "A single note's reach made room for a badge it does not show");
+    require(centreStack.size() == 2 && leftStack.size() == 1 && noteStackSquares(CentreCard, 9).size() == 2,
+        "The stack was not a mini note with the next one's edge behind it");
+    require(centreStack.first().top() < centreStack.last().top(),
+        "The next note's edge did not peek above the top note");
     require(centreStack.last().size() == leftStack.last().size(), "Stacks differed in size between cards");
     require(CentreCard.contains(noteStackReach(CentreCard, 4)), "The stack left its card");
     require(qAbs(centreStack.last().right() - (CentreCard.right() - NoteGeometry::Inset)) < 0.5

@@ -79,14 +79,14 @@ struct NotesCard {
 // The stack and the fan are the same size on every card, whatever the
 // card's scale, so a near card's notes are no easier to hit than a far one's.
 struct NoteGeometry {
-    // The top note alone stands for them all.
-    static constexpr double Square = 30.0;
-    // The count's badge, on the note's top-right corner.
-    static constexpr double Badge = 18.0;
-    static constexpr double BadgeInset = 7.0;
+    // The stack is a mini note: the top note with its first words, the
+    // next one's edge peeking above it when there are more.
+    static constexpr double MiniWidth = 64.0;
+    static constexpr double MiniHeight = 44.0;
+    static constexpr double MiniRadius = 6.0;
+    static constexpr double Peek = 4.0;
     static constexpr double Inset = 12.0;
-    // A finger's reach around the note, so a 30 px note is a 46 px target and
-    // more with its badge.
+    // A finger's reach around the mini note, an 80 by 60 px target.
     static constexpr double Reach = 8.0;
     static constexpr double NoteWidth = 136.0;
     static constexpr double NoteHeight = 88.0;
@@ -94,33 +94,24 @@ struct NoteGeometry {
     static constexpr double Radius = 8.0;
 };
 
-// The stack at the card's bottom-right corner: one sheet, the top note,
-// however many there are. Kept as a list so the drawing and the reach read it
-// the same way.
+// The stack at the card's bottom-right corner, the deepest sheet first and
+// the top note last: the mini note, and behind it, when there are more, the
+// next note's edge peeking above.
 [[nodiscard]] inline QList<QRectF> noteStackSquares(const QRectF &card, int count)
 {
     using G = NoteGeometry;
     if (card.isEmpty() || count <= 0) return {};
-    return {QRectF(card.right() - G::Inset - G::Square, card.bottom() - G::Inset - G::Square,
-                   G::Square, G::Square)};
-}
-
-// The count's badge over the top note's top-right corner, shown when there
-// is more than one note.
-[[nodiscard]] inline QRectF noteStackBadge(const QRectF &top)
-{
-    using G = NoteGeometry;
-    if (top.isEmpty()) return {};
-    return QRectF(top.right() - G::Badge / 2 - G::BadgeInset, top.top() - G::Badge / 2 + G::BadgeInset,
-                  G::Badge, G::Badge);
+    const QRectF top(card.right() - G::Inset - G::MiniWidth, card.bottom() - G::Inset - G::MiniHeight,
+                     G::MiniWidth, G::MiniHeight);
+    if (count == 1) return {top};
+    return {top.translated(-G::Peek / 2, -G::Peek), top};
 }
 
 [[nodiscard]] inline QRectF noteStackReach(const QRectF &card, int count)
 {
-    const auto squares = noteStackSquares(card, count);
-    if (squares.isEmpty()) return {};
-    QRectF reach = squares.last();
-    if (count > 1) reach |= noteStackBadge(squares.last());
+    QRectF reach;
+    for (const QRectF &sheet : noteStackSquares(card, count)) reach |= sheet;
+    if (reach.isEmpty()) return {};
     return reach.adjusted(-NoteGeometry::Reach, -NoteGeometry::Reach,
                           NoteGeometry::Reach, NoteGeometry::Reach);
 }

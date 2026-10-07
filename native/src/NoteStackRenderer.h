@@ -30,53 +30,56 @@ namespace Kadunce
 class NoteStackRenderer
 {
 public:
-    // The stack at a card's corner: the top note in its colour with a folded
-    // corner and a soft shadow, and the count in a dark badge on its top-right
-    // corner when there is more than one.
+    // The stack at a card's corner, a mini note: the top note in its colour
+    // with its first words and a soft shadow, the next note's edge peeking
+    // above it, and the count quietly in its corner when there are several.
     void renderStack(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
-                     const QList<QRectF> &sheets, const QStringList &colours, int count)
+                     const QList<QRectF> &sheets, const QStringList &colours, const QString &title, int count)
     {
         if (sheets.isEmpty() || sheets.size() != colours.size()) return;
         const QRectF top = sheets.last();
-        const QRectF badge = count > 1 ? noteStackBadge(top) : QRectF();
+        QRectF box;
+        for (const QRectF &sheet : sheets) box |= sheet;
         // Room for the shadow below the note.
-        QRectF box = top.adjusted(-1, -1, 1, 3);
-        if (!badge.isEmpty()) box |= badge.adjusted(-1, -1, 1, 1);
+        box = box.adjusted(-1, -1, 1, 3);
         const QString key = QStringLiteral("stack") + QChar(0x1f) + colours.join(QChar(0x1e))
-            + QChar(0x1f) + QString::number(count) + QChar(0x1f) + QString::number(sheets.size());
+            + QChar(0x1f) + title + QChar(0x1f) + QString::number(count);
         auto *texture = m_textures.object(key);
         if (!texture) {
             QImage image = canvas(box.size());
             QPainter painter(&image);
             painter.setRenderHint(QPainter::Antialiasing);
-            const QRectF sheet = top.translated(-box.topLeft());
-            const double radius = NoteGeometry::Radius;
+            painter.setRenderHint(QPainter::TextAntialiasing);
+            const double radius = NoteGeometry::MiniRadius;
             painter.setPen(Qt::NoPen);
+            // The next note's edge, a shade deeper so the top note reads first.
+            if (sheets.size() > 1) {
+                painter.setBrush(noteColour(colours.first()).darker(108));
+                painter.drawRoundedRect(sheets.first().translated(-box.topLeft()), radius, radius);
+            }
+            const QRectF sheet = top.translated(-box.topLeft());
             painter.setBrush(QColor(0, 0, 0, 60));
             painter.drawRoundedRect(sheet.translated(0, 2), radius, radius);
-            painter.setBrush(noteColour(colours.last()));
+            const QColor colour = noteColour(colours.last());
+            painter.setBrush(colour);
             painter.drawRoundedRect(sheet, radius, radius);
-            // The folded corner, bottom-right, as a peeled sticky note.
-            const double fold = 8.0;
-            QPainterPath corner;
-            corner.moveTo(sheet.right(), sheet.bottom() - fold);
-            corner.lineTo(sheet.right() - fold, sheet.bottom());
-            corner.lineTo(sheet.right() - fold, sheet.bottom() - fold + 3);
-            corner.quadTo(sheet.right() - fold, sheet.bottom() - fold, sheet.right() - fold + 3,
-                          sheet.bottom() - fold);
-            corner.closeSubpath();
-            painter.setBrush(QColor(0, 0, 0, 40));
-            painter.drawPath(corner);
-            if (!badge.isEmpty()) {
-                const QRectF disc = badge.translated(-box.topLeft());
-                painter.setBrush(QColor(0x14, 0x14, 0x14));
-                painter.drawEllipse(disc);
-                QFont font;
-                font.setPixelSize(count > 9 ? 9 : 11);
-                font.setWeight(QFont::DemiBold);
-                painter.setFont(font);
-                painter.setPen(QColor(0xf8, 0xf8, 0xff));
-                painter.drawText(disc, Qt::AlignCenter,
+            const QColor words = wordsOn(colour);
+            QFont font;
+            font.setPixelSize(9);
+            font.setWeight(QFont::DemiBold);
+            painter.setFont(font);
+            painter.setPen(words);
+            const QRectF text = sheet.adjusted(6, 5, -6, -12);
+            painter.drawText(text, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+                             QFontMetrics(font).elidedText(title.simplified(), Qt::ElideRight, text.width() * 2 - 8));
+            if (count > 1) {
+                QFont small = font;
+                small.setPixelSize(8);
+                painter.setFont(small);
+                QColor quiet = words;
+                quiet.setAlphaF(0.65);
+                painter.setPen(quiet);
+                painter.drawText(sheet.adjusted(0, 0, -6, -3), Qt::AlignRight | Qt::AlignBottom,
                                  count > 99 ? QStringLiteral("99+") : QString::number(count));
             }
             painter.end();

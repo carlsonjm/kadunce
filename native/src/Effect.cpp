@@ -5519,7 +5519,8 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
             const int layer = std::min<int>(sheets.size() - 1 - sheet, entry->notes.size() - 1);
             colours.append(entry->notes.at(layer).colourHex);
         }
-        m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->count);
+        m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->notes.first().title,
+                                         entry->count);
         drawn << sheets;
     }
     const auto carried = m_stuckNotes.carriedNote();
