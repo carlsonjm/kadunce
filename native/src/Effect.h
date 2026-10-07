@@ -28,6 +28,8 @@
 #include "DesktopExitLabel.h"
 #include "GestureNoteLabel.h"
 #include "CardLabelRenderer.h"
+#include "NoteStackRenderer.h"
+#include "StuckNotes.h"
 
 #include <QList>
 #include <QHash>
@@ -55,6 +57,8 @@ class SurfaceInterface;
 
 namespace Kadunce
 {
+
+class StuckNotesWatcher;
 
 class Effect final : public KWin::OffscreenEffect,
                      protected QDBusContext,
@@ -574,6 +578,33 @@ private:
         const QPointF &position) override;
     [[nodiscard]] bool cardAtForInput(const QPointF &position) const override;
     void tapSpreadFromInput(const QPointF &position) override;
+    // Gooseberry's notes on Spread's cards (TETTEGOUCHE-CONTEXT.md § Stuck
+    // notes from Gooseberry): a stack at each card's corner, fanned while
+    // Gooseberry shows those notes, a note carried to another card by a hold.
+    [[nodiscard]] bool pressNotesFromInput(const QPointF &position) override;
+    void moveNotesFromInput(const QPointF &position) override;
+    void holdNotesFromInput() override;
+    void releaseNotesFromInput(const QPointF &position, bool still) override;
+    void cancelNotesFromInput() override;
+    // Notes are shown and answered only in Spread at rest on the card
+    // display, with no guest in its centre and no card in hand.
+    [[nodiscard]] bool notesShownInSpread() const;
+    [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
+    // Spread's cards as notes see them, nearest the eye first, where they
+    // stand at rest; the Bento group carries no notes.
+    [[nodiscard]] QList<NotesCard> notesCards() const;
+    [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
+    void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                         const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
+                         const QRectF &heldRect, QList<QRectF> &drawn);
+    StuckNotesWatcher *m_stuckNotesWatcher = nullptr;
+    StuckNotesSpread m_stuckNotes;
+    NoteStackRenderer m_noteStackRenderer;
+    // Spread was shown on the last frame, and whether Gooseberry was last
+    // asked to pause its notes over the windows for it.
+    bool m_notesSpreadShown = false;
+    bool m_notesPaused = false;
+    void syncNotesPause();
     void syncSelectedElevation();
     void activateSelectedFromInput() override;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;

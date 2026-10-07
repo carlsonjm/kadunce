@@ -218,6 +218,9 @@ or mutate compositor ownership. The guest-card protocol is opt-in, versioned, an
 separate from ordinary context publication. Placement requests (`REQUESTS.md`)
 name an application and a point; Kadunce decides what the point means and places
 the window through the same transitions a carried window takes.
+Gooseberry's stuck notes are read the other way, from Gooseberry's own interface
+when it runs (`TETTEGOUCHE-CONTEXT.md` § Stuck notes from Gooseberry): Spread
+draws them and answers presses on them, and holds no note state of its own.
 
 Table uses KWin's virtual desktops for membership, switching and names. A preview
 stops other desktops' windows painting rather than switching, and entering runs

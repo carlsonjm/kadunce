@@ -214,6 +214,12 @@ they preserve these relationships and respect the user's animation settings.
   no final geometry. Dragging previews only the first 18% of its travel: the
   shoulder lifts 16 px and leans by less than a degree, then falls flat into the
   centre while the opposite neighbour stays still.
+- A card's stuck notes in Spread show as one 64 by 44 px mini note, 12 px
+  inside the card's bottom-right corner: the top note in its colour with a 6 px
+  corner, a soft shadow and its first words in two lines of 9 px demibold. When
+  there are several, the next note's edge peeks 4 px above it a shade deeper,
+  and the count sits in 8 px at 65% in the mini note's bottom-right corner.
+  Fanned, each note is 136 by 88 px. Both keep their size on every card.
 
 ## Type hierarchy and casing
 
