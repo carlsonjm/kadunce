@@ -1068,6 +1068,17 @@ Effect::Effect()
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
         };
+        m_touchWitness->describeTouchState = [] {
+            const KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+            if (!touch) return QStringLiteral("has no touch input");
+            const KWin::Window *focus = touch->focus();
+            auto *seat = KWin::waylandServer() ? KWin::waylandServer()->seat() : nullptr;
+            return QStringLiteral("focuses %1, its title bar holds contact %2, %3 contacts down, client touch sequence %4")
+                .arg(focus ? focus->resourceClass() : QStringLiteral("nothing"))
+                .arg(touch->decorationPressId())
+                .arg(touch->touchPointCount())
+                .arg(seat && seat->isTouchSequence() ? QStringLiteral("open") : QStringLiteral("none"));
+        };
         if (m_carryRuntime) m_carryRuntime->touchStillDown = [this](qint64 id) {
             return !m_touchWitness || m_touchWitness->down().contains(qint32(id));
         };
@@ -4552,6 +4563,8 @@ QString Effect::describeTitleTouch(const QPointF &position) const
         << (under && under == card ? " (the same window)" : " (a different window)")
         << "; KWin is moving " << name(moving)
         << "; Kadunce is carrying " << (m_carriedWindow ? "a window" : "nothing");
+    if (m_touchWitness && m_touchWitness->describeTouchState)
+        line += QStringLiteral("; before this press KWin ") + m_touchWitness->describeTouchState();
     return line;
 }
 

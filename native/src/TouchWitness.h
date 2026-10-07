@@ -22,6 +22,9 @@ public:
     std::function<bool(const QPointF &)> inBottomBezel;
     // What lies under a contact on a title while Cards is up, or nothing.
     std::function<QString(const QPointF &)> describeTitleTouch;
+    // KWin's own touch state: which window it focuses and which contact its
+    // title bar handling holds.
+    std::function<QString()> describeTouchState;
     // Installed after the other filters of its order, so KWin runs it first.
     TouchWitness() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
@@ -40,7 +43,16 @@ public:
     }
     bool touchMotion(KWin::TouchMotionEvent *event) override {
         const auto title = m_titles.find(event->id);
-        if (title != m_titles.end()) title->last = event->pos;
+        if (title != m_titles.end()) {
+            title->last = event->pos;
+            // By the first motion KWin has handled the press, so its title
+            // bar handling says whether it took it.
+            if (!title->probed && describeTouchState) {
+                title->probed = true;
+                qInfo().noquote() << "Kadunce title touch" << event->id << "first moved; KWin"
+                                  << describeTouchState();
+            }
+        }
         return false;
     }
     bool touchUp(KWin::TouchUpEvent *event) override {
@@ -58,6 +70,8 @@ public:
                               << "; reached workspace input " << title->reached
                               << ", kept by Kadunce " << title->kept
                               << ", KWin began a move or resize " << title->moved;
+            if (describeTouchState) qInfo().noquote() << "Kadunce title touch" << event->id
+                                                      << "lifting; KWin" << describeTouchState();
             m_titles.erase(title);
         }
         return false;
@@ -97,6 +111,7 @@ private:
         bool reached = false;
         bool kept = false;
         bool moved = false;
+        bool probed = false;
     };
     QHash<qint32, Title> m_titles;
 };
