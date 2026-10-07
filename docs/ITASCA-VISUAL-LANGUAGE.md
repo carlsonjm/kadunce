@@ -217,7 +217,7 @@ they preserve these relationships and respect the user's animation settings.
 - A card's stuck notes in Spread show as one 30 px sticky note in the top
   note's colour, 12 px inside the card's bottom-right corner, with a folded
   bottom-right corner, a soft shadow, and the count in an 18 px Surface badge
-  on its top-right corner when there are several (J, 7 October); fanned, each
+  on its top-right corner when there are several; fanned, each
   note is 136 by 88 px. Both keep their size
   on every card, and take the paper corner.
 

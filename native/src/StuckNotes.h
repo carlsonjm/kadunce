@@ -79,7 +79,7 @@ struct NotesCard {
 // The stack and the fan are the same size on every card, whatever the
 // card's scale, so a near card's notes are no easier to hit than a far one's.
 struct NoteGeometry {
-    // The top note alone stands for them all (J, 7 October: option A).
+    // The top note alone stands for them all.
     static constexpr double Square = 30.0;
     // The count's badge, on the note's top-right corner.
     static constexpr double Badge = 18.0;
