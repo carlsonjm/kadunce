@@ -216,8 +216,10 @@ public:
     // The area cards are laid out in may have changed: a panel took its room,
     // gave it up or took it back. The Active card is placed in it again. KWin
     // moves only a window touching the old edge, and a card stands a gutter
-    // inside it.
-    void followWorkArea();
+    // inside it. Room a panel gives up is taken only once it has stayed free
+    // a moment, so a panel that reloads does not stretch the card under
+    // itself; `now` takes it at once, as when the keys have gone.
+    void followWorkArea(bool now = false);
     // The keys moved from `from` to `to`: the band the card's edge crossed is
     // drawn again in the same frame.
     void repaintKeyboardEdge(const KWin::RectF &from, const KWin::RectF &to) const;
@@ -655,6 +657,7 @@ private:
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
+    QTimer m_workAreaGrowTimer;
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the

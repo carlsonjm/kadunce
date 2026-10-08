@@ -59,6 +59,8 @@ constexpr int ThrownCloseWait = 2000;
 // How long a flicked app that draws after it was asked to close has to go
 // before what it drew counts as a question asked inside its own window.
 constexpr int ThrownQuestionWait = 400;
+// How long room a panel gave up must stay free before the Active card takes it.
+constexpr int WorkAreaGrowWait = 6000;
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -146,6 +148,10 @@ CardStageController::CardStageController(CardStageHost *host)
     m_thrownTimer.setInterval(100);
     QObject::connect(&m_thrownTimer, &QTimer::timeout, &m_thrownTimer,
                      [this]() { checkThrownCards(); });
+    m_workAreaGrowTimer.setSingleShot(true);
+    m_workAreaGrowTimer.setInterval(WorkAreaGrowWait);
+    QObject::connect(&m_workAreaGrowTimer, &QTimer::timeout, &m_workAreaGrowTimer,
+                     [this]() { followWorkArea(true); });
     m_activeSettleTimer.setSingleShot(true);
     m_activeSettleTimer.setInterval(0);
     QObject::connect(&m_activeSettleTimer, &QTimer::timeout, &m_activeSettleTimer, [this]() {
@@ -1439,8 +1445,9 @@ void CardStageController::keepKeyboardRoomPlacement()
     client->moveResize(KWin::RectF(target));
 }
 
-void CardStageController::followWorkArea()
+void CardStageController::followWorkArea(bool now)
 {
+    m_workAreaGrowTimer.stop();
     if (!m_active) return;
     // Spread and the neighbours are drawn from the area every frame.
     KWin::effects->addRepaintFull();
@@ -1453,7 +1460,17 @@ void CardStageController::followWorkArea()
         || client->isFullScreen() || client->maximizeMode() != KWin::MaximizeRestore
         || client->quickTileMode() != KWin::QuickTileMode{}) return;
     const KWin::Rect target = activePlacement(tablet);
-    if (client->moveResizeGeometry().toRect() == target) return;
+    const KWin::Rect current = client->moveResizeGeometry().toRect();
+    if (current == target) return;
+    const bool grows = target.x() <= current.x() && target.y() <= current.y()
+        && target.x() + target.width() >= current.x() + current.width()
+        && target.y() + target.height() >= current.y() + current.height();
+    if (!now && grows) {
+        m_workAreaGrowTimer.start();
+        qInfo() << "Kadunce Active card waits before growing into room a panel gave up"
+                << window->caption() << "to" << target;
+        return;
+    }
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
     qInfo() << "Kadunce Active card follows the work area" << window->caption()

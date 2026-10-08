@@ -3020,7 +3020,7 @@ void Effect::releaseKeysWorkArea()
     m_keysWorkAreaRelease.stop();
     if (m_keysWorkAreas.isEmpty()) return;
     m_keysWorkAreas.clear();
-    m_cardStage->followWorkArea();
+    m_cardStage->followWorkArea(true);
 }
 
 bool Effect::keyboardTypesIntoForCardStage(
@@ -4300,7 +4300,7 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         } else {
             qInfo() << "Kadunce" << Revision << "keeps the cards: the move of" << applicationIdentity(window)
                     << "went nowhere";
-            m_cardStage->followWorkArea();
+            m_cardStage->followWorkArea(true);
         }
     }
     m_desktopStage->handleWindowMoveResizeFinished(window);
