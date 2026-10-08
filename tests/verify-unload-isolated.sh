@@ -13,7 +13,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
-    card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
+    card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|bento-key-sleeper-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
     table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
@@ -23,6 +23,9 @@ unload_root=$(mktemp -d /tmp/kadunce-unload-test.XXXXXX)
 output_count=1
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-transition-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == ownership-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == active-admission-session.sh ]]; then output_count=2; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == *runtime-session.sh ]]; then output_count=2; test -d "${KADUNCE_RUNTIME_BUILD:?runtime build required}/bin"; fi
+# The Bento key goes to a monitor while one is attached, so its scene runs
+# the tablet alone.
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == bento-key-sleeper-runtime-session.sh ]]; then output_count=1; fi
 if [[ -n ${KADUNCE_TEST_OUTPUT_COUNT:-} ]]; then
     [[ $KADUNCE_TEST_OUTPUT_COUNT == 1 || $KADUNCE_TEST_OUTPUT_COUNT == 2 ]] || exit 2
     output_count=$KADUNCE_TEST_OUTPUT_COUNT
