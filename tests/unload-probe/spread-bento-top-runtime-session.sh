@@ -45,14 +45,19 @@ for pass in alone sleeper closed; do
         client colouredCompanion "Sleeper" "2e8b57" 560 420
         sleep .8
         sleeper=$(probe windowIdByCaption "Sleeper")
-        # A card asleep beside the pair, as a minimized application is.
-        probe minimizeWindow "$sleeper" true >/dev/null
-        sleep .6
     fi
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
     sleep 1
     main=$(kad workspaceContext | jq -r --arg n "$neighbour" --arg s "$sleeper" \
         '[.applications[] | select(.windowId != $n and .windowId != $s)][0].windowId')
+    probe contactFocus >/dev/null
+    sleep .5
+    report "$pass-cards"
+    if [[ -n $sleeper ]]; then
+        # A card put to sleep beside the pair, as a minimized application is.
+        probe minimizeWindow "$sleeper" true >/dev/null
+        sleep .6
+    fi
     # The neighbour is the card used before the Active one, so it is the partner.
     probe activateWindowId "$neighbour" >/dev/null
     sleep .4
