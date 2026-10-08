@@ -20,7 +20,7 @@
 namespace Kadunce
 {
 // The refusal note's pill, drawn as the bottom edge's "return to desktop" label
-// is: rounded, one line of words, in the Plasma style's colours (SurfaceTone.h). A text HUD only; it never
+// is: rounded, one line of words, in the colour scheme's colours (SurfaceTone.h). A text HUD only; it never
 // receives a window.
 class GestureNoteLabel
 {

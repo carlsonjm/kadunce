@@ -16,20 +16,18 @@ namespace Kadunce
 {
 
 // The colours Kadunce paints its own surfaces with: Table, Spread's labels,
-// the placement outline and rails, and the note pills. They come from the
-// Plasma style, as a panel's do, not from the window colours, so a style that
-// keeps its panels dark keeps these dark beside light windows. On a dark
-// ground they are Kadunce's fixed values, so a dark style looks as it always
-// has; on a light one the text and ground are the style's, and every line and
-// fill is that text laid over the ground.
+// the placement outline and rails, the note pills and the card backings. They
+// follow the system colour scheme, as the windows do, so a light look turns
+// them light with everything else. On a dark ground they are Kadunce's fixed
+// values, so a dark scheme looks as it always has; on a light one the text and
+// ground are the scheme's, and every line and fill is that text laid over the
+// ground.
 struct SurfaceTone
 {
     QColor ground = QColor(20, 20, 20);
     QColor text = QColor(248, 248, 255);
     QColor accent = QColor(248, 248, 255);
     QColor accentText = QColor(16, 39, 41);
-    // The window colours' ground, which the cards themselves are painted in.
-    QColor windowGround = QColor(28, 28, 28);
 
     // Light or dark as Kirigami judges a colour: by its luma.
     static bool isDark(const QColor &colour)
@@ -38,7 +36,7 @@ struct SurfaceTone
     }
     bool dark() const { return isDark(ground); }
 
-    // A label's words: Ghost White on dark, the style's text on light.
+    // A label's words: Ghost White on dark, the scheme's text on light.
     QColor labelText(int alpha = 255) const
     {
         QColor colour = dark() ? QColor(248, 248, 255) : text;
@@ -60,33 +58,25 @@ struct SurfaceTone
     }
 
     // The backing a card's window stands on, which shows wherever the window
-    // does not fill its card. It belongs to the windows, not the panels: the
-    // fixed near black under dark windows, their own ground under light ones.
+    // does not fill its card: the fixed near black on dark, the ground on light.
     QVector3D cardBacking() const
     {
-        if (isDark(windowGround)) return QVector3D(0.075F, 0.075F, 0.075F);
-        return QVector3D(float(windowGround.redF()), float(windowGround.greenF()),
-                         float(windowGround.blueF()));
+        if (dark()) return QVector3D(0.075F, 0.075F, 0.075F);
+        return QVector3D(float(ground.redF()), float(ground.greenF()), float(ground.blueF()));
     }
 
-    // The Plasma style's colours as Plasma itself picks them: the style's own
-    // colors file where it ships one, the system colour scheme where it does
-    // not. Anything missing keeps the dark defaults above.
+    // The system colour scheme's window and selection colours. Anything
+    // missing keeps the dark defaults above.
     static SurfaceTone read()
     {
         SurfaceTone tone;
-        const QString colours = styleColoursFile();
-        KConfig config(colours.isEmpty() ? QStringLiteral("kdeglobals") : colours,
-                       colours.isEmpty() ? KConfig::FullConfig : KConfig::SimpleConfig);
+        const KConfig config(QStringLiteral("kdeglobals"));
         const KConfigGroup window(&config, QStringLiteral("Colors:Window"));
         const KConfigGroup selection(&config, QStringLiteral("Colors:Selection"));
         tone.ground = entry(window, "BackgroundNormal", tone.ground);
         tone.text = entry(window, "ForegroundNormal", tone.text);
         tone.accent = entry(selection, "BackgroundNormal", tone.accent);
         tone.accentText = entry(selection, "ForegroundNormal", tone.accentText);
-        const KConfig windows(QStringLiteral("kdeglobals"));
-        tone.windowGround = entry(KConfigGroup(&windows, QStringLiteral("Colors:Window")),
-                                  "BackgroundNormal", tone.windowGround);
         return tone;
     }
 
@@ -108,19 +98,9 @@ struct SurfaceTone
         return named.isValid() ? named : fallback;
     }
 
-    // The colors file of the Plasma style in use, or empty when it has none.
-    static QString styleColoursFile()
-    {
-        const KConfig plasmarc(QStringLiteral("plasmarc"));
-        const QString style = KConfigGroup(&plasmarc, QStringLiteral("Theme"))
-            .readEntry("name", QStringLiteral("default"));
-        return QStandardPaths::locate(QStandardPaths::GenericDataLocation,
-            QStringLiteral("plasma/desktoptheme/%1/colors").arg(style));
-    }
-
     // The tone now. It is read again at most once a second, and only when
-    // one of the files it comes from has changed, so painting can ask every
-    // frame and a change of style still shows within a second.
+    // the scheme's file has changed, so painting can ask every frame and a
+    // change of look still shows within a second.
     static const SurfaceTone &current()
     {
         static SurfaceTone tone = read();
@@ -140,17 +120,9 @@ struct SurfaceTone
 private:
     static QString sourceStamp()
     {
-        const QString config = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
-        QString stamp;
-        const QStringList paths{config + QStringLiteral("/plasmarc"),
-                                config + QStringLiteral("/kdeglobals"), styleColoursFile()};
-        for (const QString &path : paths) {
-            const QFileInfo file(path);
-            stamp += path + QLatin1Char('@')
-                + (file.exists() ? QString::number(file.lastModified().toMSecsSinceEpoch()) : QString())
-                + QLatin1Char(';');
-        }
-        return stamp;
+        const QFileInfo file(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                             + QStringLiteral("/kdeglobals"));
+        return file.exists() ? QString::number(file.lastModified().toMSecsSinceEpoch()) : QString();
     }
 };
 

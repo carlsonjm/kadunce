@@ -83,9 +83,9 @@ Item {
     // Itasca's colour roles (ITASCA-VISUAL-LANGUAGE.md). Tabs are controls,
     // raised; cards are information, on the surface. Hover and selection
     // are steps of white, the accent marks only a drop's destination, and
-    // nothing is outlined. They follow the Plasma style, which Kadunce reads
+    // nothing is outlined. They follow the colour scheme, which Kadunce reads
     // and sets here as Table opens (SurfaceTone.h): on a dark ground they are
-    // these fixed values, and on a light one each step is the style's text
+    // these fixed values, and on a light one each step is the scheme's text
     // laid over its ground.
     property color themeGround: "#141414"
     property color themeText: "#f8f8ff"
