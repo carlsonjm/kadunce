@@ -2421,7 +2421,7 @@ void CardStageController::restoreOriginalStackingOrder()
     }
 }
 
-void CardStageController::toggle(bool growToActive)
+void CardStageController::toggle(bool)
 {
     stopOpeningSpread();
     m_host->cancelInputForCardStage();
@@ -2438,13 +2438,14 @@ void CardStageController::toggle(bool growToActive)
         } else if (m_presentation == CardPresentation::Spread) {
             // The chosen card grows to its Active place first, as a new app's
             // card does, and the arrival timer enters Active when it is there.
-            if (growToActive && growSelectedToActive()) return;
+            if (growSelectedToActive()) return;
             if (!enterActive()) {
                 return;
             }
         } else {
             parkActiveSnapshot();
             m_presentation = CardPresentation::Spread;
+            formRowFromActive();
         }
         syncSelectedElevation();
         KWin::effects->addRepaintFull();
@@ -3852,6 +3853,17 @@ void CardStageController::stopOpeningSpread()
     m_openProgress.reset();
 }
 
+void CardStageController::formRowFromActive()
+{
+    if (m_presentation != CardPresentation::Spread) return;
+    stopOpeningSpread();
+    clearCardTransition();
+    // Each card's origin is where an opening at no progress draws it.
+    m_openProgress = 0.0;
+    captureCardTransition();
+    m_openProgress.reset();
+}
+
 CardStageController::SpreadTap CardStageController::tapSpread(const QPointF &position)
 {
     auto *tablet = m_host->tabletOutputForCardStage();
@@ -4739,7 +4751,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
 
     if (m_workspace.count() == 3 && m_workspace.stackSizeForId(closedIndex + 1) == 1)
         captureCardTransition();
-    else if (flicked && m_presentation == CardPresentation::Spread)
+    else if (m_presentation == CardPresentation::Spread && (flicked || !m_launcherGuestActive))
         captureCardTransition(false, true); // The row closes the gap it left.
     finishCardGrab(false);
     const bool closedActive = m_activeRestore.window == window;
@@ -4762,6 +4774,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
         rebuildLiveCards();
     } else if (closedActive) {
         m_presentation = CardPresentation::Spread;
+        formRowFromActive();
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();

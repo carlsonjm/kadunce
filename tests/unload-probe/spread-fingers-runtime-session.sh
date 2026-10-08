@@ -162,6 +162,25 @@ jq -e --argjson r "$rest_w" '.p == "cardLine" and .w > $r' <<<"$mid" >/dev/null 
 [[ $after == active ]] || fail=1
 test "$(selected)" = 2 || fail=1
 
+# Meta+S from the Active card shrinks it into the row, as three fingers past
+# halfway do, and from Spread grows the centred card into Active, as Enter does.
+echo '--- Meta+S shrinks the Active card into the row and grows it back'
+kad showCardLine
+sleep .08
+shrink=$(kad workspaceContext | jq -c '{p: .cardStage.presentation, w: ([.applications[] | select(.selected) | .spreadRect.width] | first)}')
+sleep .6
+rest_w=$(kad workspaceContext | jq '[.applications[] | select(.selected) | .spreadRect.width] | first')
+kad showActive
+sleep .08
+grow=$(kad workspaceContext | jq -c '{p: .cardStage.presentation, w: ([.applications[] | select(.selected) | .spreadRect.width] | first)}')
+sleep .6
+after=$(kad workspaceContext | jq -r '.cardStage.presentation')
+echo "RESULT meta-s-motion rest=$rest_w shrink=$shrink grow=$grow after=$after"
+jq -e --argjson r "$rest_w" '.p == "cardLine" and .w > $r' <<<"$shrink" >/dev/null || fail=1
+jq -e --argjson r "$rest_w" '.p == "cardLine" and .w > $r' <<<"$grow" >/dev/null || fail=1
+[[ $after == active ]] || fail=1
+test "$(selected)" = 2 || fail=1
+
 echo "SUMMARY fail=$fail"
 ((fail == 0))
 echo 'PASS: three fingers open Spread on the card the person was on, whatever arrives with them'
