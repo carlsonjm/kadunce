@@ -1068,6 +1068,18 @@ Effect::Effect()
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
         };
+        // A title bar can be left holding a contact whose lift it never saw,
+        // as when the tap that chose a card in Spread was Kadunce's. KWin's
+        // title bar handling then ignores every press until a contact with
+        // that number lifts, so the next drag of a title does nothing. With
+        // only this contact down, whatever it holds is stale.
+        m_touchWitness->beforeTouchDown = [](qint32 id) {
+            KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+            if (!touch || touch->decorationPressId() == -1 || touch->touchPointCount() > 1) return;
+            qInfo() << "Kadunce clears a title bar's hold on contact" << touch->decorationPressId()
+                    << "that lifted unseen, so contact" << id << "can move its window";
+            touch->setDecorationPressId(-1);
+        };
         m_touchWitness->describeTouchState = [] {
             const KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             if (!touch) return QStringLiteral("has no touch input");

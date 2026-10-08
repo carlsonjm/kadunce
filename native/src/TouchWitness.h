@@ -25,11 +25,14 @@ public:
     // KWin's own touch state: which window it focuses and which contact its
     // title bar handling holds.
     std::function<QString()> describeTouchState;
+    // Runs first for every contact, before KWin's own handling sees it.
+    std::function<void(qint32)> beforeTouchDown;
     // Installed after the other filters of its order, so KWin runs it first.
     TouchWitness() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
     }
     bool touchDown(KWin::TouchDownEvent *event) override {
+        if (beforeTouchDown) beforeTouchDown(event->id);
         m_down.insert(event->id);
         if (inBottomBezel && inBottomBezel(event->pos)) m_unseenBottom.insert(event->id, event->pos);
         else m_unseenBottom.remove(event->id);
