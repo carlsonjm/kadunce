@@ -480,6 +480,7 @@ private:
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
+    [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
     {

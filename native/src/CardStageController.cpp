@@ -4317,10 +4317,14 @@ void CardStageController::restoreActiveSnapshot()
                 << "back its place" << snapshot.geometry << "from" << client->moveResizeGeometry()
                 << "maximized" << int(snapshot.maximizeMode) << "fullscreen" << snapshot.fullScreen
                 << "minimized" << snapshot.minimized << "minimized now" << minimizedNow;
-        restoreWindowState(client, snapshot, snapshot.geometry, true, !minimizedNow, false);
+        const KWin::RectF place = placeClearOfPanels(snapshot);
+        if (place != snapshot.geometry)
+            qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at" << place
+                    << "instead: its place lies under a panel's room";
+        restoreWindowState(client, snapshot, place, true, !minimizedNow, false);
         if (!snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
             && snapshot.quickTileMode == KWin::QuickTileMode{}
-            && client->moveResizeGeometry() != snapshot.geometry)
+            && client->moveResizeGeometry() != place)
             qInfo() << "Kadunce" << Revision << client->resourceClass()
                     << "was given back but stands at" << client->moveResizeGeometry();
         if (snapshot.minimized && !minimizedNow && snapshot.window && !snapshot.window->isDeleted())
@@ -4328,6 +4332,30 @@ void CardStageController::restoreActiveSnapshot()
                 RestoredMinimization::Target{client->moveResizeGeometry(), snapshot.maximizeMode,
                     snapshot.quickTileMode, snapshot.fullScreen}));
     }
+}
+
+KWin::RectF CardStageController::placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const
+{
+    // A place taken before a panel reserved its room, as a window restored at
+    // sign-in can hold, would be given back under the panel. Within one
+    // display it is fitted into the room left now, as KWin itself keeps
+    // ordinary windows clear when a panel takes room.
+    if (snapshot.fullScreen || snapshot.maximizeMode != KWin::MaximizeRestore
+        || snapshot.quickTileMode != KWin::QuickTileMode{}) return snapshot.geometry;
+    const QRectF place(snapshot.geometry);
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        const QRectF screen(output->geometry());
+        if (!screen.contains(place)) continue;
+        const QRectF area(KWin::effects->clientArea(KWin::MaximizeArea, output));
+        if (area.isEmpty() || area.contains(place)) return snapshot.geometry;
+        QRectF fitted = place;
+        fitted.setWidth(std::min(fitted.width(), area.width()));
+        fitted.setHeight(std::min(fitted.height(), area.height()));
+        fitted.moveLeft(std::clamp(fitted.left(), area.left(), area.right() - fitted.width()));
+        fitted.moveTop(std::clamp(fitted.top(), area.top(), area.bottom() - fitted.height()));
+        return KWin::RectF(fitted);
+    }
+    return snapshot.geometry;
 }
 
 void CardStageController::parkActiveSnapshot()

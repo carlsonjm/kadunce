@@ -541,15 +541,14 @@ Explicit bottom-edge release affects only the carried window.
 Full Kadunce release or disable:
 
 - Restores every owned window, on every desktop, exactly once
-- Restores original geometry
+- Restores original geometry, clear of a panel's room taken since
 - Restores output and virtual desktop
 - Restores quick-tile, maximize, fullscreen, and minimized state; a window
   minimized while held stays minimized
 - Clears individual cards, stacks, Bento, and presentation state
 - Returns complete authority to Plasma
 
-KWin moving the Active card releases everything only once the
-card travels; a tap read as a move leaves the cards as they were.
+KWin moving the Active card releases everything only once it travels.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 
