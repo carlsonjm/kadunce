@@ -1746,6 +1746,7 @@ void CardStageController::returnWindowToDesktop(KWin::EffectWindow *window)
 {
     if (!m_active || !window || window->isDeleted() || liveCardIndex(window) >= 0) return;
     finishCardGrab(false);
+    clearCardTransition();
     if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
     m_returnedToDesktop.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
     m_returnedToDesktop.append(window);
@@ -2205,16 +2206,20 @@ void CardStageController::finishCardGrab(bool commit)
         return;
     }
     KWin::EffectWindow *grabbed = selectedWindow();
-    if (!commit) clearCardTransition();
     // Release animation is presentation only. Capture before changing order;
     // the held surface remains directly attached to its contact until release.
-    // Cancellation/disable must never acquire an animation lifetime.
-    if (commit && !m_launcherGuestActive) {
+    // A cancel glides too: the held card goes back from where it is drawn to
+    // its place and the row closes up around it. Only Spread draws that
+    // motion; a caller that leaves Spread starts its own or clears it, and
+    // release(), which hands every window back, always clears it.
+    if (m_launcherGuestActive) {
+        if (!commit) clearCardTransition();
+    } else {
         captureCardTransition(false, true);
         if (m_carry.inStack) {
             // Its Stack closes at the pace it parted.
             m_stackStepTransition = m_poseTransition;
-        } else if (m_poseTransition) {
+        } else if (commit && m_poseTransition) {
             // The card lands in one move: it drops into the line and the row
             // grows back around it, cards leaving the screen as it does.
             m_landTransition = true;
@@ -2678,6 +2683,7 @@ void CardStageController::release()
         return;
     }
     finishCardGrab(false);
+    clearCardTransition(); // Going away: a cancelled grab glides nowhere.
     endLauncherGuest();
     const QPointer<KWin::EffectWindow> releasedWindow = selectedWindow();
     // Stop filtering the scene before fullscreen restoration changes layers,
