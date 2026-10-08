@@ -83,21 +83,44 @@ Item {
     // Itasca's colour roles (ITASCA-VISUAL-LANGUAGE.md). Tabs are controls,
     // raised; cards are information, on the surface. Hover and selection
     // are steps of white, the accent marks only a drop's destination, and
-    // nothing is outlined.
-    readonly property color text: "#f8f8ff"
-    readonly property color text2: Qt.rgba(1, 1, 1, 0.66)
-    readonly property color raised: Qt.rgba(36 / 255, 36 / 255, 36 / 255, 0.94)
-    readonly property color hoverFill: Qt.rgba(63 / 255, 63 / 255, 63 / 255, 0.95)
-    readonly property color selectedFill: Qt.rgba(89 / 255, 89 / 255, 89 / 255, 0.96)
-    readonly property color surface: Qt.rgba(20 / 255, 20 / 255, 20 / 255, 0.92)
-    readonly property color chosenCard: Qt.rgba(76 / 255, 76 / 255, 76 / 255, 0.97)
+    // nothing is outlined. They follow the colour scheme, which Kadunce reads
+    // and sets here as Table opens (SurfaceTone.h): on a dark ground they are
+    // these fixed values, and on a light one each step is the scheme's text
+    // laid over its ground.
+    property color themeGround: "#141414"
+    property color themeText: "#f8f8ff"
+    property color themeAccent: "#f8f8ff"
+    property color themeAccentText: "#102729"
+    readonly property bool dark: 0.299 * themeGround.r + 0.587 * themeGround.g + 0.114 * themeGround.b <= 0.5
+    readonly property color ink: dark ? "#ffffff" : themeText
+    // The ink at a given strength, see-through.
+    function wash(alpha) {
+        return Qt.rgba(ink.r, ink.g, ink.b, alpha);
+    }
+    // The ink at a given strength laid over the ground, then held at an
+    // opacity of its own.
+    function over(alpha, opacity) {
+        const solid = Qt.tint(themeGround, wash(alpha));
+        return Qt.rgba(solid.r, solid.g, solid.b, opacity);
+    }
+    readonly property color text: dark ? "#f8f8ff" : themeText
+    readonly property color text2: wash(0.66)
+    readonly property color raised: dark ? Qt.rgba(36 / 255, 36 / 255, 36 / 255, 0.94) : over(0.07, 0.94)
+    readonly property color hoverFill: dark ? Qt.rgba(63 / 255, 63 / 255, 63 / 255, 0.95) : over(0.12, 0.95)
+    readonly property color selectedFill: dark ? Qt.rgba(89 / 255, 89 / 255, 89 / 255, 0.96) : over(0.22, 0.96)
+    readonly property color surface: dark ? Qt.rgba(20 / 255, 20 / 255, 20 / 255, 0.92) : over(0, 0.92)
+    readonly property color chosenCard: dark ? Qt.rgba(76 / 255, 76 / 255, 76 / 255, 0.97) : over(0.17, 0.97)
     // The edges of a stack's cards behind its face, nearest first.
-    readonly property var sliverFills: [Qt.rgba(58 / 255, 58 / 255, 58 / 255, 0.96),
-        Qt.rgba(42 / 255, 42 / 255, 42 / 255, 0.96), Qt.rgba(32 / 255, 32 / 255, 32 / 255, 0.96)]
+    readonly property var sliverFills: dark
+        ? [Qt.rgba(58 / 255, 58 / 255, 58 / 255, 0.96), Qt.rgba(42 / 255, 42 / 255, 42 / 255, 0.96),
+           Qt.rgba(32 / 255, 32 / 255, 32 / 255, 0.96)]
+        : [over(0.15, 0.96), over(0.09, 0.96), over(0.05, 0.96)]
+    // The band's shade: black on dark, the ground on light.
+    readonly property color shade: dark ? "#000000" : themeGround
     // TableSizes::SliverStep: each edge a step left of the one before it.
     readonly property real sliverStep: 7
-    readonly property color accent: Kirigami.Theme.highlightColor
-    readonly property color accentText: "#102729"
+    readonly property color accent: themeAccent
+    readonly property color accentText: themeAccentText
     readonly property int ease: Easing.OutCubic
     // A piece rises under the finger and settles a little faster once it
     // has gone, so paging across hands the lift from one to the next.
@@ -121,9 +144,9 @@ Item {
     readonly property string parts: model.parts || "all"
 
     // The dock's band, turned to hang from the top edge and reaching 300 px
-    // down to carry the rows, with its own curve for that depth: 80% black at
+    // down to carry the rows, with its own curve for that depth: 80% shade at
     // the edge and clear by its end, along cubic-bezier(0.128, 0, 0.686,
-    // 0.971), darkest from 98% of the way. The stops sample that curve at 40
+    // 0.971), deepest from 98% of the way. The stops sample that curve at 40
     // intervals, within half a level of it. It fades down from the edge into
     // place at its full depth rather than filling like the dock's tide.
     Rectangle {
@@ -133,47 +156,47 @@ Item {
         opacity: root.bandReveal * root.pull * root.cancelShade
         visible: root.bandReveal > 0.001
         gradient: Gradient {
-            GradientStop { position: 0.0000; color: Qt.rgba(0, 0, 0, 0.8000) }
-            GradientStop { position: 0.0250; color: Qt.rgba(0, 0, 0, 0.7996) }
-            GradientStop { position: 0.0500; color: Qt.rgba(0, 0, 0, 0.7956) }
-            GradientStop { position: 0.0750; color: Qt.rgba(0, 0, 0, 0.7889) }
-            GradientStop { position: 0.1000; color: Qt.rgba(0, 0, 0, 0.7800) }
-            GradientStop { position: 0.1250; color: Qt.rgba(0, 0, 0, 0.7691) }
-            GradientStop { position: 0.1500; color: Qt.rgba(0, 0, 0, 0.7565) }
-            GradientStop { position: 0.1750; color: Qt.rgba(0, 0, 0, 0.7423) }
-            GradientStop { position: 0.2000; color: Qt.rgba(0, 0, 0, 0.7268) }
-            GradientStop { position: 0.2250; color: Qt.rgba(0, 0, 0, 0.7100) }
-            GradientStop { position: 0.2500; color: Qt.rgba(0, 0, 0, 0.6921) }
-            GradientStop { position: 0.2750; color: Qt.rgba(0, 0, 0, 0.6733) }
-            GradientStop { position: 0.3000; color: Qt.rgba(0, 0, 0, 0.6535) }
-            GradientStop { position: 0.3250; color: Qt.rgba(0, 0, 0, 0.6329) }
-            GradientStop { position: 0.3500; color: Qt.rgba(0, 0, 0, 0.6115) }
-            GradientStop { position: 0.3750; color: Qt.rgba(0, 0, 0, 0.5894) }
-            GradientStop { position: 0.4000; color: Qt.rgba(0, 0, 0, 0.5668) }
-            GradientStop { position: 0.4250; color: Qt.rgba(0, 0, 0, 0.5435) }
-            GradientStop { position: 0.4500; color: Qt.rgba(0, 0, 0, 0.5197) }
-            GradientStop { position: 0.4750; color: Qt.rgba(0, 0, 0, 0.4955) }
-            GradientStop { position: 0.5000; color: Qt.rgba(0, 0, 0, 0.4708) }
-            GradientStop { position: 0.5250; color: Qt.rgba(0, 0, 0, 0.4458) }
-            GradientStop { position: 0.5500; color: Qt.rgba(0, 0, 0, 0.4204) }
-            GradientStop { position: 0.5750; color: Qt.rgba(0, 0, 0, 0.3948) }
-            GradientStop { position: 0.6000; color: Qt.rgba(0, 0, 0, 0.3689) }
-            GradientStop { position: 0.6250; color: Qt.rgba(0, 0, 0, 0.3428) }
-            GradientStop { position: 0.6500; color: Qt.rgba(0, 0, 0, 0.3165) }
-            GradientStop { position: 0.6750; color: Qt.rgba(0, 0, 0, 0.2902) }
-            GradientStop { position: 0.7000; color: Qt.rgba(0, 0, 0, 0.2638) }
-            GradientStop { position: 0.7250; color: Qt.rgba(0, 0, 0, 0.2375) }
-            GradientStop { position: 0.7500; color: Qt.rgba(0, 0, 0, 0.2112) }
-            GradientStop { position: 0.7750; color: Qt.rgba(0, 0, 0, 0.1851) }
-            GradientStop { position: 0.8000; color: Qt.rgba(0, 0, 0, 0.1593) }
-            GradientStop { position: 0.8250; color: Qt.rgba(0, 0, 0, 0.1340) }
-            GradientStop { position: 0.8500; color: Qt.rgba(0, 0, 0, 0.1091) }
-            GradientStop { position: 0.8750; color: Qt.rgba(0, 0, 0, 0.0851) }
-            GradientStop { position: 0.9000; color: Qt.rgba(0, 0, 0, 0.0622) }
-            GradientStop { position: 0.9250; color: Qt.rgba(0, 0, 0, 0.0409) }
-            GradientStop { position: 0.9500; color: Qt.rgba(0, 0, 0, 0.0220) }
-            GradientStop { position: 0.9750; color: Qt.rgba(0, 0, 0, 0.0071) }
-            GradientStop { position: 1.0000; color: Qt.rgba(0, 0, 0, 0.0000) }
+            GradientStop { position: 0.0000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.8000) }
+            GradientStop { position: 0.0250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7996) }
+            GradientStop { position: 0.0500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7956) }
+            GradientStop { position: 0.0750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7889) }
+            GradientStop { position: 0.1000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7800) }
+            GradientStop { position: 0.1250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7691) }
+            GradientStop { position: 0.1500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7565) }
+            GradientStop { position: 0.1750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7423) }
+            GradientStop { position: 0.2000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7268) }
+            GradientStop { position: 0.2250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.7100) }
+            GradientStop { position: 0.2500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.6921) }
+            GradientStop { position: 0.2750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.6733) }
+            GradientStop { position: 0.3000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.6535) }
+            GradientStop { position: 0.3250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.6329) }
+            GradientStop { position: 0.3500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.6115) }
+            GradientStop { position: 0.3750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.5894) }
+            GradientStop { position: 0.4000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.5668) }
+            GradientStop { position: 0.4250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.5435) }
+            GradientStop { position: 0.4500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.5197) }
+            GradientStop { position: 0.4750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.4955) }
+            GradientStop { position: 0.5000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.4708) }
+            GradientStop { position: 0.5250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.4458) }
+            GradientStop { position: 0.5500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.4204) }
+            GradientStop { position: 0.5750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.3948) }
+            GradientStop { position: 0.6000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.3689) }
+            GradientStop { position: 0.6250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.3428) }
+            GradientStop { position: 0.6500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.3165) }
+            GradientStop { position: 0.6750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.2902) }
+            GradientStop { position: 0.7000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.2638) }
+            GradientStop { position: 0.7250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.2375) }
+            GradientStop { position: 0.7500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.2112) }
+            GradientStop { position: 0.7750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.1851) }
+            GradientStop { position: 0.8000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.1593) }
+            GradientStop { position: 0.8250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.1340) }
+            GradientStop { position: 0.8500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.1091) }
+            GradientStop { position: 0.8750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0851) }
+            GradientStop { position: 0.9000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0622) }
+            GradientStop { position: 0.9250; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0409) }
+            GradientStop { position: 0.9500; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0220) }
+            GradientStop { position: 0.9750; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0071) }
+            GradientStop { position: 1.0000; color: Qt.rgba(root.shade.r, root.shade.g, root.shade.b, 0.0000) }
         }
     }
 
@@ -246,6 +269,8 @@ Item {
             height: 24
             anchors.verticalCenter: parent.verticalCenter
             source: face.entry.icon || "application-x-executable"
+            // A symbolic icon takes the text's colour, not the window colours'.
+            color: root.text
         }
         Column {
             anchors.verticalCenter: parent.verticalCenter
@@ -332,7 +357,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         anchors.verticalCenter: parent.verticalCenter
                         text: tab.entry.number || ""
-                        color: tab.target ? root.accentText : tab.quiet ? Qt.rgba(1, 1, 1, 0.4) : root.text
+                        color: tab.target ? root.accentText : tab.quiet ? root.wash(0.4) : root.text
                         font.pixelSize: 12
                         font.weight: Font.DemiBold
                         Behavior on color { ColorAnimation { duration: root.ms(160) } }
@@ -342,7 +367,7 @@ Item {
                         width: tab.entry.nameWidth || 0
                         anchors.verticalCenter: parent.verticalCenter
                         text: tab.entry.name || ""
-                        color: tab.target ? root.accentText : tab.quiet ? Qt.rgba(1, 1, 1, 0.5) : root.text
+                        color: tab.target ? root.accentText : tab.quiet ? root.wash(0.5) : root.text
                         elide: Text.ElideRight
                         font.pixelSize: 14
                         font.weight: Font.Medium
@@ -383,7 +408,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         Repeater {
                             model: tab.entry.icons || []
-                            Kirigami.Icon { width: 10; height: 10; source: modelData }
+                            Kirigami.Icon { width: 10; height: 10; source: modelData; color: root.text }
                         }
                     }
                 }

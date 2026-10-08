@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
+#include "SurfaceTone.h"
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
 #include <opengl/gltexture.h>
@@ -8,24 +9,29 @@
 #include <QPainter>
 #include <QObject>
 namespace Kadunce {
-// A fixed-size text HUD only. Never receives a window or produces a card image.
+// A fixed-size text HUD only, in the colour scheme's colours (SurfaceTone.h). Never receives a window or produces a card image.
 class DesktopExitLabel {
 public:
     void render(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                 const QRectF &box, const QString &text = QObject::tr("return to desktop")) {
-            if (!m_texture || m_text != text) {
+            const SurfaceTone &tone = SurfaceTone::current();
+            const QColor fill = tone.pillFill(235);
+            const QColor words = tone.labelText();
+            if (!m_texture || m_text != text || m_fill != fill || m_words != words) {
                 QImage label(480, 72, QImage::Format_ARGB32_Premultiplied);
                 label.fill(Qt::transparent);
                 QPainter painter(&label);
                 painter.setRenderHint(QPainter::Antialiasing);
-                painter.setBrush(QColor(20, 20, 20, 235)); painter.setPen(Qt::NoPen);
+                painter.setBrush(fill); painter.setPen(Qt::NoPen);
                 painter.drawRoundedRect(label.rect(), 16, 16); // 8 px as shown, at half size
                 QFont font; font.setPixelSize(28); painter.setFont(font);
-                painter.setPen(QColor(248, 248, 255)); // Ghost White
+                painter.setPen(words);
                 painter.drawText(label.rect(), Qt::AlignCenter, text);
                 painter.end();
                 m_texture = KWin::GLTexture::upload(label);
                 m_text = text;
+                m_fill = fill;
+                m_words = words;
             }
             if (m_texture) {
                 KWin::ShaderBinder binder(KWin::ShaderTrait::MapTexture);
@@ -48,6 +54,8 @@ public:
     }
 private:
     QString m_text;
+    QColor m_fill;
+    QColor m_words;
     std::unique_ptr<KWin::GLTexture> m_texture;
 };
 }
