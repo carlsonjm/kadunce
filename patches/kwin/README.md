@@ -78,6 +78,18 @@ recipe's signed source and patch step too. It proves the patch on the coming
 release; the package to install is still built on the device, against its own
 libraries, as above.
 
+On KWin 6.8 the patch applies without fuzz to the `Plasma/6.8` branch as of
+its 6.8.0 version bump (8 October 2026); the touch move path it corrects is
+unchanged from 6.7. Two 6.8 changes belong in the physical pass. During a
+native touch move, 6.8 keeps a client-decorated window's frame about 50 px
+above the bottom edge while the finger carries on below it (6.7 allowed 0);
+Kadunce's carry exits follow the finger, not the frame, so the drop still
+happens and the frame stopping short is expected. And KWin 6.8 says in its
+log that an effect "was built for a different version of KWin and needs to be
+rebuilt" where 6.7 skipped it silently: the effect's plugin identity carries
+KWin's full version, so Kadunce is reinstalled after every KWin update,
+patched or stock.
+
 ## Rollback and upgrade
 
 The verified signed rollback package is
