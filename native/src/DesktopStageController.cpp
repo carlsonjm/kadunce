@@ -1989,7 +1989,12 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         const bool preserveGeometry = !outputRemoving && targetOutput == originalOutput;
         const auto valid = [&] { return clientValid() && available(targetOutput); };
         KWin::RectF restoreGeometry = snapshot.geometry;
-        if (!preserveGeometry) {
+        // A floating place is fitted into the room panels leave even on its
+        // own display: one taken while a panel's room was smaller, or larger
+        // than the room left, would stand under the panel.
+        const bool floating = !snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
+            && snapshot.quickTileMode == KWin::QuickTileMode{};
+        if (!preserveGeometry || floating) {
             const KWin::RectF work = KWin::effects->clientArea(
                 KWin::MaximizeArea, targetOutput);
             const double width = std::min(restoreGeometry.width(), work.width());
@@ -2000,6 +2005,10 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
                 std::clamp(restoreGeometry.x(), work.x(), right),
                 std::clamp(restoreGeometry.y(), work.y(), bottom),
                 width, height);
+            if (preserveGeometry && restoreGeometry != snapshot.geometry)
+                qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
+                        << restoreGeometry << "instead of" << snapshot.geometry
+                        << ": its place lies under a panel's room";
         }
         client->sendToOutput(targetOutput);
         // A window Kadunce parked in the dock was awake before it was parked.
