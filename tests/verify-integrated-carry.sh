@@ -99,6 +99,7 @@ scenes=(
     monitor-zones-runtime tablet
     spread-bento-drop-runtime tablet
     spread-bento-top-runtime tablet
+    bento-key-sleeper-runtime tablet
     flick-ask-runtime tablet
     stack-still-runtime tablet
     lifetime-runtime tablet

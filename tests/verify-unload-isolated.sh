@@ -13,7 +13,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     active-admission-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
-    card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
+    card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|bento-key-sleeper-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
     table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
