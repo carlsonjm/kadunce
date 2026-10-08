@@ -25,7 +25,7 @@ jobs:
     container: archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75' }}
     steps:
       - name: Install build and session dependencies
         run: |
@@ -63,18 +63,21 @@ jobs:
           # grant, so exec refuses it; a plain copy runs as an ordinary binary.
           cp "$(command -v kwin_wayland)" /tmp/kwin_wayland
           export KADUNCE_TEST_KWIN=/tmp/kwin_wayland
-          for scene in $SCENES; do
+          for entry in $SCENES; do
+            # scene@scale runs a scene that allows it at that display scale.
+            scene=${entry%@*} scale=
+            [[ $entry == *@* ]] && scale=${entry#*@}
             build=$(awk -v s="$scene" '$1 == s { print $2 }' tests/verify-integrated-carry.sh)
             [[ -n $build ]] || { echo "::error::$scene is not a gate scene"; failed=1; continue; }
-            log="$root/$scene.log"
-            if KADUNCE_PROBE_SESSION="$scene-session.sh" KADUNCE_RUNTIME_BUILD="$root/$build" \
+            log="$root/$entry.log"
+            if KADUNCE_TEST_SCALE="$scale" KADUNCE_PROBE_SESSION="$scene-session.sh" KADUNCE_RUNTIME_BUILD="$root/$build" \
                 KADUNCE_PROBE_BUILD="$root/probe" bash -x tests/verify-unload-isolated.sh >"$log" 2>&1; then
-              echo "ok    $scene"
+              echo "ok    $entry"
             else
-              echo "::error::$scene failed"
+              echo "::error::$entry failed"
               failed=1
             fi
-            echo "::group::$scene"
+            echo "::group::$entry"
             tail -60 "$log"
             evidence=$(sed -n 's/^Isolated unload evidence: //p' "$log" | head -1)
             if [[ -n $evidence && -f $evidence/session.log ]]; then

@@ -34,7 +34,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-full-runtime-session.sh ||
 fi
 scale_args=()
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh) scalable=1 ;;
+    spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|spread-bento-top-runtime-session.sh|flick-ask-runtime-session.sh) scalable=1 ;;
     keyboard-runtime-session.sh|keyboard-offscreen-runtime-session.sh) scalable=1 ;;
     *) scalable=0 ;;
 esac

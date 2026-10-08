@@ -5,7 +5,8 @@
 # card. A layout resumed from Spread is a placed one, so its panes carry as
 # they do when the layout is first made: with no other card, beside a sleeping
 # card, and once that sleeping card has closed, which leaves the layout as it
-# was.
+# was. At a fractional scale the pair holds though a client's frame lands
+# part of a pixel off its pane.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -77,6 +78,8 @@ for pass in alone sleeper closed; do
     probe up "$((touch + 2))"
     sleep 1.2
     report "$pass-paired"
+    # At a fractional scale a pane can sit part of a pixel off its rect.
+    echo "$pass: pane frames $(probe windowGeometry "$main" | jq -c .) $(probe windowGeometry "$neighbour" | jq -c .)"
     check "$pass: a Bento pair" context '.desktopStage.active'
     if [[ -n $sleeper ]]; then
         check "$pass: the sleeping window is a card, asleep" \
