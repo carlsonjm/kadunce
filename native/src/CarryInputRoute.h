@@ -57,6 +57,23 @@ public:
         m_held.clear(); // Physical cancel/device loss promises no matching release.
         return active ? Action::Cancel : Action::Consume;
     }
+    // A touch held here that lifted where this route never saw its release:
+    // a new down under its id, or one no longer down at all. It is dropped as
+    // a lost stream is, so the next contact is not swallowed as a second.
+    // Pass when nothing was held, Cancel when the active owner went.
+    template<class StillDown>
+    Action forgetLiftedTouches(qint64 arriving, StillDown stillDown)
+    {
+        const auto lifted = [&](const CarryOwner &held) {
+            return held.kind == CarryDevice::Touch && (held.contact == arriving || !stillDown(held.contact));
+        };
+        if (std::none_of(m_held.begin(), m_held.end(), lifted)) return Action::Pass;
+        std::erase_if(m_held, lifted);
+        if (m_owner.kind != CarryDevice::Touch || contains(m_owner)) return Action::Consume;
+        const bool active = m_active;
+        m_active = false;
+        return active ? Action::Cancel : Action::Consume;
+    }
     bool active() const { return m_active; }
     bool draining() const { return !m_active && !m_held.empty(); }
     bool busy() const { return !m_held.empty(); }

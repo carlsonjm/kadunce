@@ -10,6 +10,7 @@
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
+#include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
@@ -284,6 +285,8 @@ private:
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
+    // The last edge decision written to the journal in this carry.
+    QString m_lastEdgeEntryLog;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
         const QString &interfaceName, int protocol, bool openSpread);
@@ -537,6 +540,18 @@ private:
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
     [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
+    [[nodiscard]] bool clientReceivesTouchAt(const QPointF &position) const override;
+    [[nodiscard]] std::optional<QSet<qint32>> touchesDownForInput() const override {
+        if (!m_touchWitness) return std::nullopt;
+        return m_touchWitness->down();
+    }
+    void touchReachedRouterForInput(qint32 id) override {
+        if (m_touchWitness) m_touchWitness->reachedRouter(id);
+    }
+    void touchRoutedForInput(qint32 id, bool kept) override {
+        if (m_touchWitness) m_touchWitness->routed(id, kept);
+    }
+    [[nodiscard]] QString describeTitleTouch(const QPointF &position) const;
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool cancelForwardedTouchForInput() override;
@@ -719,6 +734,7 @@ private:
     void followKeysWorkArea();
     void releaseKeysWorkArea();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
+    std::unique_ptr<TouchWitness> m_touchWitness;
     // Kadunce is giving windows back: one returning from minimized then was
     // not picked by the person.
     bool m_releasing = false;
@@ -768,6 +784,11 @@ private:
     int m_neighborPreparationFrames = 0;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
+    // The Active card under a KWin move that has not yet gone anywhere, and
+    // where it began. A tap an application reads as a move does not let the
+    // cards go; travel does.
+    QPointer<KWin::EffectWindow> m_heldActiveMove;
+    QPointF m_heldActiveMoveOrigin;
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;

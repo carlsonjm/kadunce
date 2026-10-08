@@ -151,11 +151,16 @@ public:
     // Adoption eligibility is a different question and never stands in for it.
     [[nodiscard]] bool isEligiblePartner(const KWin::EffectWindow *window) const;
     // §3 names the partner: the Active card when something else is carried,
-    // otherwise the nearest eligible card on the contacted side of the carried
-    // card in Spread order. Read-only — a prepared carry embeds the workspace
+    // otherwise the card used just before it, or failing that the nearest
+    // eligible card on the contacted side of the carried card in Spread order. Read-only — a prepared carry embeds the workspace
     // revision, so naming a partner must not move selection or the pair side.
+    // With `why`, the same walk says in words how it named the partner, or
+    // why it named none, for the journal.
     [[nodiscard]] KWin::EffectWindow *partnerForSideSnap(
-        const KWin::EffectWindow *carried, bool leftEdge) const;
+        const KWin::EffectWindow *carried, bool leftEdge, QString *why = nullptr) const;
+    // Why a title-bar drag of this window cannot be carried as the Active
+    // card, in words for the journal; empty when it can.
+    [[nodiscard]] QString nativeCarryRefusal(KWin::EffectWindow *window) const;
     // Whether this display can hold cards at all. State and capability decide
     // the grammar; the display's hardware identity never does.
     [[nodiscard]] bool canOwnCards(const KWin::LogicalOutput *output) const;
@@ -211,8 +216,10 @@ public:
     // The area cards are laid out in may have changed: a panel took its room,
     // gave it up or took it back. The Active card is placed in it again. KWin
     // moves only a window touching the old edge, and a card stands a gutter
-    // inside it.
-    void followWorkArea();
+    // inside it. Room a panel gives up is taken only once it has stayed free
+    // a moment, so a panel that reloads does not stretch the card under
+    // itself; `now` takes it at once, as when the keys have gone.
+    void followWorkArea(bool now = false);
     // The keys moved from `from` to `to`: the band the card's edge crossed is
     // drawn again in the same frame.
     void repaintKeyboardEdge(const KWin::RectF &from, const KWin::RectF &to) const;
@@ -475,6 +482,7 @@ private:
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
+    [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
     {
@@ -641,10 +649,15 @@ private:
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     ActiveRestoreSnapshot m_activeRestore;
     QPointer<KWin::EffectWindow> m_presentedActive;
+    // The last two cards presented Active, newest first: what a side snap of
+    // the Active card names as its partner (CARD-LIFECYCLE.md §3).
+    QPointer<KWin::EffectWindow> m_usedActive;
+    QPointer<KWin::EffectWindow> m_usedBefore;
     QList<ActiveRestoreSnapshot> m_parkedRestores;
     std::vector<std::unique_ptr<RestoredMinimization>> m_restoredMinimizations;
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
+    QTimer m_workAreaGrowTimer;
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the

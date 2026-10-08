@@ -40,5 +40,23 @@ int main()
         check(route.acquire(owner)); // seat ID reuse after real stream cancellation
         check(route.up(owner) == A::Release);
     }
+    {
+        // A touch whose release this route never saw is forgotten when a new
+        // down arrives under its id or it is no longer down, so the next
+        // contact passes instead of draining as a second finger.
+        const CarryOwner touch{CarryDevice::Touch, 1, 0}, pointer{CarryDevice::Pointer, 2, 1};
+        const auto down = [](qint64) { return true; };
+        const auto lifted = [](qint64) { return false; };
+        CarryInputRoute route;
+        check(route.forgetLiftedTouches(0, lifted) == A::Pass);
+        check(route.acquire(touch) && route.cancel() == A::Cancel && route.draining());
+        check(route.forgetLiftedTouches(5, down) == A::Pass && route.busy());
+        check(route.forgetLiftedTouches(0, down) == A::Consume && !route.busy());
+        check(route.down(touch) == A::Pass);
+        check(route.acquire(touch));
+        check(route.forgetLiftedTouches(5, lifted) == A::Cancel && !route.busy() && !route.active());
+        check(route.acquire(pointer));
+        check(route.forgetLiftedTouches(1, lifted) == A::Pass && route.active());
+    }
     std::cout << "Carry input route checks passed\n";
 }

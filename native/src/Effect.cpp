@@ -60,6 +60,7 @@
 
 #include <QAction>
 #include <QKeyEvent>
+#include <QLineF>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
@@ -99,6 +100,8 @@ namespace
 constexpr auto Revision = "0.1.0-kadunce-baseline";
 constexpr double CardCornerRadius = 8.0;
 constexpr qint64 FrameStallMs = 50;
+// How far the Active card must travel under a KWin move before the cards let go.
+constexpr double ActiveMoveTravel = 12.0;
 constexpr float BentoWorkspaceTintOpacity = 0.22F;
 // A swipe up from the bottom bezel has opened Spread all the way once it has
 // risen this share of the tablet's height past where it committed, about the
@@ -1023,7 +1026,11 @@ Effect::Effect()
     };
     m_carryRuntime->interrupted = [this] { clearDropSettle(); clearBentoMotions(); };
     connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
-            [this] { if (m_carryRuntime) m_carryRuntime->cancel(); });
+            [this] {
+                if (m_carryRuntime) m_carryRuntime->cancel();
+                // The lock screen takes the releases from here on.
+                if (m_touchWitness) (void)m_touchWitness->touchCancel();
+            });
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         connectManagedWindow(window);
     }
@@ -1053,6 +1060,40 @@ Effect::Effect()
             static_cast<WorkspaceInputTarget *>(this),
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
+        // After the carry filter, so that it sees every contact first.
+        m_touchWitness = std::make_unique<TouchWitness>();
+        m_touchWitness->inBottomBezel = [this](const QPointF &position) {
+            return m_inputRouter && isTabletPoint(position) && m_inputRouter->inBottomBezel(position);
+        };
+        m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
+            return describeTitleTouch(position);
+        };
+        // A title bar can be left holding a contact whose lift it never saw,
+        // as when the tap that chose a card in Spread was Kadunce's. KWin's
+        // title bar handling then ignores every press until a contact with
+        // that number lifts, so the next drag of a title does nothing. With
+        // only this contact down, whatever it holds is stale.
+        m_touchWitness->beforeTouchDown = [](qint32 id) {
+            KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+            if (!touch || touch->decorationPressId() == -1 || touch->touchPointCount() > 1) return;
+            qInfo() << "Kadunce clears a title bar's hold on contact" << touch->decorationPressId()
+                    << "that lifted unseen, so contact" << id << "can move its window";
+            touch->setDecorationPressId(-1);
+        };
+        m_touchWitness->describeTouchState = [] {
+            const KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+            if (!touch) return QStringLiteral("has no touch input");
+            const KWin::Window *focus = touch->focus();
+            auto *seat = KWin::waylandServer() ? KWin::waylandServer()->seat() : nullptr;
+            return QStringLiteral("focuses %1, its title bar holds contact %2, %3 contacts down, client touch sequence %4")
+                .arg(focus ? focus->resourceClass() : QStringLiteral("nothing"))
+                .arg(touch->decorationPressId())
+                .arg(touch->touchPointCount())
+                .arg(seat && seat->isTouchSequence() ? QStringLiteral("open") : QStringLiteral("none"));
+        };
+        if (m_carryRuntime) m_carryRuntime->touchStillDown = [this](qint64 id) {
+            return !m_touchWitness || m_touchWitness->down().contains(qint32(id));
+        };
     }
 
     if (!m_usesDirectSystemEdges) watchForTabletKit();
@@ -1137,6 +1178,7 @@ Effect::~Effect()
     // Roll back input while its target/controllers are alive, then unregister
     // the filter before restoration can reenter KWin or destroy those owners.
     cancelInputForCardStage();
+    m_touchWitness.reset();
     m_carryRuntime.reset();
     m_inputRouter.reset();
     Q_EMIT bridgeUnavailable();
@@ -2868,6 +2910,7 @@ void Effect::retireOutputFromDesktopStage(KWin::LogicalOutput *output)
 void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)
 {
     if (output && isTabletOutput(output) && m_cardStage->isActive()) {
+        qInfo() << "Kadunce" << Revision << "lets the cards go for a layout across" << output->name();
         m_cardStage->release(); // Do not release Bento sessions on other displays.
     }
 }
@@ -2989,7 +3032,7 @@ void Effect::releaseKeysWorkArea()
     m_keysWorkAreaRelease.stop();
     if (m_keysWorkAreas.isEmpty()) return;
     m_keysWorkAreas.clear();
-    m_cardStage->followWorkArea();
+    m_cardStage->followWorkArea(true);
 }
 
 bool Effect::keyboardTypesIntoForCardStage(
@@ -3597,6 +3640,13 @@ QString Effect::applicationDisplayName(KWin::EffectWindow *window)
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    if (window && window->window()) {
+        qInfo() << "Kadunce sees KWin begin a" << (window->isUserResize() ? "resize" : "move")
+                << "of" << window->window()->resourceClass()
+                << (window->isUserMove() || window->isUserResize() ? "by hand" : "by itself")
+                << "at" << window->window()->frameGeometry();
+        if (m_touchWitness) m_touchWitness->moveStarted();
+    }
     // Active-sized cards do not become ordinary windows through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
@@ -3627,11 +3677,21 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                                      : m_cardStage->nativeCarrySourceValid(saved);
                 }, [this, guarded] { if (guarded) beginLegacyNativeMove(guarded); })) {
                 traceNativeMove(window, source->isDesktopWindow() ? "staged-ordinary" : "staged-card");
+                qInfo() << "Kadunce" << Revision << "carries" << applicationIdentity(window)
+                        << "by its title bar as"
+                        << (!fromBento ? "the Active card"
+                            : source->isDesktopWindow() ? "an ordinary window" : "a Bento pane");
                 return;
             }
             traceNativeMove(window, "stage-refused");
+            qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
+                    << "to KWin: the carry could not be staged";
         } else {
             traceNativeMove(window, "no-carry-source");
+            // A drag Kadunce does not carry is KWin's own move, and edges do
+            // nothing Kadunce's. Say why, so a drag that did nothing is legible.
+            qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
+                    << "to KWin: as a card," << m_cardStage->nativeCarryRefusal(window);
         }
     }
     beginLegacyNativeMove(window);
@@ -3645,7 +3705,20 @@ void Effect::beginLegacyNativeMove(KWin::EffectWindow *window)
         m_nativeCarrySource = window->screen() ? window->screen()->name() : QString();
         m_nativeCarryFromBento = m_desktopStage->managesWindow(window);
     }
-    m_cardStage->handleManualWindowChange(window);
+    // An application may start a move on a tap in its own title area, which
+    // then ends where it began. The cards are let go only once the Active card
+    // travels, so a tap leaves them as they were.
+    if (window->isUserMove() && !window->isUserResize() && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->selectedWindow() == window) {
+        m_heldActiveMove = window;
+        m_heldActiveMoveOrigin = QRectF(window->frameGeometry()).topLeft();
+        qInfo() << "Kadunce" << Revision << "keeps the cards while" << applicationIdentity(window)
+                << "has not moved yet";
+    } else {
+        m_heldActiveMove.clear();
+        m_cardStage->handleManualWindowChange(window);
+    }
     m_desktopStage->handleWindowMoveResizeStarted(window);
     if (m_nativeCarry == window) {
         KWin::effects->setElevatedWindow(window, true);
@@ -3657,6 +3730,7 @@ void Effect::endNativeCarryPresentation()
 {
     if (m_carriedWindow) traceNativeMove(m_carriedWindow, "presentation-ended");
     m_lastCarryDestinationTrace.clear();
+    m_lastEdgeEntryLog.clear();
     if (m_carriedWindow) {
         KWin::effects->setElevatedWindow(m_carriedWindow, false);
         unredirect(m_carriedWindow);
@@ -3892,8 +3966,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         // §3 names the partner from Spread order. Naming is read-only: the
         // prepared carry embeds the workspace revision, so it must not move
         // selection or the pair side.
+        QString partnerReason;
         auto *partner = sideEdge
-            ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge) : nullptr;
+            ? m_cardStage->partnerForSideSnap(m_carriedWindow, leftEdge, &partnerReason) : nullptr;
         const auto outcome = planEdgeEntry({
             .edge = *edge,
             // §3: a display with a live layout is owned, whether or not this
@@ -3909,6 +3984,27 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         QPointer<KWin::LogicalOutput> output = target;
         const auto destination = monitorDropIntent(target->name(), 0, std::nullopt, edge);
         refusal = edgeEntryRefusal(outcome, isCardWindow(m_carriedWindow));
+        {
+            // Once per edge and outcome in a carry: what this edge would do
+            // with the window, and for a side, which partner and why.
+            const char *meaning = outcome == EdgeEntryOutcome::Refuse ? "nothing (refused)"
+                : outcome == EdgeEntryOutcome::Unchanged ? "nothing: no partner"
+                : outcome == EdgeEntryOutcome::ComposeDisplayBento ? "a layout across the display"
+                : outcome == EdgeEntryOutcome::PairIntoBento ? "a Bento pair"
+                : outcome == EdgeEntryOutcome::AdoptDisplay ? "cards, starting with this window"
+                : "the Active card";
+            const QString line = QStringLiteral("%1 at the %2 edge would make %3%4")
+                .arg(applicationIdentity(m_carriedWindow),
+                     *edge == CarryEdge::Top ? QStringLiteral("top")
+                         : *edge == CarryEdge::Bottom ? QStringLiteral("bottom")
+                         : leftEdge ? QStringLiteral("left") : QStringLiteral("right"),
+                     QString::fromLatin1(meaning),
+                     sideEdge ? QStringLiteral("; partner: ") + partnerReason : QString());
+            if (line != m_lastEdgeEntryLog) {
+                m_lastEdgeEntryLog = line;
+                qInfo() << "Kadunce" << Revision << qPrintable(line);
+            }
+        }
         switch (outcome) {
         case EdgeEntryOutcome::Refuse:
         case EdgeEntryOutcome::Unchanged:
@@ -4184,6 +4280,12 @@ void Effect::handleManagedStateChanged()
 void Effect::handleWindowMoveResizeStepped(
     KWin::EffectWindow *window, const KWin::RectF &geometry)
 {
+    if (window && window == m_heldActiveMove
+        && QLineF(m_heldActiveMoveOrigin, QRectF(geometry).topLeft()).length() > ActiveMoveTravel) {
+        m_heldActiveMove.clear();
+        qInfo() << "Kadunce" << Revision << applicationIdentity(window) << "travelled, so the cards let go";
+        m_cardStage->handleManualWindowChange(window);
+    }
     m_desktopStage->handleWindowMoveResizeStepped(window, geometry);
 }
 
@@ -4201,6 +4303,17 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         m_nativeCarryFromBento = false;
         KWin::effects->setElevatedWindow(window, false);
         if (m_dialogsLead) m_carriedDialogsRelease.start();
+    }
+    if (window && window == m_heldActiveMove) {
+        m_heldActiveMove.clear();
+        if (QLineF(m_heldActiveMoveOrigin, QRectF(window->frameGeometry()).topLeft()).length() > ActiveMoveTravel) {
+            qInfo() << "Kadunce" << Revision << applicationIdentity(window) << "travelled, so the cards let go";
+            m_cardStage->handleManualWindowChange(window);
+        } else {
+            qInfo() << "Kadunce" << Revision << "keeps the cards: the move of" << applicationIdentity(window)
+                    << "went nowhere";
+            m_cardStage->followWorkArea(true);
+        }
     }
     m_desktopStage->handleWindowMoveResizeFinished(window);
     // Use KWin's completed output assignment, not the cursor: Escape restores
@@ -4413,6 +4526,60 @@ bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
         && !window->isDock() && !window->isDesktop() && !window->isAppletPopup();
 }
 
+bool Effect::clientReceivesTouchAt(const QPointF &position) const
+{
+    // The window KWin would deliver the touch to. On its frame or the resize
+    // border beyond it, KWin's decoration handling takes the contact and no
+    // client ever holds it.
+    const KWin::Window *window = KWin::input()->findToplevel(position);
+    return window && (!window->decoration() || QRectF(window->clientGeometry()).contains(position));
+}
+
+QString Effect::describeTitleTouch(const QPointF &position) const
+{
+    // Only while Cards is up on the tablet, and only on a title: on the
+    // decoration of the window KWin would deliver the touch to, or along the
+    // top of the chosen card, whatever lies there.
+    if (!m_cardStage || !m_cardStage->isActive() || !isTabletPoint(position)) return {};
+    const KWin::EffectWindow *chosen = m_cardStage->selectedWindow();
+    const KWin::Window *card = chosen ? chosen->window() : nullptr;
+    const KWin::Window *under = KWin::input()->findToplevel(position);
+    const bool onDecoration = under && under->decoration()
+        && !QRectF(under->clientGeometry()).contains(position);
+    bool onCardTop = false;
+    if (card) {
+        const QRectF frame(card->frameGeometry());
+        onCardTop = position.x() >= frame.left() && position.x() < frame.right()
+            && position.y() >= frame.top() - 12.0 && position.y() < frame.top() + 60.0;
+    }
+    if (!onDecoration && !onCardTop) return {};
+    const auto name = [](const KWin::Window *window) {
+        return window ? QStringLiteral("%1 \"%2\"").arg(window->resourceClass(), window->caption().left(40))
+                      : QStringLiteral("nothing");
+    };
+    QString presentation = QStringLiteral("Spread");
+    if (m_cardStage->presentation() == CardPresentation::Active) presentation = QStringLiteral("Active");
+    else if (m_cardStage->presentation() == CardPresentation::Bento) presentation = QStringLiteral("Bento");
+    const KWin::Window *moving = KWin::workspace()->moveResizeWindow();
+    const auto box = [](const KWin::Window *window) {
+        const QRectF frame(window->frameGeometry());
+        return QStringLiteral(" frame %1,%2 %3x%4").arg(frame.x()).arg(frame.y()).arg(frame.width()).arg(frame.height());
+    };
+    QString line;
+    QDebug(&line).nospace().noquote() << "in " << presentation << "; KWin delivers it to " << name(under)
+        << (under ? (onDecoration ? " on its title or border" : " inside its client area") : "")
+        << (under ? box(under) : QString())
+        << "; the chosen card is " << name(card)
+        << (card ? box(card) + (card->isActive() ? QStringLiteral(", focused") : QStringLiteral(", not focused"))
+                       + (card->isMinimized() ? QStringLiteral(", minimized") : QString()) : QString())
+        << (under && under == card ? " (the same window)" : " (a different window)")
+        << "; KWin is moving " << name(moving)
+        << "; Kadunce is carrying " << (m_carriedWindow ? "a window" : "nothing");
+    if (m_touchWitness && m_touchWitness->describeTouchState)
+        line += QStringLiteral("; before this press KWin ") + m_touchWitness->describeTouchState();
+    return line;
+}
+
 bool Effect::inputPanelContainsForInput(const QPointF &position) const
 {
     // The panel's own input region, not its frame: a keyboard drawn over a
@@ -4425,7 +4592,12 @@ bool Effect::inputPanelContainsForInput(const QPointF &position) const
 bool Effect::isTabletPoint(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
-    return tablet && tablet->geometry().contains(position.toPoint());
+    if (!tablet) return false;
+    // Half-open and unrounded: the display's last physical rows map to within
+    // a pixel of its logical bottom, and rounding them carried them off it.
+    const QRectF area(tablet->geometry());
+    return position.x() >= area.left() && position.x() < area.right()
+        && position.y() >= area.top() && position.y() < area.bottom();
 }
 
 QStringList Effect::outputStageState() const
