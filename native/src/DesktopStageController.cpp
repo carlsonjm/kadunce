@@ -116,6 +116,22 @@ std::optional<PreparedCarrySource> DesktopStageController::prepareNativeCarrySou
     return std::nullopt;
 }
 
+QString DesktopStageController::nativeCarryRefusal(KWin::EffectWindow *window) const
+{
+    // The conditions of prepareNativeCarrySource that a pane can meet, named.
+    if (m_restoring) return QStringLiteral("Bento is being restored");
+    if (m_interactionWindow) return QStringLiteral("another pane is being moved");
+    if (!window || window->isDeleted() || !window->window() || !window->screen())
+        return QStringLiteral("the window is gone");
+    if (window->isUserResize()) return QStringLiteral("it is being resized");
+    if (window->isMinimized()) return QStringLiteral("it is minimized");
+    const auto *session = sessionForOutput(window->screen());
+    if (!session) return QStringLiteral("no layout is on its display");
+    if (session->applying) return QStringLiteral("its layout is being placed");
+    if (!session->applicationToken) return QStringLiteral("its layout was never placed");
+    return QStringLiteral("it is not a pane of its layout");
+}
+
 bool DesktopStageController::nativeCarrySourceValid(const PreparedCarrySource &source) const
 {
     if (source.m_owner.lock() != m_carrySourceIdentity) return false;
@@ -2151,7 +2167,10 @@ bool DesktopStageController::resumeProjectedSession(
     if (!commitResumeHandback(
             [&] { return commitSource && commitSource(); },
             [&] {
-                m_applicationGuard.invalidate();
+                // A resumed layout is a placed one: its panes carry by their
+                // title bars as at any other placement, which a session with
+                // no application token refuses.
+                candidate.applicationToken = m_applicationGuard.issue();
                 m_sessions.insert(candidate.outputName, std::move(candidate));
             },
             [&] { if (releaseSource) releaseSource(); })) {

@@ -98,6 +98,7 @@ scenes=(
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
     spread-bento-drop-runtime tablet
+    spread-bento-top-runtime tablet
     flick-ask-runtime tablet
     stack-still-runtime tablet
     lifetime-runtime tablet
