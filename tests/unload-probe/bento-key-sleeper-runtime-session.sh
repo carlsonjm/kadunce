@@ -5,7 +5,8 @@
 # sleeping card sits beside the pair or is itself the card used before the
 # Active one, when the next awake card in Spread order is the partner.
 #
-# Needs the tablet fixture: only a display that can own cards holds cards.
+# Needs the tablet fixture, alone: only a display that can own cards holds
+# cards, and the Bento key goes to a monitor while one is attached.
 # Every check is reported, so a failure does not hide the ones after it.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
