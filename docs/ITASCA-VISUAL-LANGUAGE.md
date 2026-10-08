@@ -209,6 +209,11 @@ they preserve these relationships and respect the user's animation settings.
 
 ## Kadunce geometry
 
+- Kadunce cuts every window under a title bar to the 8 px paper tier, with no
+  outline, whether it is a card, a pane or loose on the desktop. A window that
+  draws its own frame, casts a shadow, or is maximized or full screen keeps its
+  corners, and Kadunce trims nothing while the separately installed Rounded
+  Corners effect runs.
 - The Active card's gutter is output-relative, 10 px by default and bounded to
   6–48 px, the same on every edge.
 - Spread with two entries draws its centre card at 64% of the work area and the

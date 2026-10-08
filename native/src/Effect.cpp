@@ -395,6 +395,8 @@ QObject *kwinScripting()
 }
 
 const QString DesktopPopupScript = QStringLiteral("desktopchangeosd");
+// The separately installed Rounded Corners effect trims windows itself.
+const QString RoundedCornersEffect = QStringLiteral("kwin4_effect_shapecorners");
 const QString OverviewEffect = QStringLiteral("overview");
 
 // Whether Overview's own settings give it the top-left corner, as KDE's do
@@ -6206,6 +6208,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (notesSurfaceStepsAside(window)) data.setTranslucent();
     // Drawn with its card, not where it stands, so it hides nothing there.
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
+    // Its trimmed corners show what is under them, so that must be drawn.
+    if (trimsCorners(window)) data.setTranslucent();
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -6720,7 +6724,23 @@ KWin::Rect Effect::activeTarget(KWin::LogicalOutput *output) const
     return m_cardStage->activeTarget(output);
 }
 
-void Effect::redirectPreviewSource(KWin::EffectWindow *window)
+bool Effect::trimsCorners(KWin::EffectWindow *window) const
+{
+    if (!m_fanApertureShader || m_fanPaintSizeLocation < 0
+        || m_fanApertureOriginLocation < 0 || m_fanApertureSizeLocation < 0
+        || m_fanApertureRadiusLocation < 0) return false;
+    // Only a window under a title bar; one that draws its own frame keeps it.
+    if (!window->hasDecoration() || window->isFullScreen()) return false;
+    // A shadow lies outside the frame, and the trim would cut it away.
+    if (window->expandedGeometry() != window->frameGeometry()) return false;
+    // A maximized window meets the display's edges, which stay square.
+    const KWin::Window *client = window->window();
+    if (client && client->maximizeMode() == KWin::MaximizeFull) return false;
+    // Two effects trimming the same window would cost twice for one cut.
+    return !KWin::effects->isEffectLoaded(RoundedCornersEffect);
+}
+
+bool Effect::redirectSource(KWin::EffectWindow *window, bool reportChange)
 {
     const QRectF frame(window->frameGeometry());
     const std::array<QRectF, 3> sourceBounds = {
@@ -6728,18 +6748,55 @@ void Effect::redirectPreviewSource(KWin::EffectWindow *window)
         QRectF(window->bufferGeometry()).translated(-frame.topLeft()),
         QRectF(window->expandedGeometry()).translated(-frame.topLeft())};
     const auto previousBounds = m_previewSourceBounds.constFind(window);
-    if (previousBounds != m_previewSourceBounds.cend() && *previousBounds != sourceBounds) {
+    const bool fresh = previousBounds == m_previewSourceBounds.cend();
+    const bool changed = !fresh && *previousBounds != sourceBounds;
+    if (changed) {
         // Damage alone does not describe a changed frame/buffer mapping.
-        qInfo() << "Kadunce preview source bounds changed" << window->caption()
-                << "frame" << (*previousBounds)[0] << "->" << sourceBounds[0]
-                << "buffer" << (*previousBounds)[1] << "->" << sourceBounds[1]
-                << "expanded" << (*previousBounds)[2] << "->" << sourceBounds[2];
+        if (reportChange)
+            qInfo() << "Kadunce preview source bounds changed" << window->caption()
+                    << "frame" << (*previousBounds)[0] << "->" << sourceBounds[0]
+                    << "buffer" << (*previousBounds)[1] << "->" << sourceBounds[1]
+                    << "expanded" << (*previousBounds)[2] << "->" << sourceBounds[2];
         unredirect(window);
     }
-    if (previousBounds == m_previewSourceBounds.cend() || *previousBounds != sourceBounds)
-        ++m_framePreviewsMade;
     m_previewSourceBounds.insert(window, sourceBounds);
     redirect(window);
+    return fresh || changed;
+}
+
+void Effect::redirectPreviewSource(KWin::EffectWindow *window)
+{
+    if (redirectSource(window, true)) ++m_framePreviewsMade;
+}
+
+PaintResult Effect::drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
+                                      const KWin::RenderViewport &viewport,
+                                      KWin::EffectWindow *window,
+                                      int mask,
+                                      const KWin::Region &deviceRegion,
+                                      KWin::WindowPaintData &data)
+{
+    // The window's own picture is cut to the paper tier before any transform,
+    // so its corners travel, scale and fade with it.
+    (void)redirectSource(window, false);
+    setShader(window, m_fanApertureShader.get());
+    KWin::ShaderManager::instance()->pushShader(m_fanApertureShader.get());
+    const double scale = viewport.scale();
+    const QSizeF frame = window->frameGeometry().size();
+    m_fanApertureShader->setUniform(m_fanPaintSizeLocation, QVector2D(1.0F, 1.0F));
+    m_fanApertureShader->setUniform(m_fanApertureOriginLocation, QVector2D(0.0F, 0.0F));
+    m_fanApertureShader->setUniform(m_fanApertureSizeLocation,
+        QVector2D(static_cast<float>(std::round(frame.width() * scale)),
+                  static_cast<float>(std::round(frame.height() * scale))));
+    m_fanApertureShader->setUniform(m_fanApertureRadiusLocation,
+        static_cast<float>(CardCornerRadius * scale));
+    m_fanApertureShader->setUniform("tiltedSampling",
+        qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
+    glActiveTexture(GL_TEXTURE0);
+    const bool drawn = painted([&] { return KWin::OffscreenEffect::drawWindow(
+        renderTarget, viewport, window, mask, deviceRegion, data); });
+    KWin::ShaderManager::instance()->popShader();
+    return paintResult(drawn);
 }
 
 PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
@@ -6759,7 +6816,9 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         && m_fanApertureRadiusLocation >= 0;
 
     if (!useFanAperture) {
-        // Redirection is intentionally ephemeral. Active, Release,
+        if (trimsCorners(window))
+            return drawTrimmedWindow(renderTarget, viewport, window, mask, deviceRegion, data);
+        // Redirection is otherwise ephemeral. A window Kadunce does not trim,
         // hidden deck members, and shader failure all return
         // to KWin's exact r20 direct path.
         unredirect(window);

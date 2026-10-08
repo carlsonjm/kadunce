@@ -599,6 +599,11 @@ softer so they read as temporary. Rejected: 8 px for every surface, and the
 earlier 14 to 18 px boxes. The rule is `ITASCA-VISUAL-LANGUAGE.md` § Rounded
 boxes.
 
+### Kadunce trims window corners itself
+
+The effect that cuts cards cuts windows. Rejected: a second corner effect,
+which KWin updates break. See `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
+
 ### Files is the file manager
 
 Decided 29 September 2026. With Shuffle installed, Files opens every folder,
