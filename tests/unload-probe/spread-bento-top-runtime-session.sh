@@ -52,24 +52,31 @@ for pass in alone sleeper closed; do
         '[.applications[] | select(.windowId != $n and .windowId != $s)][0].windowId')
     probe contactFocus >/dev/null
     sleep .5
-    report "$pass-cards"
     if [[ -n $sleeper ]]; then
         # A card put to sleep beside the pair, as a minimized application is.
         probe minimizeWindow "$sleeper" true >/dev/null
         sleep .6
-        report "$pass-asleep"
     fi
     # The neighbour is the card used before the Active one, so it is the partner.
     probe activateWindowId "$neighbour" >/dev/null
     sleep .4
     probe contactFocus >/dev/null
     sleep .5
-    report "$pass-active"
     check "$pass: the Active card" context --arg id "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 
-    # The Active card and its neighbour become a Bento pair, then Spread.
-    test "$(kad toggleBentoOnOutput Virtual-0)" = true
-    sleep 1
+    # Carried by its title bar to the left edge, the Active card pairs with
+    # its neighbour, the card used before it; then Spread.
+    bounds=$(probe windowGeometry "$main")
+    x=$(jq '.x+.width/2|floor' <<<"$bounds"); y=$(jq '.y+40|floor' <<<"$bounds")
+    probe pointer "$x" "$y"
+    client armMove
+    probe down "$((touch + 2))" "$x" "$y"
+    sleep .15
+    probe motion "$((touch + 2))" 650 400; sleep .15
+    probe motion "$((touch + 2))" 5 400; sleep .3
+    probe up "$((touch + 2))"
+    sleep 1.2
+    report "$pass-paired"
     check "$pass: a Bento pair" context '.desktopStage.active'
     if [[ -n $sleeper ]]; then
         check "$pass: the sleeping window is a card, asleep" \
