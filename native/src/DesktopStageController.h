@@ -107,6 +107,7 @@ public:
     explicit DesktopStageController(DesktopStageHost *host);
     [[nodiscard]] std::optional<PreparedCarrySource> prepareNativeCarrySource(KWin::EffectWindow *window) const;
     [[nodiscard]] bool nativeCarrySourceValid(const PreparedCarrySource &source) const;
+    [[nodiscard]] QString nativeCarryRefusal(KWin::EffectWindow *window) const;
 
     [[nodiscard]] bool hasActiveSession() const;
     [[nodiscard]] bool ownsWindow(KWin::EffectWindow *window) const;

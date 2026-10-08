@@ -3693,7 +3693,8 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
             // A drag Kadunce does not carry is KWin's own move, and edges do
             // nothing Kadunce's. Say why, so a drag that did nothing is legible.
             qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
-                    << "to KWin: as a card," << m_cardStage->nativeCarryRefusal(window);
+                    << "to KWin: as a card," << m_cardStage->nativeCarryRefusal(window)
+                    << "; as a pane," << m_desktopStage->nativeCarryRefusal(window);
         }
     }
     beginLegacyNativeMove(window);
