@@ -2582,7 +2582,14 @@ bool CardStageController::resumeSelectedBentoProjection()
     if (!m_active || m_presentation != CardPresentation::Spread
         || !selectedIsBentoGroup() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
-    const BentoProjectionSession projection = *m_bentoProjectionSession;
+    BentoProjectionSession projection = *m_bentoProjectionSession;
+    if (auto *tablet = m_host->tabletOutputForCardStage()) {
+        for (const auto &member : std::as_const(projection.panes)) {
+            const auto drawn = groupPaneDrawn(tablet, member.window.data());
+            projection.drawnPanes.append(drawn
+                ? QRectF(drawn->x, drawn->y, drawn->width, drawn->height) : QRectF());
+        }
+    }
     const auto allWindows = m_workspace.windows();
     const auto projectionWindows = m_bentoProjectionWindows;
     const auto originalStackingOrder = m_originalCardStackingOrder;

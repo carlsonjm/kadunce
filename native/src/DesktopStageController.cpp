@@ -2191,6 +2191,16 @@ bool DesktopStageController::resumeProjectedSession(
             && applySession(resumed.value(), false))
             scheduleSettle();
     }
+    // Each pane grows from where the group card drew it to its place in the
+    // layout, replacing any motion placing it gave.
+    if (const auto resumed = m_sessions.constFind(resumedKey); resumed != m_sessions.cend()
+        && projection.drawnPanes.size() == resumed->windows.size()) {
+        QList<QRectF> to;
+        for (const auto &window : resumed->windows)
+            to.append(window && !window->isDeleted() && window->window()
+                ? QRectF(window->window()->moveResizeGeometry()) : QRectF());
+        m_host->animateBentoLayout(projection.output, resumed->windows, projection.drawnPanes, to);
+    }
     if (projection.lead && !projection.lead->isDeleted()
         && projection.lead->window()) {
         KWin::workspace()->raiseWindow(projection.lead->window());

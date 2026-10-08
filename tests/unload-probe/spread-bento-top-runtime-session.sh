@@ -96,6 +96,17 @@ for pass in alone sleeper closed; do
     probe down "$touch" "$gx" "$gy"
     sleep .08
     probe up "$touch"
+    # Each pane grows from where the group card drew it, smaller than its
+    # place in the layout, rather than appearing there at once.
+    growth=()
+    for sample in {1..12}; do
+        growth+=("$(kad nativeCarryState | jq -c --arg id "$main" \
+            '[.bentoMotion[] | select(.window == $id)][0] // empty | {started, rect, target}')")
+        sleep .02
+    done
+    printf '%s\n' "${growth[@]}" | grep . | sed "s/^/$pass: growth /"
+    check "$pass: a pane grows from the group card into the layout" \
+        jq -se 'map(select(.rect.width < .target.width)) | length > 0' < <(printf '%s\n' "${growth[@]}" | grep .)
     sleep 1.2
     report "$pass-opened"
     check "$pass: the tap opens the layout" context '.desktopStage.active and ([.applications[] | select(.hasCard and .stackSize == 2)] | length == 0)'
