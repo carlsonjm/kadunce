@@ -97,6 +97,13 @@ public:
         const KWin::EffectWindow *) const {
         return false;
     }
+    // Where the text cursor the keyboard types at stands on screen, when it
+    // is in this window and its client says. A host with no keyboard answers
+    // that it does not know.
+    [[nodiscard]] virtual std::optional<KWin::RectF> textCursorForCardStage(
+        const KWin::EffectWindow *) const {
+        return std::nullopt;
+    }
     // The stage is about to give this card focus by its own gesture, not by
     // a touch inside the card.
     virtual void setPagingShortcutsForCardStage(bool active) = 0;

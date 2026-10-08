@@ -149,6 +149,13 @@ int main(int argc, char **argv)
     require(Kadunce::keyboardRoomTop(10, 377, 397, 10) == 10);
     require(Kadunce::keyboardRoomTop(10, 780, 900, 10) == 10);
     require(Kadunce::keyboardRoomTop(10, 600, 397, 10) == -213);
+    // Where the client says where its text cursor is, the card rises only as
+    // far as that cursor needs: a search field near its top keeps the window
+    // where it is, and a field near its bottom still clears the keys.
+    require(Kadunce::keyboardRoomTop(10, 683, 502, 10, 60) == 10);
+    require(Kadunce::keyboardRoomTop(10, 600, 397, 10, 590) == -193);
+    require(Kadunce::keyboardRoomTop(10, 600, 397, 10, 900) == -213);
+    require(Kadunce::keyboardRoomTop(10, 377, 397, 10, 380) == 10);
     // A client is asked for a size once a motion, not on every frame of it:
     // all the room the keys give back at once, the room they take once they
     // rest, and nothing while they rise or stand still.
