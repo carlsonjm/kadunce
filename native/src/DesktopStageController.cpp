@@ -38,11 +38,11 @@ BentoPixelRect pixelRect(const QRectF &rect)
 }
 
 // A pane in a KWin zone sits where KWin rounds the zone's rectangle, which can
-// differ from this rounding by a pixel.
-bool onPixel(const KWin::RectF &frame, const BentoPixelRect &pixel, bool zoned)
+// differ from this rounding by a pixel. At a fractional scale a client sizes
+// its frame in whole device pixels, so a pane outside a zone can also miss its
+// rect by part of a pixel (504.571 for 504 at 1.75), and is still on it.
+bool onPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
 {
-    const KWin::Rect target(pixel.x, pixel.y, pixel.width, pixel.height);
-    if (!zoned) return frame.toRect() == target;
     return std::abs(frame.x() - pixel.x) <= 1.5 && std::abs(frame.y() - pixel.y) <= 1.5
         && std::abs(frame.width() - pixel.width) <= 1.5 && std::abs(frame.height() - pixel.height) <= 1.5;
 }
@@ -1885,7 +1885,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         if (window->isMinimized()) continue;
         const auto &pixel = pixels.at(std::size_t(index));
         if (window->screen() == output
-            && onPixel(window->frameGeometry(), pixel, !session->zones.isEmpty())) continue;
+            && onPixel(window->frameGeometry(), pixel)) continue;
         qInfo() << "Kadunce" << Revision << "sheds" << window->caption() << "from" << key
                 << "at" << window->frameGeometry() << "for its pane"
                 << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)
@@ -1915,7 +1915,7 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
         if (!window || window->isDeleted() || !window->window()) return false;
         const auto &pixel = pixels.at(index);
         if (window->screen() != output || window->isMinimized()
-            || !onPixel(window->frameGeometry(), pixel, !session.zones.isEmpty())) return false;
+            || !onPixel(window->frameGeometry(), pixel)) return false;
     }
     return true;
 }
