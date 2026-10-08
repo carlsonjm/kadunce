@@ -12,7 +12,7 @@ native_plugin_system_target="/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_eff
 control_binary_source="${control_build_dir}/bin/kadunce-control"
 control_binary_target="${HOME}/.local/bin/kadunce-control"
 control_service_target="${HOME}/.config/systemd/user/kadunce-control.service"
-control_desktop_target="${HOME}/.local/share/applications/studio.warbler.Kadunce.Control.desktop"
+control_desktop_target="${HOME}/.local/share/applications/co.goodinput.Kadunce.Control.desktop"
 install_state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/kadunce"
 install_receipt="${install_state_dir}/last-install.txt"
 install_succeeded=false
@@ -68,8 +68,8 @@ cmake -S "${project_dir}/native" -B "${native_build_dir}" \
 cmake --build "${native_build_dir}" -j2
 
 echo "[4/6] Updating the per-user workspace control..."
-/usr/bin/install -Dm644 "${project_dir}/assets/studio.warbler.kadunce-logo.png" \
-    "${HOME}/.local/share/icons/hicolor/512x512/apps/studio.warbler.kadunce-logo.png"
+/usr/bin/install -Dm644 "${project_dir}/assets/co.goodinput.kadunce-logo.png" \
+    "${HOME}/.local/share/icons/hicolor/512x512/apps/co.goodinput.kadunce-logo.png"
 bash "${project_dir}/control/prepare-repair.sh"
 systemctl --user stop kadunce-control.service \
     >/dev/null 2>&1 || true
@@ -78,7 +78,7 @@ systemctl --user stop kadunce-control.service \
     "${project_dir}/control/kadunce-control.service" \
     "${control_service_target}"
 /usr/bin/install -Dm644 \
-    "${project_dir}/control/studio.warbler.Kadunce.Control.desktop" \
+    "${project_dir}/control/co.goodinput.Kadunce.Control.desktop" \
     "${control_desktop_target}"
 systemctl --user daemon-reload
 systemctl --user reenable kadunce-control.service >/dev/null

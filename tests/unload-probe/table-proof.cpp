@@ -21,7 +21,7 @@
 class TableProof final : public KWin::Effect
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "studio.warbler.TableProof")
+    Q_CLASSINFO("D-Bus Interface", "co.goodinput.TableProof")
 
 public:
     TableProof()

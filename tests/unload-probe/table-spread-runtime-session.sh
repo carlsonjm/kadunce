@@ -11,7 +11,7 @@
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 vdm() { qdbus6 org.kde.KWin /VirtualDesktopManager "$@"; }
 current() { vdm org.kde.KWin.VirtualDesktopManager.current; }
@@ -113,7 +113,7 @@ hosted() { kad workspaceContext | jq -e '.. | objects | select(has("launcherGues
 python3 - <<'PY' &
 import dbus, json, time
 bus = dbus.SessionBus(private=True)
-kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 assert json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))["accepted"]
 time.sleep(60)
 PY

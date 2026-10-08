@@ -8,7 +8,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_prob
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-qdbus6 studio.warbler.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
 sleep .4
 result=$(probe ownershipEntry)
 probe ownershipEvidence

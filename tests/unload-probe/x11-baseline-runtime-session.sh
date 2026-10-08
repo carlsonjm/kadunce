@@ -2,7 +2,7 @@
 set -euo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe
 KADUNCE_TEST_FRAMELESS=1 QT_QPA_PLATFORM=xcb "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
 client_pid=$!

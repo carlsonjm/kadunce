@@ -9,24 +9,24 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_prob
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-qdbus6 studio.warbler.UnloadClient /Client companion
-qdbus6 studio.warbler.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
 sleep .4
 check a2Setup
 sleep .4
 check a2Begin
 sleep .6
-qdbus6 studio.warbler.UnloadClient /Client paneCompanion
+qdbus6 co.goodinput.UnloadClient /Client paneCompanion
 sleep .4
 check a2Arrival false
 sleep .6
-qdbus6 studio.warbler.UnloadClient /Client oversizedCompanion
+qdbus6 co.goodinput.UnloadClient /Client oversizedCompanion
 sleep .4
 check a2Arrival true
 sleep .6
 check a2Refused
 echo 'PASS: a launch the tablet layout can grow for becomes its larger pane beside the resident; one it cannot is refused awake and unowned, leaving the layout intact'
-qdbus6 studio.warbler.UnloadClient /Client crossCompanion
+qdbus6 co.goodinput.UnloadClient /Client crossCompanion
 sleep .4
 check a2CrossPrepare
 sleep .4
@@ -34,7 +34,7 @@ check a2CrossAdmit
 sleep .6
 check a2Project
 sleep .4
-qdbus6 studio.warbler.UnloadClient /Client ordinaryCompanion
+qdbus6 co.goodinput.UnloadClient /Client ordinaryCompanion
 sleep .4
 check a2OrdinaryNeighbor
 sleep .4
@@ -42,7 +42,7 @@ check a2Return
 sleep .6
 check a2Project
 sleep .4
-qdbus6 studio.warbler.UnloadClient /Client resizeCompanion "Cross ownership" 1
+qdbus6 co.goodinput.UnloadClient /Client resizeCompanion "Cross ownership" 1
 sleep .6
 check a2PaneDrift
 sleep .4
@@ -57,7 +57,7 @@ check a2Restored
 echo 'PASS: Bento group exact resume preserves rejected source state, ordinary neighbors, pane ownership, origins and monitor isolation'
 check a2Reactivate
 sleep .6
-qdbus6 studio.warbler.UnloadClient /Client immediateCompanion
+qdbus6 co.goodinput.UnloadClient /Client immediateCompanion
 sleep .4
 check a2ImmediatePlace
 sleep .4

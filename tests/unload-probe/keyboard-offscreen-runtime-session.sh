@@ -15,7 +15,7 @@
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 vk() { qdbus6 org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard."$@"; }
 failures=0

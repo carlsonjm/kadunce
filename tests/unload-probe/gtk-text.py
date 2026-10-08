@@ -87,7 +87,7 @@ def activate(app):
     field.grab_focus()
 
 
-app = Gtk.Application(application_id='studio.warbler.KeyboardGtkCentreProbe' if CENTRE
-                      else 'studio.warbler.KeyboardGtkProbe')
+app = Gtk.Application(application_id='co.goodinput.KeyboardGtkCentreProbe' if CENTRE
+                      else 'co.goodinput.KeyboardGtkProbe')
 app.connect('activate', activate)
 app.run(None)

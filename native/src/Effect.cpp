@@ -1037,7 +1037,7 @@ Effect::Effect()
 
     if (!QDBusConnection::sessionBus().registerObject(
             QStringLiteral("/Kadunce"),
-            QStringLiteral("studio.warbler.Kadunce"), this,
+            QStringLiteral("co.goodinput.Kadunce"), this,
             QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals)) {
         qWarning() << "Kadunce" << Revision
                    << "could not publish the workspace context interface";
@@ -4749,7 +4749,7 @@ QString Effect::workspaceContext() const
 
     QJsonObject root{
         {QStringLiteral("schema"),
-         QStringLiteral("studio.warbler.kadunce.workspace-context")},
+         QStringLiteral("co.goodinput.kadunce.workspace-context")},
         {QStringLiteral("version"), 1},
         {QStringLiteral("focus"), focus.isEmpty()
             ? QJsonValue(QJsonValue::Null) : QJsonValue(focus)},

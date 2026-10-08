@@ -10,7 +10,7 @@
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 failures=0
 check() {
@@ -38,7 +38,7 @@ class Companion(dbus.service.Object):
     @dbus.service.method("org.example.Companion", in_signature="s", out_signature="")
     def completeGuestLaunch(self, token): note(f"completeGuestLaunch {token}")
 Companion(bus, "/Companion")
-kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 assert kadunce.companionGuestProtocolVersion() == 1
 reply = json.loads(kadunce.beginCompanionGuest(bus.get_unique_name(), "/Companion", "org.example.Companion"))
 note(f"begin {json.dumps(reply, sort_keys=True)}")

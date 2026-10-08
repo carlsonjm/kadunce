@@ -8,7 +8,7 @@ set -euo pipefail
 trap 'echo "FAIL: keyboard chosen runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 vk() { qdbus6 org.kde.KWin /VirtualKeyboard org.kde.kwin.VirtualKeyboard."$@"; }
 tap() { probe down "$1" "$2" "$3"; sleep .05; probe up "$1"; }

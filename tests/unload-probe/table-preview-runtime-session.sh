@@ -8,7 +8,7 @@ set -euo pipefail
 trap 'echo "FAIL: table preview $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 tp() { qdbus6 org.kde.KWin /TableProof "$@"; }
-client() { qdbus6 studio.warbler.TableClient /Client "$@"; }
+client() { qdbus6 co.goodinput.TableClient /Client "$@"; }
 vdm() { qdbus6 org.kde.KWin /VirtualDesktopManager "$@"; }
 desktops() { qdbus6 --literal org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.desktops; }
 current() { vdm org.kde.KWin.VirtualDesktopManager.current; }

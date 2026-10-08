@@ -51,7 +51,7 @@ private:
 class Client : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "studio.warbler.TableClient")
+    Q_CLASSINFO("D-Bus Interface", "co.goodinput.TableClient")
 
 public Q_SLOTS:
     void open(const QString &title, const QString &hex, int width, int height)
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     QGuiApplication app(argc, argv);
     Client client;
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/Client"), &client, QDBusConnection::ExportAllSlots);
-    QDBusConnection::sessionBus().registerService(QStringLiteral("studio.warbler.TableClient"));
+    QDBusConnection::sessionBus().registerService(QStringLiteral("co.goodinput.TableClient"));
     return app.exec();
 }
 

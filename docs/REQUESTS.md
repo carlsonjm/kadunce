@@ -10,7 +10,7 @@ requester only names the application and the point.
 ```text
 service:   org.kde.KWin
 path:      /Kadunce
-interface: studio.warbler.Kadunce
+interface: co.goodinput.Kadunce
 ```
 
 | Call | Result |

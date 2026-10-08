@@ -13,7 +13,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded kadunce_unload_
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 for attempt in {1..40}; do
-    if qdbus6 studio.warbler.UnloadClient /Client state >/dev/null 2>&1; then break; fi
+    if qdbus6 co.goodinput.UnloadClient /Client state >/dev/null 2>&1; then break; fi
     sleep .1
 done
 sleep .5
@@ -113,7 +113,7 @@ echo 'PASS: fullscreen plus minimized restoration preserves original state and v
 test "$(probe bentoOutputLostDuringRestore)" = true
 test "$(probe bentoFresh)" = true
 echo 'PASS: output-removal notification during restoration moves the saved state to a surviving output'
-qdbus6 studio.warbler.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
 sleep .3
 test "$(probe cardAdmissionOrdering)" = true
 echo 'PASS: card destination preparation, source rejection, publish-before-release and Bento/native destination priority'

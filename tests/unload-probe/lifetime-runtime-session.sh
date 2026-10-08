@@ -5,7 +5,7 @@ set -euo pipefail
 trap 'echo "FAIL: lifetime line $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 # The bezel is Kadunce's to recognise only with the Z13 kit's posture file.
 mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
