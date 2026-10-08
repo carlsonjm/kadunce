@@ -6729,9 +6729,11 @@ bool Effect::trimsCorners(KWin::EffectWindow *window) const
     if (!m_fanApertureShader || m_fanPaintSizeLocation < 0
         || m_fanApertureOriginLocation < 0 || m_fanApertureSizeLocation < 0
         || m_fanApertureRadiusLocation < 0) return false;
-    // Only a window under a title bar; one that draws its own frame keeps it.
-    if (!window->hasDecoration() || window->isFullScreen()) return false;
-    // A shadow lies outside the frame, and the trim would cut it away.
+    // Application windows and their dialogs, with or without a title bar;
+    // panels, pop-ups and the keys keep their own shapes.
+    if (!(window->isNormalWindow() || window->isDialog()) || window->isFullScreen()) return false;
+    // A shadow lies outside the frame, and the trim would cut it away. A
+    // window that draws its own shadow draws its own corners too.
     if (window->expandedGeometry() != window->frameGeometry()) return false;
     // A maximized window meets the display's edges, which stay square.
     const KWin::Window *client = window->window();
