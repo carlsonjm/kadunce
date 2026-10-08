@@ -57,12 +57,14 @@ for pass in alone sleeper closed; do
         # A card put to sleep beside the pair, as a minimized application is.
         probe minimizeWindow "$sleeper" true >/dev/null
         sleep .6
+        report "$pass-asleep"
     fi
     # The neighbour is the card used before the Active one, so it is the partner.
     probe activateWindowId "$neighbour" >/dev/null
     sleep .4
     probe contactFocus >/dev/null
     sleep .5
+    report "$pass-active"
     check "$pass: the Active card" context --arg id "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 
     # The Active card and its neighbour become a Bento pair, then Spread.
