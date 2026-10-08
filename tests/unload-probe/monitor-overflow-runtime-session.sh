@@ -3,8 +3,9 @@
 # both (DECISIONS.md § A display without cards organizes everything it shows).
 # A window its layout has no room for goes to the dock, minimized: never to the
 # card display and never loose beside the layout. Picking it from the dock
-# brings it back as an arrival. Switching Kadunce off returns every window to
-# the desktop, minimized ones included.
+# brings it back as an arrival, and closing a pane brings one back on its own.
+# Switching Kadunce off returns every window to the desktop, minimized ones
+# included.
 #
 # Needs the tablet fixture, so that a card display exists to be wrongly sent
 # to. Each monitor window's minimum size lets two share the 1280x800 monitor
@@ -75,6 +76,14 @@ check 'two shown, two waiting, none loose' shown 2
 check 'two wait in the dock' waiting 2
 check 'still nothing left the monitor' stayed
 
+gone=$(kad workspaceContext | jq -r "first($monitor[] | select(.minimized | not) | select(.title != \"Monitor D\")) | .title")
+client closeCompanion "$gone"
+sleep 1.2
+report closed
+check 'closing a pane brings one back from the dock' waiting 1
+check 'still two shown, none loose' shown 2
+check 'still nothing left the monitor' stayed
+
 mine=$(kad workspaceContext | jq -r "first($monitor[] | select(.minimized | not) | select(.title != \"Monitor D\")) | .windowId")
 probe minimizeWindow "$mine" true
 sleep 1
@@ -91,4 +100,4 @@ for name in 'Monitor A' 'Monitor B' 'Monitor C' 'Monitor D'; do
 done
 
 if ((failures)); then echo "FAIL: monitor overflow: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: a monitor layout sends what it cannot show to the dock, takes it back from there, and returns everything on switch-off'
+echo 'PASS: a monitor layout sends what it cannot show to the dock, takes it back from there when picked or when room frees, and returns everything on switch-off'

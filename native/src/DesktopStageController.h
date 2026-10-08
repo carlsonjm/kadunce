@@ -343,6 +343,9 @@ private:
     void parkWindow(const QString &key, KWin::EffectWindow *window,
                     const RestoreSnapshot *record = nullptr);
     void minimizeParked(const QString &key);
+    // Asks the layout again for every window the dock holds and shows those it
+    // now has room for. The caller publishes the result.
+    bool wakeParked(const QString &key);
     bool admitArrival(Session *session, KWin::EffectWindow *window,
                       const RestoreSnapshot &snapshot);
     // CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one
