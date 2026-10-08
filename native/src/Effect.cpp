@@ -210,7 +210,7 @@ bool paintPointerAbove(const KWin::RenderTarget &renderTarget, const KWin::Rende
 void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
     const QRectF &box, double angle, float opacity, float outline,
-    const QVector3D &fillColor = QVector3D(0.075F, 0.075F, 0.075F),
+    const QVector3D &fillColor = SurfaceTone::current().cardBacking(),
     float fillOpacityScale = 1.0F)
 {
     if (!shader || box.isEmpty()) return;
@@ -7077,7 +7077,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             bentoProjection ? outputFence : deviceRegion & outputFence,
             surface, paintPose.rotation, float(data.opacity()), 0.0f,
             bentoProjection ? QVector3D(0.0F, 0.0F, 0.0F)
-                            : QVector3D(0.075F, 0.075F, 0.075F),
+                            : SurfaceTone::current().cardBacking(),
             bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
     }
     m_cardLabelTargets.insert(window, bentoProjection

@@ -53,6 +53,12 @@ void requireFixedDark(const SurfaceTone &tone, const char *message)
     require(tone.pillFill(235) == QColor(20, 20, 20, 235), message);
     require(tone.lineInk() == QVector3D(0.88F, 0.88F, 0.88F), message);
 }
+
+bool backingIs(const SurfaceTone &tone, float r, float g, float b)
+{
+    const QVector3D backing = tone.cardBacking();
+    return qAbs(backing.x() - r) < 1e-4F && qAbs(backing.y() - g) < 1e-4F && qAbs(backing.z() - b) < 1e-4F;
+}
 } // namespace
 
 int main()
@@ -74,6 +80,7 @@ int main()
     {
         const SurfaceTone tone = SurfaceTone::read();
         requireFixedDark(tone, "A dark scheme changed the dark surfaces");
+        require(backingIs(tone, 0.075F, 0.075F, 0.075F), "Dark windows' card backing changed");
         require(tone.accent == QColor(248, 248, 255) && tone.accentText == QColor(16, 39, 41),
             "The highlight was not the scheme's");
     }
@@ -87,6 +94,9 @@ int main()
     {
         const SurfaceTone tone = SurfaceTone::read();
         requireFixedDark(tone, "A dark style beside light windows did not keep the surfaces dark");
+        // The backing belongs to the windows: light windows stand on their own ground.
+        require(backingIs(tone, 224 / 255.0F, 224 / 255.0F, 224 / 255.0F),
+            "Light windows stood on a dark card backing");
         require(tone.accent == QColor(61, 174, 233), "The highlight was not the style's");
     }
 

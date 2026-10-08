@@ -28,6 +28,8 @@ struct SurfaceTone
     QColor text = QColor(248, 248, 255);
     QColor accent = QColor(248, 248, 255);
     QColor accentText = QColor(16, 39, 41);
+    // The window colours' ground, which the cards themselves are painted in.
+    QColor windowGround = QColor(28, 28, 28);
 
     // Light or dark as Kirigami judges a colour: by its luma.
     static bool isDark(const QColor &colour)
@@ -57,6 +59,16 @@ struct SurfaceTone
         return QVector3D(float(text.redF()), float(text.greenF()), float(text.blueF()));
     }
 
+    // The backing a card's window stands on, which shows wherever the window
+    // does not fill its card. It belongs to the windows, not the panels: the
+    // fixed near black under dark windows, their own ground under light ones.
+    QVector3D cardBacking() const
+    {
+        if (isDark(windowGround)) return QVector3D(0.075F, 0.075F, 0.075F);
+        return QVector3D(float(windowGround.redF()), float(windowGround.greenF()),
+                         float(windowGround.blueF()));
+    }
+
     // The Plasma style's colours as Plasma itself picks them: the style's own
     // colors file where it ships one, the system colour scheme where it does
     // not. Anything missing keeps the dark defaults above.
@@ -72,6 +84,9 @@ struct SurfaceTone
         tone.text = entry(window, "ForegroundNormal", tone.text);
         tone.accent = entry(selection, "BackgroundNormal", tone.accent);
         tone.accentText = entry(selection, "ForegroundNormal", tone.accentText);
+        const KConfig windows(QStringLiteral("kdeglobals"));
+        tone.windowGround = entry(KConfigGroup(&windows, QStringLiteral("Colors:Window")),
+                                  "BackgroundNormal", tone.windowGround);
         return tone;
     }
 
