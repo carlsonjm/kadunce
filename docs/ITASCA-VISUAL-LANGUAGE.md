@@ -105,6 +105,9 @@ These semantic values apply to suite-owned presentation.
 - Keep primary text and glyphs near-white; use opacity for supporting context.
 - Application artwork and source icons may retain native color. Suite chrome stays
   monochrome unless state requires accent or error color.
+- These are the dark values. Kadunce's own surfaces take the Plasma style's
+  colors: these exactly on a dark style, and on a light one its text laid over
+  its ground in the same steps.
 
 ### Terminal palette
 

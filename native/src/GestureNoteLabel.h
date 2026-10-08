@@ -2,6 +2,7 @@
 #pragma once
 
 #include "GestureNote.h"
+#include "SurfaceTone.h"
 
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
@@ -19,7 +20,7 @@
 namespace Kadunce
 {
 // The refusal note's pill, drawn as the bottom edge's "return to desktop" label
-// is: dark, rounded, one line of Ghost White. A text HUD only; it never
+// is: rounded, one line of words, in the Plasma style's colours (SurfaceTone.h). A text HUD only; it never
 // receives a window.
 class GestureNoteLabel
 {
@@ -39,20 +40,23 @@ public:
     {
         if (box.isEmpty() || text.isEmpty() || opacity <= 0.0) return;
         const QSize pixels(qMax(1, qRound(box.width())), qMax(1, qRound(box.height())));
-        if (!m_texture || m_text != text || m_pixels != pixels) {
+        const SurfaceTone &tone = SurfaceTone::current();
+        const QColor fill = tone.pillFill(235);
+        const QColor words = tone.labelText();
+        if (!m_texture || m_text != text || m_pixels != pixels || m_fill != fill || m_words != words) {
             QImage image(pixels * 2, QImage::Format_ARGB32_Premultiplied);
             image.setDevicePixelRatio(2.0);
             image.fill(Qt::transparent);
             QPainter painter(&image);
             painter.setRenderHint(QPainter::Antialiasing);
-            painter.setBrush(QColor(20, 20, 20, 235));
+            painter.setBrush(fill);
             painter.setPen(Qt::NoPen);
             const QRectF pill(QPointF(0, 0), QSizeF(pixels));
             painter.drawRoundedRect(pill, 8, 8);
             QFont font;
             font.setPixelSize(FontPixels);
             painter.setFont(font);
-            painter.setPen(QColor(248, 248, 255)); // Ghost White
+            painter.setPen(words);
             const QString shown = QFontMetrics(font).elidedText(
                 text, Qt::ElideRight, qMax(0, pixels.width() - 2 * Padding));
             painter.drawText(pill, Qt::AlignCenter, shown);
@@ -60,6 +64,8 @@ public:
             m_texture = KWin::GLTexture::upload(image);
             m_text = text;
             m_pixels = pixels;
+            m_fill = fill;
+            m_words = words;
         }
         if (!m_texture) return;
         KWin::ShaderBinder binder(KWin::ShaderTrait::MapTexture | KWin::ShaderTrait::Modulate);
@@ -89,6 +95,8 @@ private:
     static constexpr int Padding = 16;
     QString m_text;
     QSize m_pixels;
+    QColor m_fill;
+    QColor m_words;
     std::unique_ptr<KWin::GLTexture> m_texture;
 };
 } // namespace Kadunce
