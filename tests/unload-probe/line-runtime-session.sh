@@ -343,6 +343,37 @@ probe up 67
 sleep .8
 kad nativeCarryState | jq -e '(.lineAnimating|not) and (.lineCarrying|not)'
 echo 'PASS: a long row stays three across, leaned or not, and a pull down zooms it out to one set view and back'
+# A card held when another app closes is let go: it glides back from where it
+# is drawn to its place as the row closes up, rather than jumping there. The
+# glide is read the moment the hold ends, so every term is a bound between
+# held and home, and it has landed a while after.
+home=$(kad nativeCarryState | jq -c '.lineRect')
+held_title=$(kad workspaceContext | jq -r '[.applications[] | select(.selected) | .title] | first')
+gone="Long row 1"
+[[ $held_title != "$gone" ]] || gone="Long row 2"
+before_cards=$(cards)
+probe down 68 "$middle" 350
+sleep .4
+probe motion 68 "$middle" 450
+sleep .3
+held=$(kad nativeCarryState | jq -c '.lineRect')
+kad nativeCarryState | jq -e '.lineCarrying'
+client closeCompanion "$gone"
+for _ in {1..40}; do
+    state=$(kad nativeCarryState)
+    if jq -e '.lineCarrying | not' <<<"$state" >/dev/null; then break; fi
+    sleep .01
+done
+probe up 68
+echo "RESULT cancel-glide home=$home held=$held state=$(jq -c '{lineAnimating, lineRect}' <<<"$state")"
+jq -e --argjson home "$home" --argjson held "$held" \
+    '(.lineCarrying|not) and .lineAnimating and .lineRect.y > $home.y
+     and .lineRect.y <= $held.y and .lineRect.width > $home.width' <<<"$state"
+sleep .6
+kad nativeCarryState | jq -e --argjson home "$home" '(.lineAnimating|not) and .lineRect == $home'
+test "$(cards)" -eq $((before_cards - 1))
+test "$(kad workspaceContext | jq -r '[.applications[] | select(.selected) | .title] | first')" = "$held_title"
+echo 'PASS: a held card whose grab another app cancels glides back to its place'
 # Kadunce's keys sit on Meta, and Ctrl stays with applications (INPUT.md §
 # Keyboard shortcuts). Linux key codes: 125 Meta, 29 Ctrl, 31 S, 105 Left,
 # 106 Right, 1 Escape; the probe holds the modifier around the key.

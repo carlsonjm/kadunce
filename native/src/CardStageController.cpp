@@ -1746,6 +1746,7 @@ void CardStageController::returnWindowToDesktop(KWin::EffectWindow *window)
 {
     if (!m_active || !window || window->isDeleted() || liveCardIndex(window) >= 0) return;
     finishCardGrab(false);
+    clearCardTransition();
     if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
     m_returnedToDesktop.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
     m_returnedToDesktop.append(window);
@@ -2205,16 +2206,20 @@ void CardStageController::finishCardGrab(bool commit)
         return;
     }
     KWin::EffectWindow *grabbed = selectedWindow();
-    if (!commit) clearCardTransition();
     // Release animation is presentation only. Capture before changing order;
     // the held surface remains directly attached to its contact until release.
-    // Cancellation/disable must never acquire an animation lifetime.
-    if (commit && !m_launcherGuestActive) {
+    // A cancel glides too: the held card goes back from where it is drawn to
+    // its place and the row closes up around it. Only Spread draws that
+    // motion; a caller that leaves Spread starts its own or clears it, and
+    // release(), which hands every window back, always clears it.
+    if (m_launcherGuestActive) {
+        if (!commit) clearCardTransition();
+    } else {
         captureCardTransition(false, true);
         if (m_carry.inStack) {
             // Its Stack closes at the pace it parted.
             m_stackStepTransition = m_poseTransition;
-        } else if (m_poseTransition) {
+        } else if (commit && m_poseTransition) {
             // The card lands in one move: it drops into the line and the row
             // grows back around it, cards leaving the screen as it does.
             m_landTransition = true;
@@ -2421,7 +2426,7 @@ void CardStageController::restoreOriginalStackingOrder()
     }
 }
 
-void CardStageController::toggle(bool growToActive)
+void CardStageController::toggle(bool)
 {
     stopOpeningSpread();
     m_host->cancelInputForCardStage();
@@ -2438,13 +2443,14 @@ void CardStageController::toggle(bool growToActive)
         } else if (m_presentation == CardPresentation::Spread) {
             // The chosen card grows to its Active place first, as a new app's
             // card does, and the arrival timer enters Active when it is there.
-            if (growToActive && growSelectedToActive()) return;
+            if (growSelectedToActive()) return;
             if (!enterActive()) {
                 return;
             }
         } else {
             parkActiveSnapshot();
             m_presentation = CardPresentation::Spread;
+            formRowFromActive();
         }
         syncSelectedElevation();
         KWin::effects->addRepaintFull();
@@ -2576,7 +2582,14 @@ bool CardStageController::resumeSelectedBentoProjection()
     if (!m_active || m_presentation != CardPresentation::Spread
         || !selectedIsBentoGroup() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
-    const BentoProjectionSession projection = *m_bentoProjectionSession;
+    BentoProjectionSession projection = *m_bentoProjectionSession;
+    if (auto *tablet = m_host->tabletOutputForCardStage()) {
+        for (const auto &member : std::as_const(projection.panes)) {
+            const auto drawn = groupPaneDrawn(tablet, member.window.data());
+            projection.drawnPanes.append(drawn
+                ? QRectF(drawn->x, drawn->y, drawn->width, drawn->height) : QRectF());
+        }
+    }
     const auto allWindows = m_workspace.windows();
     const auto projectionWindows = m_bentoProjectionWindows;
     const auto originalStackingOrder = m_originalCardStackingOrder;
@@ -2677,6 +2690,7 @@ void CardStageController::release()
         return;
     }
     finishCardGrab(false);
+    clearCardTransition(); // Going away: a cancelled grab glides nowhere.
     endLauncherGuest();
     const QPointer<KWin::EffectWindow> releasedWindow = selectedWindow();
     // Stop filtering the scene before fullscreen restoration changes layers,
@@ -3852,6 +3866,17 @@ void CardStageController::stopOpeningSpread()
     m_openProgress.reset();
 }
 
+void CardStageController::formRowFromActive()
+{
+    if (m_presentation != CardPresentation::Spread) return;
+    stopOpeningSpread();
+    clearCardTransition();
+    // Each card's origin is where an opening at no progress draws it.
+    m_openProgress = 0.0;
+    captureCardTransition();
+    m_openProgress.reset();
+}
+
 CardStageController::SpreadTap CardStageController::tapSpread(const QPointF &position)
 {
     auto *tablet = m_host->tabletOutputForCardStage();
@@ -4739,7 +4764,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
 
     if (m_workspace.count() == 3 && m_workspace.stackSizeForId(closedIndex + 1) == 1)
         captureCardTransition();
-    else if (flicked && m_presentation == CardPresentation::Spread)
+    else if (m_presentation == CardPresentation::Spread && (flicked || !m_launcherGuestActive))
         captureCardTransition(false, true); // The row closes the gap it left.
     finishCardGrab(false);
     const bool closedActive = m_activeRestore.window == window;
@@ -4762,6 +4787,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
         rebuildLiveCards();
     } else if (closedActive) {
         m_presentation = CardPresentation::Spread;
+        formRowFromActive();
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();

@@ -287,7 +287,9 @@ public:
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 
-    // A card chosen by touch or key grows into Active; other callers enter at once.
+    // Leaving Spread, the chosen card grows into Active, whichever input asked;
+    // the argument no longer changes that. Entering Spread from the Active
+    // card, it shrinks into the row.
     void toggle(bool growToActive = false);
     // Ends a chosen card's growth in Active at once; true when there was one.
     bool finishGrowToActive();
@@ -535,6 +537,10 @@ private:
     void restoreCarryOrigin();
     bool selectReturnEntry();
     void stopOpeningSpread();
+    // The row forms from the Active card's place, as three fingers let go past
+    // halfway leave it: the selected card shrinks from where the Active card
+    // stood and its neighbours slide in from the sides. Spread only.
+    void formRowFromActive();
     // Where the Bento group card draws its pane `pane`.
     [[nodiscard]] std::optional<CardRect> groupPaneDrawn(KWin::LogicalOutput *output,
                                                          KWin::EffectWindow *pane) const;
