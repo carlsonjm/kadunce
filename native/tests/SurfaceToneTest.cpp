@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-// Behavioral coverage of the surface tone: Kadunce's own surfaces take the
-// Plasma style's colours, not the window colours, and on a dark ground they
-// are exactly the fixed values they always were.
+// Behavioral coverage of the surface tone: Kadunce's own surfaces follow the
+// system colour scheme, and on a dark ground they are exactly the fixed values
+// they always were.
 #include "SurfaceTone.h"
 
 #include <QDir>
@@ -74,39 +74,28 @@ int main()
     // Nothing set: the fixed dark values.
     requireFixedDark(SurfaceTone::read(), "With no colours set, the surfaces were not the fixed dark ones");
 
-    // A dark scheme and a style without colours of its own: unchanged.
+    // A dark scheme: unchanged, highlight included.
     write(QStringLiteral("config/kdeglobals"), Dark);
-    write(QStringLiteral("config/plasmarc"), "[Theme]\nname=plain\n");
     {
         const SurfaceTone tone = SurfaceTone::read();
         requireFixedDark(tone, "A dark scheme changed the dark surfaces");
-        require(backingIs(tone, 0.075F, 0.075F, 0.075F), "Dark windows' card backing changed");
+        require(backingIs(tone, 0.075F, 0.075F, 0.075F), "A dark scheme changed the card backing");
         require(tone.accent == QColor(248, 248, 255) && tone.accentText == QColor(16, 39, 41),
             "The highlight was not the scheme's");
     }
 
-    // Light windows under a style that carries dark colours: the surfaces
-    // stay dark, as the style's panels do.
+    // A light scheme turns every surface light, whatever the Plasma style
+    // keeps for its panels.
     write(QStringLiteral("config/kdeglobals"), Light);
     write(QStringLiteral("config/plasmarc"), "[Theme]\nname=dark-panels\n");
-    write(QStringLiteral("data/plasma/desktoptheme/dark-panels/colors"),
-        scheme("28,28,28", "248,248,255", "61,174,233", "16,39,41"));
-    {
-        const SurfaceTone tone = SurfaceTone::read();
-        requireFixedDark(tone, "A dark style beside light windows did not keep the surfaces dark");
-        // The backing belongs to the windows: light windows stand on their own ground.
-        require(backingIs(tone, 224 / 255.0F, 224 / 255.0F, 224 / 255.0F),
-            "Light windows stood on a dark card backing");
-        require(tone.accent == QColor(61, 174, 233), "The highlight was not the style's");
-    }
-
-    // A style without colours over a light scheme: light, in its colours.
-    write(QStringLiteral("config/plasmarc"), "[Theme]\nname=plain\n");
+    write(QStringLiteral("data/plasma/desktoptheme/dark-panels/colors"), Dark);
     {
         const SurfaceTone tone = SurfaceTone::read();
         require(!tone.dark(), "A light scheme left the surfaces dark");
         require(tone.labelText(220) == QColor(16, 39, 41, 220), "A label did not take the scheme's text");
         require(tone.pillFill(235) == QColor(224, 224, 224, 235), "A pill did not take the scheme's ground");
+        require(backingIs(tone, 224 / 255.0F, 224 / 255.0F, 224 / 255.0F),
+            "Light windows stood on a dark card backing");
         const QVector3D ink = tone.lineInk();
         require(qAbs(ink.x() - 16 / 255.0F) < 1e-4F && qAbs(ink.y() - 39 / 255.0F) < 1e-4F
                 && qAbs(ink.z() - 41 / 255.0F) < 1e-4F, "An outline did not take the scheme's text");
@@ -114,19 +103,13 @@ int main()
             "The light highlight was not the scheme's");
     }
 
-    // A light style over a dark scheme: the style wins.
-    write(QStringLiteral("config/kdeglobals"), Dark);
-    write(QStringLiteral("config/plasmarc"), "[Theme]\nname=light\n");
-    write(QStringLiteral("data/plasma/desktoptheme/light/colors"), Light);
-    require(!SurfaceTone::read().dark(), "A light style's own colours were ignored");
-
-    // A colour the file cannot give keeps the dark default.
-    write(QStringLiteral("data/plasma/desktoptheme/light/colors"),
+    // A colour the scheme cannot give keeps the dark default.
+    write(QStringLiteral("config/kdeglobals"),
         "[Colors:Window]\nBackgroundNormal=300,0,0\nForegroundNormal=not a colour\n");
     requireFixedDark(SurfaceTone::read(), "An unreadable colour was used");
 
     // Hex and named colours read as Qt reads them.
-    write(QStringLiteral("data/plasma/desktoptheme/light/colors"),
+    write(QStringLiteral("config/kdeglobals"),
         "[Colors:Window]\nBackgroundNormal=#f0f0f0\nForegroundNormal=black\n");
     {
         const SurfaceTone tone = SurfaceTone::read();
@@ -134,9 +117,8 @@ int main()
             "A hex or named colour was not read");
     }
 
-    // Asked every frame, the tone follows a change of style.
+    // Asked every frame, the tone starts from the scheme.
     clear();
-    write(QStringLiteral("config/plasmarc"), "[Theme]\nname=plain\n");
     write(QStringLiteral("config/kdeglobals"), Dark);
     require(SurfaceTone::current().dark(), "The current tone did not start dark");
     return 0;

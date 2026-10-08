@@ -9,7 +9,7 @@
 #include <QPainter>
 #include <QObject>
 namespace Kadunce {
-// A fixed-size text HUD only, in the Plasma style's colours (SurfaceTone.h). Never receives a window or produces a card image.
+// A fixed-size text HUD only, in the colour scheme's colours (SurfaceTone.h). Never receives a window or produces a card image.
 class DesktopExitLabel {
 public:
     void render(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,

@@ -229,7 +229,7 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
-    // The card's own material, the same under every Plasma style.
+    // Card surfaces draw no ring; this keeps the shared shader's ink defined.
     shader->setUniform("outlineInk", QVector3D(0.88F, 0.88F, 0.88F));
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
