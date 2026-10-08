@@ -1886,6 +1886,10 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         const auto &pixel = pixels.at(std::size_t(index));
         if (window->screen() == output
             && onPixel(window->frameGeometry(), pixel, !session->zones.isEmpty())) continue;
+        qInfo() << "Kadunce" << Revision << "sheds" << window->caption() << "from" << key
+                << "at" << window->frameGeometry() << "for its pane"
+                << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)
+                << (window->isUserMove() ? "while KWin holds a move of it" : "");
         unsettled.append(window);
     }
     for (const auto &window : std::as_const(unsettled)) {
