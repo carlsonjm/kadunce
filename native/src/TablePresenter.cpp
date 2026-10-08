@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "TablePresenter.h"
 #include "MotionTime.h"
+#include "SurfaceTone.h"
 
 #include <effect/effecthandler.h>
 #include <effect/offscreenquickview.h>
@@ -56,6 +57,11 @@ void TablePresenter::show(const QRect &geometry, qreal scale, const QVariantMap 
     if (QQuickItem *root = m_scene->rootItem()) {
         root->setProperty("model", model);
         root->setProperty("motionFactor", KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
+        const SurfaceTone &tone = SurfaceTone::current();
+        root->setProperty("themeGround", tone.ground);
+        root->setProperty("themeText", tone.text);
+        root->setProperty("themeAccent", tone.accent);
+        root->setProperty("themeAccentText", tone.accentText);
         root->setProperty("shown", true);
     }
 }

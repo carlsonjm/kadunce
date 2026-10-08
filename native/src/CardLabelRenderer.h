@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CardLabelPresentation.h"
+#include "SurfaceTone.h"
 
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
@@ -32,7 +33,9 @@ public:
     {
         if (card.isEmpty() || presentation.applicationName.isEmpty()) return;
         const int width = qMax(1, qRound(card.width()));
-        const QString key = presentation.applicationName
+        const QColor words = SurfaceTone::current().labelText(220);
+        const QString key = words.name(QColor::HexArgb) + QChar(0x1f)
+            + presentation.applicationName
             + QChar(0x1f) + presentation.stackPosition
             + QChar(0x1f) + QString::number(width);
         auto *texture = m_textures.object(key);
@@ -46,7 +49,7 @@ public:
             QFont font;
             font.setPixelSize(15);
             painter.setFont(font);
-            painter.setPen(QColor(248, 248, 255, 220));
+            painter.setPen(words);
             const QFontMetrics metrics(font);
             const int positionWidth = presentation.stackPosition.isEmpty()
                 ? 0 : metrics.horizontalAdvance(presentation.stackPosition);
