@@ -700,10 +700,14 @@ private:
     bool m_overviewCornerHeld = false;
     QMetaObject::Connection m_inputPanelGeometry;
     // The keys come up only when the person asks for them: a tap on the line
-    // the text cursor sits on or, just after it, anywhere in the window that
-    // asks, or a request through raiseKeyboard. Anything else the compositor
-    // raises goes back down before it is drawn.
+    // the text cursor sits on or, just after a tap made with the keys up,
+    // anywhere in the window that asks, or a request through raiseKeyboard.
+    // Anything else the compositor raises goes back down before it is drawn.
     QElapsedTimer m_keyboardAskedSince;
+    // Whether the person's keys were on screen as the latest touch came down.
+    // Only then is a field asking just after it a move from one field to the
+    // next; with the keys down it may be the application's own focus.
+    bool m_keysUpAtTouch = false;
     // Set once keys on screen are found asked for, and held until they go.
     // Until then they are not drawn, so keys raised for nobody are never seen
     // for the frame the compositor can paint before the decision reaches it.

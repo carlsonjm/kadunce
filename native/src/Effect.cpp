@@ -3132,12 +3132,14 @@ const char *Effect::keyboardRefusal(const KWin::InputMethod &method) const
     if (const KWin::EffectWindow *panel = KWin::effects->inputPanel();
         panel && panel->frameGeometry().contains(finger)) return nullptr;
     if (!target->frameGeometry().contains(finger)) return "the last touch was outside its window";
-    // A field that asks within a moment of a tap in its own window is the one
-    // tapped. The cursor a browser reports then cannot be read: moving into a
-    // box in a frame from another site, it gives the last box's, or this
-    // one's from before the window last changed size.
+    // A field that asks within a moment of a tap in its own window, made while
+    // the keys were up, is the one tapped. The cursor a browser reports then
+    // cannot be read: moving into a box in a frame from another site, it gives
+    // the last box's, or this one's from before the window last changed size.
+    // With the keys down the tap may have been on a link or a list, and a
+    // page that opens focuses its own box; only the cursor can tell.
     constexpr qint64 TapJustNowMs = 1000;
-    if (m_inputRouter && m_inputRouter->msSinceLatestTouch() < TapJustNowMs
+    if (m_keysUpAtTouch && m_inputRouter && m_inputRouter->msSinceLatestTouch() < TapJustNowMs
         && m_inputRouter->latestTouchWindow() == target)
         return nullptr;
     const KWin::RectF cursor = method.cursorRectangle();
@@ -5367,6 +5369,7 @@ void Effect::showHeldPointer(HeldPointer held, bool wasHeld)
 // again; an open Table keeps its own hold.
 void Effect::touchBeganForInput()
 {
+    m_keysUpAtTouch = m_keysForPerson;
     m_pointerResting = true;
     if (m_table.isOpen() || m_heldPointer == HeldPointer::None) return;
     m_heldPointer = HeldPointer::None;
