@@ -54,6 +54,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/TableLayout.h
         src/TablePresenter.cpp
         src/TablePresenter.h
+        src/SurfaceTone.h
         src/plugin.cpp
     INSTALL_NAMESPACE "kwin/effects/plugins/"
 )
@@ -168,6 +169,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-gesture-note-test PRIVATE src)
     target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core)
     add_test(NAME gesture-note COMMAND kadunce-gesture-note-test)
+    add_executable(kadunce-surface-tone-test tests/SurfaceToneTest.cpp)
+    target_include_directories(kadunce-surface-tone-test PRIVATE src)
+    target_link_libraries(kadunce-surface-tone-test PRIVATE Qt6::Gui KF6::ConfigCore)
+    add_test(NAME surface-tone COMMAND kadunce-surface-tone-test)
     add_executable(kadunce-stuck-notes-test tests/StuckNotesTest.cpp)
     target_include_directories(kadunce-stuck-notes-test PRIVATE src)
     target_link_libraries(kadunce-stuck-notes-test PRIVATE Qt6::Core)
