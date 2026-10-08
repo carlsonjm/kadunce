@@ -2392,6 +2392,7 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
     }
     QString sourceKey;
     RestoreSnapshot removedSnapshot;
+    bool wasShown = false;
     for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
         Session &session = it.value();
         auto snapshot = std::find_if(
@@ -2404,6 +2405,7 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         }
         sourceKey = it.key();
         removedSnapshot = *snapshot;
+        wasShown = session.windows.contains(window);
         session.snapshots.erase(snapshot);
         session.windows.removeAll(window);
         break;
@@ -2433,6 +2435,11 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         return;
     }
     reflowSession(source.value());
+    // DECISIONS.md § A display without cards organizes everything it shows: a
+    // window waiting in the dock comes back when a pane leaves room for it.
+    const bool parked = std::any_of(source->snapshots.cbegin(), source->snapshots.cend(),
+        [](const auto &saved) { return saved.parked; });
+    if (wasShown && parked && !m_restoring && parksOverflow(sourceKey)) wakeParked(sourceKey);
     // CARD-LIFECYCLE.md §12: a closure that leaves one pane ends Bento, and
     // that pane becomes an individual card rather than being laid out again.
     endLayoutIntoCardOwnership(sourceKey);
@@ -2871,24 +2878,35 @@ void DesktopStageController::zoneModeChanged()
         if (!parksOverflow(key)) continue;
         auto found = m_sessions.find(key);
         if (found == m_sessions.end() || found->windows.isEmpty()) continue;
-        const QPointer<KWin::EffectWindow> lead = found->windows.first();
-        // A window the dock holds is asked again: the new arrangement may have
-        // room for it. What it cannot show waits in the dock, as it does for
-        // any arrival, before the rest is laid out again.
-        QList<QPointer<KWin::EffectWindow>> waking;
-        for (auto &saved : found->snapshots)
-            if (saved.parked && saved.window) { saved.parked = false; waking.append(saved.window); }
-        if (!lead || !shedUnshowable(key, found.value(), lead, false)) continue;
+        // The new arrangement may have room for a window the dock holds.
+        if (!wakeParked(key)) continue;
         found = m_sessions.find(key);
-        if (found == m_sessions.end() || !reflowSession(found.value(), lead, false, true)) continue;
-        // Kadunce's own unminimize is not the person's, as its minimize is not.
-        const bool wasParking = std::exchange(m_parking, true);
-        for (const auto &window : std::as_const(waking))
-            if (window && window->window() && found->windows.contains(window)) window->window()->setMinimized(false);
-        m_parking = wasParking;
-        if (applySession(found.value(), false)) scheduleSettle();
+        if (found != m_sessions.end() && applySession(found.value(), false)) scheduleSettle();
     }
     releaseStrayZones();
+}
+
+bool DesktopStageController::wakeParked(const QString &key)
+{
+    auto found = m_sessions.find(key);
+    if (found == m_sessions.end()) return false;
+    // A window the dock holds is asked again. What it cannot show waits in the
+    // dock, as it does for any arrival, before the rest is laid out again.
+    QList<QPointer<KWin::EffectWindow>> waking;
+    for (auto &saved : found->snapshots)
+        if (saved.parked && saved.window) { saved.parked = false; waking.append(saved.window); }
+    // A layout the dock emptied is led by the first window it holds there.
+    const QPointer<KWin::EffectWindow> lead = !found->windows.isEmpty()
+        ? found->windows.first() : waking.isEmpty() ? nullptr : waking.first();
+    if (!lead || !shedUnshowable(key, found.value(), lead, false)) return false;
+    found = m_sessions.find(key);
+    if (found == m_sessions.end() || !reflowSession(found.value(), lead, false, true)) return false;
+    // Kadunce's own unminimize is not the person's, as its minimize is not.
+    const bool wasParking = std::exchange(m_parking, true);
+    for (const auto &window : std::as_const(waking))
+        if (window && window->window() && found->windows.contains(window)) window->window()->setMinimized(false);
+    m_parking = wasParking;
+    return true;
 }
 
 void DesktopStageController::releaseStrayZones()

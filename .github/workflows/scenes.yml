@@ -25,7 +25,7 @@ jobs:
     container: archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime divider-tablet-runtime side-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime' }}
     steps:
       - name: Install build and session dependencies
         run: |
