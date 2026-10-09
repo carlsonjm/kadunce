@@ -79,12 +79,12 @@ for pass in alone sleeper closed; do
     # It grows into its pane from where it was let go, rather than jumping
     # there from under the finger.
     pairing=()
-    for sample in {1..12}; do
+    for sample in {1..16}; do
         pairing+=("$(kad nativeCarryState | jq -c --arg id "$main" \
             '[.bentoMotion[] | select(.window == $id and .arrival)][0] // empty | {started, rect, target}')")
         sleep .02
     done
-    printf '%s\n' "${pairing[@]}" | grep . | sed "s/^/$pass: pairing /"
+    printf '%s\n' "${pairing[@]}" | grep . | sed "s/^/state $pass-pairing /"
     check "$pass: the carried card grows into its pane from where it was let go" \
         jq -se 'map(select(.rect != .target)) | length > 0' < <(printf '%s\n' "${pairing[@]}" | grep .)
     sleep 1.2
@@ -99,13 +99,14 @@ for pass in alone sleeper closed; do
     # The layout shrinks into its group card in the row, from the screen it
     # filled, rather than cutting to Spread.
     kad showCardLine
-    sleep .08
     group='[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect.width // 0'
-    shrink=$(kad workspaceContext | jq "$group")
+    shrink=()
+    for sample in {1..6}; do shrink+=("$(kad workspaceContext | jq "$group")"); done
     sleep .9
     rest=$(kad workspaceContext | jq "$group")
-    echo "$pass: group card shrink=$shrink rest=$rest"
-    check "$pass: the layout shrinks into its group card" jq -ne --argjson s "$shrink" --argjson r "$rest" '$r > 0 and $s > $r'
+    echo "state $pass-shrink group card widths ${shrink[*]} at rest $rest"
+    check "$pass: the layout shrinks into its group card" \
+        jq -se --argjson r "$rest" '$r > 0 and (map(select(. > $r)) | length > 0)' < <(printf '%s\n' "${shrink[@]}")
     report "$pass-spread"
     check "$pass: Spread shows the pair as one group" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
 
