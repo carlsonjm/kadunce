@@ -76,6 +76,17 @@ for pass in alone sleeper closed; do
     probe motion "$((touch + 2))" 650 400; sleep .15
     probe motion "$((touch + 2))" 5 400; sleep .3
     probe up "$((touch + 2))"
+    # It grows into its pane from where it was let go, rather than jumping
+    # there from under the finger.
+    pairing=()
+    for sample in {1..12}; do
+        pairing+=("$(kad nativeCarryState | jq -c --arg id "$main" \
+            '[.bentoMotion[] | select(.window == $id and .arrival)][0] // empty | {started, rect, target}')")
+        sleep .02
+    done
+    printf '%s\n' "${pairing[@]}" | grep . | sed "s/^/$pass: pairing /"
+    check "$pass: the carried card grows into its pane from where it was let go" \
+        jq -se 'map(select(.rect != .target)) | length > 0' < <(printf '%s\n' "${pairing[@]}" | grep .)
     sleep 1.2
     report "$pass-paired"
     # At a fractional scale a pane can sit part of a pixel off its rect.
@@ -133,6 +144,17 @@ for pass in alone sleeper closed; do
     check "$pass: Kadunce carries the pane" jq -e '.carrying' <<<"$carry"
     for step in 300 160 60 12 2; do probe motion $((touch + 1)) "$x" "$step"; sleep .1; done
     probe up $((touch + 1))
+    # It grows from where it was let go into the Active place, rather than
+    # vanishing under the finger and appearing there.
+    settle=()
+    for sample in {1..12}; do
+        settle+=("$(kad nativeCarryState | jq -c 'select(.dropSettling) | {dropWindow, dropStarted, dropRect, dropTarget}')")
+        sleep .02
+    done
+    printf '%s\n' "${settle[@]}" | grep . | sed "s/^/$pass: top /"
+    check "$pass: the pane glides from where it was let go into the Active place" \
+        jq -se --arg id "$main" 'map(select(.dropWindow == $id and .dropRect != .dropTarget)) | length > 0' \
+        < <(printf '%s\n' "${settle[@]}" | grep .)
     sleep 1.2
     report "$pass-top"
     check "$pass: let go at the top edge, the pane is the Active card" \
