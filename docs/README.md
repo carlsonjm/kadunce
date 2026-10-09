@@ -18,7 +18,7 @@ subject to its owner. When two documents disagree, the owner governs.
 | `DECISIONS.md` | why each rule holds and what it rejected |
 | `ROADMAP.md` | what is planned, and what Kadunce does not do yet |
 | `TESTING.md` | what each check proves, running the private harness, promotion, failure classification and confirming the running build |
-| `TERMINOLOGY.md` | the suite's approved and retired language |
+| `TERMINOLOGY.md` | the suite's approved language and naming rules |
 | `ITASCA-VISUAL-LANGUAGE.md` | the shared visual and motion grammar, and Kadunce's geometry |
 | `TETTEGOUCHE-CONTEXT.md` | the versioned context and guest D-Bus interface Kadunce offers Tettegouche, and the stuck notes it reads from Gooseberry |
 | `REQUESTS.md` | placement requests: how another program asks Kadunce to open an application at a point |

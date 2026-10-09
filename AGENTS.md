@@ -82,7 +82,7 @@ subject, and `docs/README.md` routes every subject to its owner.
 - Code comments explain code behavior and reasoning only, never handoffs,
   authorship, product instructions or agent conversation.
 - Terminology follows `docs/TERMINOLOGY.md`, whose § Enforcement names the two
-  layer-3 identities that keep the retired workspace term until a versioned
+  installed identities that keep the retired workspace term until a versioned
   migration renames them.
 - A new tracked document is added to `docs/README.md` in the same change, or
   `tests/verify-docs.py` fails. `docs/README.md` § Keeping documentation small
