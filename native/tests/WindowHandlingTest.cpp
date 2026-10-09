@@ -164,6 +164,20 @@ int main(int argc, char **argv)
     require(ask(780, 377, std::nullopt, 780, true) == 377);
     require(ask(377, 450, std::nullopt, 780, true) == 450);
     require(!ask(377, 377, 780, 780, true));
+    // Rising keys ask their client its drawing time before they rest, so it
+    // lands with them; one not yet timed is asked halfway, and keys that
+    // arrive at once ask at once.
+    const auto askDelay = Kadunce::keyboardRoomAskDelay;
+    require(askDelay(240, std::nullopt) == 120);
+    require(askDelay(240, 30) == 210);
+    require(askDelay(240, 220) == 20);
+    require(askDelay(240, 400) == 0);
+    require(askDelay(240, -5) == 240);
+    require(askDelay(0, 220) == 0);
+    require(askDelay(-1, std::nullopt) == 0);
+    require(Kadunce::keyboardRoomDrawTime(std::nullopt, 220) == 220);
+    require(Kadunce::keyboardRoomDrawTime(200, 100) == 150);
+    require(Kadunce::keyboardRoomDrawTime(std::nullopt, -3) == 0);
     using Kadunce::RestoreResult;
     const QList<int> outputs{1,2,3};
     QList<int> attempted;

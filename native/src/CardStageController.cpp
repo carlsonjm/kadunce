@@ -141,7 +141,8 @@ CardStageController::CardStageController(CardStageHost *host)
                      &m_keyboardHeadingTimer, [this]() {
         auto *client = keyboardRoomClient();
         if (!client || !m_keyboardHeadingTop) return;
-        askKeyboardRoom(client, keyboardRoomFor(client, *m_keyboardHeadingTop), *m_keyboardHeadingTop);
+        const double heading = keyboardRoomFor(client, *m_keyboardHeadingTop);
+        if (heading < m_keyboardRoom->height) askKeyboardRoom(client, heading, *m_keyboardHeadingTop);
     });
     // A flicked card's app either closes, asks a question with a dialog of its
     // own, or keeps running; the card is looked at until one of those is true.
@@ -1395,11 +1396,32 @@ void CardStageController::askKeyboardRoom(KWin::Window *client, double height,
     // drawing its last size, or one that trims itself to whole rows as a
     // terminal does, is not asked again.
     if (client->moveResizeGeometry().toRect() == target) return;
+    m_keyboardRoomDraw = KeyboardRoomDraw{m_keyboardRoom->window,
+        client->frameGeometry().height(), double(target.height()), {}};
+    m_keyboardRoomDraw->since.start();
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce keyboard room" << m_keyboardRoom->window->caption()
             << "height" << height << "target" << target;
+}
+
+void CardStageController::noteKeyboardRoomDrawn(KWin::EffectWindow *window)
+{
+    // A frame that comes closer to the size asked for is the client's answer.
+    // A terminal trims itself to whole rows, so it may never match exactly.
+    if (!m_keyboardRoomDraw || m_keyboardRoomDraw->window != window || !window->window()) return;
+    constexpr qint64 Unanswered = 1000;
+    const qint64 elapsed = m_keyboardRoomDraw->since.elapsed();
+    const double height = window->window()->frameGeometry().height();
+    const double asked = m_keyboardRoomDraw->to;
+    if (elapsed < Unanswered && std::abs(height - asked) >= std::abs(m_keyboardRoomDraw->from - asked)) return;
+    m_keyboardRoomDraw.reset();
+    if (elapsed >= Unanswered) return;
+    const QString application = window->windowClass();
+    const auto kept = m_keyboardRoomDrawTimes.constFind(application);
+    m_keyboardRoomDrawTimes.insert(application, keyboardRoomDrawTime(
+        kept == m_keyboardRoomDrawTimes.cend() ? std::nullopt : std::optional<int>(*kept), int(elapsed)));
 }
 
 void CardStageController::keyboardHeading(double top, int durationMs)
@@ -1410,7 +1432,13 @@ void CardStageController::keyboardHeading(double top, int durationMs)
     m_keyboardHeadingTimer.stop();
     m_keyboardHeadingPending = false;
     auto *client = keyboardRoomClient();
-    if (!client) return;
+    // Keys still below the screen's edge have made no room yet, so the card
+    // has none to give up. They are rising, and the room they take is asked
+    // for on the way, as below.
+    if (!client) {
+        m_keyboardHeadingPending = true;
+        return;
+    }
     // Room the keys give back is asked for before they move, so the client
     // is that tall by the time they uncover it. Room they take is asked for
     // as they arrive, timed from their first frame rather than from this
@@ -1553,7 +1581,9 @@ void CardStageController::updateKeyboardRoom(bool resting)
         ? std::optional<double>(keyboardRoomFor(client, *m_keyboardHeadingTop)) : std::nullopt;
     if (!resting && m_keyboardHeadingPending && m_keyboardHeadingTop) {
         m_keyboardHeadingPending = false;
-        m_keyboardHeadingTimer.start(m_keyboardHeadingDuration);
+        const auto drawn = m_keyboardRoomDrawTimes.constFind(window->windowClass());
+        m_keyboardHeadingTimer.start(keyboardRoomAskDelay(m_keyboardHeadingDuration,
+            drawn == m_keyboardRoomDrawTimes.cend() ? std::nullopt : std::optional<int>(*drawn)));
     }
     if (resting && m_keyboardHeadingTop && m_keyboardHeadingSince.isValid()
         && m_keyboardHeadingSince.elapsed() < m_keyboardHeadingDuration) {
@@ -4914,6 +4944,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
 void CardStageController::handleActiveGeometryChanged(
     KWin::EffectWindow *window)
 {
+    noteKeyboardRoomDrawn(window);
     if (m_active && window && m_activeRestore.window != window) {
         holdCardInActivePlace(window);
         return;

@@ -45,4 +45,26 @@ namespace Kadunce {
     return std::max(now, heading.value_or(whole));
 }
 
+// How long after rising keys first move their card's client is asked for
+// the room they take. A client takes a moment to draw a new size, and the ask
+// goes that long before the keys come to rest, so it lands with them rather
+// than as a second movement after them, and never before the motion starts.
+// A client not yet timed is asked halfway, when an ease-out has carried the
+// keys seven eighths of the way: one that answers at once stands clear of
+// them by little more than the gutter.
+[[nodiscard]] constexpr int keyboardRoomAskDelay(int durationMs, std::optional<int> drawMs)
+{
+    const int duration = std::max(0, durationMs);
+    if (!drawMs) return duration / 2;
+    return std::clamp(duration - *drawMs, 0, duration);
+}
+
+// A client's time to draw what it was asked for, kept as an even blend of
+// its last two so one slow frame does not set it.
+[[nodiscard]] constexpr int keyboardRoomDrawTime(std::optional<int> kept, int measuredMs)
+{
+    const int measured = std::max(0, measuredMs);
+    return kept ? (*kept + measured) / 2 : measured;
+}
+
 }
