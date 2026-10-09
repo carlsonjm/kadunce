@@ -686,6 +686,18 @@ private:
     QElapsedTimer m_keyboardHeadingSince;
     int m_keyboardHeadingDuration = 0;
     bool m_keyboardHeadingPending = false;
+    // How long each application has taken to draw the size the keys asked of
+    // it, and the ask still waiting to be drawn, so the next ask goes that
+    // long before the keys come to rest.
+    struct KeyboardRoomDraw {
+        QPointer<KWin::EffectWindow> window;
+        double from = 0.0;
+        double to = 0.0;
+        QElapsedTimer since;
+    };
+    std::optional<KeyboardRoomDraw> m_keyboardRoomDraw;
+    QHash<QString, int> m_keyboardRoomDrawTimes;
+    void noteKeyboardRoomDrawn(KWin::EffectWindow *window);
     CardPresentation m_presentation = CardPresentation::Spread;
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
