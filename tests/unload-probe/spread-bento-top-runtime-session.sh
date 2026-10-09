@@ -96,8 +96,16 @@ for pass in alone sleeper closed; do
         check "$pass: the sleeping window is a card, asleep" \
             context --arg id "$sleeper" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .minimized'
     fi
+    # The layout shrinks into its group card in the row, from the screen it
+    # filled, rather than cutting to Spread.
     kad showCardLine
-    sleep 1
+    sleep .08
+    group='[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect.width // 0'
+    shrink=$(kad workspaceContext | jq "$group")
+    sleep .9
+    rest=$(kad workspaceContext | jq "$group")
+    echo "$pass: group card shrink=$shrink rest=$rest"
+    check "$pass: the layout shrinks into its group card" jq -ne --argjson s "$shrink" --argjson r "$rest" '$r > 0 and $s > $r'
     report "$pass-spread"
     check "$pass: Spread shows the pair as one group" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
 

@@ -539,7 +539,8 @@ private:
     void stopOpeningSpread();
     // The row forms from the Active card's place, as three fingers let go past
     // halfway leave it: the selected card shrinks from where the Active card
-    // stood and its neighbours slide in from the sides. Spread only.
+    // stood, or a layout from the screen it filled, and its neighbours slide
+    // in from the sides. Spread only.
     void formRowFromActive();
     // Where the Bento group card draws its pane `pane`.
     [[nodiscard]] std::optional<CardRect> groupPaneDrawn(KWin::LogicalOutput *output,
