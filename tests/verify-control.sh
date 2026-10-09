@@ -17,8 +17,8 @@ cleanup() {
 trap cleanup EXIT
 chmod 700 "${runtime_dir}"
 
-python3 - <<'PY' "${control_dir}/assets/kadunce-enabled.svg" \
-    "${control_dir}/assets/kadunce-disabled.svg"
+python3 - <<'PY' "${control_dir}/assets/co.goodinput.kadunce-cards.svg" \
+    "${control_dir}/assets/co.goodinput.kadunce-cards-off.svg"
 import sys
 import xml.etree.ElementTree as ET
 for path in sys.argv[1:]:
@@ -26,6 +26,10 @@ for path in sys.argv[1:]:
 PY
 
 rg -q 'KStatusNotifierItem::SystemServices' "${source_file}"
+# Hosts that list tray icons by name show a generic icon for one sent only
+# as a picture, so the installed switch is sent by name.
+rg -q 'setIconByName\(icon\)' "${source_file}"
+rg -q 'hicolor/scalable/apps' "${control_dir}/CMakeLists.txt" "${project_dir}/install.sh"
 rg -q 'KStatusNotifierItem::Active' "${source_file}"
 rg -q 'setIsMenu\(false\)' "${source_file}"
 rg -q 'KStatusNotifierItem::activateRequested' "${source_file}"

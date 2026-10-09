@@ -70,6 +70,10 @@ cmake --build "${native_build_dir}" -j2
 echo "[4/6] Updating the per-user workspace control..."
 /usr/bin/install -Dm644 "${project_dir}/assets/co.goodinput.kadunce-logo.png" \
     "${HOME}/.local/share/icons/hicolor/512x512/apps/co.goodinput.kadunce-logo.png"
+for icon in co.goodinput.kadunce-cards co.goodinput.kadunce-cards-off; do
+    /usr/bin/install -Dm644 "${project_dir}/control/assets/${icon}.svg" \
+        "${HOME}/.local/share/icons/hicolor/scalable/apps/${icon}.svg"
+done
 bash "${project_dir}/control/prepare-repair.sh"
 systemctl --user stop kadunce-control.service \
     >/dev/null 2>&1 || true
