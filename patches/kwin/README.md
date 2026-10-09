@@ -1,9 +1,10 @@
 # KWin native touch-lifetime correction
 
 A version-bound correction to KWin 6.7.5, and the provenance and rollback
-contract of the local package that carries it. Kadunce's installer never
-patches, replaces or pins KWin, and this repository distributes no package
-binary. Do not apply the patch to another KWin version without reviewing the
+contract of the local package that carries it. Kadunce runs on stock KWin;
+this correction is optional, and the problem it fixes is reported to KDE as bug
+526861. Kadunce's installer never patches, replaces or pins KWin, and this
+repository distributes no package binary. Do not apply the patch to another KWin version without reviewing the
 upstream source and running the same focused regressions.
 
 ## What it changes

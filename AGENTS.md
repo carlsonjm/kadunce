@@ -4,11 +4,10 @@ For every task, read only this startup set, in order:
 
 1. `AGENTS.md`
 2. The suite record, kept privately in the Shuffle checkout beside this one:
-   `../shuffle/docs/suite/CURRENT_STATE.md`, `../shuffle/docs/suite/SWARM.md`,
-   and of `../shuffle/docs/suite/ROADMAP-CC.md` only § Current target, § Not
-   current and the task's blocks.
-   Its `README.md` says how the record is written. When it is not checked out,
-   say that the suite plan was unavailable rather than inventing an order.
+   `../shuffle/docs/suite/CURRENT_STATE.md` and `../shuffle/docs/suite/SWARM.md`.
+   Its `ROADMAP-CC.md` is a frozen record, no longer the plan.
+   The record's `README.md` says how it is written. When it is not checked out,
+   say that the suite record was unavailable rather than inventing an order.
 
 Then run `git fetch --all` and check the `origin/claude/*` branches. Cloud sessions
 land work there, and one branch can be ahead of `main` in several Shuffle
@@ -73,8 +72,8 @@ subject, and `docs/README.md` routes every subject to its owner.
   no names, approvals or approval dates, and no chat or handover narration.
   `tests/verify-public.py` checks what a check can, in files and in commits not
   yet pushed; who decided what belongs in the private suite record.
-- The plan, what each block learned, its status and cross-agent handoffs live in
-  the suite record, never in this repository; its `README.md` states their rules.
+- The plan, what work learned, its status and cross-agent handoffs live
+  privately, never in this repository.
 - A durable decision goes in `docs/DECISIONS.md` as its rule in a sentence, why
   it holds, and what was rejected, citing the document that states the rule.
 - Removed text lives in Git history. How something was found, measured and
@@ -83,7 +82,8 @@ subject, and `docs/README.md` routes every subject to its owner.
 - Code comments explain code behavior and reasoning only, never handoffs,
   authorship, product instructions or agent conversation.
 - Terminology follows `docs/TERMINOLOGY.md`, whose § Enforcement names the two
-  layer-3 identities that keep the retired workspace term until Block 10b.
+  installed identities that keep the retired workspace term until a versioned
+  migration renames them.
 - A new tracked document is added to `docs/README.md` in the same change, or
   `tests/verify-docs.py` fails. `docs/README.md` § Keeping documentation small
   states the word budgets it enforces.

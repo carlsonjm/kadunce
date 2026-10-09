@@ -1,7 +1,8 @@
 # What Shuffle could give back to KDE
 
-KDE problems the suite found or worked around. Nothing has been sent; the
-maintainer picks what goes, as a report or a patch under the project's name.
+KDE problems the suite found or worked around. The touch drag correction is
+reported as KDE bug 526861; nothing else has been sent. The maintainer picks
+what goes, as a report or a patch under the project's name.
 Check each against current KDE code first. Evidence: **measured**, **source**
 (read from KDE's code) or **inferred**.
 
@@ -9,7 +10,7 @@ Check each against current KDE code first. Evidence: **measured**, **source**
 
 | What goes wrong for a person | Component | Evidence | Send as |
 | --- | --- | --- | --- |
-| After a drag is cut short with the finger down, the next touch drag moves no window and a tap can be lost. | KWin move filter | measured; `patches/kwin/0001-*.patch` | the patch |
+| After a drag is cut short with the finger down, the next touch drag moves no window and a tap can be lost. | KWin move filter | measured; `patches/kwin/0001-*.patch` | reported: KDE bug 526861 |
 | The keys pop up whenever an app enables a field soon after any touch: a tab switch, a new window. | KWin input method | source; hand tests 24 September | report, or a patch showing keys only for a touch on the field |
 | Turning automatic keys off also stops explicit requests for them. | KWin input method | source | report |
 | A raise request does nothing until some field has been touched once in the session. | KWin input method | measured | report |
