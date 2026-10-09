@@ -44,8 +44,8 @@ main=$(kad workspaceContext | jq -r --arg n "$neighbour" --arg a "$aside" \
     '[.applications[] | select(.windowId != $n and .windowId != $a)][0].windowId')
 probe contactFocus >/dev/null
 sleep .5
-# The neighbour is the card used before the Active one, so the Bento key
-# pairs the two and leaves the third a hidden card.
+# The neighbour is the card used before the Active one, so carried to the
+# left edge the Active card pairs with it and leaves the third a hidden card.
 probe activateWindowId "$neighbour" >/dev/null
 sleep .4
 probe contactFocus >/dev/null
@@ -55,15 +55,23 @@ check "the Active card" context --arg id "$main" '.cardStage.presentation == "ac
 
 # The pair glides into its panes. The hidden card closing as it goes takes
 # nothing from the glide: the panes are still on their way once it is gone.
+bounds=$(probe windowGeometry "$main")
+x=$(jq '.x+.width/2|floor' <<<"$bounds"); y=$(jq '.y+40|floor' <<<"$bounds")
+probe pointer "$x" "$y"
+client armMove
+probe down 61 "$x" "$y"
+sleep .15
+probe motion 61 650 400; sleep .15
+probe motion 61 5 400; sleep .3
 start=$(now)
-kad toggleBentoOnOutput Virtual-0 >/dev/null
+probe up 61
 client closeCompanion "Aside"
 for sample in {1..20}; do
     if kad workspaceContext | jq -e --arg id "$aside" '[.applications[] | select(.windowId == $id)] | length == 0' >/dev/null; then break; fi
     sleep .01
 done
-glide=$(kad nativeCarryState | jq -c '[.bentoMotion[] | {window, rect, target}]')
-echo "glide $(( $(now) - start )) ms after the key, once the hidden card closed: $glide"
+glide=$(kad nativeCarryState | jq -c '[.bentoMotion[] | {window, arrival, started, rect, target}]')
+echo "glide $(( $(now) - start )) ms after the pair, once the hidden card closed: $glide"
 check "the panes still glide once a hidden card closes" jq -e 'map(select(.rect != .target)) | length > 0' <<<"$glide"
 sleep 1
 report paired
