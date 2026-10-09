@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # INPUT.md: Escape while dragging a window cancels the drag and the window
 # stays as it was, including a carry Kadunce has taken at an edge, with its
-# landing already shown. Letting go afterwards places nothing.
+# landing already shown. It glides home from under the hand, and letting go
+# afterwards places nothing.
 set -euo pipefail
 trap 'echo "FAIL: escape carry runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
@@ -32,6 +33,12 @@ for target in '5 180' '5 600'; do
     if [[ $kind == pointer ]]; then probe contactMotion "$tx" "$ty"; else probe motion 81 "$tx" "$ty"; fi
     kad nativeCarryState | jq -e '.carrying and .destinationPreview'
     probe key 1 0
+    # §10 Cancel: the window glides back from where it was drawn under the
+    # hand, rather than vanishing there and reappearing at home.
+    back=$(kad nativeCarryState)
+    echo "RESULT escape-glide $kind $target $(jq -c '{dropSettling, dropWindow, dropRect, dropTarget}' <<<"$back")"
+    jq -e --arg id "$main" --argjson home "$home" \
+        '.dropSettling and .dropWindow == $id and .dropRect.x < $home.x' <<<"$back"
     sleep .3
     kad nativeCarryState | jq -e '(.carrying|not) and (.destinationPreview|not)'
     if [[ $kind == pointer ]]; then probe contactButton false; else probe up 81; fi

@@ -108,14 +108,14 @@ public:
     {
         return (m_cardStage && m_cardStage->isActive())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || bool(m_previewDesktop) || bool(m_gestureNote);
+            || !m_yieldingPanes.isEmpty() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     [[nodiscard]] bool isActive() const override
     {
         return (m_cardStage && m_cardStage->isActive())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
+            || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     // Keys on screen that are not yet known to be the person's are painted
@@ -264,6 +264,24 @@ private:
         const QList<QRectF> &from, const QList<QRectF> &to) override;
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
     void clearBentoMotions();
+    // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
+    // stood while the arrival takes its place, rather than vanishing.
+    struct YieldingPane {
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::LogicalOutput> output;
+        QRectF rect, outputGeometry;
+        QElapsedTimer timer;
+    };
+    QList<YieldingPane> m_yieldingPanes;
+    void paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                    const QRectF &drawn) override;
+    // How opaque a yielding pane is drawn now, or nothing once it is gone.
+    [[nodiscard]] std::optional<double> yieldingPaneOpacity(KWin::EffectWindow *window) const;
+    void clearYieldingPanes();
+    // CARD-LIFECYCLE.md §5: the last pane of a layout grows from where it was
+    // drawn into its place as the Active card.
+    void lastPaneLeftLayoutForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                           const QRectF &drawn) override;
     // On the card display a divider is Bento's only while Bento is what the
     // display presents; the cards it hides behind the layout do not take it.
     bool beginRailFromInput(QPointF p) override {
@@ -760,6 +778,16 @@ private:
     void showSleepingCardsInSpread();
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;
+    // Where the carried window is drawn under the hand, and whether its
+    // release landed; one that did not glides back from there (§10 Cancel).
+    QRectF m_carryDrawn;
+    bool m_carryLanded = false;
+    // Set while a cancel that finds no carry passes through the carry input:
+    // motion already under way then carries on.
+    bool m_motionOutlivesInterrupt = false;
+    [[nodiscard]] QRectF carriedPose() const;
+    // A carry let go as the Active card glides from the hand into its place.
+    void glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
     std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
     // A tablet edge action that admits to Card Stage has no Bento reservation
@@ -829,8 +857,12 @@ private:
     GestureNoteLabel m_gestureNoteLabel;
     void showGestureNote(KWin::LogicalOutput *output, QPointF contact, GestureRefusal reason);
     std::optional<KWin::RectF> m_linePreview;
+    // `onCards` lets a settle run on the card display, where it waits for the
+    // client to draw the shape it settles into (PaneArrival.h) and lasts only
+    // while the card display presents the window there.
     void startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
-                         const QRectF &from, const QRectF &to);
+                         const QRectF &from, const QRectF &to, bool onCards = false);
+    [[nodiscard]] bool cardDisplayPresents(KWin::EffectWindow *window) const;
     void clearDropSettle();
     // §10 and §2: a pane returned to the card display's desktop is shown on
     // it, and the rest of what Kadunce holds there goes aside into Spread.
@@ -840,6 +872,9 @@ private:
     QPointer<KWin::LogicalOutput> m_settlingOutput;
     QRectF m_settleFrom, m_settleTo, m_settleOutputGeometry;
     QElapsedTimer m_dropSettleTimer;
+    bool m_settleOnCards = false;
+    bool m_settleDrawnMoving = false;
+    QElapsedTimer m_settleAsked;
     KWin::EffectWindow *m_fanApertureWindow = nullptr;
     QSizeF m_fanPaintSize;
     QPointF m_fanApertureOrigin;

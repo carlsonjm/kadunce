@@ -69,6 +69,13 @@ public:
     }
     virtual void animateBentoLayout(KWin::LogicalOutput *,
         const QList<QPointer<KWin::EffectWindow>> &, const QList<QRectF> &, const QList<QRectF> &) {}
+    // A pane gave way to an arrival and became a card hidden behind the
+    // layout; `drawn` is where it was drawn on `output` until then.
+    virtual void paneYieldedForDesktopStage(KWin::EffectWindow *, KWin::LogicalOutput *, const QRectF &) {}
+    // The layout fell to one pane and ended into card ownership; `drawn` is
+    // where that pane was drawn on `output` until then.
+    virtual void lastPaneLeftLayoutForDesktopStage(KWin::EffectWindow *, KWin::LogicalOutput *,
+                                                   const QRectF &) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
     // CARD-LIFECYCLE.md §5: a displaced pane becomes a nonselected individual

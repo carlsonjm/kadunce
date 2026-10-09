@@ -2602,6 +2602,9 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     }
     if (!m_active) return true;
     m_host->setPagingShortcutsForCardStage(true);
+    // The layout shrinks from where it stood into its group card in the row,
+    // as the Active card does, and the cards beside it slide in.
+    formRowFromActive();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     return true;

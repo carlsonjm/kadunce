@@ -94,6 +94,15 @@ int motion(int base)
 {
     return motionDuration(base, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
 }
+
+// Whether a window still stands where a motion takes it. At a fractional
+// scale KWin may land a frame part of a pixel off the rect it was asked for,
+// and that is still the motion's place.
+bool landsAt(const QRectF &geometry, const QRectF &to)
+{
+    return std::abs(geometry.left() - to.left()) < 1.0 && std::abs(geometry.top() - to.top()) < 1.0
+        && std::abs(geometry.right() - to.right()) < 1.0 && std::abs(geometry.bottom() - to.bottom()) < 1.0;
+}
 }
 
 namespace
@@ -657,6 +666,18 @@ public:
         SessionScope scope(m_effect, m_session);
         layouts().animateBentoLayout(output, windows, from, to);
     }
+    void paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                    const QRectF &drawn) override
+    {
+        SessionScope scope(m_effect, m_session);
+        layouts().paneYieldedForDesktopStage(window, output, drawn);
+    }
+    void lastPaneLeftLayoutForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                           const QRectF &drawn) override
+    {
+        SessionScope scope(m_effect, m_session);
+        layouts().lastPaneLeftLayoutForDesktopStage(window, output, drawn);
+    }
     std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *window) const override
     {
         SessionScope scope(m_effect, m_session);
@@ -982,12 +1003,17 @@ Effect::Effect()
             m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
         }
         m_carriedWindow = w->effectWindow();
+        m_carryDrawn = carriedPose();
+        m_carryLanded = false;
         traceNativeMove(m_carriedWindow, "adopted");
         takeCarriedDialogs(m_carriedWindow);
         KWin::effects->setElevatedWindow(m_carriedWindow, true);
         KWin::effects->addRepaintFull();
     };
-    m_carryRuntime->moved = [this](QPointF p) { updateNativeCarryDestination(p); };
+    m_carryRuntime->moved = [this](QPointF p) {
+        m_carryDrawn = carriedPose();
+        updateNativeCarryDestination(p);
+    };
     m_carryRuntime->deferred = [this](KWin::Window *w) {
         // Native-drag visibility exception only: no controller start, which
         // would invalidate the saved reservation or take geometry ownership.
@@ -1008,11 +1034,24 @@ Effect::Effect()
         return false;
     };
     m_carryRuntime->released = [this](bool committed) {
+        m_carryLanded = committed;
         const auto refused = std::exchange(m_carryRefusal, std::nullopt);
         if (!committed && refused && refused->output)
             showGestureNote(refused->output, refused->contact, refused->reason);
     };
-    m_carryRuntime->ended = [this] { m_carryRefusal.reset(); endNativeCarryPresentation(); };
+    m_carryRuntime->ended = [this] {
+        m_carryRefusal.reset();
+        // §10 Cancel: a carry cancelled, refused or interrupted puts the
+        // window back where it was, and it glides there from under the hand.
+        const QPointer<KWin::EffectWindow> carried = m_carriedWindow;
+        const QRectF drawn = std::exchange(m_carryDrawn, QRectF());
+        const bool landed = std::exchange(m_carryLanded, false);
+        endNativeCarryPresentation();
+        if (landed || !carried || carried->isDeleted() || !carried->window()) return;
+        auto *output = carried->window()->moveResizeOutput();
+        startDropSettle(carried, output, drawn, QRectF(carried->window()->moveResizeGeometry()),
+                        output && isTabletOutput(output));
+    };
     m_carryRuntime->nativeReleased = [this](KWin::Window *window, QPointF contact) {
         const QPointer<KWin::Window> guarded = window;
         // Let KWin finish its native release first. Cancel/Escape/extra contact
@@ -1030,7 +1069,12 @@ Effect::Effect()
             if (landing != frame) guarded->moveResize(KWin::RectF(landing));
         });
     };
-    m_carryRuntime->interrupted = [this] { clearDropSettle(); clearBentoMotions(); };
+    m_carryRuntime->interrupted = [this] {
+        if (m_motionOutlivesInterrupt) return;
+        clearDropSettle();
+        clearBentoMotions();
+        clearYieldingPanes();
+    };
     connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
             [this] {
                 if (m_carryRuntime) m_carryRuntime->cancel();
@@ -3260,10 +3304,19 @@ void Effect::cancelInputForCardStage()
         relayoutTable();
         refreshTable();
     }
-    clearBentoMotions();
-    clearDropSettle();
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
-    if (m_carryRuntime) m_carryRuntime->cancel();
+    if (m_carryRuntime) {
+        // Motion under way carries on: each glide checks on every frame that
+        // its window is still presented where it draws it, and stops when
+        // not. A carry this ends goes back with a presentation changing under
+        // it, so it does not glide home.
+        const bool carrying = bool(m_carriedWindow);
+        {
+            QScopedValueRollback<bool> outlives(m_motionOutlivesInterrupt, !carrying);
+            m_carryRuntime->cancel();
+        }
+        if (carrying) clearDropSettle();
+    }
     m_inputActivationGuard.invalidate();
     if (m_inputRouter) m_inputRouter->cancelWorkspaceInteraction();
 }
@@ -3773,6 +3826,14 @@ void Effect::traceNativeMove(KWin::EffectWindow *window, const char *event)
 
 QString Effect::nativeCarryState() const
 {
+    QJsonArray yieldingPanes;
+    for (const auto &yielding : m_yieldingPanes) {
+        const auto opacity = yieldingPaneOpacity(yielding.window);
+        if (opacity) yieldingPanes.append(QJsonObject{
+            {QStringLiteral("window"), windowIdentity(yielding.window)},
+            {QStringLiteral("rect"), geometryContext(KWin::RectF(yielding.rect).toRect())},
+            {QStringLiteral("opacity"), *opacity}});
+    }
     QJsonArray bentoMotion;
     for (const auto &m : m_bentoMotions) {
         const auto pose = bentoMotionRect(m.window);
@@ -3811,6 +3872,10 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("guestNeighborOpacity"), guestNeighborOpacity()},
         {QStringLiteral("bentoMotion"), bentoMotion},
         {QStringLiteral("dropRect"), settling ? geometryContext(KWin::RectF(*settling).toRect()) : QJsonObject{}},
+        {QStringLiteral("dropWindow"), settling ? windowIdentity(m_settlingWindow) : QString()},
+        {QStringLiteral("dropTarget"), settling ? geometryContext(KWin::RectF(m_settleTo).toRect()) : QJsonObject{}},
+        {QStringLiteral("dropStarted"), settling && m_dropSettleTimer.isValid()},
+        {QStringLiteral("yieldingPanes"), yieldingPanes},
         {QStringLiteral("destinationPreview"), previewValid},
         {QStringLiteral("placementOutline"),
             previewValid && (cardEntry || cardExit || reservation->showsPlacementOutline())},
@@ -4033,17 +4098,23 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             m_carryDestination = reserved;
             handoff.previewDrop(*destination,
                 [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
-                [this, reserved, carried, bento](const PreparedCarrySource &source) {
+                [this, reserved, carried, output, bento](const PreparedCarrySource &source) {
                     // Commit against the identity the reservation named, never
                     // a partner re-read after preparation.
                     QPointer<KWin::EffectWindow> named = reserved->namedPartner();
-                    return (bento ? m_desktopStage->nativeCarrySourceValid(source)
+                    // Read before commit, which can retire the carry's pose.
+                    const QRectF drawn = carriedPose();
+                    const bool committed = (bento ? m_desktopStage->nativeCarrySourceValid(source)
                                   : m_cardStage->nativeCarrySourceValid(source))
                         && m_desktopStage->activatePreparedTabletDrop(*reserved,
                             &source.restoreSnapshot(),
                             [this, carried, named] {
                                 return m_cardStage->releasePairToBento(carried, named);
                             });
+                    // It grows into its pane from where it was let go, as a
+                    // card let go on a pane of the group in Spread does.
+                    if (committed) startPaneArrival(carried, output, drawn);
+                    return committed;
                 });
             return;
         }
@@ -4078,12 +4149,18 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     }
                     return valid;
                 },
-                [this, carried, adopt, bento, extractingPane](const PreparedCarrySource &source) {
+                [this, carried, output, adopt, bento, extractingPane](const PreparedCarrySource &source) {
                     const auto sourceValid = [this, &source, bento] {
                         return bento ? m_desktopStage->nativeCarrySourceValid(source)
                                      : m_cardStage->nativeCarrySourceValid(source);
                     };
-                    if (adopt) return m_cardStage->adoptDisplayWithActive(carried, sourceValid);
+                    // Read before commit, which can retire the carry's pose.
+                    const QRectF drawn = carriedPose();
+                    if (adopt) {
+                        if (!m_cardStage->adoptDisplayWithActive(carried, sourceValid)) return false;
+                        glideIntoActive(carried, output, drawn);
+                        return true;
+                    }
                     // §5: a pane gives up Bento ownership in the same published
                     // step that makes it a card, so the layout it left is never
                     // observed still naming it. Everything else arrives without
@@ -4092,6 +4169,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         ? !m_desktopStage->extractPaneToCards(carried, sourceValid)
                         : !admitTransferredWindowToTablet(carried, sourceValid)) return false;
                     (void)m_cardStage->promoteToActive(carried);
+                    glideIntoActive(carried, output, drawn);
                     return true;
                 });
             return;
@@ -4167,7 +4245,86 @@ void Effect::clearDropSettle()
     if (m_settlingWindow && !m_settlingWindow->isDeleted()) unredirect(m_settlingWindow);
     m_settlingWindow.clear(); m_settlingOutput.clear();
     m_dropSettleTimer.invalidate();
+    m_settleAsked.invalidate();
+    m_settleOnCards = false;
+    m_settleDrawnMoving = false;
     if (repaint) KWin::effects->addRepaintFull();
+}
+
+QRectF Effect::carriedPose() const
+{
+    if (!m_carriedWindow || !m_carryRuntime) return {};
+    return QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size());
+}
+
+bool Effect::cardDisplayPresents(KWin::EffectWindow *window) const
+{
+    // What the card display shows: its layout's panes while it presents the
+    // layout, the Active card alone among the cards, and anything it does not
+    // own as it stands.
+    if (!window || !m_cardStage->isActive()) return true;
+    if (m_desktopStage->managesWindow(window)) return m_cardStage->presentsBento();
+    if (m_cardStage->liveCardIndex(window) >= 0)
+        return m_cardStage->presentation() == CardPresentation::Active
+            && m_cardStage->selectedWindow() == window;
+    return true;
+}
+
+void Effect::glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from)
+{
+    if (!window || window->isDeleted() || !window->window() || !output || !isTabletOutput(output)
+        || !m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->selectedWindow() != window) return;
+    startDropSettle(window, output, from, QRectF(window->window()->moveResizeGeometry()), true);
+}
+
+void Effect::lastPaneLeftLayoutForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                               const QRectF &drawn)
+{
+    if (!scopedToCurrent()) return;
+    glideIntoActive(window, output, drawn);
+}
+
+void Effect::paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                        const QRectF &drawn)
+{
+    if (!scopedToCurrent() || !window || window->isDeleted() || !output || !drawn.isValid()
+        || motion(PaneArrivalDuration) <= 1) return;
+    m_yieldingPanes.removeIf([window](const auto &yielding) { return yielding.window == window; });
+    YieldingPane yielding{window, output, drawn, QRectF(output->geometry()), {}};
+    yielding.timer.start();
+    m_yieldingPanes.append(yielding);
+    KWin::effects->addRepaintFull();
+}
+
+std::optional<double> Effect::yieldingPaneOpacity(KWin::EffectWindow *window) const
+{
+    for (const auto &yielding : m_yieldingPanes) {
+        if (yielding.window != window) continue;
+        const int duration = motion(PaneArrivalDuration);
+        // It fades only while it is a hidden card: shown again, as a pane or
+        // as a card, it is drawn as that.
+        if (!window || window->isDeleted() || window->isMinimized() || !yielding.output
+            || QRectF(yielding.output->geometry()) != yielding.outputGeometry
+            || yielding.timer.elapsed() >= duration
+            || m_desktopStage->managesWindow(window)
+            || (m_cardStage->isActive() && m_cardStage->presentation() != CardPresentation::Bento
+                && isTabletOutput(yielding.output))
+            || (m_cardStage->presentation() == CardPresentation::Active
+                && m_cardStage->selectedWindow() == window)) return std::nullopt;
+        return 1.0 - QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+            double(yielding.timer.elapsed()) / duration);
+    }
+    return std::nullopt;
+}
+
+void Effect::clearYieldingPanes()
+{
+    if (m_yieldingPanes.isEmpty()) return;
+    for (const auto &yielding : std::as_const(m_yieldingPanes))
+        if (yielding.window && !yielding.window->isDeleted()) unredirect(yielding.window);
+    m_yieldingPanes.clear();
+    KWin::effects->addRepaintFull();
 }
 
 std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
@@ -4184,7 +4341,13 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
             || window->isUserMove() || window->isUserResize() || window->isMinimized()
             || QRectF(m.output->geometry()) != m.outputGeometry
             || window->window()->moveResizeOutput() != m.output
-            || QRectF(window->window()->moveResizeGeometry()) != m.to) return std::nullopt;
+            || !landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)
+            // A pane is drawn moving only while its layout is what the display
+            // presents; one that left it, or a layout gone into Spread, is
+            // drawn as what it is now.
+            || !m_desktopStage->managesWindow(window)
+            || (isTabletOutput(m.output) && m_cardStage->isActive()
+                && !m_cardStage->presentsBento())) return std::nullopt;
         const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
             paneArrivalProgress(started, started ? m.timer.elapsed() : 0, duration));
         return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
@@ -4237,7 +4400,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
 }
 
 void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *output,
-                            const QRectF &from, const QRectF &to)
+                            const QRectF &from, const QRectF &to, bool onCards)
 {
     clearDropSettle();
     // Logical commitment is not proof of native placement. Require KWin's
@@ -4245,7 +4408,7 @@ void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *ou
     // whichever buffer is current. A move may wait a short, bounded time for
     // that buffer, as a card arriving in a pane does (PaneArrival.h), but it
     // never holds input or retries geometry.
-    if (!window || window->isDeleted() || !output || isTabletOutput(output)
+    if (!window || window->isDeleted() || !output || (isTabletOutput(output) && !onCards)
         || !from.isValid() || !to.isValid() || from == to
         || !window->window() || window->window()->moveResizeOutput() != output
         || QRectF(window->window()->moveResizeGeometry()) != to
@@ -4253,22 +4416,30 @@ void Effect::startDropSettle(KWin::EffectWindow *window, KWin::LogicalOutput *ou
     m_settlingWindow = window; m_settlingOutput = output;
     m_settleFrom = from; m_settleTo = to;
     m_settleOutputGeometry = QRectF(output->geometry());
-    m_dropSettleTimer.start();
+    m_settleOnCards = onCards;
+    m_settleAsked.start();
+    // On the card display it waits where it was let go for its client to
+    // draw the shape it settles into, as a card arriving in a pane does.
+    if (!onCards) m_dropSettleTimer.start();
     KWin::effects->addRepaintFull();
 }
 
 std::optional<QRectF> Effect::dropSettleRect() const
 {
     const double Duration = motion(220);
+    const bool started = m_dropSettleTimer.isValid();
     if (!m_settlingWindow || m_settlingWindow->isDeleted() || !m_settlingOutput
-        || !m_dropSettleTimer.isValid() || m_dropSettleTimer.elapsed() >= Duration
+        || (started ? m_dropSettleTimer.elapsed() >= Duration
+                    : !m_settleAsked.isValid() || m_settleAsked.elapsed() >= PaneArrivalAbandon)
+        || (m_settleOnCards && !cardDisplayPresents(m_settlingWindow))
         || !m_settlingWindow->window()
         || m_settlingWindow->window()->moveResizeOutput() != m_settlingOutput
         || QRectF(m_settlingOutput->geometry()) != m_settleOutputGeometry
-        || QRectF(m_settlingWindow->window()->moveResizeGeometry()) != m_settleTo
+        || !landsAt(QRectF(m_settlingWindow->window()->moveResizeGeometry()), m_settleTo)
         || m_settlingWindow->isUserMove() || m_settlingWindow->isUserResize()
         || m_settlingWindow->isMinimized()) return std::nullopt;
-    const auto t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(m_dropSettleTimer.elapsed() / Duration);
+    const auto t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        paneArrivalProgress(started, started ? m_dropSettleTimer.elapsed() : 0, int(Duration)));
     return QRectF(m_settleFrom.topLeft() + (m_settleTo.topLeft() - m_settleFrom.topLeft()) * t,
                   m_settleFrom.size() + (m_settleTo.size() - m_settleFrom.size()) * t);
 }
@@ -6113,7 +6284,27 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     }
     if (m_settlingWindow) {
         if (!dropSettleRect()) clearDropSettle();
-        else { data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true; }
+        else {
+            // A settle on the card display moves once its client draws the
+            // shape it settles into or has had long enough to.
+            if (!m_dropSettleTimer.isValid() && !m_settleDrawnMoving) {
+                const auto frame = m_settlingWindow->frameGeometry();
+                m_settleDrawnMoving = !paneArrivalWaits(
+                    paneArrivalShaped(frame.width(), frame.height(), m_settleTo.width(), m_settleTo.height()),
+                    m_settleAsked.elapsed());
+            }
+            data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true;
+        }
+    }
+    for (auto it = m_yieldingPanes.begin(); it != m_yieldingPanes.end();) {
+        if (!yieldingPaneOpacity(it->window)) {
+            if (it->window && !it->window->isDeleted()) unredirect(it->window);
+            it = m_yieldingPanes.erase(it);
+        } else {
+            data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+            m_continueRepaint = true;
+            ++it;
+        }
     }
     if (m_carriedWindow) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
     if (m_gestureNote) {
@@ -6144,6 +6335,7 @@ void Effect::postPaintScreen()
     m_continueRepaint = false;
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
+    if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
     if (continueRepaint) {
@@ -6203,7 +6395,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
                             KWin::EffectWindow *window,
                             KWin::WindowPrePaintData &data)
 {
-    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)) {
+    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
+        || yieldingPaneOpacity(window)) {
         data.setTransformed(); data.setTranslucent();
     }
     // Left undrawn, so it must not hide what is under it from the scene.
@@ -6927,9 +7120,19 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
         && window->window()->moveResizeOutput() != m_paintingOutput) return paintResult(true);
-    if (((window == m_carriedWindow && m_carryRuntime) || settle) && m_paintingOutput) {
-        const auto plan = settle
-            ? carryPaintPlan(*settle, settle->topLeft(), QRectF(m_paintingOutput->geometry()))
+    // A pane that gave way fades where it stood, wherever its window now is.
+    std::optional<QRectF> yieldingRect;
+    if (!settle && window != m_carriedWindow) {
+        if (const auto opacity = yieldingPaneOpacity(window)) {
+            for (const auto &yielding : std::as_const(m_yieldingPanes))
+                if (yielding.window == window) yieldingRect = yielding.rect;
+            if (yieldingRect) data.multiplyOpacity(*opacity);
+        }
+    }
+    if (((window == m_carriedWindow && m_carryRuntime) || settle || yieldingRect) && m_paintingOutput) {
+        const auto drawnAt = settle ? settle : yieldingRect;
+        const auto plan = drawnAt
+            ? carryPaintPlan(*drawnAt, drawnAt->topLeft(), QRectF(m_paintingOutput->geometry()))
             : carryPaintPlan(m_carryPickup, m_carryRuntime->handoff.carry().position(),
                              QRectF(m_paintingOutput->geometry()));
         if (!plan || plan->clip.isEmpty()) return paintResult(true);

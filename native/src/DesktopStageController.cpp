@@ -1574,11 +1574,14 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
         // session that held it no longer does.
         // §5 makes this a nonselected card, never the Active one: the display
         // is still presenting the panes this window just left.
+        const QRectF drawn = m_host->bentoPresentationRect(window);
         if (!m_host->admitDisplacedPaneToTablet(window, [] { return true; },
                 &eviction.record)) {
             qWarning() << "Kadunce" << Revision
                        << "could not give a window the layout cannot show to card ownership:"
                        << window->caption();
+        } else if (auto *output = outputForKey(eviction.sourceKey)) {
+            m_host->paneYieldedForDesktopStage(window, output, drawn);
         }
     }
 }
@@ -1661,6 +1664,7 @@ void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
     if (!output || !m_host->outputCanOwnCards(output)) return;
     const QPointer<KWin::EffectWindow> remaining =
         session->windows.isEmpty() ? nullptr : session->windows.first();
+    const QRectF drawn = remaining ? m_host->bentoPresentationRect(remaining) : QRectF();
     if (remaining && !evictToTablet(key, remaining)) return;
     // Eviction removes the session as it empties, and adopting reenters this
     // controller, so anything found under the key now was put there after the
@@ -1672,6 +1676,8 @@ void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
     }
     // The display no longer has a layout for anything else to present behind.
     m_host->retireOutputFromDesktopStage(output);
+    if (remaining && !remaining->isDeleted())
+        m_host->lastPaneLeftLayoutForDesktopStage(remaining, output, drawn);
     KWin::effects->addRepaintFull();
 }
 

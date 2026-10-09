@@ -76,6 +76,17 @@ for pass in alone sleeper closed; do
     probe motion "$((touch + 2))" 650 400; sleep .15
     probe motion "$((touch + 2))" 5 400; sleep .3
     probe up "$((touch + 2))"
+    # It grows into its pane from where it was let go, rather than jumping
+    # there from under the finger.
+    pairing=()
+    for sample in {1..16}; do
+        pairing+=("$(kad nativeCarryState | jq -c --arg id "$main" \
+            '[.bentoMotion[] | select(.window == $id and .arrival)][0] // empty | {started, rect, target}')")
+        sleep .02
+    done
+    printf '%s\n' "${pairing[@]}" | grep . | sed "s/^/state $pass-pairing /"
+    check "$pass: the carried card grows into its pane from where it was let go" \
+        jq -se 'map(select(.rect != .target)) | length > 0' < <(printf '%s\n' "${pairing[@]}" | grep .)
     sleep 1.2
     report "$pass-paired"
     # At a fractional scale a pane can sit part of a pixel off its rect.
@@ -85,8 +96,17 @@ for pass in alone sleeper closed; do
         check "$pass: the sleeping window is a card, asleep" \
             context --arg id "$sleeper" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .minimized'
     fi
+    # The layout shrinks into its group card in the row, from the screen it
+    # filled, rather than cutting to Spread.
     kad showCardLine
-    sleep 1
+    # The group is the selected entry, so the drawn selected card is it.
+    shrink=()
+    for sample in {1..6}; do shrink+=("$(kad nativeCarryState | jq '.lineRect.width')"); done
+    sleep .9
+    rest=$(kad nativeCarryState | jq '.lineRect.width')
+    echo "state $pass-shrink group card widths ${shrink[*]} at rest $rest"
+    check "$pass: the layout shrinks into its group card" \
+        jq -se --argjson r "$rest" '$r > 0 and (map(select(. > $r)) | length > 0)' < <(printf '%s\n' "${shrink[@]}")
     report "$pass-spread"
     check "$pass: Spread shows the pair as one group" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
 
@@ -133,6 +153,17 @@ for pass in alone sleeper closed; do
     check "$pass: Kadunce carries the pane" jq -e '.carrying' <<<"$carry"
     for step in 300 160 60 12 2; do probe motion $((touch + 1)) "$x" "$step"; sleep .1; done
     probe up $((touch + 1))
+    # It grows from where it was let go into the Active place, rather than
+    # vanishing under the finger and appearing there.
+    settle=()
+    for sample in {1..12}; do
+        settle+=("$(kad nativeCarryState | jq -c 'select(.dropSettling) | {dropWindow, dropStarted, dropRect, dropTarget}')")
+        sleep .02
+    done
+    printf '%s\n' "${settle[@]}" | grep . | sed "s/^/$pass: top /"
+    check "$pass: the pane glides from where it was let go into the Active place" \
+        jq -se --arg id "$main" 'map(select(.dropWindow == $id and .dropRect != .dropTarget)) | length > 0' \
+        < <(printf '%s\n' "${settle[@]}" | grep .)
     sleep 1.2
     report "$pass-top"
     check "$pass: let go at the top edge, the pane is the Active card" \
