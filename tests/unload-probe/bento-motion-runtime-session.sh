@@ -35,17 +35,21 @@ probe contactObserve
 probe contactStart >/dev/null
 client colouredCompanion "Neighbour" "c03a3a" 700 500
 client colouredCompanion "Aside" "2e8b57" 560 420
+# A card that stays hidden behind the layout throughout, so the yielding
+# pane joins cards that are held, as it does in use.
+client colouredCompanion "Spare" "8a6d3b" 560 420
 sleep .8
 neighbour=$(probe windowIdByCaption "Neighbour")
 aside=$(probe windowIdByCaption "Aside")
+spare=$(probe windowIdByCaption "Spare")
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1
-main=$(kad workspaceContext | jq -r --arg n "$neighbour" --arg a "$aside" \
-    '[.applications[] | select(.windowId != $n and .windowId != $a)][0].windowId')
+main=$(kad workspaceContext | jq -r --arg n "$neighbour" --arg a "$aside" --arg s "$spare" \
+    '[.applications[] | select(.windowId != $n and .windowId != $a and .windowId != $s)][0].windowId')
 probe contactFocus >/dev/null
 sleep .5
 # The neighbour is the card used before the Active one, so carried to the
-# left edge the Active card pairs with it and leaves the third a hidden card.
+# left edge the Active card pairs with it and leaves the others hidden cards.
 probe activateWindowId "$neighbour" >/dev/null
 sleep .4
 probe contactFocus >/dev/null
