@@ -154,6 +154,12 @@ bool prepareWaylandEnvironment()
     return true;
 }
 
+bool installedIcon(const QString &name)
+{
+    return !QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+        QStringLiteral("icons/hicolor/scalable/apps/%1.svg").arg(name)).isEmpty();
+}
+
 // Asked when shown, once the application has named its catalog.
 QString switchLabel()
 {
@@ -381,18 +387,27 @@ private:
         m_repairAction->setText(m_repairing ? i18n("Repair in progress…") : i18n("Repair for current KWin…"));
         m_repairAction->setEnabled(!m_repairing && QFileInfo::exists(repairDirectory() + QStringLiteral("/source.tar")));
         const QString icon = enabled
-            ? QStringLiteral(":/icons/assets/kadunce-enabled.svg")
-            : QStringLiteral(":/icons/assets/kadunce-disabled.svg");
+            ? QStringLiteral("co.goodinput.kadunce-cards")
+            : QStringLiteral("co.goodinput.kadunce-cards-off");
         // Every icon or tooltip change wakes the tray host, so send them only
         // when the state they show has changed.
         if (m_shownEnabled == int(enabled)) {
             return;
         }
         m_shownEnabled = int(enabled);
-        m_notifier.setIconByPixmap(QIcon(icon));
-        m_notifier.setToolTip(
-            QIcon(icon), switchLabel(),
-            enabled ? i18n("On") : i18n("Off"));
+        const QString status = enabled ? i18n("On") : i18n("Off");
+        // By name where installed: a host that reads only the name, as
+        // Shuffle Settings does, otherwise falls back to a generic icon,
+        // and the theme's colours apply. A build run from its own folder
+        // still has the drawn copy.
+        if (installedIcon(icon)) {
+            m_notifier.setIconByName(icon);
+            m_notifier.setToolTip(icon, switchLabel(), status);
+        } else {
+            const QIcon drawn(QStringLiteral(":/icons/assets/%1.svg").arg(icon));
+            m_notifier.setIconByPixmap(drawn);
+            m_notifier.setToolTip(drawn, switchLabel(), status);
+        }
     }
 
     // Asked only as the menu opens: the effect is the one that keeps it.

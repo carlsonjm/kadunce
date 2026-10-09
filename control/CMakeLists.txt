@@ -23,9 +23,16 @@ qt_add_executable(kadunce-control
 qt_add_resources(kadunce-control "control_icons"
     PREFIX "/icons"
     FILES
-        assets/kadunce-enabled.svg
-        assets/kadunce-disabled.svg
+        assets/co.goodinput.kadunce-cards.svg
+        assets/co.goodinput.kadunce-cards-off.svg
 )
+
+# Named in the icon theme, so every host that lists the tray icon by name
+# (Shuffle Settings among them) draws the cards in its own text colour.
+install(FILES
+        assets/co.goodinput.kadunce-cards.svg
+        assets/co.goodinput.kadunce-cards-off.svg
+    DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 
 target_link_libraries(kadunce-control PRIVATE
     Qt6::Core
