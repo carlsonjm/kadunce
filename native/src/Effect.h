@@ -228,6 +228,18 @@ private:
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
     void redirectPreviewSource(KWin::EffectWindow *window);
+    // Redirects a window into its own picture, taken again when its frame and
+    // buffer stop lining up; true when the picture is new.
+    bool redirectSource(KWin::EffectWindow *window, bool reportChange);
+    // Whether Kadunce cuts this window's corners to the paper tier itself
+    // (ITASCA-VISUAL-LANGUAGE.md § Rounded boxes are information).
+    [[nodiscard]] bool trimsCorners(KWin::EffectWindow *window) const;
+    PaintResult drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
+                                  const KWin::RenderViewport &viewport,
+                                  KWin::EffectWindow *window,
+                                  int mask,
+                                  const KWin::Region &deviceRegion,
+                                  KWin::WindowPaintData &data);
     struct BentoMotion {
         QPointer<KWin::EffectWindow> window;
         QPointer<KWin::LogicalOutput> output;
