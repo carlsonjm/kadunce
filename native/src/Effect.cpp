@@ -94,6 +94,15 @@ int motion(int base)
 {
     return motionDuration(base, KWin::effects ? KWin::effects->animationTimeFactor() : 1.0);
 }
+
+// Whether a window still stands where a motion takes it. At a fractional
+// scale KWin may land a frame part of a pixel off the rect it was asked for,
+// and that is still the motion's place.
+bool landsAt(const QRectF &geometry, const QRectF &to)
+{
+    return std::abs(geometry.left() - to.left()) < 1.0 && std::abs(geometry.top() - to.top()) < 1.0
+        && std::abs(geometry.right() - to.right()) < 1.0 && std::abs(geometry.bottom() - to.bottom()) < 1.0;
+}
 }
 
 namespace
@@ -4332,7 +4341,7 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
             || window->isUserMove() || window->isUserResize() || window->isMinimized()
             || QRectF(m.output->geometry()) != m.outputGeometry
             || window->window()->moveResizeOutput() != m.output
-            || QRectF(window->window()->moveResizeGeometry()) != m.to
+            || !landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)
             // A pane is drawn moving only while its layout is what the display
             // presents; one that left it, or a layout gone into Spread, is
             // drawn as what it is now.
@@ -4426,7 +4435,7 @@ std::optional<QRectF> Effect::dropSettleRect() const
         || !m_settlingWindow->window()
         || m_settlingWindow->window()->moveResizeOutput() != m_settlingOutput
         || QRectF(m_settlingOutput->geometry()) != m_settleOutputGeometry
-        || QRectF(m_settlingWindow->window()->moveResizeGeometry()) != m_settleTo
+        || !landsAt(QRectF(m_settlingWindow->window()->moveResizeGeometry()), m_settleTo)
         || m_settlingWindow->isUserMove() || m_settlingWindow->isUserResize()
         || m_settlingWindow->isMinimized()) return std::nullopt;
     const auto t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
