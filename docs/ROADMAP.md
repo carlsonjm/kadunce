@@ -12,15 +12,12 @@ What is planned for Kadunce, and what it does not do yet.
   card does.
 - The on-screen keys coming up for the first text field of a session, and for a
   tap just after a card is chosen.
-- Under a reduced-motion preference, where the platform exposes one apart
-  from Plasma's instant speed, short fades in place of travel.
-- Spread and the Active card named for a screen reader, as Table is.
+- Spread named for a screen reader, as Table is, and checked with Orca.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
 - A placement request (`REQUESTS.md`) taking a pane out of its layout.
-- One package and interface namespace across the suite, with a documented
-  migration from today's identifiers.
-- From Spread, a pull from the top edge bringing Table's tabs over Spread, which
-  stays showing; the full-size previews come only past the tabs.
+- The identifiers still outside `co.goodinput.*`, Tettegouche's desktop entries
+  and Gooseberry's notes interface, and the `showCardLine` method and `cardLine`
+  value Tettegouche reads, renamed with a versioned migration.
 
 ## Known limitations
 
@@ -32,9 +29,10 @@ What is planned for Kadunce, and what it does not do yet.
   display has moved in the desktop layout is not measured.
 - A Wayland dialog that names no parent window becomes a card. No application
   surveyed so far does this.
-- The plugin is built for the KWin it is installed against and needs a rebuild
-  after a KWin update changes KWin's plugin interface. A rebuilt plugin may need
-  a logout and login before the compositor loads it.
+- The plugin is built for the KWin it is installed against, and KWin loads it
+  only for that exact KWin version, so it needs a rebuild after every KWin
+  update. A rebuilt plugin may need a logout and login before the compositor
+  loads it.
 - Guided repair rebuilds the source kept at installation, runs its tests and
   asks for authorization to replace one plugin file. It downloads nothing and
   needs the build dependencies. Its log is

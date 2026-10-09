@@ -1,8 +1,8 @@
 # Shuffle terminology
 
 The suite's language contract: the terms every component uses and the rules for
-applying them. It covers Kadunce, Tettegouche, Temperance, Shuffle, the Shuffle
-Keyboard and Split Rock.
+applying them. It covers Kadunce, Tettegouche, Temperance, Gooseberry,
+Shuffle, the Shuffle Keyboard and Split Rock.
 
 ## Approved language
 
@@ -11,6 +11,7 @@ Keyboard and Split Rock.
 | Shuffle for Plasma | Public product descriptor | Locked |
 | Workspace | One KDE virtual desktop as Table shows it: its cards, layouts and windows, across every display | Current |
 | Named workspace | A workspace you named; it stays when empty | Current |
+| Cards | Kadunce's name on a Shuffle install, and its tray switch | Current |
 | Card | An application window Kadunce holds on the card display | Locked |
 | Active card | The card in use, shown alone | Locked |
 | Spread | The ordered row of cards, Stacks and the Bento group you browse | Locked |
@@ -39,7 +40,8 @@ Keyboard and Split Rock.
 | Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked |
 | Bottom Surface | Single layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Current |
 | Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Current |
-| Split Rock | The desktop assistant; inside Shuffle, the workspace assistant | Working |
+| Notes | Gooseberry's name on a Shuffle install | Current |
+| Split Rock | The desktop assistant; inside Shuffle, Genie | Working |
 
 ## Retired language
 
@@ -72,9 +74,11 @@ terms are defects here.
 
 ### 2. Component and internal names
 
-Kadunce, Tettegouche, Temperance and Split Rock remain the open-source component
-and repository names. Internal symbols may use component vocabulary that never
-reaches a user, such as `CardStageController` or `DesktopStageController`.
+Kadunce, Tettegouche, Temperance, Gooseberry, the Shuffle Keyboard and Split
+Rock remain the component and repository names, and outside Shuffle the
+open-source components keep their own names. Internal symbols may use
+component vocabulary that never reaches a user, such as `CardStageController`
+or `DesktopStageController`.
 
 Internal symbols must not use *retired* vocabulary. `CardLineModel` becomes
 `SpreadModel`; `CardStageController` may stay, because Card Stage is internal
@@ -87,10 +91,10 @@ entry ids, and any scriptable method name. Changing these breaks installed
 packages and cross-component calls, so they change only in a coordinated,
 versioned release, never as part of a vocabulary pass.
 
-Current identity is not shared across the suite: `co.goodinput.*` names
-Kadunce, Temperance and the Tettegouche plugin, and `io.github.carlsonjm.*` the
-Tettegouche desktop entry. One coordinated change unifies them across the
-suite (`ROADMAP.md`).
+Current identity is mostly shared across the suite: `co.goodinput.*` names
+Kadunce, Temperance and the Tettegouche plugin, and `io.github.carlsonjm.*`
+still names Tettegouche's desktop entries and Gooseberry. One coordinated
+change unifies them (`ROADMAP.md`).
 
 ## Enforcement
 
@@ -102,5 +106,5 @@ Temperance has no guard yet.
 
 Kadunce's guard permits two layer-3 spellings and nothing else: the
 `showCardLine` scriptable method and the `cardLine` workspace-context value,
-both consumed by Tettegouche. The identity change retires them together with a
-documented migration.
+both consumed by Tettegouche. The `co.goodinput` rename left them in place; a
+later versioned migration retires them together (`ROADMAP.md`).

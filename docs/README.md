@@ -32,9 +32,3 @@ subject to its owner. When two documents disagree, the owner governs.
 largest documents and for all live documents together. When a budget fails,
 trim: removed text lives in Git history. A budget is raised only with the
 maintainer's agreement.
-
-## Audit numbers
-
-A roadmap line tagged `(audit N)` answers finding N of the 23 September product
-and experience audit, `docs/EXPERIENCE-AUDIT.md` in Git history before 27
-September.

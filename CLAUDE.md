@@ -8,4 +8,5 @@ The working tree is `Projects/Shuffle/kadunce`, not the older
 `Projects/Itasca/kadunce` checkout.
 
 Anything touching `Effect`, `WorkspaceInputRouter`, packaging or the installed
-system needs a local session (the suite plan's § Working model).
+system needs a local session (§ Working model in the suite's frozen
+`ROADMAP-CC.md`).

@@ -56,7 +56,8 @@ must reject unknown major versions instead of guessing at fields.
   layout while Card Stage holds its cards hidden), `desktop` (the card display
   shows the Plasma desktop while Card Stage holds its cards hidden), or
   `active`. `cardLine` is a
-  frozen interface value that Block 10b renames with a versioned migration.
+  frozen interface value that a later versioned migration renames
+  (`ROADMAP.md`).
 - `desktopStage`: whether any output currently owns a Bento session.
 - `lastActivated`, optional on each application: an in-memory, monotonic
   sequence for this effect's lifetime. Snapshots without it keep
