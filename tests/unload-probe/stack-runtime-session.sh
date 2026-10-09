@@ -7,7 +7,7 @@ set -euo pipefail
 trap 'echo "FAIL: stack runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 source "$(dirname "${BASH_SOURCE[0]}")/spread-carry.bash"
 cards() { kad workspaceContext | jq -c '[.applications[] | select(.hasCard) | {s: .stackId, p: .stackPosition, n: .stackSize}] | sort_by(.s, .p)'; }

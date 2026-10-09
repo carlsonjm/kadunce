@@ -18,11 +18,11 @@ done
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 for attempt in {1..40}; do
-    if qdbus6 studio.warbler.UnloadClient /Client state >/dev/null 2>&1; then break; fi
+    if qdbus6 co.goodinput.UnloadClient /Client state >/dev/null 2>&1; then break; fi
     sleep .1
 done
-qdbus6 studio.warbler.UnloadClient /Client companion
-qdbus6 studio.warbler.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
+qdbus6 co.goodinput.UnloadClient /Client companion
 sleep .5
 test "$(probe entryClientsOnTablet)" = true
 sleep .3

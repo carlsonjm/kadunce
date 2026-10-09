@@ -269,7 +269,7 @@ if rg -q 'appendCard.*launcher|launcher.*appendCard' "${effect_cpp}" "${card_cpp
     echo "A launcher guest must never enter the persistent card model" >&2
     exit 1
 fi
-rg -q 'studio\.warbler\.kadunce\.workspace-context' "${effect_cpp}"
+rg -q 'co\.goodinput\.kadunce\.workspace-context' "${effect_cpp}"
 rg -q 'io\.github\.carlsonjm\.Tettegouche' "${effect_cpp}"
 rg -q 'identity\.compare\(QStringLiteral\("tettegouche"\)' \
     "${effect_cpp}"

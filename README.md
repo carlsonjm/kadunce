@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/studio.warbler.kadunce-logo.png" width="180" alt="Kadunce">
+  <img src="assets/co.goodinput.kadunce-logo.png" width="180" alt="Kadunce">
 </p>
 
 # Kadunce

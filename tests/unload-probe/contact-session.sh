@@ -5,7 +5,7 @@ trap 'echo "FAIL: contact probe line $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 tr '\0' '\n' < "/proc/${PPID}/cmdline" | rg -q '^--virtual$'
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 # KWin's maps are unreadable under a restricted-ptrace kernel, so ask KWin
 # whether the probe loaded instead of reading its address space.
 for attempt in {1..40}; do

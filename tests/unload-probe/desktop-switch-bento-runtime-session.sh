@@ -9,7 +9,7 @@ set -Eeuo pipefail
 trap 'echo "FAIL: desktop switch bento $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 vdm() { qdbus6 org.kde.KWin /VirtualDesktopManager "$@"; }
 for attempt in {1..40}; do

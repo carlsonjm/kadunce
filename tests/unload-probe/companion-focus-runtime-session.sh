@@ -10,7 +10,7 @@
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 companion_binary=${KADUNCE_TEST_COMPANION:-gooseberry}
 failures=0
@@ -57,7 +57,7 @@ check "Spread is shown" bash -c "kad() { qdbus6 org.kde.KWin /Kadunce \"\$@\"; }
 python3 - >"$XDG_RUNTIME_DIR/states" <<'PY' &
 import dbus, json, time
 bus = dbus.SessionBus(private=True)
-k = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+k = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 end = time.monotonic() + 3
 last = None
 while time.monotonic() < end:
@@ -88,7 +88,7 @@ watch_states() {
 python3 - "$1" >"$XDG_RUNTIME_DIR/$2" <<'PY' &
 import dbus, json, sys, time
 bus = dbus.SessionBus(private=True)
-k = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+k = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 end = time.monotonic() + float(sys.argv[1])
 last = None
 while time.monotonic() < end:

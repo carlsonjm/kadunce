@@ -80,7 +80,7 @@ sleep .5
 guest=$(python3 - <<'PY'
 import dbus, json
 bus = dbus.SessionBus(private=True)
-kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 reply = json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))
 assert reply["accepted"]
 kadunce.endLauncherGuest()

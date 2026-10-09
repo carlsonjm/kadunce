@@ -8,7 +8,7 @@ set -euo pipefail
 trap 'echo "FAIL: stack still runtime $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 source "$(dirname "${BASH_SOURCE[0]}")/spread-carry.bash"
 for attempt in {1..40}; do

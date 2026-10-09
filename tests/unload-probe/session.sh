@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || { echo 'Private runtime required' >&2; exit 1; }
 tr '\0' '\n' < "/proc/${PPID}/cmdline" | rg -q '^--virtual$'
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 expect_client() {
     local actual
     actual=$(client state)

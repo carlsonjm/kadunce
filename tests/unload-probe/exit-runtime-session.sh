@@ -3,7 +3,7 @@ set -euo pipefail
 trap 'echo "FAIL: exit runtime line $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
-client() { qdbus6 studio.warbler.UnloadClient /Client "$@"; }
+client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
 platform=${KADUNCE_EXIT_PLATFORM:-wayland}
 output_role=${KADUNCE_TEST_OUTPUT_ROLE:-external}

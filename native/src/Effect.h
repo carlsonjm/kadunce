@@ -68,7 +68,7 @@ class Effect final : public KWin::OffscreenEffect,
                      private CardStageHost
 {
     Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "studio.warbler.Kadunce")
+    Q_CLASSINFO("D-Bus Interface", "co.goodinput.Kadunce")
 
 public:
     Effect();

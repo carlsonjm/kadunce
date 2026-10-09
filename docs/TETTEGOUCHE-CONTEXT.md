@@ -18,7 +18,7 @@ The installed KWin effect exports this session D-Bus method:
 ```text
 service:   org.kde.KWin
 path:      /Kadunce
-interface: studio.warbler.Kadunce
+interface: co.goodinput.Kadunce
 method:    workspaceContext
 result:    compact UTF-8 JSON string
 ```
@@ -29,7 +29,7 @@ Kadunce to activate its exact window:
 ```text
 service:   org.kde.KWin
 path:      /Kadunce
-interface: studio.warbler.Kadunce
+interface: co.goodinput.Kadunce
 method:    activateApplicationWindow(windowId)
 result:    true only when that live application window was activated
 ```
@@ -40,7 +40,7 @@ existing activation handling, so selection, stack membership, and presentation
 remain under Kadunce's authority.
 
 The payload identifies itself with schema
-`studio.warbler.kadunce.workspace-context` and integer `version: 1`. Consumers
+`co.goodinput.kadunce.workspace-context` and integer `version: 1`. Consumers
 must reject unknown major versions instead of guessing at fields.
 
 ## Version 1 payload
@@ -72,7 +72,7 @@ Tettegouche must not persist them as identity.
 ## Query example
 
 ```bash
-qdbus6 org.kde.KWin /Kadunce studio.warbler.Kadunce.workspaceContext
+qdbus6 org.kde.KWin /Kadunce co.goodinput.Kadunce.workspaceContext
 ```
 
 Version 1 keeps no persisted activity history; `lastActivated` lasts only as

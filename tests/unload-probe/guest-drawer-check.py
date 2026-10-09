@@ -6,12 +6,12 @@ import dbus
 
 assert os.environ["XDG_RUNTIME_DIR"].startswith("/tmp/kadunce-unload-")
 bus = dbus.SessionBus(private=True)
-guest = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+guest = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 reply = json.loads(guest.beginLauncherGuest(bus.get_unique_name()))
 assert reply["accepted"] and reply["presentationCapability"] == 1
 assert reply["active"]["width"] > reply["card"]["width"]
 other = dbus.SessionBus(private=True)
-stranger = dbus.Interface(other.get_object("org.kde.KWin", "/Kadunce"), "studio.warbler.Kadunce")
+stranger = dbus.Interface(other.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 assert not stranger.setLauncherGuestExpanded(True)
 assert guest.setLauncherGuestExpanded(True)
 time.sleep(.10)

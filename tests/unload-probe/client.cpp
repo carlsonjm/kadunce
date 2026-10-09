@@ -39,7 +39,7 @@ public:
 // the screen's edge until the band has stopped reserving.
 class BandStandIn : public QObject {
  Q_OBJECT
- Q_CLASSINFO("D-Bus Interface", "studio.warbler.BottomSurface")
+ Q_CLASSINFO("D-Bus Interface", "co.goodinput.BottomSurface")
 public:
  explicit BandStandIn(int band) : m_band(band) {
   m_dock = new QWidget; m_dock->setObjectName("band");
@@ -64,7 +64,7 @@ public Q_SLOTS:
  // whether the band still holds its reservation.
  Q_SCRIPTABLE QString dockExtent(const QString &) const {
   return QString::fromUtf8(QJsonDocument(QJsonObject{
-   {"schema", "studio.warbler.shuffle.dock-extent"}, {"version", 1}, {"output", "Virtual-0"},
+   {"schema", "co.goodinput.shuffle.dock-extent"}, {"version", 1}, {"output", "Virtual-0"},
    {"presenting", true}, {"reserving", m_reserving},
    {"band", QJsonObject{{"height", m_band}}},
    {"dock", QJsonObject{{"left", 440}, {"right", 840}, {"center", 640}}},
@@ -267,7 +267,7 @@ public Q_SLOTS:
   band_ = new BandStandIn(band);
   QDBusConnection::sessionBus().registerObject("/BottomSurface", band_,
    QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals);
-  QDBusConnection::sessionBus().registerService("studio.warbler.BottomSurface");
+  QDBusConnection::sessionBus().registerService("co.goodinput.BottomSurface");
   // Said again once the name has had time to reach everyone watching for it.
   Q_EMIT band_->dockExtentChanged("Virtual-0");
   QTimer::singleShot(500, band_, [this] { Q_EMIT band_->dockExtentChanged("Virtual-0"); });
@@ -396,5 +396,5 @@ private: BandStandIn *band_ = nullptr;
  bool moveArmed = false, resizeArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
  int targetPresses=0,targetReleases=0,targetClicks=0;
 };
-int main(int argc,char**argv) { QApplication a(argc,argv); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("studio.warbler.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
+int main(int argc,char**argv) { QApplication a(argc,argv); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
 #include "client.moc"

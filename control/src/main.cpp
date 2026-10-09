@@ -518,9 +518,9 @@ int main(int argc, char **argv)
     QApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("kadunce-control"));
     application.setOrganizationName(QStringLiteral("Jared Carlson"));
-    application.setOrganizationDomain(QStringLiteral("studio.warbler"));
+    application.setOrganizationDomain(QStringLiteral("co.goodinput"));
     application.setDesktopFileName(
-        QStringLiteral("studio.warbler.Kadunce.Control"));
+        QStringLiteral("co.goodinput.Kadunce.Control"));
     application.setQuitOnLastWindowClosed(false);
 
     const QString runtime = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));

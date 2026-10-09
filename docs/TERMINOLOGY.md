@@ -87,7 +87,7 @@ entry ids, and any scriptable method name. Changing these breaks installed
 packages and cross-component calls, so they change only in a coordinated,
 versioned release, never as part of a vocabulary pass.
 
-Current identity is not shared across the suite: `studio.warbler.*` names
+Current identity is not shared across the suite: `co.goodinput.*` names
 Kadunce, Temperance and the Tettegouche plugin, and `io.github.carlsonjm.*` the
 Tettegouche desktop entry. One coordinated change unifies them across the
 suite (`ROADMAP.md`).

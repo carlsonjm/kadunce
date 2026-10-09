@@ -7,7 +7,7 @@ native_effect_id="kwin4_effect_kadunce"
 native_plugin="/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"
 control_binary="${HOME}/.local/bin/kadunce-control"
 control_service="${HOME}/.config/systemd/user/kadunce-control.service"
-control_desktop="${HOME}/.local/share/applications/studio.warbler.Kadunce.Control.desktop"
+control_desktop="${HOME}/.local/share/applications/co.goodinput.Kadunce.Control.desktop"
 state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/kadunce"
 
 if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded \
