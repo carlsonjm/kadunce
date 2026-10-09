@@ -4,6 +4,7 @@
 */
 
 #include <KConfigGroup>
+#include <KLocalizedString>
 #include <KSharedConfig>
 #include <KStatusNotifierItem>
 
@@ -65,7 +66,7 @@ bool writeEffectEnabled(bool enabled)
 {
     const KSharedConfig::Ptr config = KSharedConfig::openConfig(
         QStringLiteral("kwinrc"));
-    KConfigGroup plugins(config, QStringLiteral("Plugins"));
+    KConfigGroup plugins(config, QStringLiteral("Plugins"));  // not translated: a kwinrc group
     plugins.writeEntry(
         QStringLiteral("kwin4_effect_kadunceEnabled"), enabled);
     config->sync();
@@ -79,7 +80,7 @@ bool effectEnabled()
     const KSharedConfig::Ptr config = KSharedConfig::openConfig(
         QStringLiteral("kwinrc"));
     config->reparseConfiguration();
-    const KConfigGroup plugins(config, QStringLiteral("Plugins"));
+    const KConfigGroup plugins(config, QStringLiteral("Plugins"));  // not translated: a kwinrc group
     return plugins.readEntry(
         QStringLiteral("kwin4_effect_kadunceEnabled"), false);
 }
@@ -153,7 +154,11 @@ bool prepareWaylandEnvironment()
     return true;
 }
 
-const QString SwitchLabel = QStringLiteral("Cards");
+// Asked when shown, once the application has named its catalog.
+QString switchLabel()
+{
+    return i18n("Cards");
+}
 
 class ControlMenu final
 {
@@ -161,11 +166,11 @@ public:
     ControlMenu()
         : m_notifier(QStringLiteral("kadunce-control"))
         , m_menu(new QMenu)
-        , m_toggle(m_menu->addAction(QStringLiteral("Cards on")))
+        , m_toggle(m_menu->addAction(i18n("Cards on")))
     {
         // The tray and Control Center show the title as the switch's label,
         // so it names what switches rather than the component.
-        m_notifier.setTitle(SwitchLabel);
+        m_notifier.setTitle(switchLabel());
         m_notifier.setCategory(KStatusNotifierItem::SystemServices);
         // This is the user's emergency workspace switch, so it remains
         // discoverable in the live tray instead of drifting into overflow.
@@ -179,9 +184,9 @@ public:
         });
 
         m_toggle->setCheckable(true);
-        m_health = m_menu->addAction(QStringLiteral("Checking KWin compatibility…"));
+        m_health = m_menu->addAction(i18n("Checking KWin compatibility…"));
         m_health->setEnabled(false);
-        m_repairAction = m_menu->addAction(QStringLiteral("Repair for current KWin…"));
+        m_repairAction = m_menu->addAction(i18n("Repair for current KWin…"));
         QObject::connect(m_repairAction, &QAction::triggered, [this]() { repair(); });
         QObject::connect(&m_probe, &QProcess::finished, [this](int code, QProcess::ExitStatus status) {
             m_kwinVersion = code == 0 && status == QProcess::NormalExit
@@ -202,11 +207,11 @@ public:
             m_repairOutput += QString::fromUtf8(m_repair.readAll());
             auto *message = new QMessageBox(code == 0 && status == QProcess::NormalExit
                     ? QMessageBox::Information : QMessageBox::Warning,
-                QStringLiteral("Repair cards"),
+                i18n("Repair cards"),
                 code == 0 && status == QProcess::NormalExit
-                    ? QStringLiteral("Rebuilt and installed for the current KWin. Your enabled/disabled choice was preserved. "
+                    ? i18n("Rebuilt and installed for the current KWin. Your enabled/disabled choice was preserved. "
                                      "No session restart was performed. If KWin still rejects it, save your work and log out and back in.")
-                    : QStringLiteral("Repair did not complete. No effect toggle or desktop restart was requested. See details for the failing step."),
+                    : i18n("Repair did not complete. No effect toggle or desktop restart was requested. See details for the failing step."),
                 QMessageBox::Ok);
             message->setDetailedText(m_repairOutput.right(24000));
             message->setWindowModality(Qt::NonModal);
@@ -219,13 +224,13 @@ public:
         QObject::connect(&m_repair, &QProcess::errorOccurred, [this](QProcess::ProcessError error) {
             if (error == QProcess::FailedToStart) {
                 m_repairing = false;
-                m_notifier.showMessage(QStringLiteral("Repair could not start"), m_repair.errorString(), QStringLiteral("dialog-error"));
+                m_notifier.showMessage(i18n("Repair could not start"), m_repair.errorString(), QStringLiteral("dialog-error"));
                 refresh();
             }
         });
         // A monitor fills itself unless asked to take the zones drawn there
         // with Meta+T; Meta+Shift+B switches the same choice.
-        m_zones = m_menu->addAction(QStringLiteral("Monitors use my zones (Meta+T)"));
+        m_zones = m_menu->addAction(i18n("Monitors use my zones (Meta+T)"));
         m_zones->setCheckable(true);
         QObject::connect(m_zones, &QAction::triggered, [](bool uses) {
             (void)runCommand(QStringLiteral("qdbus6"), {
@@ -234,7 +239,7 @@ public:
             });
         });
         m_menu->addSeparator();
-        QAction *settings = m_menu->addAction(QStringLiteral("Settings…"));
+        QAction *settings = m_menu->addAction(i18n("Settings…"));
         QObject::connect(settings, &QAction::triggered, [this]() { showSettings(); });
         m_notifier.setContextMenu(m_menu);
 
@@ -285,8 +290,8 @@ private:
     void repair()
     {
         if (m_repairing) return;
-        auto *question = new QMessageBox(QMessageBox::Question, QStringLiteral("Repair cards?"),
-            QStringLiteral("Rebuild the source saved during installation for your current KWin? "
+        auto *question = new QMessageBox(QMessageBox::Question, i18n("Repair cards?"),
+            i18n("Rebuild the source saved during installation for your current KWin? "
                            "No downloads or development-folder changes are used. Checks run before an administrator prompt installs the plugin. "
                            "Your workspace switch stays available; nothing will restart automatically."),
             QMessageBox::Yes | QMessageBox::Cancel);
@@ -310,17 +315,17 @@ private:
         auto *dialog = new QDialog;
         m_settings = dialog;
         dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->setWindowTitle(QStringLiteral("Cards settings"));
+        dialog->setWindowTitle(i18n("Cards settings"));
         auto *layout = new QFormLayout(dialog);
         auto *gutter = new QSpinBox(dialog);
         gutter->setRange(6, 48);
-        gutter->setSuffix(QStringLiteral(" px"));
+        gutter->setSuffix(i18nc("@item:valuesuffix the gutter, in pixels", " px"));
         auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
         config->reparseConfiguration();
         gutter->setValue(KConfigGroup(config, QStringLiteral("Effect-kadunce"))
             .readEntry("ActiveCardGutter", 10));
-        layout->addRow(QStringLiteral("Active card gutter"), gutter);
-        auto *hint = new QLabel(QStringLiteral("Default: 10 px. Applies when a card becomes Active.\n"
+        layout->addRow(i18n("Active card gutter"), gutter);
+        auto *hint = new QLabel(i18n("Default: 10 px. Applies when a card becomes Active.\n"
             "6–48 px. The gutter preserves room for edge swipes."), dialog);
         hint->setWordWrap(true);
         layout->addRow(hint);
@@ -361,19 +366,19 @@ private:
         const QString built = Compatibility::pluginVersion(plugin.metaData().value(QStringLiteral("IID")).toString());
         m_mismatch = Compatibility::mismatch(built, m_kwinVersion);
         m_health->setText(m_mismatch
-            ? QStringLiteral("KWin %1 → %2: rebuild needed").arg(built, m_kwinVersion)
+            ? i18n("KWin %1 → %2: rebuild needed", built, m_kwinVersion)
             : built.isEmpty() || m_kwinVersion.isEmpty()
-                ? QStringLiteral("KWin compatibility could not be determined")
-                : QStringLiteral("Built for installed KWin %1").arg(built));
+                ? i18n("KWin compatibility could not be determined")
+                : i18n("Built for installed KWin %1", built));
     }
 
     void refresh()
     {
         const bool enabled = effectEnabled();
-        m_toggle->setText(QStringLiteral("Cards on"));
+        m_toggle->setText(i18n("Cards on"));
         m_toggle->setChecked(enabled);
         m_toggle->setEnabled(!m_busy);
-        m_repairAction->setText(m_repairing ? QStringLiteral("Repair in progress…") : QStringLiteral("Repair for current KWin…"));
+        m_repairAction->setText(m_repairing ? i18n("Repair in progress…") : i18n("Repair for current KWin…"));
         m_repairAction->setEnabled(!m_repairing && QFileInfo::exists(repairDirectory() + QStringLiteral("/source.tar")));
         const QString icon = enabled
             ? QStringLiteral(":/icons/assets/kadunce-enabled.svg")
@@ -386,8 +391,8 @@ private:
         m_shownEnabled = int(enabled);
         m_notifier.setIconByPixmap(QIcon(icon));
         m_notifier.setToolTip(
-            QIcon(icon), SwitchLabel,
-            enabled ? QStringLiteral("On") : QStringLiteral("Off"));
+            QIcon(icon), switchLabel(),
+            enabled ? i18n("On") : i18n("Off"));
     }
 
     // Asked only as the menu opens: the effect is the one that keeps it.
@@ -404,7 +409,7 @@ private:
     {
         m_busy = busy;
         if (busy) {
-            m_toggle->setText(QStringLiteral("Changing cards…"));
+            m_toggle->setText(i18n("Changing cards…"));
             m_toggle->setEnabled(false);
             QApplication::processEvents();
         } else {
@@ -419,8 +424,8 @@ private:
         }
         updateHealth();
         if (m_mismatch) {
-            m_notifier.showMessage(QStringLiteral("Cards need a rebuild"),
-                QStringLiteral("KWin was updated. Choose ‘Repair for current KWin’ from this tray menu. If you have not restarted since the system update, finish it with a normal logout/login first."),
+            m_notifier.showMessage(i18n("Cards need a rebuild"),
+                i18n("KWin was updated. Choose ‘Repair for current KWin’ from this tray menu. If you have not restarted since the system update, finish it with a normal logout/login first."),
                 QStringLiteral("dialog-warning"));
             refresh();
             return;
@@ -440,8 +445,8 @@ private:
             reconfigureKWin();
             setBusy(false);
             m_notifier.showMessage(
-                QStringLiteral("Cards stayed off"),
-                QStringLiteral("KWin did not accept the workspace effect. "
+                i18n("Cards stayed off"),
+                i18n("KWin did not accept the workspace effect. "
                                "The previous disabled state was preserved."),
                 QStringLiteral("dialog-error"));
             return;
@@ -449,8 +454,8 @@ private:
         setDisabledMarker(false);
         setBusy(false);
         m_notifier.showMessage(
-            QStringLiteral("Cards on"),
-            QStringLiteral("Spread and Bento are ready."),
+            i18n("Cards on"),
+            i18n("Spread and Bento are ready."),
             QStringLiteral("dialog-information"));
     }
 
@@ -474,8 +479,8 @@ private:
             reconfigureKWin();
             setBusy(false);
             m_notifier.showMessage(
-                QStringLiteral("Cards stayed on"),
-                QStringLiteral("KWin could not confirm a safe release, so "
+                i18n("Cards stayed on"),
+                i18n("KWin could not confirm a safe release, so "
                                "the enabled state was restored."),
                 QStringLiteral("dialog-warning"));
             return;
@@ -484,8 +489,8 @@ private:
         reconfigureKWin();
         setBusy(false);
         m_notifier.showMessage(
-            QStringLiteral("Cards off"),
-            QStringLiteral("Managed windows were safely released."),
+            i18n("Cards off"),
+            i18n("Managed windows were safely released."),
             QStringLiteral("dialog-information"));
     }
 
@@ -516,8 +521,10 @@ int main(int argc, char **argv)
     }
 
     QApplication application(argc, argv);
+    // The words the tray menu, its messages and the settings window show.
+    KLocalizedString::setApplicationDomain("kadunce-control");
     application.setApplicationName(QStringLiteral("kadunce-control"));
-    application.setOrganizationName(QStringLiteral("Jared Carlson"));
+    application.setOrganizationName(QStringLiteral("Jared Carlson"));  // not translated: the copyright holder
     application.setOrganizationDomain(QStringLiteral("co.goodinput"));
     application.setDesktopFileName(
         QStringLiteral("co.goodinput.Kadunce.Control"));
