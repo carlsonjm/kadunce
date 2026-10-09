@@ -22,6 +22,7 @@
 #include "DeliberateEdgeEntry.h"
 #include "TouchDisplay.h"
 #include "StuckNotesWatcher.h"
+#include "SurfaceTone.h"
 #include <cursor.h>
 #include <cursorsource.h>
 #include <core/inputdevice.h>
@@ -126,6 +127,7 @@ uniform vec4 destinationBox;
 uniform float outlineRadius;
 uniform vec4 surfaceFill;
 uniform float outlineOpacity;
+uniform vec3 outlineInk;
 #include "colormanagement.glsl"
 void main() {
     vec2 halfSize = destinationBox.zw * 0.5;
@@ -137,7 +139,7 @@ void main() {
     float ring = smoothstep(-2.0 - feather, -2.0, d) * inside;
     float edgeAlpha = ring * outlineOpacity;
     vec4 fill = vec4(surfaceFill.rgb * surfaceFill.a, surfaceFill.a) * inside;
-    vec4 color = vec4(vec3(0.88) * edgeAlpha, edgeAlpha) + fill * (1.0 - edgeAlpha);
+    vec4 color = vec4(outlineInk * edgeAlpha, edgeAlpha) + fill * (1.0 - edgeAlpha);
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
@@ -208,7 +210,7 @@ bool paintPointerAbove(const KWin::RenderTarget &renderTarget, const KWin::Rende
 void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
     const QRectF &box, double angle, float opacity, float outline,
-    const QVector3D &fillColor = QVector3D(0.075F, 0.075F, 0.075F),
+    const QVector3D &fillColor = SurfaceTone::current().cardBacking(),
     float fillOpacityScale = 1.0F)
 {
     if (!shader || box.isEmpty()) return;
@@ -227,6 +229,8 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
+    // Card surfaces draw no ring; this keeps the shared shader's ink defined.
+    shader->setUniform("outlineInk", QVector3D(0.88F, 0.88F, 0.88F));
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
     const bool blended = glIsEnabled(GL_BLEND);
@@ -6244,8 +6248,10 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
         m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
-        m_destinationShader->setUniform("surfaceFill", QVector4D(0.88f, 0.88f, 0.88f, 0.035f));
+        const QVector3D ink = SurfaceTone::current().lineInk();
+        m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.035f));
         m_destinationShader->setUniform("outlineOpacity", 0.65f);
+        m_destinationShader->setUniform("outlineInk", ink);
         m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
             renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
         const bool blended = glIsEnabled(GL_BLEND);
@@ -6298,8 +6304,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
             m_destinationShader->setUniform("destinationBox", QVector4D(box.x(),box.y(),box.width(),box.height()));
             m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(CardCornerRadius));
-            m_destinationShader->setUniform("surfaceFill", QVector4D(.88f,.88f,.88f,pill ? .85f : .035f));
+            const QVector3D ink = SurfaceTone::current().lineInk();
+            m_destinationShader->setUniform("surfaceFill", QVector4D(ink, pill ? .85f : .035f));
             m_destinationShader->setUniform("outlineOpacity", pill ? 0.f : .8f);
+            m_destinationShader->setUniform("outlineInk", ink);
             m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
                 renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
             const bool blended = glIsEnabled(GL_BLEND);
@@ -7130,7 +7138,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             bentoProjection ? outputFence : deviceRegion & outputFence,
             surface, paintPose.rotation, float(data.opacity()), 0.0f,
             bentoProjection ? QVector3D(0.0F, 0.0F, 0.0F)
-                            : QVector3D(0.075F, 0.075F, 0.075F),
+                            : SurfaceTone::current().cardBacking(),
             bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
     }
     m_cardLabelTargets.insert(window, bentoProjection
