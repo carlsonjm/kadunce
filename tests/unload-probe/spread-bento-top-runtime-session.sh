@@ -99,11 +99,11 @@ for pass in alone sleeper closed; do
     # The layout shrinks into its group card in the row, from the screen it
     # filled, rather than cutting to Spread.
     kad showCardLine
-    group='[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect.width // 0'
+    # The group is the selected entry, so the drawn selected card is it.
     shrink=()
-    for sample in {1..6}; do shrink+=("$(kad workspaceContext | jq "$group")"); done
+    for sample in {1..6}; do shrink+=("$(kad nativeCarryState | jq '.lineRect.width')"); done
     sleep .9
-    rest=$(kad workspaceContext | jq "$group")
+    rest=$(kad nativeCarryState | jq '.lineRect.width')
     echo "state $pass-shrink group card widths ${shrink[*]} at rest $rest"
     check "$pass: the layout shrinks into its group card" \
         jq -se --argjson r "$rest" '$r > 0 and (map(select(. > $r)) | length > 0)' < <(printf '%s\n' "${shrink[@]}")
