@@ -523,6 +523,8 @@ private:
         KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool keyboardTypesIntoForCardStage(
         const KWin::EffectWindow *window) const override;
+    [[nodiscard]] std::optional<KWin::RectF> textCursorForCardStage(
+        const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::RectF workAreaForCardStage(
         const KWin::LogicalOutput *output) const override;
     void setPagingShortcutsForCardStage(bool active) override;

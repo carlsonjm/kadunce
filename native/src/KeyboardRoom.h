@@ -18,11 +18,18 @@ namespace Kadunce {
 // Where the Active card's top edge goes while the keyboard is up. A client
 // that cannot be as short as the room keeps its least height, and the card
 // rises by what that leaves over, so the field at its bottom edge still ends
-// a gutter above the keys and only its top goes out of sight.
+// a gutter above the keys and only its top goes out of sight. Where the
+// client says where its text cursor is, `cursorBottom` (measured with the
+// card at `cardTop`), the card rises only as far as that cursor needs to
+// clear the keys: a search field at the top of a tall window stays in sight,
+// and the window's bottom goes under the keys instead.
 [[nodiscard]] inline double keyboardRoomTop(
-    double cardTop, double height, double keyboardTop, double gutter)
+    double cardTop, double height, double keyboardTop, double gutter,
+    std::optional<double> cursorBottom = std::nullopt)
 {
-    return cardTop - std::max(0.0, cardTop + height - (keyboardTop - gutter));
+    const double over = std::max(0.0, cardTop + height - (keyboardTop - gutter));
+    if (!cursorBottom) return cardTop - over;
+    return cardTop - std::min(over, std::max(0.0, *cursorBottom - (keyboardTop - gutter)));
 }
 
 // The height to ask the Active card's client for as the keys move, if any.

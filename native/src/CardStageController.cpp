@@ -1390,7 +1390,16 @@ void CardStageController::askKeyboardRoom(KWin::Window *client, double height,
 {
     m_keyboardRoom->height = height;
     const KWin::RectF base = m_keyboardRoom->base;
-    m_keyboardRoom->top = keyboardRoomTop(base.y(), height, keyboardTop, m_settings.gutter());
+    // The cursor is read where the client stands now and carried to where it
+    // stands at rest; one that is not inside the window is not its own.
+    std::optional<double> cursorBottom;
+    if (const auto cursor = m_host->textCursorForCardStage(m_keyboardRoom->window)) {
+        const KWin::RectF frame = client->frameGeometry();
+        const double below = cursor->bottom() - frame.y();
+        if (below >= 0.0 && below <= frame.height()) cursorBottom = base.y() + below;
+    }
+    m_keyboardRoom->top = keyboardRoomTop(base.y(), height, keyboardTop, m_settings.gutter(),
+                                          cursorBottom);
     const KWin::Rect target = KWin::RectF(base.x(), m_keyboardRoom->top, base.width(), height).toRect();
     // Measured against what was asked for, not the frame: a client still
     // drawing its last size, or one that trims itself to whole rows as a

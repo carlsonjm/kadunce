@@ -551,6 +551,11 @@ public:
         SessionScope scope(m_effect, m_session);
         return cards().keyboardTypesIntoForCardStage(window);
     }
+    std::optional<KWin::RectF> textCursorForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().textCursorForCardStage(window);
+    }
     KWin::RectF workAreaForCardStage(const KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session);
@@ -3094,6 +3099,16 @@ bool Effect::keyboardTypesIntoForCardStage(
     const KWin::Window *target = method ? method->activeWindow() : nullptr;
     const KWin::Window *client = window ? window->window() : nullptr;
     return target && client && (target == client || client->hasTransient(target, true));
+}
+
+std::optional<KWin::RectF> Effect::textCursorForCardStage(
+    const KWin::EffectWindow *window) const
+{
+    if (!keyboardTypesIntoForCardStage(window)) return std::nullopt;
+    // A client that never says where its cursor is reports an empty one.
+    const KWin::RectF cursor = KWin::kwinApp()->inputMethod()->cursorRectangle();
+    if (cursor.height() <= 0.0) return std::nullopt;
+    return cursor;
 }
 
 void Effect::keyboardHeading(double height, int durationMs)
