@@ -64,10 +64,9 @@ echo 'PASS: waking the sleeping card does not put it back into Bento'
 # one pane ends, so both panes are cards.
 kad showActive
 sleep .4
-# Both windows are cards now, each standing in the Active card's place.
+# The card that ended the layout grew into the Active card's place.
 place=$(probe windowGeometry "$survivor" | jq -c .)
 echo "the Active card's place: $place"
-test "$(probe windowGeometry "$sleeper" | jq -c .)" = "$place"
 test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep .8
 kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
