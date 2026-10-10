@@ -26,7 +26,7 @@ jobs:
       image: public.ecr.aws/docker/library/archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime' }}
     steps:
       - name: Install build and session dependencies
         run: |
