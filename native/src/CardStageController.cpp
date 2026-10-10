@@ -11,6 +11,7 @@
 #include "KeyboardRoom.h"
 #include "HeldCardGeometry.h"
 #include "MotionTime.h"
+#include "PaneArrival.h"
 #include "BentoCompositeGeometry.h"
 #include "OwnershipHandoff.h"
 #include "NeighborStackPose.h"
@@ -3200,9 +3201,23 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     if (!valid()) return true;
     if (!managedRestore(arrival)) m_parkedRestores.append(incoming);
     // §2: the panes are the display and this card is one of the ones behind
-    // them. It is given no geometry of its own and does not become selected.
+    // them. It does not become selected.
     KWin::effects->setElevatedWindow(arrival, false);
     KWin::effects->addRepaintFull();
+    // §3: once it has faded where it stood, it stands in the Active card's
+    // place as every other card does. Left at its pane's size, Spread would
+    // show a pane's strip between bands of backing until it was next opened.
+    QTimer::singleShot(motion(PaneArrivalDuration), &m_activeSettleTimer, [this, arrival] {
+        if (!m_active || !arrival || arrival->isDeleted() || !arrival->window()
+            || liveCardIndex(arrival) < 0 || arrival->isMinimized() || arrival->window()->isHidden()
+            || m_bentoProjectionWindows.contains(arrival) || m_activeRestore.window == arrival
+            || m_cardGrabActive || arrival->isUserMove() || arrival->isUserResize()) return;
+        // Behind a layout or the Active card it is drawn nowhere, so it must
+        // also be under them, or the touches on them would reach it.
+        if (m_presentation == CardPresentation::Bento || m_presentation == CardPresentation::Active)
+            KWin::workspace()->lowerWindow(arrival->window());
+        settleCardsInActivePlace({arrival});
+    });
     qInfo() << "Kadunce" << Revision << "took a displaced pane as a hidden card;"
             << m_workspace.windows().size() << "individual cards remain";
     return true;
@@ -3704,10 +3719,18 @@ bool CardStageController::pullPaneOutOfGroup(KWin::EffectWindow *pane)
         if (m_workspace.stackSizeForId(cardId) > 1) (void)m_workspace.releaseMember(cardId);
     }
     if (m_workspace.stackSizeForId(pulledId) > 1) (void)m_workspace.releaseMember(pulledId);
+    QList<QPointer<KWin::EffectWindow>> awake;
     for (const auto &member : members) {
-        if (member && !member->isDeleted()) KWin::effects->setElevatedWindow(member, false);
+        if (!member || member->isDeleted()) continue;
+        KWin::effects->setElevatedWindow(member, false);
+        if (!member->isMinimized()) awake.append(member);
     }
-    return m_workspace.stackSizeForId(pulledId) == 1;
+    if (m_workspace.stackSizeForId(pulledId) != 1) return false;
+    // §3: every pane that left stands in the Active card's place as every
+    // other card does, so its card shows the whole window rather than a
+    // pane's strip between bands of backing.
+    settleCardsInActivePlace(awake);
+    return true;
 }
 
 KWin::EffectWindow *CardStageController::groupPane(int part) const
@@ -3797,6 +3820,9 @@ bool CardStageController::replaceGroupPane(int part)
         for (auto &member : *list)
             if (member == pane) member = held;
     if (!pane->isDeleted()) KWin::effects->setElevatedWindow(pane, false);
+    // §3: the card it becomes stands in the Active card's place. The group
+    // resumes over it, raising only its own panes.
+    if (!pane->isDeleted() && !pane->isMinimized()) settleCardsInActivePlace({pane});
     ++m_restoreGeneration;
     qInfo() << "Kadunce" << Revision << "card" << heldId << held->caption()
             << "took pane" << part + 1 << "of the Bento group from" << pane->caption()
