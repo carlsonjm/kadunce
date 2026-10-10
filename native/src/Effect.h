@@ -30,6 +30,7 @@
 #include "GestureNoteLabel.h"
 #include "CardLabelRenderer.h"
 #include "NoteStackRenderer.h"
+#include "KeptPicture.h"
 #include "StuckNotes.h"
 
 #include <QList>
@@ -228,6 +229,21 @@ private:
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
     void redirectPreviewSource(KWin::EffectWindow *window);
+    // A card Kadunce resizes while Spread shows it keeps its last good picture,
+    // fitted to its new frame, until the app has drawn itself at that size:
+    // an app's first frames at a new size can be empty. Only that window is
+    // kept, and for at most HeldPictureLimitMs.
+    struct HeldPicture {
+        KeptPicture picture;
+        QSizeF bufferAtCapture;
+        std::function<void()> resize;
+        int drawnSince = 0;
+        QMetaObject::Connection damaged;
+    };
+    std::map<KWin::EffectWindow *, HeldPicture> m_heldPictures;
+    KWin::EffectWindow *m_capturingHeld = nullptr;
+    void captureHeldPictures();
+    void releaseHeldPicture(KWin::EffectWindow *window);
     // Redirects a window into its own picture, taken again when its frame and
     // buffer stop lining up; true when the picture is new.
     bool redirectSource(KWin::EffectWindow *window, bool reportChange);
@@ -530,6 +546,8 @@ private:
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
+    [[nodiscard]] bool holdPictureBeforeResizeForCardStage(
+        KWin::EffectWindow *window, const std::function<void()> &resize) override;
     void retireBentoProjectionForCardStage(
         const QList<QPointer<KWin::EffectWindow>> &windows) override;
     [[nodiscard]] bool admitCardToDesktopStage(

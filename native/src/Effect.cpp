@@ -591,6 +591,12 @@ public:
         SessionScope scope(m_effect, m_session);
         cards().unredirectForCardStage(window);
     }
+    bool holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
+        const std::function<void()> &resize) override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().holdPictureBeforeResizeForCardStage(window, resize);
+    }
     void retireBentoProjectionForCardStage(const QList<QPointer<KWin::EffectWindow>> &windows) override
     {
         SessionScope scope(m_effect, m_session);
@@ -764,6 +770,8 @@ Effect::Effect()
         [this](KWin::EffectWindow *window) {
             m_previewSourceBounds.remove(window);
             m_previewRefs.remove(window);
+            releaseHeldPicture(window);
+            if (m_capturingHeld == window) m_capturingHeld = nullptr;
         });
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed, this,
         [this](KWin::EffectWindow *window) {
@@ -3330,6 +3338,74 @@ void Effect::cancelInputForCardStage()
 void Effect::connectManagedWindowForCardStage(KWin::EffectWindow *window)
 {
     connectManagedWindow(window);
+}
+
+namespace {
+// The longest a resized card keeps its earlier picture, should its app be
+// slow to draw at the new size.
+constexpr int HeldPictureLimitMs = 300;
+}
+
+bool Effect::holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
+                                                 const std::function<void()> &resize)
+{
+    if (!window || !resize || !KWin::effects->isOpenGLCompositing()
+        || m_heldPictures.count(window)) return false;
+    auto &held = m_heldPictures[window];
+    held.resize = resize;
+    held.damaged = connect(window, &KWin::EffectWindow::windowDamaged, this, [this](KWin::EffectWindow *damaged) {
+        const auto it = m_heldPictures.find(damaged);
+        if (it == m_heldPictures.end() || it->second.resize || !it->second.picture.taken()) return;
+        if (QSizeF(damaged->bufferGeometry().size()) != it->second.bufferAtCapture) ++it->second.drawnSince;
+    });
+    KWin::effects->addRepaintFull();
+    // Whatever the paints do, the card is resized and its picture let go.
+    const QPointer<KWin::EffectWindow> guard(window);
+    QTimer::singleShot(HeldPictureLimitMs, this, [this, guard] {
+        if (!guard) return;
+        const auto it = m_heldPictures.find(guard.data());
+        if (it == m_heldPictures.end()) return;
+        auto resize = std::move(it->second.resize);
+        releaseHeldPicture(guard.data());
+        if (resize) resize();
+        KWin::effects->addRepaintFull();
+    });
+    return true;
+}
+
+void Effect::releaseHeldPicture(KWin::EffectWindow *window)
+{
+    const auto it = m_heldPictures.find(window);
+    if (it == m_heldPictures.end()) return;
+    disconnect(it->second.damaged);
+    m_heldPictures.erase(it);
+}
+
+void Effect::captureHeldPictures()
+{
+    for (auto &[window, held] : m_heldPictures) {
+        if (!held.resize || held.picture.taken() || window->isDeleted()) continue;
+        m_capturingHeld = window;
+        const bool taken = held.picture.take(window,
+            [&](const KWin::RenderTarget &target, const KWin::RenderViewport &viewport) {
+                KWin::WindowPaintData data;
+                data.setOpacity(1.0);
+                (void)painted([&] { return KWin::effects->drawWindow(target, viewport, window,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), data); });
+            });
+        m_capturingHeld = nullptr;
+        if (!taken) continue;
+        held.bufferAtCapture = window->bufferGeometry().size();
+        // Resized once the picture is kept, outside the paint.
+        QTimer::singleShot(0, this, [this, guard = QPointer<KWin::EffectWindow>(window)] {
+            if (!guard) return;
+            const auto it = m_heldPictures.find(guard.data());
+            if (it == m_heldPictures.end() || !it->second.resize) return;
+            auto resize = std::move(it->second.resize);
+            it->second.resize = nullptr;
+            resize();
+        });
+    }
 }
 
 void Effect::unredirectForCardStage(KWin::EffectWindow *window)
@@ -6347,6 +6423,8 @@ void Effect::postPaintScreen()
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
     }
+    // A kept picture is looked at again each frame until it is let go.
+    if (!m_heldPictures.empty()) KWin::effects->addRepaintFull();
 }
 
 void Effect::noteTabletFrameStart()
@@ -6474,6 +6552,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
 {
     m_paintingOutput = screen;
     m_projectionBackdropDrawn = false;
+    if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) m_cardLabelTargets.clear();
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // Labels, rails and outlines belong to the current desktop's presentation.
@@ -7015,6 +7094,15 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
                         const KWin::Region &deviceRegion,
                         KWin::WindowPaintData &data)
 {
+    // The picture kept of a card is the window as it stands, drawn plainly.
+    if (window == m_capturingHeld)
+        return paintResult(painted([&] { return KWin::Effect::drawWindow(
+            renderTarget, viewport, window, mask, deviceRegion, data); }));
+    if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
+        // Let go once the app has drawn twice at its new size.
+        if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
+        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) return paintResult(true);
+    }
     const bool useFanAperture = window == m_fanApertureWindow
         && m_fanApertureShader
         && !m_fanPaintSize.isEmpty()

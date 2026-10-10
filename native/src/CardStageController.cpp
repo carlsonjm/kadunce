@@ -4335,6 +4335,20 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         if (client->quickTileMode() != KWin::QuickTileMode{})
             client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
         if (client->moveResizeGeometry() == target) continue;
+        // Seen in Spread, the card keeps its picture until the app has drawn
+        // itself at the new size.
+        if (m_active && m_presentation == CardPresentation::Spread) {
+            const QPointer<KWin::EffectWindow> held(window);
+            const auto resize = [this, held, target] {
+                if (!held || held->isDeleted() || !held->window()) return;
+                QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+                held->window()->moveResize(target);
+            };
+            if (m_host->holdPictureBeforeResizeForCardStage(window, resize)) {
+                ++settled;
+                continue;
+            }
+        }
         client->moveResize(target);
         ++settled;
     }
