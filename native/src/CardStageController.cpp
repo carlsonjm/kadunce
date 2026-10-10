@@ -5008,19 +5008,19 @@ void CardStageController::handleActiveGeometryChanged(
     // Native start owns move/resize admission. Reported state may still describe
     // an older Wayland configure while our requested Active state is pending.
     if (client->isInteractiveMove() || client->isInteractiveResize()) return;
+    // A window KWin has placed on another display, as a screenshot tool going
+    // back to its last place does, takes only its own card there and stays.
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    KWin::LogicalOutput *placed = client->moveResizeOutput();
+    if (tablet && placed && placed != tablet && !m_cardGrabActive) {
+        qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+                << "go: KWin placed it on" << placed->name();
+        (void)releaseCard(window, false);
+        return;
+    }
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
-        // A window KWin has placed on another display, as a screenshot tool
-        // going back to its last place does, takes only its own card there.
-        KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
-        KWin::LogicalOutput *placed = client->moveResizeOutput();
-        if (tablet && placed && placed != tablet) {
-            qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
-                    << "go: KWin placed it on" << placed->name();
-            (void)releaseCard(window, false);
-            return;
-        }
         handleManualWindowChange(window);
     } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
