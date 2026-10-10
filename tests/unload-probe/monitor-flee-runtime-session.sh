@@ -39,6 +39,7 @@ check 'the tablet holds two cards' test "$cards" -ge 2
 
 for order in move-first maximize-first; do
     title="Flee $order"
+    held=$(cardCount)
     probe pointer 600 400
     client titledCompanion "$title" 440 500
     sleep .2
@@ -55,7 +56,7 @@ for order in move-first maximize-first; do
         context ".applications[] | select(.title == \"$title\") | .output == \"Virtual-1\""
     check "$order: the window has no card" \
         context ".applications[] | select(.title == \"$title\") | (.hasCard | not)"
-    check "$order: the tablet keeps its cards" test "$(cardCount)" -eq "$cards"
+    check "$order: the tablet keeps its cards" test "$(cardCount)" -eq "$held"
     check "$order: the cards are still shown" \
         context '.cardStage.presentation == "active" or .cardStage.presentation == "cardLine"'
 done

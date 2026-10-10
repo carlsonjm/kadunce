@@ -4870,7 +4870,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     KWin::effects->addRepaintFull();
 }
 
-bool CardStageController::releaseCard(KWin::EffectWindow *window)
+bool CardStageController::releaseCard(KWin::EffectWindow *window, bool restore)
 {
     const int index = liveCardIndex(window);
     if (!m_active || index < 0 || !window || window->isDeleted() || !window->window())
@@ -4894,7 +4894,7 @@ bool CardStageController::releaseCard(KWin::EffectWindow *window)
     m_originalCardStackingOrder.removeAll(window);
     KWin::effects->setElevatedWindow(window, false);
     m_host->unredirectForCardStage(window);
-    if (record) {
+    if (record && restore) {
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
         restoreWindowState(window->window(), *record, record->geometry, true);
     }
@@ -5011,6 +5011,16 @@ void CardStageController::handleActiveGeometryChanged(
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
+        // A window KWin has placed on another display, as a screenshot tool
+        // going back to its last place does, takes only its own card there.
+        KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+        KWin::LogicalOutput *placed = client->moveResizeOutput();
+        if (tablet && placed && placed != tablet) {
+            qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+                    << "go: KWin placed it on" << placed->name();
+            (void)releaseCard(window, false);
+            return;
+        }
         handleManualWindowChange(window);
     } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();

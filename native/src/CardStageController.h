@@ -455,7 +455,8 @@ public:
     // KWin's window menu. It stops being a card here and goes back to the
     // place its record holds, as a release does; its new desktop takes it
     // from there. The rest of the stage is handled as for a closed card.
-    bool releaseCard(KWin::EffectWindow *window);
+    // Without restore it stays where KWin has just put it.
+    bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
