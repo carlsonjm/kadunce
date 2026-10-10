@@ -196,7 +196,7 @@ public:
     bool touchCancel() override;
     // Invalidate actions, but retain consumed contacts until their release.
     void cancelWorkspaceInteraction();
-    // The Z13 tablet kit can appear after the effect loads, handing the top and
+    // A touchscreen can appear after the effect loads, handing the top and
     // bottom edges from Plasma to this router mid-session. Any interaction in
     // flight belongs to the previous backend and is cancelled rather than split.
     // Whether a contact here would start in the bottom swipe's band.

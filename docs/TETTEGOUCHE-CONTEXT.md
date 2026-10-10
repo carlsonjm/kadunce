@@ -1,7 +1,7 @@
 # Kadunce → Tettegouche context contract
 
 Kadunce owns KWin discovery, card identity, stack relationships, workspace
-presentation, output sessions, and device posture. Tettegouche owns invocation,
+presentation, output sessions, and which router owns the system edges. Tettegouche owns invocation,
 querying, ranking, and the choice to focus an existing application or launch a
 new one.
 
@@ -62,9 +62,9 @@ must reject unknown major versions instead of guessing at fields.
 - `lastActivated`, optional on each application: an in-memory, monotonic
   sequence for this effect's lifetime. Snapshots without it keep
   focused/selected/frontmost ordering.
-- `displayContext`: hardware posture when supplied by the optional Z13 helper,
-  the selected edge backend, and every output's role, geometry, and Bento
-  ownership.
+- `displayContext`: the selected edge backend (`z13-direct`, a frozen value
+  meaning Kadunce's own router, whenever a touchscreen drives a display, or
+  `plasma-native`), and every output's role, geometry, and Bento ownership.
 
 `windowId` and `cardId` use KWin's internal UUID and are stable for the life of
 that window. `cardIndex`, stack position, and titles are presentation metadata;

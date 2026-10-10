@@ -4,16 +4,14 @@
 # that background as a layer surface, and a swipe from the bezel must still open
 # Spread: the background owns no touch of its own.
 #
-# Needs the tablet fixture, and the Z13 kit's posture file so the bezel is
-# Kadunce's to recognise rather than Plasma's.
+# Needs the tablet fixture: its touchscreen makes the bezel Kadunce's to
+# recognise rather than Plasma's, with no helper of any kind.
 set -Eeuo pipefail
 trap 'echo "FAIL: desktop bezel $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
 client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

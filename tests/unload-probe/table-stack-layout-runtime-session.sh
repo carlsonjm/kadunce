@@ -31,8 +31,6 @@ state() {
     echo "   windows=$(probe windowFacts | jq -c '[.[] | select(.class == "unload-client") | {c: .caption, d: (.desktops | map(.[0:8]) | join(",")), x, y, w: .width, h: .height, min: .minimized}]')"
     echo "   violations=$(kad ownershipViolations | tr '\n' ' ')"
 }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

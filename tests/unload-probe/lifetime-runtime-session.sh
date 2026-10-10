@@ -7,9 +7,6 @@ trap 'echo "FAIL: lifetime line $LINENO" >&2' ERR
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
 client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
-# The bezel is Kadunce's to recognise only with the Z13 kit's posture file.
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe
 "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
 client_pid=$!

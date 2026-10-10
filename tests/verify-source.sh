@@ -337,7 +337,12 @@ rg -q 'InputFilterOrder::Effects' "${router_cpp}"
 rg -q 'tablet->geometry\(\)\.contains\(position\.toPoint\(\)\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'std::make_unique<WorkspaceInputRouter>' "${effect_cpp}" "${card_cpp}"
 test "$(rg -c 'installInputEventFilter' "${effect_cpp}")" -eq 1
-rg -q 'z13TabletKitAvailable' "${effect_cpp}"
+rg -q 'm_usesDirectSystemEdges = !m_cardOutputName.isEmpty\(\)' "${effect_cpp}"
+# The edges follow the touchscreen alone; no helper outside Shuffle decides them.
+if rg -q 'z13-tablet-kit|z13TabletKitAvailable' "${project_dir}/native" "${project_dir}/tests/unload-probe"; then
+    echo "Kadunce must decide its edges without a private posture marker" >&2
+    exit 1
+fi
 rg -q 'registerTouchBorder' "${effect_cpp}"
 rg -q 'unregisterTouchBorder' "${effect_cpp}"
 rg -q 'KWin::ElectricBottom' "${effect_cpp}"

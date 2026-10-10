@@ -66,11 +66,8 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
-#include <QFileSystemWatcher>
 #include <QDebug>
 #include <QEasingCurve>
-#include <QFile>
-#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -296,28 +293,6 @@ QJsonObject geometryContext(const KWin::Rect &geometry)
         {QStringLiteral("width"), geometry.width()},
         {QStringLiteral("height"), geometry.height()},
     };
-}
-
-QString currentPosture()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty()) {
-        return QStringLiteral("unknown");
-    }
-    QFile posture(runtime + QStringLiteral("/z13-tablet-kit/posture"));
-    if (!posture.open(QIODevice::ReadOnly)) {
-        return QStringLiteral("unknown");
-    }
-    const QString value = QString::fromUtf8(posture.readLine()).trimmed();
-    return value.isEmpty() ? QStringLiteral("unknown") : value;
-}
-
-bool z13TabletKitAvailable()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    return !runtime.isEmpty()
-        && QFileInfo::exists(runtime
-            + QStringLiteral("/z13-tablet-kit/posture"));
 }
 
 constexpr auto FanApertureVertexShader = R"GLSL(#version 140
@@ -872,12 +847,13 @@ Effect::Effect()
             connect(child, SIGNAL(effectLoaded(KWin::Effect*,QString)), this, SLOT(holdTableCorner()));
     }
 
-    // The Z13 tablet kit selects Kadunce's richer direct four-edge router.
-    // Every other touchscreen delegates top and bottom gesture recognition to
-    // Plasma/KWin and only receives the resulting semantic action here. The
+    // A display driven by a touchscreen selects Kadunce's richer direct
+    // four-edge router, which alone pulls Table down from the top edge.
+    // Without one, top and bottom gesture recognition is delegated to
+    // Plasma/KWin and only the resulting semantic action arrives here. The
     // router is told which backend owns those edges so one swipe cannot be
     // consumed or toggled twice.
-    m_usesDirectSystemEdges = z13TabletKitAvailable();
+    m_usesDirectSystemEdges = !m_cardOutputName.isEmpty();
     if (!m_usesDirectSystemEdges) {
         // Plasma's bottom touch edge opens Spread, as the bezel does on the
         // tablet, and so do three fingers on any touchscreen.
@@ -1154,8 +1130,6 @@ Effect::Effect()
         };
     }
 
-    if (!m_usesDirectSystemEdges) watchForTabletKit();
-
     m_nativeEdgePolicy = std::make_unique<NativeEdgePolicy<KWin::Options>>(KWin::options);
     m_keyboardOverlayPolicy =
         std::make_unique<KeyboardOverlayPolicy<KWin::Options>>(KWin::options);
@@ -1176,7 +1150,7 @@ Effect::Effect()
 
     qInfo() << "Kadunce" << Revision
             << (m_usesDirectSystemEdges
-                    ? "direct Z13 system edges"
+                    ? "direct system edges"
                     : "Plasma-native system edges")
             << "and output-local Bento ready; fan aperture"
             << (m_fanApertureShader ? "enabled" : "r20 fallback");
@@ -1338,38 +1312,14 @@ bool Effect::supported()
     return true;
 }
 
-void Effect::watchForTabletKit()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty()) return;
-    // The posture manager is a separate user service and has been observed
-    // reaching active state after KWin. Testing once in the constructor then
-    // makes the Plasma edge fallback permanent for the session, so watch the
-    // runtime directory for the kit and adopt the direct router when it lands.
-    m_tabletKitWatcher = std::make_unique<QFileSystemWatcher>();
-    const QString kit = runtime + QStringLiteral("/z13-tablet-kit");
-    m_tabletKitWatcher->addPath(runtime);
-    if (QFileInfo::exists(kit)) m_tabletKitWatcher->addPath(kit);
-    connect(m_tabletKitWatcher.get(), &QFileSystemWatcher::directoryChanged,
-            this, [this, kit] {
-                // The directory can appear before the posture file inside it.
-                if (m_tabletKitWatcher && QFileInfo::exists(kit)
-                    && !m_tabletKitWatcher->directories().contains(kit)) {
-                    m_tabletKitWatcher->addPath(kit);
-                }
-                adoptDirectSystemEdges();
-            });
-}
-
 void Effect::adoptDirectSystemEdges()
 {
-    if (m_usesDirectSystemEdges || !z13TabletKitAvailable()) return;
+    if (m_usesDirectSystemEdges || m_cardOutputName.isEmpty()) return;
     m_usesDirectSystemEdges = true;
-    m_tabletKitWatcher.reset();
     // Hand each edge back to Plasma before the router claims it, so one swipe
-    // cannot reach both backends. Adoption is one-way: a kit that later goes
-    // away leaves Kadunce's own recognition in place rather than churning the
-    // backend mid-session.
+    // cannot reach both backends. Adoption is one-way: a touchscreen that
+    // later goes away leaves Kadunce's own recognition in place rather than
+    // churning the backend mid-session.
     const auto release = [](KWin::ElectricBorder border, QAction *&action) {
         if (!action) return;
         KWin::effects->unregisterTouchBorder(border, action);
@@ -1380,7 +1330,7 @@ void Effect::adoptDirectSystemEdges()
     release(KWin::ElectricTop, m_showActiveAction);
     if (m_inputRouter) m_inputRouter->setOwnsSystemEdges(true);
     qInfo() << "Kadunce" << Revision
-            << "adopted direct Z13 system edges after the tablet kit appeared";
+            << "adopted direct system edges after a touchscreen appeared";
 }
 
 bool Effect::isTabletOutput(const KWin::LogicalOutput *output) const
@@ -1416,6 +1366,9 @@ void Effect::refreshCardOutput()
     m_cardOutputName = name;
     qInfo() << "Kadunce" << Revision << "cards belong to"
             << (name.isEmpty() ? QStringLiteral("no display: no touchscreen drives one") : name);
+    // A touchscreen that arrives after KWin, or is plugged in later, gives
+    // the edges to Kadunce's own router.
+    adoptDirectSystemEdges();
     Q_EMIT workspaceContextChanged();
 }
 
@@ -5027,7 +4980,6 @@ QString Effect::workspaceContext() const
             {QStringLiteral("active"), hasActiveDesktopStage()},
         }},
         {QStringLiteral("displayContext"), QJsonObject{
-            {QStringLiteral("posture"), currentPosture()},
             {QStringLiteral("edgeBackend"), m_usesDirectSystemEdges
                 ? QStringLiteral("z13-direct")
                 : QStringLiteral("plasma-native")},
