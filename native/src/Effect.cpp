@@ -886,6 +886,10 @@ Effect::Effect()
             });
     connect(KWin::effects, &KWin::EffectsHandler::desktopRemoved,
             this, &Effect::handleDesktopRemoved);
+    connect(KWin::VirtualDesktopManager::self(), &KWin::VirtualDesktopManager::desktopAdded, this,
+            [this](KWin::VirtualDesktop *desktop) {
+                if (desktop) m_unenteredDesktops.insert(desktop->id());
+            });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
@@ -1446,6 +1450,7 @@ KWin::EffectWindow *Effect::dependentLead(const KWin::EffectWindow *window)
 void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current)
 {
     if (previous == current) return;
+    if (current) m_unenteredDesktops.remove(current->id());
     // Table's own switches close it first; any other ends it.
     if (m_table.isOpen()) closeTable();
     // A switch made some other way ends a preview of a different desktop. A
@@ -1486,6 +1491,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
 {
     if (m_table.isOpen()) closeTable();
     if (desktop && m_namedDesktops.removeAll(desktop->id()) > 0) saveNamedDesktops();
+    if (desktop) m_unenteredDesktops.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
     // lets them go as a release would, and the desktop they stand on now takes
     // them as its own.
@@ -2322,6 +2328,8 @@ void Effect::applyTableAction(const TableAction &action)
             refreshTable();
             return;
         }
+        // Table's own workspace dissolves as any left one does.
+        m_unenteredDesktops.remove(created->id());
         moveTableCard(action.workspace, action.card, created);
         return;
     }
@@ -2556,8 +2564,10 @@ void Effect::dissolveEmptyWorkspaces()
     const auto stack = KWin::effects->stackingOrder();
     for (KWin::VirtualDesktop *desktop : desktops) {
         if (manager->count() <= 1) return;
-        // The workspace the person is in stays until they leave it.
-        if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())) continue;
+        // The workspace the person is in stays until they leave it, and one
+        // made elsewhere stays until it has been entered and left.
+        if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())
+            || m_unenteredDesktops.contains(desktop->id())) continue;
         const bool kept = std::any_of(stack.cbegin(), stack.cend(), [desktop](KWin::EffectWindow *window) {
             return !window->isDeleted() && window->isNormalWindow() && !window->isOnAllDesktops()
                 && !dependentLead(window) && window->isOnDesktop(desktop);

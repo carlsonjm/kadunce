@@ -40,6 +40,7 @@
 #include <QDBusContext>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QSet>
 #include <QStringList>
 
 #include <map>
@@ -462,6 +463,11 @@ private:
     // KDE keeps the name; which names are the
     // person's is Kadunce's, kept by desktop id in kaduncerc.
     QStringList m_namedDesktops;
+    // Desktops something else made while Kadunce ran that have not yet been
+    // shown. Leaving is what dissolves a workspace, so one never entered
+    // waits: a script or another tool that makes a desktop and then sends a
+    // window to it finds it still there.
+    QSet<QString> m_unenteredDesktops;
     void loadNamedDesktops();
     void saveNamedDesktops();
     // The tab being renamed, what has been typed into it, and whether a
