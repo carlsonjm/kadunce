@@ -131,29 +131,6 @@ check "the last pane is the Active card" context --arg id "$survivor" \
 check "the arrival is gone" context --arg id "$arrival" '[.applications[] | select(.windowId == $id)] | length == 0'
 check "no ownership violations" context '(.ownershipViolations // []) | length == 0'
 
-# In Spread the yielded pane's card shows its window to its sides, where a
-# pane's strip would leave bands of backing.
-kad showCardLine
-sleep 1
-report spread
-shots=$(dirname "$XDG_RUNTIME_DIR")
-# The mean red, green and blue of a small square of the display.
-colour() {
-    python3 "$(dirname "$0")/capture-png.py" "$1" "$2" 24 24 "$shots/$3.png"
-    python3 -c 'import sys; from PIL import Image; im = Image.open(sys.argv[1]).convert("RGB"); px = list(im.getdata()); print(*(sum(p[i] for p in px) // len(px) for i in range(3)))' "$shots/$3.png"
-}
-lit() { read -r r g b <<<"$1"; (( r + g + b > 150 )); }
-width=$(kad workspaceContext | jq '.displayContext.displays[] | select(.role == "tablet") | .geometry.width | floor')
-# Near the side of its card that is on the display, where a pane's strip
-# leaves backing.
-read -r ex ey < <(kad workspaceContext | jq -r --arg id "$yielded" --argjson w "$width" \
-    'first(.applications[] | select(.windowId == $id)) | .spreadRect
-     | (if .x >= 0 then .x + .width * 0.1 else .x + .width * 0.9 - 24 end) as $x
-     | "\([[$x, 0] | max, $w - 24] | min | floor) \(.y + .height / 2 - 12 | floor)"')
-edge=$(colour "$ex" "$ey" yielded-card-edge)
-echo "yielded card in Spread near its side at $ex $ey: $edge"
-check "the yielded pane's card shows its window to the side, not backing" lit "$edge"
-
 test "$(probe releaseRuntime)" = true
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .3

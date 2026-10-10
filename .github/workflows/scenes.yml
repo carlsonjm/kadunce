@@ -31,7 +31,7 @@ jobs:
       - name: Install build and session dependencies
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel cmake extra-cmake-modules git ripgrep python python-dbus python-pillow file perl dbus jq patch \
+            base-devel cmake extra-cmake-modules git ripgrep python file perl dbus jq patch \
             qt6-base qt6-declarative qt6-tools qt6-wayland \
             kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
             kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader mesa xorg-xwayland
