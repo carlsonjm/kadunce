@@ -104,6 +104,32 @@ echo "after the pull: $(probe windowGeometry "$sleeper" | jq -c .) $(probe windo
 test "$(probe windowGeometry "$sleeper" | jq -c .)" = "$place"
 test "$(probe windowGeometry "$survivor" | jq -c .)" = "$place"
 echo 'PASS: both panes pulled out of the group stand in the Active card'"'"'s place'
+# §8 with no card owned: the Bento action pairs the two cards again, so the
+# layout holds every window and the display owns no card. A new window takes
+# a pane; the pane that yields becomes a card behind the layout, standing in
+# the Active card's place, and the layout stays in front.
+kad showActive
+sleep .4
+test "$(kad toggleBentoOnOutput Virtual-0)" = true
+sleep .8
+kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
+kad workspaceContext | jq -e '[.applications[] | select(.hasCard)] | length == 0'
+client colouredCompanion "Arrival" "1e6fc8" 600 450
+sleep 1.2
+arrival=$(probe windowIdByCaption "Arrival")
+report=$(kad workspaceContext | jq -c '{p: .cardStage.presentation, apps: [.applications[] | {title, hasCard}]}')
+echo "after the arrival: $report $(kad outputStageState | tr '\n' ' ')"
+kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
+kad workspaceContext | jq -e --arg a "$arrival" '.cardStage.presentation == "bento"
+    and ([.applications[] | select(.hasCard)] | length == 1)
+    and ([.applications[] | select(.windowId == $a and .hasCard)] | length == 0)'
+yielded=$(kad workspaceContext | jq -r 'first(.applications[] | select(.hasCard)) | .windowId')
+echo "yielded at $(probe windowGeometry "$yielded" | jq -c .)"
+test "$(probe windowGeometry "$yielded" | jq -c .)" = "$place"
+probe windowFacts | jq -e --arg y "$yielded" --arg a "$arrival" 'map(.id) | index($y) < index($a)'
+echo 'PASS: with no card owned, the pane that yields to a new window waits behind the layout in the Active card'"'"'s place'
+client closeCompanion "Arrival"
+sleep .8
 # §13: only release returns a managed window to Plasma, and it returns both.
 test "$(probe releaseRuntime)" = true
 sleep .8
