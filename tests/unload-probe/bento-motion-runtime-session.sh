@@ -102,6 +102,15 @@ check "the yielded pane is a card" context --arg id "$yielded" 'first(.applicati
 check "the layout shows the arrival" context '.desktopStage.active'
 survivor=$main
 [[ $yielded == "$main" ]] && survivor=$neighbour
+# Once it has faded, the yielded pane stands in the Active card's place, as
+# the hidden card does, so its card in Spread shows the whole window rather
+# than a pane's strip between bands of backing.
+echo "yielded at $(probe windowGeometry "$yielded" | jq -c .), hidden card at $(probe windowGeometry "$spare" | jq -c .)"
+check "the yielded pane stands in the Active card's place" \
+    test "$(probe windowGeometry "$yielded" | jq -c .)" = "$(probe windowGeometry "$spare" | jq -c .)"
+check "the yielded pane is under both panes" \
+    jq -e --arg y "$yielded" --arg a "$arrival" --arg s "$survivor" \
+        'map(.id) | index($y) < index($a) and index($y) < index($s)' < <(probe windowFacts)
 
 # The arrival closes and the layout falls to one pane, which becomes the
 # Active card: it grows from where it stood into the Active place.

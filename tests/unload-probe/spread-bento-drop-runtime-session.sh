@@ -97,6 +97,8 @@ for pass in left:touch right:pointer right:touch left:pointer; do
         | (([.x, 0] | max) + ([.x + .width, $w] | min)) / 2 | floor' <<<"$context")
     y=$((gy + gh / 2))
     heldColour=$(colour "$((pick - 12))" "$((y - 12))" "$name-held-card")
+    # The card stands in the Active card's place, as every awake card does.
+    place=$(frame "$held" | jq -c .)
     press "$pick" "$y"
     sleep .4
     finger=$((pick < gx ? pick + 30 : pick - 30))
@@ -172,6 +174,9 @@ for pass in left:touch right:pointer right:touch left:pointer; do
     check "$name: the other pane keeps its side" \
         test "$(frame "$stays" | jq --argjson w "$width" '.x < $w / 2')" = "$([[ $half == right ]] && echo true || echo false)"
     check "$name: the replaced pane is a card of its own" alone "$replaced"
+    echo "$name: replaced pane at $(frame "$replaced" | jq -c .), the Active card's place $place"
+    check "$name: the replaced pane stands in the Active card's place" \
+        test "$(frame "$replaced" | jq -c .)" = "$place"
 
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .3

@@ -268,7 +268,7 @@ The window becomes an independent Spread card when it is:
 - Excluded from the current visible layout
 - Moved to another workspace
 
-It retains no saved Bento position or group association.
+It keeps no Bento position or group, and stands in the Active card's place (§3).
 
 Leaving Bento is not by itself a minimize. Unless the user minimized it, the
 window becomes an ordinary nonselected individual card and stays presentable.
