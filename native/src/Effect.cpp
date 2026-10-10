@@ -2975,9 +2975,15 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
 {
     // §5: while the display presents its layout, the pane that yielded becomes
     // a nonselected card behind it. Anywhere else there is no layout in front
-    // of it, and an ordinary transfer is the right arrival.
+    // of it, and an ordinary transfer is the right arrival. A layout that holds
+    // every window there owns no card yet, so the pane that yields starts card
+    // ownership behind it, as any arrival behind a layout does.
+    KWin::LogicalOutput *tablet = tabletOutput();
+    const bool behindLayout = !m_cardStage->isActive() && tablet
+        && m_desktopStage->hasSessionOnOutput(tablet->name()) && m_cardStage->startBehindLayout();
     if (m_cardStage->admitDisplacedPaneAsHiddenCard(window, commitSource, restore))
         return true;
+    if (behindLayout) m_cardStage->stopBehindLayoutIfEmpty();
     return admitTransferredWindowToTablet(window, commitSource, restore);
 }
 
