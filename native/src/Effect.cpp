@@ -1118,6 +1118,22 @@ Effect::Effect()
                     << "that lifted unseen, so contact" << id << "can move its window";
             touch->setDecorationPressId(-1);
         };
+        // A carry Kadunce takes from a title bar keeps the contact's lift, so
+        // KWin's title bar handling never hears it and holds the contact on.
+        // KWin aims each new contact before any filter sees it, and while
+        // that hold stands it aims at nothing: the next touch, a swipe up
+        // say, would be spent before the hold above is cleared. Once a lift
+        // has passed every filter, a hold on it with no contact down is let
+        // go there and then.
+        m_touchWitness->onTouchUp = [this](qint32 id) {
+            QTimer::singleShot(0, this, [id] {
+                KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+                if (!touch || touch->decorationPressId() != id || touch->touchPointCount() > 0) return;
+                qInfo() << "Kadunce lets go of a title bar's hold on contact" << id
+                        << "whose lift KWin's title bar never saw";
+                touch->setDecorationPressId(-1);
+            });
+        };
         m_touchWitness->describeTouchState = [] {
             const KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             if (!touch) return QStringLiteral("has no touch input");
@@ -3934,6 +3950,8 @@ QString Effect::nativeCarryState() const
             {QStringLiteral("y"), lineRect.y()}, {QStringLiteral("width"), lineRect.width()},
             {QStringLiteral("height"), lineRect.height()}}},
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
+        {QStringLiteral("titleBarHold"), KWin::input() && KWin::input()->touch()
+            ? KWin::input()->touch()->decorationPressId() : -1},
         {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
         {QStringLiteral("destination"), bool(m_carryDestination) || bool(m_carryCardEntryOutput)
             || bool(m_carryCardExitOutput)},

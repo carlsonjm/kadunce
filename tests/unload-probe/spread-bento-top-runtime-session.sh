@@ -21,6 +21,7 @@ check() {
     if "$@" >/dev/null 2>&1; then echo "ok: $name"; else echo "FAIL: spread bento top: $name" >&2; failures=$((failures + 1)); fi
 }
 context() { kad workspaceContext | jq -e "$@"; }
+kad_state() { kad nativeCarryState | jq -e "$@"; }
 report() {
     echo "state $1 $(kad outputStageState | tr '\n' ' ') $(kad workspaceContext | jq -c '{p: .cardStage.presentation, active: .cardStage.active, sel: .cardStage.selectedCardId, bento: .desktopStage.active, apps: [.applications[] | {title, windowId, hasCard, stackSize, selected, minimized}]}')"
 }
@@ -88,6 +89,9 @@ for pass in alone sleeper closed; do
     check "$pass: the carried card grows into its pane from where it was let go" \
         jq -se 'map(select(.rect != .target)) | length > 0' < <(printf '%s\n' "${pairing[@]}" | grep .)
     sleep 1.2
+    # The carry kept the lift from KWin's title bar handling; the hold it
+    # left is let go, so the next touch reaches what it lands on.
+    check "$pass: no title bar still holds the lifted contact" kad_state '.titleBarHold == -1'
     report "$pass-paired"
     # At a fractional scale a pane can sit part of a pixel off its rect.
     echo "$pass: pane frames $(probe windowGeometry "$main" | jq -c .) $(probe windowGeometry "$neighbour" | jq -c .)"
