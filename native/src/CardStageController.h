@@ -108,6 +108,15 @@ public:
     // A card let go on a pane of the Bento group took that pane; open the
     // group as its layout, the card growing from `from`, where it was drawn.
     virtual void openGroupAfterDropForCardStage(const QRectF &) {}
+    // A card about to be resized while Spread shows it: the host may keep its
+    // last good picture first and call `resize` once it has, answering true.
+    // An application's first frames at a new size can be empty, and Spread
+    // would show them. A host that keeps no picture answers false, and the
+    // stage resizes at once.
+    [[nodiscard]] virtual bool holdPictureBeforeResizeForCardStage(
+        KWin::EffectWindow *, const std::function<void()> &) {
+        return false;
+    }
     virtual void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) = 0;
     virtual void unredirectForCardStage(KWin::EffectWindow *window) = 0;

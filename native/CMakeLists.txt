@@ -38,6 +38,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/StuckNotesWatcher.cpp
         src/StuckNotesWatcher.h
         src/NoteStackRenderer.h
+        src/KeptPicture.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/BentoLayout.cpp
