@@ -1064,9 +1064,13 @@ KWin::Rect CardStageController::restingPreviewTarget(
         // Opening under three fingers: the Active card shrinks from where it
         // stood into the row, and its neighbours slide in from the sides.
         const double p = spreadOpenProgress();
+        // Every pane of a selected Bento group stands where the layout drew
+        // it, so the panes shrink into the group card together.
+        const bool fromActive = window == selectedWindow()
+            || (usesBentoProjectionAperture(window) && usesBentoProjectionAperture(selectedWindow()));
         const QRectF to(target.x(), target.y(), target.width(), target.height());
-        QRectF from = window == selectedWindow() ? QRectF(activeTarget(output)) : to;
-        if (window != selectedWindow()) from.translate(slot * output->geometry().width() / 2.0, 0);
+        QRectF from = fromActive ? QRectF(activeTarget(output)) : to;
+        if (!fromActive) from.translate(slot * output->geometry().width() / 2.0, 0);
         const auto blend = [p](double a, double b) { return qRound(a + (b - a) * p); };
         return KWin::Rect(blend(from.x(), to.x()), blend(from.y(), to.y()),
                           blend(from.width(), to.width()), blend(from.height(), to.height()));
