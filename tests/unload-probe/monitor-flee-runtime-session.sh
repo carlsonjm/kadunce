@@ -57,7 +57,7 @@ for order in move-first maximize-first; do
         context ".applications[] | select(.title == \"$title\") | (.hasCard | not)"
     check "$order: the tablet keeps its cards" test "$(cardCount)" -eq "$cards"
     check "$order: the cards are still shown" \
-        context '.cardStage.presentation == "active" or .cardStage.presentation == "spread"'
+        context '.cardStage.presentation == "active" or .cardStage.presentation == "cardLine"'
 done
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
