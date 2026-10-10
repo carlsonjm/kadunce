@@ -29,7 +29,8 @@ jobs:
   patched-kwin:
     name: Patched KWin
     runs-on: ubuntu-latest
-    container: archlinux:latest
+    container:
+      image: public.ecr.aws/docker/library/archlinux:latest
     timeout-minutes: 120
     steps:
       - name: Enable kde-unstable and install KWin's build dependencies
@@ -117,7 +118,8 @@ jobs:
   recipe:
     name: Patched KWin recipe
     runs-on: ubuntu-latest
-    container: archlinux:latest
+    container:
+      image: public.ecr.aws/docker/library/archlinux:latest
     timeout-minutes: 30
     steps:
       - name: Enable kde-unstable and install the packaging tools

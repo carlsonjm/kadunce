@@ -22,7 +22,8 @@ jobs:
   verify:
     name: Arch current
     runs-on: ubuntu-latest
-    container: archlinux:latest
+    container:
+      image: public.ecr.aws/docker/library/archlinux:latest
     timeout-minutes: 60
     steps:
       - name: Install build dependencies
