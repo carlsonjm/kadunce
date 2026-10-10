@@ -64,6 +64,10 @@ echo 'PASS: waking the sleeping card does not put it back into Bento'
 # one pane ends, so both panes are cards.
 kad showActive
 sleep .4
+# Both windows are cards now, each standing in the Active card's place.
+place=$(probe windowGeometry "$survivor" | jq -c .)
+echo "the Active card's place: $place"
+test "$(probe windowGeometry "$sleeper" | jq -c .)" = "$place"
 test "$(kad toggleBentoOnOutput Virtual-0)" = true
 sleep .8
 kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
@@ -95,6 +99,12 @@ kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"
     and ([.applications[] | select(.hasCard)] | length == 2 and all(.stackSize == 1))'
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .bentoActive)] | length == 0'
 echo 'PASS: a pane pulled down out of the Bento group leaves it, and both panes are cards'
+# §3: each stands in the Active card's place again, so its card in Spread
+# shows the whole window rather than a pane's strip between bands of backing.
+echo "after the pull: $(probe windowGeometry "$sleeper" | jq -c .) $(probe windowGeometry "$survivor" | jq -c .)"
+test "$(probe windowGeometry "$sleeper" | jq -c .)" = "$place"
+test "$(probe windowGeometry "$survivor" | jq -c .)" = "$place"
+echo 'PASS: both panes pulled out of the group stand in the Active card'"'"'s place'
 # §13: only release returns a managed window to Plasma, and it returns both.
 test "$(probe releaseRuntime)" = true
 sleep .8
