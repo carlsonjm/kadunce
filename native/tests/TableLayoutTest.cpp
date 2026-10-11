@@ -113,6 +113,17 @@ int main()
     check(std::abs(dealt.cards[0][0].width() - layout.cards[0][0].width() - 2 * TableSizes::SliverStep) < 1e-9
               && dealt.cards[0][1].left() - dealt.cards[0][0].right() == TableSizes::CardGap,
           "a stack's slot holds its edges, and keeps the gap to its neighbour");
+    // Table lists an application's own windows, and none kept out of the
+    // taskbar, the pager or the task switcher.
+    check(tableListsWindow({}), "an ordinary window hangs in its workspace's row");
+    check(!tableListsWindow({.normal = false}), "a panel or popup does not");
+    check(!tableListsWindow({.onAllDesktops = true}), "a window on every desktop does not");
+    check(!tableListsWindow({.dependent = true}), "a dialog following its application does not");
+    check(!tableListsWindow({.skipSwitcher = true}), "a window kept out of the task switcher does not");
+    check(!tableListsWindow({.skipTaskbar = true}), "a window kept out of the taskbar does not");
+    check(!tableListsWindow({.skipPager = true}), "a window kept out of the pager does not");
+    check(!tableListsWindow({.skipSwitcher = true, .skipTaskbar = true, .skipPager = true}),
+          "a window kept out of all three does not");
     std::cout << "Table layout checks passed\n";
     return 0;
 }
