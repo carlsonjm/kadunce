@@ -27,6 +27,8 @@ public:
     std::function<QString()> describeTouchState;
     // Runs first for every contact, before KWin's own handling sees it.
     std::function<void(qint32)> beforeTouchDown;
+    // Runs as each contact lifts, before KWin's own handling sees the lift.
+    std::function<void(qint32)> onTouchUp;
     // Installed after the other filters of its order, so KWin runs it first.
     TouchWitness() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
@@ -60,6 +62,7 @@ public:
     }
     bool touchUp(KWin::TouchUpEvent *event) override {
         m_down.remove(event->id);
+        if (onTouchUp) onTouchUp(event->id);
         const auto unseen = m_unseenBottom.constFind(event->id);
         if (unseen != m_unseenBottom.cend()) {
             qInfo() << "Kadunce bottom-edge contact" << *unseen

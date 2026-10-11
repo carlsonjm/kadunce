@@ -66,11 +66,8 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
-#include <QFileSystemWatcher>
 #include <QDebug>
 #include <QEasingCurve>
-#include <QFile>
-#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -296,28 +293,6 @@ QJsonObject geometryContext(const KWin::Rect &geometry)
         {QStringLiteral("width"), geometry.width()},
         {QStringLiteral("height"), geometry.height()},
     };
-}
-
-QString currentPosture()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty()) {
-        return QStringLiteral("unknown");
-    }
-    QFile posture(runtime + QStringLiteral("/z13-tablet-kit/posture"));
-    if (!posture.open(QIODevice::ReadOnly)) {
-        return QStringLiteral("unknown");
-    }
-    const QString value = QString::fromUtf8(posture.readLine()).trimmed();
-    return value.isEmpty() ? QStringLiteral("unknown") : value;
-}
-
-bool z13TabletKitAvailable()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    return !runtime.isEmpty()
-        && QFileInfo::exists(runtime
-            + QStringLiteral("/z13-tablet-kit/posture"));
 }
 
 constexpr auto FanApertureVertexShader = R"GLSL(#version 140
@@ -872,12 +847,13 @@ Effect::Effect()
             connect(child, SIGNAL(effectLoaded(KWin::Effect*,QString)), this, SLOT(holdTableCorner()));
     }
 
-    // The Z13 tablet kit selects Kadunce's richer direct four-edge router.
-    // Every other touchscreen delegates top and bottom gesture recognition to
-    // Plasma/KWin and only receives the resulting semantic action here. The
+    // A display driven by a touchscreen selects Kadunce's richer direct
+    // four-edge router, which alone pulls Table down from the top edge.
+    // Without one, top and bottom gesture recognition is delegated to
+    // Plasma/KWin and only the resulting semantic action arrives here. The
     // router is told which backend owns those edges so one swipe cannot be
     // consumed or toggled twice.
-    m_usesDirectSystemEdges = z13TabletKitAvailable();
+    m_usesDirectSystemEdges = !m_cardOutputName.isEmpty();
     if (!m_usesDirectSystemEdges) {
         // Plasma's bottom touch edge opens Spread, as the bezel does on the
         // tablet, and so do three fingers on any touchscreen.
@@ -910,6 +886,10 @@ Effect::Effect()
             });
     connect(KWin::effects, &KWin::EffectsHandler::desktopRemoved,
             this, &Effect::handleDesktopRemoved);
+    connect(KWin::VirtualDesktopManager::self(), &KWin::VirtualDesktopManager::desktopAdded, this,
+            [this](KWin::VirtualDesktop *desktop) {
+                if (desktop) m_unenteredDesktops.insert(desktop->id());
+            });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
@@ -1138,6 +1118,22 @@ Effect::Effect()
                     << "that lifted unseen, so contact" << id << "can move its window";
             touch->setDecorationPressId(-1);
         };
+        // A carry Kadunce takes from a title bar keeps the contact's lift, so
+        // KWin's title bar handling never hears it and holds the contact on.
+        // KWin aims each new contact before any filter sees it, and while
+        // that hold stands it aims at nothing: the next touch, a swipe up
+        // say, would be spent before the hold above is cleared. Once a lift
+        // has passed every filter, a hold on it with no contact down is let
+        // go there and then.
+        m_touchWitness->onTouchUp = [this](qint32 id) {
+            QTimer::singleShot(0, this, [id] {
+                KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+                if (!touch || touch->decorationPressId() != id || touch->touchPointCount() > 0) return;
+                qInfo() << "Kadunce lets go of a title bar's hold on contact" << id
+                        << "whose lift KWin's title bar never saw";
+                touch->setDecorationPressId(-1);
+            });
+        };
         m_touchWitness->describeTouchState = [] {
             const KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             if (!touch) return QStringLiteral("has no touch input");
@@ -1153,8 +1149,6 @@ Effect::Effect()
             return !m_touchWitness || m_touchWitness->down().contains(qint32(id));
         };
     }
-
-    if (!m_usesDirectSystemEdges) watchForTabletKit();
 
     m_nativeEdgePolicy = std::make_unique<NativeEdgePolicy<KWin::Options>>(KWin::options);
     m_keyboardOverlayPolicy =
@@ -1176,7 +1170,7 @@ Effect::Effect()
 
     qInfo() << "Kadunce" << Revision
             << (m_usesDirectSystemEdges
-                    ? "direct Z13 system edges"
+                    ? "direct system edges"
                     : "Plasma-native system edges")
             << "and output-local Bento ready; fan aperture"
             << (m_fanApertureShader ? "enabled" : "r20 fallback");
@@ -1338,38 +1332,14 @@ bool Effect::supported()
     return true;
 }
 
-void Effect::watchForTabletKit()
-{
-    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty()) return;
-    // The posture manager is a separate user service and has been observed
-    // reaching active state after KWin. Testing once in the constructor then
-    // makes the Plasma edge fallback permanent for the session, so watch the
-    // runtime directory for the kit and adopt the direct router when it lands.
-    m_tabletKitWatcher = std::make_unique<QFileSystemWatcher>();
-    const QString kit = runtime + QStringLiteral("/z13-tablet-kit");
-    m_tabletKitWatcher->addPath(runtime);
-    if (QFileInfo::exists(kit)) m_tabletKitWatcher->addPath(kit);
-    connect(m_tabletKitWatcher.get(), &QFileSystemWatcher::directoryChanged,
-            this, [this, kit] {
-                // The directory can appear before the posture file inside it.
-                if (m_tabletKitWatcher && QFileInfo::exists(kit)
-                    && !m_tabletKitWatcher->directories().contains(kit)) {
-                    m_tabletKitWatcher->addPath(kit);
-                }
-                adoptDirectSystemEdges();
-            });
-}
-
 void Effect::adoptDirectSystemEdges()
 {
-    if (m_usesDirectSystemEdges || !z13TabletKitAvailable()) return;
+    if (m_usesDirectSystemEdges || m_cardOutputName.isEmpty()) return;
     m_usesDirectSystemEdges = true;
-    m_tabletKitWatcher.reset();
     // Hand each edge back to Plasma before the router claims it, so one swipe
-    // cannot reach both backends. Adoption is one-way: a kit that later goes
-    // away leaves Kadunce's own recognition in place rather than churning the
-    // backend mid-session.
+    // cannot reach both backends. Adoption is one-way: a touchscreen that
+    // later goes away leaves Kadunce's own recognition in place rather than
+    // churning the backend mid-session.
     const auto release = [](KWin::ElectricBorder border, QAction *&action) {
         if (!action) return;
         KWin::effects->unregisterTouchBorder(border, action);
@@ -1380,7 +1350,7 @@ void Effect::adoptDirectSystemEdges()
     release(KWin::ElectricTop, m_showActiveAction);
     if (m_inputRouter) m_inputRouter->setOwnsSystemEdges(true);
     qInfo() << "Kadunce" << Revision
-            << "adopted direct Z13 system edges after the tablet kit appeared";
+            << "adopted direct system edges after a touchscreen appeared";
 }
 
 bool Effect::isTabletOutput(const KWin::LogicalOutput *output) const
@@ -1416,6 +1386,9 @@ void Effect::refreshCardOutput()
     m_cardOutputName = name;
     qInfo() << "Kadunce" << Revision << "cards belong to"
             << (name.isEmpty() ? QStringLiteral("no display: no touchscreen drives one") : name);
+    // A touchscreen that arrives after KWin, or is plugged in later, gives
+    // the edges to Kadunce's own router.
+    adoptDirectSystemEdges();
     Q_EMIT workspaceContextChanged();
 }
 
@@ -1493,6 +1466,7 @@ KWin::EffectWindow *Effect::dependentLead(const KWin::EffectWindow *window)
 void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current)
 {
     if (previous == current) return;
+    if (current) m_unenteredDesktops.remove(current->id());
     // Table's own switches close it first; any other ends it.
     if (m_table.isOpen()) closeTable();
     // A switch made some other way ends a preview of a different desktop. A
@@ -1533,6 +1507,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
 {
     if (m_table.isOpen()) closeTable();
     if (desktop && m_namedDesktops.removeAll(desktop->id()) > 0) saveNamedDesktops();
+    if (desktop) m_unenteredDesktops.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
     // lets them go as a release would, and the desktop they stand on now takes
     // them as its own.
@@ -2369,6 +2344,8 @@ void Effect::applyTableAction(const TableAction &action)
             refreshTable();
             return;
         }
+        // Table's own workspace dissolves as any left one does.
+        m_unenteredDesktops.remove(created->id());
         moveTableCard(action.workspace, action.card, created);
         return;
     }
@@ -2603,8 +2580,10 @@ void Effect::dissolveEmptyWorkspaces()
     const auto stack = KWin::effects->stackingOrder();
     for (KWin::VirtualDesktop *desktop : desktops) {
         if (manager->count() <= 1) return;
-        // The workspace the person is in stays until they leave it.
-        if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())) continue;
+        // The workspace the person is in stays until they leave it, and one
+        // made elsewhere stays until it has been entered and left.
+        if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())
+            || m_unenteredDesktops.contains(desktop->id())) continue;
         const bool kept = std::any_of(stack.cbegin(), stack.cend(), [desktop](KWin::EffectWindow *window) {
             return !window->isDeleted() && window->isNormalWindow() && !window->isOnAllDesktops()
                 && !dependentLead(window) && window->isOnDesktop(desktop);
@@ -3971,6 +3950,8 @@ QString Effect::nativeCarryState() const
             {QStringLiteral("y"), lineRect.y()}, {QStringLiteral("width"), lineRect.width()},
             {QStringLiteral("height"), lineRect.height()}}},
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
+        {QStringLiteral("titleBarHold"), KWin::input() && KWin::input()->touch()
+            ? KWin::input()->touch()->decorationPressId() : -1},
         {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
         {QStringLiteral("destination"), bool(m_carryDestination) || bool(m_carryCardEntryOutput)
             || bool(m_carryCardExitOutput)},
@@ -5027,7 +5008,6 @@ QString Effect::workspaceContext() const
             {QStringLiteral("active"), hasActiveDesktopStage()},
         }},
         {QStringLiteral("displayContext"), QJsonObject{
-            {QStringLiteral("posture"), currentPosture()},
             {QStringLiteral("edgeBackend"), m_usesDirectSystemEdges
                 ? QStringLiteral("z13-direct")
                 : QStringLiteral("plasma-native")},

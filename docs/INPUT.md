@@ -39,7 +39,7 @@ Apps and Files.
 | Tap or click a card's stack of Gooseberry notes | They fan out over the card, and its window, until tapped again. Hold one, or the stack for its top note, and let go on another card to stick it there. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke does not close it, and the keys type into it. |
-| Plasma's bottom or top touch edge, on a touchscreen other than the ROG Flow Z13's | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
+| Plasma's bottom or top touch edge, where no touchscreen drives a display | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
 
 A swipe that starts on the dock stays with the dock, and while the on-screen keys
 are up, the bottom edge is theirs.

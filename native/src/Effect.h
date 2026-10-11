@@ -40,6 +40,7 @@
 #include <QDBusContext>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QSet>
 #include <QStringList>
 
 #include <map>
@@ -50,7 +51,6 @@
 
 class QAction;
 class QDBusServiceWatcher;
-class QFileSystemWatcher;
 
 namespace KWin
 {
@@ -215,10 +215,10 @@ Q_SIGNALS:
     Q_SCRIPTABLE void placementSettled(const QString &requestToken, const QString &windowId, bool placed);
 
 private:
-    // The tablet kit decides which backend owns the top and bottom edges, and it
-    // can appear after the effect loads. These move the session onto the direct
-    // router at that point instead of leaving the constructor's answer final.
-    void watchForTabletKit();
+    // A touchscreen driving a display decides which backend owns the top and
+    // bottom edges, and it can appear after the effect loads. This moves the
+    // session onto the direct router then instead of leaving the constructor's
+    // answer final.
     void adoptDirectSystemEdges();
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
@@ -463,6 +463,11 @@ private:
     // KDE keeps the name; which names are the
     // person's is Kadunce's, kept by desktop id in kaduncerc.
     QStringList m_namedDesktops;
+    // Desktops something else made while Kadunce ran that have not yet been
+    // shown. Leaving is what dissolves a workspace, so one never entered
+    // waits: a script or another tool that makes a desktop and then sends a
+    // window to it finds it still there.
+    QSet<QString> m_unenteredDesktops;
     void loadNamedDesktops();
     void saveNamedDesktops();
     // The tab being renamed, what has been typed into it, and whether a
@@ -733,7 +738,6 @@ private:
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
     bool m_usesDirectSystemEdges = true;
-    std::unique_ptr<QFileSystemWatcher> m_tabletKitWatcher;
     std::unique_ptr<WorkspaceInputRouter> m_inputRouter;
     std::unique_ptr<NativeEdgePolicy<KWin::Options>> m_nativeEdgePolicy;
     std::unique_ptr<KeyboardOverlayPolicy<KWin::Options>> m_keyboardOverlayPolicy;

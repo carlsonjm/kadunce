@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Table by touch, on the tablet fixture with the tablet kit's direct edges.
+# Table by touch, on the tablet fixture with Kadunce's direct edges.
 # A pull from the top edge opens it; sliding across the tabs previews each
 # workspace without switching; lifting on a tab enters it without the slide;
 # past the depth line the workspace's cards hang, and lifting on one makes it
@@ -82,8 +82,6 @@ onto_card() {
     done
     return 1
 }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

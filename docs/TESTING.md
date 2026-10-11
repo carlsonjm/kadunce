@@ -120,7 +120,7 @@ input injector with no install rules: never load it into a real desktop.
 
 Table's scenes run with KWin's animations forced on, since software rendering
 turns them off; `table-preview-runtime` runs without Kadunce, through the
-test-only effect `table-proof.cpp`. `table-runtime` needs the tablet kit's
+test-only effect `table-proof.cpp`. `table-runtime` needs the tablet's
 direct edges, `keyboard-table-runtime` a real input method, and
 `table-pointer-runtime` and `spread-fingers-runtime` run with global shortcuts,
 which the corner and `Meta+W` need. `table-multidisplay-runtime` reads its result from one

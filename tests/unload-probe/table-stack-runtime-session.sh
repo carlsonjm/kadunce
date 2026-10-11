@@ -2,7 +2,7 @@
 # A stack in Table is one card, its face in front. Carried
 # to another workspace's tab it goes whole and stays one card there, and once
 # that workspace is shown its windows are one stack again with the same face.
-# Needs the tablet fixture and the tablet kit's direct edges.
+# Needs the tablet fixture, whose touchscreen gives Kadunce the direct edges.
 set -Eeuo pipefail
 trap 'echo "FAIL: table stack $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
@@ -34,8 +34,6 @@ one_stack() {
     kad workspaceContext | jq -e --argjson m "$members" '[.applications[] | select(.hasCard and (.title as $t | $m | index($t)))]
         | length == 2 and ([.[].stackId] | unique | length) == 1 and all(.[]; .stackSize == 2)' >/dev/null
 }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

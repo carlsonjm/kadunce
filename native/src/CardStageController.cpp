@@ -1064,9 +1064,13 @@ KWin::Rect CardStageController::restingPreviewTarget(
         // Opening under three fingers: the Active card shrinks from where it
         // stood into the row, and its neighbours slide in from the sides.
         const double p = spreadOpenProgress();
+        // Every pane of a selected Bento group stands where the layout drew
+        // it, so the panes shrink into the group card together.
+        const bool fromActive = window == selectedWindow()
+            || (usesBentoProjectionAperture(window) && usesBentoProjectionAperture(selectedWindow()));
         const QRectF to(target.x(), target.y(), target.width(), target.height());
-        QRectF from = window == selectedWindow() ? QRectF(activeTarget(output)) : to;
-        if (window != selectedWindow()) from.translate(slot * output->geometry().width() / 2.0, 0);
+        QRectF from = fromActive ? QRectF(activeTarget(output)) : to;
+        if (!fromActive) from.translate(slot * output->geometry().width() / 2.0, 0);
         const auto blend = [p](double a, double b) { return qRound(a + (b - a) * p); };
         return KWin::Rect(blend(from.x(), to.x()), blend(from.y(), to.y()),
                           blend(from.width(), to.width()), blend(from.height(), to.height()));
@@ -4866,7 +4870,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     KWin::effects->addRepaintFull();
 }
 
-bool CardStageController::releaseCard(KWin::EffectWindow *window)
+bool CardStageController::releaseCard(KWin::EffectWindow *window, bool restore)
 {
     const int index = liveCardIndex(window);
     if (!m_active || index < 0 || !window || window->isDeleted() || !window->window())
@@ -4890,7 +4894,7 @@ bool CardStageController::releaseCard(KWin::EffectWindow *window)
     m_originalCardStackingOrder.removeAll(window);
     KWin::effects->setElevatedWindow(window, false);
     m_host->unredirectForCardStage(window);
-    if (record) {
+    if (record && restore) {
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
         restoreWindowState(window->window(), *record, record->geometry, true);
     }
@@ -5004,6 +5008,16 @@ void CardStageController::handleActiveGeometryChanged(
     // Native start owns move/resize admission. Reported state may still describe
     // an older Wayland configure while our requested Active state is pending.
     if (client->isInteractiveMove() || client->isInteractiveResize()) return;
+    // A window KWin has placed on another display, as a screenshot tool going
+    // back to its last place does, takes only its own card there and stays.
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    KWin::LogicalOutput *placed = client->moveResizeOutput();
+    if (tablet && placed && placed != tablet && !m_cardGrabActive) {
+        qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+                << "go: KWin placed it on" << placed->name();
+        (void)releaseCard(window, false);
+        return;
+    }
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {

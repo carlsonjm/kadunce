@@ -5,17 +5,12 @@
 # Meta+S does, and whatever else the tablet sends while the fingers are down.
 # On the tablet a scroll arrives with the fingers; before Spread forms it is the
 # application's, and each one that lands on the forming row moved it a card.
-# SPREAD_KIT=1 adds the Z13 kit's posture file (Kadunce's direct edges).
 set -euo pipefail
 trap 'echo "FAIL: spread fingers line $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
 client() { qdbus6 co.goodinput.UnloadClient /Client "$@"; }
 kad() { qdbus6 org.kde.KWin /Kadunce "$@"; }
-if [[ ${SPREAD_KIT:-0} == 1 ]]; then
-    mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-    echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
-fi
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1
@@ -36,7 +31,7 @@ sleep .3
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep .5
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .role == "tablet")] | length == 1'
-kad workspaceContext | jq -c '.displayContext | {edgeBackend, posture}'
+kad workspaceContext | jq -c '.displayContext | {edgeBackend}'
 # The Z13's panel, so KWin's recogniser measures a swipe as on the device.
 test "$(probe givePhysicalSize Virtual-0 288 180)" = true
 read -r W H < <(kad workspaceContext | jq -r '.displayContext.displays[] | select(.name == "Virtual-0") | "\(.geometry.width) \(.geometry.height)"')

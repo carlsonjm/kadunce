@@ -6,7 +6,7 @@
 # leaves it showing until a tap chooses another tab. From the Active card a
 # pull previews from the tabs, as before.
 #
-# Needs the tablet fixture and the tablet kit's direct edges. Every check is
+# Needs the tablet fixture, whose touchscreen gives Kadunce the direct edges. Every check is
 # reported, so a failure does not hide the ones after it.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -42,8 +42,6 @@ slide() { probe motion 90 "$1" "$2"; sleep .12; }
 lift() { probe up 90; sleep .8; }
 tap() { probe down 91 "$1" "$2"; sleep .05; probe up 91; sleep .5; }
 escape() { probe key 1 0; sleep .5; }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

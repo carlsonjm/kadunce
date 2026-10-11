@@ -41,6 +41,13 @@ vdm createDesktop 1 Two
 sleep .3
 one=$(vdm org.kde.KWin.VirtualDesktopManager.current)
 two=$(qdbus6 --literal org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.desktops | grep -o '[0-9a-f-]\{36\}' | grep -v "$one" | head -1)
+# A desktop something else makes while Kadunce runs waits to be entered,
+# however much dissolving happens meanwhile: a script that makes one and then
+# sends a window to it must find it there.
+vdm createDesktop 2 Studio
+sleep .3
+studio=$(qdbus6 --literal org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.desktops | grep -o '[0-9a-f-]\{36\}' | grep -v -e "$one" -e "$two" | head -1)
+test -n "$studio"
 switch() { qdbus6 org.kde.KWin /VirtualDesktopManager org.freedesktop.DBus.Properties.Set org.kde.KWin.VirtualDesktopManager current "$1"; sleep .6; }
 # A Spread left open on the first desktop waits there, closed into Active.
 kad showCardLine
@@ -80,6 +87,10 @@ switch "$one"
 test "$(cards)" = '["Ordinary neighbor probe","unload-client"]'
 context '.cardStage.presentation == "active"'
 echo 'PASS: the first desktop comes back as it was left, less the card closed while it was not shown'
+qdbus6 --literal org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.desktops | grep -q "$studio"
+vdm removeDesktop "$studio"
+sleep .5
+echo 'PASS: a desktop made elsewhere and never entered is not dissolved'
 probe sendToDesktop 'Ordinary neighbor probe' "$two"
 sleep .8
 test "$(desktops_of 'Ordinary neighbor probe')" = "$two"

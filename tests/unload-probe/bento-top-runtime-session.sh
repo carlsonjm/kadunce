@@ -6,7 +6,7 @@
 # top edge landed on it: the window began a resize of its own and Table never
 # came. Two GTK windows, which draw their own title bars, are the panes.
 #
-# Needs the tablet fixture and the tablet kit's direct edges. Every check is
+# Needs the tablet fixture, whose touchscreen gives Kadunce the direct edges. Every check is
 # reported, so a failure does not hide the ones after it.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -20,8 +20,6 @@ check() {
     if "$@" >/dev/null 2>&1; then echo "ok: $name"; else echo "FAIL: bento top: $name" >&2; failures=$((failures + 1)); fi
 }
 is() { test "$1" = "$2"; }
-mkdir -p "$XDG_RUNTIME_DIR/z13-tablet-kit"
-echo tablet >"$XDG_RUNTIME_DIR/z13-tablet-kit/posture"
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1

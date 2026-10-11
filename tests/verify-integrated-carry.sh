@@ -90,6 +90,7 @@ scenes=(
     monitor-full-runtime tablet
     monitor-grid-runtime tablet
     monitor-sent-runtime tablet
+    monitor-flee-runtime tablet
     monitor-side-runtime tablet
     first-entry-runtime tablet
     bottom-release-runtime tablet
