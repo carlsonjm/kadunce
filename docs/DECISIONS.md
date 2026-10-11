@@ -10,7 +10,7 @@ Git history.
 
 ### A dialog waits with its application
 
-Decided 23 September 2026. A dialog is part of the application that opened it,
+A dialog is part of the application that opened it,
 never a card or a Bento pane; when that application is not in front, the dialog
 waits hidden and unfocused and the application is marked as wanting attention
 (`CARD-LIFECYCLE.md` §4). Rejected: bringing the application forward on its own,
@@ -27,7 +27,7 @@ at.
 
 ### Switching Kadunce on puts the tablet in cards
 
-Decided 23 September 2026. While Kadunce is on, the display that can own cards
+While Kadunce is on, the display that can own cards
 holds its windows as cards, and switching on shows the window in use as the
 Active card. Rejected: opening Spread instead, which costs a tap after every
 sign-in and every toggle.
@@ -149,7 +149,7 @@ called window behind a layout was judged worse.
 ### The arrival claims one slot, and only its occupant leaves
 
 A full layout is not re-solved around an arrival (`CARD-LIFECYCLE.md` §8).
-Rejected after physical review on 20 September: re-solving while keeping the
+Rejected after physical review: re-solving while keeping the
 most recently used resident, which moved two windows when you asked for
 one and changed the survivor's size and side. Fit alone answers what recency was
 for: a window that fits either pane takes the narrower, so a small tool never
@@ -313,7 +313,7 @@ a call sits in a file, so a controller may be restructured freely.
 
 ### Spread comes from the bezel and three fingers; the keys from their tray entry
 
-Decided 28 September 2026. A swipe up from the bottom bezel opens Spread under
+A swipe up from the bottom bezel opens Spread under
 the finger. Three fingers stay, down for Spread and up for Table, keeping KDE's
 own gestures off the screen; Table's top edge stays its first way in, since a
 hand placed for three fingers scrolled pages by accident. The keys come from a
@@ -325,7 +325,7 @@ which talk to Kadunce every frame; and the recognizer reaching over the dock.
 
 ### Kadunce's keys sit on Meta and are never written
 
-Decided 28 September 2026. `Meta+S` opens Spread, `Meta+W` Table, `Meta`'s
+`Meta+S` opens Spread, `Meta+W` Table, `Meta`'s
 arrows move through cards while they are shown, `Meta+B` starts Bento and
 `Meta+Esc` lets go; an input filter ahead of KDE's shortcuts takes them only
 while Kadunce runs (`INPUT.md`, whose controls map lists them). `Ctrl` stays
@@ -336,7 +336,7 @@ Save, Bold and word moves from every application.
 
 ### KDE's Overview is set aside while Kadunce runs
 
-Decided 28 September 2026. Kadunce unloads KDE's Overview while it runs, and
+Kadunce unloads KDE's Overview while it runs, and
 with it Overview's fingers, `Meta+W`, `Meta+G` and corner, and loads it again
 when it stops unless you turned it off. Rejected: sharing the fingers,
 since KWin runs every registration of a swipe, and taking Overview's gestures
@@ -364,19 +364,19 @@ task is reached through the ordinary right-click menu, and an application is
 pinned, unpinned and reordered the way every dock does it; touch reaches the
 same menu by a long press. Novelty is spent where Shuffle exists to change
 things (cards, Spread, Bento, Table), because a bespoke gesture elsewhere makes
-you relearn what you know. Decided 22 September 2026, against a hold-to-pin
-gesture built for the Shuffle Dock.
+you relearn what you know. Rejected: a hold-to-pin gesture built for the
+Shuffle Dock.
 
 The Shuffle Dock starts from everything Plasma's Icons-only Task Manager does; a
 stock feature it lacks is a defect. One dock lists every display's windows, so a
-window a monitor layout sent there is picked up where you already look (24
-September 2026, against a dock on each display). It lists the current
+window a monitor layout sent there is picked up where you already look (rejected: a
+dock on each display). It lists the current
 desktop's windows, a pinned application opening on the desktop in use: Table
 connects desktops.
 
 ### Spread gives every move one meaning
 
-Decided 27 September 2026 from a trial of the whole map. In Spread sideways
+A trial of the whole map settled it: in Spread sideways
 travels, up closes, down takes out, a hold carries and a tap opens. A Bento
 group, which can hold eight applications, never closes by a flick; Spread has no
 window menu. On the centred Stack a slow stroke scrubs its cards and a quick one
@@ -417,7 +417,7 @@ Active card again.
 
 ### The keyboard comes up for the text, not for focus
 
-Decided 23 and 24 September 2026: the keys come up only when you ask for them,
+The keys come up only when you ask for them,
 by tapping a text field or Keyboard in Control Center or the tray. The Keyboard
 entry leaves the focus where it was; only a cold start, with no text box ready,
 borrows it. An application focusing a field on its own is not a request to type,
@@ -427,13 +427,13 @@ begin to go. Rejected: a time limit on a tap, which refused slow applications.
 
 ### The dock steps aside for the keys
 
-Decided 23 September 2026: KWin seats the keys on the work area's bottom, so a
+KWin seats the keys on the work area's bottom, so a
 dock that stays holds them up by its height. The dock gives up its room while
 keys are on screen, not merely asked for.
 
 ### The latched trackpad is the pointer
 
-Decided 24 September 2026: pointing lives in the latch at the space bar's end,
+Pointing lives in the latch at the space bar's end,
 which holds the keys up. Rejected after a build: a space-bar slide, whose clicks
 put the keys down.
 
@@ -490,7 +490,7 @@ over drawn zones; dividers fighting KWin's; deleting zones to fill again.
 KWin moves windows itself when a display is plugged in, unplugged or moved, and
 Kadunce answers once it has finished: a card KWin moved off the card display
 goes back, because §14 returns a card to the desktop only by release or disable,
-and a window KWin moved onto it becomes a card. Decided 23 September 2026: the
+and a window KWin moved onto it becomes a card. The
 arrival you used last becomes the Active card, so you pick up where you were on
 the monitor; the other arrivals and the previous Active card wait behind it.
 Rejected: letting KWin's move stand and dropping the card, which returns a
@@ -544,25 +544,28 @@ development machines the guided repair is adequate.
 
 ### Table is required and uses virtual desktops
 
-Decided 23 September 2026. Table ships in 1.0, and every virtual desktop keeps
+Table ships in 1.0, and every virtual desktop keeps
 its own cards and layouts (`TABLE.md`). Rejected: KDE's per-display desktop
 switching, under which a window moved between displays changes desktop.
 
 ### Table is tabs pulled from the top edge
 
-Decided 25 September 2026. Pull depth picks a workspace or a card and sideways
+Pull depth picks a workspace or a card and sideways
 picks which, so any window is one stroke away (`INPUT.md` § Table). Rejected:
 surfaces of small Spreads, a reskinned Overview, a list with submenus, and a
 diagonal hand-off from the edge.
 
 ### Cards follow the touchscreen
 
-Decided 23 September 2026. The display a touchscreen drives holds cards, whether
+The display a touchscreen drives holds cards, whether
 it's a tablet's own panel or a touch monitor; every other display uses Bento
 layouts, and a computer without a touchscreen gets Bento and Table only. Kadunce
 finds that display from the touchscreen as KWin places it, never from the
 display's name, which says nothing about touch. Where two touchscreens drive
-different displays, the built-in one holds cards.
+different displays, the built-in one holds cards. The same test gives Kadunce
+the touch edges (`ARCHITECTURE.md` § Input ownership). Rejected: a helper for
+one device deciding it, which left every other touchscreen without Table's
+pull from the top edge.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 
@@ -573,27 +576,27 @@ resort.
 
 ### The install leaves a person's own applications alone
 
-Decided 29 September 2026: Shuffle styles what Plasma draws and the settings KDE
+Shuffle styles what Plasma draws and the settings KDE
 and GTK share, not a person's terminal or browser. Rejected: installing
 Ghostty's palette, now a reference in `ITASCA-VISUAL-LANGUAGE.md` § Terminal
 palette.
 
 ### App chrome lifts one step, title bar included
 
-Decided 29 September 2026: title bars, toolbars and sidebars sit one step above
+Title bars, toolbars and sidebars sit one step above
 content, one frame around it. Rejected: a black title bar over lifted toolbars.
 The rule is `../shuffle/docs/APPEARANCE.md`.
 
 ### Ghost White is the highlight out of the box
 
-Decided 29 September 2026. Shuffle highlights in Ghost White, as Control Center
+Shuffle highlights in Ghost White, as Control Center
 does, and an accent you set takes its place, keeping the suite
 monochrome until they ask for color. Rejected: the first appearance's teal. The
 rule is `../shuffle/docs/APPEARANCE.md`.
 
 ### Corners come in three tiers
 
-Decided 29 September 2026: 8 px paper, 12 px floating notes, pills for actions.
+8 px paper, 12 px floating notes, pills for actions.
 The 8 px cut reads modern and cuts less content by accident; notes stay a step
 softer so they read as temporary. Rejected: 8 px for every surface, and the
 earlier 14 to 18 px boxes. The rule is `ITASCA-VISUAL-LANGUAGE.md` § Rounded
@@ -606,7 +609,7 @@ which KWin updates break. See `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
 
 ### Files is the file manager
 
-Decided 29 September 2026. With Shuffle installed, Files opens every folder,
+With Shuffle installed, Files opens every folder,
 Plasma's drive pop-up and "Show in folder" included; Dolphin keeps what Files
 does not browse. Rejected: Dolphin staying the file manager, which keeps a
 folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
@@ -615,6 +618,6 @@ it on.
 
 ### Shuffle Lock shows nothing from the session
 
-Decided 25 September: the lock shows the time, the credential field and the
+The lock shows the time, the credential field and the
 Keyboard's handle, and nothing from the session. The contract is
 `../shuffle/docs/LOCK-CONTRACT.md`.

@@ -221,6 +221,15 @@ they preserve these relationships and respect the user's animation settings.
   6–48 px, the same on every edge.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
+- Opening Spread from the Active card or a Bento layout shrinks it from the
+  screen it filled into its place in the row, a layout's panes together as its
+  group card, while the cards beside it slide in.
+- A carried window never jumps. Cancelled, refused or interrupted, it glides
+  home from where it was under the hand; let go at the top edge it glides into
+  the Active card's place, and at a side it grows into its pane from where it
+  was let go. A pane leaving its layout or arriving in one glides there, the
+  last pane of a layout grows into the Active card's place from where it stood,
+  and a pane that gives way to an arrival fades where it stood.
 - A search launcher hosted in Spread arrives over a 220 ms settle that changes
   no final geometry. Dragging previews only the first 18% of its travel: the
   shoulder lifts 16 px and leans by less than a degree, then falls flat into the

@@ -23,8 +23,9 @@ What is planned for Kadunce, and what it does not do yet.
 
 - A display change is answered once KWin has moved windows for it. An
   ordinary window sent to another display some other way, such as KWin's own
-  window-to-screen shortcut, is answered as one that opened there; a card or
-  pane sent that way is not.
+  window-to-screen shortcut, is answered as one that opened there. The Active
+  card sent that way stops being a card and stays where KWin put it, outside
+  that display's layout; a pane sent that way is not answered.
 - Whether switching Kadunce off returns a window to the right place after its
   display has moved in the desktop layout is not measured.
 - A Wayland dialog that names no parent window becomes a card. No application
