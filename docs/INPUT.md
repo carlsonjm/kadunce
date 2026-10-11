@@ -23,7 +23,7 @@ Apps and Files.
 | --- | --- |
 | Swipe up from the bottom edge | Spread opens and follows your finger; a quick flick opens it all the way. |
 | Three fingers down on the touchscreen, or four on a touchpad | Spread opens: from the Active card it shrinks into the row under your fingers, going back if let go short of halfway; from a layout or the desktop, past halfway. |
-| `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout joins the row as one group card. |
+| `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout shrinks into the row as its group card. |
 | Drag the row sideways, by finger or mouse | The row follows, coasts after a flick, settles on a card and springs back at either end. |
 | Wheel over the row | The row moves one card. |
 | `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |

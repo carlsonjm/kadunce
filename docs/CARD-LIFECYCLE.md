@@ -26,8 +26,6 @@ Every eligible application window has exactly one owner:
 
 A window cannot be an individual card and a Bento pane at the same time.
 
-Leaving Bento removes all previous Bento association.
-
 ## 2. Presentation states
 
 Ownership and presentation are separate.
@@ -112,8 +110,8 @@ result:
 - It becomes Active.
 - Every other eligible window becomes an individual nonselected card.
 
-Bento does not begin here. Bento pairs two named windows, and a first side snap
-names only one, so that window is one card and nothing more.
+Bento does not begin here: a pair needs two named windows, and a first side
+snap names only one.
 
 ### Pairing into Bento
 
@@ -217,8 +215,8 @@ A partner search passes over every Spread entry that fails this test, and over
 every ordinary stack. A card leaves a stack for Bento only when the user named
 it by using it, never because a search walked past it.
 
-This test names the partner only. The carried window is named by the gesture, and
-when it comes from the native desktop it must be eligible for adoption.
+This test names the partner only; a carried window from the native desktop must
+be eligible for adoption.
 
 ## 5. Bento rules
 
@@ -548,7 +546,9 @@ Full Kadunce release or disable:
 - Clears individual cards, stacks, Bento, and presentation state
 - Returns complete authority to Plasma
 
-KWin moving the Active card releases everything only once it travels.
+KWin moving the Active card releases everything only once it travels. KWin
+placing it on another display, as a screenshot tool returning to its last place
+does, lets only that card go, where KWin put it.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 

@@ -68,7 +68,9 @@ probe once, and runs:
 - a monitor's drawn zones as its layout: windows placed by minimum size, a moved
   edge followed, an arrival taking a zone and its occupant waiting in the dock,
   and release leaving every zone;
-- tablet Active departure and Bento return into Spread;
+- tablet Active departure and Bento return into Spread, a pane leaving Bento
+  standing in the Active card's place, and Bento's glides and fades;
+- a new card KWin places on the monitor taking only its own card there;
 - a monitor unplugged and plugged back in, leaving every card and its window on
   the tablet;
 - Spread transfer, stack insertion and browsing, cancellation, and interrupted
@@ -120,8 +122,8 @@ input injector with no install rules: never load it into a real desktop.
 
 Table's scenes run with KWin's animations forced on, since software rendering
 turns them off; `table-preview-runtime` runs without Kadunce, through the
-test-only effect `table-proof.cpp`. `table-runtime` needs the tablet's
-direct edges, `keyboard-table-runtime` a real input method, and
+test-only effect `table-proof.cpp`. `table-runtime` needs Kadunce's own
+edges on the tablet fixture, `keyboard-table-runtime` a real input method, and
 `table-pointer-runtime` and `spread-fingers-runtime` run with global shortcuts,
 which the corner and `Meta+W` need. `table-multidisplay-runtime` reads its result from one
 photograph through `capture-shares.py`.

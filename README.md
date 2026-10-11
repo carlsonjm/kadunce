@@ -50,7 +50,28 @@ Kadunce manages each display on its own. The display your touchscreen drives
 holds your cards; Kadunce finds it from the touchscreen, never from the display's
 name. An attached monitor stays an ordinary Plasma desktop and can have its own
 Bento layout. On a computer without a touchscreen, every display uses Bento. A
-window you move to another display belongs to that display from then on.
+window you move to another display belongs to that display from then on. When
+KWin itself puts a card on another display, as a screenshot tool returning to
+its last place does, only that window leaves the cards.
+
+Wherever a touchscreen drives a display, Kadunce answers its top and bottom
+edges itself, so the swipe up to Spread and the pull down to Table work on any
+touchscreen.
+
+## The Cards menu
+
+The **Cards** icon in the system tray is Kadunce's switch; clicking it turns
+Kadunce on or off. Its menu holds:
+
+- **Cards on**, the same switch.
+- Which KWin Kadunce was built for, and **Repair for current KWin…**, which
+  rebuilds it after a KWin update.
+- **Monitors use my zones (Meta+T)**, which switches monitors between filling
+  themselves and the zones you drew, as `Meta+Shift+B` does.
+- **Settings…**, where you set the gutter around the Active card, 6 to 48 px,
+  10 px by default.
+
+Every word the menu shows can be translated.
 
 ## Requirements
 

@@ -51,10 +51,15 @@ a Bento session owns, and what becomes of the rest, is `CARD-LIFECYCLE.md`; it i
 the canonical state and transition contract and this document does not restate it.
 
 Live card content uses KWin's `OffscreenEffect` texture path with contain scaling,
-the established fan rotation/aperture, and black backing where aspect ratios differ.
+the established fan rotation/aperture, and a backing where aspect ratios differ:
+near black, or the window colours' ground under a light colour scheme.
 Proportional margins are accepted product behavior. There is no retained snapshot
 cache or capture-readiness state machine. Motion may retain a departing face only as
-ephemeral paint state; it cannot change membership or input visibility.
+ephemeral paint state; it cannot change membership or input visibility. A card
+Spread shows while its window is resized keeps one picture of that window
+(`KeptPicture.h`), taken just before the resize and drawn fitted in the card
+until the application has drawn twice at its new size, or for at most 300 ms,
+since an application's first frames at a new size can be empty.
 
 Spread motion captures the currently presented pose, so interruption and
 retargeting continue from what the user sees. Model and input updates do not wait for
@@ -168,6 +173,11 @@ release, so its release drains on the original route and cannot fall through to 
 new one. Forwarded pointer ownership retains every held button; releasing one does
 not end the route while another remains held.
 
+Wherever a touchscreen drives a display, `WorkspaceInputRouter` owns the top
+and bottom touch edges, taking them over when the touchscreen appears after
+KWin; elsewhere Plasma's touch edges reach Kadunce through its border actions
+(`INPUT.md` § Spread).
+
 Ordinary client contact remains native until a deliberate reserved edge or
 crossing proves Kadunce intent and KWin's native interaction is canceled once.
 Kadunce takes over a native move only while all of these still match:
@@ -236,7 +246,8 @@ effect when enabled. Disabling first requires KWin to confirm a safe effect
 unload and persists the disabled state; if KWin cannot confirm the release, the
 control restores the enabled configuration rather than risk a half-disabled
 workspace. Its Settings window holds preferences without adding preference state
-to the compositor plugin. On unload, input
+to the compositor plugin, and every word it shows comes from its
+`kadunce-control` translation catalog. On unload, input
 routes are canceled and destroyed while controllers remain alive, then every
 managed client is restored, as `CARD-LIFECYCLE.md` §13 lists, before the effect
 disappears. No timer, native observer, or callback survives its owner.
