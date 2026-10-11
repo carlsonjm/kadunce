@@ -1658,11 +1658,20 @@ qint64 Effect::tableNow() const
 QList<Effect::TableWorkspace> Effect::tableWorkspaces()
 {
     const auto stack = KWin::effects->stackingOrder();
-    // What keeps a workspace and hangs in its row: an application's own
-    // window, not a dialog, not one on every desktop.
+    // What hangs in a workspace's row: an application's own window, not a
+    // dialog, not one on every desktop, and not one kept out of the taskbar,
+    // the pager or the task switcher, even when it is a card.
     const auto application = [](KWin::EffectWindow *window) {
-        return window && !window->isDeleted() && window->isNormalWindow()
-            && !window->isOnAllDesktops() && !window->isSkipSwitcher() && !dependentLead(window);
+        if (!window || window->isDeleted() || !window->window()) return false;
+        const KWin::Window *client = window->window();
+        return tableListsWindow({
+            .normal = window->isNormalWindow(),
+            .onAllDesktops = window->isOnAllDesktops(),
+            .dependent = dependentLead(window) != nullptr,
+            .skipSwitcher = client->skipSwitcher(),
+            .skipTaskbar = client->skipTaskbar(),
+            .skipPager = client->skipPager(),
+        });
     };
     const auto cardOf = [this](KWin::EffectWindow *window) {
         TableCard card;
@@ -1691,20 +1700,24 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
                 if (window && window != front) ordered.append(window);
             for (KWin::EffectWindow *window : std::as_const(ordered)) {
                 if (!window || window->isDeleted() || taken.contains(window)) continue;
-                // A stack is one card, its face in front.
-                const QList<KWin::EffectWindow *> deck = session->cards->stackFrontToBack(window);
-                TableCard card = cardOf(deck.isEmpty() ? window : deck.first());
-                for (KWin::EffectWindow *member : deck)
-                    if (member && !member->isDeleted() && member != card.windows.first()) card.windows.append(member);
+                // A stack is one card, its face in front, of the members
+                // Table lists.
+                QList<KWin::EffectWindow *> deck = session->cards->stackFrontToBack(window);
+                if (deck.isEmpty()) deck.append(window);
+                for (KWin::EffectWindow *member : std::as_const(deck)) taken.insert(member);
+                deck.removeIf([&application](KWin::EffectWindow *member) { return !application(member); });
+                if (deck.isEmpty()) continue;
+                TableCard card = cardOf(deck.first());
+                for (KWin::EffectWindow *member : std::as_const(deck))
+                    if (member != card.windows.first()) card.windows.append(member);
                 card.stacked = int(card.windows.size()) - 1;
-                for (const auto &member : std::as_const(card.windows)) taken.insert(member);
                 workspace.cards.append(card);
             }
             // A layout's panes are cards of their own.
             for (const auto &view : session->layouts->ownershipView()) {
                 for (const quintptr pane : view.panes) {
                     auto *window = reinterpret_cast<KWin::EffectWindow *>(pane);
-                    if (!window || window->isDeleted() || taken.contains(window)) continue;
+                    if (!window || window->isDeleted() || taken.contains(window) || !application(window)) continue;
                     workspace.cards.append(cardOf(window));
                     taken.insert(window);
                 }

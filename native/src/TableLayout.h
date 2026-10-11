@@ -43,6 +43,26 @@ struct TableCardContent {
     int stacked = 0;
 };
 
+// What Table reads of a window to decide whether it hangs in a workspace's
+// row. Table is the suite's pager, so a window its application or the person
+// keeps out of the taskbar, the pager or the task switcher stays out of Table
+// too, whether or not it is a card.
+struct TableWindowTraits {
+    bool normal = true;
+    bool onAllDesktops = false;
+    // A dialog that follows its application's card.
+    bool dependent = false;
+    bool skipSwitcher = false;
+    bool skipTaskbar = false;
+    bool skipPager = false;
+};
+
+[[nodiscard]] inline bool tableListsWindow(const TableWindowTraits &window)
+{
+    return window.normal && !window.onAllDesktops && !window.dependent
+        && !window.skipSwitcher && !window.skipTaskbar && !window.skipPager;
+}
+
 struct TableLayout {
     double row = 44.0;
     double tabsTop = 0.0;

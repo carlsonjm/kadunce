@@ -14,7 +14,8 @@ presentation layer over them. Every input Table answers is in `INPUT.md`
 - Each workspace keeps its own cards, Stacks and Bento layouts. Coming back to
   one shows its Active card or layout, never a Spread left open.
 - A workspace spans every display, and its tabs hold its windows from every
-  display, a Bento layout's panes each a card. KDE's per-display desktop
+  display, a Bento layout's panes each a card. A window kept out of the
+  taskbar, the pager or the task switcher is not listed, card or not. KDE's per-display desktop
   switching is held off while Kadunce runs, without writing your settings, and
   given back when it is switched off.
 - Moving a card to another workspace moves its window there. A Stack moves
