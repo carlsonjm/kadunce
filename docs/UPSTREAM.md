@@ -21,6 +21,7 @@ Check each against current KDE code first. Evidence: **measured**, **source**
 | A reinstalled effect reports loaded while the old build runs until logout. | KWin effect loading | measured | report |
 | With a monitor made primary, the tablet's desktop goes black, Kadunce off too. | plasma-workspace | measured once | report once reproduced |
 | Recent can leave out the file after one that no longer exists, the first time it is opened; Tettegouche asks twice. | kio-extras Recent | measured: 3 of 8 sealed runs | report |
+| Switching back to an account that signed in automatically starts a second copy of its desktop, which never finishes loading; the screen stays grey. Only sessions with logind Service `plasmalogin` are reused, not `plasmalogin-autologin`; SDDM fixed the same check by accepting `sddm-autologin`. | Plasma Login Manager | measured on the tablet 2026-10-12; source, still on master | report, or one-line patch |
 
 ## Missing capabilities
 
