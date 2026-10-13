@@ -587,6 +587,11 @@ public:
         SessionScope scope(m_effect, m_session);
         return cards().holdsOwnCardsForCardStage(output);
     }
+    KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().releaseDisplayForCardStage(window);
+    }
     bool admitCardToDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource) override
@@ -645,6 +650,11 @@ public:
     {
         SessionScope scope(m_effect, m_session);
         return layouts().showsOneCardForDesktopStage(output);
+    }
+    bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *output) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return layouts().releasesOnOwnDisplayForDesktopStage(output);
     }
     bool outputCanOwnCards(const KWin::LogicalOutput *output) const override
     {
@@ -3086,6 +3096,20 @@ bool Effect::connectedOutputForDesktopStage(
 bool Effect::holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *output) const
 {
     return isOtherCardDisplay(output);
+}
+
+KWin::LogicalOutput *Effect::releaseDisplayForCardStage(const KWin::EffectWindow *window) const
+{
+    // §11, Every display: a card belongs to its display, or else to Spread's.
+    if (!m_cardsOnEveryDisplay || KWin::effects->screens().size() < 2) return nullptr;
+    if (KWin::LogicalOutput *home = cardHome(window)) return home;
+    return tabletOutput();
+}
+
+bool Effect::releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *output) const
+{
+    return m_cardsOnEveryDisplay && output && tabletOutput()
+        && (isTabletOutput(output) || isOtherCardDisplay(output));
 }
 
 bool Effect::showsOneCardForDesktopStage(const KWin::LogicalOutput *output) const
@@ -7960,6 +7984,21 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     } else if (bentoProjection) {
         return paintResult(true); // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
                 // minimized, so the group shows its panes and not this window.
+    }
+    // A card shaped unlike its slot, as a pane of a Connected display is, is
+    // drawn whole at its own shape, with no backing either side of it.
+    if (!bentoProjection && !grabbedWindow && logicalRegion.width() > 0 && logicalRegion.height() > 0
+        && visualTarget.width() > 0 && visualTarget.height() > 0) {
+        const double shape = double(logicalRegion.width()) / logicalRegion.height();
+        const double slotShape = double(visualTarget.width()) / visualTarget.height();
+        if (std::abs(shape / slotShape - 1.0) > 0.06) {
+            const QSizeF fitted = QSizeF(logicalRegion.width(), logicalRegion.height())
+                .scaled(QSizeF(visualTarget.width(), visualTarget.height()), Qt::KeepAspectRatio);
+            visualTarget = KWin::Rect(
+                qRound(visualTarget.x() + (visualTarget.width() - fitted.width()) / 2.0),
+                qRound(visualTarget.y() + (visualTarget.height() - fitted.height()) / 2.0),
+                qRound(fitted.width()), qRound(fitted.height()));
+        }
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
     // The group's backdrop goes under its panes, so the first pane drawn on

@@ -113,6 +113,9 @@ public:
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
     // Whether this display holds its own cards, beside the one holding Spread.
     [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
+    // The display a card is given back on when every card is let go: the one
+    // it belongs to, or none to keep the display its record names.
+    [[nodiscard]] virtual KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *) const { return nullptr; }
     // A card about to be resized while Spread shows it: the host may keep its
     // last good picture first and call `resize` once it has, answering true.
     // An application's first frames at a new size can be empty, and Spread
@@ -554,6 +557,7 @@ private:
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
+    [[nodiscard]] ActiveRestoreSnapshot onOwnDisplay(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
     // Spread is drawn zoomed out: the display is sized Connected and the row

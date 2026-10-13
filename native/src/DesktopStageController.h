@@ -71,6 +71,11 @@ public:
     [[nodiscard]] virtual bool holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *) const {
         return false;
     }
+    // §11, Every display: a layout let go there gives its windows back on
+    // that display, whatever display their records name.
+    [[nodiscard]] virtual bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *) const {
+        return false;
+    }
     // Whether such a display is sized Active, so it shows one card at a time.
     [[nodiscard]] virtual bool showsOneCardForDesktopStage(const KWin::LogicalOutput *) const {
         return false;

@@ -345,6 +345,8 @@ private:
     {
         return isOtherCardDisplay(output);
     }
+    [[nodiscard]] KWin::LogicalOutput *releaseDisplayForCardStage(
+        const KWin::EffectWindow *window) const override;
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
@@ -539,6 +541,8 @@ private:
     [[nodiscard]] bool holdsOwnCardsForDesktopStage(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool showsOneCardForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(
         const KWin::LogicalOutput *output) const override;
     // CARD-LIFECYCLE.md §11, Every display: a display other than Spread's
     // that holds its own cards, which every attached display does unless

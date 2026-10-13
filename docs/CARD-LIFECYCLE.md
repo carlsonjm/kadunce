@@ -456,9 +456,8 @@ An edge action commits only when released inside its valid edge zone.
 
 ## 11. Multiple displays
 
-Each display, on each desktop, has an independent ownership session. An edge
-action reads that display's own state: whether Kadunce owns it, its Active
-card, its live Bento layout and its pane cap.
+Each display, on each desktop, has its own ownership session. An edge action
+reads that display's state: its Active card, Bento layout and pane cap.
 
 Every display shows its windows as cards, and one holds Spread: the one you
 chose while it is attached, else the one a touchscreen drives, else the largest
@@ -468,8 +467,8 @@ chose while it is attached, else the one a touchscreen drives, else the largest
 - Ordinary stacks
 - At most one Bento layout
 
-Unplugged, its cards move to the next, whose windows join them (§3), and return
-with the chosen display (`kaduncerc` `[Spread] Display`).
+Unplugged, its cards move to the next (§3), returning with the chosen display
+(`kaduncerc` `[Spread] Display`).
 
 ### Connected
 
@@ -481,7 +480,7 @@ On Connected:
 - Spread opens zoomed out, every card whole, and each pane is a card of its
   own; there is no Bento group.
 - A card chosen joins the layout: paired with the card in use when none shows,
-  else under §8. A pane chosen opens the layout on it.
+  else under §8.
 - A Stack fills one pane, its other cards hidden behind it. Stepping it, or
   closing its front card, puts the next card in that pane's slot.
 - A pane leaves as §5 says.
@@ -544,7 +543,8 @@ Full Kadunce release or disable:
 
 KWin moving the Active card releases everything only once it travels. KWin
 placing it on another display, as a screenshot tool returning to its last place
-does, lets only that card go, where KWin put it.
+does, or its application filling the screen, lets only that card go, where KWin
+put it. With cards on every display, release gives windows back on their own.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 

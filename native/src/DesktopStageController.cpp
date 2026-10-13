@@ -2070,6 +2070,10 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
             leaveZone(client);
         }
         QPointer<KWin::LogicalOutput> originalOutput = outputForKey(snapshot.outputName);
+        // §11, Every display: a window is given back on the display holding it.
+        const bool regiven = !outputRemoving && fallbackOutput && originalOutput != fallbackOutput
+            && m_host->releasesOnOwnDisplayForDesktopStage(fallbackOutput);
+        if (regiven) originalOutput = fallbackOutput;
         const auto clientValid = [&] {
             return snapshot.window && !snapshot.window->isDeleted() && client
                 && snapshot.window->window() == client
@@ -2091,7 +2095,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         const auto result = restoreOnSurvivingOutput(candidates, available,
             [&](const QPointer<KWin::LogicalOutput> &targetOutput) {
         if (!clientValid()) return RestoreResult::Aborted;
-        const bool preserveGeometry = !outputRemoving && targetOutput == originalOutput;
+        const bool preserveGeometry = !outputRemoving && !regiven && targetOutput == originalOutput;
         const auto valid = [&] { return clientValid() && available(targetOutput); };
         KWin::RectF restoreGeometry = snapshot.geometry;
         // A floating place is fitted into the room panels leave even on its

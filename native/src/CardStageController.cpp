@@ -4827,11 +4827,12 @@ void CardStageController::restoreActiveSnapshot()
                 << "back its place" << snapshot.geometry << "from" << client->moveResizeGeometry()
                 << "maximized" << int(snapshot.maximizeMode) << "fullscreen" << snapshot.fullScreen
                 << "minimized" << snapshot.minimized << "minimized now" << minimizedNow;
-        const KWin::RectF place = placeClearOfPanels(snapshot);
-        if (place != snapshot.geometry)
+        const ActiveRestoreSnapshot own = onOwnDisplay(snapshot);
+        const KWin::RectF place = placeClearOfPanels(own);
+        if (place != own.geometry)
             qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at" << place
                     << "instead: its place lies under a panel's room";
-        restoreWindowState(client, snapshot, place, true, !minimizedNow, false);
+        restoreWindowState(client, own, place, true, !minimizedNow, false);
         if (!snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
             && snapshot.quickTileMode == KWin::QuickTileMode{}
             && client->moveResizeGeometry() != place)
@@ -4842,6 +4843,41 @@ void CardStageController::restoreActiveSnapshot()
                 RestoredMinimization::Target{client->moveResizeGeometry(), snapshot.maximizeMode,
                     snapshot.quickTileMode, snapshot.fullScreen}));
     }
+}
+
+CardStageController::ActiveRestoreSnapshot CardStageController::onOwnDisplay(
+    const ActiveRestoreSnapshot &snapshot) const
+{
+    // §11, Every display: a card is given back on the display it belongs to,
+    // never at a place its record kept from a display it has since left.
+    KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(snapshot.window.data());
+    if (!own || QRectF(own->geometry()).contains(QRectF(snapshot.geometry).center())) return snapshot;
+    const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, own));
+    if (work.isEmpty()) return snapshot;
+    QRectF from;
+    for (KWin::LogicalOutput *output : KWin::effects->screens())
+        if (QRectF(output->geometry()).contains(QRectF(snapshot.geometry).center()))
+            from = QRectF(output->geometry());
+    const auto carried = [&](const KWin::RectF &place) {
+        if (place.width() <= 0 || place.height() <= 0) return place;
+        const double width = std::min(place.width(), work.width());
+        const double height = std::min(place.height(), work.height());
+        // The same share of the way across, or centred where the old display
+        // is gone.
+        const double across = from.width() > place.width()
+            ? (place.x() - from.x()) / (from.width() - place.width()) : 0.5;
+        const double down = from.height() > place.height()
+            ? (place.y() - from.y()) / (from.height() - place.height()) : 0.5;
+        return KWin::RectF(work.x() + std::clamp(across, 0.0, 1.0) * (work.width() - width),
+            work.y() + std::clamp(down, 0.0, 1.0) * (work.height() - height), width, height);
+    };
+    ActiveRestoreSnapshot moved = snapshot;
+    moved.geometry = carried(snapshot.geometry);
+    moved.floatingGeometry = carried(snapshot.floatingGeometry);
+    moved.fullscreenRestoreGeometry = carried(snapshot.fullscreenRestoreGeometry);
+    qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? snapshot.window->caption() : QString())
+            << "back on" << own->name() << "at" << moved.geometry << "not" << snapshot.geometry;
+    return moved;
 }
 
 KWin::RectF CardStageController::placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const
@@ -5444,12 +5480,16 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
     if (m_applyingWindowState || !m_active
         || m_presentation != CardPresentation::Active
         || !m_activeRestore.valid || m_activeRestore.window != window) return;
-    // The user's new state wins. Release presentation without replaying the
-    // old snapshot over an in-progress move/resize or explicit state request.
-    qInfo() << "Kadunce" << Revision << "lets every card go: KWin itself moved or resized the Active card"
-            << (window && window->window() ? window->window()->resourceClass() : QString());
+    // The new state wins, for that window alone: it goes without its old
+    // snapshot replayed over the request, and the other cards wait aside,
+    // each on its own display, rather than going back to records that may
+    // name a display they have left.
+    qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+            << "go: it asked to fill the screen"
+            << (window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
-    release();
+    (void)releaseCard(window, false);
+    if (m_active && m_presentation == CardPresentation::Active) showDesktop();
 }
 
 } // namespace Kadunce
