@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# One touchscreen holds cards, and a machine with none has no card display: two
-# plain monitors get Bento and the desktop, never a card, Spread or an Active
-# card, whether asked by gesture, by D-Bus or by a window opening.
+# Cards kept to a touchscreen ([Spread] WithoutTouchscreen=false in kaduncerc),
+# on a machine with none, leave it no card display: two plain monitors get
+# Bento and the desktop, never a card, Spread or an Active card, whether asked
+# by gesture, by D-Bus or by a window opening.
 set -Eeuo pipefail
 trap 'echo "FAIL: no touchscreen $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]

@@ -46,11 +46,13 @@ entirely.
 
 ## Displays
 
-Kadunce manages each display on its own. The display your touchscreen drives
-holds your cards; Kadunce finds it from the touchscreen, never from the display's
-name. An attached monitor stays an ordinary Plasma desktop and can have its own
-Bento layout. On a computer without a touchscreen, every display uses Bento. A
-window you move to another display belongs to that display from then on. When
+Kadunce manages each display on its own. One display holds your cards and
+Spread: the one you choose, else the one your touchscreen drives, which Kadunce
+finds from the touchscreen and never from the display's name, else the largest.
+Every other display stays an ordinary Plasma desktop and can have its own Bento
+layout. Unplug the display holding your cards and they all move to the next
+one; plug it back in and they return. A window you move to another display
+belongs to that display from then on. When
 KWin itself puts a card on another display, as a screenshot tool returning to
 its last place does, only that window leaves the cards.
 

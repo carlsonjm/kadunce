@@ -88,9 +88,11 @@ A new scene goes into the list in `tests/verify-integrated-carry.sh` in the same
 change that adds it; `tests/verify-source.sh` fails for a scene the gate does not
 run. Physical appearance, frame pacing, fullscreen release, fractional-scale
 transfer, suspend and resume, and hardware input cannot be accepted here. No
-display the harness creates is an internal panel, so only the virtual-tablet
-fixture can own cards, and a route that carries a window from another display
-onto the card display is hardware-only.
+display the harness creates is an internal panel or driven by a touchscreen,
+and every scene but `spread-display-runtime` keeps cards to a touchscreen, so
+only the virtual-tablet fixture can own cards there; that scene alone chooses a
+display for Spread. A route that carries a window from another display onto the
+card display is hardware-only.
 
 ### Running one scene
 

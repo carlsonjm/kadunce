@@ -3016,7 +3016,7 @@ bool CardStageController::admitSleepingPaneAsCard(
     return true;
 }
 
-int CardStageController::returnCardsToDisplay()
+int CardStageController::returnCardsToDisplay(bool every)
 {
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || !tablet || !KWin::effects->screens().contains(tablet)) return 0;
@@ -3029,7 +3029,7 @@ int CardStageController::returnCardsToDisplay()
     for (const QPointer<KWin::EffectWindow> &window : std::as_const(m_workspace.windows())) {
         if (!window || window->isDeleted() || !window->window()) continue;
         KWin::Window *client = window->window();
-        if (client->moveResizeOutput() == tablet
+        if ((!every && client->moveResizeOutput() == tablet)
             || client->isInteractiveMove() || client->isInteractiveResize()) continue;
         // KWin may have given the window back a state it held on that layout.
         // A card holds none of them; its restore record keeps the originals.

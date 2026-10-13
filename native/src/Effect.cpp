@@ -758,6 +758,11 @@ Effect::Effect()
     m_currentSession = sessionFor(KWin::effects->currentDesktop());
     scopeTo(m_currentSession);
     loadNamedDesktops();
+    {
+        const KConfigGroup spread = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Spread"));
+        m_spreadChoice.display = spread.readEntry(QStringLiteral("Display"), QString());
+        m_spreadChoice.withoutTouchscreen = spread.readEntry(QStringLiteral("WithoutTouchscreen"), true);
+    }
     m_usesDrawnZones = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Bento"))
         .readEntry(QStringLiteral("UseDrawnZones"), false);
     // A menu bar's tab held still becomes a rename.
@@ -853,7 +858,7 @@ Effect::Effect()
     // Plasma/KWin and only the resulting semantic action arrives here. The
     // router is told which backend owns those edges so one swipe cannot be
     // consumed or toggled twice.
-    m_usesDirectSystemEdges = !m_cardOutputName.isEmpty();
+    m_usesDirectSystemEdges = !m_touchOutputName.isEmpty();
     if (!m_usesDirectSystemEdges) {
         // Plasma's bottom touch edge opens Spread, as the bezel does on the
         // tablet, and so do three fingers on any touchscreen.
@@ -1334,7 +1339,7 @@ bool Effect::supported()
 
 void Effect::adoptDirectSystemEdges()
 {
-    if (m_usesDirectSystemEdges || m_cardOutputName.isEmpty()) return;
+    if (m_usesDirectSystemEdges || m_touchOutputName.isEmpty()) return;
     m_usesDirectSystemEdges = true;
     // Hand each edge back to Plasma before the router claims it, so one swipe
     // cannot reach both backends. Adoption is one-way: a touchscreen that
@@ -1363,7 +1368,8 @@ void Effect::refreshCardOutput()
     QList<TouchDisplayOutput> outputs;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         if (output)
-            outputs.append({output->name(), output->isInternal(), QSizeF(output->physicalSize())});
+            outputs.append({output->name(), output->isInternal(), QSizeF(output->physicalSize()),
+                QSizeF(output->geometry().width(), output->geometry().height())});
     }
     QList<TouchDisplayDevice> devices;
     if (KWin::input()) {
@@ -1375,21 +1381,42 @@ void Effect::refreshCardOutput()
             devices.append({device->outputName(), device->property("size").toSizeF()});
         }
     }
-    const QString name = cardOutputName(outputs, devices);
-    if (name == m_cardOutputName) return;
-    // Cards cannot follow a touchscreen to another display. They return to
-    // the desktop, and the display that now holds cards starts its own.
-    if (m_cardStage->isActive()) {
-        cancelInputForCardStage();
-        m_cardStage->release();
-    }
-    m_cardOutputName = name;
-    qInfo() << "Kadunce" << Revision << "cards belong to"
-            << (name.isEmpty() ? QStringLiteral("no display: no touchscreen drives one") : name);
+    m_touchOutputName = touchOutputName(outputs, devices);
     // A touchscreen that arrives after KWin, or is plugged in later, gives
     // the edges to Kadunce's own router.
     adoptDirectSystemEdges();
+    const QString name = cardOutputName(outputs, devices, m_spreadChoice);
+    if (name == m_cardOutputName) return;
+    const QString previous = m_cardOutputName;
+    m_cardOutputName = name;
+    qInfo() << "Kadunce" << Revision << "cards belong to"
+            << (name.isEmpty() ? QStringLiteral("no display") : name)
+            << (previous.isEmpty() ? QString() : QStringLiteral("after ") + previous);
+    if (m_cardStage->isActive()) {
+        cancelInputForCardStage();
+        // With no display left to hold cards, they return to the desktop.
+        // Otherwise Spread moves whole: every card goes to the new display in
+        // the settle that follows, and that display's windows join it there.
+        if (name.isEmpty()) m_cardStage->release();
+        else m_cardDisplayMoved = true;
+    } else if (!name.isEmpty()) {
+        // §3: a display that takes cards over holds its windows as cards, as
+        // switching Kadunce on does. The turn lets KWin finish moving windows.
+        QTimer::singleShot(0, this, [this] { (void)startTabletInCards(nullptr); });
+    }
+    scheduleCardDisplaySettle();
     Q_EMIT workspaceContextChanged();
+}
+
+void Effect::setSpreadDisplay(const QString &outputName)
+{
+    if (outputName == m_spreadChoice.display) return;
+    m_spreadChoice.display = outputName;
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Spread"));
+    if (outputName.isEmpty()) group.deleteEntry(QStringLiteral("Display"));
+    else group.writeEntry(QStringLiteral("Display"), outputName);
+    group.sync();
+    refreshCardOutput();
 }
 
 bool Effect::isCardWindow(const KWin::EffectWindow *window) const
@@ -4634,6 +4661,9 @@ void Effect::settleCardsOnDisplays()
     m_cardDisplaySettleQueued = false;
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet || !KWin::effects->screens().contains(tablet)) return;
+    // Spread itself moved: every card takes its place on the new display,
+    // including those KWin already put there when the old one went away.
+    const bool moved = std::exchange(m_cardDisplayMoved, false);
     // The paint route hides any window on the card display that is not a card,
     // so a window KWin moved here must become one or it cannot be seen. So
     // must one that opened or arrived on this desktop while another was shown.
@@ -4664,7 +4694,7 @@ void Effect::settleCardsOnDisplays()
         && m_desktopStage->hasSessionOnOutput(tablet->name()) && m_cardStage->startBehindLayout();
     // With no card owned and no layout nothing is hidden, so an arrival is an
     // ordinary window there until ownership starts the ordinary way.
-    if (!m_cardStage->isActive() || (arrivals.isEmpty() && !strayed)) return;
+    if (!m_cardStage->isActive() || (arrivals.isEmpty() && !strayed && !moved)) return;
     cancelInputForCardStage();
     // A client can still acknowledge the placement KWin asked of it before the
     // return, and KWin applies an acknowledged placement where it was asked:
@@ -4672,7 +4702,7 @@ void Effect::settleCardsOnDisplays()
     // to the other display again. Look once more after the round trip, until
     // nothing needs to move, a bounded number of times.
     constexpr int SettleRounds = 8;
-    if (m_cardStage->returnCardsToDisplay() > 0
+    if (m_cardStage->returnCardsToDisplay(moved) > 0
         && ++m_cardDisplaySettleRounds < SettleRounds) {
         QTimer::singleShot(250, this, [this] {
             if (!m_cardDisplaySettleQueued) settleCardsOnDisplays();
@@ -5025,6 +5055,7 @@ QString Effect::workspaceContext() const
                 ? QStringLiteral("z13-direct")
                 : QStringLiteral("plasma-native")},
             {QStringLiteral("displays"), displays},
+            {QStringLiteral("spreadDisplay"), m_spreadChoice.display},
         }},
     };
     return QString::fromUtf8(
