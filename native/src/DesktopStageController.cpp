@@ -1075,6 +1075,23 @@ bool DesktopStageController::managesWindow(KWin::EffectWindow *window) const
     return false;
 }
 
+bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
+    KWin::LogicalOutput *destination)
+{
+    if (m_restoring || !window || window->isDeleted() || !window->window() || !destination
+        || window == m_interactionWindow) return false;
+    QString sourceKey;
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it)
+        if (it->windows.contains(window)) sourceKey = it.key();
+    if (sourceKey.isEmpty() || sourceKey == outputKey(destination)) return false;
+    if (!handoffWindowToOutput(window, destination, window->frameGeometry())) {
+        // A refused transfer keeps the layout it had, the pane back in it.
+        auto source = m_sessions.find(sourceKey);
+        if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
+    }
+    return true;
+}
+
 bool DesktopStageController::hasSessionOnOutput(
     const QString &outputName) const
 {
