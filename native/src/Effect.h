@@ -709,6 +709,9 @@ private:
     // CARD-LIFECYCLE.md §11, Connected: a card picked from Spread is played
     // into the display's layout. False leaves the pick to the Active path.
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
+    // The two named cards become a Bento pair, `active` placed by `side`.
+    bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
+        KWin::EffectWindow *partner, BentoSidePlacement side);
     // §11, Connected: Meta+Up/Down on a pane steps the Stack that fills it.
     bool stepPaneStack(int delta);
     // §8: retire a layout that cannot take an arrival into a Spread group, so

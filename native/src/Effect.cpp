@@ -3753,8 +3753,13 @@ bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output,
 {
     auto *active = m_cardStage->activeCardIdentity();
     if (!output || !active) return false;
-    auto *partner = m_cardStage->partnerForSideSnap(active, walkLeft);
-    if (!partner) return false;
+    return pairCardsIntoBento(output, active, m_cardStage->partnerForSideSnap(active, walkLeft), side);
+}
+
+bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
+    KWin::EffectWindow *partner, BentoSidePlacement side)
+{
+    if (!output || !active || !partner || partner == active) return false;
     const auto reserved = m_desktopStage->prepareCardDrop(active, output,
         KWin::RectF(active->frameGeometry()),
         DesktopStageController::CardDropIntent::ActivateBento, side, partner);
@@ -7110,12 +7115,13 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
     // No layout yet: the pick and the card in use before it become one. With
     // no card in use, or the pick being that card, the pick is shown alone.
     const QPointer<KWin::EffectWindow> inUse = m_lastActiveApplication;
-    if (!m_cardStage->presentSelectedNow()) return false;
-    KWin::EffectWindow *partner = m_cardStage->partnerForSideSnap(picked, false);
-    if (!inUse || partner != inUse) partner = nullptr;
+    KWin::EffectWindow *partner = inUse && inUse != picked && !inUse->isDeleted()
+            && !inUse->isMinimized() && inUse->screen() == tablet
+            && m_cardStage->liveCardIndex(inUse) >= 0 ? inUse.data() : nullptr;
     const QList<KWin::EffectWindow *> partnerBehind = partner
         ? m_cardStage->stackFrontToBack(partner).mid(1) : QList<KWin::EffectWindow *>{};
-    if (partner && pairActiveCardIntoBento(tablet, BentoSidePlacement{true, true}, false)) {
+    if (!m_cardStage->presentSelectedNow()) return false;
+    if (partner && pairCardsIntoBento(tablet, picked, partner, BentoSidePlacement{true, true})) {
         m_cardStage->notePaneStack(picked, behind);
         m_cardStage->notePaneStack(partner, partnerBehind);
         m_cardStage->settlePaneStacks();
