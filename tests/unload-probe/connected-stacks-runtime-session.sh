@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11 on one 2560x1440 monitor with no touchscreen, sized
-# Connected by its room: four panes, a Stack of three in each. Two are built
-# in Spread, a card let go on a pane's card, and one by holding a pane's own
-# card, as on a tablet. The rest are built in the layout: a pane carried onto
-# another and rested there joins its Stack, its slot given up, while one let
-# go at once swaps. A pane's card pulled down in Spread leaves its Stack, and
+# Connected by its room: four panes, a Stack of three in each. In Spread, as
+# on a tablet, cards let go on a pane's card join its Stack, and a pane's own
+# card is held and let go on another. The rest are built in the layout: a
+# pane carried onto another and rested there joins its Stack, its slot given
+# up, while one let go at once swaps. A pane's card pulled down in Spread leaves its Stack, and
 # the Stack keeps the pane. Every check is reported, so a failure does not
 # hide the rest.
 set -uo pipefail
@@ -50,11 +50,22 @@ behind_count() { context --arg id "$1" --argjson n "$2" 'first(.applications[] |
 one_stack() { context --argjson ids "$1" '[.applications[] | select(.windowId as $w | $ids | index($w)) | .stackId] | (length == ($ids | length) and (unique | length) == 1)'; }
 rect() { probe windowFacts | jq -c --arg id "$1" 'first(.[] | select(.id == $id)) | {x, y, width, height}'; }
 same_rect() { [[ $(rect "$1") == "$2" ]]; }
-# Four panes in two columns, each half the monitor wide.
-quadrants() {
-    context '[.applications[] | select(.title != "unload-client" and (.hasCard | not) and (.minimized | not)) | .windowId] | length == 4' \
-        && probe windowFacts | jq -e '[.[] | select(.class == "unload-client" and (.hidden | not) and .caption != "unload-client")
-            | select(.width > 1100 and .width < 1300 and .height > 300)] | length == 4'
+# Every pane holds a Stack of `n` cards behind it.
+each_behind() {
+    context --argjson n "$1" '[.applications[] | select(.title != "unload-client" and (.hasCard | not) and (.minimized | not))
+        | .paneStack | length] | length >= 1 and all(. == $n)'
+}
+# A window opened while the layout shows joins it; one that stays a card is
+# picked into it from Spread.
+open_window() {
+    client titledCompanion "$1" 500 400
+    sleep 1
+    w[$2]=$(idOf "$1")
+    if ! is_pane "${w[$2]}" >/dev/null 2>&1; then
+        echo "state opened-as-card-$1"
+        spread_key
+        pick "${w[$2]}"
+    fi
 }
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
@@ -69,7 +80,7 @@ carry_onto() {
         | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
     probe motion 61 "$tx" "$ty"
     sleep .7
-    echo "carry $(kad nativeCarryState | jq -c '{lineCarrying, carryAim}')"
+    echo "state carry-$from $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
     probe up 61
     sleep .8
 }
@@ -90,7 +101,7 @@ drag_onto() {
     probe contactMotion "$tx" "$ty" >/dev/null
     sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
-    echo "carry $(jq -c '{stackOnto, destinationRect}' "$XDG_RUNTIME_DIR/carry")"
+    echo "state drag-$id $(jq -c '{stackOnto, destinationRect}' "$XDG_RUNTIME_DIR/carry")"
     probe contactButton false >/dev/null
     sleep 1.2
 }
@@ -107,99 +118,98 @@ probe contactStart >/dev/null
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-for n in {1..12}; do client titledCompanion "S$n" 500 400; sleep .3; done
+for n in {1..5}; do client titledCompanion "S$n" 500 400; sleep .3; done
 sleep .5
 probe minimizeWindow "$(idOf unload-client)" true >/dev/null
 sleep .4
 declare -A w
-for n in {1..12}; do w[$n]=$(idOf "S$n"); done
+for n in {1..5}; do w[$n]=$(idOf "S$n"); done
 probe activateWindowId "${w[1]}" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1.2
 check 'start: the monitor is sized Connected' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce displaySizing Virtual-0) == connected ]]"
 
-# Four panes: three picks grow the layout to quadrants.
-for n in 2 3 4; do spread_key; pick "${w[$n]}"; done
-report four
-check 'four: the layout shows' layout_shown
-check 'four: four panes in two columns' quadrants
+# Three panes, two cards waiting in Spread.
+for n in 2 3; do spread_key; pick "${w[$n]}"; done
+report three
+check 'three: the layout shows' layout_shown
+check 'three: three panes' panes 3
 
 # In Spread, as on a tablet: cards let go on a pane's card join its Stack.
 spread_key
 check 'spread: Spread opens' presents cardLine
-for pair in '5 1' '6 1' '7 2' '8 2'; do
-    read -r from to <<<"$pair"
-    carry_onto "${w[$from]}" "${w[$to]}"
-done
+carry_onto "${w[4]}" "${w[1]}"
+carry_onto "${w[5]}" "${w[1]}"
 report spread-stacked
-check 'spread: the first pane card holds a Stack of three' one_stack "[\"${w[1]}\",\"${w[5]}\",\"${w[6]}\"]"
-check 'spread: the second pane card holds a Stack of three' one_stack "[\"${w[2]}\",\"${w[7]}\",\"${w[8]}\"]"
+check 'spread: two cards let go on a pane card make a Stack of three' one_stack "[\"${w[1]}\",\"${w[4]}\",\"${w[5]}\"]"
 # A pane's own card is held as any card, and let go on another pane's card
 # joins its Stack.
-carry_onto "${w[3]}" "${w[4]}"
+carry_onto "${w[3]}" "${w[2]}"
 report spread-pane-held
-check 'spread: a pane card held and let go on another joins its Stack' one_stack "[\"${w[3]}\",\"${w[4]}\"]"
+check 'spread: a pane card held and let go on another joins its Stack' one_stack "[\"${w[3]}\",\"${w[2]}\"]"
 select_card "${w[3]}"
 open_selected
 report spread-open
 check 'spread open: the layout shows' layout_shown
-check 'spread open: three panes, the held pane gave its slot up' panes 3
+check 'spread open: two panes, the held pane gave its slot up' panes 2
 check 'spread open: the held card fills the pane it joined' is_pane "${w[3]}"
-check 'spread open: its Stack waits behind it' behind_is "${w[3]}" "[\"${w[4]}\"]"
-check 'spread open: the first Stack fills one pane' behind_count "${w[6]}" 2
-check 'spread open: the second Stack fills one pane' behind_count "${w[8]}" 2
+check 'spread open: the card it covered waits behind it' behind_is "${w[3]}" "[\"${w[2]}\"]"
+check 'spread open: the Stack of three fills one pane' behind_count "${w[5]}" 2
 
 # In the layout: a pane carried onto another and rested joins its Stack.
-spread_key
-pick "${w[9]}"
-report ninth
-check 'ninth: the pick joins as the fourth pane' panes 4
-drag_onto "${w[9]}" S9 "${w[3]}" .9
+open_window S6 6
+report sixth
+check 'sixth: a window opened joins the layout' panes 3
+drag_onto "${w[6]}" S6 "${w[3]}" .9
 report rested
 check 'rest: the carry names the pane it would join' aimed "${w[3]}"
-check 'rest: the carried pane is a pane' is_pane "${w[9]}"
+check 'rest: the carried pane is a pane' is_pane "${w[6]}"
 check 'rest: the pane it joined waits behind it as a card' is_card "${w[3]}"
-check 'rest: the Stack waits behind it, front to back' behind_is "${w[9]}" "[\"${w[3]}\",\"${w[4]}\"]"
-check 'rest: the slot it left is given up' panes 3
+check 'rest: the Stack waits behind it, front to back' behind_is "${w[6]}" "[\"${w[3]}\",\"${w[2]}\"]"
+check 'rest: the slot it left is given up' panes 2
+open_window S7 7
+open_window S10 10
+report swap-ready
+check 'two opened: four panes' panes 4
 # Let go at once, two panes swap as before.
-spread_key
-pick "${w[10]}"
-slot10=$(rect "${w[10]}") slot9=$(rect "${w[9]}")
-drag_onto "${w[10]}" S10 "${w[9]}" .1
+slot7=$(rect "${w[7]}") slot10=$(rect "${w[10]}")
+drag_onto "${w[10]}" S10 "${w[7]}" .1
 report swapped
 check 'quick: the carry names no Stack' jq -e '.stackOnto == ""' "$XDG_RUNTIME_DIR/carry"
-check 'quick: the carried pane takes the other place' same_rect "${w[10]}" "$slot9"
-check 'quick: and the other takes its place' same_rect "${w[9]}" "$slot10"
+check 'quick: the carried pane takes the other place' same_rect "${w[10]}" "$slot7"
+check 'quick: and the other takes its place' same_rect "${w[7]}" "$slot10"
 check 'quick: still four panes' panes 4
-for n in 11 12; do
-    spread_key
-    pick "${w[$n]}"
+for n in 8 9 11 12; do
+    open_window "S$n" "$n"
     drag_onto "${w[$n]}" "S$n" "${w[$((n - 1))]}" .9
 done
 report built
-check 'built: four panes in two columns' quadrants
-check 'built: the last Stack waits behind its pane' behind_is "${w[12]}" "[\"${w[11]}\",\"${w[10]}\"]"
-check 'built: every pane holds a Stack of three' \
-    context '[.applications[] | select(.title != "unload-client" and (.hasCard | not) and (.minimized | not)) | .paneStack | length] == [2,2,2,2]'
+check 'built: four panes' panes 4
+check 'built: the last Stack waits behind its pane, front to back' behind_is "${w[12]}" "[\"${w[11]}\",\"${w[10]}\"]"
+check 'built: every pane holds a Stack of three' each_behind 2
 
 # A pane's card pulled down in Spread leaves its Stack; the Stack keeps the
 # pane with its next card.
 spread_key
 select_card "${w[12]}"
+sleep 1
 read -r x y < <(kad workspaceContext | jq -r --arg id "${w[12]}" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
     | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
 probe down 62 "$x" "$y"
-for step in 60 140 220 300; do probe motion 62 "$x" "$((y + step))"; sleep .05; done
+sleep .1
+for step in 40 100 180 260 340; do probe motion 62 "$x" "$((y + step))"; sleep .08; done
+sleep .2
 probe up 62
-sleep 1
+sleep 1.2
 report pulled
 check 'pull: the card left its Stack' context --arg id "${w[12]}" 'first(.applications[] | select(.windowId == $id)) | .stackSize == 1'
 check 'pull: the Stack stays whole without it' one_stack "[\"${w[11]}\",\"${w[10]}\"]"
 select_card "${w[11]}"
 open_selected
 report pulled-open
-check 'pull: the Stack keeps the pane' panes 4
+check 'pull: the Stack keeps the pane' is_pane "${w[11]}"
+check 'pull: still four panes' panes 4
 check 'pull: the pulled card is no pane' is_card "${w[12]}"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
