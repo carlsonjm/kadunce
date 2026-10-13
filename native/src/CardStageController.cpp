@@ -788,9 +788,10 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
         zoomedOut() ? spreadConnectedShare() : SpreadCardShare);
     const CardRect &centre = layout.cards[1];
+    const double pitch = centre.width + layout.gutter;
     return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
-                      centre.width + layout.gutter, centre.width, centre.height,
-                      work.x(), work.width()};
+                      pitch, centre.width, centre.height, work.x(), work.width(),
+                      zoomedOut() ? carryLeanBand(pitch, centre.width, work.width()) : CarryLeanBand{}};
 }
 
 int CardStageController::carryItemOf(const KWin::EffectWindow *window) const
@@ -1970,7 +1971,8 @@ void CardStageController::beginCardGrab(const QPointF &position)
     m_carry.heldWidth = pickup.width();
     m_carry.grip = QPointF((position.x() - pickup.x()) / pickup.width(),
                            (position.y() - pickup.y()) / pickup.height());
-    m_carry.lean = carryLeanStart(position.x(), frame->screenLeft, frame->screenWidth);
+    m_carry.lean = carryLeanStart(position.x(), frame->screenLeft, frame->screenWidth,
+                                   frame->lean.still);
     m_carry.selectedBefore = selectedBefore;
     m_carry.faceBefore = faceBefore;
     m_carry.animating = true;
@@ -2154,9 +2156,11 @@ void CardStageController::advanceCarry(double seconds)
     const bool onGroup = m_carry.moved && !m_carry.sliding
         && (onPane(m_carry.candidate) || onPane(m_carry.aim));
     if (m_carry.moved)
-        m_carry.lean = carryLeanFollow(m_carry.lean, finger, frame->screenLeft, frame->screenWidth);
+        m_carry.lean = carryLeanFollow(m_carry.lean, finger, frame->screenLeft, frame->screenWidth,
+                                        frame->lean.still);
     m_carry.depth = m_carry.moved && onTablet && !onGroup
-        ? carryLeanDepth(finger, m_carry.lean, frame->screenLeft, frame->screenWidth) : 0.0;
+        ? carryLeanDepth(finger, m_carry.lean, frame->screenLeft, frame->screenWidth,
+                         frame->lean.full) : 0.0;
     // The row stays three across. Pulled down a short way, the card takes it
     // to one set zoom, and back up to three across, gliding either way.
     if (m_carry.moved) {
@@ -2199,7 +2203,7 @@ void CardStageController::advanceCarry(double seconds)
         } else {
             const double speed = onTablet && !onGroup
                 ? carrySlideSpeed(finger, m_carry.lean, frame->screenLeft, frame->screenWidth,
-                                  m_carry.scale) : 0.0;
+                                  m_carry.scale, frame->lean.full) : 0.0;
             const double before = m_carry.position;
             m_carry.position = carryClampPosition(m_carry.position + speed * seconds,
                                                   m_carry.low, m_carry.high, frame->pitch);

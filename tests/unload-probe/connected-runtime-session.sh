@@ -98,7 +98,7 @@ both_whole() {
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
     local from=$1 to=$2 x y tx ty width
-    both_whole "$from" "$to" || echo "state carry-unseen $from $to"
+    both_whole "$from" "$to" || echo "state carry-unseen $from $to $(kad workspaceContext | jq -c '[.applications[] | {windowId, spreadRect}]')"
     read -r x y < <(seen_at "$from")
     read -r tx ty < <(seen_at "$to")
     width=$(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')

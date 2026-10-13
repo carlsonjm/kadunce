@@ -26,7 +26,8 @@ inline constexpr double CarryMoveDistance = 16.0;
 // this fraction of its width either side of the centre, holds it still; past
 // that it slides, reaching full speed this far out, in logical pixels per
 // second on screen. The speed grows as the lean to this power, so a small
-// lean creeps.
+// lean creeps. A row of three whole cards holds still across all three and
+// leans over its edges (carryLeanBand).
 inline constexpr double CarrySlideBand = 0.07;
 inline constexpr double CarrySlideFull = 0.3;
 inline constexpr double CarrySlideSpeed = 1500.0;
@@ -153,17 +154,19 @@ struct CarryLean {
     double high = 0.0;
 };
 
-inline CarryLean carryLeanStart(double pickupX, double screenLeft, double screenWidth)
+inline CarryLean carryLeanStart(double pickupX, double screenLeft, double screenWidth,
+                                double still = CarrySlideBand)
 {
     const double centre = screenLeft + screenWidth / 2.0;
-    const double band = CarrySlideBand * screenWidth;
+    const double band = still * screenWidth;
     return {std::min(pickupX, centre - band), std::max(pickupX, centre + band)};
 }
 
-inline CarryLean carryLeanFollow(CarryLean lean, double fingerX, double screenLeft, double screenWidth)
+inline CarryLean carryLeanFollow(CarryLean lean, double fingerX, double screenLeft, double screenWidth,
+                                 double still = CarrySlideBand)
 {
     const double centre = screenLeft + screenWidth / 2.0;
-    const double band = CarrySlideBand * screenWidth;
+    const double band = still * screenWidth;
     lean.low = std::max(lean.low, std::min(fingerX, centre - band));
     lean.high = std::min(lean.high, std::max(fingerX, centre + band));
     return lean;
@@ -172,10 +175,10 @@ inline CarryLean carryLeanFollow(CarryLean lean, double fingerX, double screenLe
 // How far the finger at `fingerX` leans the row: nothing inside where the
 // lean starts, to all the way out, negative toward the left.
 inline double carryLeanDepth(double fingerX, const CarryLean &lean, double screenLeft,
-                             double screenWidth)
+                             double screenWidth, double fullAt = CarrySlideFull)
 {
     const double centre = screenLeft + screenWidth / 2.0;
-    const double full = CarrySlideFull * screenWidth;
+    const double full = fullAt * screenWidth;
     if (fingerX > lean.high) {
         const double room = centre + full - lean.high;
         return room > 1.0 ? std::clamp((fingerX - lean.high) / room, 0.0, 1.0) : 1.0;
@@ -191,11 +194,27 @@ inline double carryLeanDepth(double fingerX, const CarryLean &lean, double scree
 // card at the same speed on screen however far it has stepped back, so a row
 // drawn smaller covers more of itself.
 inline double carrySlideSpeed(double fingerX, const CarryLean &lean, double screenLeft,
-                              double screenWidth, double scale)
+                              double screenWidth, double scale, double fullAt = CarrySlideFull)
 {
-    const double depth = carryLeanDepth(fingerX, lean, screenLeft, screenWidth);
+    const double depth = carryLeanDepth(fingerX, lean, screenLeft, screenWidth, fullAt);
     return (depth < 0.0 ? -1.0 : 1.0) * std::pow(std::abs(depth), CarrySlideCurve) * CarrySlideSpeed
         / std::max(scale, 0.05);
+}
+
+struct CarryLeanBand {
+    double still = CarrySlideBand;
+    double full = CarrySlideFull;
+};
+
+// Where a row of three whole cards, a `pitch` apart and `cardWidth` wide,
+// holds still and leans: still across the whole cards, so a card goes onto
+// either neighbour without the row running away, and leaning over the edges
+// beyond them, full at the screen's side.
+inline CarryLeanBand carryLeanBand(double pitch, double cardWidth, double screenWidth)
+{
+    if (screenWidth <= 0.0) return {};
+    const double still = std::clamp((pitch + cardWidth / 2.0) / screenWidth, CarrySlideBand, 0.45);
+    return {still, std::max(0.5, still + 0.05)};
 }
 
 // The width a held card is drawn at, as a fraction of a full-size card's: a

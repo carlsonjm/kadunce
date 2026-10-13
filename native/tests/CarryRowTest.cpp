@@ -87,6 +87,19 @@ int main() {
     side = carryLeanFollow(side, 700, 0, screen);
     check(carrySlideSpeed(700, side, 0, screen, 1.0) == 0.0, "carrying a side card to the middle slid the row");
     check(carrySlideSpeed(1000, side, 0, screen, 1.0) > 0.0, "carried back out, the card did not lean");
+    // Three whole cards hold the row still across all three, so a card goes
+    // onto either neighbour; over the edges beyond them it leans.
+    {
+        const double wide = 2560.0, width = 607.0, gap = 63.0;
+        const CarryLeanBand band = carryLeanBand(width + gap, width, wide);
+        const CarryLean held = carryLeanStart(wide / 2, 0, wide, band.still);
+        check(carrySlideSpeed(wide / 2 + width + gap, held, 0, wide, 1.0, band.full) == 0.0
+                  && carrySlideSpeed(wide / 2 - width - gap, held, 0, wide, 1.0, band.full) == 0.0,
+              "carried onto a whole neighbour, the row slid");
+        check(carrySlideSpeed(wide - 60, held, 0, wide, 1.0, band.full) > 0.0
+                  && carrySlideSpeed(60, held, 0, wide, 1.0, band.full) < 0.0,
+              "over an edge card, the row did not lean");
+    }
 
     // Picked up or carried, a card stands a little larger than the row it is
     // over, at whatever zoom.

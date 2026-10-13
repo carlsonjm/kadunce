@@ -597,6 +597,7 @@ private:
         double height = 0.0;
         double screenLeft = 0.0;
         double screenWidth = 0.0;
+        CarryLeanBand lean;
     };
     [[nodiscard]] std::optional<CarryFrame> carryFrame(KWin::LogicalOutput *output) const;
     // A window's item in the row without the held card, or -1.
