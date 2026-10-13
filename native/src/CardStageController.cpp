@@ -3215,14 +3215,23 @@ bool CardStageController::giveCardToDisplay(KWin::EffectWindow *card,
     if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || !destination
         || !tablet || liveCardIndex(card) < 0) return false;
     if (m_presentation == CardPresentation::Active && selectedWindow() == card) {
+        // Only a card of this display's own comes back in front of it; one
+        // waiting for another display is never shown here.
         const auto shown = [&](KWin::EffectWindow *other) {
+            KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
             return other && other != card && !other->isDeleted() && other->window()
-                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0;
+                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
+                && (!own || own == tablet);
         };
         KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
-        if (!back || !selectCardEntry(back)) return false;
-        m_presentation = CardPresentation::Spread;
-        if (!enterActive()) return false;
+        if (back) {
+            if (!selectCardEntry(back)) return false;
+            m_presentation = CardPresentation::Spread;
+            if (!enterActive()) return false;
+        } else {
+            parkActiveSnapshot();
+            showDesktop();
+        }
     }
     return sendCardToDisplay(card, destination);
 }

@@ -3167,7 +3167,8 @@ bool Effect::gatherCardsIntoSpread()
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!m_cardsOnEveryDisplay || !tablet || m_releasing || m_carriedWindow
         || m_desktopStage->hasSessionOnOutput(tablet->name())
-        || (m_cardStage->isActive() && m_cardStage->presentation() != CardPresentation::Desktop))
+        || (m_cardStage->isActive() && (m_cardStage->presentation() == CardPresentation::Spread
+                                         || m_cardStage->presentation() == CardPresentation::Bento)))
         return false;
     // §11, Every display: Spread shows every card. A display showing its own
     // cards opens them in it; one showing none still opens on the rest.
