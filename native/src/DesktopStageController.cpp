@@ -427,7 +427,17 @@ std::optional<int> DesktopStageController::slotForArrival(
     const auto pixels = sessionPixels(session, area);
     if (pixels.size() != session.rects.size()) return std::nullopt;
     const QSizeF minimum = arrival->window()->minSize();
-    const int slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
+    // CARD-LIFECYCLE.md §11: a Connected display gives up the window used
+    // longest ago, where §8 elsewhere gives up the smallest slot that fits.
+    int slot = -1;
+    if (m_host->connectedOutputForDesktopStage(output)) {
+        std::vector<long long> lastUsed;
+        for (const auto &window : session.windows)
+            lastUsed.push_back(m_host->lastUsedForDesktopStage(window.data()));
+        slot = bentoSlotUsedLongestAgo(pixels, lastUsed, minimum.width(), minimum.height());
+    } else {
+        slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
+    }
     if (slot < 0 || slot >= session.windows.size() || !session.windows.at(slot))
         return std::nullopt;
     return slot;

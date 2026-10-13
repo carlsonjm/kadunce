@@ -519,6 +519,17 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
     if (m_workspace.count() == 2) {
         return rowNeighborSide();
     }
+    if (m_workspace.count() >= 3 && zoomedOut()) {
+        // Zoomed out, every entry whose card reaches the screen is drawn.
+        const int offset = entryOffset(window);
+        auto *output = m_host->tabletOutputForCardStage();
+        if (offset == 99 || !output) return 99;
+        const auto work = workArea(output);
+        const auto target = cardTargetForSlot(output, offset);
+        const double reach = target.width() * 0.2;
+        return target.right() + reach > work.left() && target.left() - reach < work.right()
+            ? offset : 99;
+    }
     if (m_workspace.count() >= 3) {
         // The row has two ends: nothing is drawn before the first entry or
         // after the last, though the order behind it still wraps.
@@ -755,7 +766,9 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     if (!output) return std::nullopt;
     const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
-    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+    // The row a card is lifted from keeps the zoom it stood at.
+    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height(),
+        zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
     const CardRect &centre = layout.cards[1];
     return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
                       centre.width + layout.gutter, centre.width, centre.height,
@@ -886,7 +899,8 @@ KWin::Rect CardStageController::cardTargetForSlot(
         && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height(),
+              zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
     // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
@@ -2610,6 +2624,47 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     // The layout shrinks from where it stood into its group card in the row,
     // as the Active card does, and the cards beside it slide in.
     formRowFromActive();
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+bool CardStageController::zoomedOut() const
+{
+    return m_presentation == CardPresentation::Spread && !m_launcherGuestActive
+        && m_host->connectedForCardStage();
+}
+
+bool CardStageController::hasBentoGroup() const
+{
+    return m_active && m_bentoProjectionSession
+        && std::any_of(m_bentoProjectionPaneWindows.cbegin(), m_bentoProjectionPaneWindows.cend(),
+               [](const auto &pane) { return pane && !pane->isDeleted(); });
+}
+
+bool CardStageController::resumeBentoGroup()
+{
+    if (!hasBentoGroup() || m_presentation != CardPresentation::Spread
+        || m_cardGrabActive || m_launcherGuestActive) return false;
+    if (selectedIsBentoGroup()) return resumeSelectedBentoProjection();
+    const QPointer<KWin::EffectWindow> before = selectedWindow();
+    KWin::EffectWindow *pane = nullptr;
+    for (const auto &member : std::as_const(m_bentoProjectionPaneWindows))
+        if (member && !member->isDeleted()) { pane = member; break; }
+    if (!pane || !selectCardEntry(pane) || !selectedIsBentoGroup()) {
+        if (before) (void)selectCardEntry(before);
+        return false;
+    }
+    if (resumeSelectedBentoProjection()) return true;
+    if (before) (void)selectCardEntry(before);
+    return false;
+}
+
+bool CardStageController::presentSelectedNow()
+{
+    if (!m_active || m_presentation != CardPresentation::Spread
+        || m_cardGrabActive || m_launcherGuestActive || selectedIsBentoGroup()) return false;
+    if (!enterActive()) return false;
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     return true;

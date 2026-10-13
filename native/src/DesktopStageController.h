@@ -57,6 +57,16 @@ public:
     [[nodiscard]] virtual bool outputCanOwnCards(const KWin::LogicalOutput *) const {
         return false;
     }
+    // Whether this display holds Spread and is sized Connected
+    // (DisplaySizing.h), so a full layout there gives up the window used
+    // longest ago. A host that draws no distinction answers that it is not.
+    [[nodiscard]] virtual bool connectedOutputForDesktopStage(const KWin::LogicalOutput *) const {
+        return false;
+    }
+    // When the person last used this window, later uses larger; 0 for never.
+    [[nodiscard]] virtual long long lastUsedForDesktopStage(const KWin::EffectWindow *) const {
+        return 0;
+    }
     [[nodiscard]] virtual KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const = 0;
     virtual void prepareOutputForDesktopStage(

@@ -53,11 +53,13 @@ CardStackEnvelope bottomRightRotationEnvelope(
 }
 
 SpreadLayout makeSpreadLayout(double workX, double workY,
-                                  double workWidth, double workHeight)
+                                  double workWidth, double workHeight,
+                                  double share)
 {
-    const double cardWidth = workWidth * 0.54;
-    const double cardHeight = workHeight * 0.54;
-    const double gutter = workWidth * 0.056;
+    const double cardWidth = workWidth * share;
+    const double cardHeight = workHeight * share;
+    // The gutter keeps its proportion to the card.
+    const double gutter = workWidth * 0.056 * share / SpreadCardShare;
     const double centerX = workX + (workWidth - cardWidth) / 2.0;
     const double cardY = workY + (workHeight - cardHeight) / 2.0;
 
@@ -71,6 +73,16 @@ SpreadLayout makeSpreadLayout(double workX, double workY,
         },
         .gutter = gutter,
     };
+}
+
+double spreadZoomedOutShare(int entries)
+{
+    // n cards and n - 1 gutters across all but a margin of the work area.
+    constexpr double across = 0.96;
+    constexpr double gutterPerCard = 0.056 / SpreadCardShare;
+    const int n = std::max(entries, 1);
+    const double share = across / (n + gutterPerCard * (n - 1));
+    return std::clamp(share, SpreadZoomedOutShareMinimum, SpreadCardShare);
 }
 
 CardRect makeCoverPaintRect(const CardRect &slot,

@@ -423,6 +423,22 @@ int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
     return chosen;
 }
 
+int bentoSlotUsedLongestAgo(const std::vector<BentoPixelRect> &slots,
+                            const std::vector<long long> &lastUsed,
+                            double minimumWidth, double minimumHeight)
+{
+    if (!std::isfinite(minimumWidth) || !std::isfinite(minimumHeight)
+        || minimumWidth < 0 || minimumHeight < 0 || lastUsed.size() != slots.size()) return -1;
+    int chosen = -1;
+    for (int index = 0; index < static_cast<int>(slots.size()); ++index) {
+        const auto &slot = slots[index];
+        if (slot.width <= 0 || slot.height <= 0) continue;
+        if (double(slot.width) < minimumWidth || double(slot.height) < minimumHeight) continue;
+        if (chosen < 0 || lastUsed[index] < lastUsed[chosen]) chosen = index;
+    }
+    return chosen;
+}
+
 int bentoPaneOnSide(const std::vector<BentoPixelRect> &panes, bool right, bool upper)
 {
     const auto edge = [right](const BentoPixelRect &pane) {

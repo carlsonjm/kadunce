@@ -386,6 +386,22 @@ int main()
     require(bentoSlotForArrival({}, 200, 200) == -1,
         "A layout with no slots offered one");
 
+    // Connected: the slot of the window used longest ago yields, whatever its
+    // size, so long as the arrival fits it.
+    require(bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, 200, 200) == 1,
+        "A full Connected layout did not give up the window used longest ago");
+    require(bentoSlotUsedLongestAgo(tabletSlots, {3, 7}, 200, 200) == 0,
+        "A full Connected layout gave up a window used more recently");
+    // The window used longest ago keeps its pane when the arrival cannot fit
+    // it; the next one the arrival fits yields instead.
+    require(bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, narrow + 1, 200) == 0,
+        "An arrival was given a pane too small for it");
+    require(bentoSlotUsedLongestAgo(tabletSlots, {5, 5}, 200, 200) == 0,
+        "Two windows used alike did not yield the earlier slot");
+    require(bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, wide + 1, 200) == -1
+        && bentoSlotUsedLongestAgo(tabletSlots, {7}, 200, 200) == -1,
+        "A slot was offered with no fit, or without a use for every slot");
+
     // CARD-LIFECYCLE.md §5: a side release onto a full layout displaces the
     // pane occupying that side. With a full-height pane on the left and a
     // stack on the right, separated by gaps, the left release names the

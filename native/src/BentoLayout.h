@@ -119,6 +119,16 @@ inline constexpr int BentoPaneBound = 24;
 [[nodiscard]] int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
                                       double minimumWidth, double minimumHeight);
 
+// CARD-LIFECYCLE.md §11, Connected: on the display that holds Spread, a full
+// layout gives the arrival the slot of the window used longest ago, among the
+// slots whose pixel size satisfies the arrival's minimum. lastUsed holds each
+// slot's last use, later uses larger; a tie goes to the earlier slot. Only that
+// slot's occupant leaves, as for bentoSlotForArrival. Returns -1 when no slot
+// fits or the uses do not name every slot.
+[[nodiscard]] int bentoSlotUsedLongestAgo(const std::vector<BentoPixelRect> &slots,
+                                          const std::vector<long long> &lastUsed,
+                                          double minimumWidth, double minimumHeight);
+
 // CARD-LIFECYCLE.md §5: the pane a full layout gives up to a side release is
 // the one occupying the side released into. A pane occupies a side when it
 // reaches the outermost edge on that side, so gaps and margins do not matter;

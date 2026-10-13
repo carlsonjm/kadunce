@@ -108,6 +108,9 @@ public:
     // A card let go on a pane of the Bento group took that pane; open the
     // group as its layout, the card growing from `from`, where it was drawn.
     virtual void openGroupAfterDropForCardStage(const QRectF &) {}
+    // Whether this display is sized Connected (DisplaySizing.h), so Spread
+    // opens zoomed out. A host that draws no distinction answers Active.
+    [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
     // A card about to be resized while Spread shows it: the host may keep its
     // last good picture first and call `resize` once it has, answering true.
     // An application's first frames at a new size can be empty, and Spread
@@ -199,6 +202,15 @@ public:
     [[nodiscard]] std::optional<BentoRect> bentoProjectionRect(
         const KWin::EffectWindow *window) const;
     [[nodiscard]] bool resumeSelectedBentoProjection();
+    // Whether Spread holds the display's Bento group.
+    [[nodiscard]] bool hasBentoGroup() const;
+    // CARD-LIFECYCLE.md §11, Connected: the group resumes as its layout
+    // whichever entry is selected, so a picked card can join it. A refused
+    // resume leaves the selection where it was.
+    [[nodiscard]] bool resumeBentoGroup();
+    // The selected card is presented Active at once, without growing into
+    // its place first; the layout it is about to join animates instead.
+    [[nodiscard]] bool presentSelectedNow();
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> preparationNeighbors() const;
 
@@ -498,6 +510,9 @@ private:
     void parkActiveSnapshot();
     [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
+    // Spread is drawn zoomed out: the display is sized Connected and the row
+    // stands as itself, not beside Search.
+    [[nodiscard]] bool zoomedOut() const;
     [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
     {
         return m_host->workAreaForCardStage(output);
