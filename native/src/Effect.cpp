@@ -4092,7 +4092,9 @@ void Effect::toggleBento()
     // CARD-LIFECYCLE.md §3: external Bento while docked, tablet Bento while
     // undocked. This read the pointer before, which on a touch tablet is
     // wherever the pointer was last left rather than where the user is working.
-    KWin::LogicalOutput *target = externalDesktopOutput();
+    // With cards on every display, the other displays show one card each, so
+    // the key belongs to Spread's display.
+    KWin::LogicalOutput *target = m_cardsOnEveryDisplay ? nullptr : externalDesktopOutput();
     if (!target) target = tabletOutput();
     if (!target) return;
     // §3 names a pair on a display that can own cards, so a Bento action there

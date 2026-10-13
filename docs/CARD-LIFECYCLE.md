@@ -148,8 +148,9 @@ window and the partner keep the ownership and presentation they had.
 ### The Bento action
 
 A Bento action is a request without a carried window or a contacted edge
-(`INPUT.md` § Bento, `Meta+B`). It belongs to the largest attached display
-that cannot own cards, or to the display that can when no other is attached.
+(`INPUT.md` § Bento, `Meta+B`). It belongs to Spread's display with cards on
+every display (§11), else to the largest display that cannot own cards, else
+the one that can.
 
 On a display Kadunce owns that can own cards, it names a pair the way a side
 snap does, from the right: the Active card keeps the left side. With no Active card, or no eligible
