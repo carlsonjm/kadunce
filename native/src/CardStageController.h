@@ -465,6 +465,10 @@ public:
     // A card chosen to show on another display that holds its own cards goes
     // there, joining its layout. The card this display presents stays.
     bool sendCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // A card KWin moved to another display that holds its own cards goes to
+    // that display's layout. Moved from Active, this display presents the card
+    // used before it again.
+    bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
     // The next entry into Active keeps the focus on this window, a card just
     // shown on another display, instead of taking it for the Active card.
     void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }

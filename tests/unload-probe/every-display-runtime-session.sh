@@ -137,7 +137,7 @@ sleep .5
 client titledCompanion 'Tab C' 500 400
 sleep 1.5
 tc=$(idOf 'Tab C')
-probe windowFacts | jq -c --arg id "$tc" 'first(.[] | select(.id == $id)) | {caption, output}'
+echo "state landed $(probe windowFacts | jq -c --arg id "$tc" 'first(.[] | select(.id == $id)) | {caption, output}')"
 if [[ $(app "$tc" | jq -r '.output') != Virtual-0 ]]; then
     probe sendCaptionToOutput 'Tab C' Virtual-0
     sleep 1.2
@@ -157,7 +157,7 @@ check 'close: still one card shown there' small_panes 1
 client titledCompanion 'Tab C' 500 400
 sleep 1.5
 tc=$(idOf 'Tab C')
-probe windowFacts | jq -c --arg id "$tc" 'first(.[] | select(.id == $id)) | {caption, output}'
+echo "state landed $(probe windowFacts | jq -c --arg id "$tc" 'first(.[] | select(.id == $id)) | {caption, output}')"
 if [[ $(app "$tc" | jq -r '.output') != Virtual-0 ]]; then
     probe sendCaptionToOutput 'Tab C' Virtual-0
     sleep 1.2

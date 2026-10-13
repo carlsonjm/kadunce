@@ -3208,6 +3208,25 @@ bool CardStageController::admitCardFromOtherDisplay(
     return true;
 }
 
+bool CardStageController::giveCardToDisplay(KWin::EffectWindow *card,
+    KWin::LogicalOutput *destination)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || !destination
+        || !tablet || liveCardIndex(card) < 0) return false;
+    if (m_presentation == CardPresentation::Active && selectedWindow() == card) {
+        const auto shown = [&](KWin::EffectWindow *other) {
+            return other && other != card && !other->isDeleted() && other->window()
+                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0;
+        };
+        KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
+        if (!back || !selectCardEntry(back)) return false;
+        m_presentation = CardPresentation::Spread;
+        if (!enterActive()) return false;
+    }
+    return sendCardToDisplay(card, destination);
+}
+
 bool CardStageController::releaseCardToDisplay(KWin::EffectWindow *card)
 {
     if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || card->isDeleted()

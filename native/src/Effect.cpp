@@ -2812,6 +2812,19 @@ void Effect::handleWindowOutputChanged()
     // the turn after sees where the window stands. A card, a pane or a window
     // being carried already has an owner deciding where it goes.
     QTimer::singleShot(0, this, [this, window] {
+        // §11, Every display: a card sent to another display that holds its
+        // own cards is the card that display shows.
+        if (window && !m_releasing && window->window() && !window->isUserMove()
+            && window != m_carriedWindow && window != m_nativeCarry && !cardHome(window)
+            && m_cardStage->liveCardIndex(window) >= 0) {
+            KWin::LogicalOutput *there = window->window()->moveResizeOutput();
+            if (isOtherCardDisplay(there) && m_cardStage->giveCardToDisplay(window, there)) {
+                KWin::effects->activateWindow(window);
+                observeCardOwnership();
+                Q_EMIT workspaceContextChanged();
+                return;
+            }
+        }
         if (!window || m_releasing || !isCardWindow(window) || isDependentWindow(window)
             || !window->window() || !window->window()->readyForPainting()
             || !window->isOnCurrentDesktop() || window->isUserMove() || window->isUserResize()
