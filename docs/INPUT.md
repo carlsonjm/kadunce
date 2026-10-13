@@ -77,7 +77,7 @@ are up, the bottom edge is theirs.
 | Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on your side: the Active card or, for the Active card itself, the card used before it. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
 | `Meta+B` | Starts or ends Bento on the largest monitor, or on the card display without one, pairing the Active card with the card used before it. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
-| Drag a window to an edge of a display that cannot hold cards | One window alone takes half the display at a side, or the Active card's size on top. With two or more, all join one layout, the dragged one on your side; one without room waits in the dock. |
+| Drag a window to an edge of a display without cards | One window alone takes half the display at a side, or the Active card's size on top. With two or more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
 | Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, that pane a card. |
@@ -91,7 +91,7 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | --- | --- |
 | Open Spread | Zoomed out, every card whole, each pane its own card. |
 | Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout on it. |
-| `Meta+Up`, `Meta+Down` on a pane | Its Stack steps in place. |
+| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 
 ## Table
 

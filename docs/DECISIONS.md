@@ -465,7 +465,7 @@ one global session, which makes every tablet gesture a multi-display event.
 
 ### A display without cards organizes everything it shows
 
-`CARD-LIFECYCLE.md` §11 states the rule. A window with no room waits in the
+With `[Spread] OtherDisplays=windows` (`CARD-LIFECYCLE.md` §11). A window with no room waits in the
 dock, never moves to another display on its own, and comes back when room frees
 up. An application too big for any slot takes the Active size, because one you
 just opened has to appear. Rejected: overflow on another desktop.
@@ -553,18 +553,19 @@ diagonal hand-off from the edge.
 
 ### One display holds Spread
 
-One display holds cards, so there is one Spread and never a second ring of
-cards (`CARD-LIFECYCLE.md` §11): the one you choose while attached, else the
-one a touchscreen drives, else the largest, so a desktop without touch gets
-cards too. Kadunce finds the touched display from the touchscreen as
-KWin places it, never from the display's name, which says nothing about touch;
-where two touchscreens drive different displays, the built-in one wins. When
-the display holding cards goes away, every card moves to the next one, and
-back when the chosen display returns. Only a touchscreen gives Kadunce the
-touch edges (`ARCHITECTURE.md` § Input ownership). Rejected: cards only on a
-touched display, which left a desktop without Spread; letting cards go when
-their display changes; and a helper for one device deciding it, which left every other
-touchscreen without Table's pull from the top edge.
+Every window is a card on every display, each display sized by its own size,
+and one display holds Spread, so there is never a second ring of cards
+(`CARD-LIFECYCLE.md` §11): the one you choose while attached, else the one a
+touchscreen drives, else the largest. Kadunce finds the touched display from
+the touchscreen as KWin places it, never from the display's name; where two
+touchscreens drive different displays, the built-in one wins. When the Spread
+display goes away, its cards move to the next one, and back when it returns.
+A card picked in Spread opens on the display it lives on, and a Stack placed on
+a touchscreen display steps with its bottom swipe while another display holds
+Spread. Rejected: cards only on the Spread display, which left other displays
+plain; a Spread per display; cards only on a touched display; and a
+helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
+plain-window rule as the one-step way back.
 
 ### A big card display plays cards into its layout
 

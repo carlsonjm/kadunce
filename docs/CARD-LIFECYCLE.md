@@ -460,8 +460,8 @@ Each display, on each desktop, has an independent ownership session. An edge
 action reads that display's own state: whether Kadunce owns it, its Active
 card, its live Bento layout and its pane cap.
 
-One display owns cards, so there is one Spread: the one you chose while it is
-attached, else the one a touchscreen drives, else the largest
+Every display shows its windows as cards, and one holds Spread: the one you
+chose while it is attached, else the one a touchscreen drives, else the largest
 (`DECISIONS.md` § One display holds Spread). It may contain:
 
 - Individual cards
@@ -486,15 +486,16 @@ On Connected:
   closing its front card, puts the next card in that pane's slot.
 - A pane leaves as §5 says.
 
-### Other displays
+### Every display
 
-Any other display shows ordinary Plasma windows or one Bento layout, never
-both, and never cards or Spread. One window snapped to a side takes half the
-display, and snapped to the top takes the Active card's size. With two or more
-windows, a snap to an edge organizes every window there into one layout, as many
-as their minimum sizes allow; one without room goes to the dock, never to
-another display on its own. Carrying a card there from the card display is a
-deliberate handoff; ordinary movement, resizing and focus stay with KWin
+Each other display holds its own cards, sized by its own size; Spread shows
+its waiting cards with the rest, and one picked opens there. Sized Active, it
+shows one card whole: a window opened there is that card, closing it brings
+back the one before, and a Stack placed there steps there. Sized Connected, it
+plays cards into its layout as above. Unplugged, its cards stay in Spread.
+
+`kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
+windows or one Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
