@@ -91,7 +91,7 @@ both_seen() {
 }
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
-    local from=$1 to=$2 x y tx ty nx ny
+    local from=$1 to=$2 x y tx ty
     both_seen "$from" "$to" || echo "state carry-unseen $from $to"
     read -r x y < <(seen_at "$from")
     read -r tx ty < <(seen_at "$to")
@@ -99,14 +99,13 @@ carry_onto() {
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
     sleep .5
-    # The line closes up behind a lifted card, so its neighbour moves: aim,
-    # let the line settle, and aim again at where the card now is.
-    for _ in 1 2; do
-        read -r nx ny < <(seen_at "$to")
-        [[ -n $nx ]] && tx=$nx ty=$ny
-        probe motion 61 "$tx" "$ty"
-        sleep .7
-    done
+    # Held, the row stands where it stood, though Spread reports its places
+    # around the held card: aim where the card stood before the lift, through
+    # a point halfway so the aim settles on the way.
+    probe motion 61 "$(((x + tx) / 2))" "$ty"
+    sleep .4
+    probe motion 61 "$tx" "$ty"
+    sleep .9
     echo "state carry-$from $tx,$ty $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
     probe up 61
     sleep .8
