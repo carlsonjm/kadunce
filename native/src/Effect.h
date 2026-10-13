@@ -562,6 +562,12 @@ private:
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
     // holds its own cards and shows a Stack.
     [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
+    // Spread opened over a display showing no card of its own gathers the
+    // cards the other displays show; those not chosen go back as it closes.
+    bool gatherCardsIntoSpread();
+    void returnGatheredCards();
+    QList<QPair<QPointer<KWin::EffectWindow>, QString>> m_gathered;
+    QTimer m_gatherWatch;
     QHash<KWin::EffectWindow *, QString> m_cardHomes;
     bool m_cardsOnEveryDisplay = true;
     bool m_bezelStepsStack = false;

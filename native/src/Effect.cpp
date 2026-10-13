@@ -955,6 +955,9 @@ Effect::Effect()
     connect(&m_keysWorkAreaRelease, &QTimer::timeout, this, &Effect::releaseKeysWorkArea);
     // A card let go lands, and settles, within this; its dialogs follow it
     // there and are then left where they stand.
+    // Spread that gathered cards gives them back once it has closed.
+    m_gatherWatch.setInterval(150);
+    connect(&m_gatherWatch, &QTimer::timeout, this, &Effect::returnGatheredCards);
     m_carriedDialogsRelease.setSingleShot(true);
     m_carriedDialogsRelease.setInterval(1000);
     connect(&m_carriedDialogsRelease, &QTimer::timeout, this, &Effect::releaseCarriedDialogs);
@@ -3135,8 +3138,60 @@ bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
     return held;
 }
 
+bool Effect::gatherCardsIntoSpread()
+{
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (!m_cardsOnEveryDisplay || !tablet || m_releasing || m_carriedWindow
+        || m_desktopStage->hasSessionOnOutput(tablet->name())
+        || (m_cardStage->isActive() && m_cardStage->presentation() != CardPresentation::Desktop))
+        return false;
+    // §11, Every display: Spread shows every card. A display showing its own
+    // cards opens them in it; one showing none still opens on the rest.
+    for (const auto &card : m_cardStage->liveCards())
+        if (card && !card->isDeleted() && !cardHome(card)) return false;
+    bool gathered = false;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (!isOtherCardDisplay(output)) continue;
+        const QString name = output->name();
+        const auto panes = m_desktopStage->panesOn(name);
+        for (const auto &pane : panes) {
+            if (!pane || pane->isDeleted() || !m_desktopStage->yieldPaneToSpread(pane)) continue;
+            m_gathered.append({pane, name});
+            gathered = true;
+        }
+    }
+    if (gathered) {
+        qInfo() << "Kadunce" << Revision << "gathered" << m_gathered.size()
+                << "cards from the other displays into Spread";
+        m_gatherWatch.start();
+    }
+    return gathered;
+}
+
+void Effect::returnGatheredCards()
+{
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) return;
+    m_gatherWatch.stop();
+    const auto gathered = std::exchange(m_gathered, {});
+    QStringList displays;
+    for (const auto &[card, name] : gathered) {
+        if (!displays.contains(name)) displays.append(name);
+        KWin::LogicalOutput *home = card ? cardHome(card) : nullptr;
+        // Chosen, carried or stacked meanwhile, it is no longer just waiting.
+        if (!home || home->name() != name || card->isMinimized()
+            || m_cardStage->liveCardIndex(card) < 0
+            || m_cardStage->stackFrontToBack(card).size() > 1) continue;
+        // A display showing one card already shows the one chosen there.
+        if (showsOneCardForDesktopStage(home) && m_desktopStage->hasSessionOnOutput(name)) continue;
+        (void)showCardOnItsDisplay(card, false);
+    }
+    for (const QString &name : std::as_const(displays)) refillOtherDisplay(name);
+}
+
 void Effect::refillOtherDisplay(const QString &outputName)
 {
+    // Spread gathered this display's cards; they go back as it closes.
+    if (!m_gathered.isEmpty()) return;
     KWin::LogicalOutput *output = KWin::effects->findScreen(outputName);
     if (!isOtherCardDisplay(output) || m_desktopStage->hasSessionOnOutput(outputName)
         || !m_cardStage->isActive()) return;
@@ -6564,6 +6619,7 @@ void Effect::toggleOwnedPresentation(bool growToActive)
     if (m_cardStage->launcherGuestActive()) {
         dismissLauncherGuestFromInput();
     }
+    (void)gatherCardsIntoSpread();
     {
         // §2: the live session becomes the Bento group entry in Spread, whether
         // or not this stage already owns individual cards beside it.
@@ -6597,6 +6653,8 @@ void Effect::release()
     // Windows given back here may come back from minimized; that is no pick.
     const bool wasReleasing = std::exchange(m_releasing, true);
     const auto settled = qScopeGuard([this, wasReleasing] { m_releasing = wasReleasing; });
+    m_gatherWatch.stop();
+    m_gathered.clear();
     if (m_carryRuntime) m_carryRuntime->cancel();
     // §13 returns every managed window, whichever desktop holds it.
     bool hadBento = false;

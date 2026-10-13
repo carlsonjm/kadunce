@@ -1535,7 +1535,7 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     // restores the window to would be the one the user just asked for, and
     // release would re-minimize a window it had woken.
     std::optional<NativeMoveSnapshot> sleepingRecord;
-    if (destination == EvictedAs::SleepingCard) {
+    if (destination != EvictedAs::AwakeCard) {
         const auto session = m_sessions.constFind(sourceKey);
         const auto saved = std::find_if(session->snapshots.cbegin(),
             session->snapshots.cend(),
@@ -1546,6 +1546,8 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
             saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
     }
     const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
+        if (destination == EvictedAs::HomedCard)
+            return m_host->admitDisplacedPaneToTablet(departing, commit, &*sleepingRecord);
         return destination == EvictedAs::SleepingCard
             ? m_host->admitSleepingPaneToTablet(departing, commit, &*sleepingRecord)
             : m_host->admitTransferredWindowToTablet(departing, commit);
@@ -1780,6 +1782,25 @@ bool DesktopStageController::extractPaneToCards(KWin::EffectWindow *window,
     // §5 may end what is left before it is laid out again, so only a layout
     // that survives the departure is asked to place its panes.
     endLayoutIntoCardOwnership(sourceKey);
+    auto shortened = m_sessions.find(sourceKey);
+    if (shortened != m_sessions.end() && applySession(shortened.value(), false))
+        scheduleSettle();
+    return true;
+}
+
+bool DesktopStageController::yieldPaneToSpread(KWin::EffectWindow *window)
+{
+    if (m_restoring || !window || window->isMinimized()) return false;
+    QString sourceKey;
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        if (it->windows.contains(window)) {
+            sourceKey = it.key();
+            break;
+        }
+    }
+    KWin::LogicalOutput *output = outputForKey(sourceKey);
+    if (sourceKey.isEmpty() || !output || !m_host->holdsOwnCardsForDesktopStage(output)
+        || !evictToTablet(sourceKey, window, {}, EvictedAs::HomedCard)) return false;
     auto shortened = m_sessions.find(sourceKey);
     if (shortened != m_sessions.end() && applySession(shortened.value(), false))
         scheduleSettle();

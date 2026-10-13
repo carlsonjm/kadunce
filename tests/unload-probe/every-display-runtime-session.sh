@@ -7,7 +7,9 @@
 # card it replaced goes back to Spread, and the large display goes back to
 # what it showed. A window opened on the small display is the card it shows;
 # closing it brings back the card it used before. A Stack placed on the small
-# display fills it, and Meta+Down steps it there. Every check is reported, so
+# display fills it, and Meta+Down steps it there. With every window moved to
+# the small display, Spread still opens, gathering the card it shows, and gives
+# it back as it closes. Every check is reported, so
 # a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -186,6 +188,29 @@ check 'step: Meta+Down shows the next card of the Stack there' shown_small "$oth
 check 'step: it fills the small display' fills_small "$other"
 check 'step: the card it replaced waits in the Stack' waits_for_small "$face"
 check 'step: the large display still shows its own card' presents active
+
+# Every window moved to the small display: Spread's display holds no card of
+# its own, and Spread still opens, holding the small display's cards.
+probe sendCaptionToOutput 'Mon A' Virtual-0
+sleep 1.2
+probe sendCaptionToOutput 'Mon B' Virtual-0
+sleep 1.5
+report emptied
+check 'emptied: no card belongs to the large display' \
+    context '[.applications[] | select(.title != "unload-client" and .hasCard and .home != "Virtual-0")] | length == 0'
+check 'emptied: the small display shows one card' small_panes 1
+before=$(small_shows)
+spread_key
+report gathered
+check 'gathered: Spread opens' presents cardLine
+check 'gathered: the card the small display showed is in it' in_spread "$before"
+check 'gathered: the small display cards wait in it' waits_for_small "$ma"
+probe key 1 0 >/dev/null
+sleep 1.4
+report gave-back
+check 'gave back: Spread closed' bash -c "! qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -e '.cardStage.presentation == \"cardLine\"'"
+check 'gave back: the small display shows its card again' shown_small "$before"
+check 'gave back: still one card shown there' small_panes 1
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

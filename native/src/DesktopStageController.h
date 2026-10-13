@@ -171,6 +171,9 @@ public:
     // own last refusal; a false answer publishes nothing.
     bool extractPaneToCards(KWin::EffectWindow *window,
         const std::function<bool()> &sourceValid);
+    // §11, Every display: a pane of a display holding its own cards waits in
+    // Spread, still that display's card, while Spread gathers every card.
+    bool yieldPaneToSpread(KWin::EffectWindow *window);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 
@@ -457,7 +460,7 @@ private:
                      bool requirePreferred,
                      QList<QPointer<KWin::EffectWindow>> *evicted = nullptr) const;
     // Which door card ownership opens for an evicted window.
-    enum class EvictedAs { AwakeCard, SleepingCard };
+    enum class EvictedAs { AwakeCard, SleepingCard, HomedCard };
     // CARD-LIFECYCLE.md §5: a window the layout cannot show becomes an awake
     // individual card on the display that can hold one. That is the same
     // destination-first transfer a deliberate carry makes, so it is the

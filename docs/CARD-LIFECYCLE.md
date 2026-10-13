@@ -488,11 +488,12 @@ On Connected:
 
 ### Every display
 
-Each other display holds its own cards, sized by its own size; Spread shows
-its waiting cards with the rest, and one picked opens there. Sized Active, it
-shows one card whole: a window opened there is that card, closing it brings
-back the one before, and a Stack placed there steps there. Sized Connected, it
-plays cards into its layout as above. Unplugged, its cards stay in Spread.
+Each other display holds its own cards, sized by its size; Spread shows its
+waiting cards, and one picked opens there. Sized Active, it shows one card: a
+window opened there is that card, closing it brings back the one before, and
+a placed Stack steps there. Connected, it plays cards into its layout.
+Unplugged, its cards stay in Spread. Opened over a display holding none,
+Spread gathers the others' cards, giving back those not chosen.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there
