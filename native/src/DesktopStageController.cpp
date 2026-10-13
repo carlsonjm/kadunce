@@ -1524,24 +1524,7 @@ bool DesktopStageController::planSession(Session &session,
                 bentoColumnsLayout(*columns, handles, rects);
                 return smallestSide(*columns).has_value();
             };
-            // §5 on Connected: a card the columns cannot hold at its minimum
-            // makes room as a full layout does, the pane used longest ago
-            // leaving to become a card. The card asked for never leaves.
-            QList<QPointer<KWin::EffectWindow>> yielded;
-            bool fits = holdsMinimums();
-            while (!fits && preferred) {
-                QPointer<KWin::EffectWindow> oldest;
-                long long oldestUse = 0;
-                for (const auto &held : handles) {
-                    if (!held || held == preferred) continue;
-                    const long long used = m_host->lastUsedForDesktopStage(held.data());
-                    if (!oldest || used < oldestUse) { oldest = held; oldestUse = used; }
-                }
-                if (!oldest) break;
-                bentoColumnsRemove(*columns, oldest);
-                yielded.append(oldest);
-                fits = holdsMinimums();
-            }
+            const bool fits = holdsMinimums();
             if (fits) {
                 // The same columns keep the places dividers gave them.
                 const bool same = session.placed && *session.placed == *columns
@@ -1556,13 +1539,11 @@ bool DesktopStageController::planSession(Session &session,
                 session.sideWindow.clear();
                 session.lone = false;
                 session.placeAlone = false;
-                report(yielded);
                 return true;
             }
-            // A snap that cannot stand where it asked is refused; an arrival
-            // the columns cannot hold at its minimum lays the whole layout
-            // out again.
-            if (snapped) return false;
+            // Columns that cannot hold every card at its minimum give way to
+            // the whole layout laid out again, a snapped card kept at its
+            // side; only a card even that cannot hold goes to Spread.
         }
         session.placed.reset();
     }

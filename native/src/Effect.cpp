@@ -5858,9 +5858,17 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
             // Active card carried there: alone on an open display, or among
             // the columns of the layout the card was played into.
             if (side.connected) {
+                // A layout already standing takes the card as a pane first,
+                // as a pick from Spread would; only an open display places
+                // it alone.
+                if (!m_desktopStage->managesWindow(placed))
+                    (void)admitActivatedCardToLiveBento(placed);
+                if (!m_desktopStage->managesWindow(placed) && m_cardStage->hasBentoGroup())
+                    (void)playPickedCardIntoLayout(placed);
                 if (m_desktopStage->managesWindow(placed))
                     (void)m_desktopStage->placePaneBySide(placed, destination, side);
-                else if (m_cardStage->activeCardIdentity() == placed)
+                else if (m_cardStage->activeCardIdentity() == placed
+                         && !m_cardStage->hasBentoGroup())
                     (void)placeActiveCardAlone(destination, side);
                 observeCardOwnership();
                 return;
