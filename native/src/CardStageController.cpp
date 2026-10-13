@@ -2634,23 +2634,6 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
         }
     }
     if (!m_active) return true;
-    // §11: on Connected each pane is drawn as a whole card, so it stands in
-    // the card's place and draws itself at that size, as a pane let go of
-    // does. Resuming puts every pane back on its stored layout.
-    if (asCards) {
-        if (KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage()) {
-            for (const auto &window : windows) {
-                KWin::Window *client = window && !window->isDeleted() ? window->window() : nullptr;
-                if (!client || window->isMinimized()) continue;
-                if (client->isFullScreen()) client->setFullScreen(false);
-                if (client->maximizeMode() != KWin::MaximizeRestore)
-                    client->maximize(KWin::MaximizeRestore);
-                if (client->quickTileMode() != KWin::QuickTileMode{})
-                    client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
-                client->moveResize(KWin::RectF(activeTarget(tablet)));
-            }
-        }
-    }
     m_host->setPagingShortcutsForCardStage(true);
     // On Connected the row opens on the pane that was in front, each pane a
     // card of its own, and each pane's Stack whole around it.
@@ -2967,6 +2950,26 @@ void CardStageController::release()
     m_originalCardStackingOrder.clear();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "released";
+}
+
+void CardStageController::standPanesInCardPlace()
+{
+    // §11: on Connected each pane is drawn as a whole card, so it stands in
+    // the card's place and draws itself at that size, as a pane let go of
+    // does. Resuming puts every pane back on its stored layout.
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !m_panesAsCards || !tablet || m_presentation != CardPresentation::Spread) return;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    for (const auto &window : std::as_const(m_bentoProjectionWindows)) {
+        KWin::Window *client = window && !window->isDeleted() ? window->window() : nullptr;
+        if (!client || window->isMinimized()) continue;
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore)
+            client->maximize(KWin::MaximizeRestore);
+        if (client->quickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
+        client->moveResize(KWin::RectF(activeTarget(tablet)));
+    }
 }
 
 bool CardStageController::presentSelectedNow()

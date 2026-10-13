@@ -6741,6 +6741,7 @@ void Effect::toggleOwnedPresentation(bool growToActive)
                 [this](const auto &projection, const auto &commit) {
                     return m_cardStage->admitBentoStack(projection, commit);
                 });
+            m_cardStage->standPanesInCardPlace();
             // Rejection retains Bento; never fall through to rediscovery.
             observeCardOwnership();
             return;

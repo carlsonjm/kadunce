@@ -507,6 +507,8 @@ public:
     // it (§2), so what arrives becomes cards there; one that took nothing
     // stops again.
     bool startBehindLayout();
+    // On Connected, Spread's panes stand at whole card size until resumed.
+    void standPanesInCardPlace();
     void stopBehindLayoutIfEmpty();
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.
