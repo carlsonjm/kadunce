@@ -298,6 +298,10 @@ public:
     bool transferPreparedCard(const PreparedDrop &drop,
         const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource);
+    // CARD-LIFECYCLE.md §11, Connected: a pane already in its display's
+    // layout is placed by `side` as a side snap would place it.
+    bool placePaneBySide(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                         BentoSidePlacement side);
     // ActivateBento is an explicit, already-validated placement request, not
     // inferred from coordinates. Input/preview adoption is a separate boundary.
     // Synchronous callbacks only: commitSource mutates only source model state;

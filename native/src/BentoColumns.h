@@ -133,6 +133,20 @@ void bentoColumnsJoin(BentoColumns<Handle> &layout, const Handle &window)
     layout.columns[fewest].push_back({window, false});
 }
 
+// Cards in no row of columns yet, dealt across as many columns as rows,
+// left to right, so a side snap has columns to place among.
+template<class Handle>
+[[nodiscard]] BentoColumns<Handle> bentoColumnsDealt(const std::vector<Handle> &handles)
+{
+    BentoColumns<Handle> layout;
+    if (handles.empty()) return layout;
+    const std::size_t count = std::size_t(std::ceil(std::sqrt(double(handles.size()))));
+    layout.columns.resize(count);
+    for (std::size_t i = 0; i < handles.size(); ++i)
+        layout.columns[i % count].push_back({handles[i], false});
+    return layout;
+}
+
 // Each card's place, in the order `handles` lists them. Columns share the width
 // evenly and a column's slots its height; a lone column takes half.
 template<class Handle>

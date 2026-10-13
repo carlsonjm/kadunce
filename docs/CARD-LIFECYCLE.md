@@ -480,11 +480,12 @@ On Connected:
   else under §8.
 - A Stack fills one pane, its other cards hidden behind it. Stepping it, or
   closing its front card, puts the next card in that pane's slot.
-- A side snap names a place, never a size: the edge's upper half beside, a
-  full-height column at that edge; its lower half under, at the bottom of that
-  side's column, what it holds moving up. Alone it takes that side's half, or
-  its lower part, the rest open and cards held aside. An arrival fills open
-  room, else joins the column holding fewest; a leaving pane opens its room.
+- A side snap, or a dock launch there, names a place, not a size: the
+  edge's upper half beside, a full-height column there; its lower half
+  under, at the bottom of that side's column. Alone it takes that side's half,
+  or its lower part, the rest open, cards held aside. An arrival fills open
+  room, else joins the shortest column or starts one, whichever keeps panes
+  larger; a leaving pane opens its room.
 - A pane leaves as §5 says.
 
 ### Every display

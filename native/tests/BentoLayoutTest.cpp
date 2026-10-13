@@ -568,6 +568,14 @@ int main()
         bentoColumnsRemove(alone, 1);
         require(alone.columns.empty(), "A column of open room outlived its last card");
 
+        // Any other shape is dealt into as many columns as rows.
+        require(shape(bentoColumnsDealt<int>({1, 2, 3, 4, 5}))
+                    == std::vector<std::vector<int>>{{1, 4}, {2, 5}, {3}},
+            "Five cards were not dealt into three columns");
+        require(shape(bentoColumnsDealt<int>({1, 2, 3, 4}))
+                    == std::vector<std::vector<int>>{{1, 3}, {2, 4}},
+            "Four cards were not dealt into two columns");
+
         // A layout on screen reads as columns only when it is one.
         const auto read = bentoColumnsFromRects<int>({1, 2, 3},
             {{0.0, 0.0, 0.5, 0.5}, {0.0, 0.5, 0.5, 0.5}, {0.5, 0.0, 0.5, 1.0}});

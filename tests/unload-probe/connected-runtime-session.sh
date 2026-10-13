@@ -341,6 +341,11 @@ report fourth-beside
 check 'fourth beside: the preview is a full-height column at the left edge' previewed '.x < 30 and .height > 1300 and .width < 900'
 check 'fourth beside: it lands where the preview showed' placed_at "$m"
 check 'fourth beside: the terminals move inward, still stacked' geometry "$a" '.x > 800 and .x < 1000 and .y < 200 and .height < 760'
+snap "$a" 'Term A' 2555 1200
+report fourth-under
+check 'fourth under: the preview is the bottom of the right column' previewed '.x > 1650 and .y > 650'
+check 'fourth under: it lands where the preview showed' placed_at "$a"
+check 'fourth under: the card above it moved up' geometry "$n" '.x > 1650 and .y < 200 and .height < 760'
 end_pass place
 
 if (( failures > 0 )); then

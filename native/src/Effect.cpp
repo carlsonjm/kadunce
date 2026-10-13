@@ -4084,6 +4084,22 @@ bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output,
     return pairCardsIntoBento(output, active, m_cardStage->partnerForSideSnap(active, walkLeft), side);
 }
 
+bool Effect::placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side)
+{
+    auto *active = m_cardStage->activeCardIdentity();
+    if (!output || !active || !isTabletOutput(output)) return false;
+    const auto reserved = m_desktopStage->prepareCardDrop(active, output,
+        KWin::RectF(active->frameGeometry()),
+        DesktopStageController::CardDropIntent::ActivateBento, side, nullptr, true);
+    if (!reserved) return false;
+    QPointer<KWin::EffectWindow> carried = active;
+    const bool placed = m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
+        [this, carried] { return m_cardStage->releasePairToBento(carried, nullptr); });
+    // The room left open shows the desktop, not the cards.
+    if (placed) m_cardStage->syncSelectedElevation();
+    return placed;
+}
+
 bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
     KWin::EffectWindow *partner, BentoSidePlacement side)
 {
@@ -5671,11 +5687,13 @@ PlacementAim Effect::placementAimAt(QPointF point) const
 {
     auto aim = placementAim(placementOutputs(), point);
     // CARD-LIFECYCLE.md §3: a side snap on a display Kadunce does not yet own
-    // gives an Active card, as the middle does.
+    // gives an Active card, as the middle does. On Connected (§11) the edge
+    // still names a place, the card alone there.
     if ((aim.kind == PlacementAimKind::Left || aim.kind == PlacementAimKind::Right)
         && !m_cardStage->isActive()) {
         for (auto *output : KWin::effects->screens()) {
-            if (output && output->name() == aim.output && m_cardStage->canOwnCards(output))
+            if (output && output->name() == aim.output && m_cardStage->canOwnCards(output)
+                && !connectedOutputForDesktopStage(output))
                 aim.kind = PlacementAimKind::Card;
         }
     }
@@ -5700,6 +5718,14 @@ std::optional<KWin::RectF> Effect::placementPreview(const PlacementAim &aim, QPo
     case PlacementAimKind::Right: {
         const bool right = aim.kind == PlacementAimKind::Right;
         const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        // §11, Connected: the outline is the place, beside a column at that
+        // edge and under the bottom of that side.
+        if (connectedOutputForDesktopStage(output)) {
+            const double width = area.width() / 2.0;
+            const double top = side.large ? area.top() : area.center().y();
+            return KWin::RectF(right ? area.right() - width : area.left(), top, width,
+                               area.bottom() - top);
+        }
         const double width = area.width() * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
         return KWin::RectF(right ? area.right() - width : area.left(), area.top(), width, area.height());
     }
@@ -5822,11 +5848,24 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
         if (aim.kind == PlacementAimKind::Card) return true;
         // CARD-LIFECYCLE.md §3, as the Active card carried to that edge.
         const bool right = aim.kind == PlacementAimKind::Right;
-        const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        side.connected = connectedOutputForDesktopStage(output);
         QPointer<KWin::LogicalOutput> destination = output;
         QPointer<KWin::EffectWindow> placed = window;
         QTimer::singleShot(0, this, [this, destination, placed, side, right] {
-            if (!destination || !placed || m_cardStage->activeCardIdentity() != placed) return;
+            if (!destination || !placed) return;
+            // §11, Connected: the edge names a place, as it does for the
+            // Active card carried there: alone on an open display, or among
+            // the columns of the layout the card was played into.
+            if (side.connected) {
+                if (m_desktopStage->managesWindow(placed))
+                    (void)m_desktopStage->placePaneBySide(placed, destination, side);
+                else if (m_cardStage->activeCardIdentity() == placed)
+                    (void)placeActiveCardAlone(destination, side);
+                observeCardOwnership();
+                return;
+            }
+            if (m_cardStage->activeCardIdentity() != placed) return;
             (void)pairActiveCardIntoBento(destination, side, !right);
             observeCardOwnership();
         });
