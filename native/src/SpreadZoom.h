@@ -16,7 +16,7 @@ namespace Kadunce
 // row: three across, the neighbours partly shown (makeSpreadLayout).
 inline constexpr double SpreadCardShare = 0.54;
 // Zoomed out, the share never falls below this, so a card stays readable.
-inline constexpr double SpreadZoomedOutShareMinimum = 0.24;
+inline constexpr double SpreadZoomedOutShareMinimum = 0.16;
 // The ordinary gutter, as a share of the work area's width.
 inline constexpr double SpreadGutterShare = 0.056;
 

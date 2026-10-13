@@ -777,9 +777,9 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
     // The row a card is lifted from keeps the zoom it stood at.
     const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-        zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
+        zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
     const CardRect &centre = layout.cards[1];
-    return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
+    return CarryFrame{centre.x + zoomedRowShift(layout) + centre.width / 2.0, centre.y + centre.height / 2.0,
                       centre.width + layout.gutter, centre.width, centre.height,
                       work.x(), work.width()};
 }
@@ -909,7 +909,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
         : makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-              zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
+              zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
     // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
@@ -944,6 +944,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
         target.x += slot < 0 ? -other.right : slot > 0 ? -other.left : 0.0;
     } else {
         target = makeRowCardTarget(layout, slot, envelopeAt);
+        target.x += zoomedRowShift(layout);
     }
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
@@ -2646,6 +2647,16 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     return true;
+}
+
+double CardStageController::zoomedRowShift(const SpreadLayout &layout) const
+{
+    // Zoomed out, the whole row stands centred on the display, so the selected
+    // card stands where its place in the row puts it rather than in the middle.
+    const auto &spread = m_workspace.model();
+    if (!zoomedOut() || spread.count() < 3) return 0.0;
+    const double pitch = layout.cards[2].x - layout.cards[1].x;
+    return (spread.selectedIndex() - (spread.count() - 1) / 2.0) * pitch;
 }
 
 bool CardStageController::zoomedOut() const

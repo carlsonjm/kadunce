@@ -29,16 +29,20 @@ presents() { context --arg p "$1" '.cardStage.presentation == $p'; }
 # Meta+S by evdev code; Spread's own keys move along the row and open a card.
 spread_key() { probe key 31 125 >/dev/null; sleep 1; }
 open_selected() { probe key 28 0 >/dev/null; sleep 1.2; }
+selected() { [[ $(kad workspaceContext | jq -r '.cardStage.selectedCardId') == "$1" ]]; }
+# The row has two ends, so the keys walk to one end and then to the other.
 select_card() {
-    local id=$1
-    for _ in {1..8}; do
-        [[ $(kad workspaceContext | jq -r '.cardStage.selectedCardId') == "$id" ]] && return 0
-        probe key 106 0 >/dev/null
-        sleep .35
+    local id=$1 key
+    for key in 105 106; do
+        for _ in {1..8}; do
+            selected "$id" && return 0
+            probe key "$key" 0 >/dev/null
+            sleep .35
+        done
     done
-    [[ $(kad workspaceContext | jq -r '.cardStage.selectedCardId') == "$id" ]]
+    selected "$id"
 }
-pick() { select_card "$1"; open_selected; }
+pick() { select_card "$1" || echo "could not select $1"; open_selected; }
 is_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | (.hasCard | not) and (.minimized | not)'; }
 both_panes() { is_pane "$1" && is_pane "$2"; }
 is_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard'; }
