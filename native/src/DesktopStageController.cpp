@@ -566,6 +566,106 @@ bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
     return true;
 }
 
+bool DesktopStageController::stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto,
+    KWin::EffectWindow *next, const std::function<bool()> &commitSource)
+{
+    if (m_restoring || !commitSource || !pane || !onto || pane == onto || next == pane
+        || next == onto || pane->isDeleted() || !pane->window() || pane->isUserMove()
+        || pane->isUserResize() || m_interactionWindow || m_railDrag) return false;
+    if (next && (next->isDeleted() || !next->window() || next->isUserMove() || next->isUserResize()))
+        return false;
+    QString key;
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it)
+        if (it->windows.contains(pane) && it->windows.contains(onto)) { key = it.key(); break; }
+    if (key.isEmpty()) return false;
+    Session *session = &m_sessions[key];
+    if (session->applying) return false;
+    for (const auto &existing : std::as_const(session->snapshots))
+        if (next && existing.window == next) return false;
+    KWin::LogicalOutput *output = outputForKey(key);
+    if (!output) return false;
+    const auto pixels = sessionPixels(*session, stageArea(output));
+    const int from = session->windows.indexOf(pane);
+    const int to = session->windows.indexOf(onto);
+    if (from < 0 || to < 0 || from >= int(pixels.size()) || to >= int(pixels.size())) return false;
+    const auto fits = [&pixels](KWin::EffectWindow *window, int slot) {
+        const QSizeF minimum = window->window()->minSize();
+        return minimum.width() <= pixels[slot].width && minimum.height() <= pixels[slot].height;
+    };
+    if (!fits(pane, to) || (next && !fits(next, from))) return false;
+    const Session live = *session;
+    Session candidate = live;
+    // The pane takes the slot it was let go on, in the place that slot had.
+    const QPointer<KWin::EffectWindow> paneHandle(pane);
+    if (candidate.placed) {
+        if (!next) bentoColumnsRemove(*candidate.placed, paneHandle);
+        for (auto &column : candidate.placed->columns)
+            for (auto &place : column)
+                if (!place.open && place.window == pane) place.window = next;
+        for (auto &column : candidate.placed->columns)
+            for (auto &place : column)
+                if (!place.open && place.window == onto) place.window = paneHandle;
+        if (candidate.placed->columns.empty()) candidate.placed.reset();
+    }
+    candidate.windows[to] = paneHandle;
+    if (next) candidate.windows[from] = next;
+    else {
+        candidate.windows.removeAt(from);
+        if (from < int(candidate.rects.size())) candidate.rects.erase(candidate.rects.begin() + from);
+    }
+    if (candidate.sideWindow == onto) candidate.sideWindow = paneHandle;
+    else if (candidate.sideWindow == pane) {
+        candidate.side.reset();
+        candidate.sideWindow.clear();
+    }
+    // The pane's own record moves to the slot's place in the order, so a
+    // layout laid out again keeps it where the slot stood.
+    const auto paneSaved = std::find_if(candidate.snapshots.cbegin(), candidate.snapshots.cend(),
+        [pane](const auto &saved) { return saved.window == pane; });
+    const auto ontoSaved = std::find_if(candidate.snapshots.cbegin(), candidate.snapshots.cend(),
+        [onto](const auto &saved) { return saved.window == onto; });
+    if (paneSaved == candidate.snapshots.cend() || ontoSaved == candidate.snapshots.cend()) return false;
+    const int paneRecord = int(paneSaved - candidate.snapshots.cbegin());
+    const int ontoRecord = int(ontoSaved - candidate.snapshots.cbegin());
+    candidate.snapshots.move(paneRecord, ontoRecord);
+    candidate.snapshots.removeIf([onto](const auto &saved) { return saved.window == onto; });
+    if (next) {
+        const RestoreSnapshot snapshot = makeSnapshot(next);
+        if (!snapshot.valid) return false;
+        candidate.snapshots.append(snapshot);
+    } else {
+        // Its room given up, the layout is laid out again as after a closure.
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (!reflowSession(candidate, nullptr, false, false, &unshowable) || !unshowable.isEmpty()
+            || !candidate.windows.contains(paneHandle)) return false;
+    }
+    if (!commitSource()) return false;
+    const auto pending = captureEvictions(live, candidate);
+    *session = std::move(candidate);
+    if (applySession(*session, true)) scheduleSettle();
+    publishEvictions(pending);
+    // §5: a layout left with one pane ends, as after a closure.
+    if (!next) {
+        endLayoutIntoCardOwnership(key);
+        auto surviving = m_sessions.find(key);
+        if (surviving != m_sessions.end() && applySession(surviving.value(), false))
+            scheduleSettle();
+    }
+    return true;
+}
+
+KWin::EffectWindow *DesktopStageController::paneAt(const KWin::LogicalOutput *output,
+    QPointF position, const KWin::EffectWindow *except) const
+{
+    const auto *session = sessionForOutput(output);
+    if (!session || session->applying) return nullptr;
+    for (const auto &window : session->windows) {
+        if (!window || window == except || window->isDeleted() || window->isMinimized()) continue;
+        if (QRectF(window->frameGeometry()).contains(position)) return window;
+    }
+    return nullptr;
+}
+
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
     CardDropIntent intent, std::optional<BentoSidePlacement> side,

@@ -30,6 +30,7 @@ scenes=(
     no-touch-runtime production
     spread-display-runtime production
     connected-runtime production
+    connected-stacks-runtime production
     every-display-runtime production
     provenance-runtime production
     table-preview-runtime production

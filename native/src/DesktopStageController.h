@@ -241,6 +241,17 @@ public:
     [[nodiscard]] bool replacePaneWithCard(KWin::EffectWindow *pane, KWin::EffectWindow *card,
                                            const std::function<bool()> &commitSource,
                                            bool closing = false);
+    // §11, Connected: a pane let go on another pane joins that pane's Stack in
+    // front. It takes the other's slot, and the other becomes a card behind
+    // it. The slot it left goes to `next`, the next card of its own Stack,
+    // whom `commitSource` gives up; with none, its room is given up as a
+    // closing pane's is.
+    [[nodiscard]] bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto,
+                                     KWin::EffectWindow *next,
+                                     const std::function<bool()> &commitSource);
+    // The pane of `output`'s layout under `position`, other than `except`.
+    [[nodiscard]] KWin::EffectWindow *paneAt(const KWin::LogicalOutput *output, QPointF position,
+                                             const KWin::EffectWindow *except = nullptr) const;
 
     enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
     // Opaque receiver reservation. Copies share consumption: a preview cannot
