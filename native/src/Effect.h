@@ -869,6 +869,9 @@ private:
     // Kadunce is giving windows back: one returning from minimized then was
     // not picked by the person.
     bool m_releasing = false;
+    // §13: windows given back stay plain windows until a window opens or the
+    // person asks for cards again; nothing takes them back on its own.
+    bool m_letGo = false;
     // Sleeping cards Spread keeps drawn, dimmed.
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_sleepingShown;
     static constexpr qreal SleepingCardOpacity = 0.45;

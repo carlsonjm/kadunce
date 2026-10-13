@@ -477,8 +477,8 @@ holds more than two panes (§5), unless chosen for that display (`kaduncerc`
 `[Sizing]`). Active is the rest of this document.
 On Connected:
 
-- Spread opens zoomed out, every card whole, and each pane is a card of its
-  own; there is no Bento group.
+- Spread opens zoomed out, every card whole, and each pane is a full card of
+  its own; there is no Bento group.
 - A card chosen joins the layout: paired with the card in use when none shows,
   else under §8.
 - A Stack fills one pane, its other cards hidden behind it. Stepping it, or
@@ -487,12 +487,12 @@ On Connected:
 
 ### Every display
 
-Each other display holds its own cards, sized by its size; Spread shows its
-waiting cards, and one picked opens there. Sized Active, it shows one card: a
-window opened or carried there is that card, closing it brings back the one before, and
-a placed Stack steps there. Connected, it plays cards into its layout.
-Unplugged, its cards stay in Spread. Opened over a display holding none,
-Spread gathers the others' cards, giving back those not chosen.
+Each other display holds its own cards, sized by its size. Spread shows every
+card, giving back those not chosen; one picked opens there. Sized Active, it
+shows one card: one carried there is that card, closing it brings back the one
+before, and a placed Stack steps there. Connected, it plays cards into its
+layout. A window opens on Spread's display. Unplugged, its cards stay in
+Spread. Let go (§13), windows stay windows until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there

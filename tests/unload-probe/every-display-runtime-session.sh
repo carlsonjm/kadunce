@@ -3,9 +3,10 @@
 # Virtual-0 at scale 2 is small and sized Active, Virtual-1 is large, sized
 # Connected and chosen for Spread. Every window is a card on both. The small
 # display shows one card whole; the rest of its windows wait in Spread on the
-# large one. A card of the small display picked in Spread opens there, the
-# card it replaced goes back to Spread, and the large display goes back to
-# what it showed. A window opened on the small display is the card it shows;
+# large one, with the card it shows. A card of the small display picked in
+# Spread opens there, the card it replaced waits in Spread, and the large
+# display goes back to what it showed. A window carried to the small display
+# is the card it shows;
 # closing it brings back the card it used before. A Stack placed on the small
 # display fills it, and Meta+Down steps it there. With every window moved to
 # the small display, Spread still opens, gathering the card it shows, and gives
@@ -121,7 +122,7 @@ spread_key
 report spread
 check 'spread: Spread opens on the large display' presents cardLine
 check 'spread: the small display waiting card is in it' in_spread "$waiting"
-check 'spread: the small display still shows its card' shown_small "$shown"
+check 'spread: the card the small display shows is in it too' in_spread "$shown"
 pick "$waiting"
 report picked
 check 'pick: the picked card shows on the small display' shown_small "$waiting"
@@ -132,7 +133,7 @@ check 'pick: the large display went back to its own card' \
     context --arg mb "$mb" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $mb'
 check 'pick: the picked card has focus' focused "$waiting"
 
-# A window opened on the small display is the card it shows.
+# A window carried to the small display is the card it shows.
 probe pointer 640 360
 probe activateWindowId "$waiting" >/dev/null
 sleep .5
