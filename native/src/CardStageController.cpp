@@ -4679,7 +4679,11 @@ bool CardStageController::enterActive()
     // A keyboard may already be up over the card that just arrived.
     refreshKeyboardRoom();
     KWin::workspace()->raiseWindow(client);
-    KWin::workspace()->activateWindow(client, true);
+    const QPointer<KWin::EffectWindow> keep = std::exchange(m_focusAfterActive, nullptr);
+    if (keep && !keep->isDeleted() && keep->window() && !keep->isMinimized())
+        KWin::workspace()->activateWindow(keep->window(), true);
+    else
+        KWin::workspace()->activateWindow(client, true);
     qInfo() << "Kadunce" << Revision
             << "entered interactive Active with" << effectWindow->caption();
     return true;

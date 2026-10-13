@@ -157,10 +157,13 @@ check 'close: still one card shown there' small_panes 1
 client titledCompanion 'Tab C' 500 400
 sleep 1.5
 tc=$(idOf 'Tab C')
+probe windowFacts | jq -c --arg id "$tc" 'first(.[] | select(.id == $id)) | {caption, output}'
 if [[ $(app "$tc" | jq -r '.output') != Virtual-0 ]]; then
     probe sendCaptionToOutput 'Tab C' Virtual-0
     sleep 1.2
 fi
+report reopened
+check 'reopen: the large display shows its own card' presents active
 spread_key
 report spread-two
 carry_onto "$ta" "$tb"

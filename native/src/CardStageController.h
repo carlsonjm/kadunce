@@ -465,6 +465,12 @@ public:
     // A card chosen to show on another display that holds its own cards goes
     // there, joining its layout. The card this display presents stays.
     bool sendCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // The next entry into Active keeps the focus on this window, a card just
+    // shown on another display, instead of taking it for the Active card.
+    void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }
+    void clearFocusAfterActive(const KWin::EffectWindow *window) {
+        if (m_focusAfterActive == window) m_focusAfterActive.clear();
+    }
     // Whether this stage is presenting the display's Bento layout rather than
     // its own cards, so a caller can route an activation to the layout.
     [[nodiscard]] bool presentsBento() const {
@@ -727,6 +733,7 @@ private:
     bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     ActiveRestoreSnapshot m_activeRestore;
     QPointer<KWin::EffectWindow> m_presentedActive;
+    QPointer<KWin::EffectWindow> m_focusAfterActive;
     // The last two cards presented Active, newest first: what a side snap of
     // the Active card names as its partner (CARD-LIFECYCLE.md §3).
     QPointer<KWin::EffectWindow> m_usedActive;

@@ -3157,8 +3157,19 @@ bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
         && m_cardStage->presentation() == CardPresentation::Spread) {
         if (m_cardStage->backFromSpread()) {
             KWin::EffectWindow *back = m_cardStage->selectedWindow();
-            if (back && cardHome(back)) m_cardStage->showDesktop();
-            else toggleOwnedPresentation(true);
+            if (back && cardHome(back)) {
+                m_cardStage->showDesktop();
+            } else {
+                // The card picked keeps the focus once Spread's display is back.
+                m_cardStage->focusAfterActive(card);
+                toggleOwnedPresentation(true);
+                if (m_cardStage->presentation() == CardPresentation::Active)
+                    m_cardStage->focusAfterActive(nullptr);
+                const QPointer<KWin::EffectWindow> picked = card;
+                QTimer::singleShot(2000, this, [this, picked] {
+                    if (picked) m_cardStage->clearFocusAfterActive(picked);
+                });
+            }
         }
     }
     KWin::effects->activateWindow(card);
