@@ -32,7 +32,8 @@ the application is not running.
 - On the display that owns cards (`CARD-LIFECYCLE.md` § 11): a side edge pairs
   the application into Bento as the Active card carried there would
   (§ 3, § 10); anywhere else, the top edge included, makes it the Active card.
-  A side edge on a display Kadunce does not yet own makes it the Active card.
+  A side edge on a display Kadunce does not yet own makes it the Active card,
+  except on a Connected display, where it takes that place alone.
 - On any other display: a side or top edge begins or joins that display's
   layout as a carried window would (§ 10, § 11), and anywhere else opens the
   application there.

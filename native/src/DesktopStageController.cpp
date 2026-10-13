@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace Kadunce
@@ -467,6 +468,11 @@ bool DesktopStageController::takeSlotAtCap(Session &candidate, int slot,
     const QPointer<KWin::EffectWindow> yielding = candidate.windows.at(slot);
     if (!yielding || yielding == arrival.window) return false;
     candidate.windows[slot] = arrival.window;
+    // §11, Connected: the arrival stands where the card it replaces stood.
+    if (candidate.placed)
+        for (auto &column : candidate.placed->columns)
+            for (auto &place : column)
+                if (!place.open && place.window == yielding) place.window = arrival.window;
     candidate.snapshots.removeIf(
         [&yielding](const auto &saved) { return saved.window == yielding; });
     candidate.snapshots.append(arrival);
@@ -550,10 +556,6 @@ bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
     const Session live = *session;
     Session candidate = live;
     if (!takeSlotAtCap(candidate, slot, snapshot)) return false;
-    if (candidate.placed)
-        for (auto &column : candidate.placed->columns)
-            for (auto &slot : column)
-                if (!slot.open && slot.window == pane) slot.window = card;
     if (!commitSource()) return false;
     // A closing pane has no card to become; it only gives up its slot.
     const QList<PendingEviction> pending = closing ? QList<PendingEviction>{}
@@ -933,6 +935,23 @@ bool DesktopStageController::transferPreparedCard(const PreparedDrop &drop,
     return transferCardWindow(drop.window, drop.output, drop.geometry, [&] {
         return cardDropValid(validation) && commitSource();
     }, releaseSource, drop.intent, nullptr, drop.side);
+}
+
+bool DesktopStageController::placePaneBySide(KWin::EffectWindow *window,
+    KWin::LogicalOutput *output, BentoSidePlacement side)
+{
+    if (!window || !output || window->screen() != output || !managesWindow(window)) return false;
+    const auto drop = prepareCardDrop(window, output, KWin::RectF(window->frameGeometry()),
+                                      CardDropIntent::OpenSpace, side);
+    if (!drop) return false;
+    const auto placement = prepareLocalPlacement(*drop);
+    auto *session = sessionForOutput(output);
+    if (!placement || !session) return false;
+    const auto pending = captureEvictions(*session, *placement);
+    *session = *placement;
+    if (applySession(*session, false)) scheduleSettle();
+    publishEvictions(pending);
+    return true;
 }
 
 bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin::LogicalOutput *output,
@@ -1460,23 +1479,52 @@ bool DesktopStageController::planSession(Session &session,
                 for (const auto &window : std::as_const(owned))
                     whole = whole && (window == session.sideWindow || session.windows.contains(window));
                 if (whole) columns = bentoColumnsFromRects(standing, standingRects);
+                // Any other shape is dealt into columns first, so a snap on a
+                // Connected display always names a place.
+                if (whole && !columns) columns = bentoColumnsDealt(standing);
             }
         }
         if (columns) {
             if (snapped) bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
-            bool fits = true;
+            // The shorter side of the smallest pane, when every pane holds
+            // its card's minimum.
+            const auto smallestSide = [&area](const BentoPlacedColumns &layout)
+                -> std::optional<double> {
+                std::vector<QPointer<KWin::EffectWindow>> held;
+                std::vector<BentoRect> places;
+                bentoColumnsLayout(layout, held, places);
+                double smallest = std::numeric_limits<double>::max();
+                for (std::size_t i = 0; i < held.size(); ++i) {
+                    const double width = places[i].width * area.width();
+                    const double height = places[i].height * area.height();
+                    const QSizeF least = held[i]->window()->minSize();
+                    if (least.width() > width + 1 || least.height() > height + 1) return std::nullopt;
+                    smallest = std::min({smallest, width, height});
+                }
+                return smallest;
+            };
             for (const auto &window : std::as_const(owned)) {
                 if (bentoColumnsHold(*columns, window)) continue;
-                if (!bentoColumnsFill(*columns, window)) { fits = false; break; }
+                if (bentoColumnsFill(*columns, window)) continue;
+                // Past the open room a card joins the column holding fewest or
+                // starts a column at the right, whichever leaves the smallest
+                // pane largest.
+                auto joined = *columns;
+                bentoColumnsJoin(joined, window);
+                auto widened = *columns;
+                widened.columns.push_back({{window, false}});
+                const auto joinedSide = smallestSide(joined);
+                const auto widenedSide = smallestSide(widened);
+                *columns = widenedSide && (!joinedSide || *widenedSide > *joinedSide)
+                    ? widened : joined;
             }
             std::vector<QPointer<KWin::EffectWindow>> handles;
             std::vector<BentoRect> rects;
-            if (fits) bentoColumnsLayout(*columns, handles, rects);
-            for (std::size_t i = 0; fits && i < handles.size(); ++i) {
-                const QSizeF least = handles[i]->window()->minSize();
-                fits = least.width() <= rects[i].width * area.width() + 1
-                    && least.height() <= rects[i].height * area.height() + 1;
-            }
+            const auto holdsMinimums = [&] {
+                bentoColumnsLayout(*columns, handles, rects);
+                return smallestSide(*columns).has_value();
+            };
+            const bool fits = holdsMinimums();
             if (fits) {
                 // The same columns keep the places dividers gave them.
                 const bool same = session.placed && *session.placed == *columns
@@ -1493,9 +1541,9 @@ bool DesktopStageController::planSession(Session &session,
                 session.placeAlone = false;
                 return true;
             }
-            // A snap that cannot stand where it asked is refused; an arrival
-            // with no open room lays the whole layout out again.
-            if (snapped) return false;
+            // Columns that cannot hold every card at its minimum give way to
+            // the whole layout laid out again, a snapped card kept at its
+            // side; only a card even that cannot hold goes to Spread.
         }
         session.placed.reset();
     }
@@ -1800,7 +1848,9 @@ bool DesktopStageController::shortenToShowable(Session &session, const RestoreSn
     // decides nothing about that pane; it names only what the arrival still
     // leaves unshowable, as it does for an arrival that names no side.
     KWin::LogicalOutput *output = outputForKey(session.outputName);
-    if (side && output) {
+    // §11, Connected: the snap names a place among columns, and only what
+    // the solve cannot hold leaves.
+    if (side && !side->connected && output) {
         const auto pixels = sessionPixels(session, stageArea(output));
         const int index = pixels.size() == std::size_t(session.windows.size())
             ? bentoPaneOnSide(pixels, side->right, side->large) : -1;

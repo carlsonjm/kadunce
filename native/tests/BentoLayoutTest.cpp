@@ -540,6 +540,19 @@ int main()
             "The stacked terminals did not stay together left of the browser");
         require(!bentoColumnsFill(layout, 4), "A layout with no open room offered some");
 
+        // A fourth card with no room open joins the column holding fewest,
+        // and a side snap still places among the columns.
+        Columns fourth = layout;
+        bentoColumnsJoin(fourth, 4);
+        require(shape(fourth) == std::vector<std::vector<int>>{{1, 2}, {3, 4}},
+            "A fourth card did not join the column holding fewest");
+        bentoColumnsPlace(fourth, 4, leftBeside);
+        require(shape(fourth) == std::vector<std::vector<int>>{{4}, {1, 2}, {3}},
+            "Beside on the left after a fourth card did not take the left edge");
+        bentoColumnsPlace(fourth, 3, leftUnder);
+        require(shape(fourth) == std::vector<std::vector<int>>{{4, 3}, {1, 2}},
+            "Under on the left after a fourth card did not join the left column");
+
         // Under on the other side starts a column there; beside on the left
         // goes first; a card leaving opens no room in a column of others.
         bentoColumnsPlace(layout, 4, leftUnder);
@@ -554,6 +567,14 @@ int main()
             "The column left did not keep the left half");
         bentoColumnsRemove(alone, 1);
         require(alone.columns.empty(), "A column of open room outlived its last card");
+
+        // Any other shape is dealt into as many columns as rows.
+        require(shape(bentoColumnsDealt<int>({1, 2, 3, 4, 5}))
+                    == std::vector<std::vector<int>>{{1, 4}, {2, 5}, {3}},
+            "Five cards were not dealt into three columns");
+        require(shape(bentoColumnsDealt<int>({1, 2, 3, 4}))
+                    == std::vector<std::vector<int>>{{1, 3}, {2, 4}},
+            "Four cards were not dealt into two columns");
 
         // A layout on screen reads as columns only when it is one.
         const auto read = bentoColumnsFromRects<int>({1, 2, 3},

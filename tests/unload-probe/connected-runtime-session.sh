@@ -261,8 +261,8 @@ end_pass full
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-for title in 'Term A' 'Term B' 'Browser'; do client titledCompanion "$title" 500 400; sleep .5; done
-a=$(idOf 'Term A') b=$(idOf 'Term B') c=$(idOf 'Browser')
+for title in 'Term A' 'Term B' 'Browser' 'Notes' 'Mail'; do client titledCompanion "$title" 500 400; sleep .5; done
+a=$(idOf 'Term A') b=$(idOf 'Term B') c=$(idOf 'Browser') n=$(idOf 'Notes') m=$(idOf 'Mail')
 probe contactObserve >/dev/null
 probe contactStart >/dev/null
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
@@ -326,6 +326,26 @@ check 'close: the first terminal keeps its place' same_rect "$a" "$before_a"
 check 'close: the second terminal keeps its place' same_rect "$b" "$before_b"
 check 'close: both still show' both_panes "$a" "$b"
 check 'close: the layout still shows' layout_shown
+# Past the open room, a card joins the column holding fewest, and side snaps
+# still place among the columns.
+spread_key
+pick "$n"
+spread_key
+pick "$m"
+report fourth
+check 'fourth: the first pick tops the right column' geometry "$n" '.x > 1250 and .y < 200 and .height < 760'
+check 'fourth: a card past the open room joins that column' geometry "$m" '.x > 1250 and .y > 650 and .height < 760'
+check 'fourth: the terminals stay stacked on the left' geometry "$a" '.x < 30 and .y < 200 and .height < 760'
+snap "$m" 'Mail' 5 300
+report fourth-beside
+check 'fourth beside: the preview is a full-height column at the left edge' previewed '.x < 30 and .height > 1300 and .width < 900'
+check 'fourth beside: it lands where the preview showed' placed_at "$m"
+check 'fourth beside: the terminals move inward, still stacked' geometry "$a" '.x > 800 and .x < 1000 and .y < 200 and .height < 760'
+snap "$a" 'Term A' 2555 1200
+report fourth-under
+check 'fourth under: the preview is the bottom of the right column' previewed '.x > 1650 and .y > 650'
+check 'fourth under: it lands where the preview showed' placed_at "$a"
+check 'fourth under: the card above it moved up' geometry "$n" '.x > 1650 and .y < 200 and .height < 760'
 end_pass place
 
 if (( failures > 0 )); then
