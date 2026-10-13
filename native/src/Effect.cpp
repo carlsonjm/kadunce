@@ -6628,11 +6628,6 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && m_cardStage->presentation() == CardPresentation::Spread
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
     const KeyAction action = keyActionFor(key, modifiers, context);
-    // Meta+Esc has gone unanswered on a tablet's keyboard; say what arrives
-    // with Meta held.
-    if (!repeat && ((modifiers & Qt::MetaModifier) || key == Qt::Key_Escape))
-        qInfo() << "Kadunce" << Revision << "sees key" << Qt::hex << key << Qt::dec << "with"
-                << modifiers << "as action" << int(action);
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;
