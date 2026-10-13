@@ -582,6 +582,11 @@ public:
         SessionScope scope(m_effect, m_session);
         return cards().connectedForCardStage();
     }
+    bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().holdsOwnCardsForCardStage(output);
+    }
     bool admitCardToDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource) override

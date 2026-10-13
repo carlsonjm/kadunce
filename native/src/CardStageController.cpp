@@ -5406,6 +5406,24 @@ void CardStageController::handleActiveGeometryChanged(
     // back to its last place does, takes only its own card there and stays.
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     KWin::LogicalOutput *placed = client->moveResizeOutput();
+    if (tablet && placed && placed != tablet && !m_cardGrabActive
+        && m_host->holdsOwnCardsForCardStage(placed)) {
+        // §11, Every display: there it is the card that display shows, once
+        // this notification has returned.
+        const QPointer<KWin::EffectWindow> moved = window;
+        const QString there = placed->name();
+        QTimer::singleShot(0, &m_arrivalTimer, [this, moved, there] {
+            if (!moved || moved->isDeleted() || liveCardIndex(moved) < 0) return;
+            KWin::LogicalOutput *display = KWin::effects->findScreen(there);
+            if (display && m_host->holdsOwnCardsForCardStage(display)
+                && giveCardToDisplay(moved, display)) {
+                KWin::effects->activateWindow(moved);
+                return;
+            }
+            (void)releaseCard(moved, false);
+        });
+        return;
+    }
     if (tablet && placed && placed != tablet && !m_cardGrabActive) {
         qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
                 << "go: KWin placed it on" << placed->name();

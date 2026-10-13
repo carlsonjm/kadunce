@@ -111,6 +111,8 @@ public:
     // Whether this display is sized Connected (DisplaySizing.h), so Spread
     // opens zoomed out. A host that draws no distinction answers Active.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
+    // Whether this display holds its own cards, beside the one holding Spread.
+    [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
     // A card about to be resized while Spread shows it: the host may keep its
     // last good picture first and call `resize` once it has, answering true.
     // An application's first frames at a new size can be empty, and Spread

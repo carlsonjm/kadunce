@@ -341,6 +341,10 @@ private:
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void openGroupAfterDropForCardStage(const QRectF &from) override;
     [[nodiscard]] bool connectedForCardStage() const override;
+    [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        return isOtherCardDisplay(output);
+    }
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
