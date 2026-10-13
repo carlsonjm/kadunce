@@ -3844,8 +3844,8 @@ void Effect::beginBezelSpreadFromInput()
 {
     m_spreadGesture = {};
     // With Spread on another display, the touchscreen's swipe steps the Stack
-    // it shows.
-    m_bezelStepsStack = stackSwipeDisplay() != nullptr;
+    // it shows; a lone card there ignores it.
+    m_bezelStepsStack = isOtherCardDisplay(KWin::effects->findScreen(m_touchOutputName));
 }
 
 void Effect::followBezelSpreadFromInput(double rise)
