@@ -2857,17 +2857,6 @@ void Effect::handleWindowOutputChanged()
     // the turn after sees where the window stands. A card, a pane or a window
     // being carried already has an owner deciding where it goes.
     QTimer::singleShot(0, this, [this, window] {
-        // A pane sent to another display leaves its layout there as one
-        // carried there by its title bar does. A card of another display is
-        // placed by Card Stage, and Spread moves no pane.
-        if (window && !m_releasing && window->window() && !window->isUserMove()
-            && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
-            && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
-            && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
-            observeCardOwnership();
-            Q_EMIT workspaceContextChanged();
-            return;
-        }
         // §11, Every display: a card sent to another display that holds its
         // own cards is the card that display shows.
         if (window && !m_releasing && window->window() && !window->isUserMove()
@@ -2880,6 +2869,17 @@ void Effect::handleWindowOutputChanged()
                 Q_EMIT workspaceContextChanged();
                 return;
             }
+        }
+        // A pane sent to another display leaves its layout there as one
+        // carried there by its title bar does. Spread moves no pane.
+        if (window && !m_releasing && window->window() && !window->isUserMove()
+            && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
+            && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
+            && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
+            KWin::effects->activateWindow(window);
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+            return;
         }
         if (!window || m_releasing || !isCardWindow(window) || isDependentWindow(window)
             || !window->window() || !window->window()->readyForPainting()
