@@ -7360,33 +7360,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // before the card stage puts a card where the panes were. Without
         // this the card is drawn over a running layout, which is the one
         // state §2 does not name.
-        // §11 Connected: a window opened beside the Active card joins it in
-        // the layout, as a card chosen in Spread does.
-        KWin::LogicalOutput *spreadDisplay = tabletOutput();
-        const QPointer<KWin::EffectWindow> inUse = spreadDisplay && connectedForCardStage()
-            && candidate->screen() == spreadDisplay && m_cardStage->isActive()
-            && m_cardStage->presentation() == CardPresentation::Active
-            ? m_cardStage->selectedWindow() : nullptr;
         (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
-        if (inUse && inUse != candidate && !cardHome(inUse)) {
-            const QPointer<KWin::EffectWindow> arrival = candidate;
-            QTimer::singleShot(0, this, [this, arrival, inUse] {
-                KWin::LogicalOutput *display = tabletOutput();
-                if (!arrival || !inUse || arrival->isDeleted() || inUse->isDeleted() || !display
-                    || m_cardStage->liveCardIndex(arrival) < 0 || m_cardStage->liveCardIndex(inUse) < 0
-                    || inUse->isMinimized() || m_cardStage->selectedWindow() != arrival) return;
-                const QList<KWin::EffectWindow *> partnerBehind = m_cardStage->stackFrontToBack(inUse).mid(1);
-                if (pairCardsIntoBento(display, arrival, inUse, BentoSidePlacement{true, true})) {
-                    qInfo() << "Kadunce" << Revision << "paired" << arrival->caption()
-                            << "with the card in use";
-                    m_cardStage->notePaneStack(inUse, partnerBehind);
-                    m_cardStage->settlePaneStacks();
-                    KWin::effects->activateWindow(arrival);
-                    observeCardOwnership();
-                }
-            });
-        }
         completeLauncherGuestForWindow(candidate);
         observeCardOwnership();
         completePlacementForWindow(candidate);
