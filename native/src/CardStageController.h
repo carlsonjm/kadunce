@@ -111,6 +111,9 @@ public:
     // Whether this display is sized Connected (DisplaySizing.h), so Spread
     // opens zoomed out. A host that draws no distinction answers Active.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
+    // Whether the layout this display presents was placed by a side snap, so
+    // it can leave room open where the desktop shows (CARD-LIFECYCLE.md §11).
+    [[nodiscard]] virtual bool layoutLeavesRoomForCardStage() const { return false; }
     // Whether this display holds its own cards, beside the one holding Spread.
     [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
     // The display a card is given back on when every card is let go: the one

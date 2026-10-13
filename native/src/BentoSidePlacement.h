@@ -9,6 +9,10 @@ namespace Kadunce {
 struct BentoSidePlacement {
     bool right = false;
     bool large = true;
+    // CARD-LIFECYCLE.md §11, Connected: the contact names a place and never a
+    // share. The upper half puts the card beside, in a column of its own; the
+    // lower half puts it under what that side holds. Shares are even.
+    bool connected = false;
 };
 
 // Contact chooses intent; geometry is solved separately with native minimums.
@@ -138,7 +142,11 @@ inline std::optional<std::vector<BentoRect>> bentoProportionalSideLayout(
 {
     constexpr double halfGap = BentoSideHalfGap;
     const double low = (std::max(1.0, arrival.minimumWidth) + halfGap) / width;
-    const double desired = choice.large ? 2.0/3.0 : 1.0/3.0;
+    // Connected, a column of its own shares the width evenly with the columns
+    // beside it.
+    const double desired = choice.connected
+        ? 1.0 / double(std::min<std::size_t>(companions.size() + 1, 3))
+        : choice.large ? 2.0/3.0 : 1.0/3.0;
     std::optional<std::vector<BentoRect>> best;
     double bestDistance = 2.0;
     // The remainder is the area the companion preset has to fill, so that

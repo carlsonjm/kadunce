@@ -582,6 +582,11 @@ public:
         SessionScope scope(m_effect, m_session);
         return cards().connectedForCardStage();
     }
+    bool layoutLeavesRoomForCardStage() const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().layoutLeavesRoomForCardStage();
+    }
     bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session);
@@ -1529,6 +1534,12 @@ bool Effect::connectedForCardStage() const
 {
     KWin::LogicalOutput *output = tabletOutput();
     return output && sizingFor(output) == DisplaySizing::Connected;
+}
+
+bool Effect::layoutLeavesRoomForCardStage() const
+{
+    KWin::LogicalOutput *output = tabletOutput();
+    return output && m_desktopStage->presentsPlacedLayoutOn(output->name());
 }
 
 bool Effect::isCardWindow(const KWin::EffectWindow *window) const
@@ -4462,6 +4473,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             QRectF(target->geometry()).center().y(), previousDestination
                 && previousDestination->destinationOutput() == target
                 ? previousDestination->sidePlacement() : std::nullopt);
+    // §11, Connected: the contact names a place, beside or under.
+    if (side) side->connected = connectedOutputForDesktopStage(target);
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
     const QRectF area = nativeLandingAreaForOutput(target);
@@ -4561,6 +4574,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             .carriedEligible = isCardWindow(m_carriedWindow),
             .partnerNamed = partner != nullptr,
             .carriedIsActive = m_cardStage->activeCardIdentity() == m_carriedWindow,
+            .placesAlone = tablet && connectedForCardStage(),
         });
         QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         QPointer<KWin::LogicalOutput> output = target;
@@ -4573,6 +4587,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 : outcome == EdgeEntryOutcome::Unchanged ? "nothing: no partner"
                 : outcome == EdgeEntryOutcome::ComposeDisplayBento ? "a layout across the display"
                 : outcome == EdgeEntryOutcome::PairIntoBento ? "a Bento pair"
+                : outcome == EdgeEntryOutcome::PlaceAlone
+                    ? (side && side->large ? "the card alone, beside" : "the card alone, under")
                 : outcome == EdgeEntryOutcome::AdoptDisplay ? "cards, starting with this window"
                 : "the Active card";
             const QString line = QStringLiteral("%1 at the %2 edge would make %3%4")
@@ -4622,6 +4638,41 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     // It grows into its pane from where it was let go, as a
                     // card let go on a pane of the group in Spread does.
                     if (committed) startPaneArrival(carried, output, drawn);
+                    return committed;
+                });
+            return;
+        }
+        case EdgeEntryOutcome::PlaceAlone: {
+            // §11, Connected: the Active card takes the place its contact
+            // names, alone. Nothing pairs, and the rest of the display stays
+            // open for the next card.
+            refusal = GestureRefusal::Unplaced;
+            if (!side || !destination) return;
+            refusal = GestureRefusal::NoRoom;
+            const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
+                KWin::RectF(QRectF(handoff.carry().position(), m_carryPickup.size())),
+                DesktopStageController::CardDropIntent::ActivateBento, side, nullptr, true);
+            if (!reserved) return;
+            m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
+            if (!m_carryPreview) return;
+            m_carryDestination = reserved;
+            handoff.previewDrop(*destination,
+                [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+                [this, reserved, carried, output, bento](const PreparedCarrySource &source) {
+                    // Read before commit, which can retire the carry's pose.
+                    const QRectF drawn = carriedPose();
+                    const bool committed = (bento ? m_desktopStage->nativeCarrySourceValid(source)
+                                  : m_cardStage->nativeCarrySourceValid(source))
+                        && m_desktopStage->activatePreparedTabletDrop(*reserved,
+                            &source.restoreSnapshot(),
+                            [this, carried] {
+                                return m_cardStage->releasePairToBento(carried, nullptr);
+                            });
+                    if (committed) {
+                        startPaneArrival(carried, output, drawn);
+                        // The room left open shows the desktop, not the cards.
+                        m_cardStage->syncSelectedElevation();
+                    }
                     return committed;
                 });
             return;
@@ -4890,6 +4941,13 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
 {
     // A layout on a desktop not shown settles without being watched.
     if (!scopedToCurrent()) return;
+    // §11, Connected: a placed layout can open or fill room, which decides
+    // whether the cards behind it are held aside. Asked after the turn, as the
+    // layout is still being applied.
+    if (output && isTabletOutput(output))
+        QTimer::singleShot(0, this, [this] {
+            if (!m_releasing && m_cardStage) m_cardStage->syncSelectedElevation();
+        });
     // Geometry is already committed. This is bounded presentation only;
     // each output's changed panes share one clock and retain interrupted poses.
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {

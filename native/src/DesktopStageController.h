@@ -153,6 +153,9 @@ public:
     // Between a layout's panes, inside the box they fill together: the gutter a
     // press there must not reach whatever window lies behind the layout.
     [[nodiscard]] bool inPaneGutter(QPointF position) const;
+    // CARD-LIFECYCLE.md §11, Connected: the display's layout was placed by a
+    // side snap, so it keeps its places and can leave room open.
+    [[nodiscard]] bool presentsPlacedLayoutOn(const QString &outputName) const;
     void restoreAllSessions();
     // §11, Every display: a display holding its own cards begins its layout
     // with every window there, `preferred` shown first. False when it already
@@ -246,6 +249,7 @@ public:
         KWin::LogicalOutput *destinationOutput() const { return output.data(); }
         bool detachesToDesktop() const { return intent == CardDropIntent::NativeDesktop && leavingBento; }
         bool showsPlacementOutline() const { return intent != CardDropIntent::NativeDesktop || leavingBento; }
+        bool placesAlone() const { return alone; }
     private:
         friend class DesktopStageController;
         QPointer<KWin::EffectWindow> window;
@@ -260,6 +264,9 @@ public:
         std::optional<BentoSidePlacement> side;
         bool hadSession = false;
         bool leavingBento = false;
+        // §11, Connected: the card is placed at its side alone, with nothing
+        // else on the display an input to the solve.
+        bool alone = false;
         QPointer<KWin::EffectWindow> localTarget;
         // CARD-LIFECYCLE.md §3: a side snap that pairs names the one card it
         // pairs with, so solving, preview and revalidation all see exactly two
@@ -273,7 +280,7 @@ public:
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &geometry, CardDropIntent intent = CardDropIntent::OpenSpace,
         std::optional<BentoSidePlacement> side = {},
-        KWin::EffectWindow *pairPartner = nullptr) const;
+        KWin::EffectWindow *pairPartner = nullptr, bool alone = false) const;
     [[nodiscard]] bool cardDropValid(const PreparedDrop &drop) const;
     [[nodiscard]] std::optional<PreparedDrop> prepareLocalCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
@@ -338,6 +345,12 @@ private:
         // of it, until a second window joins (DECISIONS.md § A display without
         // cards organizes everything it shows).
         bool lone = false;
+        // CARD-LIFECYCLE.md §11, Connected: the columns side snaps placed. A
+        // pane leaving opens its room, an arrival fills open room, and one
+        // with no room to fill lays the whole layout out again.
+        std::optional<BentoPlacedColumns> placed;
+        // This plan places its one window at `side` alone.
+        bool placeAlone = false;
         quint64 applicationToken = 0;
     };
     // Each pane's rectangle as it stands now: KWin's zones where the session
@@ -372,7 +385,7 @@ private:
         const KWin::RectF &geometry, const NativeMoveSnapshot *restore = nullptr,
         std::optional<BentoSidePlacement> side = {},
         KWin::EffectWindow *pairPartner = nullptr,
-        QList<QPointer<KWin::EffectWindow>> *unadopted = nullptr);
+        QList<QPointer<KWin::EffectWindow>> *unadopted = nullptr, bool alone = false);
     [[nodiscard]] std::optional<Session> prepareLocalPlacement(const PreparedDrop &drop) const;
     // CARD-LIFECYCLE.md §5: the windows a published plan no longer names, with
     // the records this session still holds for them. Captured before the plan
