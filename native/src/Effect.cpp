@@ -6968,6 +6968,21 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_settlingWindow) clearDropSettle();
     if (window == m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     m_activationOrder.remove(windowIdentity(window));
+    // CARD-LIFECYCLE.md §11: a Stack stays whole until one card is left, so a
+    // closing pane's slot goes to the next card of its Stack.
+    if (m_cardStage->presentsBento() && connectedForCardStage()
+        && m_desktopStage->managesWindow(window)) {
+        const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(window);
+        KWin::EffectWindow *next = behind.isEmpty() ? nullptr : behind.first();
+        if (next && m_desktopStage->replacePaneWithCard(window, next,
+                [this, next] { return m_cardStage->releaseCardToLiveBento(next); }, true)) {
+            m_cardStage->forgetPaneStack(window);
+            m_cardStage->notePaneStack(next, behind.mid(1));
+            m_cardStage->settlePaneStacks();
+            if (KWin::effects->activeWindow() == window || !KWin::effects->activeWindow())
+                KWin::effects->activateWindow(next);
+        }
+    }
     // The window may be held by a desktop that is not shown.
     forEachSession([&] {
         m_desktopStage->handleWindowClosed(window);

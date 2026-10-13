@@ -4,6 +4,7 @@
 */
 
 #include "SpreadLayout.h"
+#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "HeldCardGeometry.h"
 #include "NeighborStackPose.h"
@@ -37,7 +38,7 @@ int main()
         // Zoomed out, a short row stands whole across the work area, cards
         // never shrink past the floor, and one card is the ordinary size.
         const double three = Kadunce::spreadZoomedOutShare(3);
-        const auto row = Kadunce::makeSpreadLayout(0, 0, 2560, 1440, three);
+        const auto row = Kadunce::makeSpreadLayoutAt(0, 0, 2560, 1440, three);
         require(row.cards[0].x >= 0 && row.cards[2].right() <= 2560,
             "Zoomed out, three cards did not stand whole across the display");
         require(three < Kadunce::SpreadCardShare, "Zoomed out, the cards were not smaller");

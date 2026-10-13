@@ -482,8 +482,8 @@ On Connected:
   own; there is no Bento group.
 - A card chosen joins the layout: paired with the card in use when none shows,
   else under §8. A pane chosen opens the layout on it.
-- A Stack fills one pane, its other cards hidden behind it. Stepping it puts
-  the next card in that pane's slot; the layout keeps its shape.
+- A Stack fills one pane, its other cards hidden behind it. Stepping it, or
+  closing its front card, puts the next card in that pane's slot.
 - A pane leaves as §5 says.
 
 ### Other displays

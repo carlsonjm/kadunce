@@ -46,20 +46,8 @@ enum class SpreadAction {
     Activate,
 };
 
-// How much of the work area each card takes across and down: the ordinary
-// row, three across with the neighbours partly shown.
-inline constexpr double SpreadCardShare = 0.54;
-// Zoomed out, the share never falls below this, so a card stays readable.
-inline constexpr double SpreadZoomedOutShareMinimum = 0.24;
-
 [[nodiscard]] SpreadLayout makeSpreadLayout(
-    double workX, double workY, double workWidth, double workHeight,
-    double share = SpreadCardShare);
-
-// Spread zoomed out, as it opens on a display sized Connected: cards small
-// enough that `entries` stand side by side across the work area, between the
-// floor above and the ordinary share.
-[[nodiscard]] double spreadZoomedOutShare(int entries);
+    double workX, double workY, double workWidth, double workHeight);
 
 // Scale a source proportionally until it covers the entire fixed Spread
 // slot. The compositor clips this expanded paint rectangle back to the slot,

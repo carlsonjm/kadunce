@@ -92,7 +92,7 @@ end_pass() {
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .8
     check "$1: switched off, every window is an ordinary window again" \
-        bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length >= 3 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
+        bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length >= 2 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
     kill "$client_pid" 2>/dev/null || true
     wait "$client_pid" 2>/dev/null || true
     sleep .5
@@ -215,6 +215,13 @@ sleep 1.2
 report stepped-back
 check 'step back: Meta+Up returns the first card to the pane' is_pane "$face"
 check 'step back: in the same place' same_rect "$face" "$slot_c"
+face_title=$(probe windowFacts | jq -r --arg id "$face" 'first(.[] | select(.id == $id)) | .caption')
+client closeCompanion "$face_title"
+sleep 1.5
+report closed-front
+check 'close: the next card of the Stack takes the pane' is_pane "$other"
+check 'close: in the same place' same_rect "$other" "$slot_c"
+check 'close: still two panes' panes 2
 end_pass full
 if (( failures > 0 )); then
     echo "FAIL: connected: $failures checks failed" >&2

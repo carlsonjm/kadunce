@@ -200,9 +200,11 @@ public:
                                             const std::function<bool()> &commitSource);
     // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
     // it puts the next card in that pane's slot. Nothing else moves; the pane
-    // leaving becomes a card through the same path as any yielded pane.
+    // leaving becomes a card through the same path as any yielded pane; a
+    // closing pane only gives up its slot, so its Stack stays in the layout.
     [[nodiscard]] bool replacePaneWithCard(KWin::EffectWindow *pane, KWin::EffectWindow *card,
-                                           const std::function<bool()> &commitSource);
+                                           const std::function<bool()> &commitSource,
+                                           bool closing = false);
 
     enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
     // Opaque receiver reservation. Copies share consumption: a preview cannot

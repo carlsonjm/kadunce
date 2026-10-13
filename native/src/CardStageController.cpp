@@ -19,6 +19,7 @@
 #include "StackBrowseMotion.h"
 #include "SpreadStroke.h"
 #include "SpreadLayout.h"
+#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
@@ -775,7 +776,7 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
     // The row a card is lifted from keeps the zoom it stood at.
-    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height(),
+    const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
         zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
     const CardRect &centre = layout.cards[1];
     return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
@@ -907,7 +908,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
         && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height(),
+        : makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
               zoomedOut() ? spreadZoomedOutShare(m_workspace.count()) : SpreadCardShare);
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
@@ -2750,16 +2751,6 @@ void CardStageController::settlePaneStacks()
     }
 }
 
-bool CardStageController::presentSelectedNow()
-{
-    if (!m_active || m_presentation != CardPresentation::Spread
-        || m_cardGrabActive || m_launcherGuestActive || selectedIsBentoGroup()) return false;
-    if (!enterActive()) return false;
-    syncSelectedElevation();
-    KWin::effects->addRepaintFull();
-    return true;
-}
-
 bool CardStageController::resumeSelectedBentoProjection()
 {
     if (!m_active || m_presentation != CardPresentation::Spread
@@ -2948,6 +2939,16 @@ void CardStageController::release()
     m_originalCardStackingOrder.clear();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "released";
+}
+
+bool CardStageController::presentSelectedNow()
+{
+    if (!m_active || m_presentation != CardPresentation::Spread
+        || m_cardGrabActive || m_launcherGuestActive || selectedIsBentoGroup()) return false;
+    if (!enterActive()) return false;
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,

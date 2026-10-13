@@ -27,6 +27,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/SpreadModel.h
         src/SpreadLayout.cpp
         src/SpreadLayout.h
+        src/SpreadZoom.h
         src/ProjectedCardGeometry.h
         src/BentoCompositeGeometry.h
         src/BentoProjectionSession.h

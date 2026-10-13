@@ -510,12 +510,14 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
 }
 
 bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
-    KWin::EffectWindow *card, const std::function<bool()> &commitSource)
+    KWin::EffectWindow *card, const std::function<bool()> &commitSource, bool closing)
 {
     if (m_restoring || !commitSource || !pane || !card || pane == card
         || card->isDeleted() || !card->window() || card->isUserMove() || card->isUserResize()
         || m_interactionWindow || m_railDrag) return false;
-    Session *session = sessionForOutput(pane->screen());
+    Session *session = nullptr;
+    for (Session &candidate : m_sessions)
+        if (candidate.windows.contains(pane)) { session = &candidate; break; }
     if (!session || session->applying) return false;
     const int slot = session->windows.indexOf(pane);
     if (slot < 0) return false;
@@ -533,10 +535,12 @@ bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
     Session candidate = live;
     if (!takeSlotAtCap(candidate, slot, snapshot)) return false;
     if (!commitSource()) return false;
-    const auto pending = captureEvictions(live, candidate);
+    // A closing pane has no card to become; it only gives up its slot.
+    const QList<PendingEviction> pending = closing ? QList<PendingEviction>{}
+                                                   : captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
-    publishEvictions(pending);
+    if (!closing) publishEvictions(pending);
     return true;
 }
 
