@@ -121,6 +121,30 @@ spread_key
 report spread
 check 'spread: Spread opens' presents cardLine
 check 'spread: zoomed out, every card shows whole' all_whole
+# Search called over Spread is Spread's guest, here too: the row returns to
+# its ordinary size beside it, and zooms out again once it has gone.
+python3 - <<'PY' &
+import dbus, json, time
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+assert json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))["accepted"]
+time.sleep(60)
+PY
+owner_pid=$!
+hosted() { kad workspaceContext | jq -e '.cardStage.launcherGuestActive' >/dev/null; }
+for _ in {1..40}; do hosted && break; sleep .1; done
+sleep .6
+report search
+check 'search: it opens as the guest of the monitor Spread' hosted
+check 'search: Spread stays open' presents cardLine
+check 'search: the cards beside it return to their ordinary size' \
+    context '[.applications[] | select(.spreadRect) | .spreadRect.width] | length > 0 and all(. > 1000)'
+kad endLauncherGuest
+kill "$owner_pid" 2>/dev/null; wait "$owner_pid" 2>/dev/null
+sleep .8
+report search-gone
+search_gone() { all_whole && context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'; }
+check 'search gone: Spread is open, zoomed out again' search_gone
 pick "$a"
 report paired
 check 'pick: the layout shows' layout_shown
