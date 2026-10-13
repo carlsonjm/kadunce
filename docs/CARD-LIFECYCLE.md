@@ -175,6 +175,7 @@ Kadunce does not create independent cards for:
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
+- The screenshot tool, which floats over cards
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
@@ -542,9 +543,8 @@ Full Kadunce release or disable:
 - Returns complete authority to Plasma
 
 KWin moving the Active card releases everything only once it travels. KWin
-placing it on another display, as a screenshot tool returning to its last place
-does, or its application filling the screen, lets only that card go, where KWin
-put it. With cards on every display, release gives windows back on their own.
+placing it on another display, or its application filling the screen, lets
+only that card go, where KWin put it. With cards on every display, release gives windows back on their own.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 

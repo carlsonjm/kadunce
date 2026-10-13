@@ -1569,6 +1569,13 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
                             Qt::CaseInsensitive) == 0) {
         return false;
     }
+    // The screenshot tool floats over cards as a guest: its capture asks to
+    // fill the screen and its result would otherwise join a layout half
+    // drawn (CARD-LIFECYCLE.md §4).
+    if (identity.compare(QStringLiteral("org.kde.spectacle"), Qt::CaseInsensitive) == 0
+        || identity.compare(QStringLiteral("spectacle"), Qt::CaseInsensitive) == 0) {
+        return false;
+    }
     // A dialog that names its application follows that application's card
     // (§4), including one that names it only after it is shown
     // (handleTransientChanged). One that names none is a window of its own.
@@ -6608,6 +6615,10 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && m_cardStage->presentation() == CardPresentation::Spread
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
     const KeyAction action = keyActionFor(key, modifiers, context);
+    // Meta+Esc has gone unanswered on a tablet's keyboard; say what arrives.
+    if (key == Qt::Key_Escape && !repeat)
+        qInfo() << "Kadunce" << Revision << "sees Escape with" << modifiers
+                << (action == KeyAction::Release ? "and lets every window go" : "and leaves it");
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;
