@@ -7114,7 +7114,11 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
     }
     // No layout yet: the pick and the card in use before it become one. With
     // no card in use, or the pick being that card, the pick is shown alone.
-    const QPointer<KWin::EffectWindow> inUse = m_lastActiveApplication;
+    // Spread leaves the keyboard with the card in use; the last application
+    // to have it stands in when nothing does.
+    KWin::EffectWindow *focused = KWin::effects->activeWindow();
+    const QPointer<KWin::EffectWindow> inUse = focused && isApplicationWindow(focused)
+        ? focused : m_lastActiveApplication.data();
     KWin::EffectWindow *partner = inUse && inUse != picked && !inUse->isDeleted()
             && !inUse->isMinimized() && inUse->screen() == tablet
             && m_cardStage->liveCardIndex(inUse) >= 0 ? inUse.data() : nullptr;
