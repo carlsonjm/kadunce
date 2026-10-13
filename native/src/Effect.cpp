@@ -2876,7 +2876,7 @@ void Effect::handleWindowOutputChanged()
             && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
             && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
             && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
-            qInfo() << "Kadunce" << Revision << "handed pane" << window->caption() << "to"
+            qInfo() << "Kadunce" << Revision << "declined? handed pane" << window->caption() << "to"
                     << window->window()->moveResizeOutput()->name();
             KWin::effects->activateWindow(window);
             observeCardOwnership();
@@ -6747,7 +6747,7 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
     const KeyAction action = keyActionFor(key, modifiers, context);
     if (m_cardStage->presentation() == CardPresentation::Spread && !repeat)
-        qInfo() << "Kadunce" << Revision << "Spread key" << key << "action" << int(action)
+        qInfo() << "Kadunce" << Revision << "declined? Spread key" << key << "action" << int(action)
                 << "cardsShown" << context.cardsShown << "spreadShown" << context.spreadShown
                 << "grab" << KWin::effects->hasKeyboardGrab();
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
@@ -7557,13 +7557,13 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
         if (shownAtOpen)
-            qInfo() << "Kadunce" << Revision << "opened" << candidate->caption() << "beside"
+            qInfo() << "Kadunce" << Revision << "declined? opened" << candidate->caption() << "beside"
                     << shownAtOpen->caption() << "pairing" << bool(shown);
         if (shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
             && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
             && m_cardStage->liveCardIndex(candidate) >= 0
             && pairCardsIntoBento(spread, candidate, shown, BentoSidePlacement{true, true})) {
-            qInfo() << "Kadunce" << Revision << "paired opened" << candidate->caption()
+            qInfo() << "Kadunce" << Revision << "declined? paired opened" << candidate->caption()
                     << "with" << shown->caption();
             m_cardStage->notePaneStack(shown, shownBehind);
             m_cardStage->settlePaneStacks();
