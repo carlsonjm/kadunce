@@ -111,6 +111,11 @@ public:
     // Whether this display is sized Connected (DisplaySizing.h), so Spread
     // opens zoomed out. A host that draws no distinction answers Active.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
+    // Whether this display holds its own cards, beside the one holding Spread.
+    [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
+    // The display a card is given back on when every card is let go: the one
+    // it belongs to, or none to keep the display its record names.
+    [[nodiscard]] virtual KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *) const { return nullptr; }
     // A card about to be resized while Spread shows it: the host may keep its
     // last good picture first and call `resize` once it has, answering true.
     // An application's first frames at a new size can be empty, and Spread
@@ -449,6 +454,32 @@ public:
     bool admitSleepingPaneAsCard(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore);
+    // CARD-LIFECYCLE.md §11, Every display: a window that another display
+    // holding its own cards does not show becomes a card here, waiting in
+    // Spread. Like a displaced pane it takes membership and its record and
+    // nothing else, whatever this display presents: no selection, no change
+    // of presentation, unless this stage held nothing, when it starts with
+    // the desktop shown. A minimized window arrives asleep.
+    bool admitCardFromOtherDisplay(KWin::EffectWindow *window,
+        const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore);
+    // §11, Every display: this card gives up individual ownership to the
+    // layout of the display it shows on, in one step, whatever this display
+    // presents. A card held aside is shown again for it.
+    bool releaseCardToDisplay(KWin::EffectWindow *card);
+    // A card chosen to show on another display that holds its own cards goes
+    // there, joining its layout. The card this display presents stays.
+    bool sendCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // A card KWin moved to another display that holds its own cards goes to
+    // that display's layout. Moved from Active, this display presents the card
+    // used before it again.
+    bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // The next entry into Active keeps the focus on this window, a card just
+    // shown on another display, instead of taking it for the Active card.
+    void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }
+    void clearFocusAfterActive(const KWin::EffectWindow *window) {
+        if (m_focusAfterActive == window) m_focusAfterActive.clear();
+    }
     // Whether this stage is presenting the display's Bento layout rather than
     // its own cards, so a caller can route an activation to the layout.
     [[nodiscard]] bool presentsBento() const {
@@ -476,6 +507,8 @@ public:
     // it (§2), so what arrives becomes cards there; one that took nothing
     // stops again.
     bool startBehindLayout();
+    // On Connected, Spread's panes stand at whole card size until resumed.
+    void standPanesInCardPlace();
     void stopBehindLayoutIfEmpty();
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.
@@ -491,6 +524,8 @@ public:
     bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
+    // The Active card asked to fill the screen: it alone goes, the rest wait aside.
+    void letFillingCardGo(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
     bool admitBentoStack(const BentoProjectionSession &projection,
@@ -526,6 +561,7 @@ private:
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
+    [[nodiscard]] ActiveRestoreSnapshot onOwnDisplay(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
     // Spread is drawn zoomed out: the display is sized Connected and the row
@@ -711,6 +747,7 @@ private:
     bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     ActiveRestoreSnapshot m_activeRestore;
     QPointer<KWin::EffectWindow> m_presentedActive;
+    QPointer<KWin::EffectWindow> m_focusAfterActive;
     // The last two cards presented Active, newest first: what a side snap of
     // the Active card names as its partner (CARD-LIFECYCLE.md §3).
     QPointer<KWin::EffectWindow> m_usedActive;

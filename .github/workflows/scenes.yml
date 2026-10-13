@@ -26,7 +26,7 @@ jobs:
       image: public.ecr.aws/docker/library/archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime every-display-runtime' }}
     steps:
       - name: Install build and session dependencies
         run: |
@@ -82,7 +82,7 @@ jobs:
             tail -60 "$log"
             evidence=$(sed -n 's/^Isolated unload evidence: //p' "$log" | head -1)
             if [[ -n $evidence && -f $evidence/session.log ]]; then
-              rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )' "$evidence/session.log" | tail -150 || true
+              rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )|Kadunce .*(changed to|activated with|entered interactive|could not|holds the windows|declined)' "$evidence/session.log" | tail -250 || true
               echo "--- last lines of the session log"
               tail -40 "$evidence/session.log" || true
             fi

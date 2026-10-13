@@ -63,6 +63,23 @@ public:
     [[nodiscard]] virtual bool connectedOutputForDesktopStage(const KWin::LogicalOutput *) const {
         return false;
     }
+    // CARD-LIFECYCLE.md §11, Every display: a display other than Spread's
+    // that holds its own cards. Every window there is a card: those it shows
+    // are its layout's panes, and the rest wait in Spread. Its layout keeps its
+    // last pane, and a card carried there joins it rather than standing loose.
+    // A host that draws no distinction answers that none does.
+    [[nodiscard]] virtual bool holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *) const {
+        return false;
+    }
+    // §11, Every display: a layout let go there gives its windows back on
+    // that display, whatever display their records name.
+    [[nodiscard]] virtual bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *) const {
+        return false;
+    }
+    // Whether such a display is sized Active, so it shows one card at a time.
+    [[nodiscard]] virtual bool showsOneCardForDesktopStage(const KWin::LogicalOutput *) const {
+        return false;
+    }
     // When the person last used this window, later uses larger; 0 for never.
     [[nodiscard]] virtual long long lastUsedForDesktopStage(const KWin::EffectWindow *) const {
         return 0;
@@ -137,6 +154,15 @@ public:
     // press there must not reach whatever window lies behind the layout.
     [[nodiscard]] bool inPaneGutter(QPointF position) const;
     void restoreAllSessions();
+    // §11, Every display: a display holding its own cards begins its layout
+    // with every window there, `preferred` shown first. False when it already
+    // has one or has nothing to show.
+    bool holdOutput(KWin::LogicalOutput *output, KWin::EffectWindow *preferred = nullptr);
+    // The panes a display shows, in layout order; empty with no layout there.
+    [[nodiscard]] QList<QPointer<KWin::EffectWindow>> panesOn(const QString &outputName) const;
+    // §5: a layout down to one pane ends into card ownership where its display
+    // holds Spread, as after Spread moves onto a display that showed one card.
+    void endLonePanes();
     // Synchronous ownership transfer; no restoration or placement on success.
     bool transferTabletSessionToSpread(KWin::LogicalOutput *output,
         const std::function<bool(const BentoProjectionSession &,
@@ -150,6 +176,9 @@ public:
     // own last refusal; a false answer publishes nothing.
     bool extractPaneToCards(KWin::EffectWindow *window,
         const std::function<bool()> &sourceValid);
+    // §11, Every display: a pane of a display holding its own cards waits in
+    // Spread, still that display's card, while Spread gathers every card.
+    bool yieldPaneToSpread(KWin::EffectWindow *window);
     void stopPendingSettle();
     void cancelRestoredMinimizations();
 
@@ -436,7 +465,7 @@ private:
                      bool requirePreferred,
                      QList<QPointer<KWin::EffectWindow>> *evicted = nullptr) const;
     // Which door card ownership opens for an evicted window.
-    enum class EvictedAs { AwakeCard, SleepingCard };
+    enum class EvictedAs { AwakeCard, SleepingCard, HomedCard };
     // CARD-LIFECYCLE.md §5: a window the layout cannot show becomes an awake
     // individual card on the display that can hold one. That is the same
     // destination-first transfer a deliberate carry makes, so it is the

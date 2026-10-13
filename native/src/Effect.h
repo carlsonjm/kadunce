@@ -341,6 +341,12 @@ private:
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void openGroupAfterDropForCardStage(const QRectF &from) override;
     [[nodiscard]] bool connectedForCardStage() const override;
+    [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        return isOtherCardDisplay(output);
+    }
+    [[nodiscard]] KWin::LogicalOutput *releaseDisplayForCardStage(
+        const KWin::EffectWindow *window) const override;
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
@@ -532,6 +538,49 @@ private:
         const override;
     [[nodiscard]] bool connectedOutputForDesktopStage(
         const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool holdsOwnCardsForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool showsOneCardForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    // CARD-LIFECYCLE.md §11, Every display: a display other than Spread's
+    // that holds its own cards, which every attached display does unless
+    // kaduncerc [Spread] OtherDisplays keeps them to ordinary windows.
+    [[nodiscard]] bool isOtherCardDisplay(const KWin::LogicalOutput *output) const;
+    // The display a card waiting in Spread shows on when chosen: the one it
+    // last showed on, while that display is attached and is not Spread's.
+    [[nodiscard]] KWin::LogicalOutput *cardHome(const KWin::EffectWindow *card) const;
+    // Every display holding its own cards and showing none of them begins
+    // its layout with the windows on it, or shows the card it used last.
+    bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
+    // A card waiting in Spread shows on its own display, its Stack waiting
+    // behind it there. With `leaveSpread`, Spread then goes back to what it
+    // was opened from.
+    bool showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread);
+    // A display holding its own cards that shows none brings back the one it
+    // used last.
+    void refillOtherDisplay(const QString &outputName);
+    // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
+    bool stepPane(KWin::EffectWindow *pane, int delta);
+    // The display a bottom swipe steps a Stack on: the touchscreen's, when it
+    // holds its own cards and shows a Stack.
+    [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
+    // Spread opened over a display showing no card of its own gathers the
+    // cards the other displays show; those not chosen go back as it closes.
+    bool gatherCardsIntoSpread();
+    // A window let go loose on a display holding its own cards becomes a card
+    // there, as one opened there does.
+    void claimWindowForItsDisplay(KWin::EffectWindow *window);
+    // Whether another display holds its own cards, so where a carried Active
+    // card lands decides what it becomes.
+    [[nodiscard]] bool carriesToAnotherCardDisplay() const;
+    void returnGatheredCards();
+    QList<QPair<QPointer<KWin::EffectWindow>, QString>> m_gathered;
+    QTimer m_gatherWatch;
+    QHash<KWin::EffectWindow *, QString> m_cardHomes;
+    bool m_cardsOnEveryDisplay = true;
+    bool m_bezelStepsStack = false;
     [[nodiscard]] long long lastUsedForDesktopStage(
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool outputCanOwnCards(
@@ -820,6 +869,9 @@ private:
     // Kadunce is giving windows back: one returning from minimized then was
     // not picked by the person.
     bool m_releasing = false;
+    // §13: windows given back stay plain windows until a window opens or the
+    // person asks for cards again; nothing takes them back on its own.
+    bool m_letGo = false;
     // Sleeping cards Spread keeps drawn, dimmed.
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_sleepingShown;
     static constexpr qreal SleepingCardOpacity = 0.45;

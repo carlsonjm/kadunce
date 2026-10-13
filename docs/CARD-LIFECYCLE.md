@@ -148,16 +148,17 @@ window and the partner keep the ownership and presentation they had.
 ### The Bento action
 
 A Bento action is a request without a carried window or a contacted edge
-(`INPUT.md` § Bento, `Meta+B`). It belongs to the largest attached display
-that cannot own cards, or to the display that can when no other is attached.
+(`INPUT.md` § Bento, `Meta+B`). It belongs to Spread's display with cards on
+every display (§11), else to the largest display that cannot own cards, else
+the one that can.
 
-On a display Kadunce owns that can own cards, it names a pair the way a side
-snap does, from the right: the Active card keeps the left side. With no Active card, or no eligible
-card to pair with, nothing happens.
+On a display that can own cards, it pairs like a side snap from the right:
+the Active card keeps the left side. With no card to pair, nothing happens.
 
 On a display that cannot own cards, it composes across the display.
 
-A Bento action on a display that already has a live layout ends that layout.
+A Bento action on a display with a live layout ends it; with cards on every
+display its windows stay cards.
 
 ## 4. Eligible windows
 
@@ -175,6 +176,7 @@ Kadunce does not create independent cards for:
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
+- The screenshot tool's capture, floating over cards
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
@@ -456,20 +458,19 @@ An edge action commits only when released inside its valid edge zone.
 
 ## 11. Multiple displays
 
-Each display, on each desktop, has an independent ownership session. An edge
-action reads that display's own state: whether Kadunce owns it, its Active
-card, its live Bento layout and its pane cap.
+Each display, on each desktop, has its own ownership session. An edge action
+reads that display's state: its Active card, Bento layout and pane cap.
 
-One display owns cards, so there is one Spread: the one you chose while it is
-attached, else the one a touchscreen drives, else the largest
+Every display shows its windows as cards, and one holds Spread: the one you
+chose while it is attached, else the one a touchscreen drives, else the largest
 (`DECISIONS.md` § One display holds Spread). It may contain:
 
 - Individual cards
 - Ordinary stacks
 - At most one Bento layout
 
-Unplugged, its cards move to the next, whose windows join them (§3), and return
-with the chosen display (`kaduncerc` `[Spread] Display`).
+Unplugged, its cards move to the next (§3), returning with the chosen display
+(`kaduncerc` `[Spread] Display`).
 
 ### Connected
 
@@ -478,23 +479,25 @@ holds more than two panes (§5), unless chosen for that display (`kaduncerc`
 `[Sizing]`). Active is the rest of this document.
 On Connected:
 
-- Spread opens zoomed out, every card whole, and each pane is a card of its
-  own; there is no Bento group.
+- Spread opens zoomed out, every card whole, and each pane is a full card of
+  its own; there is no Bento group.
 - A card chosen joins the layout: paired with the card in use when none shows,
-  else under §8. A pane chosen opens the layout on it.
+  else under §8.
 - A Stack fills one pane, its other cards hidden behind it. Stepping it, or
   closing its front card, puts the next card in that pane's slot.
 - A pane leaves as §5 says.
 
-### Other displays
+### Every display
 
-Any other display shows ordinary Plasma windows or one Bento layout, never
-both, and never cards or Spread. One window snapped to a side takes half the
-display, and snapped to the top takes the Active card's size. With two or more
-windows, a snap to an edge organizes every window there into one layout, as many
-as their minimum sizes allow; one without room goes to the dock, never to
-another display on its own. Carrying a card there from the card display is a
-deliberate handoff; ordinary movement, resizing and focus stay with KWin
+Each other display holds its own cards, sized by its size. Spread shows every
+card, giving back those not chosen; one picked opens there. Sized Active, it
+shows one card: one carried there is that card, closing it brings back the one
+before, and a placed Stack steps there. Connected, it plays cards into its
+layout. A window opens on Spread's display. Unplugged, its cards stay in
+Spread. Let go (§13), windows stay windows until one opens.
+
+`kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
+windows or one Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
@@ -541,8 +544,8 @@ Full Kadunce release or disable:
 - Returns complete authority to Plasma
 
 KWin moving the Active card releases everything only once it travels. KWin
-placing it on another display, as a screenshot tool returning to its last place
-does, lets only that card go, where KWin put it.
+placing it on another display, or its application filling the screen, lets
+only that card go, where KWin put it. With cards on every display, release gives windows back on their own.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 

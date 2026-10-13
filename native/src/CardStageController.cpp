@@ -2952,6 +2952,26 @@ void CardStageController::release()
     qInfo() << "Kadunce" << Revision << "released";
 }
 
+void CardStageController::standPanesInCardPlace()
+{
+    // §11: on Connected each pane is drawn as a whole card, so it stands in
+    // the card's place and draws itself at that size, as a pane let go of
+    // does. Resuming puts every pane back on its stored layout.
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !m_panesAsCards || !tablet || m_presentation != CardPresentation::Spread) return;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    for (const auto &window : std::as_const(m_bentoProjectionWindows)) {
+        KWin::Window *client = window && !window->isDeleted() ? window->window() : nullptr;
+        if (!client || window->isMinimized()) continue;
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore)
+            client->maximize(KWin::MaximizeRestore);
+        if (client->quickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
+        client->moveResize(KWin::RectF(activeTarget(tablet)));
+    }
+}
+
 bool CardStageController::presentSelectedNow()
 {
     if (!m_active || m_presentation != CardPresentation::Spread
@@ -3141,6 +3161,154 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
     qInfo() << "Kadunce" << Revision << "admitted a called card into live Bento;"
             << m_workspace.windows().size() << "individual cards remain";
     return true;
+}
+
+bool CardStageController::admitCardFromOtherDisplay(
+    KWin::EffectWindow *window, const std::function<bool()> &commitSource,
+    const NativeMoveSnapshot *restore)
+{
+    QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
+    if (m_cardGrabActive || m_launcherGuestActive || !tablet || !window
+        || window->isDeleted() || !window->window() || !window->isNormalWindow()
+        || !m_host->mayHoldWindowForCardStage(window)
+        || window->isUserMove() || window->isUserResize()
+        || liveCardIndex(window) >= 0) return false;
+    QPointer<KWin::EffectWindow> arrival = window;
+    QPointer<KWin::Window> client = window->window();
+    // §5 keeps the record the window had before a layout placed it, so
+    // release still returns it where it began.
+    const ActiveRestoreSnapshot incoming{
+        .window = window,
+        .geometry = restore ? restore->geometry : client->moveResizeGeometry(),
+        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
+        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry
+                                             : client->fullscreenGeometryRestore(),
+        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
+        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
+        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
+        .minimized = restore ? restore->minimized : client->isMinimized(),
+        .valid = true,
+    };
+    const bool started = !m_active;
+    const int previousSelection = m_workspace.selectedIndex();
+    const auto admission = m_workspace.prepareAdmission(arrival, false);
+    if (!admission || !m_workspace.commitAdmission(*admission, commitSource)) return false;
+    // Admission selects the arrival; the entry this display had stays selected.
+    if (!started && previousSelection >= 0) m_workspace.selectIndex(previousSelection);
+    if (started) {
+        // A stage that held nothing shows the desktop, with this card aside.
+        m_active = true;
+        m_presentation = CardPresentation::Desktop;
+        m_host->setPagingShortcutsForCardStage(false);
+    }
+    m_originalCardStackingOrder.append(arrival);
+    if (!arrival || arrival->isDeleted() || arrival->window() != client) return true;
+    m_host->connectManagedWindowForCardStage(arrival);
+    if (!managedRestore(arrival)) m_parkedRestores.append(incoming);
+    KWin::effects->setElevatedWindow(arrival, false);
+    if (!arrival->isMinimized() && client) {
+        // It stands in the Active card's place here, as every card does, so
+        // Spread can draw it on this display.
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore)
+            client->maximize(KWin::MaximizeRestore);
+        if (client->quickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, arrival->frameGeometry().center());
+        client->moveResize(KWin::RectF(activeTarget(tablet)));
+        // Behind a layout or the Active card it is drawn nowhere, so it must
+        // also be under them, or the touches on them would reach it.
+        if (m_presentation == CardPresentation::Bento || m_presentation == CardPresentation::Active)
+            KWin::workspace()->lowerWindow(client);
+    }
+    if (m_presentation == CardPresentation::Desktop) holdCardsAside();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "took" << arrival->caption()
+            << "as a card from another display;" << m_workspace.windows().size() << "individual cards";
+    return true;
+}
+
+bool CardStageController::giveCardToDisplay(KWin::EffectWindow *card,
+    KWin::LogicalOutput *destination)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || !destination
+        || !tablet || liveCardIndex(card) < 0) return false;
+    if (m_presentation == CardPresentation::Active && selectedWindow() == card) {
+        // Only a card of this display's own comes back in front of it; one
+        // waiting for another display is never shown here.
+        const auto shown = [&](KWin::EffectWindow *other) {
+            KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
+            return other && other != card && !other->isDeleted() && other->window()
+                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
+                && (!own || own == tablet);
+        };
+        KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
+        if (back) {
+            if (!selectCardEntry(back)) return false;
+            m_presentation = CardPresentation::Spread;
+            if (!enterActive()) return false;
+        } else {
+            parkActiveSnapshot();
+            showDesktop();
+        }
+    }
+    return sendCardToDisplay(card, destination);
+}
+
+bool CardStageController::releaseCardToDisplay(KWin::EffectWindow *card)
+{
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || card->isDeleted()
+        || !card->window() || liveCardIndex(card) < 0) return false;
+    // The card in front of this display stays in front of it.
+    if (m_presentation == CardPresentation::Active && selectedWindow() == card) return false;
+    const QList<QPointer<KWin::EffectWindow>> leaving{card};
+    const auto departure = m_workspace.prepareGroupRemoval(leaving,
+        OwnershipTransition::CardToBento);
+    if (!departure) return false;
+    if (!publishOwnershipThenRecord(
+            [&] { return m_workspace.commitGroupRemoval(*departure); },
+            [&] {
+                ++m_restoreGeneration;
+                forgetManagedRestore(card);
+                m_originalCardStackingOrder.removeAll(card);
+            })) return false;
+    m_transferGuard.invalidate();
+    m_host->cancelInputForCardStage();
+    clearCardTransition();
+    if (m_aside.removeAll(card) > 0) {
+        card->setData(CardAsideRole, QVariant());
+        if (card->window()) card->window()->setHidden(false);
+    }
+    KWin::effects->setElevatedWindow(card, false);
+    m_host->unredirectForCardStage(card);
+    // A stage left with nothing to hold stops, unless a layout is in front of
+    // it, which it still answers for.
+    if (m_workspace.windows().isEmpty() && m_presentation != CardPresentation::Bento) {
+        m_active = false;
+        m_presentation = CardPresentation::Spread;
+        m_originalCardStackingOrder.clear();
+        m_host->setPagingShortcutsForCardStage(false);
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "gave a card to the display it shows on;"
+            << m_workspace.windows().size() << "individual cards remain";
+    return true;
+}
+
+bool CardStageController::sendCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination)
+{
+    if (!m_active || m_cardGrabActive || m_launcherGuestActive || !card || card->isDeleted()
+        || !card->window() || card->isMinimized() || !destination
+        || m_host->isTabletOutputForCardStage(destination) || liveCardIndex(card) < 0
+        || (m_presentation == CardPresentation::Active && selectedWindow() == card)) return false;
+    const bool accepted = m_host->admitCardToDesktopStage(card, destination,
+        KWin::RectF(activeTarget(destination)),
+        [this, card] { return releaseCardToDisplay(card); }, [] {});
+    if (accepted)
+        qInfo() << "Kadunce" << Revision << "showed card" << card->caption() << "on" << destination->name();
+    return accepted;
 }
 
 bool CardStageController::admitSleepingPaneAsCard(
@@ -4559,7 +4727,11 @@ bool CardStageController::enterActive()
     // A keyboard may already be up over the card that just arrived.
     refreshKeyboardRoom();
     KWin::workspace()->raiseWindow(client);
-    KWin::workspace()->activateWindow(client, true);
+    const QPointer<KWin::EffectWindow> keep = std::exchange(m_focusAfterActive, nullptr);
+    if (keep && !keep->isDeleted() && keep->window() && !keep->isMinimized())
+        KWin::workspace()->activateWindow(keep->window(), true);
+    else
+        KWin::workspace()->activateWindow(client, true);
     qInfo() << "Kadunce" << Revision
             << "entered interactive Active with" << effectWindow->caption();
     return true;
@@ -4684,11 +4856,12 @@ void CardStageController::restoreActiveSnapshot()
                 << "back its place" << snapshot.geometry << "from" << client->moveResizeGeometry()
                 << "maximized" << int(snapshot.maximizeMode) << "fullscreen" << snapshot.fullScreen
                 << "minimized" << snapshot.minimized << "minimized now" << minimizedNow;
-        const KWin::RectF place = placeClearOfPanels(snapshot);
-        if (place != snapshot.geometry)
+        const ActiveRestoreSnapshot own = onOwnDisplay(snapshot);
+        const KWin::RectF place = placeClearOfPanels(own);
+        if (place != own.geometry)
             qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at" << place
                     << "instead: its place lies under a panel's room";
-        restoreWindowState(client, snapshot, place, true, !minimizedNow, false);
+        restoreWindowState(client, own, place, true, !minimizedNow, false);
         if (!snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
             && snapshot.quickTileMode == KWin::QuickTileMode{}
             && client->moveResizeGeometry() != place)
@@ -4699,6 +4872,41 @@ void CardStageController::restoreActiveSnapshot()
                 RestoredMinimization::Target{client->moveResizeGeometry(), snapshot.maximizeMode,
                     snapshot.quickTileMode, snapshot.fullScreen}));
     }
+}
+
+CardStageController::ActiveRestoreSnapshot CardStageController::onOwnDisplay(
+    const ActiveRestoreSnapshot &snapshot) const
+{
+    // §11, Every display: a card is given back on the display it belongs to,
+    // never at a place its record kept from a display it has since left.
+    KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(snapshot.window.data());
+    if (!own || QRectF(own->geometry()).contains(QRectF(snapshot.geometry).center())) return snapshot;
+    const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, own));
+    if (work.isEmpty()) return snapshot;
+    QRectF from;
+    for (KWin::LogicalOutput *output : KWin::effects->screens())
+        if (QRectF(output->geometry()).contains(QRectF(snapshot.geometry).center()))
+            from = QRectF(output->geometry());
+    const auto carried = [&](const KWin::RectF &place) {
+        if (place.width() <= 0 || place.height() <= 0) return place;
+        const double width = std::min(place.width(), work.width());
+        const double height = std::min(place.height(), work.height());
+        // The same share of the way across, or centred where the old display
+        // is gone.
+        const double across = from.width() > place.width()
+            ? (place.x() - from.x()) / (from.width() - place.width()) : 0.5;
+        const double down = from.height() > place.height()
+            ? (place.y() - from.y()) / (from.height() - place.height()) : 0.5;
+        return KWin::RectF(work.x() + std::clamp(across, 0.0, 1.0) * (work.width() - width),
+            work.y() + std::clamp(down, 0.0, 1.0) * (work.height() - height), width, height);
+    };
+    ActiveRestoreSnapshot moved = snapshot;
+    moved.geometry = carried(snapshot.geometry);
+    moved.floatingGeometry = carried(snapshot.floatingGeometry);
+    moved.fullscreenRestoreGeometry = carried(snapshot.fullscreenRestoreGeometry);
+    qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? snapshot.window->caption() : QString())
+            << "back on" << own->name() << "at" << moved.geometry << "not" << snapshot.geometry;
+    return moved;
 }
 
 KWin::RectF CardStageController::placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const
@@ -5263,6 +5471,24 @@ void CardStageController::handleActiveGeometryChanged(
     // back to its last place does, takes only its own card there and stays.
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     KWin::LogicalOutput *placed = client->moveResizeOutput();
+    if (tablet && placed && placed != tablet && !m_cardGrabActive
+        && m_host->holdsOwnCardsForCardStage(placed)) {
+        // §11, Every display: there it is the card that display shows, once
+        // this notification has returned.
+        const QPointer<KWin::EffectWindow> moved = window;
+        const QString there = placed->name();
+        QTimer::singleShot(0, &m_arrivalTimer, [this, moved, there] {
+            if (!moved || moved->isDeleted() || liveCardIndex(moved) < 0) return;
+            KWin::LogicalOutput *display = KWin::effects->findScreen(there);
+            if (display && m_host->holdsOwnCardsForCardStage(display)
+                && giveCardToDisplay(moved, display)) {
+                KWin::effects->activateWindow(moved);
+                return;
+            }
+            (void)releaseCard(moved, false);
+        });
+        return;
+    }
     if (tablet && placed && placed != tablet && !m_cardGrabActive) {
         qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
                 << "go: KWin placed it on" << placed->name();
@@ -5272,7 +5498,7 @@ void CardStageController::handleActiveGeometryChanged(
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
-        handleManualWindowChange(window);
+        letFillingCardGo(window);
     } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
     }
@@ -5289,6 +5515,21 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
             << (window && window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     release();
+}
+
+void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
+{
+    if (m_applyingWindowState || !m_active
+        || m_presentation != CardPresentation::Active
+        || !m_activeRestore.valid || m_activeRestore.window != window) return;
+    // The new state wins, for that window alone: it goes without its old
+    // snapshot replayed over the request, and the other cards wait aside.
+    qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+            << "go: it asked to fill the screen"
+            << (window->window() ? window->window()->resourceClass() : QString());
+    m_activeRestore = ActiveRestoreSnapshot{};
+    (void)releaseCard(window, false);
+    if (m_active && m_presentation == CardPresentation::Active) showDesktop();
 }
 
 } // namespace Kadunce

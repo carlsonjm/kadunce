@@ -269,6 +269,18 @@ bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *
         candidate.sideWindow.clear();
         visible = grows(candidate);
     }
+    if (!visible && m_host->showsOneCardForDesktopStage(outputForKey(key))) {
+        // §11, Every display: the arrival is the one card this display shows,
+        // and the card it replaces waits in Spread.
+        candidate = live;
+        candidate.snapshots.append(snapshot);
+        QList<QPointer<KWin::EffectWindow>> waiting;
+        if (!reflowSession(candidate, window, true, false, &waiting)) return false;
+        candidate.snapshots.removeIf([&waiting](const RestoreSnapshot &saved) {
+            return saved.window && waiting.contains(saved.window);
+        });
+        visible = true;
+    }
     if (!visible) {
         // Full: the arrival takes the one slot it fits, and the rest of the
         // layout keeps its shape and its places.
@@ -435,6 +447,10 @@ std::optional<int> DesktopStageController::slotForArrival(
         for (const auto &window : session.windows)
             lastUsed.push_back(m_host->lastUsedForDesktopStage(window.data()));
         slot = bentoSlotUsedLongestAgo(pixels, lastUsed, minimum.width(), minimum.height());
+        // A Connected display fills its layout with what opens there: with no
+        // slot the window's least size fits, it still takes the one used
+        // longest ago rather than the layout waiting in the dock.
+        if (slot < 0) slot = bentoSlotUsedLongestAgo(pixels, lastUsed, 0, 0);
     } else {
         slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
     }
@@ -913,6 +929,10 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     if (intent != CardDropIntent::OpenSpace && intent != CardDropIntent::ActivateBento
         && intent != CardDropIntent::NativeDesktop) return false;
     if (intent == CardDropIntent::NativeDesktop && managesWindow(window)) return false;
+    // §11, Every display: no window stands loose on a display holding its own
+    // cards, so a card set down there joins its layout, or begins one.
+    if (intent == CardDropIntent::OpenSpace && m_host->holdsOwnCardsForDesktopStage(output))
+        intent = CardDropIntent::ActivateBento;
     if (intent == CardDropIntent::ActivateBento
         && (!m_host->allowsDesktopStageOnOutput(output)
             || !m_host->isManagedWindowForDesktopStage(window))) return false;
@@ -1319,6 +1339,20 @@ bool DesktopStageController::planSession(Session &session,
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
+    // CARD-LIFECYCLE.md §11, Every display: a display sized Active that holds
+    // its own cards shows one of them, the preferred one first, whole; the
+    // rest wait in Spread.
+    if (m_host->showsOneCardForDesktopStage(output) && !owned.isEmpty()) {
+        if (requirePreferred && preferred && owned.first() != preferred) return false;
+        session.zones.clear();
+        session.side.reset();
+        session.sideWindow.clear();
+        session.lone = false;
+        session.windows = {owned.first()};
+        session.rects = {BentoRect{0.0, 0.0, 1.0, 1.0}};
+        report(owned.mid(1));
+        return true;
+    }
     // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
     // it in KDE's tile editor, when there are any. A window keeps the zone it
     // has while it fits, and one that fits no zone left waits as remainder.
@@ -1505,7 +1539,7 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
     // restores the window to would be the one the user just asked for, and
     // release would re-minimize a window it had woken.
     std::optional<NativeMoveSnapshot> sleepingRecord;
-    if (destination == EvictedAs::SleepingCard) {
+    if (destination != EvictedAs::AwakeCard) {
         const auto session = m_sessions.constFind(sourceKey);
         const auto saved = std::find_if(session->snapshots.cbegin(),
             session->snapshots.cend(),
@@ -1516,6 +1550,8 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
             saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
     }
     const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
+        if (destination == EvictedAs::HomedCard)
+            return m_host->admitDisplacedPaneToTablet(departing, commit, &*sleepingRecord);
         return destination == EvictedAs::SleepingCard
             ? m_host->admitSleepingPaneToTablet(departing, commit, &*sleepingRecord)
             : m_host->admitTransferredWindowToTablet(departing, commit);
@@ -1707,6 +1743,9 @@ void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
     // the session keeps its combination rather than returning it to Plasma:
     // §13 reserves that for release and disable.
     if (!output || !m_host->outputCanOwnCards(output)) return;
+    // §11, Every display: a display holding its own cards shows its last card
+    // whole, as its layout of one.
+    if (m_host->holdsOwnCardsForDesktopStage(output)) return;
     const QPointer<KWin::EffectWindow> remaining =
         session->windows.isEmpty() ? nullptr : session->windows.first();
     const QRectF drawn = remaining ? m_host->bentoPresentationRect(remaining) : QRectF();
@@ -1747,6 +1786,25 @@ bool DesktopStageController::extractPaneToCards(KWin::EffectWindow *window,
     // §5 may end what is left before it is laid out again, so only a layout
     // that survives the departure is asked to place its panes.
     endLayoutIntoCardOwnership(sourceKey);
+    auto shortened = m_sessions.find(sourceKey);
+    if (shortened != m_sessions.end() && applySession(shortened.value(), false))
+        scheduleSettle();
+    return true;
+}
+
+bool DesktopStageController::yieldPaneToSpread(KWin::EffectWindow *window)
+{
+    if (m_restoring || !window || window->isMinimized()) return false;
+    QString sourceKey;
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        if (it->windows.contains(window)) {
+            sourceKey = it.key();
+            break;
+        }
+    }
+    KWin::LogicalOutput *output = outputForKey(sourceKey);
+    if (sourceKey.isEmpty() || !output || !m_host->holdsOwnCardsForDesktopStage(output)
+        || !evictToTablet(sourceKey, window, {}, EvictedAs::HomedCard)) return false;
     auto shortened = m_sessions.find(sourceKey);
     if (shortened != m_sessions.end() && applySession(shortened.value(), false))
         scheduleSettle();
@@ -2016,6 +2074,10 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
             leaveZone(client);
         }
         QPointer<KWin::LogicalOutput> originalOutput = outputForKey(snapshot.outputName);
+        // §11, Every display: a window is given back on the display holding it.
+        const bool regiven = !outputRemoving && fallbackOutput && originalOutput != fallbackOutput
+            && m_host->releasesOnOwnDisplayForDesktopStage(fallbackOutput);
+        if (regiven) originalOutput = fallbackOutput;
         const auto clientValid = [&] {
             return snapshot.window && !snapshot.window->isDeleted() && client
                 && snapshot.window->window() == client
@@ -2037,7 +2099,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         const auto result = restoreOnSurvivingOutput(candidates, available,
             [&](const QPointer<KWin::LogicalOutput> &targetOutput) {
         if (!clientValid()) return RestoreResult::Aborted;
-        const bool preserveGeometry = !outputRemoving && targetOutput == originalOutput;
+        const bool preserveGeometry = !outputRemoving && !regiven && targetOutput == originalOutput;
         const auto valid = [&] { return clientValid() && available(targetOutput); };
         KWin::RectF restoreGeometry = snapshot.geometry;
         // A floating place is fitted into the room panels leave even on its
@@ -2268,6 +2330,24 @@ bool DesktopStageController::resumeProjectedSession(
     }
     KWin::effects->addRepaintFull();
     return true;
+}
+
+bool DesktopStageController::holdOutput(KWin::LogicalOutput *output, KWin::EffectWindow *preferred)
+{
+    if (!output || !m_host->holdsOwnCardsForDesktopStage(output)) return false;
+    return activate(output, preferred);
+}
+
+QList<QPointer<KWin::EffectWindow>> DesktopStageController::panesOn(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session == m_sessions.cend() ? QList<QPointer<KWin::EffectWindow>>{} : session->windows;
+}
+
+void DesktopStageController::endLonePanes()
+{
+    const QStringList keys = m_sessions.keys();
+    for (const QString &key : keys) endLayoutIntoCardOwnership(key);
 }
 
 void DesktopStageController::restoreAllSessions()
