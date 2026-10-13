@@ -274,7 +274,9 @@ sleep .8
 snap() {
     local id=$1 title=$2 x y
     read -r x y <<<"$(probe windowGeometry "$id" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
-    probe contactFocus >/dev/null
+    # Focus goes to the window carried, not the client's own.
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
     probe pointer "$x" "$y" >/dev/null
     client armMoveOf "$title"
     probe contactButton true >/dev/null
