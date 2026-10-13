@@ -484,7 +484,7 @@ On Connected:
   full-height column at that edge; its lower half under, at the bottom of that
   side's column, what it holds moving up. Alone it takes that side's half, or
   its lower part, the rest open and cards held aside. An arrival fills open
-  room, else the layout is laid out again; a leaving pane opens its room.
+  room, else joins the column holding fewest; a leaving pane opens its room.
 - A pane leaves as §5 says.
 
 ### Every display

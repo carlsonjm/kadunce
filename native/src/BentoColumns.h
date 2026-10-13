@@ -118,6 +118,21 @@ bool bentoColumnsFill(BentoColumns<Handle> &layout, const Handle &window)
     return true;
 }
 
+// A card arriving with no room open joins the bottom of the column holding
+// fewest cards, the rightmost of those, so the layout keeps its columns.
+template<class Handle>
+void bentoColumnsJoin(BentoColumns<Handle> &layout, const Handle &window)
+{
+    if (layout.columns.empty()) {
+        layout.columns.push_back({{window, false}});
+        return;
+    }
+    std::size_t fewest = layout.columns.size() - 1;
+    for (std::size_t c = layout.columns.size(); c-- > 0;)
+        if (layout.columns[c].size() < layout.columns[fewest].size()) fewest = c;
+    layout.columns[fewest].push_back({window, false});
+}
+
 // Each card's place, in the order `handles` lists them. Columns share the width
 // evenly and a column's slots its height; a lone column takes half.
 template<class Handle>

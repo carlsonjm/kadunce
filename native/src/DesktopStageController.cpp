@@ -1467,7 +1467,7 @@ bool DesktopStageController::planSession(Session &session,
             bool fits = true;
             for (const auto &window : std::as_const(owned)) {
                 if (bentoColumnsHold(*columns, window)) continue;
-                if (!bentoColumnsFill(*columns, window)) { fits = false; break; }
+                if (!bentoColumnsFill(*columns, window)) bentoColumnsJoin(*columns, window);
             }
             std::vector<QPointer<KWin::EffectWindow>> handles;
             std::vector<BentoRect> rects;
@@ -1494,7 +1494,8 @@ bool DesktopStageController::planSession(Session &session,
                 return true;
             }
             // A snap that cannot stand where it asked is refused; an arrival
-            // with no open room lays the whole layout out again.
+            // the columns cannot hold at its minimum lays the whole layout
+            // out again.
             if (snapped) return false;
         }
         session.placed.reset();
