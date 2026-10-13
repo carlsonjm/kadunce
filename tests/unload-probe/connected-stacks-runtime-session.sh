@@ -76,11 +76,15 @@ carry_onto() {
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
     sleep .5
-    read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe motion 61 "$tx" "$ty"
-    sleep .7
-    echo "state carry-$from $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
+    # The line closes up behind a lifted card, so its neighbour moves: aim,
+    # let the line settle, and aim again at where the card now is.
+    for _ in 1 2; do
+        read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+            | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
+        probe motion 61 "$tx" "$ty"
+        sleep .7
+    done
+    echo "state carry-$from $tx,$ty $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
     probe up 61
     sleep .8
 }
