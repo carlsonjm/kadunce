@@ -748,6 +748,12 @@ private:
     // §11, Connected: a pane leaves the layout from Spread and becomes a card
     // of its own; the panes left keep the layout, laid out again.
     bool takePaneOutOfLayout(KWin::EffectWindow *pane);
+    // The same, for a held pane let go on another card, while it is held.
+    bool detachProjectedPane(KWin::EffectWindow *pane);
+    // §11, Connected: a pane's card leaves its Stack, and the Stack keeps the
+    // pane: `card`, the Stack's next card, takes the pane's place in the layout
+    // and the pane is a card of its own.
+    bool handProjectedPaneTo(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     ActiveRestoreSnapshot m_activeRestore;
     QPointer<KWin::EffectWindow> m_presentedActive;
     QPointer<KWin::EffectWindow> m_focusAfterActive;

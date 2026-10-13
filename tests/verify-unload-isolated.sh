@@ -7,7 +7,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh|keyboard-first-runtime-session.sh) ;;
-    membership-runtime-session.sh|no-touch-runtime-session.sh|spread-display-runtime-session.sh|connected-runtime-session.sh|every-display-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
+    membership-runtime-session.sh|no-touch-runtime-session.sh|spread-display-runtime-session.sh|connected-runtime-session.sh|connected-stacks-runtime-session.sh|every-display-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
@@ -27,14 +27,14 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == *runtime-session.sh ]]; then outpu
 # the tablet alone.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == bento-key-sleeper-runtime-session.sh ]]; then output_count=1; fi
 # Connected is proven on one monitor, which holds Spread for want of a touchscreen.
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh ]]; then output_count=1; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh ]]; then output_count=1; fi
 if [[ -n ${KADUNCE_TEST_OUTPUT_COUNT:-} ]]; then
     [[ $KADUNCE_TEST_OUTPUT_COUNT == 1 || $KADUNCE_TEST_OUTPUT_COUNT == 2 ]] || exit 2
     output_count=$KADUNCE_TEST_OUTPUT_COUNT
 fi
 # A layout reaches its full pane count only on a monitor-sized display.
 output_width=1280 output_height=800
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-full-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-grid-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-full-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-grid-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh ]]; then
     output_width=2560 output_height=1440
 fi
 scale_args=()
@@ -86,7 +86,7 @@ chmod 700 "$unload_root/runtime"
 # were written for virtual outputs that hold no cards unless the tablet
 # fixture's touchscreen drives one, so each keeps cards to a touchscreen,
 # except the ones that prove the choice itself and Connected on a monitor.
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-stacks-runtime-session.sh ]]; then
     kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key WithoutTouchscreen false
 fi
 # Every display holds its own cards; the scenes before that rule keep the
@@ -176,6 +176,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then 
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-display-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh ]]; then session_timeout=120s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == table-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-top-runtime-session.sh ]]; then session_timeout=90s; fi

@@ -973,6 +973,10 @@ Effect::Effect()
     // Spread that gathered cards gives them back once it has closed.
     m_gatherWatch.setInterval(150);
     connect(&m_gatherWatch, &QTimer::timeout, this, &Effect::returnGatheredCards);
+    m_paneStackDwell.setSingleShot(true);
+    connect(&m_paneStackDwell, &QTimer::timeout, this, [this] {
+        if (m_carriedWindow) updateNativeCarryDestination(m_lastCarryContact);
+    });
     m_carriedDialogsRelease.setSingleShot(true);
     m_carriedDialogsRelease.setInterval(1000);
     connect(&m_carriedDialogsRelease, &QTimer::timeout, this, &Effect::releaseCarriedDialogs);
@@ -4343,6 +4347,7 @@ void Effect::endNativeCarryPresentation()
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
+    m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -4433,6 +4438,8 @@ QString Effect::nativeCarryState() const
             {QStringLiteral("y"), lineRect.y()}, {QStringLiteral("width"), lineRect.width()},
             {QStringLiteral("height"), lineRect.height()}}},
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
+        // §11, Connected: the pane a carried pane would join in a Stack.
+        {QStringLiteral("stackOnto"), m_carryStackOnto ? windowIdentity(m_carryStackOnto) : QString()},
         {QStringLiteral("titleBarHold"), KWin::input() && KWin::input()->touch()
             ? KWin::input()->touch()->decorationPressId() : -1},
         {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
@@ -4472,6 +4479,15 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryCardExitOutput.clear();
     m_carryPreview.reset();
     m_carryRefusal.reset();
+    m_carryStackOnto.clear();
+    m_lastCarryContact = contact;
+    // The aim is read again below only where a pane can be stacked on.
+    bool aimingPane = false;
+    const auto forgetPaneAim = qScopeGuard([this, &aimingPane] {
+        if (aimingPane) return;
+        m_paneStackAim.clear();
+        m_paneStackDwell.stop();
+    });
     if (!m_carriedWindow || !m_carryRuntime->handoff.source()) return;
     auto &handoff = m_carryRuntime->handoff;
     handoff.withdrawDrop(); // Leaving an exit/edge must retire its commit callback too.
@@ -4767,6 +4783,37 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
     if (tablet && !bento) return;
+    // §11, Connected: a pane carried over another pane and rested there joins
+    // that pane's Stack in front; let go sooner, the two swap below.
+    KWin::EffectWindow *over = local && bento && !desktopWindow && !edge
+        && connectedOutputForDesktopStage(target)
+        ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+    if (over) {
+        aimingPane = true;
+        if (!m_paneStackClock.isValid()) m_paneStackClock.start();
+        const long long now = m_paneStackClock.elapsed();
+        if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now)) {
+            m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
+        } else {
+            m_paneStackDwell.stop();
+            m_carryStackOnto = over;
+            m_carryPreview = KWin::RectF(over->frameGeometry());
+            QPointer<KWin::EffectWindow> carried = m_carriedWindow;
+            QPointer<KWin::EffectWindow> onto = over;
+            const auto destination = monitorDropIntent(target->name(), 0,
+                std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}}, std::nullopt);
+            if (!destination) return;
+            handoff.previewDrop(*destination,
+                [this, carried, onto] {
+                    return carried && onto && !carried->isDeleted() && !onto->isDeleted()
+                        && m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto);
+                },
+                [this, carried, onto](const PreparedCarrySource &) {
+                    return carried && onto && stackPaneOnto(carried, onto);
+                });
+            return;
+        }
+    }
     // From here an edge asks the layout solve for room, which is the one
     // reason left for it to refuse.
     if (edge) refusal = GestureRefusal::NoRoom;
@@ -5531,6 +5578,12 @@ QString Effect::workspaceContext() const
             {QStringLiteral("minimized"), window->isMinimized()},
             {QStringLiteral("hasCard"), card != nullptr},
             {QStringLiteral("pane"), m_desktopStage->managesWindow(window)},
+            // §11, Connected: the cards waiting behind a pane, front to back.
+            {QStringLiteral("paneStack"), [&] {
+                QJsonArray behind;
+                for (auto *member : m_cardStage->paneStack(window)) behind.append(windowIdentity(member));
+                return behind;
+            }()},
             {QStringLiteral("home"), cardHome(window) ? cardHome(window)->name() : QString()},
         };
         if (card) {
@@ -6977,6 +7030,61 @@ bool Effect::stepPaneStack(int delta)
     return stepPane(pane, delta);
 }
 
+bool Effect::stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto)
+{
+    if (!pane || !onto || pane == onto || !m_desktopStage->managesWindow(pane)
+        || !m_desktopStage->managesWindow(onto)) return false;
+    const bool there = isOtherCardDisplay(onto->screen());
+    const QList<KWin::EffectWindow *> paneBehind = m_cardStage->paneStack(pane);
+    const QList<KWin::EffectWindow *> ontoBehind = m_cardStage->paneStack(onto);
+    KWin::EffectWindow *next = paneBehind.isEmpty() ? nullptr : paneBehind.first();
+    if (!m_desktopStage->stackPaneOnto(pane, onto, next,
+            [this, next, there] {
+                if (!next) return true;
+                return there ? m_cardStage->releaseCardToDisplay(next)
+                             : m_cardStage->releaseCardToLiveBento(next);
+            })) return false;
+    // The pane is the Stack's front, the one it covered next, and that one's
+    // Stack after it; its own Stack stays with the slot it left.
+    QList<KWin::EffectWindow *> stack{onto};
+    stack.append(ontoBehind);
+    m_cardStage->forgetPaneStack(pane);
+    m_cardStage->forgetPaneStack(onto);
+    m_cardStage->notePaneStack(pane, stack);
+    if (next) {
+        m_cardHomes.remove(next);
+        m_cardStage->notePaneStack(next, paneBehind.mid(1));
+    }
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    KWin::effects->activateWindow(pane);
+    qInfo() << "Kadunce" << Revision << "stacked" << pane->caption() << "on" << onto->caption();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+void Effect::drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+    const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
+    KWin::LogicalOutput *screen)
+{
+    // §11, Connected: a pane holding a Stack shows the top and right edges of
+    // up to two cards waiting behind it, in the gap beside the pane.
+    if (!m_destinationShader || !screen || !connectedOutputForDesktopStage(screen)) return;
+    // Only over a layout as it shows, never over Spread, Table or a card.
+    if (screen == tabletOutput() && !m_cardStage->presentsBento()) return;
+    for (const auto &pane : m_desktopStage->panesOn(screen->name())) {
+        if (!pane || pane->isDeleted() || pane->isMinimized() || pane == m_carriedWindow) continue;
+        const int behind = std::min<int>(2, m_cardStage->paneStack(pane).size());
+        if (behind <= 0) continue;
+        const QRectF frame(pane->frameGeometry());
+        for (int k = behind; k >= 1; --k) {
+            const double offset = 3.0 * k;
+            drawDestinationOutline(renderTarget, viewport, deviceRegion, screen,
+                frame.translated(offset, -offset), frame);
+        }
+    }
+}
+
 bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
 {
     if (!pane || !m_desktopStage->managesWindow(pane)) return false;
@@ -7214,18 +7322,31 @@ void Effect::prePaintWindow(KWin::RenderView *view,
 
 void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
-    KWin::LogicalOutput *screen, const QRectF &box)
+    KWin::LogicalOutput *screen, const QRectF &box, const QRectF &hole)
 {
     QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
         .intersected(QRectF(screen->geometry()));
     clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
     QList<QVector2D> vertices;
     for (const auto &dirty : deviceRegion.rects()) {
-        const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
+        const auto whole = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
             .intersected(clip).intersected(box);
-        if (part.isEmpty()) continue;
-        vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
-                 << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+        if (whole.isEmpty()) continue;
+        // Whatever of `hole` the box covers is left undrawn: the bands above,
+        // below and beside it.
+        QList<QRectF> parts{whole};
+        const QRectF cut = whole.intersected(hole);
+        if (!cut.isEmpty()) {
+            parts = {QRectF(whole.left(), whole.top(), whole.width(), cut.top() - whole.top()),
+                     QRectF(whole.left(), cut.bottom(), whole.width(), whole.bottom() - cut.bottom()),
+                     QRectF(whole.left(), cut.top(), cut.left() - whole.left(), cut.height()),
+                     QRectF(cut.right(), cut.top(), whole.right() - cut.right(), cut.height())};
+        }
+        for (const auto &part : std::as_const(parts)) {
+            if (part.width() <= 0 || part.height() <= 0) continue;
+            vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                     << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+        }
     }
     if (!vertices.isEmpty()) {
         KWin::ShaderBinder binder(m_destinationShader.get());
@@ -7334,6 +7455,19 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             || (reservation && !cardEntry && reservation->detachesToDesktop()))
             m_detachLabel.render(renderTarget, viewport, box);
     }
+    // §11, Connected: a pane rested over another shows the Stack it would
+    // join: the pane it covers drawn as a card standing behind a second.
+    if (m_destinationShader && screen && m_carriedWindow && m_carryStackOnto && m_carryPreview
+        && m_carryStackOnto->screen() == screen) {
+        const QRectF box(*m_carryPreview);
+        const double step = std::min(14.0, std::min(box.width(), box.height()) * .04);
+        const QRectF front = box.adjusted(step * 2, step * 2, -step * 2, -step * 2);
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen,
+            front.translated(step, -step), front);
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, front);
+        overlaid.append(box);
+    }
+    drawPaneStackEdges(renderTarget, viewport, deviceRegion, screen);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, QRectF(*m_placementPreview));

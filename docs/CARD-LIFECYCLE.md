@@ -474,12 +474,13 @@ holds more than two panes (§5), unless chosen for that display (`kaduncerc`
 `[Sizing]`). Active is the rest of this document.
 On Connected:
 
-- Spread opens zoomed out, every card whole, and each pane is a full card of
-  its own; there is no Bento group.
+- Spread opens zoomed out, every card whole, each pane a card of its own and
+  no Bento group.
 - A card chosen or window opened joins the layout: paired with the card
   in use when none shows, else under §8.
-- A Stack fills one pane, its other cards hidden behind it. Stepping it, or
-  closing its front card, puts the next card in that pane's slot.
+- A Stack fills one pane, its other cards' edges showing; stepping it or
+  closing its front plays the next. A pane rested on another joins its
+  Stack in front, leaving its slot to its own Stack; Spread holds panes.
 - A side snap or dock launch names a place, not a size: an edge's upper half
   beside, a full-height column; its lower half under, at that column's foot.
   Alone it keeps that place. An arrival fills open room, else
@@ -525,10 +526,10 @@ If one pane remains, Bento ends and that pane becomes an individual card.
 
 ### Closing the Active card
 
-Kadunce returns to Spread when other owned cards remain.
+Spread returns while owned cards remain.
 
-If nothing remains, the display's Kadunce session ends, and the next window to
-open there starts ownership again under §3.
+If nothing remains, the display's session ends; the next window opening there
+starts ownership again (§3).
 
 ## 13. Release and disable
 
@@ -546,7 +547,7 @@ Full Kadunce release or disable:
 
 KWin moving the Active card releases everything only once it travels. KWin
 placing it on another display, or its application filling the screen, lets
-only that card go, where KWin put it. With cards on every display, release gives windows back on their own.
+only that card go, where KWin put it. With cards on every display, windows go back on their own.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 

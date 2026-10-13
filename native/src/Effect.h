@@ -11,6 +11,7 @@
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
+#include "PaneStackAim.h"
 #include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
@@ -564,6 +565,13 @@ private:
     void refillOtherDisplay(const QString &outputName);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
+    // §11, Connected: a carried pane let go on `onto` joins its Stack in
+    // front, and the next card of its own Stack takes the slot it left.
+    bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    // The edges of the cards waiting behind each pane holding a Stack.
+    void drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+                            const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
+                            KWin::LogicalOutput *screen);
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
     // holds its own cards and shows a Stack.
     [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
@@ -940,6 +948,15 @@ private:
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
     std::optional<KWin::RectF> m_carryPreview;
+    // §11, Connected: the pane a carried pane rests over, which it joins in
+    // a Stack once it has rested there; the pane it would join, once it
+    // would; and a reading of the aim when the dwell runs out, should the
+    // carry be resting still.
+    PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
+    QPointer<KWin::EffectWindow> m_carryStackOnto;
+    QElapsedTimer m_paneStackClock;
+    QTimer m_paneStackDwell;
+    QPointF m_lastCarryContact;
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown
@@ -1060,7 +1077,8 @@ private:
     void completePlacementForWindow(KWin::EffectWindow *window);
     void drawDestinationOutline(const KWin::RenderTarget &renderTarget,
                                 const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
-                                KWin::LogicalOutput *screen, const QRectF &box);
+                                KWin::LogicalOutput *screen, const QRectF &box,
+                                const QRectF &hole = {});
     static constexpr int PlacementLaunchTimeoutMs = 10000;
     std::optional<PlacementAim> m_placementAim;
     std::optional<KWin::RectF> m_placementPreview;
