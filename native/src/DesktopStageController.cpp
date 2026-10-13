@@ -447,6 +447,10 @@ std::optional<int> DesktopStageController::slotForArrival(
         for (const auto &window : session.windows)
             lastUsed.push_back(m_host->lastUsedForDesktopStage(window.data()));
         slot = bentoSlotUsedLongestAgo(pixels, lastUsed, minimum.width(), minimum.height());
+        // A Connected display fills its layout with what opens there: with no
+        // slot the window's least size fits, it still takes the one used
+        // longest ago rather than the layout waiting in the dock.
+        if (slot < 0) slot = bentoSlotUsedLongestAgo(pixels, lastUsed, 0, 0);
     } else {
         slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
     }

@@ -569,6 +569,12 @@ private:
     // Spread opened over a display showing no card of its own gathers the
     // cards the other displays show; those not chosen go back as it closes.
     bool gatherCardsIntoSpread();
+    // A window let go loose on a display holding its own cards becomes a card
+    // there, as one opened there does.
+    void claimWindowForItsDisplay(KWin::EffectWindow *window);
+    // Whether another display holds its own cards, so where a carried Active
+    // card lands decides what it becomes.
+    [[nodiscard]] bool carriesToAnotherCardDisplay() const;
     void returnGatheredCards();
     QList<QPair<QPointer<KWin::EffectWindow>, QString>> m_gathered;
     QTimer m_gatherWatch;

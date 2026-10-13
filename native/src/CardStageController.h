@@ -522,6 +522,8 @@ public:
     bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
+    // The Active card asked to fill the screen: it alone goes, the rest wait aside.
+    void letFillingCardGo(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
     bool admitBentoStack(const BentoProjectionSession &projection,

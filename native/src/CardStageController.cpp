@@ -5478,7 +5478,7 @@ void CardStageController::handleActiveGeometryChanged(
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
-        handleManualWindowChange(window);
+        letFillingCardGo(window);
     } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
     }
@@ -5489,10 +5489,21 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
     if (m_applyingWindowState || !m_active
         || m_presentation != CardPresentation::Active
         || !m_activeRestore.valid || m_activeRestore.window != window) return;
+    // The user's new state wins. Release presentation without replaying the
+    // old snapshot over an in-progress move/resize or explicit state request.
+    qInfo() << "Kadunce" << Revision << "lets every card go: KWin itself moved or resized the Active card"
+            << (window && window->window() ? window->window()->resourceClass() : QString());
+    m_activeRestore = ActiveRestoreSnapshot{};
+    release();
+}
+
+void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
+{
+    if (m_applyingWindowState || !m_active
+        || m_presentation != CardPresentation::Active
+        || !m_activeRestore.valid || m_activeRestore.window != window) return;
     // The new state wins, for that window alone: it goes without its old
-    // snapshot replayed over the request, and the other cards wait aside,
-    // each on its own display, rather than going back to records that may
-    // name a display they have left.
+    // snapshot replayed over the request, and the other cards wait aside.
     qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
             << "go: it asked to fill the screen"
             << (window->window() ? window->window()->resourceClass() : QString());
