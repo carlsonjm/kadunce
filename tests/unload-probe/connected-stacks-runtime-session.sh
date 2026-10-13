@@ -74,32 +74,12 @@ seen_at() {
         | select(. != null) | [([.x, 0] | max), ([.x + .width, 2560] | min)] as [$l, $r]
         | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
 }
-# A card standing whole on the display, not an edge.
-whole() {
-    context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | . != null and .x >= 0 and .x + .width <= 2560'
-}
-# Spread shows three whole cards and an edge either side: walk the row until
-# both cards stand whole, away from the screen's edge where the row slides
-# under a held card.
-both_whole() {
-    local key
-    whole "$1" >/dev/null 2>&1 && whole "$2" >/dev/null 2>&1 && return 0
-    for key in 105 106; do
-        select_card "$2" >/dev/null 2>&1
-        for _ in 1 2 3; do
-            probe key "$key" 0 >/dev/null
-            sleep .4
-            whole "$1" >/dev/null 2>&1 && whole "$2" >/dev/null 2>&1 && return 0
-        done
-    done
-    return 1
-}
 entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
-# A card too far along the row to stand whole beside the other is carried as
-# a person does: pulled down, the row zooms out to show all of it, the card
-# goes over the other and rests there to join it.
-carry_far() {
+# A person's finger carries one card onto another in Spread and lets go. Spread
+# shows one whole card and its neighbours' edges, so the card is carried as a
+# person does: pulled down, the row zooms out to show all of it, and the card
+# rests over the other until it would join.
+carry_onto() {
     local from=$1 to=$2 x y h e entries t items scale width x0 dx
     select_card "$from" >/dev/null 2>&1
     sleep .4
@@ -121,40 +101,13 @@ carry_far() {
     # the card was (CarryRow.h); a pitch is a card and its gutter.
     x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson w "$width" \
         '($w * 1.1037) as $p | 1280 + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
-    for dx in 0 -40 40 -80 80 -120 120; do
+    for dx in 0 -40 40 -80 80 -120 120 -160 160; do
         probe motion 61 "$((x0 + dx))" "$((y + 180))"
         sleep .5
         [[ $(kad nativeCarryState | jq -r --argjson t "$t" 'select(.carryAim == "join" and .carryIndex == $t) | "y"') == y ]] && break
     done
     sleep .4
-    echo "state carry-far-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
-    probe up 61
-    sleep .8
-}
-# A person's finger carries one card onto another in Spread and lets go.
-carry_onto() {
-    local from=$1 to=$2 x y tx ty width
-    if ! both_whole "$from" "$to"; then
-        carry_far "$from" "$to"
-        return
-    fi
-    read -r x y < <(seen_at "$from")
-    read -r tx ty < <(seen_at "$to")
-    width=$(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
-    probe down 61 "$x" "$y"
-    sleep .4
-    probe motion 61 "$((x + 30))" "$y"
-    sleep .5
-    # Held, the row stands where it stood, though Spread reports its places
-    # around the held card: aim where the card stood before the lift. The
-    # place it left closes to a gap of 0.7 pitch, so a card after it stands
-    # 0.3 pitch nearer (CarryRow.h), a pitch being a card and its gutter.
-    (( tx > x )) && tx=$((tx - width * 331 / 1000))
-    probe motion 61 "$(((x + tx) / 2))" "$ty"
-    sleep .15
-    probe motion 61 "$tx" "$ty"
-    sleep .9
-    echo "state carry-$from $tx,$ty $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
+    echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
     probe up 61
     sleep .8
 }

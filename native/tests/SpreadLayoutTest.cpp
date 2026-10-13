@@ -4,7 +4,6 @@
 */
 
 #include "SpreadLayout.h"
-#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "HeldCardGeometry.h"
 #include "NeighborStackPose.h"
@@ -35,18 +34,6 @@ bool close(double a, double b)
 int main()
 {
     {
-        // Connected: three whole cards across, the selected one centred, and
-        // an edge of the card past each side.
-        const double share = Kadunce::spreadConnectedShare();
-        const auto row = Kadunce::makeSpreadLayoutAt(0, 0, 2560, 1440, share);
-        require(row.cards[0].x > 0 && row.cards[2].right() < 2560,
-            "Connected, three cards did not stand whole across the display");
-        require(close(row.cards[1].x + row.cards[1].width / 2.0, 1280.0),
-            "Connected, the selected card was not centred");
-        const double edge = 2560 - (row.cards[2].right() + row.gutter);
-        require(edge > 0 && edge < row.cards[1].width && close(edge, row.cards[1].width * Kadunce::SpreadConnectedEdge),
-            "Connected, the card past the three did not show an edge");
-        require(share < Kadunce::SpreadCardShare, "Connected, the cards were not smaller");
         const auto ordinary = Kadunce::makeSpreadLayout(0, 0, 2560, 1440);
         require(close(ordinary.cards[1].width, 2560 * 0.54) && close(ordinary.gutter, 2560 * 0.056),
             "The ordinary row changed");

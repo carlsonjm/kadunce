@@ -19,7 +19,6 @@
 #include "StackBrowseMotion.h"
 #include "SpreadStroke.h"
 #include "SpreadLayout.h"
-#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
@@ -533,17 +532,6 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
         if (target.right() + reach < work.left() || target.left() - reach > work.right()) return 99;
         return target.center().x() < work.center().x() ? -1 : 1;
     }
-    if (m_workspace.count() >= 2 && zoomedOut()) {
-        // Zoomed out, every entry whose card reaches the screen is drawn.
-        const int offset = entryOffset(window);
-        auto *output = m_host->tabletOutputForCardStage();
-        if (offset == 99 || !output) return 99;
-        const auto work = workArea(output);
-        const auto target = cardTargetForSlot(output, offset);
-        const double reach = target.width() * 0.2;
-        return target.right() + reach > work.left() && target.left() - reach < work.right()
-            ? offset : 99;
-    }
     if (m_workspace.count() == 2) {
         return rowNeighborSide();
     }
@@ -784,14 +772,11 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     if (!output) return std::nullopt;
     const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
-    // The row a card is lifted from keeps the zoom it stood at.
-    const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-        zoomedOut() ? spreadConnectedShare() : SpreadCardShare);
+    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     const CardRect &centre = layout.cards[1];
-    const double pitch = centre.width + layout.gutter;
     return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
-                      pitch, centre.width, centre.height, work.x(), work.width(),
-                      zoomedOut() ? carryLeanBand(pitch, centre.width, work.width()) : CarryLeanBand{}};
+                      centre.width + layout.gutter, centre.width, centre.height,
+                      work.x(), work.width()};
 }
 
 int CardStageController::carryItemOf(const KWin::EffectWindow *window) const
@@ -914,14 +899,11 @@ KWin::Rect CardStageController::cardTargetForSlot(
     const KWin::RectF work = workArea(output);
     // A card held in its own Stack leaves the row as it stood.
     const bool rowStands = !m_cardGrabActive || m_carry.inStack;
-    // Connected keeps its row of whole cards, the selected one centred, for two
-    // cards as for more.
     const bool focusedPair = m_workspace.count() == 2 && std::abs(slot) < 2
-        && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands && !zoomedOut();
+        && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-              zoomedOut() ? spreadConnectedShare() : SpreadCardShare);
+        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
     // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
@@ -1971,8 +1953,7 @@ void CardStageController::beginCardGrab(const QPointF &position)
     m_carry.heldWidth = pickup.width();
     m_carry.grip = QPointF((position.x() - pickup.x()) / pickup.width(),
                            (position.y() - pickup.y()) / pickup.height());
-    m_carry.lean = carryLeanStart(position.x(), frame->screenLeft, frame->screenWidth,
-                                   frame->lean.still);
+    m_carry.lean = carryLeanStart(position.x(), frame->screenLeft, frame->screenWidth);
     m_carry.selectedBefore = selectedBefore;
     m_carry.faceBefore = faceBefore;
     m_carry.animating = true;
@@ -2156,11 +2137,9 @@ void CardStageController::advanceCarry(double seconds)
     const bool onGroup = m_carry.moved && !m_carry.sliding
         && (onPane(m_carry.candidate) || onPane(m_carry.aim));
     if (m_carry.moved)
-        m_carry.lean = carryLeanFollow(m_carry.lean, finger, frame->screenLeft, frame->screenWidth,
-                                        frame->lean.still);
+        m_carry.lean = carryLeanFollow(m_carry.lean, finger, frame->screenLeft, frame->screenWidth);
     m_carry.depth = m_carry.moved && onTablet && !onGroup
-        ? carryLeanDepth(finger, m_carry.lean, frame->screenLeft, frame->screenWidth,
-                         frame->lean.full) : 0.0;
+        ? carryLeanDepth(finger, m_carry.lean, frame->screenLeft, frame->screenWidth) : 0.0;
     // The row stays three across. Pulled down a short way, the card takes it
     // to one set zoom, and back up to three across, gliding either way.
     if (m_carry.moved) {
@@ -2203,7 +2182,7 @@ void CardStageController::advanceCarry(double seconds)
         } else {
             const double speed = onTablet && !onGroup
                 ? carrySlideSpeed(finger, m_carry.lean, frame->screenLeft, frame->screenWidth,
-                                  m_carry.scale, frame->lean.full) : 0.0;
+                                  m_carry.scale) : 0.0;
             const double before = m_carry.position;
             m_carry.position = carryClampPosition(m_carry.position + speed * seconds,
                                                   m_carry.low, m_carry.high, frame->pitch);
@@ -2673,12 +2652,6 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     return true;
-}
-
-bool CardStageController::zoomedOut() const
-{
-    return m_presentation == CardPresentation::Spread && !m_launcherGuestActive
-        && m_host->connectedForCardStage();
 }
 
 bool CardStageController::hasBentoGroup() const

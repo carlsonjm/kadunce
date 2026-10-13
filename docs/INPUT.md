@@ -89,7 +89,7 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 
 | Input | What happens |
 | --- | --- |
-| Open Spread | Three whole cards, the chosen one centred; each pane its own card. |
+| Open Spread | As on Active; each pane its own card. |
 | Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout on it. |
 | `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack, its edges showing, steps in place. |
 

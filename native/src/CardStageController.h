@@ -108,8 +108,8 @@ public:
     // A card let go on a pane of the Bento group took that pane; open the
     // group as its layout, the card growing from `from`, where it was drawn.
     virtual void openGroupAfterDropForCardStage(const QRectF &) {}
-    // Whether this display is sized Connected (DisplaySizing.h), so Spread
-    // opens zoomed out. A host that draws no distinction answers Active.
+    // Whether this display is sized Connected (DisplaySizing.h). A host that
+    // draws no distinction answers Active.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
     // Whether the layout this display presents was placed by a side snap, so
     // it can leave room open where the desktop shows (CARD-LIFECYCLE.md §11).
@@ -567,9 +567,6 @@ private:
     [[nodiscard]] ActiveRestoreSnapshot onOwnDisplay(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::RectF placeClearOfPanels(const ActiveRestoreSnapshot &snapshot) const;
     [[nodiscard]] KWin::Rect activePlacement(KWin::LogicalOutput *output) const;
-    // Spread is drawn zoomed out: the display is sized Connected and the row
-    // stands as itself, not beside Search.
-    [[nodiscard]] bool zoomedOut() const;
     [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
     {
         return m_host->workAreaForCardStage(output);
@@ -597,7 +594,6 @@ private:
         double height = 0.0;
         double screenLeft = 0.0;
         double screenWidth = 0.0;
-        CarryLeanBand lean;
     };
     [[nodiscard]] std::optional<CarryFrame> carryFrame(KWin::LogicalOutput *output) const;
     // A window's item in the row without the held card, or -1.
