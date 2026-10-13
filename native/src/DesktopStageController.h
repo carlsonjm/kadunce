@@ -198,6 +198,11 @@ public:
     // proved on a value copy that it can show the card.
     [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
                                             const std::function<bool()> &commitSource);
+    // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
+    // it puts the next card in that pane's slot. Nothing else moves; the pane
+    // leaving becomes a card through the same path as any yielded pane.
+    [[nodiscard]] bool replacePaneWithCard(KWin::EffectWindow *pane, KWin::EffectWindow *card,
+                                           const std::function<bool()> &commitSource);
 
     enum class CardDropIntent { OpenSpace, ActivateBento, NativeDesktop };
     // Opaque receiver reservation. Copies share consumption: a preview cannot

@@ -77,6 +77,26 @@ int main() {
                 && stack.selectedWindow() == windows.first(), "Projected closure lost lead");
         }
     }
+    // On a display sized Connected, a layout arrives in Spread as one entry
+    // per pane, in order, beside the cards already there.
+    for (int count = 1; count <= 25; ++count) {
+        CardWorkspaceState<QString> row;
+        const auto existing = row.prepareAdmission(u"card"_s, false);
+        require(existing && row.commitAdmission(*existing, [] { return true; }),
+            "A card was not admitted before a row");
+        QList<QString> panes;
+        for (int i = 0; i < count; ++i) panes.append(u"pane"_s + QString::number(i));
+        const auto plan = row.prepareRowAdmission(panes);
+        require(plan && !row.commitAdmission(*plan, [] { return false; })
+            && row.windows() == QList<QString>{u"card"_s}, "Rejected row import mutated ownership");
+        require(row.commitAdmission(*plan, [] { return true; })
+            && row.count() == count + 1 && row.cardCount() == count + 1 && row.invariantHolds(),
+            "Row import did not make one entry per pane");
+        for (int i = 0; i < count; ++i)
+            require(row.stackSizeForId(i + 2) == 1 && row.windows().value(i + 1) == panes[i],
+                "Row import stacked a pane or changed the order");
+        require(!row.prepareRowAdmission({panes.first()}), "Row import accepted a pane twice");
+    }
     CardWorkspaceState<QString> duplicateStack;
     require(!duplicateStack.prepareStackAdmission({u"same"_s, u"same"_s}),
         "Duplicate stack identity accepted");

@@ -709,6 +709,8 @@ private:
     // CARD-LIFECYCLE.md §11, Connected: a card picked from Spread is played
     // into the display's layout. False leaves the pick to the Active path.
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
+    // §11, Connected: Meta+Up/Down on a pane steps the Stack that fills it.
+    bool stepPaneStack(int delta);
     // §8: retire a layout that cannot take an arrival into a Spread group, so
     // the card the arrival becomes is not drawn over live panes. Both arrival
     // paths ask this before handing the window to Card Stage.

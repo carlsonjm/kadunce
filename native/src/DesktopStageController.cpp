@@ -509,6 +509,37 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     return true;
 }
 
+bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
+    KWin::EffectWindow *card, const std::function<bool()> &commitSource)
+{
+    if (m_restoring || !commitSource || !pane || !card || pane == card
+        || card->isDeleted() || !card->window() || card->isUserMove() || card->isUserResize()
+        || m_interactionWindow || m_railDrag) return false;
+    Session *session = sessionForOutput(pane->screen());
+    if (!session || session->applying) return false;
+    const int slot = session->windows.indexOf(pane);
+    if (slot < 0) return false;
+    for (const auto &existing : std::as_const(session->snapshots))
+        if (existing.window == card) return false;
+    KWin::LogicalOutput *output = outputForKey(session->outputName);
+    if (!output) return false;
+    const auto pixels = sessionPixels(*session, stageArea(output));
+    if (slot >= int(pixels.size())) return false;
+    const QSizeF minimum = card->window()->minSize();
+    if (minimum.width() > pixels[slot].width || minimum.height() > pixels[slot].height) return false;
+    const RestoreSnapshot snapshot = makeSnapshot(card);
+    if (!snapshot.valid) return false;
+    const Session live = *session;
+    Session candidate = live;
+    if (!takeSlotAtCap(candidate, slot, snapshot)) return false;
+    if (!commitSource()) return false;
+    const auto pending = captureEvictions(live, candidate);
+    *session = std::move(candidate);
+    if (applySession(*session, true)) scheduleSettle();
+    publishEvictions(pending);
+    return true;
+}
+
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
     CardDropIntent intent, std::optional<BentoSidePlacement> side,

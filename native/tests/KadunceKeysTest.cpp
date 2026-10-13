@@ -31,6 +31,14 @@ int main() {
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier, active) == KeyAction::StackPrevious
               && keyActionFor(Qt::Key_Down, Qt::MetaModifier, active) == KeyAction::StackNext,
           "Meta's arrows did not move through the cards");
+    // A layout on a display sized Connected steps the focused pane's Stack,
+    // and leaves Left and Right alone.
+    const KeyContext connectedLayout{false, false, false, true};
+    check(keyActionFor(Qt::Key_Up, Qt::MetaModifier, connectedLayout) == KeyAction::StackPrevious
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier, connectedLayout) == KeyAction::StackNext
+              && keyActionFor(Qt::Key_Left, Qt::MetaModifier, connectedLayout) == KeyAction::None
+              && keyActionFor(Qt::Key_Down, Qt::NoModifier, connectedLayout) == KeyAction::None,
+          "Meta+Up/Down did not step a pane's Stack");
     // Plain keys only in Spread, and only with no other key held.
     check(keyActionFor(Qt::Key_Left, Qt::NoModifier, active) == KeyAction::None
               && keyActionFor(Qt::Key_Return, Qt::NoModifier, active) == KeyAction::None,
