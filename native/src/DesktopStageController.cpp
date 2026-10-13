@@ -913,6 +913,10 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
     if (intent != CardDropIntent::OpenSpace && intent != CardDropIntent::ActivateBento
         && intent != CardDropIntent::NativeDesktop) return false;
     if (intent == CardDropIntent::NativeDesktop && managesWindow(window)) return false;
+    // §11, Every display: no window stands loose on a display holding its own
+    // cards, so a card set down there joins its layout, or begins one.
+    if (intent == CardDropIntent::OpenSpace && m_host->holdsOwnCardsForDesktopStage(output))
+        intent = CardDropIntent::ActivateBento;
     if (intent == CardDropIntent::ActivateBento
         && (!m_host->allowsDesktopStageOnOutput(output)
             || !m_host->isManagedWindowForDesktopStage(window))) return false;
@@ -1319,6 +1323,20 @@ bool DesktopStageController::planSession(Session &session,
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
+    // CARD-LIFECYCLE.md §11, Every display: a display sized Active that holds
+    // its own cards shows one of them, the preferred one first, whole; the
+    // rest wait in Spread.
+    if (m_host->showsOneCardForDesktopStage(output) && !owned.isEmpty()) {
+        if (requirePreferred && preferred && owned.first() != preferred) return false;
+        session.zones.clear();
+        session.side.reset();
+        session.sideWindow.clear();
+        session.lone = false;
+        session.windows = {owned.first()};
+        session.rects = {BentoRect{0.0, 0.0, 1.0, 1.0}};
+        report(owned.mid(1));
+        return true;
+    }
     // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
     // it in KDE's tile editor, when there are any. A window keeps the zone it
     // has while it fits, and one that fits no zone left waits as remainder.
@@ -1707,6 +1725,9 @@ void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
     // the session keeps its combination rather than returning it to Plasma:
     // §13 reserves that for release and disable.
     if (!output || !m_host->outputCanOwnCards(output)) return;
+    // §11, Every display: a display holding its own cards shows its last card
+    // whole, as its layout of one.
+    if (m_host->holdsOwnCardsForDesktopStage(output)) return;
     const QPointer<KWin::EffectWindow> remaining =
         session->windows.isEmpty() ? nullptr : session->windows.first();
     const QRectF drawn = remaining ? m_host->bentoPresentationRect(remaining) : QRectF();
@@ -2268,6 +2289,24 @@ bool DesktopStageController::resumeProjectedSession(
     }
     KWin::effects->addRepaintFull();
     return true;
+}
+
+bool DesktopStageController::holdOutput(KWin::LogicalOutput *output, KWin::EffectWindow *preferred)
+{
+    if (!output || !m_host->holdsOwnCardsForDesktopStage(output)) return false;
+    return activate(output, preferred);
+}
+
+QList<QPointer<KWin::EffectWindow>> DesktopStageController::panesOn(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session == m_sessions.cend() ? QList<QPointer<KWin::EffectWindow>>{} : session->windows;
+}
+
+void DesktopStageController::endLonePanes()
+{
+    const QStringList keys = m_sessions.keys();
+    for (const QString &key : keys) endLayoutIntoCardOwnership(key);
 }
 
 void DesktopStageController::restoreAllSessions()

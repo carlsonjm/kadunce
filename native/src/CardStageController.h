@@ -449,6 +449,22 @@ public:
     bool admitSleepingPaneAsCard(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore);
+    // CARD-LIFECYCLE.md §11, Every display: a window that another display
+    // holding its own cards does not show becomes a card here, waiting in
+    // Spread. Like a displaced pane it takes membership and its record and
+    // nothing else, whatever this display presents: no selection, no change
+    // of presentation, unless this stage held nothing, when it starts with
+    // the desktop shown. A minimized window arrives asleep.
+    bool admitCardFromOtherDisplay(KWin::EffectWindow *window,
+        const std::function<bool()> &commitSource,
+        const NativeMoveSnapshot *restore);
+    // §11, Every display: this card gives up individual ownership to the
+    // layout of the display it shows on, in one step, whatever this display
+    // presents. A card held aside is shown again for it.
+    bool releaseCardToDisplay(KWin::EffectWindow *card);
+    // A card chosen to show on another display that holds its own cards goes
+    // there, joining its layout. The card this display presents stays.
+    bool sendCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
     // Whether this stage is presenting the display's Bento layout rather than
     // its own cards, so a caller can route an activation to the layout.
     [[nodiscard]] bool presentsBento() const {
