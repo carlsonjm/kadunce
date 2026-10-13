@@ -4738,6 +4738,8 @@ bool CardStageController::enterActive()
     // not be mistaken for a second task-manager request.
     m_presentation = CardPresentation::Active;
     m_presentedActive = effectWindow;
+    // A layout left for one card turned the card keys off; Active has them.
+    m_host->setPagingShortcutsForCardStage(true);
     if (m_usedActive != effectWindow) {
         m_usedBefore = m_usedActive;
         m_usedActive = effectWindow;
