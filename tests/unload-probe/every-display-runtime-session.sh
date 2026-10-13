@@ -75,6 +75,14 @@ carry_onto() {
         | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
     probe motion 61 "$tx" "$ty"
     sleep .7
+    # The row the card is carried over can stand otherwise than the one it
+    # left, so the card follows where its target now stands.
+    read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
+    probe motion 61 "$tx" "$ty"
+    sleep .7
+    echo "carry $from from $x,$y onto $to at $tx,$ty"
+    report carrying
     probe up 61
     sleep .8
 }
