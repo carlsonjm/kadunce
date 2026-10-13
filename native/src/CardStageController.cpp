@@ -411,8 +411,17 @@ bool CardStageController::selectedIsBentoGroup() const
     if (!m_bentoProjectionSession || !selectedWindow()) return false;
     // On Connected any of the layout's cards opens the layout.
     if (inProjectedLayout(selectedWindow())) return true;
-    if (panesAsCards()) return false;
     const int selected = m_workspace.selectedId();
+    if (panesAsCards()) {
+        // A Stack holding a pane fills that pane, so any card of it opens the
+        // layout with its front card there (§11).
+        for (const auto &pane : m_bentoProjectionPaneWindows) {
+            if (!pane) continue;
+            const int id = m_workspace.indexOf(pane) + 1;
+            if (id > 0 && id != selected && m_workspace.sameStack(id, selected)) return true;
+        }
+        return false;
+    }
     for (const auto &pane : m_bentoProjectionPaneWindows) {
         if (!pane) continue;
         const int id = m_workspace.indexOf(pane) + 1;
