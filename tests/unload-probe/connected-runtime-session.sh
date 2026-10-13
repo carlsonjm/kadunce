@@ -80,40 +80,39 @@ whole() {
         | . != null and .x >= 0 and .x + .width <= 2560'
 }
 # Spread shows three whole cards and an edge either side: walk the row until
-# the card to carry stands whole, away from the screen's edge where the row
-# slides under a held card, and the card it goes to is in view.
-both_seen() {
+# both cards stand whole, away from the screen's edge where the row slides
+# under a held card.
+both_whole() {
     local key
-    whole "$1" >/dev/null 2>&1 && [[ -n $(seen_at "$2") ]] && return 0
+    whole "$1" >/dev/null 2>&1 && whole "$2" >/dev/null 2>&1 && return 0
     for key in 105 106; do
         select_card "$2" >/dev/null 2>&1
         for _ in 1 2 3; do
             probe key "$key" 0 >/dev/null
             sleep .4
-            whole "$1" >/dev/null 2>&1 && [[ -n $(seen_at "$2") ]] && return 0
+            whole "$1" >/dev/null 2>&1 && whole "$2" >/dev/null 2>&1 && return 0
         done
     done
     return 1
 }
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
-    local from=$1 to=$2 x y tx ty fx
-    both_seen "$from" "$to" || echo "state carry-unseen $from $to"
+    local from=$1 to=$2 x y tx ty width
+    both_whole "$from" "$to" || echo "state carry-unseen $from $to"
     read -r x y < <(seen_at "$from")
-    fx=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect | (.x + .width / 2) | floor')
     read -r tx ty < <(seen_at "$to")
+    width=$(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
     probe down 61 "$x" "$y"
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
     sleep .5
     # Held, the row stands where it stood, though Spread reports its places
     # around the held card: aim where the card stood before the lift. The
-    # carry aims with the held card's middle, not the finger, so a card taken
-    # by its edge is carried that much further, through a point halfway so
-    # the aim settles on the way.
-    tx=$((tx + x - fx))
+    # place it left closes to a gap of 0.7 pitch, so a card after it stands
+    # 0.3 pitch nearer (CarryRow.h), a pitch being a card and its gutter.
+    (( tx > x )) && tx=$((tx - width * 331 / 1000))
     probe motion 61 "$(((x + tx) / 2))" "$ty"
-    sleep .4
+    sleep .15
     probe motion 61 "$tx" "$ty"
     sleep .9
     echo "state carry-$from $tx,$ty $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
