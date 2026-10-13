@@ -95,10 +95,49 @@ both_whole() {
     done
     return 1
 }
+entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
+# A card too far along the row to stand whole beside the other is carried as
+# a person does: pulled down, the row zooms out to show all of it, the card
+# goes over the other and rests there to join it.
+carry_far() {
+    local from=$1 to=$2 x y h e entries t items scale width x0 dx
+    select_card "$from" >/dev/null 2>&1
+    sleep .4
+    read -r x y < <(seen_at "$from")
+    width=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
+    h=$(entry_of "$from")
+    e=$(entry_of "$to")
+    entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
+    items=$((entries - 1))
+    t=$(( e > h ? e - 1 : e ))
+    probe down 61 "$x" "$y"
+    sleep .4
+    probe motion 61 "$((x + 30))" "$y"
+    sleep .3
+    probe motion 61 "$((x + 30))" "$((y + 180))"
+    sleep .8
+    scale=$(kad nativeCarryState | jq -r '.carryScale')
+    # Zoomed to fit, the row stands centred, its gap 0.7 of a pitch wide where
+    # the card was (CarryRow.h); a pitch is a card and its gutter.
+    x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson w "$width" \
+        '($w * 1.1037) as $p | 1280 + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    for dx in 0 -40 40 -80 80 -120 120; do
+        probe motion 61 "$((x0 + dx))" "$((y + 180))"
+        sleep .5
+        [[ $(kad nativeCarryState | jq -r --argjson t "$t" 'select(.carryAim == "join" and .carryIndex == $t) | "y"') == y ]] && break
+    done
+    sleep .4
+    echo "state carry-far-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
+    probe up 61
+    sleep .8
+}
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
     local from=$1 to=$2 x y tx ty width
-    both_whole "$from" "$to" || echo "state carry-unseen $from $to $(kad workspaceContext | jq -c '[.applications[] | {windowId, spreadRect}]')"
+    if ! both_whole "$from" "$to"; then
+        carry_far "$from" "$to"
+        return
+    fi
     read -r x y < <(seen_at "$from")
     read -r tx ty < <(seen_at "$to")
     width=$(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
