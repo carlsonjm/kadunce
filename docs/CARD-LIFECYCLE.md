@@ -476,13 +476,13 @@ On Connected:
 
 - Spread opens zoomed out, every card whole, and each pane is a full card of
   its own; there is no Bento group.
-- A card chosen joins the layout: paired with the card in use when none shows,
-  else under §8.
+- A card chosen or window opened joins the layout: paired with the card
+  in use when none shows, else under §8.
 - A Stack fills one pane, its other cards hidden behind it. Stepping it, or
   closing its front card, puts the next card in that pane's slot.
 - A side snap or dock launch names a place, not a size: an edge's upper half
   beside, a full-height column; its lower half under, at that column's foot.
-  Alone it keeps that place, the rest open. An arrival fills open room, else
+  Alone it keeps that place. An arrival fills open room, else
   joins the shortest column or starts one, whichever keeps panes larger. Past
   minimum sizes, auto-fill lays all out, a snapped card kept at its side; a
   leaving pane opens its room.

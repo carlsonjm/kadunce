@@ -2870,6 +2870,17 @@ void Effect::handleWindowOutputChanged()
                 return;
             }
         }
+        // A pane sent to another display leaves its layout there as one
+        // carried there by its title bar does. Spread moves no pane.
+        if (window && !m_releasing && window->window() && !window->isUserMove()
+            && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
+            && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
+            && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
+            KWin::effects->activateWindow(window);
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+            return;
+        }
         if (!window || m_releasing || !isCardWindow(window) || isDependentWindow(window)
             || !window->window() || !window->window()->readyForPainting()
             || !window->isOnCurrentDesktop() || window->isUserMove() || window->isUserResize()
@@ -7474,7 +7485,15 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     }
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
-    const auto admitReadyWindow = [this, candidate]() {
+    // §11, Connected: the card shown when the window opened, read now, since
+    // KWin activates the window before it is ready to be admitted.
+    KWin::LogicalOutput *cardDisplay = tabletOutput();
+    const QPointer<KWin::EffectWindow> shownAtOpen = cardDisplay && connectedForCardStage()
+            && m_cardStage->presentation() == CardPresentation::Active
+            && !m_cardStage->presentsBento() && !m_cardStage->launcherGuestActive()
+            && m_cardStage->activeCardIdentity() != window
+        ? m_cardStage->activeCardIdentity() : nullptr;
+    const auto admitReadyWindow = [this, candidate, shownAtOpen]() {
         // A window that opens on a desktop not shown is not a card here; that
         // desktop takes it when it is next shown.
         if (!candidate || candidate->isDeleted() || !isCardWindow(candidate)
@@ -7509,12 +7528,31 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             completePlacementForWindow(candidate);
             return;
         }
+        // §11, Connected: a window opening beside the one card shown joins it
+        // in a layout, as a pick from Spread does, rather than replacing it.
+        KWin::LogicalOutput *spread = tabletOutput();
+        const QPointer<KWin::EffectWindow> shown = spread && connectedForCardStage()
+                && !m_cardStage->presentsBento() && !m_cardStage->launcherGuestActive()
+                && candidate->screen() == spread
+            ? shownAtOpen : nullptr;
+        const QList<KWin::EffectWindow *> shownBehind = shown
+            ? m_cardStage->stackFrontToBack(shown).mid(1) : QList<KWin::EffectWindow *>{};
         // §8: the layout could not take it, so the layout leaves the screen
         // before the card stage puts a card where the panes were. Without
         // this the card is drawn over a running layout, which is the one
         // state §2 does not name.
         (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
+        if (shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
+            && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
+            && m_cardStage->liveCardIndex(candidate) >= 0
+            && pairCardsIntoBento(spread, candidate, shown, BentoSidePlacement{true, true})) {
+            qInfo() << "Kadunce" << Revision << "paired opened" << candidate->caption()
+                    << "with" << shown->caption();
+            m_cardStage->notePaneStack(shown, shownBehind);
+            m_cardStage->settlePaneStacks();
+            KWin::effects->activateWindow(candidate);
+        }
         completeLauncherGuestForWindow(candidate);
         observeCardOwnership();
         completePlacementForWindow(candidate);
