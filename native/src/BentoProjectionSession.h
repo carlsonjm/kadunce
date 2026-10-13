@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include "BentoColumns.h"
 #include "BentoSidePlacement.h"
 #include "NativeMoveTakeover.h"
 
@@ -24,6 +25,9 @@ struct BentoProjectionMember {
     bool minimized = false;
 };
 
+// CARD-LIFECYCLE.md §11, Connected: the columns a side snap placed.
+using BentoPlacedColumns = BentoColumns<QPointer<KWin::EffectWindow>>;
+
 struct BentoProjectionSession {
     QPointer<KWin::LogicalOutput> output;
     QString outputName;
@@ -39,6 +43,8 @@ struct BentoProjectionSession {
     QPointer<KWin::EffectWindow> lead;
     QPointer<KWin::EffectWindow> sideWindow;
     std::optional<BentoSidePlacement> side;
+    // The columns a side snap placed, when it placed the layout.
+    std::optional<BentoPlacedColumns> placed;
     // Where Spread's group card draws each of `panes`, in that order, when the
     // group is chosen; the resumed layout grows each pane from there. Empty
     // when it is not drawn. Presentation only: no part of the shape.

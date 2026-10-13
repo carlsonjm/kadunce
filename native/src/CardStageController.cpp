@@ -2427,8 +2427,12 @@ bool CardStageController::finishCardGrabOnOutput(const QPointF &position)
 void CardStageController::syncSelectedElevation()
 {
     // Whatever left the desktop, by Spread, a choice or an arrival, brings
-    // the cards held aside back first.
-    if (m_presentation != CardPresentation::Desktop) bringCardsBack();
+    // the cards held aside back first. A placed layout can leave room open,
+    // where the desktop shows, so the cards behind it are held aside as well
+    // and nothing drawn nowhere takes a touch in that room.
+    if (m_presentation == CardPresentation::Bento && m_host->layoutLeavesRoomForCardStage())
+        holdCardsAside();
+    else if (m_presentation != CardPresentation::Desktop) bringCardsBack();
     if (!m_active) {
         return;
     }
@@ -3068,11 +3072,13 @@ bool CardStageController::promoteToActive(KWin::EffectWindow *window)
 bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
                                              KWin::EffectWindow *partner)
 {
-    if (!m_active || m_launcherGuestActive || !carried || !partner
+    // §11, Connected: with no partner the carried card is placed alone.
+    if (!m_active || m_launcherGuestActive || !carried
         || carried == partner || m_presentation == CardPresentation::Bento
-        || liveCardIndex(partner) < 0) return false;
+        || liveCardIndex(partner ? partner : carried) < 0) return false;
     finishCardGrab(false);
-    QList<QPointer<KWin::EffectWindow>> pair{partner};
+    QList<QPointer<KWin::EffectWindow>> pair;
+    if (partner) pair.append(partner);
     // A window the user snapped in from the desktop is not a card yet, so it
     // has no individual ownership here to give up; the destination admits it.
     if (liveCardIndex(carried) >= 0) pair.append(carried);
@@ -3115,10 +3121,10 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "paired two cards into Bento:"
+    qInfo() << "Kadunce" << Revision << (partner ? "paired two cards into Bento:" : "placed a card alone:")
             << (carried && carried->window() ? carried->window()->resourceClass() : QString())
             << "with"
-            << (partner && partner->window() ? partner->window()->resourceClass() : QString())
+            << (partner && partner->window() ? partner->window()->resourceClass() : QStringLiteral("nothing"))
             << ";" << m_workspace.windows().size() << "individual cards remain";
     return true;
 }
@@ -4122,9 +4128,24 @@ bool CardStageController::takePaneOutOfLayout(KWin::EffectWindow *pane)
         projection.sideWindow.clear();
         projection.side.reset();
     }
+    // §11, Connected: the columns a side snap placed keep the panes left, and
+    // the one taken out leaves its room open.
+    std::vector<BentoRect> placedRects;
+    if (projection.placed) {
+        bentoColumnsRemove(*projection.placed, QPointer<KWin::EffectWindow>(pane));
+        std::vector<QPointer<KWin::EffectWindow>> handles;
+        std::vector<BentoRect> rects;
+        bentoColumnsLayout(*projection.placed, handles, rects);
+        for (const auto &member : std::as_const(projection.panes)) {
+            const auto at = std::find(handles.cbegin(), handles.cend(), member.window);
+            if (at == handles.cend()) { placedRects.clear(); break; }
+            placedRects.push_back(rects[std::size_t(at - handles.cbegin())]);
+        }
+        if (placedRects.empty()) projection.placed.reset();
+    }
     const auto members = m_bentoProjectionWindows;
     KWin::effects->setElevatedWindow(pane, false);
-    if (projection.panes.size() < 2) {
+    if (projection.panes.isEmpty() || (projection.panes.size() < 2 && placedRects.empty())) {
         // §5: a layout left with one pane ends; every card was already a
         // card of its own, so nothing else moves.
         m_bentoProjectionSession.reset();
@@ -4133,11 +4154,13 @@ bool CardStageController::takePaneOutOfLayout(KWin::EffectWindow *pane)
         m_returnToGroup = false;
         m_host->retireBentoProjectionForCardStage(members);
     } else {
-        // The panes left share the layout, laid out afresh for their count.
+        // The panes left share the layout, laid out afresh for their count,
+        // or keep the places they were given.
         const auto &area = projection.workspaceArea;
         const bool landscape = bentoLandscapeArea(area.width(), area.height());
         const int count = int(projection.panes.size());
-        projection.rects = count <= BentoCuratedPaneCap
+        projection.rects = !placedRects.empty() ? placedRects
+            : count <= BentoCuratedPaneCap
             ? makeBentoLayout(count, landscape)
             : makeGridBentoLayout(count, bentoGridColumns(count, landscape));
         if (!validBentoProjectionShape(projectionShape(projection))) return false;

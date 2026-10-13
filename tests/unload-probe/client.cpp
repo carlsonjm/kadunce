@@ -134,6 +134,19 @@ protected:
   question->show();
  }
 };
+// Starts a move of the window it watches on that window's next press, as
+// armMove does for the client's own.
+class MovesOnPress : public QObject {
+public:
+ using QObject::QObject;
+ bool eventFilter(QObject *watched, QEvent *e) override {
+  if (e->type()!=QEvent::MouseButtonPress && e->type()!=QEvent::TouchBegin) return false;
+  if (auto *w = qobject_cast<QWidget *>(watched); w && w->windowHandle()) w->windowHandle()->startSystemMove();
+  watched->removeEventFilter(this);
+  deleteLater();
+  return false;
+ }
+};
 class Client : public QWidget {
  Q_OBJECT
 public:
@@ -159,6 +172,10 @@ public:
 public Q_SLOTS:
  void closeWindow() { QApplication::closeAllWindows(); }
  void armMove() { moveArmed = true; }
+ void armMoveOf(const QString &title) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle() == title) { w->installEventFilter(new MovesOnPress(w)); return; }
+ }
  void armResize() { resizeArmed = true; }
  void minimumSizeHint(int width, int height) { setMinimumSize(width, height); }
  // Private test client only: exercise rejected EWMH requests through the real server.

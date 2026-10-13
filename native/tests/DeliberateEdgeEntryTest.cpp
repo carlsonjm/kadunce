@@ -157,6 +157,40 @@ int main()
         }
     }
 
+    // §11, Connected: the Active card snapped to a side is placed alone,
+    // whether or not a partner was named; the top edge still makes it Active,
+    // and a window that is not the Active card is unchanged by the rule.
+    for (const auto edge : Sides) {
+        for (const bool named : {false, true}) {
+            auto placed = carried(edge);
+            placed.ownsDisplay = true;
+            placed.carriedIsActive = true;
+            placed.partnerNamed = named;
+            placed.placesAlone = true;
+            require(planEdgeEntry(placed) == EdgeEntryOutcome::PlaceAlone,
+                "A Connected side snap of the Active card was not placed alone");
+            placed.carriedIsActive = false;
+            require(planEdgeEntry(placed) == (named ? EdgeEntryOutcome::PairIntoBento
+                                                    : EdgeEntryOutcome::MakeActive),
+                "A Connected side snap of a desktop window changed meaning");
+        }
+    }
+    {
+        auto top = carried(CarryEdge::Top);
+        top.ownsDisplay = true;
+        top.carriedIsActive = true;
+        top.placesAlone = true;
+        require(planEdgeEntry(top) == EdgeEntryOutcome::MakeActive,
+            "A Connected top snap did not make the Active card");
+        auto layout = carried(CarryEdge::Left);
+        layout.ownsDisplay = true;
+        layout.hasBentoLayout = true;
+        layout.carriedIsActive = true;
+        layout.placesAlone = true;
+        require(planEdgeEntry(layout) == EdgeEntryOutcome::Refuse,
+            "A Connected side snap into a live layout was taken as an entry");
+    }
+
     std::cout << "Deliberate edge-entry checks passed\n";
     return 0;
 }

@@ -341,6 +341,7 @@ private:
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void openGroupAfterDropForCardStage(const QRectF &from) override;
     [[nodiscard]] bool connectedForCardStage() const override;
+    [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {
         return isOtherCardDisplay(output);

@@ -550,6 +550,10 @@ bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
     const Session live = *session;
     Session candidate = live;
     if (!takeSlotAtCap(candidate, slot, snapshot)) return false;
+    if (candidate.placed)
+        for (auto &column : candidate.placed->columns)
+            for (auto &slot : column)
+                if (!slot.open && slot.window == pane) slot.window = card;
     if (!commitSource()) return false;
     // A closing pane has no card to become; it only gives up its slot.
     const QList<PendingEviction> pending = closing ? QList<PendingEviction>{}
@@ -563,7 +567,7 @@ bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
     CardDropIntent intent, std::optional<BentoSidePlacement> side,
-    KWin::EffectWindow *pairPartner) const
+    KWin::EffectWindow *pairPartner, bool alone) const
 {
     if (m_restoring || !window || window->isDeleted() || !window->window()
         || !output || m_retiredOutputs.contains(output)
@@ -594,9 +598,14 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
     drop.side = side;
     drop.hadSession = sessionForOutput(output) != nullptr;
     drop.leavingBento = managesWindow(window);
-    // §3: a pairing names its partner, so nothing else on the display is an
-    // input to the solve, the preview or the revalidation.
-    if (pairPartner && !drop.hadSession) {
+    // §11, Connected: a card placed alone begins a layout of one, so nothing
+    // else on the display is an input either.
+    if (alone) {
+        if (drop.hadSession || pairPartner || !side) return std::nullopt;
+        drop.alone = true;
+    } else if (pairPartner && !drop.hadSession) {
+        // §3: a pairing names its partner, so nothing else on the display is
+        // an input to the solve, the preview or the revalidation.
         if (pairPartner == window || pairPartner->isDeleted() || !pairPartner->window()
             || pairPartner->screen() != output || pairPartner->isMinimized()
             || !m_host->isManagedWindowForDesktopStage(pairPartner)) return std::nullopt;
@@ -686,7 +695,7 @@ bool DesktopStageController::cardDropValid(const PreparedDrop &drop) const
     if (!drop.consumed || *drop.consumed || drop.owner.lock() != m_carrySourceIdentity)
         return false;
     const auto current = prepareCardDrop(drop.window, drop.output, drop.geometry,
-        drop.intent, drop.side, drop.pairPartner);
+        drop.intent, drop.side, drop.pairPartner, drop.alone);
     if (!current || current->generation != drop.generation
         || current->pairPartner != drop.pairPartner
         || current->outputGeometry != drop.outputGeometry || current->area != drop.area
@@ -771,7 +780,7 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
         && drop.window->screen() == drop.output);
     const auto plan = local ? prepareLocalPlacement(drop)
         : prepareCardAdmission(drop.window, drop.output, drop.geometry, nullptr,
-                               drop.side, drop.pairPartner);
+                               drop.side, drop.pairPartner, nullptr, drop.alone);
     const auto index = plan ? plan->windows.indexOf(drop.window) : -1;
     const auto pixels = plan ? sessionPixels(*plan, drop.area) : std::vector<BentoPixelRect>{};
     std::optional<KWin::RectF> preview;
@@ -812,18 +821,20 @@ bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop
     if (m_restoring || !commitSource || !cardDropValid(drop)
         || !m_host->isTabletOutputForDesktopStage(drop.output)
         || drop.intent != CardDropIntent::ActivateBento || drop.hadSession
-        || !drop.side || !drop.pairPartner || drop.localTarget) return false;
+        || !drop.side || (!drop.pairPartner && !drop.alone) || drop.localTarget) return false;
     // CARD-LIFECYCLE.md §3: Bento begins with the carried window on the side it
     // was released into and the Active card opposite it. No other window joins,
     // so the plan is solved from exactly those two and is refused if it is not
     // two panes. Nothing else on the display is read, moved or minimized.
     // A window arriving from the desktop brings its own record; a card already
     // owned here has one the card stage holds, which `makeSnapshot` reads.
+    // §11, Connected: a card placed alone is the plan's one pane.
     const auto plan = prepareCardAdmission(drop.window, drop.output, drop.geometry,
-        restore, drop.side, drop.pairPartner);
-    if (!plan || plan->windows.size() != 2
+        restore, drop.side, drop.pairPartner, nullptr, drop.alone);
+    if (!plan || plan->windows.size() != (drop.alone ? 1 : 2)
         || !plan->windows.contains(drop.window)
-        || !plan->windows.contains(drop.pairPartner)) return false;
+        || (!drop.alone && !plan->windows.contains(drop.pairPartner))
+        || (drop.alone && !plan->placed)) return false;
     std::erase_if(m_restoredMinimizations, [&drop](const auto &pending) {
         return pending->output() == drop.output
             || pending->result() != RestoredMinimization::Result::Pending;
@@ -835,14 +846,18 @@ bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop
     m_sessions.insert(plan->outputName, *plan);
     Session &stored = m_sessions[plan->outputName];
     if (applySession(stored, true)) scheduleSettle();
-    qInfo() << "Kadunce" << Revision << "paired two cards into output-local Bento";
+    if (drop.alone)
+        qInfo() << "Kadunce" << Revision << "placed a card alone, the rest of"
+                << plan->outputName << "left open";
+    else qInfo() << "Kadunce" << Revision << "paired two cards into output-local Bento";
     return true;
 }
 
 std::optional<DesktopStageController::Session> DesktopStageController::prepareCardAdmission(
     KWin::EffectWindow *window, KWin::LogicalOutput *output, const KWin::RectF &geometry,
     const NativeMoveSnapshot *restore, std::optional<BentoSidePlacement> side,
-    KWin::EffectWindow *pairPartner, QList<QPointer<KWin::EffectWindow>> *unadopted)
+    KWin::EffectWindow *pairPartner, QList<QPointer<KWin::EffectWindow>> *unadopted,
+    bool alone)
 {
     const QString key = outputKey(output);
     const auto managed = m_host->activeRestoreForDesktopStage(window);
@@ -860,11 +875,13 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
             .maximizeMode = restore->maximizeMode, .fullScreen = restore->fullScreen,
             .minimized = restore->minimized, .valid = true};
     }
-    const auto planner = [this, side, window](Session &plan, const auto &preferred, bool required) {
+    const auto planner = [this, side, window, alone](Session &plan, const auto &preferred, bool required) {
         if (side) { plan.side = side; plan.sideWindow = window; }
+        plan.placeAlone = alone;
         return reflowSession(plan, preferred, required, false);
     };
     if (const auto *session = sessionForOutput(output)) {
+        if (alone) return std::nullopt;
         // CARD-LIFECYCLE.md §5: a full layout yields the pane the solve cannot
         // keep. Shortening the value copy is what makes the admission one the
         // layout can show in full; the caller publishes it and then hands the
@@ -882,7 +899,7 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     // pane. Without a partner this is an ordinary display-wide activation.
     if (pairPartner) {
         owned.append(makeSnapshot(pairPartner));
-    } else {
+    } else if (!alone) {
         for (const auto &resident : collectWindows(output, window)) owned.append(makeSnapshot(resident));
         // §5: a resident this first layout cannot show is not adopted at all.
         // It is still Native, so nothing is taken from it, and the caller gives
@@ -1060,6 +1077,12 @@ bool DesktopStageController::inPaneGutter(QPointF position) const
         if (!onPane && panes.contains(position)) return true;
     }
     return false;
+}
+
+bool DesktopStageController::presentsPlacedLayoutOn(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session != m_sessions.cend() && session->placed.has_value();
 }
 
 QString DesktopStageController::outputKey(const KWin::LogicalOutput *output) const
@@ -1404,6 +1427,79 @@ bool DesktopStageController::planSession(Session &session,
             return true;
         }
     }
+    // CARD-LIFECYCLE.md §11, Connected: a side snap names a place, not a size.
+    // Beside is a full-height column at that edge, under the bottom of the
+    // column there, and the layout it places leaves room open until arrivals
+    // fill it.
+    if (m_host->connectedOutputForDesktopStage(output)
+        && !m_host->showsOneCardForDesktopStage(output)) {
+        const KWin::Rect area = stageArea(output);
+        std::optional<BentoPlacedColumns> columns = session.placed;
+        if (columns) {
+            bentoColumnsKeep(*columns, [&owned](const QPointer<KWin::EffectWindow> &window) {
+                return window && owned.contains(window);
+            });
+            if (columns->columns.empty()) columns.reset();
+        }
+        const bool snapped = session.side && session.side->connected && session.sideWindow
+            && preferred == session.sideWindow && owned.contains(session.sideWindow);
+        if (snapped && !columns) {
+            if (session.placeAlone) {
+                columns = BentoPlacedColumns{};
+            } else {
+                // A layout already standing in columns takes the snap as a
+                // place too; any other shape keeps the side grammar below.
+                std::vector<QPointer<KWin::EffectWindow>> standing;
+                std::vector<BentoRect> standingRects;
+                bool whole = session.windows.size() == int(session.rects.size());
+                for (int i = 0; whole && i < session.windows.size(); ++i) {
+                    whole = owned.contains(session.windows.at(i));
+                    standing.push_back(session.windows.at(i));
+                    standingRects.push_back(session.rects[i]);
+                }
+                for (const auto &window : std::as_const(owned))
+                    whole = whole && (window == session.sideWindow || session.windows.contains(window));
+                if (whole) columns = bentoColumnsFromRects(standing, standingRects);
+            }
+        }
+        if (columns) {
+            if (snapped) bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
+            bool fits = true;
+            for (const auto &window : std::as_const(owned)) {
+                if (bentoColumnsHold(*columns, window)) continue;
+                if (!bentoColumnsFill(*columns, window)) { fits = false; break; }
+            }
+            std::vector<QPointer<KWin::EffectWindow>> handles;
+            std::vector<BentoRect> rects;
+            if (fits) bentoColumnsLayout(*columns, handles, rects);
+            for (std::size_t i = 0; fits && i < handles.size(); ++i) {
+                const QSizeF least = handles[i]->window()->minSize();
+                fits = least.width() <= rects[i].width * area.width() + 1
+                    && least.height() <= rects[i].height * area.height() + 1;
+            }
+            if (fits) {
+                // The same columns keep the places dividers gave them.
+                const bool same = session.placed && *session.placed == *columns
+                    && session.rects.size() == rects.size()
+                    && std::equal(handles.cbegin(), handles.cend(), session.windows.cbegin(),
+                                  session.windows.cend());
+                session.placed = columns;
+                session.windows = QList<QPointer<KWin::EffectWindow>>(handles.cbegin(), handles.cend());
+                if (!same) session.rects = rects;
+                session.zones.clear();
+                session.side.reset();
+                session.sideWindow.clear();
+                session.lone = false;
+                session.placeAlone = false;
+                return true;
+            }
+            // A snap that cannot stand where it asked is refused; an arrival
+            // with no open room lays the whole layout out again.
+            if (snapped) return false;
+        }
+        session.placed.reset();
+    }
+    session.placeAlone = false;
     session.zones.clear();
     if (session.side && owned.contains(session.sideWindow)) {
         // Existing edge occupancy outranks a new whole-display side preset.
@@ -1419,7 +1515,10 @@ bool DesktopStageController::planSession(Session &session,
             splitCandidates.push_back({minimum.width(),minimum.height(),1,1,false});
         }
         const auto splitArea = stageArea(output);
-        const auto split = validSplitInputs ? splitBentoColumn(session.rects, splitCandidates,
+        // §11, Connected: the upper half of an edge puts the card beside, in a
+        // column of its own, so only the lower half splits a column.
+        const bool beside = session.side->connected && session.side->large;
+        const auto split = validSplitInputs && !beside ? splitBentoColumn(session.rects, splitCandidates,
             existingIndex < 0 ? session.windows.size() : existingIndex, *session.side,
             splitArea.width(), splitArea.height())
             : std::nullopt;
@@ -1566,6 +1665,11 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
         committed = true;
         return true;
     });
+    // §11, Connected: a placed card that was the layout's last pane leaves the
+    // display presenting none.
+    if (committed && departure->snapshots.isEmpty() && departure->placed)
+        if (KWin::LogicalOutput *output = outputForKey(sourceKey))
+            m_host->retireOutputFromDesktopStage(output);
     // Acceptance is permission to commit, not proof of placement. Never report
     // failure after the source has published, or a caller replays a stale plan.
     return committed && accepted;
@@ -1737,6 +1841,8 @@ void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
     const auto session = m_sessions.constFind(key);
     if (session == m_sessions.cend() || session->applying
         || !bentoEndsAtOnePane(session.value())) return;
+    // §11, Connected: a placed card keeps its place, and its room stays open.
+    if (session->placed) return;
     KWin::LogicalOutput *output = outputForKey(key);
     // CARD-LIFECYCLE.md §5 hands the remaining pane to card ownership. Where
     // the display cannot hold one there is nothing for Bento to end into, so
@@ -2185,6 +2291,7 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
     projection.rects = session->rects;
     projection.side = session->side;
     projection.sideWindow = session->sideWindow;
+    projection.placed = session->placed;
     for (const auto &window : ordered) {
         const auto saved = std::find_if(session->snapshots.cbegin(), session->snapshots.cend(),
             [&](const auto &s) { return s.window == window; });
@@ -2241,6 +2348,7 @@ bool DesktopStageController::resumeProjectedSession(
     candidate.rects = projection.rects;
     candidate.side = projection.side;
     candidate.sideWindow = projection.sideWindow;
+    candidate.placed = projection.placed;
     const auto append = [&](const BentoProjectionMember &member, bool pane) {
         if (!member.window || member.window->isDeleted() || !member.window->window()
             || member.restore.window != member.window->window()
@@ -2604,7 +2712,12 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         return;
     }
     if (source->snapshots.isEmpty()) {
+        // §11, Connected: a placed card was the layout's last pane, so the
+        // display no longer presents one.
+        const bool placed = source->placed.has_value();
         m_sessions.erase(source);
+        KWin::LogicalOutput *output = outputForKey(sourceKey);
+        if (placed && output && !m_restoring) m_host->retireOutputFromDesktopStage(output);
         return;
     }
     reflowSession(source.value());

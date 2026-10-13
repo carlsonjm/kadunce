@@ -27,6 +27,10 @@ enum class EdgeEntryOutcome {
     // pairs and nothing changes. Distinct from MakeActive, which moves a card
     // that was not already Active.
     Unchanged,
+    // §11, Connected: the Active card snapped to a side is placed there alone,
+    // beside or under, and the rest of the display stays open for the next card.
+    // Nothing pairs.
+    PlaceAlone,
     // A display that cannot own cards reaches neither pairing rule, so an edge
     // action there composes Bento across the display. CARD-LIFECYCLE.md §11
     // gives any other output ordinary windows or per-output Bento, never cards.
@@ -49,6 +53,9 @@ struct EdgeEntryRequest {
     // own partner, so this is false when the walk found only the carried card.
     bool partnerNamed = false;
     bool carriedIsActive = false;
+    // The display is sized Connected (§11), where a side snap places the
+    // Active card rather than pairing it.
+    bool placesAlone = false;
 };
 
 [[nodiscard]] constexpr EdgeEntryOutcome planEdgeEntry(const EdgeEntryRequest &request)
@@ -70,6 +77,7 @@ struct EdgeEntryRequest {
     if (!request.ownsDisplay) return EdgeEntryOutcome::AdoptDisplay;
     // §10: the top edge never pairs.
     if (request.edge == CarryEdge::Top) return EdgeEntryOutcome::MakeActive;
+    if (request.placesAlone && request.carriedIsActive) return EdgeEntryOutcome::PlaceAlone;
     if (request.partnerNamed) return EdgeEntryOutcome::PairIntoBento;
     return request.carriedIsActive ? EdgeEntryOutcome::Unchanged
                                    : EdgeEntryOutcome::MakeActive;

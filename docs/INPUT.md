@@ -34,7 +34,7 @@ Apps and Files.
 | Hold a card | It rises under your finger to be carried; Spread stays three across. Held off the middle, the row slides under it. |
 | Pull a held card down | The row zooms out to one set view, and returns when pushed back up; not over the Bento group. |
 | Let a held card go in a gap | It lands there as the row grows back to three across. |
-| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger gives way and the card slides under; let go and the layout opens with it there. |
+| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group the pane under your finger gives way, the card sliding under; let go and the layout opens with it there. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
 | Tap or click a card's stack of Gooseberry notes | They fan out until tapped again; hold one, or the stack for its top note, and let go on another card to stick it there. |
 | Right-click | Nothing: Spread has no window menu. |
@@ -74,10 +74,10 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of the card display | The window and a partner become a Bento pair, the window on your side: the Active card or, for the Active card itself, the card used before it. The edge's upper half gives it the larger pane, the lower half the smaller. With no partner, it becomes the Active card. |
-| `Meta+B` | Starts or ends Bento on Spread's display, or, with cards on one display, the largest monitor if any, pairing the Active card with the card used before it. |
+| Drag a window by its title bar to the left or right edge of the card display | The window pairs into Bento on your side with the Active card, or for the Active card the card used before it; the upper half, the larger pane. With none, it becomes the Active card. Connected, the upper half places it beside, a full-height column; the lower half under, at the bottom of that side's column. |
+| `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor, pairing the Active card with the card used before it. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
-| Drag a window to an edge of a display without cards | One window alone takes half the display at a side, or the Active card's size on top. With two or more, all join one layout, the dragged one on your side. |
+| Drag a window to an edge of a display without cards | A window alone takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
 | Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, that pane a card. |
@@ -129,5 +129,5 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | --- | --- |
 | Switch Cards off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
 | `Meta+Esc` | Every window everywhere returns to the plain Plasma desktop. The next window that opens starts cards again; nothing else does. |
-| Drag the Active card or a Bento pane to the bottom edge | It returns to the ordinary Plasma desktop where you let it go; other cards wait in Spread. |
+| Drag the Active card or a Bento pane to the bottom edge | It returns to the Plasma desktop where you let it go; other cards wait in Spread. |
 | Switch Cards on in the tray | The card display's windows become cards, the one in use the Active card. |

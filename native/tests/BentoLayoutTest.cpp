@@ -4,6 +4,7 @@
 */
 
 #include "BentoLayout.h"
+#include "BentoColumns.h"
 #include "BentoSidePlacement.h"
 #include <algorithm>
 
@@ -473,6 +474,101 @@ int main()
             "A required window that fits no zone was admitted");
         require(!chooseZoneAdmission({}, zones) && !chooseZoneAdmission({plain}, {}),
             "An admission was made with no windows or no zones");
+    }
+
+    {
+        // CARD-LIFECYCLE.md §11, Connected: a side snap names a place. Under
+        // adds a card to the bottom of that side's column, beside adds a
+        // full-height column at that edge.
+        using Columns = BentoColumns<int>;
+        const auto same = [](const BentoRect &a, const BentoRect &b) {
+            return std::abs(a.x - b.x) < .001 && std::abs(a.y - b.y) < .001
+                && std::abs(a.width - b.width) < .001 && std::abs(a.height - b.height) < .001;
+        };
+        const auto placeOf = [](const Columns &layout, int window) -> std::optional<BentoRect> {
+            std::vector<int> handles;
+            std::vector<BentoRect> rects;
+            bentoColumnsLayout(layout, handles, rects);
+            for (std::size_t i = 0; i < handles.size(); ++i)
+                if (handles[i] == window) return rects[i];
+            return std::nullopt;
+        };
+        const auto shape = [](const Columns &layout) {
+            std::vector<std::vector<int>> cards;
+            for (const auto &column : layout.columns) {
+                cards.emplace_back();
+                for (const auto &slot : column) cards.back().push_back(slot.open ? 0 : slot.window);
+            }
+            return cards;
+        };
+        const BentoSidePlacement rightUnder{true, false, true}, rightBeside{true, true, true};
+        const BentoSidePlacement leftUnder{false, false, true}, leftBeside{false, true, true};
+
+        // Alone, beside takes the half on its side and under that half's
+        // lower corner, the rest open.
+        Columns alone;
+        bentoColumnsPlace(alone, 1, rightBeside);
+        require(placeOf(alone, 1) && same(*placeOf(alone, 1), {0.5, 0.0, 0.5, 1.0}),
+            "A card placed beside on the right did not take the right half");
+        alone = {};
+        bentoColumnsPlace(alone, 1, leftUnder);
+        require(placeOf(alone, 1) && same(*placeOf(alone, 1), {0.0, 0.5, 0.5, 0.5}),
+            "A card placed under on the left did not take the lower left corner");
+
+        // The product owner's sequence: a terminal under on the right, a
+        // second under on the right, then a browser beside on the right.
+        Columns layout;
+        bentoColumnsPlace(layout, 1, rightUnder);
+        require(shape(layout) == std::vector<std::vector<int>>{{0, 1}} && layout.alignRight,
+            "The first terminal did not stand in the lower right corner");
+        require(bentoColumnsFill(layout, 2) && shape(layout) == std::vector<std::vector<int>>{{2, 1}},
+            "An arrival did not fill the room above a card placed under");
+        bentoColumnsPlace(layout, 2, rightUnder);
+        require(shape(layout) == std::vector<std::vector<int>>{{1, 2}},
+            "A second terminal under did not join the right column below the first");
+        require(same(*placeOf(layout, 1), {0.5, 0.0, 0.5, 0.5})
+                && same(*placeOf(layout, 2), {0.5, 0.5, 0.5, 0.5}),
+            "The right column did not share its height between the terminals");
+        require(bentoColumnsFill(layout, 3) && shape(layout) == std::vector<std::vector<int>>{{3}, {1, 2}},
+            "An arrival did not take the half left open");
+        bentoColumnsPlace(layout, 3, rightBeside);
+        require(shape(layout) == std::vector<std::vector<int>>{{1, 2}, {3}},
+            "A browser beside on the right did not take its own column at the edge");
+        require(same(*placeOf(layout, 3), {0.5, 0.0, 0.5, 1.0})
+                && same(*placeOf(layout, 1), {0.0, 0.0, 0.5, 0.5})
+                && same(*placeOf(layout, 2), {0.0, 0.5, 0.5, 0.5}),
+            "The stacked terminals did not stay together left of the browser");
+        require(!bentoColumnsFill(layout, 4), "A layout with no open room offered some");
+
+        // Under on the other side starts a column there; beside on the left
+        // goes first; a card leaving opens no room in a column of others.
+        bentoColumnsPlace(layout, 4, leftUnder);
+        require(shape(layout) == std::vector<std::vector<int>>{{1, 2, 4}, {3}},
+            "Under on the left did not join the left edge column");
+        bentoColumnsPlace(layout, 5, leftBeside);
+        require(shape(layout) == std::vector<std::vector<int>>{{5}, {1, 2, 4}, {3}},
+            "Beside on the left did not take its own column at the left edge");
+        bentoColumnsRemove(layout, 5);
+        bentoColumnsRemove(layout, 3);
+        require(shape(layout) == std::vector<std::vector<int>>{{1, 2, 4}} && !layout.alignRight,
+            "The column left did not keep the left half");
+        bentoColumnsRemove(alone, 1);
+        require(alone.columns.empty(), "A column of open room outlived its last card");
+
+        // A layout on screen reads as columns only when it is one.
+        const auto read = bentoColumnsFromRects<int>({1, 2, 3},
+            {{0.0, 0.0, 0.5, 0.5}, {0.0, 0.5, 0.5, 0.5}, {0.5, 0.0, 0.5, 1.0}});
+        require(read && shape(*read) == std::vector<std::vector<int>>{{1, 2}, {3}},
+            "A row of columns on screen did not read as columns");
+        require(!bentoColumnsFromRects<int>({1, 2, 3},
+                    {{0.0, 0.0, 1.0, 0.5}, {0.0, 0.5, 0.5, 0.5}, {0.5, 0.5, 0.5, 0.5}}),
+            "A layout split across did read as columns");
+
+        // Beside, a column of its own shares the width evenly.
+        const auto even = bentoSideLayout({true, true, true}, 2560, 1400,
+            {400, 300, 1, 1, false}, std::optional<BentoCandidate>{BentoCandidate{400, 300, 1, 1, false}});
+        require(even && even->size() == 2 && std::abs((*even)[0].width - 0.5) < .001,
+            "A Connected side snap did not share the width evenly");
     }
 
     std::cout << "Bento layout/admission checks passed\n";

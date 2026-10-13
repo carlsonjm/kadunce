@@ -251,8 +251,85 @@ check 'close: the next card of the Stack takes the pane' is_pane "$other"
 check 'close: in the same place' same_rect "$other" "$slot_c"
 check 'close: still two panes' panes 2
 end_pass full
+# Pass three: a side snap names a place, never a size. The upper half of an
+# edge puts a card beside, a full-height column at that edge; the lower half
+# puts it under, at the bottom of the column there. Alone it leaves the rest
+# open, and the next card fills the room left. This is the product owner's
+# sequence: a terminal under on the right, a second under on the right, then
+# a browser beside on the right.
+"${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
+client_pid=$!
+trap 'kill "$client_pid" 2>/dev/null || true' EXIT
+sleep 1
+for title in 'Term A' 'Term B' 'Browser'; do client titledCompanion "$title" 500 400; sleep .5; done
+a=$(idOf 'Term A') b=$(idOf 'Term B') c=$(idOf 'Browser')
+probe contactObserve >/dev/null
+probe contactStart >/dev/null
+qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
+sleep 1.2
+probe activateWindowId "$a" >/dev/null
+sleep .8
+# Carries a window by a press inside it and lets it go at x y, keeping the
+# place the carry previewed.
+snap() {
+    local id=$1 title=$2 x y
+    read -r x y <<<"$(probe windowGeometry "$id" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
+    # Focus goes to the window carried, not the client's own.
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    client armMoveOf "$title"
+    probe contactButton true >/dev/null
+    sleep .12
+    probe contactMotion "$3" "$4" >/dev/null
+    sleep .3
+    kad nativeCarryState | jq -c '.destinationRect // empty' >"$XDG_RUNTIME_DIR/snap-preview"
+    probe contactButton false >/dev/null
+    sleep 1
+}
+previewed() { jq -e "$1" "$XDG_RUNTIME_DIR/snap-preview"; }
+placed_at() { probe windowGeometry "$1" | jq -e --slurpfile p "$XDG_RUNTIME_DIR/snap-preview" '. == $p[0]'; }
+geometry() { probe windowGeometry "$1" | jq -e "$2"; }
+check 'place: the first terminal is the Active card' context --arg id "$a" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+snap "$a" 'Term A' 2555 1200
+report under
+check 'under: the preview is the lower right corner' previewed '.x > 1250 and .y > 650 and .height < 760'
+check 'under: it lands where the preview showed' placed_at "$a"
+check 'under: the card stands alone as the layout' layout_shown
+held_aside() { probe windowFacts | jq -e --arg b "$b" --arg c "$c" '[.[] | select(.id == $b or .id == $c) | .hidden] | length == 2 and all'; }
+check 'under: the other cards are held aside, out of reach' held_aside
+spread_key
+pick "$b"
+report under-filled
+check 'fill: the second terminal takes the room above' geometry "$b" '.x > 1250 and .y < 200 and .height < 760'
+check 'fill: the first did not move' placed_at "$a"
+snap "$b" 'Term B' 2555 1200
+report under-again
+check 'under again: the preview is the lower right corner' previewed '.x > 1250 and .y > 650 and .height < 760'
+check 'under again: it lands where the preview showed' placed_at "$b"
+check 'under again: the first terminal moved up in the same strip' geometry "$a" '.x > 1250 and .y < 200 and .height < 760'
+spread_key
+pick "$c"
+report browser-filled
+check 'fill: the browser takes the half left open' geometry "$c" '.x < 30 and .height > 1300'
+snap "$c" 'Browser' 2555 300
+report beside
+check 'beside: the preview is the right column, full height' previewed '.x > 1250 and .height > 1300'
+check 'beside: it lands where the preview showed' placed_at "$c"
+check 'beside: the first terminal stays above, left of it' geometry "$a" '.x < 30 and .y < 200 and .height < 760'
+check 'beside: the second terminal stays below, left of it' geometry "$b" '.x < 30 and .y > 650 and .height < 760'
+before_a=$(rect "$a") before_b=$(rect "$b")
+client closeCompanion 'Browser'
+sleep 1.5
+report beside-closed
+check 'close: the first terminal keeps its place' same_rect "$a" "$before_a"
+check 'close: the second terminal keeps its place' same_rect "$b" "$before_b"
+check 'close: both still show' both_panes "$a" "$b"
+check 'close: the layout still shows' layout_shown
+end_pass place
+
 if (( failures > 0 )); then
     echo "FAIL: connected: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: Connected plays picked cards into the layout, every pane a card of its own in Spread, a Stack fills one pane'
+echo 'PASS: Connected plays picked cards into the layout, every pane a card of its own in Spread, a Stack fills one pane, a side snap places a card beside or under'
