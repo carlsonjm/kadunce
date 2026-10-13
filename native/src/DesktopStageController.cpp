@@ -269,6 +269,18 @@ bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *
         candidate.sideWindow.clear();
         visible = grows(candidate);
     }
+    if (!visible && m_host->showsOneCardForDesktopStage(outputForKey(key))) {
+        // §11, Every display: the arrival is the one card this display shows,
+        // and the card it replaces waits in Spread.
+        candidate = live;
+        candidate.snapshots.append(snapshot);
+        QList<QPointer<KWin::EffectWindow>> waiting;
+        if (!reflowSession(candidate, window, true, false, &waiting)) return false;
+        candidate.snapshots.removeIf([&waiting](const RestoreSnapshot &saved) {
+            return saved.window && waiting.contains(saved.window);
+        });
+        visible = true;
+    }
     if (!visible) {
         // Full: the arrival takes the one slot it fits, and the rest of the
         // layout keeps its shape and its places.
