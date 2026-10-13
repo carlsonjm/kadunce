@@ -61,7 +61,8 @@ fills_small() {
           and .width >= $g.width * 0.8 and .height >= $g.height * 0.7'
 }
 focused() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .focused'; }
-in_spread() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect != null'; }
+# A card of Spread's row, there on the large display whether or not it is in view.
+in_spread() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .output == "Virtual-1"'; }
 small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.pane and .output == "Virtual-0")) | .windowId'; }
 carry_onto() {
     local from=$1 to=$2 x y tx ty

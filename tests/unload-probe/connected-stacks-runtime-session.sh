@@ -67,11 +67,34 @@ open_window() {
         pick "${w[$2]}"
     fi
 }
+# Where a person presses a card of Spread: the middle of the part of it in
+# view, or nothing while it is out of view.
+seen_at() {
+    kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | select(. != null) | [([.x, 0] | max), ([.x + .width, 2560] | min)] as [$l, $r]
+        | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
+}
+# Spread shows three whole cards and an edge either side: walk the row until
+# both cards are in view.
+both_seen() {
+    local key
+    [[ -n $(seen_at "$1") && -n $(seen_at "$2") ]] && return 0
+    for key in 105 106; do
+        select_card "$2" >/dev/null 2>&1
+        for _ in 1 2 3; do
+            probe key "$key" 0 >/dev/null
+            sleep .4
+            [[ -n $(seen_at "$1") && -n $(seen_at "$2") ]] && return 0
+        done
+    done
+    return 1
+}
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
-    local from=$1 to=$2 x y tx ty
-    read -r x y < <(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
+    local from=$1 to=$2 x y tx ty nx ny
+    both_seen "$from" "$to" || echo "state carry-unseen $from $to"
+    read -r x y < <(seen_at "$from")
+    read -r tx ty < <(seen_at "$to")
     probe down 61 "$x" "$y"
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
@@ -79,8 +102,8 @@ carry_onto() {
     # The line closes up behind a lifted card, so its neighbour moves: aim,
     # let the line settle, and aim again at where the card now is.
     for _ in 1 2; do
-        read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-            | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
+        read -r nx ny < <(seen_at "$to")
+        [[ -n $nx ]] && tx=$nx ty=$ny
         probe motion 61 "$tx" "$ty"
         sleep .7
     done
