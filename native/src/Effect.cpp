@@ -1569,11 +1569,13 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
                             Qt::CaseInsensitive) == 0) {
         return false;
     }
-    // The screenshot tool floats over cards as a guest: its capture asks to
-    // fill the screen and its result would otherwise join a layout half
-    // drawn (CARD-LIFECYCLE.md §4).
-    if (identity.compare(QStringLiteral("org.kde.spectacle"), Qt::CaseInsensitive) == 0
-        || identity.compare(QStringLiteral("spectacle"), Qt::CaseInsensitive) == 0) {
+    // The screenshot tool's capture floats over cards as a guest: it asks to
+    // fill the screen, frameless and above the rest, and would otherwise join
+    // a layout half drawn. The window showing the result is a card
+    // (CARD-LIFECYCLE.md §4).
+    if ((identity.compare(QStringLiteral("org.kde.spectacle"), Qt::CaseInsensitive) == 0
+            || identity.compare(QStringLiteral("spectacle"), Qt::CaseInsensitive) == 0)
+        && (window->isFullScreen() || window->keepAbove() || !window->hasDecoration())) {
         return false;
     }
     // A dialog that names its application follows that application's card
@@ -4103,12 +4105,21 @@ void Effect::toggleBento()
     // itself, which is what an external desktop stage is for.
     if (!m_desktopStage->hasSessionOnOutput(target->name())
         && m_cardStage->canOwnCards(target)) {
-        (void)pairActiveCardIntoBento(target);
+        // §11, Every display: windows given back there are cards again first.
+        if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
+        if (!pairActiveCardIntoBento(target))
+            qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name();
         observeCardOwnership();
         return;
     }
     (void)m_desktopStage->toggleOnOutput(target->name());
     observeCardOwnership();
+    // §11, Every display: a layout ended by the key leaves its windows as
+    // cards, the one in use Active, so the key pairs them again.
+    if (!m_cardsOnEveryDisplay || !m_cardStage->canOwnCards(target)) return;
+    QTimer::singleShot(0, this, [this] {
+        if (!m_cardStage->isActive()) (void)startTabletInCards(nullptr);
+    });
 }
 
 void Effect::connectManagedWindow(KWin::EffectWindow *window)
@@ -6617,10 +6628,11 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && m_cardStage->presentation() == CardPresentation::Spread
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
     const KeyAction action = keyActionFor(key, modifiers, context);
-    // Meta+Esc has gone unanswered on a tablet's keyboard; say what arrives.
-    if (key == Qt::Key_Escape && !repeat)
-        qInfo() << "Kadunce" << Revision << "sees Escape with" << modifiers
-                << (action == KeyAction::Release ? "and lets every window go" : "and leaves it");
+    // Meta+Esc has gone unanswered on a tablet's keyboard; say what arrives
+    // with Meta held.
+    if (!repeat && ((modifiers & Qt::MetaModifier) || key == Qt::Key_Escape))
+        qInfo() << "Kadunce" << Revision << "sees key" << Qt::hex << key << Qt::dec << "with"
+                << modifiers << "as action" << int(action);
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;

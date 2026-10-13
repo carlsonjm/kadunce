@@ -152,13 +152,13 @@ A Bento action is a request without a carried window or a contacted edge
 every display (§11), else to the largest display that cannot own cards, else
 the one that can.
 
-On a display Kadunce owns that can own cards, it names a pair the way a side
-snap does, from the right: the Active card keeps the left side. With no Active card, or no eligible
-card to pair with, nothing happens.
+On a display that can own cards, it pairs like a side snap from the right:
+the Active card keeps the left side. With no card to pair, nothing happens.
 
 On a display that cannot own cards, it composes across the display.
 
-A Bento action on a display that already has a live layout ends that layout.
+A Bento action on a display with a live layout ends it; with cards on every
+display its windows stay cards.
 
 ## 4. Eligible windows
 
@@ -176,7 +176,7 @@ Kadunce does not create independent cards for:
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
-- The screenshot tool, which floats over cards
+- The screenshot tool's capture, floating over cards
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
