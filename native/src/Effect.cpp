@@ -2876,6 +2876,8 @@ void Effect::handleWindowOutputChanged()
             && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
             && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
             && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
+            qInfo() << "Kadunce" << Revision << "handed pane" << window->caption() << "to"
+                    << window->window()->moveResizeOutput()->name();
             KWin::effects->activateWindow(window);
             observeCardOwnership();
             Q_EMIT workspaceContextChanged();
@@ -6744,6 +6746,10 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && m_cardStage->presentation() == CardPresentation::Spread
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
     const KeyAction action = keyActionFor(key, modifiers, context);
+    if (m_cardStage->presentation() == CardPresentation::Spread && !repeat)
+        qInfo() << "Kadunce" << Revision << "Spread key" << key << "action" << int(action)
+                << "cardsShown" << context.cardsShown << "spreadShown" << context.spreadShown
+                << "grab" << KWin::effects->hasKeyboardGrab();
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;
@@ -6780,6 +6786,13 @@ void Effect::activateSelectedFromInput()
     const auto ticket = m_inputActivationGuard.issue();
     const QPointer<KWin::EffectWindow> requested = selectedWindow();
     QTimer::singleShot(0, this, [this, ticket, requested]() {
+        if (!requested || selectedWindow() != requested || nativeWindowInteractionForInput()
+            || m_cardStage->cardGrabActive() || m_cardStage->launcherGuestActive())
+            qInfo() << "Kadunce" << Revision << "open declined for"
+                    << (requested ? requested->caption() : QString()) << "selected"
+                    << (selectedWindow() ? selectedWindow()->caption() : QString())
+                    << "interaction" << nativeWindowInteractionForInput()
+                    << "grab" << m_cardStage->cardGrabActive();
         if (m_inputActivationGuard.accepts(ticket)
             && requested && !requested->isDeleted() && selectedWindow() == requested
             && !nativeWindowInteractionForInput() && !m_cardStage->cardGrabActive()
@@ -7543,6 +7556,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // state §2 does not name.
         (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
+        if (shownAtOpen)
+            qInfo() << "Kadunce" << Revision << "opened" << candidate->caption() << "beside"
+                    << shownAtOpen->caption() << "pairing" << bool(shown);
         if (shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
             && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
             && m_cardStage->liveCardIndex(candidate) >= 0
