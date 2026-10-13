@@ -20,7 +20,7 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 | Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
 | Bento group | A Bento layout as one card in Spread | Current |
 | Sleeping card | A minimized card, drawn dimmed in Spread | Current |
-| Card display | The display a touchscreen drives; the only one that holds cards | Current |
+| Card display | The one display that holds cards and Spread: the chosen one, else the touched one, else the largest | Current |
 | Plasma desktop | The ordinary KDE desktop outside cards | Current |
 | Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces | Locked |
 | Tab, menu bar, `+` | A workspace's pill in Table; Table left open by a flick, `Meta+W` or the corner; the tab that makes a workspace | Current |

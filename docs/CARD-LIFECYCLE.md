@@ -478,21 +478,20 @@ An edge action commits only when released inside its valid edge zone.
 
 ## 11. Multiple displays
 
-Each display, on each desktop, has an independent ownership session.
+Each display, on each desktop, has an independent ownership session. An edge
+action reads that display's own state: whether Kadunce owns it, its Active
+card, its live Bento layout and its pane cap.
 
-An edge action reads the display's own state: whether Kadunce owns it, its
-Active card, its live Bento layout and its pane cap. The rules are the same on
-every display; only these values differ.
-
-The display that can own cards is the one a touchscreen drives, never found by
-a display's name or hardware identity
-(`DECISIONS.md` § Cards follow the touchscreen). It may contain:
+One display owns cards, so there is one Spread: the one you chose while it is
+attached, else the one a touchscreen drives, else the largest
+(`DECISIONS.md` § One display holds Spread). It may contain:
 
 - Individual cards
 - Ordinary stacks
 - At most one Bento layout
 
-A machine with no touchscreen has no such display and gets Bento only.
+Unplugged, its cards move to the next, whose windows join them (§3), and return
+with the chosen display (`kaduncerc` `[Spread] Display`).
 
 Any other display shows ordinary Plasma windows or one Bento layout, never
 both, and never cards or Spread. One window snapped to a side takes half the

@@ -555,17 +555,20 @@ picks which, so any window is one stroke away (`INPUT.md` § Table). Rejected:
 surfaces of small Spreads, a reskinned Overview, a list with submenus, and a
 diagonal hand-off from the edge.
 
-### Cards follow the touchscreen
+### One display holds Spread
 
-The display a touchscreen drives holds cards, whether
-it's a tablet's own panel or a touch monitor; every other display uses Bento
-layouts, and a computer without a touchscreen gets Bento and Table only. Kadunce
-finds that display from the touchscreen as KWin places it, never from the
-display's name, which says nothing about touch. Where two touchscreens drive
-different displays, the built-in one holds cards. The same test gives Kadunce
-the touch edges (`ARCHITECTURE.md` § Input ownership). Rejected: a helper for
-one device deciding it, which left every other touchscreen without Table's
-pull from the top edge.
+One display holds cards, so there is one Spread and never a second ring of
+cards (`CARD-LIFECYCLE.md` §11): the one you choose while attached, else the
+one a touchscreen drives, else the largest, so a desktop without touch gets
+cards too. Kadunce finds the touched display from the touchscreen as
+KWin places it, never from the display's name, which says nothing about touch;
+where two touchscreens drive different displays, the built-in one wins. When
+the display holding cards goes away, every card moves to the next one, and
+back when the chosen display returns. Only a touchscreen gives Kadunce the
+touch edges (`ARCHITECTURE.md` § Input ownership). Rejected: cards only on a
+touched display, which left a desktop without Spread; letting cards go when
+their display changes; and a helper for one device deciding it, which left every other
+touchscreen without Table's pull from the top edge.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

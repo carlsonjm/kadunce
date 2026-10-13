@@ -10,6 +10,7 @@
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
+#include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
 #include "KeyboardOverlayPolicy.h"
@@ -190,6 +191,10 @@ public Q_SLOTS:
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
+    // The display Spread lives on, by name; empty while Kadunce chooses
+    // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
+    Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
+    Q_SCRIPTABLE void setSpreadDisplay(const QString &outputName);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
     // Table's preview: another desktop drawn on every display in place of the
@@ -921,12 +926,16 @@ private:
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
     QString m_cardOutputName;
+    // The display a touchscreen drives, which alone takes Kadunce's own edges.
+    QString m_touchOutputName;
+    SpreadDisplayChoice m_spreadChoice;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;
     QList<QPointer<KWin::Window>> m_waitingLeads;
     bool m_dependentSyncQueued = false;
     bool m_cardDisplaySettleQueued = false;
+    bool m_cardDisplayMoved = false;
     int m_cardDisplaySettleRounds = 0;
     bool m_holdingDependents = false;
     // Waiting dialogs drawn on their cards in Spread. KWin keeps them hidden,

@@ -7,7 +7,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh|keyboard-first-runtime-session.sh) ;;
-    membership-runtime-session.sh|no-touch-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
+    membership-runtime-session.sh|no-touch-runtime-session.sh|spread-display-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
@@ -80,6 +80,13 @@ else
 fi
 mkdir -p "$unload_root/runtime" "$unload_root/config" "$unload_root/data" "$unload_root/state"
 chmod 700 "$unload_root/runtime"
+# With no touchscreen, Kadunce puts Spread on the largest display. The scenes
+# were written for virtual outputs that hold no cards unless the tablet
+# fixture's touchscreen drives one, so each keeps cards to a touchscreen,
+# except the one that proves the choice itself.
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh ]]; then
+    kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key WithoutTouchscreen false
+fi
 xwayland_args=()
 xwayland_launcher=()
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
@@ -159,7 +166,7 @@ fi
 # Table's touch scene walks every gesture Table has, renaming included.
 session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then session_timeout=70s; fi
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh ]]; then session_timeout=60s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-display-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh ]]; then session_timeout=120s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi

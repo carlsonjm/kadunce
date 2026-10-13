@@ -431,8 +431,10 @@ public:
     // display and puts windows back where they last stood on a layout it has
     // seen before. §14 hands a card back to the desktop only by release or
     // disable, so a card KWin moved off this display comes back to it, and the
-    // card and its window never name different displays. Returns how many.
-    int returnCardsToDisplay();
+    // card and its window never name different displays. With every set,
+    // as when Spread itself has moved to another display, each card is placed
+    // there afresh, the ones KWin already left on it included. Returns how many.
+    int returnCardsToDisplay(bool every = false);
     // The Active card gutter changed in the settings: every card on this
     // display stands where the Active card does, so each takes the new one now.
     int applyGutter();

@@ -28,6 +28,7 @@ scenes=(
     exit-runtime production
     trace-runtime production
     no-touch-runtime production
+    spread-display-runtime production
     provenance-runtime production
     table-preview-runtime production
     desktop-settings-runtime production

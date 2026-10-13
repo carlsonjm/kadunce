@@ -64,7 +64,9 @@ must reject unknown major versions instead of guessing at fields.
   focused/selected/frontmost ordering.
 - `displayContext`: the selected edge backend (`z13-direct`, a frozen value
   meaning Kadunce's own router, whenever a touchscreen drives a display, or
-  `plasma-native`), and every output's role, geometry, and Bento ownership.
+  `plasma-native`), every output's role (`tablet` for the one card display),
+  geometry, and Bento ownership, and `spreadDisplay`, the display the person
+  chose for Spread, empty while Kadunce chooses.
 
 `windowId` and `cardId` use KWin's internal UUID and are stable for the life of
 that window. `cardIndex`, stack position, and titles are presentation metadata;
