@@ -15,22 +15,20 @@ namespace Kadunce
 // How much of the work area each card takes across and down in the ordinary
 // row: three across, the neighbours partly shown (makeSpreadLayout).
 inline constexpr double SpreadCardShare = 0.54;
-// Zoomed out, the share never falls below this, so a card stays readable.
-inline constexpr double SpreadZoomedOutShareMinimum = 0.16;
 // The ordinary gutter, as a share of the work area's width.
 inline constexpr double SpreadGutterShare = 0.056;
+// How much of each neighbour past the three whole cards a display sized
+// Connected shows at its edges.
+inline constexpr double SpreadConnectedEdge = 0.4;
 
-// Spread zoomed out, as it opens on a display sized Connected: cards small
-// enough that `entries` stand side by side across the work area, between the
-// floor above and the ordinary share.
-[[nodiscard]] inline double spreadZoomedOutShare(int entries)
+// Spread zoomed out, as it opens on a display sized Connected: three whole
+// cards, the selected one centred, and an edge of the card past each side, as
+// the ordinary row shows one whole card and its neighbours' edges.
+[[nodiscard]] constexpr double spreadConnectedShare()
 {
-    // n cards and n - 1 gutters across all but a margin of the work area.
-    constexpr double across = 0.96;
+    // Three cards, their four gutters and two edges span the work area.
     constexpr double gutterPerCard = SpreadGutterShare / SpreadCardShare;
-    const int n = std::max(entries, 1);
-    const double share = across / (n + gutterPerCard * (n - 1));
-    return std::clamp(share, SpreadZoomedOutShareMinimum, SpreadCardShare);
+    return 1.0 / (3.0 + 4.0 * gutterPerCard + 2.0 * SpreadConnectedEdge);
 }
 
 // The row at a card share; the ordinary share is makeSpreadLayout itself. The

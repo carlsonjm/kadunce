@@ -570,7 +570,6 @@ private:
     // Spread is drawn zoomed out: the display is sized Connected and the row
     // stands as itself, not beside Search.
     [[nodiscard]] bool zoomedOut() const;
-    [[nodiscard]] double zoomedRowShift(const SpreadLayout &layout) const;
     [[nodiscard]] KWin::RectF workArea(const KWin::LogicalOutput *output) const
     {
         return m_host->workAreaForCardStage(output);

@@ -35,18 +35,18 @@ bool close(double a, double b)
 int main()
 {
     {
-        // Zoomed out, a short row stands whole across the work area, cards
-        // never shrink past the floor, and one card is the ordinary size.
-        const double three = Kadunce::spreadZoomedOutShare(3);
-        const auto row = Kadunce::makeSpreadLayoutAt(0, 0, 2560, 1440, three);
-        require(row.cards[0].x >= 0 && row.cards[2].right() <= 2560,
-            "Zoomed out, three cards did not stand whole across the display");
-        require(three < Kadunce::SpreadCardShare, "Zoomed out, the cards were not smaller");
-        require(close(Kadunce::spreadZoomedOutShare(40), Kadunce::SpreadZoomedOutShareMinimum),
-            "Zoomed out, a long row shrank its cards past the floor");
-        require(close(Kadunce::spreadZoomedOutShare(1), Kadunce::SpreadCardShare)
-            && close(Kadunce::spreadZoomedOutShare(0), Kadunce::SpreadCardShare),
-            "Zoomed out, a lone card was not the ordinary size");
+        // Connected: three whole cards across, the selected one centred, and
+        // an edge of the card past each side.
+        const double share = Kadunce::spreadConnectedShare();
+        const auto row = Kadunce::makeSpreadLayoutAt(0, 0, 2560, 1440, share);
+        require(row.cards[0].x > 0 && row.cards[2].right() < 2560,
+            "Connected, three cards did not stand whole across the display");
+        require(close(row.cards[1].x + row.cards[1].width / 2.0, 1280.0),
+            "Connected, the selected card was not centred");
+        const double edge = 2560 - (row.cards[2].right() + row.gutter);
+        require(edge > 0 && edge < row.cards[1].width && close(edge, row.cards[1].width * Kadunce::SpreadConnectedEdge),
+            "Connected, the card past the three did not show an edge");
+        require(share < Kadunce::SpreadCardShare, "Connected, the cards were not smaller");
         const auto ordinary = Kadunce::makeSpreadLayout(0, 0, 2560, 1440);
         require(close(ordinary.cards[1].width, 2560 * 0.54) && close(ordinary.gutter, 2560 * 0.056),
             "The ordinary row changed");

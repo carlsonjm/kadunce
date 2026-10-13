@@ -54,11 +54,17 @@ each_its_own() {
     context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
         | ($c | length) >= 2 and all($c[]; .stackSize == 1) and ([$c[].stackId] | unique | length) == ($c | length)'
 }
-# Zoomed out, every card of the row shows whole on the display.
-all_whole() {
-    context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
-        | ($c | length) >= 2 and all($c[]; .spreadRect and .spreadRect.x >= 0 and .spreadRect.x + .spreadRect.width <= 2560)'
+# Zoomed out: three whole cards at most, the selected one whole and centred,
+# and only edges of any card past them.
+three_whole() {
+    context '.cardStage.selectedCardId as $s
+        | [.applications[] | select(.spreadRect) | .spreadRect | select(.x >= 0 and .x + .width <= 2560)] as $whole
+        | first(.applications[] | select(.windowId == $s)) | .spreadRect as $r
+        | ($r.x + $r.width / 2 - 1280) as $d
+        | ($whole | length) >= 2 and ($whole | length) <= 3 and $r.x >= 0 and $r.x + $r.width <= 2560 and $d < 8 and $d > -8'
 }
+selected_is() { context --arg id "$1" '.cardStage.selectedCardId == $id'; }
+selected_not() { context --arg id "$1" '.cardStage.selectedCardId != $id'; }
 rect() { probe windowFacts | jq -c --arg id "$1" 'first(.[] | select(.id == $id)) | {x, y, width, height}'; }
 same_rect() { [[ $(rect "$1") == "$2" ]]; }
 # A person's finger carries one card onto another in Spread and lets go.
@@ -120,7 +126,20 @@ check 'start: the card in use is Active' context --arg id "$d" '.cardStage.prese
 spread_key
 report spread
 check 'spread: Spread opens' presents cardLine
-check 'spread: zoomed out, every card shows whole' all_whole
+check 'spread: three whole cards at most, the selected one centred' three_whole
+# A wheel turned anywhere over Spread, open space too, moves the row a card.
+probe pointer 1280 160
+turn=-1
+probe wheel "$turn"
+sleep .8
+if selected_is "$d" >/dev/null 2>&1; then turn=1; probe wheel "$turn"; sleep .8; fi
+report wheel
+check 'wheel: a turn in open space centres another card' selected_not "$d"
+check 'wheel: it stands whole in the middle' three_whole
+probe wheel "$((-turn))"
+sleep .8
+check 'wheel: turned back, the row comes back' selected_is "$d"
+probe pointer 1280 720
 # Search called over Spread is Spread's guest, here too: the row returns to
 # its ordinary size beside it, and zooms out again once it has gone.
 python3 - <<'PY' &
@@ -143,7 +162,7 @@ kad endLauncherGuest
 kill "$owner_pid" 2>/dev/null; wait "$owner_pid" 2>/dev/null
 sleep .8
 report search-gone
-search_gone() { all_whole && context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'; }
+search_gone() { three_whole && context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'; }
 check 'search gone: Spread is open, zoomed out again' search_gone
 pick "$a"
 report paired
@@ -156,7 +175,7 @@ spread_key
 report spread-layout
 check 'spread over a layout: Spread opens' presents cardLine
 check 'spread over a layout: every pane is a card of its own, no group card' each_its_own
-check 'spread over a layout: every card shows whole' all_whole
+check 'spread over a layout: three whole cards at most, the selected one centred' three_whole
 pick "$b"
 report grown
 check 'grow: the layout shows' layout_shown
