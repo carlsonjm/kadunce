@@ -74,34 +74,44 @@ seen_at() {
         | select(. != null) | [([.x, 0] | max), ([.x + .width, 2560] | min)] as [$l, $r]
         | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
 }
+# A card standing whole on the display, not an edge.
+whole() {
+    context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | . != null and .x >= 0 and .x + .width <= 2560'
+}
 # Spread shows three whole cards and an edge either side: walk the row until
-# both cards are in view.
+# the card to carry stands whole, away from the screen's edge where the row
+# slides under a held card, and the card it goes to is in view.
 both_seen() {
     local key
-    [[ -n $(seen_at "$1") && -n $(seen_at "$2") ]] && return 0
+    whole "$1" >/dev/null 2>&1 && [[ -n $(seen_at "$2") ]] && return 0
     for key in 105 106; do
         select_card "$2" >/dev/null 2>&1
         for _ in 1 2 3; do
             probe key "$key" 0 >/dev/null
             sleep .4
-            [[ -n $(seen_at "$1") && -n $(seen_at "$2") ]] && return 0
+            whole "$1" >/dev/null 2>&1 && [[ -n $(seen_at "$2") ]] && return 0
         done
     done
     return 1
 }
 # A person's finger carries one card onto another in Spread and lets go.
 carry_onto() {
-    local from=$1 to=$2 x y tx ty
+    local from=$1 to=$2 x y tx ty fx
     both_seen "$from" "$to" || echo "state carry-unseen $from $to"
     read -r x y < <(seen_at "$from")
+    fx=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect | (.x + .width / 2) | floor')
     read -r tx ty < <(seen_at "$to")
     probe down 61 "$x" "$y"
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
     sleep .5
     # Held, the row stands where it stood, though Spread reports its places
-    # around the held card: aim where the card stood before the lift, through
-    # a point halfway so the aim settles on the way.
+    # around the held card: aim where the card stood before the lift. The
+    # carry aims with the held card's middle, not the finger, so a card taken
+    # by its edge is carried that much further, through a point halfway so
+    # the aim settles on the way.
+    tx=$((tx + x - fx))
     probe motion 61 "$(((x + tx) / 2))" "$ty"
     sleep .4
     probe motion 61 "$tx" "$ty"
