@@ -32,8 +32,7 @@ holds its windows as cards, and switching on shows the window in use as the
 Active card. Rejected: opening Spread instead, which costs a tap after every
 sign-in and every toggle.
 
-The rule it replaced waited for a first edge action, so every sign-in met the
-least reliable path, the first carry. A display with no card left starts again
+A display with no card left starts again
 with the next window to open, so no state exists that §2 does not name.
 
 Every card taken stands in the Active card's place and stays there
@@ -118,8 +117,7 @@ cards, §5's destination does not exist and the session keeps its single pane.
 §5 sends a pane carried to the top edge out of Bento, and §10 makes a window
 carried there one independent Active card. They are one answer, so the edge
 decision reads the same for a live layout as for an owned display and only the
-source differs. Rejected: separate rules per edge, which is what once put a pane
-carried to the top edge back into the layout it was leaving.
+source differs. Rejected: separate rules per edge.
 
 ### Two cases the contract does not answer
 
@@ -135,7 +133,7 @@ produces.
 A window is never shown on top of live panes (`CARD-LIFECYCLE.md` §8). Rejected:
 growth-only admission, which answered a full layout by drawing the arrival in
 front of it, the one state §2 does not name: a card over live panes, the layout
-running underneath. A person who wants one window alone has Spread and stacks.
+running underneath.
 Both arrival paths, launch and activation, retire the layout into a Spread group
 before an arrival no slot holds becomes a card, and the card stage refuses a new
 window while its display presents Bento, so code, not each caller, keeps the
@@ -457,9 +455,7 @@ A layout in Spread is one ordinary card slot showing its live panes in place
 (`CARD-LIFECYCLE.md` §2, §9), and choosing it resumes the same session without a
 solve, so you get back exactly what you left. The stored pane rects stay
 authoritative: a pane whose own client moved it meanwhile is placed back on its
-rect rather than refusing the resume and leaving the group unopenable. Placement
-comes from the transferred rects, not later client geometry, so live-frame
-acknowledgements cannot move a pane inside the group.
+rect rather than refusing the resume and leaving the group unopenable.
 
 ### Sessions are output-local
 
@@ -569,6 +565,13 @@ touch edges (`ARCHITECTURE.md` § Input ownership). Rejected: cards only on a
 touched display, which left a desktop without Spread; letting cards go when
 their display changes; and a helper for one device deciding it, which left every other
 touchscreen without Table's pull from the top edge.
+
+### A big card display plays cards into its layout
+
+A card display with room for more than two panes is Connected
+(`CARD-LIFECYCLE.md` §11): a picked card joins what is open, and each pane stays
+its own card, since one group card would hide many panes. Full, the pane used
+longest ago yields, since equal panes leave fit no answer.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

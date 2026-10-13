@@ -19,6 +19,7 @@
 #include "StackBrowseMotion.h"
 #include "SpreadStroke.h"
 #include "SpreadLayout.h"
+#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
@@ -238,7 +239,7 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
         || !m_host->isManagedWindowForCardStage(window)
         || liveCardIndex(window) < 0) return false;
     // The Bento group is never a partner, and neither is a live pane.
-    return !usesBentoProjectionAperture(window) && !isBentoProjectionPane(window);
+    return !inProjectedLayout(window) && !isBentoProjectionPane(window);
 }
 
 KWin::EffectWindow *CardStageController::partnerForSideSnap(
@@ -371,12 +372,17 @@ int CardStageController::liveCardIndex(const KWin::EffectWindow *window) const
     return -1;
 }
 
-bool CardStageController::usesBentoProjectionAperture(
-    const KWin::EffectWindow *window) const
+bool CardStageController::inProjectedLayout(const KWin::EffectWindow *window) const
 {
     return window && std::any_of(
         m_bentoProjectionWindows.cbegin(), m_bentoProjectionWindows.cend(),
         [window](const auto &projected) { return projected == window; });
+}
+
+bool CardStageController::usesBentoProjectionAperture(
+    const KWin::EffectWindow *window) const
+{
+    return !panesAsCards() && inProjectedLayout(window);
 }
 
 bool CardStageController::isBentoProjectionPane(
@@ -403,7 +409,9 @@ bool CardStageController::selectedIsBentoProjection() const
 bool CardStageController::selectedIsBentoGroup() const
 {
     if (!m_bentoProjectionSession || !selectedWindow()) return false;
-    if (usesBentoProjectionAperture(selectedWindow())) return true;
+    // On Connected any of the layout's cards opens the layout.
+    if (inProjectedLayout(selectedWindow())) return true;
+    if (panesAsCards()) return false;
     const int selected = m_workspace.selectedId();
     for (const auto &pane : m_bentoProjectionPaneWindows) {
         if (!pane) continue;
@@ -518,6 +526,17 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
     }
     if (m_workspace.count() == 2) {
         return rowNeighborSide();
+    }
+    if (m_workspace.count() >= 3 && zoomedOut()) {
+        // Zoomed out, every entry whose card reaches the screen is drawn.
+        const int offset = entryOffset(window);
+        auto *output = m_host->tabletOutputForCardStage();
+        if (offset == 99 || !output) return 99;
+        const auto work = workArea(output);
+        const auto target = cardTargetForSlot(output, offset);
+        const double reach = target.width() * 0.2;
+        return target.right() + reach > work.left() && target.left() - reach < work.right()
+            ? offset : 99;
     }
     if (m_workspace.count() >= 3) {
         // The row has two ends: nothing is drawn before the first entry or
@@ -706,7 +725,7 @@ QString CardStageController::carryAimPane() const
 
 double CardStageController::carryPaneRecess(const KWin::EffectWindow *window) const
 {
-    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0
+    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0 || panesAsCards()
         || !window || groupPane(m_carry.risePart) != window
         || carryItemOf(window) != m_carry.riseIndex) return 0.0;
     // The pane a held card would take gives way to a cutout as the card waits
@@ -716,7 +735,8 @@ double CardStageController::carryPaneRecess(const KWin::EffectWindow *window) co
 
 std::optional<CardStageController::HeldTuck> CardStageController::heldTuck() const
 {
-    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0) return std::nullopt;
+    if (!m_cardGrabActive || m_carry.risePart < 0 || m_carry.rise <= 0.0 || panesAsCards())
+        return std::nullopt;
     auto *output = m_host->tabletOutputForCardStage();
     KWin::EffectWindow *pane = groupPane(m_carry.risePart);
     if (!output || !pane || carryItemOf(pane) != m_carry.riseIndex) return std::nullopt;
@@ -755,9 +775,11 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     if (!output) return std::nullopt;
     const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
-    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+    // The row a card is lifted from keeps the zoom it stood at.
+    const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
+        zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
     const CardRect &centre = layout.cards[1];
-    return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
+    return CarryFrame{centre.x + zoomedRowShift(layout) + centre.width / 2.0, centre.y + centre.height / 2.0,
                       centre.width + layout.gutter, centre.width, centre.height,
                       work.x(), work.width()};
 }
@@ -886,7 +908,8 @@ KWin::Rect CardStageController::cardTargetForSlot(
         && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+        : makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
+              zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
     // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
@@ -921,6 +944,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
         target.x += slot < 0 ? -other.right : slot > 0 ? -other.left : 0.0;
     } else {
         target = makeRowCardTarget(layout, slot, envelopeAt);
+        target.x += zoomedRowShift(layout);
     }
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
@@ -1866,7 +1890,7 @@ void CardStageController::beginCardGrab(const QPointF &position)
     // together in Spread; its panes come out by a pull down.
     KWin::EffectWindow *window = cardAt(tablet, position);
     const int cardId = liveCardIndex(window) + 1;
-    if (!window || cardId <= 0 || usesBentoProjectionAperture(window)) return;
+    if (!window || cardId <= 0 || inProjectedLayout(window)) return;
     // Freeze the presentation at pickup: the finger keeps the point of the
     // card it took, and the row stands where it stood.
     auto pickup = previewTargetForWindow(tablet, window);
@@ -2559,7 +2583,10 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             [&](const auto &member) { return member.window == window; });
         if (sleeping == projection.sleeping.cend() || !append(*sleeping, false)) return false;
     }
-    const auto admission = m_workspace.prepareStackAdmission(windows);
+    // §11: on a display sized Connected every pane is a card of its own.
+    const bool asCards = m_host->connectedForCardStage();
+    const auto admission = asCards ? m_workspace.prepareRowAdmission(windows)
+                                   : m_workspace.prepareStackAdmission(windows);
     if (!admission) return false;
     // Both membership owners publish before signals/native calls. Original
     // restore records cross directly; no frame acknowledgement is required.
@@ -2576,6 +2603,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
                 for (const auto &member : projection.panes)
                     m_bentoProjectionPaneWindows.append(member.window);
                 m_bentoProjectionSession = projection;
+                m_panesAsCards = asCards;
                 ++m_restoreGeneration;
                 m_active = true;
                 // The stage can already present an individual Active card here:
@@ -2607,6 +2635,12 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     }
     if (!m_active) return true;
     m_host->setPagingShortcutsForCardStage(true);
+    // On Connected the row opens on the pane that was in front, each pane a
+    // card of its own, and each pane's Stack whole around it.
+    if (m_panesAsCards) {
+        settlePaneStacks();
+        if (projection.lead) (void)selectCardEntry(projection.lead);
+    }
     // The layout shrinks from where it stood into its group card in the row,
     // as the Active card does, and the cards beside it slide in.
     formRowFromActive();
@@ -2615,21 +2649,170 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     return true;
 }
 
+double CardStageController::zoomedRowShift(const SpreadLayout &layout) const
+{
+    // Zoomed out, the whole row stands centred on the display, so the selected
+    // card stands where its place in the row puts it rather than in the middle.
+    const auto &spread = m_workspace.model();
+    if (!zoomedOut() || spread.count() < 3) return 0.0;
+    const double pitch = layout.cards[2].x - layout.cards[1].x;
+    return (spread.selectedIndex() - (spread.count() - 1) / 2.0) * pitch;
+}
+
+bool CardStageController::zoomedOut() const
+{
+    return m_presentation == CardPresentation::Spread && !m_launcherGuestActive
+        && m_host->connectedForCardStage();
+}
+
+bool CardStageController::hasBentoGroup() const
+{
+    return m_active && m_bentoProjectionSession
+        && std::any_of(m_bentoProjectionPaneWindows.cbegin(), m_bentoProjectionPaneWindows.cend(),
+               [](const auto &pane) { return pane && !pane->isDeleted(); });
+}
+
+bool CardStageController::resumeBentoGroup()
+{
+    if (!hasBentoGroup() || m_presentation != CardPresentation::Spread
+        || m_cardGrabActive || m_launcherGuestActive) return false;
+    if (selectedIsBentoGroup()) return resumeSelectedBentoProjection();
+    const QPointer<KWin::EffectWindow> before = selectedWindow();
+    KWin::EffectWindow *pane = nullptr;
+    for (const auto &member : std::as_const(m_bentoProjectionPaneWindows))
+        if (member && !member->isDeleted()) { pane = member; break; }
+    if (!pane || !selectCardEntry(pane) || !selectedIsBentoGroup()) {
+        if (before) (void)selectCardEntry(before);
+        return false;
+    }
+    if (resumeSelectedBentoProjection()) return true;
+    if (before) (void)selectCardEntry(before);
+    return false;
+}
+
+QList<KWin::EffectWindow *> CardStageController::paneStack(const KWin::EffectWindow *pane) const
+{
+    QList<KWin::EffectWindow *> result;
+    for (const auto &member : m_paneStacks.value(pane))
+        if (member && !member->isDeleted() && liveCardIndex(member) >= 0) result.append(member.data());
+    return result;
+}
+
+void CardStageController::notePaneStack(KWin::EffectWindow *pane,
+                                        const QList<KWin::EffectWindow *> &behind)
+{
+    QList<QPointer<KWin::EffectWindow>> members;
+    for (auto *member : behind)
+        if (member && member != pane && !member->isDeleted()) members.append(member);
+    if (!pane || members.isEmpty()) m_paneStacks.remove(pane);
+    else m_paneStacks.insert(pane, members);
+}
+
+void CardStageController::forgetPaneStack(const KWin::EffectWindow *pane)
+{
+    m_paneStacks.remove(pane);
+}
+
+bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
+{
+    if (!face || liveCardIndex(face) < 0 || m_cardGrabActive || m_launcherGuestActive) return false;
+    QList<KWin::EffectWindow *> members{face};
+    for (auto *member : behind)
+        if (member && !member->isDeleted() && liveCardIndex(member) >= 0 && !members.contains(member))
+            members.append(member);
+    if (members.size() < 2) return false;
+    // Already the Stack it should be: nothing moves.
+    if (stackFrontToBack(face) == members) return true;
+    for (auto *member : std::as_const(members)) {
+        const int id = liveCardIndex(member) + 1;
+        for (int guard = 0; m_workspace.stackSizeForId(id) > 1 && guard < 64; ++guard)
+            if (!m_workspace.releaseMember(id)) return false;
+    }
+    QList<QPointer<KWin::EffectWindow>> rest;
+    for (int i = 1; i < members.size(); ++i) rest.append(members.at(i));
+    if (!m_workspace.stackBehind(face, rest)) return false;
+    syncSelectedStackingOrder();
+    return true;
+}
+
+void CardStageController::settlePaneStacks()
+{
+    if (!m_active || m_cardGrabActive || m_launcherGuestActive || m_paneStacks.isEmpty()) return;
+    for (auto it = m_paneStacks.begin(); it != m_paneStacks.end();) {
+        auto *pane = const_cast<KWin::EffectWindow *>(it.key());
+        const auto behind = paneStack(pane);
+        const bool paneGone = !std::any_of(KWin::effects->stackingOrder().cbegin(),
+            KWin::effects->stackingOrder().cend(), [pane](auto *w) { return w == pane; });
+        if (behind.isEmpty()) { it = m_paneStacks.erase(it); continue; }
+        if (paneGone) {
+            // Its pane closed: the cards that waited behind it stay together.
+            if (behind.size() > 1) (void)restack(behind.first(), behind.mid(1));
+            it = m_paneStacks.erase(it);
+            continue;
+        }
+        if (liveCardIndex(pane) >= 0) {
+            // The pane is a card again: its Stack is whole in the row.
+            (void)restack(pane, behind);
+            it = m_paneStacks.erase(it);
+            continue;
+        }
+        // Still a pane: the cards behind it wait together, in order.
+        if (behind.size() > 1) (void)restack(behind.first(), behind.mid(1));
+        ++it;
+    }
+}
+
 bool CardStageController::resumeSelectedBentoProjection()
 {
     if (!m_active || m_presentation != CardPresentation::Spread
         || !selectedIsBentoGroup() || !m_bentoProjectionSession
         || m_cardGrabActive || m_launcherGuestActive) return false;
     BentoProjectionSession projection = *m_bentoProjectionSession;
+    QList<QPointer<KWin::EffectWindow>> projectionWindows = m_bentoProjectionWindows;
+    QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> paneStacks;
+    if (panesAsCards()) {
+        // CARD-LIFECYCLE.md §11: a Stack holding a pane fills that pane with
+        // its front card, and the rest of it waits behind the pane.
+        QList<const KWin::EffectWindow *> faces;
+        for (auto &member : projection.panes) {
+            KWin::EffectWindow *pane = member.window.data();
+            const auto stack = stackFrontToBack(pane);
+            if (stack.size() < 2) continue;
+            KWin::EffectWindow *face = stack.first();
+            if (faces.contains(face)) continue;
+            if (face != pane) {
+                const auto restore = managedRestore(face);
+                if (inProjectedLayout(face) || !isEligiblePartner(face) || !restore) continue;
+                if (projection.lead == pane) projection.lead = face;
+                if (projection.sideWindow == pane) projection.sideWindow = face;
+                for (auto &stacked : projection.stackingOrder)
+                    if (stacked == pane) stacked = face;
+                member = {face, *restore, false};
+                const int at = projectionWindows.indexOf(pane);
+                if (at >= 0) projectionWindows[at] = face;
+            }
+            faces.append(face);
+            QList<QPointer<KWin::EffectWindow>> behind;
+            for (auto *window : stack)
+                if (window != face) behind.append(window);
+            paneStacks.insert(face, behind);
+        }
+        if (!validBentoProjectionShape(projectionShape(projection))) return false;
+    }
     if (auto *tablet = m_host->tabletOutputForCardStage()) {
         for (const auto &member : std::as_const(projection.panes)) {
+            // On Connected each pane grows from its own card.
+            if (panesAsCards()) {
+                const QRectF card(previewTargetForWindow(tablet, member.window.data()));
+                projection.drawnPanes.append(card.isEmpty() ? QRectF() : card);
+                continue;
+            }
             const auto drawn = groupPaneDrawn(tablet, member.window.data());
             projection.drawnPanes.append(drawn
                 ? QRectF(drawn->x, drawn->y, drawn->width, drawn->height) : QRectF());
         }
     }
     const auto allWindows = m_workspace.windows();
-    const auto projectionWindows = m_bentoProjectionWindows;
     const auto originalStackingOrder = m_originalCardStackingOrder;
     // CARD-LIFECYCLE.md §6: selecting the group resumes the group. Only its own
     // members leave this stage; the cards around it keep their ownership and
@@ -2639,7 +2822,7 @@ bool CardStageController::resumeSelectedBentoProjection()
     if (!departure) return false;
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
-        [this, projectionWindows, &departure, &committed] {
+        [this, projectionWindows, paneStacks, &departure, &committed] {
             committed = commitResumeHandback(
                 [&] {
                     if (!m_active || !selectedIsBentoGroup()
@@ -2658,6 +2841,7 @@ bool CardStageController::resumeSelectedBentoProjection()
                     }
                     m_bentoProjectionWindows.clear();
                     m_bentoProjectionPaneWindows.clear();
+                    m_paneStacks = paneStacks;
                     // §2: the display now presents Bento. Whatever this stage
                     // still owns stays owned and hidden behind it.
                     m_presentation = CardPresentation::Bento;
@@ -2766,6 +2950,16 @@ void CardStageController::release()
     m_originalCardStackingOrder.clear();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "released";
+}
+
+bool CardStageController::presentSelectedNow()
+{
+    if (!m_active || m_presentation != CardPresentation::Spread
+        || m_cardGrabActive || m_launcherGuestActive || selectedIsBentoGroup()) return false;
+    if (!enterActive()) return false;
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
@@ -3566,8 +3760,9 @@ bool CardStageController::beginLift(const QPointF &position)
     if (!window) return false;
     // A Bento group lifts the pane under the finger, which only a pull down
     // takes out.
-    const bool inGroup = usesBentoProjectionAperture(window);
-    if (inGroup) window = groupPaneAt(output, position);
+    const bool inGroup = inProjectedLayout(window);
+    // On Connected the card is the pane itself.
+    if (inGroup && !panesAsCards()) window = groupPaneAt(output, position);
     if (!window) return false;
     if (m_arrivalWindow) clearCardTransition();
     m_lift = {window, 0.0, 0.0,
@@ -3637,7 +3832,10 @@ void CardStageController::pullOutLifted()
     // The card travels from where the finger left it to its own place.
     captureCardTransition(false, true);
     endLift();
-    if (cardId <= 0 || !(group ? pullPaneOutOfGroup(window) : m_workspace.releaseMember(cardId))) {
+    const bool pulled = cardId > 0
+        && (group ? (panesAsCards() ? takePaneOutOfLayout(window) : pullPaneOutOfGroup(window))
+                  : m_workspace.releaseMember(cardId));
+    if (cardId <= 0 || !pulled) {
         clearCardTransition();
         KWin::effects->addRepaintFull();
         return;
@@ -3734,6 +3932,56 @@ bool CardStageController::pullPaneOutOfGroup(KWin::EffectWindow *pane)
     // other card does, so its card shows the whole window rather than a
     // pane's strip between bands of backing.
     settleCardsInActivePlace(awake);
+    return true;
+}
+
+bool CardStageController::takePaneOutOfLayout(KWin::EffectWindow *pane)
+{
+    if (!panesAsCards() || !pane || !inProjectedLayout(pane) || liveCardIndex(pane) < 0
+        || m_cardGrabActive) return false;
+    BentoProjectionSession projection = *m_bentoProjectionSession;
+    const auto paneAt = std::find_if(projection.panes.begin(), projection.panes.end(),
+        [pane](const auto &member) { return member.window == pane; });
+    if (paneAt != projection.panes.end()) {
+        projection.panes.erase(paneAt);
+    } else {
+        projection.sleeping.removeIf([pane](const auto &member) { return member.window == pane; });
+    }
+    projection.stackingOrder.removeAll(pane);
+    if (projection.lead == pane)
+        projection.lead = projection.panes.isEmpty() ? nullptr : projection.panes.first().window;
+    if (projection.sideWindow == pane) {
+        projection.sideWindow.clear();
+        projection.side.reset();
+    }
+    const auto members = m_bentoProjectionWindows;
+    KWin::effects->setElevatedWindow(pane, false);
+    if (projection.panes.size() < 2) {
+        // §5: a layout left with one pane ends; every card was already a
+        // card of its own, so nothing else moves.
+        m_bentoProjectionSession.reset();
+        m_bentoProjectionWindows.clear();
+        m_bentoProjectionPaneWindows.clear();
+        m_returnToGroup = false;
+        m_host->retireBentoProjectionForCardStage(members);
+    } else {
+        // The panes left share the layout, laid out afresh for their count.
+        const auto &area = projection.workspaceArea;
+        const bool landscape = bentoLandscapeArea(area.width(), area.height());
+        const int count = int(projection.panes.size());
+        projection.rects = count <= BentoCuratedPaneCap
+            ? makeBentoLayout(count, landscape)
+            : makeGridBentoLayout(count, bentoGridColumns(count, landscape));
+        if (!validBentoProjectionShape(projectionShape(projection))) return false;
+        *m_bentoProjectionSession = projection;
+        m_bentoProjectionWindows.removeAll(pane);
+        m_bentoProjectionPaneWindows.removeAll(pane);
+        m_host->retireBentoProjectionForCardStage({pane});
+    }
+    // §3: the card stands in the Active card's place, as every card does.
+    if (!pane->isMinimized()) settleCardsInActivePlace({pane});
+    ++m_restoreGeneration;
+    qInfo() << "Kadunce" << Revision << "took" << pane->caption() << "out of the layout";
     return true;
 }
 
@@ -4802,6 +5050,9 @@ void CardStageController::finishNewArrival(KWin::EffectWindow *window,
 
 void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
 {
+    // A closed pane's Stack keeps its cards together in the row; its identity
+    // may be reused by the next window, so it names no Stack from here on.
+    m_paneStacks.remove(window);
     for (const auto &ask : m_closeAsks) {
         if (ask.window != window) continue;
         qInfo() << "Kadunce" << Revision << "flicked card's app closed" << ask.asked.elapsed()
@@ -4967,7 +5218,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
          ++step) {
         m_workspace.page(1);
     }
-    if (usesBentoProjectionAperture(window)) {
+    if (inProjectedLayout(window)) {
         syncSelectedElevation();
         (void)resumeSelectedBentoProjection();
         return;

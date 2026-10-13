@@ -7,6 +7,7 @@
 
 #include "CardStageController.h"
 #include "DesktopStageController.h"
+#include "DisplaySizing.h"
 #include "WorkspaceInputRouter.h"
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
@@ -195,6 +196,12 @@ public Q_SLOTS:
     // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
     Q_SCRIPTABLE void setSpreadDisplay(const QString &outputName);
+    // How a display plays cards while it holds Spread: "active" or
+    // "connected" (DisplaySizing.h). The choice is kept per display in
+    // kaduncerc's [Sizing] group and followed at once; an empty choice lets
+    // Kadunce choose by room.
+    Q_SCRIPTABLE QString displaySizing(const QString &outputName) const;
+    Q_SCRIPTABLE void setDisplaySizing(const QString &outputName, const QString &sizing);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(
         const QString &sourceName, const QString &destinationName);
     // Table's preview: another desktop drawn on every display in place of the
@@ -333,6 +340,7 @@ private:
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void openGroupAfterDropForCardStage(const QRectF &from) override;
+    [[nodiscard]] bool connectedForCardStage() const override;
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;
@@ -522,6 +530,10 @@ private:
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForDesktopStage()
         const override;
+    [[nodiscard]] bool connectedOutputForDesktopStage(
+        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] long long lastUsedForDesktopStage(
+        const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool outputCanOwnCards(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(
@@ -693,6 +705,15 @@ private:
     // answered here; false leaves it to Card Stage, which by then is no longer
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
+    // CARD-LIFECYCLE.md §11, Connected: a card picked from Spread is played
+    // into the display's layout. False leaves the pick to the Active path.
+    [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
+    // The two named cards become a Bento pair, `active` placed by `side`.
+    bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
+        KWin::EffectWindow *partner, BentoSidePlacement side);
+    // §11, Connected: Meta+Up/Down on a pane steps the Stack that fills it.
+    bool stepPaneStack(int delta);
     // §8: retire a layout that cannot take an arrival into a Spread group, so
     // the card the arrival becomes is not drawn over live panes. Both arrival
     // paths ask this before handing the window to Card Stage.
@@ -929,6 +950,8 @@ private:
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;
     SpreadDisplayChoice m_spreadChoice;
+    // kaduncerc's [Sizing] group: each display's chosen sizing, by name.
+    QHash<QString, QString> m_sizingChoices;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;

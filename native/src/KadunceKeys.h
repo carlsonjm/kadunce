@@ -31,6 +31,8 @@ struct KeyContext {
     bool spreadShown = false;
     // Table answers its key; a test can leave it out.
     bool table = false;
+    // The display shows its layout, sized Connected, so a pane's Stack steps.
+    bool paneStack = false;
 };
 
 inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const KeyContext &context)
@@ -45,8 +47,10 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Escape: return KeyAction::Release;
         case Qt::Key_Left: return context.cardsShown ? KeyAction::Previous : KeyAction::None;
         case Qt::Key_Right: return context.cardsShown ? KeyAction::Next : KeyAction::None;
-        case Qt::Key_Up: return context.cardsShown ? KeyAction::StackPrevious : KeyAction::None;
-        case Qt::Key_Down: return context.cardsShown ? KeyAction::StackNext : KeyAction::None;
+        case Qt::Key_Up: return context.cardsShown ? KeyAction::StackPrevious
+            : context.paneStack ? KeyAction::StackPrevious : KeyAction::None;
+        case Qt::Key_Down: return context.cardsShown ? KeyAction::StackNext
+            : context.paneStack ? KeyAction::StackNext : KeyAction::None;
         default: return KeyAction::None;
         }
     }

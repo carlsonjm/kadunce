@@ -241,6 +241,22 @@ public:
         if (!applyAdmission(result, model, planned)) return std::nullopt;
         return result;
     }
+    // Import an output-local composition as entries of their own, one per
+    // window, in order: on a display sized Connected every pane is a card.
+    std::optional<PreparedAdmission> prepareRowAdmission(const QList<Handle> &windows,
+        OwnershipTransition step = OwnershipTransition::BentoToCard) const {
+        if (windows.isEmpty() || !invariantHolds() || hasDetachedMember())
+            return std::nullopt;
+        PreparedAdmission result;
+        result.destination = m_identity;
+        result.ownershipRevision = m_ownershipRevision;
+        result.incoming = windows;
+        result.step = step;
+        SpreadModel model = m_model;
+        QList<Handle> planned = m_windows;
+        if (!applyAdmission(result, model, planned)) return std::nullopt;
+        return result;
+    }
     // Synchronous source-model callback only: no native operations, signals,
     // or destination mutations. Validate destination before touching source,
     // then publish immediately, with no externally observable calls between.
@@ -393,9 +409,11 @@ private:
                         QList<Handle> &windows) const {
         if (prepared.incoming.isEmpty()) return false;
         if (!prepared.stack) {
-            const Handle &window = prepared.incoming.first();
-            if (windows.contains(window)) return false;
-            appendTo(model, windows, window, prepared.centered);
+            // Each window is an entry of its own, in order.
+            for (const auto &window : prepared.incoming) {
+                if (windows.contains(window)) return false;
+                if (appendTo(model, windows, window, prepared.centered) <= 0) return false;
+            }
             return true;
         }
         // The group's first identity is its face; the rest stack onto that card

@@ -29,6 +29,7 @@ scenes=(
     trace-runtime production
     no-touch-runtime production
     spread-display-runtime production
+    connected-runtime production
     provenance-runtime production
     table-preview-runtime production
     desktop-settings-runtime production

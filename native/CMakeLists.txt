@@ -27,6 +27,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/SpreadModel.h
         src/SpreadLayout.cpp
         src/SpreadLayout.h
+        src/SpreadZoom.h
         src/ProjectedCardGeometry.h
         src/BentoCompositeGeometry.h
         src/BentoProjectionSession.h
@@ -183,6 +184,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-touch-display-test PRIVATE src)
     target_link_libraries(kadunce-touch-display-test PRIVATE Qt6::Core)
     add_test(NAME touch-display COMMAND kadunce-touch-display-test)
+    add_executable(kadunce-display-sizing-test tests/DisplaySizingTest.cpp)
+    target_include_directories(kadunce-display-sizing-test PRIVATE src)
+    target_link_libraries(kadunce-display-sizing-test PRIVATE Qt6::Core)
+    add_test(NAME display-sizing COMMAND kadunce-display-sizing-test)
     add_executable(kadunce-card-ownership-test tests/CardOwnershipTest.cpp)
     target_include_directories(kadunce-card-ownership-test PRIVATE src)
     target_link_libraries(kadunce-card-ownership-test PRIVATE Qt6::Core)

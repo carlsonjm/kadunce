@@ -427,7 +427,17 @@ std::optional<int> DesktopStageController::slotForArrival(
     const auto pixels = sessionPixels(session, area);
     if (pixels.size() != session.rects.size()) return std::nullopt;
     const QSizeF minimum = arrival->window()->minSize();
-    const int slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
+    // CARD-LIFECYCLE.md §11: a Connected display gives up the window used
+    // longest ago, where §8 elsewhere gives up the smallest slot that fits.
+    int slot = -1;
+    if (m_host->connectedOutputForDesktopStage(output)) {
+        std::vector<long long> lastUsed;
+        for (const auto &window : session.windows)
+            lastUsed.push_back(m_host->lastUsedForDesktopStage(window.data()));
+        slot = bentoSlotUsedLongestAgo(pixels, lastUsed, minimum.width(), minimum.height());
+    } else {
+        slot = bentoSlotForArrival(pixels, minimum.width(), minimum.height());
+    }
     if (slot < 0 || slot >= session.windows.size() || !session.windows.at(slot))
         return std::nullopt;
     return slot;
@@ -496,6 +506,41 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
+    return true;
+}
+
+bool DesktopStageController::replacePaneWithCard(KWin::EffectWindow *pane,
+    KWin::EffectWindow *card, const std::function<bool()> &commitSource, bool closing)
+{
+    if (m_restoring || !commitSource || !pane || !card || pane == card
+        || card->isDeleted() || !card->window() || card->isUserMove() || card->isUserResize()
+        || m_interactionWindow || m_railDrag) return false;
+    Session *session = nullptr;
+    for (Session &candidate : m_sessions)
+        if (candidate.windows.contains(pane)) { session = &candidate; break; }
+    if (!session || session->applying) return false;
+    const int slot = session->windows.indexOf(pane);
+    if (slot < 0) return false;
+    for (const auto &existing : std::as_const(session->snapshots))
+        if (existing.window == card) return false;
+    KWin::LogicalOutput *output = outputForKey(session->outputName);
+    if (!output) return false;
+    const auto pixels = sessionPixels(*session, stageArea(output));
+    if (slot >= int(pixels.size())) return false;
+    const QSizeF minimum = card->window()->minSize();
+    if (minimum.width() > pixels[slot].width || minimum.height() > pixels[slot].height) return false;
+    const RestoreSnapshot snapshot = makeSnapshot(card);
+    if (!snapshot.valid) return false;
+    const Session live = *session;
+    Session candidate = live;
+    if (!takeSlotAtCap(candidate, slot, snapshot)) return false;
+    if (!commitSource()) return false;
+    // A closing pane has no card to become; it only gives up its slot.
+    const QList<PendingEviction> pending = closing ? QList<PendingEviction>{}
+                                                   : captureEvictions(live, candidate);
+    *session = std::move(candidate);
+    if (applySession(*session, true)) scheduleSettle();
+    if (!closing) publishEvictions(pending);
     return true;
 }
 
