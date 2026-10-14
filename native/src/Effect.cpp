@@ -1069,6 +1069,18 @@ Effect::Effect()
         m_stackScrubArmed = m_desktopStage->managesWindow(m_carriedWindow)
             && !m_cardStage->paneStack(m_carriedWindow).isEmpty();
         if (m_stackScrubArmed) m_stackScrubPane = m_carriedWindow;
+        // A title bar held still until KWin's own drag time shows the ladder
+        // at once, so the hold is seen before the hand moves.
+        if (m_stackScrubArmed) {
+            const auto held = m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner());
+            if (held && std::hypot(held->travel.x(), held->travel.y()) < StackScrubSlop
+                && std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - held->pressedAt).count() >= StackScrubHoldMs) {
+                beginStackScrub(held->pressedPosition.y());
+                m_stackScrubHeldStill = m_stackScrub.active();
+                refreshStackScrubShown();
+            }
+        }
         KWin::effects->addRepaintFull();
     };
     m_carryRuntime->moved = [this](QPointF p) {
@@ -1082,6 +1094,7 @@ Effect::Effect()
             if (!m_stackScrubArmed || !m_stackScrubPane) return false;
             beginStackScrub(stackScrubHand(KWin::effects->cursorPos().y()));
         }
+        m_stackScrubHeldStill = false;
         m_stackScrub.wheel(notches, stackScrubHand(KWin::effects->cursorPos().y()));
         refreshStackScrubShown();
         KWin::effects->addRepaintFull();
@@ -7129,6 +7142,9 @@ bool Effect::followStackScrub(QPointF contact)
             if (m_carryRuntime) m_carryRuntime->cancel();
             return true;
         }
+        // Shown on the hold alone: drawn aside or down, it folds away and
+        // the pane is carried as before.
+        if (m_stackScrubHeldStill && !stackScrubHeldStillGoesOn()) return false;
         m_stackScrub.follow(stackScrubHand(contact.y()));
         refreshStackScrubShown();
         KWin::effects->addRepaintFull();
@@ -7161,6 +7177,22 @@ double Effect::stackScrubHand(double pointerY) const
     return held ? held->pressedPosition.y() + held->travel.y() : pointerY;
 }
 
+bool Effect::stackScrubHeldStillGoesOn()
+{
+    const auto held = m_carryRuntime
+        ? m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner()) : std::nullopt;
+    if (!held) return true;
+    switch (stackScrubStart(held->travel.x(), held->travel.y(), StackScrubHoldMs)) {
+    case StackScrubStart::Undecided: return true;
+    case StackScrubStart::Scrub: m_stackScrubHeldStill = false; return true;
+    case StackScrubStart::Carry: break;
+    }
+    qInfo() << "Kadunce" << Revision << "folds the ladder of" << m_stackScrubPane->caption()
+            << "and carries it";
+    endStackScrub();
+    return false;
+}
+
 void Effect::beginStackScrub(double y)
 {
     m_stackScrubArmed = false;
@@ -7180,6 +7212,7 @@ void Effect::endStackScrub()
     const bool shown = m_stackScrub.active();
     m_stackScrub.clear();
     m_stackScrubArmed = false;
+    m_stackScrubHeldStill = false;
     m_stackScrubPane.clear();
     m_stackScrubShown.clear();
     if (shown) KWin::effects->addRepaintFull();
