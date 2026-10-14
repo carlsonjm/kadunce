@@ -2922,10 +2922,23 @@ void Effect::handleWindowOutputChanged()
         }
         // A pane sent to another display leaves its layout there as one
         // carried there by its title bar does. Spread moves no pane.
+        const QList<KWin::EffectWindow *> behind = window ? m_cardStage->paneStack(window)
+                                                          : QList<KWin::EffectWindow *>{};
         if (window && !m_releasing && window->window() && !window->isUserMove()
             && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
             && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
             && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
+            // §11, Every display: on a display holding its own cards it is the
+            // card shown there, with no layout to join as well, and its Stack
+            // waits for that display, so Meta+Tab there steps it.
+            KWin::LogicalOutput *there = window->screen();
+            if (isOtherCardDisplay(there)) {
+                if (!m_desktopStage->managesWindow(window)) claimWindowForItsDisplay(window);
+                for (auto *member : behind)
+                    if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
+            } else if (isTabletOutput(there)) {
+                for (auto *member : behind) m_cardHomes.remove(member);
+            }
             KWin::effects->activateWindow(window);
             observeCardOwnership();
             Q_EMIT workspaceContextChanged();

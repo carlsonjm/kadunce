@@ -223,6 +223,7 @@ done
 report stack-carried
 check 'carry: a pane holding a Stack reaches the small display' on_output "$second" Virtual-0
 check 'carry: its Stack came with it, in order' together "$second" "$first"
+check 'carry: there it is the card that display shows' is_pane "$second"
 meta 15
 report stack-carried-step
 check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $first 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"
