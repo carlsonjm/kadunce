@@ -207,7 +207,7 @@ title_scrub() {
     if (( wheel != 0 )); then probe wheel "$wheel" >/dev/null; sleep .1; fi
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state title-scrub-$id $(jq -c '{scrubPlace, scrubLadder, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
-    echo "trace title-scrub-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
+    echo "state trace-title-scrub-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
     probe button false >/dev/null
     sleep 1.2
 }
@@ -230,7 +230,7 @@ title_drag() {
     sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state title-drag-$id $(jq -c '{stackOnto, destinationRect, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
-    echo "trace title-drag-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
+    echo "state trace-title-drag-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
     probe button false >/dev/null
     sleep 1.2
 }
