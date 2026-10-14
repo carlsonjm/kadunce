@@ -566,6 +566,7 @@ private:
     void refillOtherDisplay(const QString &outputName);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
+    bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);

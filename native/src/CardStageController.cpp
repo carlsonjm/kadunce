@@ -2697,6 +2697,14 @@ void CardStageController::notePaneStack(KWin::EffectWindow *pane,
     else m_paneStacks.insert(pane, members);
 }
 
+KWin::EffectWindow *CardStageController::paneHolding(const KWin::EffectWindow *card) const
+{
+    for (auto it = m_paneStacks.cbegin(); it != m_paneStacks.cend(); ++it)
+        for (const auto &member : it.value())
+            if (member && member == card) return const_cast<KWin::EffectWindow *>(it.key());
+    return nullptr;
+}
+
 void CardStageController::forgetPaneStack(const KWin::EffectWindow *pane)
 {
     m_paneStacks.remove(pane);

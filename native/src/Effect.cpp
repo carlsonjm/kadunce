@@ -7263,6 +7263,33 @@ void Effect::drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, rung->first);
 }
 
+bool Effect::callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card)
+{
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    const int at = behind.indexOf(card);
+    if (at < 0) return false;
+    const bool there = isOtherCardDisplay(pane->screen());
+    // As if stepped to it: the cards it passed go round to the back, in turn.
+    const QList<KWin::EffectWindow *> ring = behind.mid(at + 1) + QList<KWin::EffectWindow *>{pane} + behind.mid(0, at);
+    m_cardStage->forgetPaneStack(pane);
+    m_cardStage->notePaneStack(card, ring);
+    if (!m_desktopStage->replacePaneWithCard(pane, card,
+            [this, card, there] {
+                return there ? m_cardStage->releaseCardToDisplay(card)
+                             : m_cardStage->releaseCardToLiveBento(card);
+            })) {
+        m_cardStage->forgetPaneStack(card);
+        m_cardStage->notePaneStack(pane, behind);
+        return false;
+    }
+    m_cardHomes.remove(card);
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    qInfo() << "Kadunce" << Revision << "brought" << card->caption() << "to the front of its Stack's pane";
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
 {
     if (!pane || !m_desktopStage->managesWindow(pane)) return false;
@@ -7999,6 +8026,11 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     // §11, Every display: a card waiting for another display never joins
     // this one's layout; focus handed to it is not a pick.
     if (cardHome(window)) return true;
+    // §11, Connected: a card waiting behind a pane, called, comes to the
+    // front of that pane. It never takes a pane of its own, which would part
+    // it from its Stack.
+    if (auto *pane = m_cardStage->paneHolding(window); pane && m_desktopStage->managesWindow(pane))
+        return callPaneStackCard(pane, window);
     KWin::LogicalOutput *output = window->screen();
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
     qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"

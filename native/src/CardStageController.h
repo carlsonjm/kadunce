@@ -234,6 +234,8 @@ public:
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
     void settlePaneStacks();
+    // The pane whose Stack has `card` waiting behind it, if any.
+    [[nodiscard]] KWin::EffectWindow *paneHolding(const KWin::EffectWindow *card) const;
     // The selected card is presented Active at once, without growing into
     // its place first; the layout it is about to join animates instead.
     [[nodiscard]] bool presentSelectedNow();
