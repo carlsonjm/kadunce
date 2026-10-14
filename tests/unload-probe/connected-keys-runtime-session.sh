@@ -153,9 +153,12 @@ report divider-left
 check 'divider: Meta+[ narrows it again' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $left 'first(.[] | select(.id == \$id)) | .width') <= $wider - 60 ))"
 
 # Stacks: a pane with none joins the Stack of the pane used before it.
+# Four panes, so two joins still leave a layout.
+spread_key
+pick "$four"
 mapfile -t panes < <(large_panes)
-check 'stacks: the layout has its three panes back' test "${#panes[@]}" -eq 3
-first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-}
+check 'stacks: the layout holds four panes' test "${#panes[@]}" -eq 4
+first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-} fourth=${panes[3]:-}
 focus_on "$second"
 focus_on "$first"
 meta_shift 103
@@ -199,13 +202,10 @@ report let-go
 check 'let go: Meta+Shift+Down takes the card out of its Stack' is_card "$third"
 check 'let go: the next card takes the pane' behind_is "$second" "[\"$first\"]"
 check 'let go: it is a pane' is_pane "$second"
-spread_key
-pick "$four"
-report four
-focus_on "$four"
+focus_on "$fourth"
 meta_shift 108
 report left-layout
-check 'let go: a pane with no Stack leaves the layout as a card' is_card "$four"
+check 'let go: a pane with no Stack leaves the layout as a card' is_card "$fourth"
 
 # A pane carried to another display takes its whole Stack with it.
 together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two
