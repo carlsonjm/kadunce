@@ -201,8 +201,8 @@ public Q_SLOTS:
     // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
     Q_SCRIPTABLE void setSpreadDisplay(const QString &outputName);
-    // How a display plays cards while it holds Spread: "active" or
-    // "connected" (DisplaySizing.h). The choice is kept per display in
+    // How a display plays cards: "solo" or "connected" (DisplaySizing.h).
+    // "active", Solo's earlier name, is accepted and kept as "solo". The choice is kept per display in
     // kaduncerc's [Sizing] group and followed at once; an empty choice lets
     // Kadunce choose by room.
     Q_SCRIPTABLE QString displaySizing(const QString &outputName) const;

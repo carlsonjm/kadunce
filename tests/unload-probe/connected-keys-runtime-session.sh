@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # INPUT.md § Connected, by the keys alone, on two monitors with no touchscreen:
-# Virtual-0 at scale 2 is small, sized Active and left of Virtual-1, which is
+# Virtual-0 at scale 2 is small, sized Solo and left of Virtual-1, which is
 # large, sized Connected and chosen for Spread. Meta's arrows move the focus
 # from pane to pane and on to the small display; with Shift a pane trades
 # places with the one beside it and, at the layout's edge, goes on to the

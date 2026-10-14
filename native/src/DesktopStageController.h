@@ -57,7 +57,7 @@ public:
     [[nodiscard]] virtual bool outputCanOwnCards(const KWin::LogicalOutput *) const {
         return false;
     }
-    // Whether this display holds Spread and is sized Connected
+    // Whether this display is sized Connected
     // (DisplaySizing.h), so a full layout there gives up the window used
     // longest ago. A host that draws no distinction answers that it is not.
     [[nodiscard]] virtual bool connectedOutputForDesktopStage(const KWin::LogicalOutput *) const {
@@ -76,7 +76,7 @@ public:
     [[nodiscard]] virtual bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *) const {
         return false;
     }
-    // Whether such a display is sized Active, so it shows one card at a time.
+    // Whether such a display is sized Solo, so it shows one card at a time.
     [[nodiscard]] virtual bool showsOneCardForDesktopStage(const KWin::LogicalOutput *) const {
         return false;
     }

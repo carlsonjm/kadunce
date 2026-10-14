@@ -109,7 +109,7 @@ public:
     // group as its layout, the card growing from `from`, where it was drawn.
     virtual void openGroupAfterDropForCardStage(const QRectF &) {}
     // Whether this display is sized Connected (DisplaySizing.h). A host that
-    // draws no distinction answers Active.
+    // draws no distinction answers Solo.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
     // Whether the layout this display presents was placed by a side snap, so
     // it can leave room open where the desktop shows (CARD-LIFECYCLE.md §11).

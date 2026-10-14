@@ -1520,7 +1520,7 @@ bool DesktopStageController::planSession(Session &session,
     if (preferred && owned.removeAll(preferred) > 0) {
         owned.prepend(preferred);
     }
-    // CARD-LIFECYCLE.md §11, Every display: a display sized Active that holds
+    // CARD-LIFECYCLE.md §11, Every display: a display sized Solo that holds
     // its own cards shows one of them, the preferred one first, whole; the
     // rest wait in Spread.
     if (m_host->showsOneCardForDesktopStage(output) && !owned.isEmpty()) {

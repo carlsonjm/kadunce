@@ -12,15 +12,17 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 | Workspace | One KDE virtual desktop as Table shows it: its cards, layouts and windows, across every display | Current |
 | Named workspace | A workspace you named; it stays when empty | Current |
 | Cards | Kadunce's name on a Shuffle install, and its tray switch | Current |
-| Card | An application window Kadunce holds on the card display | Locked |
-| Active card | The card in use, shown alone | Locked |
+| Card | An application window Kadunce holds on a card display | Locked |
+| Active card | The card in use: alone on a Solo display, the pane in use on a Connected one | Locked |
 | Spread | The ordered row of cards, Stacks and the Bento group you browse | Locked |
 | Stack | Cards grouped by hand into one Spread entry; stepping through it goes round it as a ring | Locked |
 | Bento | Two or more windows shown together in one layout | Locked |
 | Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
-| Bento group | A Bento layout as one card in Spread | Current |
+| Bento group | A Solo display's Bento layout as one card in Spread; on a Connected display each pane is its own card | Current |
 | Sleeping card | A minimized card, drawn dimmed in Spread | Current |
-| Card display | The one display that holds cards and Spread: the chosen one, else the touched one, else the largest | Current |
+| Card display | Every display; each holds its own cards | Current |
+| Spread display | The one display that holds Spread: the chosen one, else the touched one, else the largest | Current |
+| Display sizing | How a display plays cards, Solo or Connected. Solo: one card at a time over the whole work area, a Bento pair at most. Connected: room for more than two panes; a picked card joins the layout and each pane is its own card | Internal |
 | Plasma desktop | The ordinary KDE desktop outside cards | Current |
 | Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces | Locked |
 | Tab, menu bar, `+` | A workspace's pill in Table; Table left open by a flick, `Meta+W` or the corner; the tab that makes a workspace | Current |
@@ -38,7 +40,7 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 | Hide key | The key that puts the keys away | Current |
 | Precision surface | The whole keyboard latched as a trackpad, from the trackpad mark at the space bar's end | Locked |
 | Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked |
-| Bottom Surface | Single layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Current |
+| Bottom Surface | The one layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Current |
 | Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Current |
 | Notes | Gooseberry's name on a Shuffle install | Current |
 | Split Rock | The desktop assistant; inside Shuffle, Genie | Working |
@@ -56,6 +58,9 @@ Shuffle, the Shuffle Keyboard and Split Rock.
   release, because changing one breaks installed copies. `co.goodinput.*` names
   Kadunce, Temperance and the Tettegouche plugin; `io.github.carlsonjm.*` still
   names Tettegouche's desktop entries and Gooseberry (`ROADMAP.md`).
+- **Internal terms** never reach a person. Solo, Connected and "display sizing"
+  stay out of on-screen words, the tour and the site; there a display simply
+  shows one card or a layout.
 
 ## Enforcement
 
