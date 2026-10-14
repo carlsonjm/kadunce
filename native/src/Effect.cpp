@@ -4196,7 +4196,9 @@ void Effect::toggleBento()
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
         if (!pairActiveCardIntoBento(target))
-            qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name();
+            qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
+                    << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
+                    << "and" << (m_cardStage->activeCardIdentity() ? "an" : "no") << "Active card";
         observeCardOwnership();
         return;
     }
