@@ -574,6 +574,7 @@ private:
     // the cards behind it, shown as a ladder of title bars, and goes in where
     // it is let go.
     bool followStackScrub(QPointF contact);
+    bool stackScrubHeldStillGoesOn();
     void beginStackScrub(double y);
     double stackScrubHand(double pointerY) const;
     void endStackScrub();
@@ -970,6 +971,8 @@ private:
     QPointer<KWin::EffectWindow> m_carryStackOnto;
     // The carried pane holds a Stack and its hold is not yet told from a drag.
     bool m_stackScrubArmed = false;
+    // Held long enough to show the ladder, but not yet drawn up or aside.
+    bool m_stackScrubHeldStill = false;
     bool m_stackScrubLetGo = false;
     StackScrub m_stackScrub;
     QPointer<KWin::EffectWindow> m_stackScrubPane;

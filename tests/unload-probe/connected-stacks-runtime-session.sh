@@ -213,6 +213,20 @@ title_scrub() {
     probe contactButton false >/dev/null
     sleep 1.2
 }
+# A pane's title bar held still for `hold` seconds, then let go unmoved.
+title_hold() {
+    local id=$1 hold=$2 x y
+    read -r x y <<<"$(title_of "$id")"
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    probe contactButton true >/dev/null
+    sleep "$hold"
+    kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
+    echo "state title-hold-$id $(jq -c '{scrubPlace, scrubLadder, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
+    probe contactButton false >/dev/null
+    sleep 1.2
+}
 # A pane carried by its title bar onto another pane, held `hold` seconds
 # first and let go after `rest` seconds there.
 title_drag() {
@@ -380,6 +394,11 @@ report title-wheeled
 check 'title wheel: held still, two notches up, it would go in last' scrubbing 2 "[\"${w[2]}\",\"${w[6]}\",\"${w[3]}\"]"
 check 'title wheel: it went in last' behind_is "${w[2]}" "[\"${w[6]}\",\"${w[3]}\"]"
 check 'title wheel: still four panes' panes 4
+title_hold "${w[2]}" .9
+report title-held
+check 'title held still: the ladder shows before the hand moves' scrubbing 0 "[\"${w[2]}\",\"${w[6]}\",\"${w[3]}\"]"
+check 'title held still: let go unmoved, the Stack keeps its order' behind_is "${w[2]}" "[\"${w[6]}\",\"${w[3]}\"]"
+check 'title held still: still four panes' panes 4
 slot2=$(rect "${w[2]}") slot9=$(rect "${w[9]}")
 title_drag "${w[2]}" "${w[9]}" .9 .1
 report title-swapped
