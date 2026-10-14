@@ -2946,6 +2946,7 @@ void Effect::handleWindowOutputChanged()
                     if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
             } else if (isTabletOutput(there)) {
                 for (auto *member : behind) m_cardHomes.remove(member);
+                rejoinStack(window, behind);
             }
             KWin::effects->activateWindow(window);
             observeCardOwnership();
@@ -5139,6 +5140,20 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
             m.from.size()+(m.to.size()-m.from.size())*t);
     }
     return std::nullopt;
+}
+
+void Effect::appearInPlace(KWin::EffectWindow *window)
+{
+    // A window that has just opened, or a card a Stack steps to, appears in
+    // its pane rather than flying in from where it waited.
+    m_justOpened.removeIf([window](const auto &opened) {
+        return !opened.first || opened.first->isDeleted() || opened.first == window
+            || opened.second.elapsed() > OpenedStill;
+    });
+    if (!window) return;
+    QElapsedTimer since;
+    since.start();
+    m_justOpened.append({QPointer<KWin::EffectWindow>(window), since});
 }
 
 bool Effect::justOpened(const KWin::EffectWindow *window) const
@@ -7792,6 +7807,7 @@ bool Effect::callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *car
     const QList<KWin::EffectWindow *> ring = behind.mid(at + 1) + QList<KWin::EffectWindow *>{pane} + behind.mid(0, at);
     m_cardStage->forgetPaneStack(pane);
     m_cardStage->notePaneStack(card, ring);
+    appearInPlace(card);
     if (!m_desktopStage->replacePaneWithCard(pane, card,
             [this, card, there] {
                 return there ? m_cardStage->releaseCardToDisplay(card)
@@ -7824,6 +7840,7 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     else ring.prepend(pane);
     m_cardStage->forgetPaneStack(pane);
     m_cardStage->notePaneStack(next, ring);
+    appearInPlace(next);
     if (!m_desktopStage->replacePaneWithCard(pane, next,
             [this, next, there] {
                 return there ? m_cardStage->releaseCardToDisplay(next)
@@ -7838,6 +7855,34 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     observeCardOwnership();
     activateShownPane(next);
     return true;
+}
+
+void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
+{
+    // §11, Every display: a Stack brought back to Spread's display is still
+    // one Stack, whether its front card arrives as a card or as a pane.
+    if (!front || behind.isEmpty()) return;
+    QList<QPointer<KWin::EffectWindow>> members;
+    for (auto *member : behind) members.append(member);
+    QTimer::singleShot(0, this, [this, front = QPointer(front), members] {
+        if (!front || front->isDeleted() || m_releasing) return;
+        QList<KWin::EffectWindow *> alive;
+        for (const auto &member : members)
+            if (member && !member->isDeleted() && member != front) alive.append(member.data());
+        if (alive.isEmpty()) return;
+        if (m_desktopStage->managesWindow(front)) {
+            m_cardStage->notePaneStack(front, alive);
+            m_cardStage->settlePaneStacks();
+        } else if (m_cardStage->liveCardIndex(front) < 0 || !m_cardStage->stackBehind(front, alive)) {
+            qInfo() << "Kadunce" << Revision << "could not stack" << alive.size()
+                    << "cards behind" << front->caption() << "again";
+            return;
+        }
+        qInfo() << "Kadunce" << Revision << "brought" << front->caption() << "back with"
+                << alive.size() << "behind it";
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
+    });
 }
 
 bool Effect::giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display)
@@ -8361,14 +8406,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
     if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     // A window just opened, from the dock or anywhere, appears in its pane.
-    m_justOpened.removeIf([](const auto &opened) {
-        return !opened.first || opened.first->isDeleted() || opened.second.elapsed() > OpenedStill;
-    });
-    if (window) {
-        QElapsedTimer opened;
-        opened.start();
-        m_justOpened.append({QPointer<KWin::EffectWindow>(window), opened});
-    }
+    appearInPlace(window);
     Q_EMIT workspaceContextChanged();
     syncDesktopPreview();
     m_cardStage->liftSurfaceAboveCards(window);

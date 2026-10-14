@@ -586,6 +586,8 @@ private:
     void activateShownPane(KWin::EffectWindow *pane);
     bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
     void fillLayoutWithCards(KWin::LogicalOutput *output);
+    void appearInPlace(KWin::EffectWindow *window);
+    void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
