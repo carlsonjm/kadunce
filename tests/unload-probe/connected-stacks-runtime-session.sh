@@ -94,6 +94,7 @@ carry_onto() {
     entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
     items=$((entries - 1))
     t=$(( e > h ? e - 1 : e ))
+    echo "state carry-plan $from h=$h e=$e t=$t $(kad workspaceContext | jq -c '[.applications[] | select(.entry != null) | "\(.title):\(.entry):\(.stackSize)"]')"
     mid=$((spread_left + 1280))
     probe down 61 "$x" "$y"
     sleep .4
