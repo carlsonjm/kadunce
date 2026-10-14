@@ -7910,14 +7910,21 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     return true;
 }
 
-void Effect::restoreLeftLayout(KWin::EffectWindow *front)
+void Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
 {
     // §11, Connected: a pane carried away from Spread's display by the keys
     // and carried back takes the side it left, beside what it left beside.
-    const auto record = m_leftLayouts.constFind(front);
-    if (record == m_leftLayouts.cend()) return;
-    const LeftLayout left = record.value();
-    m_leftLayouts.erase(record);
+    // Stepped while it was away, its Stack comes back with another card in
+    // front, which takes that place.
+    std::optional<LeftLayout> found;
+    for (auto *member : QList<KWin::EffectWindow *>{front} + behind) {
+        const auto record = m_leftLayouts.constFind(member);
+        if (record == m_leftLayouts.cend()) continue;
+        if (!found) found = record.value();
+        m_leftLayouts.erase(record);
+    }
+    if (!found) return;
+    const LeftLayout left = *found;
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet || front->screen() != tablet || !connectedForCardStage()
         || m_desktopStage->managesWindow(front) || m_cardStage->liveCardIndex(front) < 0) return;
@@ -7954,7 +7961,7 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
         QList<KWin::EffectWindow *> alive;
         for (const auto &member : members)
             if (member && !member->isDeleted() && member != front) alive.append(member.data());
-        restoreLeftLayout(front);
+        restoreLeftLayout(front, alive);
         if (alive.isEmpty()) return;
         if (m_desktopStage->managesWindow(front)) {
             m_cardStage->notePaneStack(front, alive);
