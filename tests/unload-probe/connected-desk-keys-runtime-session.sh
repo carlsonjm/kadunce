@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# INPUT.md § Connected, by the keys, as J's desk is set up: Virtual-0 is a
+# INPUT.md § Connected, by the keys, as a desk is set up: Virtual-0 is a
 # small display left of Virtual-1, holds no window, and Virtual-1 is large,
 # sized Connected and chosen for Spread, with two windows paired there. A
 # pane Meta+Shift+Left carries onto the small display is the card shown there,
