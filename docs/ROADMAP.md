@@ -12,7 +12,6 @@ What is planned for Kadunce, and what it does not do yet.
   card does.
 - The on-screen keys coming up for the first text field of a session, and for a
   tap just after a card is chosen.
-- Spread named for a screen reader, as Table is, and checked with Orca.
 - Touch monitors beyond a tablet's own panel, tested on real hardware.
 - A placement request (`REQUESTS.md`) taking a pane out of its layout.
 - The identifiers still outside `co.goodinput.*`, Tettegouche's desktop entries

@@ -24,6 +24,8 @@
 #include "TableGesture.h"
 #include "TableLayout.h"
 #include "TablePresenter.h"
+#include "SpokenLine.h"
+#include "SpreadReading.h"
 #include "KeyRoute.h"
 #include "HeldPointer.h"
 #include <options.h>
@@ -464,6 +466,17 @@ private:
     QList<TableWorkspace> m_tableWorkspaces;
     TableLayout m_tableLayout;
     std::unique_ptr<TablePresenter> m_tablePresenter;
+    // Spread and Table said to a screen reader, made only while one listens.
+    std::unique_ptr<SpokenLine> m_spokenLine;
+    // What Table says now, kept as Table is drawn.
+    QString m_tableLine;
+    // The surface last said and its line, without the name it opened with.
+    enum class SpokenSurface { None, Spread, Table };
+    SpokenSurface m_spokenSurface = SpokenSurface::None;
+    QString m_spokenText;
+    [[nodiscard]] QString spreadLine();
+    [[nodiscard]] QString tableLine() const;
+    void syncSpokenLine();
     QElapsedTimer m_tableTime;
     // The card in hand as last drawn, and the landing of the last card moved.
     QVariantMap m_tableCarried;
