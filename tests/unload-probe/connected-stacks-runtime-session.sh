@@ -395,6 +395,15 @@ check 'title stack: rested on a pane, it joins its Stack in front' behind_is "${
 check 'title stack: its own next card keeps its slot' is_pane "${w[8]}"
 check 'title stack: still four panes' panes 4
 check 'title stack: no window is left ordinary' all_held
+# A card waiting behind a pane, called from the dock or the task switcher,
+# comes to the front of its pane; its Stack stays whole and no pane is added.
+probe activateWindowId "${w[10]}" >/dev/null
+sleep 1.2
+report called
+check 'called: the card called fills its pane' is_pane "${w[10]}"
+check 'called: the rest of its Stack waits behind it, in turn' behind_is "${w[10]}" "[\"${w[9]}\",\"${w[11]}\"]"
+check 'called: still four panes' panes 4
+check 'called: no window is left ordinary' all_held
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
