@@ -5156,6 +5156,39 @@ void Effect::appearInPlace(KWin::EffectWindow *window)
     m_justOpened.append({QPointer<KWin::EffectWindow>(window), since});
 }
 
+void Effect::stepInUnseen(KWin::EffectWindow *window)
+{
+    // A card a Stack steps to is drawn only once it stands where it is asked
+    // to, so it never shows for a frame where it waited.
+    if (!window) return;
+    m_steppingIn.removeIf([window](const auto &entry) { return !entry.first || entry.first == window; });
+    QElapsedTimer since;
+    since.start();
+    m_steppingIn.append({QPointer<KWin::EffectWindow>(window), since});
+    QTimer::singleShot(StepInUnseen + 16, this, [] { KWin::effects->addRepaintFull(); });
+}
+
+bool Effect::steppingInUnseen(const KWin::EffectWindow *window) const
+{
+    for (auto it = m_steppingIn.begin(); it != m_steppingIn.end(); ++it) {
+        if (it->first != window) continue;
+        if (!window->window() || it->second.elapsed() > StepInUnseen) {
+            m_steppingIn.erase(it);
+            return false;
+        }
+        const QRectF drawn(window->frameGeometry());
+        const QRectF asked(window->window()->moveResizeGeometry());
+        const bool there = std::abs(drawn.x() - asked.x()) < 2.0 && std::abs(drawn.y() - asked.y()) < 2.0
+            && std::abs(drawn.width() - asked.width()) < 2.0 && std::abs(drawn.height() - asked.height()) < 2.0;
+        if (there) {
+            m_steppingIn.erase(it);
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 bool Effect::justOpened(const KWin::EffectWindow *window) const
 {
     return std::any_of(m_justOpened.cbegin(), m_justOpened.cend(), [window](const auto &opened) {
@@ -7242,6 +7275,16 @@ void Effect::carryToward(KeyDirection direction)
         // own window-to-screen key sends it (handleWindowOutputChanged).
         if (KWin::LogicalOutput *next = outputToward(output, direction)) {
             qInfo() << "Kadunce" << Revision << "sends" << focused->caption() << "to" << next->name();
+            // The pane it leaves on Spread's display is its again when it
+            // comes back.
+            if (isTabletOutput(output)) {
+                LeftLayout left;
+                left.right = QRectF(focused->frameGeometry()).center().x()
+                    > QRectF(output->geometry()).center().x();
+                for (const auto &other : m_desktopStage->panesOn(output->name()))
+                    if (other && other.data() != focused) left.partners.append(other);
+                m_leftLayouts.insert(focused, left);
+            }
             focused->window()->sendToOutput(next);
         }
         return;
@@ -7585,6 +7628,14 @@ void Effect::pageStack(int delta)
         dismissLauncherGuestFromInput();
     }
     if (stepPaneStack(delta)) return;
+    if (m_cardStage->stepActiveStack(delta)) {
+        if (auto *shown = m_cardStage->activeCardIdentity()) {
+            appearInPlace(shown);
+            stepInUnseen(shown);
+            KWin::effects->activateWindow(shown);
+        }
+        return;
+    }
     m_cardStage->pageStack(delta);
 }
 
@@ -7808,6 +7859,7 @@ bool Effect::callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *car
     m_cardStage->forgetPaneStack(pane);
     m_cardStage->notePaneStack(card, ring);
     appearInPlace(card);
+    stepInUnseen(card);
     if (!m_desktopStage->replacePaneWithCard(pane, card,
             [this, card, there] {
                 return there ? m_cardStage->releaseCardToDisplay(card)
@@ -7841,6 +7893,7 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     m_cardStage->forgetPaneStack(pane);
     m_cardStage->notePaneStack(next, ring);
     appearInPlace(next);
+    stepInUnseen(next);
     if (!m_desktopStage->replacePaneWithCard(pane, next,
             [this, next, there] {
                 return there ? m_cardStage->releaseCardToDisplay(next)
@@ -7857,11 +7910,43 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     return true;
 }
 
+void Effect::restoreLeftLayout(KWin::EffectWindow *front)
+{
+    // §11, Connected: a pane carried away from Spread's display by the keys
+    // and carried back takes the side it left, beside what it left beside.
+    const auto record = m_leftLayouts.constFind(front);
+    if (record == m_leftLayouts.cend()) return;
+    const LeftLayout left = record.value();
+    m_leftLayouts.erase(record);
+    KWin::LogicalOutput *tablet = tabletOutput();
+    if (!tablet || front->screen() != tablet || !connectedForCardStage()
+        || m_desktopStage->managesWindow(front) || m_cardStage->liveCardIndex(front) < 0) return;
+    const BentoSidePlacement side{left.right, true, true};
+    bool placed = false;
+    if (m_desktopStage->hasSessionOnOutput(tablet->name())) {
+        placed = m_desktopStage->admitCardToLiveBento(front,
+            [this, front] { return m_cardStage->releaseCardToLiveBento(front); });
+    } else {
+        KWin::EffectWindow *partner = nullptr;
+        for (const auto &other : left.partners)
+            if (other && !other->isDeleted() && other.data() != front && !other->isMinimized()
+                && other->screen() == tablet && m_cardStage->liveCardIndex(other) >= 0) {
+                partner = other.data();
+                break;
+            }
+        (void)m_cardStage->promoteToActive(front);
+        placed = partner ? pairCardsIntoBento(tablet, front, partner, side)
+                         : placeActiveCardAlone(tablet, side);
+    }
+    qInfo() << "Kadunce" << Revision << (placed ? "gave" : "could not give") << front->caption()
+            << "back the" << (left.right ? "right" : "left") << "pane it left";
+}
+
 void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
 {
     // §11, Every display: a Stack brought back to Spread's display is still
     // one Stack, whether its front card arrives as a card or as a pane.
-    if (!front || behind.isEmpty()) return;
+    if (!front) return;
     QList<QPointer<KWin::EffectWindow>> members;
     for (auto *member : behind) members.append(member);
     QTimer::singleShot(0, this, [this, front = QPointer(front), members] {
@@ -7869,6 +7954,7 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
         QList<KWin::EffectWindow *> alive;
         for (const auto &member : members)
             if (member && !member->isDeleted() && member != front) alive.append(member.data());
+        restoreLeftLayout(front);
         if (alive.isEmpty()) return;
         if (m_desktopStage->managesWindow(front)) {
             m_cardStage->notePaneStack(front, alive);
@@ -8104,6 +8190,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_previewDesktop ? hiddenByDesktopPreview(window) : hiddenOnOtherDesktop(window)) data.setTranslucent();
     // Left undrawn while Spread draws its notes on the card.
     if (notesSurfaceStepsAside(window)) data.setTranslucent();
+    if (steppingInUnseen(window)) data.setTranslucent();
     // Drawn with its card, not where it stands, so it hides nothing there.
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     // Its trimmed corners show what is under them, so that must be drawn.
@@ -8521,6 +8608,7 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     m_activationOrder.remove(windowIdentity(window));
     m_cardHomes.remove(window);
+    m_leftLayouts.remove(window);
     // §11, Every display: a display holding its own cards that loses the last
     // card it shows brings back the one it used before.
     const bool otherPane = isOtherCardDisplay(window->screen()) && m_desktopStage->managesWindow(window);
@@ -8975,6 +9063,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (!m_keysForPerson && window == KWin::effects->inputPanel()) return paintResult(true);
     // A card flicked closed stays out of sight while its app closes.
     if (m_cardStage->thrownAway(window)) return paintResult(true);
+    // A card a Stack steps to waits unseen until it stands in its place.
+    if (steppingInUnseen(window)) return paintResult(true);
     // A previewed desktop is drawn as it stands, with nothing of the current
     // desktop's presentation over or under it.
     if (m_previewDesktop) {

@@ -289,6 +289,13 @@ private:
     // Windows opened in the last moment: placed in their panes without motion.
     static constexpr qint64 OpenedStill = 2000;
     QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_justOpened;
+    static constexpr qint64 StepInUnseen = 400;
+    mutable QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_steppingIn;
+    struct LeftLayout {
+        bool right = false;
+        QList<QPointer<KWin::EffectWindow>> partners;
+    };
+    QHash<const KWin::EffectWindow *, LeftLayout> m_leftLayouts;
     // A card let go on a pane of the Bento group grows into that pane from
     // where it was drawn, once the group has opened as its layout.
     QPointer<KWin::EffectWindow> m_paneArrivalWindow;
@@ -587,6 +594,9 @@ private:
     bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
+    void stepInUnseen(KWin::EffectWindow *window);
+    [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
+    void restoreLeftLayout(KWin::EffectWindow *front);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);

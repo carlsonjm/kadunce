@@ -3827,6 +3827,26 @@ void CardStageController::pageStack(int delta)
     browseStack(delta);
 }
 
+bool CardStageController::stepActiveStack(int delta)
+{
+    if (!m_active || m_launcherGuestActive || m_presentation != CardPresentation::Active
+        || delta == 0 || selectedIsBentoProjection()
+        || m_workspace.stackSizeForId(m_workspace.selectedId()) <= 1) return false;
+    finishCardGrab(false);
+    parkActiveSnapshot();
+    m_workspace.pageStack(delta);
+    if (!enterActive()) {
+        m_presentation = CardPresentation::Spread;
+        return false;
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce stepped the Active card's Stack to position"
+            << m_workspace.stackActivePositionForId(m_workspace.selectedId()) + 1
+            << "of" << m_workspace.stackSizeForId(m_workspace.selectedId());
+    return true;
+}
+
 void CardStageController::browseStack(int delta)
 {
     // Capture complete fan poses, including an interrupted browse transition.

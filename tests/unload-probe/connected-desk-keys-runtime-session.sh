@@ -107,6 +107,8 @@ meta_shift 106
 report back
 check 'back: Meta+Shift+Right brings it to the large display' on_output "$moved" Virtual-1
 check 'back: it is a card or a pane there, not a loose window' is_kept "$moved"
+check 'back: it takes back the pane it left' is_pane "$moved"
+check 'back: beside the pane it left beside' test "$(pane_count)" -eq 2
 
 # Both laid out again, one stacked on the other, and the Stack carried across.
 (( $(pane_count) == 2 )) || meta 48
@@ -121,6 +123,12 @@ sleep .6
 meta_shift 103
 report stacked
 check 'stack: Meta+Shift+Up stacks one pane on the other' together "$front" "$rest"
+was=$(focused_id)
+meta 15
+report active-stepped
+check 'stack: Meta+Tab steps the Stack while it is the Active card' test "$(focused_id)" != "$was"
+check 'stack: and it stays one Stack' together "$front" "$rest"
+meta 15
 carry_left "$front"
 report stack-carried
 check 'stack: the Stack reaches the small display' on_output "$front" Virtual-0
@@ -135,7 +143,12 @@ meta_shift 106
 report stack-back
 check 'stack: Meta+Shift+Right brings the Stack back' on_output "$rest" Virtual-1
 check 'stack: it is a card or a pane there' is_kept "$rest"
+check 'stack: it takes back the pane it left' is_pane "$rest"
 check 'stack: and the Stack stayed whole' together "$rest" "$front"
+meta 15
+report stack-stepped-back
+check 'stack: Meta+Tab there steps its pane' focused "$front"
+check 'stack: still one Stack' together "$front" "$rest"
 
 # Laid out again as two panes, Spread shows two cards, not one Stack.
 (( $(pane_count) == 2 )) || meta 48
