@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11 on one 2560x1440 monitor with no touchscreen, sized
 # Connected by its room. Spread shows the chosen card whole between its
-# neighbours' edges, as on Active, and every window is a card of its own, a
+# neighbours' edges, as on Solo, and every window is a card of its own, a
 # layout's panes included. A picked card joins the layout beside the card in
 # use and the layout grows; full, the pane used longest ago leaves and becomes
 # a card; a picked pane opens the layout on it. A Stack fills one pane, and
 # Meta+Tab steps it in place. The per-display choice is kept in kaduncerc and
-# Active sizing brings back the Bento group. Every check is reported, so a
+# Solo sizing brings back the Bento group; a choice still saved as "active",
+# Solo's earlier name, reads and is kept as Solo. Every check is reported, so a
 # failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -55,7 +56,7 @@ each_its_own() {
     context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
         | ($c | length) >= 2 and all($c[]; .stackSize == 1) and ([$c[].stackId] | unique | length) == ($c | length)'
 }
-# Spread as on Active: the selected card stands whole and centred, the
+# Spread as on Solo: the selected card stands whole and centred, the
 # large card of the row.
 one_whole() {
     context '.cardStage.selectedCardId as $s
@@ -256,15 +257,16 @@ check 'pane picked: it has focus' focused "$d"
 check 'pane picked: nothing left the layout' panes 3
 check 'pane picked: its pane stands where it stood' same_rect "$d" "$before"
 
-# The choice is the person's, per display, and written down.
+# The choice is the person's, per display, and written down. The earlier name
+# is accepted and saved under Solo's.
 kad setDisplaySizing Virtual-0 active
 sleep .6
-report chosen-active
-check 'chosen: the monitor is sized Active' context '[.displayContext.displays[] | select(.name == "Virtual-0" and .sizing == "active" and .sizingChosen)] | length == 1'
-check 'chosen: kaduncerc keeps it' bash -c "kreadconfig6 --file kaduncerc --group Sizing --key Virtual-0 | grep -qx active"
+report chosen-solo
+check 'chosen: the monitor is sized Solo' context '[.displayContext.displays[] | select(.name == "Virtual-0" and .sizing == "solo" and .sizingChosen)] | length == 1'
+check 'chosen: kaduncerc keeps it as solo' bash -c "kreadconfig6 --file kaduncerc --group Sizing --key Virtual-0 | grep -qx solo"
 spread_key
-report active-spread
-check 'active sizing: the layout is one group card in Spread again' \
+report solo-spread
+check 'solo sizing: the layout is one group card in Spread again' \
     context '[.applications[] | select(.hasCard and .stackSize >= 3)] | length >= 3'
 spread_key
 kad setDisplaySizing Virtual-0 ''

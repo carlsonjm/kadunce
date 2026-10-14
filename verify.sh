@@ -10,5 +10,6 @@ bash "${project_root}/tests/verify-source.sh"
 bash "${project_root}/tests/verify-repaint-continuation.sh"
 bash "${project_root}/tests/verify-package.sh"
 bash "${project_root}/tests/verify-control.sh"
+bash "${project_root}/tests/verify-disable.sh"
 
 echo "Kadunce verification passed."

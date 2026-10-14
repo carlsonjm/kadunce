@@ -23,6 +23,8 @@
 #include "TouchDisplay.h"
 #include "StuckNotesWatcher.h"
 #include "SurfaceTone.h"
+#include "KWinMatch.h"
+#include <QCoreApplication>
 #include <cursor.h>
 #include <cursorsource.h>
 #include <core/inputdevice.h>
@@ -1451,7 +1453,12 @@ void Effect::showActive()
 
 bool Effect::supported()
 {
-    return true;
+    const QString built = QStringLiteral(KADUNCE_BUILT_KWIN);
+    const QString running = QCoreApplication::applicationVersion();
+    if (kwinMatches(built, running)) return true;
+    qWarning() << "Kadunce" << Revision << "built for KWin" << built
+               << "but KWin" << running << "is running; Cards stay off until a rebuild";
+    return false;
 }
 
 void Effect::adoptDirectSystemEdges()
@@ -1549,7 +1556,7 @@ void Effect::setSpreadDisplay(const QString &outputName)
 
 DisplaySizing Effect::sizingFor(const KWin::LogicalOutput *output) const
 {
-    if (!output) return DisplaySizing::Active;
+    if (!output) return DisplaySizing::Solo;
     const auto geometry = output->geometry();
     return Kadunce::displaySizing(m_sizingChoices.value(output->name()),
         geometry.width(), geometry.height());
@@ -1566,7 +1573,8 @@ QString Effect::displaySizing(const QString &outputName) const
 void Effect::setDisplaySizing(const QString &outputName, const QString &sizing)
 {
     // An empty or unknown choice returns the display to sizing by room.
-    const QString chosen = parseSizing(sizing) ? sizing.trimmed().toLower() : QString();
+    const std::optional<DisplaySizing> parsed = parseSizing(sizing);
+    const QString chosen = parsed ? sizingName(*parsed) : QString();
     if (outputName.isEmpty() || m_sizingChoices.value(outputName) == chosen) return;
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Sizing"));
     if (chosen.isEmpty()) {
@@ -3224,7 +3232,7 @@ bool Effect::releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *outp
 
 bool Effect::showsOneCardForDesktopStage(const KWin::LogicalOutput *output) const
 {
-    return isOtherCardDisplay(output) && sizingFor(output) == DisplaySizing::Active;
+    return isOtherCardDisplay(output) && sizingFor(output) == DisplaySizing::Solo;
 }
 
 bool Effect::isOtherCardDisplay(const KWin::LogicalOutput *output) const
@@ -4389,7 +4397,7 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                 << "at" << window->window()->frameGeometry();
         if (m_touchWitness) m_touchWitness->moveStarted();
     }
-    // Active-sized cards do not become ordinary windows through a resize grip.
+    // A card does not become an ordinary window through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
     if (window && window->window() && window->isUserResize()

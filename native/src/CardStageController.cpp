@@ -5198,7 +5198,8 @@ bool CardStageController::admitTransferredWindowToTablet(
     }
     // A source record belongs to cancellation until commit. Same-output
     // admission may retain it; cross-output adoption establishes a new receiver
-    // origin from KWin's accepted tablet placement before Active sizing.
+    // origin from KWin's accepted tablet placement before it takes the Active
+    // card's size.
     const bool sameOutput = restore ? restore->output == tablet : window->screen() == tablet;
     if (sameOutput && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
     if (!adoptPublishedCard(client.data(), tablet.data(),

@@ -122,7 +122,7 @@ source differs. Rejected: separate rules per edge.
 ### Two cases the contract does not answer
 
 First entry on a display that cannot own cards is answered by § A display
-without cards organizes everything it shows. An evicted window reaches the card
+without cards organizes everything it shows. An evicted window reaches the Spread
 display through the adoption a carried card uses, so an idle card stage begins
 presenting Spread, while a refused launch becomes the Active card. A different
 answer would change which entry point an eviction uses, not the ownership it
@@ -252,7 +252,7 @@ intent, and a carry source is read-only provenance. Expressing those as
 ownership transitions would put placement back inside ownership tickets, which
 narrowing the ticket payload removed.
 
-### The card display shows cards or the desktop, never both
+### A display shows cards or the desktop, never both
 
 A window let go at its bottom edge lands on the desktop, shown with it; the rest
 waits in Spread (`CARD-LIFECYCLE.md` §2). Rejected: windows over cards, which
@@ -469,9 +469,8 @@ dock, never moves to another display on its own, and comes back when room frees
 up. An application too big for any slot takes the Active size, because one you
 just opened has to appear. Rejected: overflow on another desktop.
 
-The tablet names each window it pairs; this is the opposite answer on purpose.
-On the tablet a person places each card; a monitor is where Plasma windows pile
-up under a mouse, and the value is organizing the pile in one move. Rejected:
+On the tablet a person names each window it pairs; a monitor is where Plasma
+windows pile up under a mouse, and the value is organizing the pile in one move. Rejected:
 pairing on the monitor, which traded that for control, and sending overflow to
 the tablet, which moved windows between screens without you.
 
@@ -480,10 +479,10 @@ arrangement, and its edges replace the dividers. KWin ignores minimum sizes, so
 Kadunce assigns the zones. Otherwise a monitor fills itself. Rejected: presets
 over drawn zones; dividers fighting KWin's; deleting zones to fill again.
 
-### A display coming or going keeps every card on the card display
+### A display coming or going keeps Spread's cards on its display
 
 KWin moves windows itself when a display is plugged in, unplugged or moved, and
-Kadunce answers once it has finished: a card KWin moved off the card display
+Kadunce answers once it has finished: a card KWin moved off Spread's display
 goes back, because §14 returns a card to the desktop only by release or disable,
 and a window KWin moved onto it becomes a card. The
 arrival you used last becomes the Active card, so you pick up where you were on
@@ -566,12 +565,13 @@ plain; a Spread per display; cards only on a touched display; and a
 helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
 plain-window rule as the one-step way back.
 
-### A big card display plays cards into its layout
+### A big display plays cards into its layout
 
-A card display with room for more than two panes is Connected
+A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): a picked card joins what is open, and each pane stays
-its own card, since one group card would hide many panes. Full, the pane used
-longest ago yields, since equal panes leave fit no answer.
+its own card, since one group card hides many panes. Full, the pane used
+longest ago yields, as equal panes give no answer. Solo was named Active
+until 14 October; Active now means only the card in use.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

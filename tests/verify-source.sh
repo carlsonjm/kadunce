@@ -174,6 +174,30 @@ if rg -ni "${retired_vocabulary}" "${project_dir}" \
     exit 1
 fi
 
+# A display is sized Solo or Connected, and Active means only the card in use,
+# so Solo's earlier name must not return. Split so the guard does not match
+# itself.
+if rg -n "sized ""Active\b" "${project_dir}" \
+        --glob '!.git/**' --glob '!docs/archive/**' --glob '!build-native/**'; then
+    echo "Kadunce names a display's sizing Active; it is Solo (TERMINOLOGY.md)" >&2
+    exit 1
+fi
+
+# Solo, Connected and "display sizing" are internal terms (TERMINOLOGY.md §
+# Naming rules): no on-screen word, application entry or catalog string says
+# them. Capitalized as the terms are written; "display sizing" in any case.
+internal_terms='\b(Solo|Connected|(?i:display sizing))\b'
+i18n_call='\b(k?x?i18n|kli18n|kxi18n)[a-z]*\('
+if rg -nP --glob '*.qml' --glob '!build-native/**' "\"[^\"]*${internal_terms}" "${project_dir}/native" "${project_dir}/control" \
+        || rg -nP --glob '*.{cpp,h}' --glob '!build-native/**' "${i18n_call}[^)]*\"[^\"]*${internal_terms}" \
+            "${project_dir}/native/src" "${project_dir}/control/src" \
+        || rg -nP "^(Name|GenericName|Comment|Keywords)(\[[^]]*\])?=.*${internal_terms}" \
+            "${project_dir}/control" --glob '*.desktop' \
+        || rg -nP "\"(Name|Description)\"\s*:\s*\"[^\"]*${internal_terms}" "${project_dir}/native/src/metadata.json"; then
+    echo "An internal sizing term reaches what people read; see TERMINOLOGY.md § Naming rules" >&2
+    exit 1
+fi
+
 # `cardLine` is a frozen wire value, not vocabulary, so the guard above cannot
 # protect it: that one only watches for the retired word coming back, and a
 # vocabulary pass moves in the opposite direction. Block 1b's mechanical pass
