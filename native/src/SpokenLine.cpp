@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-#include "SpreadReader.h"
+#include "SpokenLine.h"
 
 #include <effect/offscreenquickview.h>
 
@@ -14,26 +14,25 @@
 namespace Kadunce
 {
 
-SpreadReader::SpreadReader() = default;
+SpokenLine::SpokenLine() = default;
 
-SpreadReader::~SpreadReader()
+SpokenLine::~SpokenLine()
 {
     hide();
 }
 
-bool SpreadReader::listening()
+bool SpokenLine::listening()
 {
     return QAccessible::isActive();
 }
 
-void SpreadReader::show(const QRect &geometry, const SpreadReading &reading)
+void SpokenLine::say(const QRect &geometry, const QString &line)
 {
     if (!m_scene) {
         m_scene = std::make_unique<KWin::OffscreenQuickScene>();
         // Never drawn: it is rendered only when asked to, and nothing asks.
         m_scene->setAutomaticRepaint(false);
-        m_scene->setSource(QUrl(QStringLiteral("qrc:/kadunce/spread/SpreadReader.qml")));
-        if (QQuickWindow *window = m_scene->window()) window->setTitle(QObject::tr("Spread"));
+        m_scene->setSource(QUrl(QStringLiteral("qrc:/kadunce/spoken/SpokenLine.qml")));
     }
     QQuickItem *root = m_scene->rootItem();
     if (!root) return;
@@ -45,36 +44,29 @@ void SpreadReader::show(const QRect &geometry, const SpreadReading &reading)
         QWindow *previous = QGuiApplication::focusWindow();
         m_previousFocus = previous == m_scene->window() ? nullptr : previous;
         QWindowSystemInterface::handleFocusWindowChanged(m_scene->window(), Qt::OtherFocusReason);
-        root->setProperty("label", QObject::tr("Spread"));
         m_focused = true;
     }
-    if (reading == m_reading) return;
-    // The names first, so the focus lands on the chosen entry's new name.
-    if (reading.names != m_reading.names || reading.places != m_reading.places) {
-        root->setProperty("names", reading.names);
-        root->setProperty("places", reading.places);
-    }
-    m_reading = reading;
-    root->setProperty("current", reading.current);
-    QMetaObject::invokeMethod(root, "focusCurrent");
+    if (line == m_line) return;
+    m_line = line;
+    QMetaObject::invokeMethod(root, "say", Q_ARG(QVariant, line));
 }
 
-void SpreadReader::hide()
+void SpokenLine::hide()
 {
     if (!m_scene) return;
     if (m_focused) {
         m_focused = false;
-        // Table may have taken the focus since; it is then left with it.
+        // Table's name field may have taken the focus since; it keeps it.
         if (QGuiApplication::focusWindow() == m_scene->window())
             QWindowSystemInterface::handleFocusWindowChanged(m_previousFocus.data(), Qt::OtherFocusReason);
         m_previousFocus.clear();
     }
-    m_reading = {};
-    if (QQuickItem *root = m_scene->rootItem()) root->setProperty("current", -1);
+    m_line.clear();
+    if (QQuickItem *root = m_scene->rootItem()) QMetaObject::invokeMethod(root, "reset");
     m_scene->hide();
 }
 
-bool SpreadReader::visible() const
+bool SpokenLine::visible() const
 {
     return m_scene && m_scene->isVisible();
 }

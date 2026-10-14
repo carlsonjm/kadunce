@@ -55,8 +55,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/TableLayout.h
         src/TablePresenter.cpp
         src/TablePresenter.h
-        src/SpreadReader.cpp
-        src/SpreadReader.h
+        src/SpokenLine.cpp
+        src/SpokenLine.h
         src/SpreadReading.h
         src/SurfaceTone.h
         src/plugin.cpp
@@ -67,7 +67,7 @@ qt_add_resources(kwin4_effect_kadunce "kadunce_table"
     PREFIX "/kadunce"
     BASE src
     FILES src/table/Table.qml
-        src/spread/SpreadReader.qml
+        src/spoken/SpokenLine.qml
 )
 
 target_link_libraries(kwin4_effect_kadunce

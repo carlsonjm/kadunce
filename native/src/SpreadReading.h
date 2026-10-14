@@ -50,25 +50,12 @@ inline QString spreadEntryPlace(int index, int count)
     return QObject::tr("%1 of %2").arg(index + 1).arg(count);
 }
 
-// What a screen reader is handed while Spread shows: every entry's name and
-// place, and the entry Spread has chosen.
-struct SpreadReading {
-    QStringList names;
-    QStringList places;
-    int current = -1;
-
-    bool operator==(const SpreadReading &) const = default;
-};
-
-inline SpreadReading readSpread(const QList<SpreadReadingEntry> &entries, int selected)
+// What a screen reader says for Spread's chosen entry: its name and where it
+// stands in the row, or nothing when the choice is outside the row.
+inline QString spreadLine(const QList<SpreadReadingEntry> &entries, int selected)
 {
-    SpreadReading reading;
-    for (int i = 0; i < entries.size(); ++i) {
-        reading.names.append(spreadEntryName(entries.at(i)));
-        reading.places.append(spreadEntryPlace(i, entries.size()));
-    }
-    reading.current = selected >= 0 && selected < entries.size() ? selected : -1;
-    return reading;
+    if (selected < 0 || selected >= entries.size()) return QString();
+    return QObject::tr("%1, %2").arg(spreadEntryName(entries.at(selected)), spreadEntryPlace(selected, entries.size()));
 }
 
 } // namespace Kadunce

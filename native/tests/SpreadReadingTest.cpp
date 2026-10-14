@@ -26,11 +26,9 @@ int main()
           "the Bento group is named by its panes");
     check(spreadEntryName({}) == u"Card"_s, "a card with nothing to say is still a card");
 
-    const SpreadReading reading = readSpread({{u"Firefox"_s, u"Docs"_s}, {u"Kate"_s, u"notes.txt"_s}}, 1);
-    check(reading.names == QStringList{u"Firefox, Docs"_s, u"Kate, notes.txt"_s}, "every entry is named, in row order");
-    check(reading.places == QStringList{u"1 of 2"_s, u"2 of 2"_s}, "every entry says where it stands");
-    check(reading.current == 1, "the chosen entry holds the focus");
-    check(readSpread({{u"Firefox"_s, u""_s}}, 4).current == -1, "a choice outside the row names nothing");
-    check(readSpread({{u"A"_s, u"B"_s}}, 0) == readSpread({{u"A"_s, u"B"_s}}, 0), "an unchanged row reads the same");
+    const QList<SpreadReadingEntry> row{{u"Firefox"_s, u"Docs"_s}, {u"Kate"_s, u"notes.txt"_s, 2}};
+    check(spreadLine(row, 0) == u"Firefox, Docs, 1 of 2"_s, "the chosen entry is said with its place");
+    check(spreadLine(row, 1) == u"Kate, notes.txt, Stack of 2 cards, 2 of 2"_s, "a chosen Stack says its size");
+    check(spreadLine(row, 4).isEmpty() && spreadLine({}, 0).isEmpty(), "a choice outside the row says nothing");
     return 0;
 }

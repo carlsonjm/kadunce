@@ -1342,7 +1342,7 @@ Effect::~Effect()
     if (m_gapHeld) KWin::effects->stopMouseInterception(this);
     m_table.close();
     if (m_tablePresenter) m_tablePresenter->hide();
-    m_spreadReader.reset();
+    m_spokenLine.reset();
     if (m_tableKeyboard) KWin::effects->ungrabKeyboard();
     giveTableCornerBack();
     endDesktopPreview();
@@ -2157,6 +2157,8 @@ void Effect::refreshTable()
     if (!m_tablePresenter) m_tablePresenter = std::make_unique<TablePresenter>();
     m_tablePresenterOutput = output;
     m_tablePresenter->show(display.toRect(), output->scale(), model);
+    m_tableLine = tableLine();
+    syncSpokenLine();
 }
 
 void Effect::openTable(bool sticky, KWin::LogicalOutput *output)
@@ -2602,6 +2604,7 @@ void Effect::beginTableRename(int workspace, bool touch)
     auto *seat = KWin::waylandServer()->seat();
     m_tableTextFocus = seat->focusedTextInputSurface();
     seat->setFocusedTextInputSurface(nullptr);
+    if (m_spokenLine) m_spokenLine->hide();
     m_tablePresenter->beginEditing(m_tableRenameText, [this](const QString &typed) {
         if (m_tableRenaming < 0) return;
         m_tableRenameText = typed;
@@ -6621,9 +6624,9 @@ bool Effect::notesShownInSpread() const
         && !m_cardStage->cardGrabActive() && !m_table.isOpen() && !m_previewDesktop;
 }
 
-// Spread's row as a screen reader hears it, from its first entry: each
-// entry by its front card, the Bento group by its panes.
-SpreadReading Effect::spreadReading()
+// What Spread says for its chosen entry: each entry by its front card, the
+// Bento group by its panes, with the entry's place in the row.
+QString Effect::spreadLine()
 {
     const SpreadModel &model = m_cardStage->model();
     const auto &cards = m_cardStage->liveCards();
@@ -6648,24 +6651,87 @@ SpreadReading Effect::spreadReading()
         }
         entries.append(entry);
     }
-    return readSpread(entries, model.selectedIndex());
+    return Kadunce::spreadLine(entries, model.selectedIndex());
 }
 
-// Spread is named for a screen reader while it shows on its own, the
-// row's chosen entry holding the reader's focus; Table and Search over
-// Spread's centre speak for themselves.
-void Effect::syncSpreadReader()
+// What Table says: what is carried and where it would go, the card chosen,
+// or the tab under the finger, else the workspace shown.
+QString Effect::tableLine() const
 {
-    KWin::LogicalOutput *output = tabletOutput();
-    const bool reading = output && SpreadReader::listening() && m_cardStage->isActive()
-        && m_cardStage->presentation() == CardPresentation::Spread && !m_table.isOpen()
-        && !m_cardStage->launcherGuestActive() && !m_previewDesktop && !m_cardStage->liveCards().isEmpty();
-    if (!reading) {
-        if (m_spreadReader && m_spreadReader->visible()) m_spreadReader->hide();
+    const auto workspaceName = [this](int index) {
+        const TableWorkspace &workspace = m_tableWorkspaces[index];
+        QString name = workspace.name.isEmpty() ? tr("Workspace %1").arg(index + 1)
+                                                : tr("Workspace %1, %2").arg(index + 1).arg(workspace.name);
+        if (workspace.current) name = tr("%1, current").arg(name);
+        return name;
+    };
+    const auto cardName = [](const TableCard &card) {
+        SpreadReadingEntry entry;
+        entry.application = card.application;
+        entry.title = card.title;
+        entry.stacked = card.stacked + 1;
+        return spreadEntryName(entry);
+    };
+    const auto validWorkspace = [this](int index) { return index >= 0 && index < m_tableWorkspaces.size(); };
+    if (m_table.cancelling()) return tr("Let go to cancel");
+    if (m_table.carrying()) {
+        if (m_table.over() == TableGesture::Over::Plus) return tr("New workspace");
+        if (m_table.over() == TableGesture::Over::Workspace && validWorkspace(m_table.overWorkspace()))
+            return tr("Move to %1").arg(workspaceName(m_table.overWorkspace()));
+        const int from = m_table.carryFrom();
+        const int card = m_table.carryCard();
+        if (validWorkspace(from) && card >= 0 && card < m_tableWorkspaces[from].cards.size())
+            return tr("Moving %1").arg(cardName(m_tableWorkspaces[from].cards[card]));
+    }
+    const int tray = m_table.trayWorkspace();
+    if (m_table.level() == TableLevel::Cards && validWorkspace(tray) && m_table.card() >= 0
+        && m_table.card() < m_tableWorkspaces[tray].cards.size())
+        return cardName(m_tableWorkspaces[tray].cards[m_table.card()]);
+    if (m_table.onPlus()) return tr("New workspace");
+    if (validWorkspace(m_table.hovered())) return workspaceName(m_table.hovered());
+    if (validWorkspace(m_table.shownWorkspace())) return workspaceName(m_table.shownWorkspace());
+    return tr("Table");
+}
+
+// Spread and Table are said to a screen reader while either shows, the
+// line following what is chosen. A workspace's name being typed has the
+// focus to itself, and Search over Spread's centre speaks for itself.
+void Effect::syncSpokenLine()
+{
+    if (!SpokenLine::listening() || m_tableRenaming >= 0) {
+        m_spokenSurface = SpokenSurface::None;
+        m_spokenText.clear();
+        if (m_spokenLine && m_spokenLine->visible()) m_spokenLine->hide();
         return;
     }
-    if (!m_spreadReader) m_spreadReader = std::make_unique<SpreadReader>();
-    m_spreadReader->show(QRectF(output->geometry()).toRect(), spreadReading());
+    KWin::LogicalOutput *output = nullptr;
+    SpokenSurface surface = SpokenSurface::None;
+    QString line;
+    if (m_table.isOpen()) {
+        output = tableOutput();
+        surface = SpokenSurface::Table;
+        line = m_tableLine;
+    } else if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread
+               && !m_cardStage->launcherGuestActive() && !m_previewDesktop
+               && !m_cardStage->liveCards().isEmpty()) {
+        output = tabletOutput();
+        surface = SpokenSurface::Spread;
+        line = spreadLine();
+    }
+    if (!output || line.isEmpty()) {
+        m_spokenSurface = SpokenSurface::None;
+        m_spokenText.clear();
+        if (m_spokenLine && m_spokenLine->visible()) m_spokenLine->hide();
+        return;
+    }
+    // Opening says what it opened; after that only a change is said.
+    const bool opened = surface != m_spokenSurface || !m_spokenLine || !m_spokenLine->visible();
+    if (!opened && line == m_spokenText) return;
+    m_spokenSurface = surface;
+    m_spokenText = line;
+    if (opened) line = surface == SpokenSurface::Table ? tr("Table, %1").arg(line) : tr("Spread, %1").arg(line);
+    if (!m_spokenLine) m_spokenLine = std::make_unique<SpokenLine>();
+    m_spokenLine->say(QRectF(output->geometry()).toRect(), line);
 }
 
 // Gooseberry's notes over a window are its layer surface that takes no keys;
@@ -7418,7 +7484,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // leave a card's fan disagreeing with its window.
         if (m_notesSpreadShown && !wasShown && m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
         syncNotesPause();
-        syncSpreadReader();
+        syncSpokenLine();
     }
     showSleepingCardsInSpread();
     // Presentation changes repaint, so a frame is where a dependent's
