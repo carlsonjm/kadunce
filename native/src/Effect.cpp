@@ -4202,13 +4202,31 @@ void Effect::toggleBento()
         observeCardOwnership();
         return;
     }
+    // The panes a layout the key ends had, and the one in use.
+    QList<QPointer<KWin::EffectWindow>> former = m_desktopStage->panesOn(target->name());
+    QPointer<KWin::EffectWindow> inUse = KWin::effects->activeWindow();
+    if (!former.contains(inUse)) inUse = former.isEmpty() ? nullptr : former.first();
     (void)m_desktopStage->toggleOnOutput(target->name());
     observeCardOwnership();
     // §11, Every display: a layout ended by the key leaves its windows as
-    // cards, the one in use Active, so the key pairs them again.
+    // cards, the one in use Active, so the key pairs them again. With cards
+    // already held behind the layout, its panes join them.
     if (!m_cardsOnEveryDisplay || !m_cardStage->canOwnCards(target)) return;
-    QTimer::singleShot(0, this, [this] {
-        if (!m_cardStage->isActive()) (void)startTabletInCards(nullptr);
+    QTimer::singleShot(0, this, [this, former, inUse, target = QPointer(target)] {
+        if (!m_cardStage->isActive()) {
+            (void)startTabletInCards(inUse);
+            return;
+        }
+        if (!target || m_desktopStage->hasSessionOnOutput(target->name())) return;
+        for (const auto &window : former)
+            if (window && !window->isDeleted() && window->screen() == target
+                && m_cardStage->liveCardIndex(window) < 0)
+                (void)m_cardStage->admitArrivalAsCard(window);
+        if (inUse && m_cardStage->liveCardIndex(inUse) >= 0) (void)m_cardStage->promoteToActive(inUse);
+        qInfo() << "Kadunce" << Revision << "ended the layout on" << target->name()
+                << "into cards," << (inUse ? inUse->caption() : QString()) << "Active";
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
     });
 }
 

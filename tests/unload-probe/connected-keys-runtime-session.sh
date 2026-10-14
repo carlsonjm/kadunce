@@ -53,15 +53,18 @@ large_panes() { kad workspaceContext | jq -r '[.applications[] | select(.pane an
 behind_is() { context --arg id "$1" --argjson ids "$2" 'first(.applications[] | select(.windowId == $id)) | .paneStack == $ids'; }
 x_of() { probe windowFacts | jq -r --arg id "$1" 'first(.[] | select(.id == $id)) | .x'; }
 width_of() { probe windowFacts | jq -r --arg id "$1" 'first(.[] | select(.id == $id)) | .width'; }
-# The large display's pane furthest left.
+y_of() { probe windowFacts | jq -r --arg id "$1" 'first(.[] | select(.id == $id)) | .y'; }
+# The large display's pane furthest left, the upper one of a column.
 leftmost() {
-    local id best="" bx=999999 x
+    local id best="" bx=999999 by=999999 x y
     for id in $(large_panes); do
-        x=$(x_of "$id")
-        if (( x < bx )); then bx=$x best=$id; fi
+        x=$(x_of "$id") y=$(y_of "$id")
+        if (( x < bx || (x == bx && y < by) )); then bx=$x by=$y best=$id; fi
     done
     echo "$best"
 }
+left_edge() { local id min=999999 x; for id in $(large_panes); do x=$(x_of "$id"); (( x < min )) && min=$x; done; echo "$min"; }
+shown_on() { probe windowFacts | jq -e --arg id "$1" --arg o "$2" 'first(.[] | select(.id == $id)) | .output == $o and (.hidden | not)'; }
 focus_on() { probe activateWindowId "$1" >/dev/null; sleep .6; }
 meta() { probe key "$1" 125 >/dev/null; sleep 1.2; }
 meta_shift() { probe keyHeld "$1" "${2:-1}" 125 42 >/dev/null; sleep 1.4; }
@@ -88,6 +91,9 @@ probe activateWindowId "$one" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1.8
+# The large display's own card is the one in use when its layout is made.
+probe activateWindowId "$one" >/dev/null
+sleep .6
 # Three panes on the large display, picked from Spread into its layout.
 spread_key
 pick "$two"
@@ -106,27 +112,29 @@ beside=$(focused_id)
 check 'focus: Meta+Right reaches another pane' bash -c "[[ $beside != $left && \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $beside 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-1 ]]"
 meta 105
 report focus-left
-check 'focus: Meta+Left comes back' focused "$left"
+check 'focus: Meta+Left comes back to a pane left of it' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r 'first(.applications[] | select(.focused)) | .windowId') 'first(.[] | select(.id == \$id)) | .x') < $(x_of "$beside") ))"
+focus_on "$left"
 meta 105
 report focus-small
 check 'focus: past the layout edge Meta+Left reaches the small display' focused "$small"
 meta 106
 report focus-back
-check 'focus: Meta+Right from the small display reaches the layout' focused "$left"
+check 'focus: Meta+Right from the small display reaches the layout at its left edge' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r 'first(.applications[] | select(.focused)) | .windowId') 'first(.[] | select(.id == \$id)) | .x') == $(left_edge) ))"
 check 'focus: no pane moved' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq '[.applications[] | select(.pane and (.hasCard | not) and .output == \"Virtual-1\")] | length') == 3 ]]"
 
 # Carry: the pane beside trades places, then goes on to the small display.
 focus_on "$beside"
-before_left=$(x_of "$left")
+before_beside=$(x_of "$beside")
 meta_shift 105
 report swapped
-check 'carry: Meta+Shift+Left puts the pane left of the one it was beside' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $beside 'first(.[] | select(.id == \$id)) | .x') < \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $left 'first(.[] | select(.id == \$id)) | .x') ))"
-check 'carry: the pane it passed moved right' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $left 'first(.[] | select(.id == \$id)) | .x') > $before_left ))"
+check 'carry: Meta+Shift+Left trades the pane with the one left of it' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $beside 'first(.[] | select(.id == \$id)) | .x') < $before_beside ))"
+check 'carry: it is now at the layout edge' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $beside 'first(.[] | select(.id == \$id)) | .x') == \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r 'map(select(.output == \"Virtual-1\" and (.hidden | not) and .width < 2500)) | map(.x) | min') ))"
 check 'carry: it keeps the focus' focused "$beside"
 meta_shift 105
 report sent-small
 check 'carry: again at the edge, it goes to the small display' on_output "$beside" Virtual-0
-check 'carry: the small display shows it' is_pane "$beside"
+check 'carry: the small display shows it' shown_on "$beside" Virtual-0
+check 'carry: there it is a card of that display' context --arg id "$beside" 'first(.applications[] | select(.windowId == $id)) | .pane or .hasCard'
 focus_on "$beside"
 meta_shift 106
 report sent-back
@@ -146,7 +154,8 @@ check 'divider: Meta+[ narrows it again' bash -c "(( \$(qdbus6 org.kde.KWin /Unl
 
 # Stacks: a pane with none joins the Stack of the pane used before it.
 mapfile -t panes < <(large_panes)
-first=${panes[0]} second=${panes[1]} third=${panes[2]}
+check 'stacks: the layout has its three panes back' test "${#panes[@]}" -eq 3
+first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-}
 focus_on "$second"
 focus_on "$first"
 meta_shift 103
