@@ -4,7 +4,8 @@
 # sized Connected and chosen for Spread, with two windows paired there. A
 # pane Meta+Shift+Left carries onto the small display is the card shown there,
 # and Meta+Shift+Right brings it back as a card. A Stack carried there steps
-# by Meta+Tab and comes back whole. Meta+B then lays out both again, and
+# by Meta+Tab and comes back whole, and one made by hand in the left half
+# moves a half, or a display, at each press. Meta+B then lays out both again, and
 # Spread shows them as two cards, not one Stack. No step refocuses a window
 # between keys, as a person at the keyboard does not. Every check is
 # reported, so a failure does not hide the rest.
@@ -61,6 +62,31 @@ fills() { probe windowFacts | jq -e --arg id "$1" 'first(.[] | select(.id == $id
 x_of() { probe windowFacts | jq -r --arg id "$1" 'first(.[] | select(.id == $id)) | .x'; }
 meta() { probe key "$1" 125 >/dev/null; sleep 1.2; }
 meta_shift() { probe keyHeld "$1" "${2:-1}" 125 42 >/dev/null; sleep 1.4; }
+# A pane carried by its title bar onto another pane, as a person carries it:
+# held `hold` seconds first and let go after `rest` seconds there. Held long,
+# let go at once, it swaps; carried at once and rested, it stacks.
+title_of() { probe titleBarOf "$1" | jq -r '[.x, .y] | map(floor) | @tsv'; }
+title_drag() {
+    local id=$1 to=$2 hold=$3 rest=$4 x y tx ty
+    read -r x y <<<"$(title_of "$id")"
+    read -r tx ty <<<"$(probe windowGeometry "$to" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    probe contactButton true >/dev/null
+    sleep "$hold"
+    probe contactMotion "$((x + 40))" "$((y + 20))" >/dev/null
+    sleep .1
+    probe contactMotion "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
+    sleep .1
+    probe contactMotion "$tx" "$ty" >/dev/null
+    sleep "$rest"
+    probe contactButton false >/dev/null
+    sleep 1.2
+}
+# Which half of the large display a window stands in.
+on_left_half() { probe windowFacts | jq -e --arg id "$1" 'first(.[] | select(.id == $id)) | .x + .width / 2 < 3840'; }
+on_right_half() { probe windowFacts | jq -e --arg id "$1" 'first(.[] | select(.id == $id)) | .x + .width / 2 > 3840'; }
 # Carries the focused window left until it is on the small display.
 carry_left() { local _; for _ in 1 2 3; do on_output "$1" Virtual-0 && return 0; meta_shift 105; done; on_output "$1" Virtual-0; }
 for attempt in {1..40}; do
@@ -109,6 +135,38 @@ check 'back: Meta+Shift+Right brings it to the large display' on_output "$moved"
 check 'back: it is a card or a pane there, not a loose window' is_kept "$moved"
 check 'back: it takes back the pane it left' is_pane "$moved"
 check 'back: beside the pane it left beside' test "$(pane_count)" -eq 2
+
+# As a person makes one: the right pane carried to the left and back by its
+# title bar, swapping, then rested on the left pane, a Stack in the left half.
+# Each press of Meta+Shift+Right or Left then moves it once.
+mapfile -t panes < <(large_panes)
+lefty=${panes[0]:-$zen} righty=${panes[1]:-$claude}
+if on_right_half "$lefty"; then lefty=${panes[1]:-$claude} righty=${panes[0]:-$zen}; fi
+title_drag "$righty" "$lefty" .9 .1
+report hand-swapped
+check 'hand: held and let go at once, the panes swap' on_left_half "$righty"
+title_drag "$righty" "$lefty" .1 .9
+report hand-stacked
+check 'hand: rested on the left pane, it stacks there' together "$righty" "$lefty"
+check 'hand: the Stack is a pane in the left half' on_left_half "$righty"
+meta_shift 106
+report hand-right
+check 'hand: one Meta+Shift+Right moves the Stack to the right half' on_right_half "$righty"
+meta_shift 105
+report hand-left
+check 'hand: one Meta+Shift+Left moves it back to the left half' on_left_half "$righty"
+meta_shift 105
+report hand-across
+check 'hand: one more Meta+Shift+Left takes it to the small display' on_output "$righty" Virtual-0
+check 'hand: its Stack came with it' together "$righty" "$lefty"
+meta_shift 106
+report hand-back
+check 'hand: Meta+Shift+Right brings the Stack back as a pane' is_pane "$righty"
+# Its card behind lets go into the open half, two panes again.
+probe activateWindowId "$righty" >/dev/null
+sleep .6
+(( $(pane_count) < 2 )) && meta_shift 108
+report hand-apart
 
 # Both laid out again, one stacked on the other, and the Stack carried across.
 (( $(pane_count) == 2 )) || meta 48

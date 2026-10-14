@@ -782,6 +782,16 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
     result.side.reset();
     result.sideWindow.clear();
     result.windows.swapItemsAt(from, to);
+    // The columns a side snap placed trade the two as well, so a later snap
+    // reads the places the panes now have.
+    if (result.placed) {
+        for (auto &column : result.placed->columns)
+            for (auto &place : column) {
+                if (place.open) continue;
+                if (place.window == drop.window) place.window = drop.localTarget;
+                else if (place.window == drop.localTarget) place.window = drop.window;
+            }
+    }
     // Carry the original restore records with their identities; never replace
     // them with pane geometry. Keep collection order aligned for later reflow.
     auto a = std::find_if(result.snapshots.begin(), result.snapshots.end(),

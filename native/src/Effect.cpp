@@ -7258,6 +7258,9 @@ void Effect::carryToward(KeyDirection direction)
                         << "with" << beside.at(to)->caption() << "by the keys";
                 observeCardOwnership();
                 KWin::effects->activateWindow(focused);
+            } else {
+                qInfo() << "Kadunce" << Revision << "found" << focused->caption()
+                        << "could not trade places with" << beside.at(to)->caption();
             }
             return;
         }
