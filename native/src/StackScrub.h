@@ -52,4 +52,15 @@ struct StackScrub {
     [[nodiscard]] int ladderCount() const { return std::min(size, StackLadderShown); }
     void clear() { *this = StackScrub{}; }
 };
+
+// A pane's whole Stack, face first, with the face let go at `place`: the
+// cards it passed come forward, and the first is the pane's face after.
+template<class List>
+List stackScrubOrder(const typename List::value_type &face, const List &behind, int place)
+{
+    List order = behind;
+    const int at = std::clamp(place, 0, int(behind.size()));
+    order.insert(order.begin() + at, face);
+    return order;
+}
 } // namespace Kadunce

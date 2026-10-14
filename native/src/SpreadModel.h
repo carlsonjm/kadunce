@@ -31,8 +31,6 @@ public:
     [[nodiscard]] int stackActivePositionForId(int cardId) const;
     [[nodiscard]] std::vector<int> stackMembersForId(int cardId) const;
     [[nodiscard]] std::vector<int> stackPaintOrderForId(int cardId) const;
-    // A Stack's members from its face back, each behind the one before.
-    [[nodiscard]] std::vector<int> stackFrontFirstForId(int cardId) const;
     [[nodiscard]] bool selectedIsStandalone() const;
     // The entry a card belongs to, counted along the row, or -1.
     [[nodiscard]] int entryIndexForId(int cardId) const { return stackIndexForId(cardId); }
@@ -52,9 +50,6 @@ public:
     // after it. The Stack keeps its place, its order and the selection; a
     // pulled face gives way to its nearest shoulder.
     bool releaseMember(int cardId);
-    // A member put at `depth` behind its Stack's face (0 is the face), the
-    // others keeping their order; the card then at the front is the face.
-    bool moveStackMember(int cardId, int depth);
     bool detachSelectedMember();
     bool restoreDetachedMember();
     void commitDetachedMember();

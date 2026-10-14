@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-#include "SpreadModel.h"
 #include "StackScrub.h"
 
 #include <cstdlib>
@@ -37,21 +36,12 @@ int main()
     small.begin(3, 0, 0.0);
     require(small.ladderCount() == 3 && small.ladderStart() == 0, "A small Stack shows whole");
 
-    // A face of five moved two back: the two it passed come forward.
-    Kadunce::SpreadModel model(5);
-    for (int id = 2; id <= 5; ++id) {
-        model.selectIndex(1);
-        require(model.stackSelectedWith(1), "Stack setup failed");
-    }
-    const std::vector<int> before = model.stackFrontFirstForId(1);
-    require(before.size() == 5, "Stack of five");
-    const int face = before[0];
-    require(model.moveStackMember(face, 2), "Move failed");
-    const std::vector<int> after = model.stackFrontFirstForId(face);
-    require(after == std::vector<int>{before[1], before[2], face, before[3], before[4]},
+    // A face of five let go two back: the two it passed come forward.
+    const std::vector<int> behind{2, 3, 4, 5};
+    require(Kadunce::stackScrubOrder(1, behind, 2) == std::vector<int>{2, 3, 1, 4, 5},
             "Face not at its new place");
-    require(model.moveStackMember(face, 4), "Move to the back failed");
-    require(model.stackFrontFirstForId(face).back() == face, "Not at the back");
-    require(!model.moveStackMember(face, 5), "A place past the back is refused");
+    require(Kadunce::stackScrubOrder(1, behind, 0) == std::vector<int>{1, 2, 3, 4, 5},
+            "Let go where it began, nothing moves");
+    require(Kadunce::stackScrubOrder(1, behind, 9).back() == 1, "Past the back it goes last");
     return EXIT_SUCCESS;
 }
