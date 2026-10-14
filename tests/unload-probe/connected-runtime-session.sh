@@ -77,7 +77,7 @@ seen_at() {
 }
 entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
 carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
-# A person's finger carries one card onto another in Spread and lets go. Spread
+# A person's mouse carries one card onto another in Spread and lets go. Spread
 # shows one whole card and its neighbours' edges, so the card is carried as a
 # person does: pulled down, the row zooms out. Where all of it shows, the card
 # goes straight over the other; where it does not, the card leans the row
@@ -95,12 +95,13 @@ carry_onto() {
     items=$((entries - 1))
     t=$(( e > h ? e - 1 : e ))
     mid=$((spread_left + 1280))
-    probe down 61 "$x" "$y"
+    probe pointer "$x" "$y"
+    probe button true
     sleep .4
-    probe motion 61 "$((x + 30))" "$y"
+    probe pointer "$((x + 30))" "$y"
     sleep .3
     y=$((y + 180))
-    probe motion 61 "$((x + 30))" "$y"
+    probe pointer "$((x + 30))" "$y"
     sleep .8
     scale=$(kad nativeCarryState | jq -r '.carryScale')
     # A pitch is a card and its gutter; the place the card left is a gap 0.7
@@ -111,27 +112,32 @@ carry_onto() {
         x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
             '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
     else
-        # Lean the row along until the held card's middle passes the other.
-        probe motion 61 "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
+        # Lean the row along until the other is the next card past the held
+        # card's middle, then rest; it stands within a pitch further on, where
+        # a lean at the row's end, or a creep, brings it under the card.
+        probe pointer "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
         for _ in {1..120}; do
             sleep .05
             read -r aim at < <(carry_aim)
             [[ $aim == gap ]] || continue
-            if (( t >= h ? at > t : at <= t )); then break; fi
+            if (( t >= h ? at >= t : at <= t + 1 )); then break; fi
         done
-        probe motion 61 "$mid" "$y"
+        probe pointer "$mid" "$y"
         sleep .6
         x0=$mid
     fi
-    for dx in 0 -40 40 -80 80 -120 120 -160 160; do
-        probe motion 61 "$((x0 + dx))" "$y"
+    steps=(0 -40 40 -80 80 -120 120 -160 160)
+    jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null \
+        || steps=($(for k in {0..14}; do echo $(( (t >= h ? 1 : -1) * k * 40 )); done))
+    for dx in "${steps[@]}"; do
+        probe pointer "$((x0 + dx))" "$y"
         sleep .5
         read -r aim at < <(carry_aim)
         [[ $aim == join && $at == "$t" ]] && break
     done
     sleep .4
     echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
-    probe up 61
+    probe button false
     sleep .8
 }
 start_pass() {
