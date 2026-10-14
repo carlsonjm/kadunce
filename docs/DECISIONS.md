@@ -122,7 +122,7 @@ source differs. Rejected: separate rules per edge.
 ### Two cases the contract does not answer
 
 First entry on a display that cannot own cards is answered by § A display
-without cards organizes everything it shows. An evicted window reaches the card
+without cards organizes everything it shows. An evicted window reaches the Spread
 display through the adoption a carried card uses, so an idle card stage begins
 presenting Spread, while a refused launch becomes the Active card. A different
 answer would change which entry point an eviction uses, not the ownership it
@@ -252,7 +252,7 @@ intent, and a carry source is read-only provenance. Expressing those as
 ownership transitions would put placement back inside ownership tickets, which
 narrowing the ticket payload removed.
 
-### The card display shows cards or the desktop, never both
+### A display shows cards or the desktop, never both
 
 A window let go at its bottom edge lands on the desktop, shown with it; the rest
 waits in Spread (`CARD-LIFECYCLE.md` §2). Rejected: windows over cards, which
@@ -479,10 +479,10 @@ arrangement, and its edges replace the dividers. KWin ignores minimum sizes, so
 Kadunce assigns the zones. Otherwise a monitor fills itself. Rejected: presets
 over drawn zones; dividers fighting KWin's; deleting zones to fill again.
 
-### A display coming or going keeps every card on the card display
+### A display coming or going keeps Spread's cards on its display
 
 KWin moves windows itself when a display is plugged in, unplugged or moved, and
-Kadunce answers once it has finished: a card KWin moved off the card display
+Kadunce answers once it has finished: a card KWin moved off Spread's display
 goes back, because §14 returns a card to the desktop only by release or disable,
 and a window KWin moved onto it becomes a card. The
 arrival you used last becomes the Active card, so you pick up where you were on
@@ -565,7 +565,7 @@ plain; a Spread per display; cards only on a touched display; and a
 helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
 plain-window rule as the one-step way back.
 
-### A big card display plays cards into its layout
+### A big display plays cards into its layout
 
 A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): a picked card joins what is open, and each pane stays
