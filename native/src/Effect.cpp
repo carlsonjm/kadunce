@@ -23,6 +23,8 @@
 #include "TouchDisplay.h"
 #include "StuckNotesWatcher.h"
 #include "SurfaceTone.h"
+#include "KWinMatch.h"
+#include <QCoreApplication>
 #include <cursor.h>
 #include <cursorsource.h>
 #include <core/inputdevice.h>
@@ -1451,7 +1453,12 @@ void Effect::showActive()
 
 bool Effect::supported()
 {
-    return true;
+    const QString built = QStringLiteral(KADUNCE_BUILT_KWIN);
+    const QString running = QCoreApplication::applicationVersion();
+    if (kwinMatches(built, running)) return true;
+    qWarning() << "Kadunce" << Revision << "built for KWin" << built
+               << "but KWin" << running << "is running; Cards stay off until a rebuild";
+    return false;
 }
 
 void Effect::adoptDirectSystemEdges()
