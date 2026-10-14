@@ -198,6 +198,14 @@ check 'pick: the picked card is a pane' is_pane "$a"
 check 'pick: the card in use is the other pane' is_pane "$d"
 check 'pick: two panes' panes 2
 check 'pick: the picked pane has focus' focused "$a"
+# Called over the layout, Search floats on its own: Spread stays closed.
+check 'search over a layout: it floats, Spread stays closed' python3 - <<'PY'
+import dbus, json
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+assert not json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))["accepted"]
+assert json.loads(kadunce.workspaceContext())["cardStage"]["presentation"] == "bento"
+PY
 spread_key
 report spread-layout
 check 'spread over a layout: Spread opens' presents cardLine

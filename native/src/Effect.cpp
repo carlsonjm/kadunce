@@ -6061,7 +6061,9 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
         m_lastActiveApplication = focused;
     }
     if (presentationForInput() != WorkspacePresentation::Spread) {
-        if (!openSpread) {
+        // On Connected the layout is the primary view: Search floats over it
+        // rather than calling Spread up (CARD-LIFECYCLE.md §11).
+        if (!openSpread || connectedForCardStage()) {
             return QString::fromUtf8(
                 QJsonDocument(reply).toJson(QJsonDocument::Compact));
         }
