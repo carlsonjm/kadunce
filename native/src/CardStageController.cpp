@@ -2710,6 +2710,15 @@ void CardStageController::forgetPaneStack(const KWin::EffectWindow *pane)
     m_paneStacks.remove(pane);
 }
 
+void CardStageController::forgetFromPaneStacks(const KWin::EffectWindow *window)
+{
+    for (auto it = m_paneStacks.begin(); it != m_paneStacks.end();) {
+        it.value().removeIf([window](const auto &member) { return !member || member == window; });
+        if (it.value().isEmpty()) it = m_paneStacks.erase(it);
+        else ++it;
+    }
+}
+
 bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
 {
     if (!face || liveCardIndex(face) < 0 || m_cardGrabActive || m_launcherGuestActive) return false;
@@ -3106,6 +3115,9 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();
     clearCardTransition();
+    // §11, Connected: a Stack fills one pane. Two cards that are now two
+    // panes wait behind neither, or Spread would join them again.
+    for (const auto &window : pair) forgetFromPaneStacks(window);
     for (const auto &window : pair) {
         if (window && !window->isDeleted()) {
             KWin::effects->setElevatedWindow(window, false);

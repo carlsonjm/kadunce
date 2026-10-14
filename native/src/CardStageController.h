@@ -233,6 +233,8 @@ public:
     [[nodiscard]] QList<KWin::EffectWindow *> paneStack(const KWin::EffectWindow *pane) const;
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // Drops a window from every Stack that waits behind a pane.
+    void forgetFromPaneStacks(const KWin::EffectWindow *window);
     void settlePaneStacks();
     // The pane whose Stack has `card` waiting behind it, if any.
     [[nodiscard]] KWin::EffectWindow *paneHolding(const KWin::EffectWindow *card) const;

@@ -286,6 +286,9 @@ private:
         QElapsedTimer asked;
     };
     QList<BentoMotion> m_bentoMotions;
+    // Windows opened in the last moment: placed in their panes without motion.
+    static constexpr qint64 OpenedStill = 2000;
+    QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_justOpened;
     // A card let go on a pane of the Bento group grows into that pane from
     // where it was drawn, once the group has opened as its layout.
     QPointer<KWin::EffectWindow> m_paneArrivalWindow;
@@ -580,6 +583,9 @@ private:
     void refillOtherDisplay(const QString &outputName);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
+    void activateShownPane(KWin::EffectWindow *pane);
+    void fillLayoutWithCards(KWin::LogicalOutput *output);
+    [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.

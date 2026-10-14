@@ -486,7 +486,7 @@ bool DesktopStageController::takeSlotAtCap(Session &candidate, int slot,
 }
 
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
-    const std::function<bool()> &commitSource)
+    const std::function<bool()> &commitSource, bool growOnly)
 {
     if (m_restoring || !commitSource || !window || window->isDeleted()
         || !window->window() || window->isUserMove() || window->isUserResize()
@@ -509,6 +509,7 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     QList<QPointer<KWin::EffectWindow>> unshowable;
     const bool grew = reflowSession(candidate, window, true, true, &unshowable)
         && unshowable.isEmpty();
+    if (!grew && growOnly) return false;
     if (!grew) {
         // The layout is full, so the arrival takes one slot and only that
         // slot's occupant leaves. Re-solving instead would move the panes the
@@ -1205,6 +1206,8 @@ bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
     if (sourceKey.isEmpty() || sourceKey == outputKey(destination)) return false;
     if (!handoffWindowToOutput(window, destination, window->frameGeometry())) {
         // A refused transfer keeps the layout it had, the pane back in it.
+        qInfo() << "Kadunce" << Revision << "kept" << window->caption() << "in the layout on"
+                << sourceKey << "rather than hand it to" << outputKey(destination);
         auto source = m_sessions.find(sourceKey);
         if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
     }

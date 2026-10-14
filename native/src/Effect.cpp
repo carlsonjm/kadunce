@@ -2936,6 +2936,9 @@ void Effect::handleWindowOutputChanged()
             // card shown there, with no layout to join as well, and its Stack
             // waits for that display, so Meta+Tab there steps it.
             KWin::LogicalOutput *there = window->screen();
+            qInfo() << "Kadunce" << Revision << "handed" << window->caption() << "to"
+                    << (there ? there->name() : QString()) << "with" << behind.size()
+                    << "behind it; a pane there" << m_desktopStage->managesWindow(window);
             if (isOtherCardDisplay(there)) {
                 if (!m_desktopStage->managesWindow(window)) claimWindowForItsDisplay(window);
                 for (auto *member : behind)
@@ -4212,10 +4215,15 @@ void Effect::toggleBento()
         && m_cardStage->canOwnCards(target)) {
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
-        if (!pairActiveCardIntoBento(target))
+        if (!pairActiveCardIntoBento(target)) {
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
                     << "and" << (m_cardStage->activeCardIdentity() ? "an" : "no") << "Active card";
+        } else if (connectedOutputForDesktopStage(target)) {
+            // §11, Connected: Bento auto-fill is the layout. The pair grows
+            // to hold every open card of the display, as far as it has room.
+            QTimer::singleShot(0, this, [this, target = QPointer(target)] { fillLayoutWithCards(target); });
+        }
         observeCardOwnership();
         return;
     }
@@ -4245,6 +4253,37 @@ void Effect::toggleBento()
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     });
+}
+
+void Effect::fillLayoutWithCards(KWin::LogicalOutput *output)
+{
+    if (!output || m_releasing || !m_cardStage->presentsBento()
+        || !m_desktopStage->hasSessionOnOutput(output->name())) return;
+    // The front of each Stack takes a pane; the cards behind it wait there.
+    QList<KWin::EffectWindow *> fronts;
+    for (const auto &card : m_cardStage->liveCards()) {
+        if (!card || card->isDeleted() || card->isMinimized() || cardHome(card)
+            || card->screen() != output || m_cardStage->paneHolding(card)) continue;
+        const auto stack = m_cardStage->stackFrontToBack(card);
+        if (!stack.isEmpty() && stack.first() != card) continue;
+        fronts.append(card);
+    }
+    int filled = 0;
+    for (KWin::EffectWindow *card : std::as_const(fronts)) {
+        const QPointer<KWin::EffectWindow> front = card;
+        if (!front || front->isDeleted() || m_cardStage->liveCardIndex(front) < 0) continue;
+        const QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(front).mid(1);
+        if (!m_desktopStage->admitCardToLiveBento(front,
+                [this, front] { return m_cardStage->releaseCardToLiveBento(front); }, true)) break;
+        if (!behind.isEmpty()) m_cardStage->notePaneStack(front, behind);
+        ++filled;
+    }
+    if (filled == 0) return;
+    m_cardStage->settlePaneStacks();
+    qInfo() << "Kadunce" << Revision << "filled the layout on" << output->name() << "with"
+            << filled << "more cards";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::connectManagedWindow(KWin::EffectWindow *window)
@@ -5092,6 +5131,13 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
     return std::nullopt;
 }
 
+bool Effect::justOpened(const KWin::EffectWindow *window) const
+{
+    return std::any_of(m_justOpened.cbegin(), m_justOpened.cend(), [window](const auto &opened) {
+        return opened.first == window && opened.second.elapsed() <= OpenedStill;
+    });
+}
+
 QRectF Effect::bentoPresentationRect(KWin::EffectWindow *window) const
 {
     if (!window || window->isDeleted() || window->isMinimized() || window == m_carriedWindow)
@@ -5136,7 +5182,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
         if (!w || w->isDeleted() || !w->window() || w->isMinimized()
             || w == m_carriedWindow || w == m_settlingWindow || !from[i].isValid()
             || from[i] == to[i] || w->window()->moveResizeOutput() != output
-            || QRectF(w->window()->moveResizeGeometry()) != to[i]) continue;
+            || QRectF(w->window()->moveResizeGeometry()) != to[i] || justOpened(w)) continue;
         m_bentoMotions.append({w,output,from[i],to[i],QRectF(output->geometry()),clock});
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
@@ -5298,11 +5344,20 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window)
     if (!window || window->isDeleted() || m_releasing || m_letGo || !window->window()
         || !isCardWindow(window) || isDependentWindow(window) || window->isMinimized()
         || window->isUserMove() || window->isUserResize() || window == m_carriedWindow
-        || window == m_nativeCarry || !window->window()->readyForPainting()) return;
+        || window == m_nativeCarry || !window->window()->readyForPainting()) {
+        if (window && !window->isDeleted() && isOtherCardDisplay(window->screen()))
+            qInfo() << "Kadunce" << Revision << "leaves" << window->caption() << "loose on"
+                    << window->screen()->name() << "let go" << m_letGo << "card window"
+                    << isCardWindow(window) << "carried" << (window == m_carriedWindow);
+        return;
+    }
     KWin::LogicalOutput *output = window->screen();
     if (!isOtherCardDisplay(output) || sessionHolding(window)
         || m_desktopStage->managesWindow(window)) return;
     if (m_cardStage->liveCardIndex(window) >= 0) {
+        if (cardHome(window))
+            qInfo() << "Kadunce" << Revision << "leaves" << window->caption()
+                    << "waiting for" << cardHome(window)->name();
         // A card of Spread's display carried here is the card it shows.
         if (!cardHome(window) && m_cardStage->giveCardToDisplay(window, output)) {
             qInfo() << "Kadunce" << Revision << "gave" << window->caption() << "to" << output->name()
@@ -7170,7 +7225,11 @@ void Effect::carryToward(KeyDirection direction)
     // half toward that side, a half moves into the open half, and at the edge
     // it goes on to the display beside.
     KWin::EffectWindow *card = m_cardStage->activeCardIdentity();
-    if (!card || !card->window() || !card->screen() || !connectedForCardStage()) return;
+    if (!card || !card->window() || !card->screen() || !connectedForCardStage()) {
+        qInfo() << "Kadunce" << Revision << "found nothing to carry; the focus is on"
+                << (focused ? focused->caption() : QStringLiteral("nothing"));
+        return;
+    }
     KWin::LogicalOutput *output = card->screen();
     const QRectF frame(card->frameGeometry());
     const QRectF display(output->geometry());
@@ -7767,8 +7826,20 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     m_cardHomes.remove(next);
     m_cardStage->settlePaneStacks();
     observeCardOwnership();
-    KWin::effects->activateWindow(next);
+    activateShownPane(next);
     return true;
+}
+
+void Effect::activateShownPane(KWin::EffectWindow *pane)
+{
+    // The card that now shows has the focus, so the next key reaches it. It
+    // may only be shown the turn after, so the focus is asked for again then.
+    KWin::effects->activateWindow(pane);
+    const QPointer<KWin::EffectWindow> shown = pane;
+    QTimer::singleShot(0, this, [shown] {
+        if (shown && !shown->isDeleted() && KWin::effects->activeWindow() != shown)
+            KWin::effects->activateWindow(shown);
+    });
 }
 
 void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
@@ -8261,6 +8332,15 @@ KWin::EffectWindow *Effect::selectedWindow() const
 void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
     if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
+    // A window just opened, from the dock or anywhere, appears in its pane.
+    m_justOpened.removeIf([](const auto &opened) {
+        return !opened.first || opened.first->isDeleted() || opened.second.elapsed() > OpenedStill;
+    });
+    if (window) {
+        QElapsedTimer opened;
+        opened.start();
+        m_justOpened.append({QPointer<KWin::EffectWindow>(window), opened});
+    }
     Q_EMIT workspaceContextChanged();
     syncDesktopPreview();
     if (isDependentWindow(window)) {

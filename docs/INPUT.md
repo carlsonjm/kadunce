@@ -75,7 +75,7 @@ are up, the bottom edge is theirs.
 | Input | What happens |
 | --- | --- |
 | Drag a window by its title bar to the left or right edge of the card display | It pairs into Bento on your side with the Active card, or for the Active card the card used before it, the upper half larger. With none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
-| `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor, pairing the Active card with the one used before. |
+| `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor; on Connected every card takes a pane. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display without cards | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
@@ -95,7 +95,7 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+[`, `Meta+]` | The divider beside the pane moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed when `Meta` is let go; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane | Its card leaves its Stack, or with none, the layout. |
+| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane; with none, the layout. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table

@@ -231,9 +231,10 @@ public:
     // CARD-LIFECYCLE.md §8: a card the user calls forward on a display that is
     // presenting its layout joins that layout. `commitSource` is card
     // ownership giving the card up, and it is asked only after this session has
-    // proved on a value copy that it can show the card.
+    // proved on a value copy that it can show the card. With `growOnly` a full
+    // layout refuses the card rather than give it another pane's slot.
     [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
-                                            const std::function<bool()> &commitSource);
+        const std::function<bool()> &commitSource, bool growOnly = false);
     // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
     // it puts the next card in that pane's slot. Nothing else moves; the pane
     // leaving becomes a card through the same path as any yielded pane; a

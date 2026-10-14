@@ -3,7 +3,7 @@
 # a desk is used: Virtual-0 is small and left of Virtual-1, which is large,
 # sized Connected and chosen for Spread. With a layout of two panes there,
 # Table opens and closes, then Meta+B ends the layout into cards, the one in
-# use Active; Meta+B again pairs it with the card used before it; and Meta+S
+# use Active; Meta+B again lays out every card open there; and Meta+S
 # opens Spread over the layout and closes it again. Every check is reported,
 # so a failure does not hide the rest.
 set -uo pipefail
@@ -20,7 +20,7 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, paneStack, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, paneStack, stackId, focused, minimized}]}')"
     echo "stages $1 $(kad outputStageState | tr '\n' ' ')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
@@ -93,14 +93,15 @@ check 'end: its windows are cards, one of them Active' context '.cardStage.prese
 probe key 48 125 >/dev/null
 sleep 1.6
 report paired
-check 'pair: Meta+B again pairs the Active card with the card used before it' panes_are 2
+check 'fill: Meta+B again lays out every open card of the display' panes_are 3
 spread_key
 report spread-again
 check 'spread: Meta+S still opens Spread' presents cardLine
+check 'spread: the panes are cards of their own there, no two in one Stack' context '[.applications[] | select(.output == "Virtual-1" and .stackId != null) | .stackId] | length == (unique | length)'
 probe key 1 0 >/dev/null
 sleep 1.2
 report final
-check 'spread: and Escape goes back to the layout' panes_are 2
+check 'spread: and Escape goes back to the layout' panes_are 3
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
