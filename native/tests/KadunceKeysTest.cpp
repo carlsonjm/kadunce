@@ -37,6 +37,7 @@ int main() {
     check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, active) == KeyAction::StackNext
               && keyActionFor(Qt::Key_Tab, Qt::MetaModifier | Qt::ShiftModifier, active) == KeyAction::StackPrevious
               && keyActionFor(Qt::Key_Backtab, Qt::MetaModifier | Qt::ShiftModifier, active) == KeyAction::StackPrevious
+              && keyActionFor(Qt::Key_Backtab, Qt::MetaModifier, active) == KeyAction::StackPrevious
               && keyActionFor(Qt::Key_Tab, Qt::MetaModifier, spread) == KeyAction::StackNext,
           "Meta+Tab did not go round the Stack");
     check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, desktop) == KeyAction::None

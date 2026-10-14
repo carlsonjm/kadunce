@@ -79,6 +79,8 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
             : context.cardsShown ? KeyAction::Hold : KeyAction::None;
         // A Stack is a ring, so Tab goes round it.
         case Qt::Key_Tab: return stack ? KeyAction::StackNext : KeyAction::None;
+        // Shift, spent on making Tab into Backtab, may not be reported.
+        case Qt::Key_Backtab: return stack ? KeyAction::StackPrevious : KeyAction::None;
         case Qt::Key_BracketLeft: return pane ? KeyAction::DividerLeft : KeyAction::None;
         case Qt::Key_BracketRight: return pane ? KeyAction::DividerRight : KeyAction::None;
         default: return KeyAction::None;
