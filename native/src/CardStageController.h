@@ -233,6 +233,8 @@ public:
     [[nodiscard]] QList<KWin::EffectWindow *> paneStack(const KWin::EffectWindow *pane) const;
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // Drops a window from every Stack that waits behind a pane.
+    void forgetFromPaneStacks(const KWin::EffectWindow *window);
     void settlePaneStacks();
     // The pane whose Stack has `card` waiting behind it, if any.
     [[nodiscard]] KWin::EffectWindow *paneHolding(const KWin::EffectWindow *card) const;
@@ -345,6 +347,8 @@ public:
     void release();
     void pageHorizontal(int delta);
     void pageStack(int delta);
+    // §11: the Active card's Stack steps in place, the next card Active.
+    bool stepActiveStack(int delta);
 
     // The row as something a hand moves. Travel is the finger's distance since
     // its stroke locked, positive rightward or downward; a velocity is the

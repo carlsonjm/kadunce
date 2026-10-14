@@ -17,13 +17,16 @@ namespace Kadunce {
 class KeyRoute
 {
 public:
-    // `answer` acts on a key and says whether it did.
+    // `answer` acts on a key and says whether it did. `released` hears every
+    // key let go, Kadunce's or not, and changes nothing about it.
     using Answer = std::function<bool(int key, Qt::KeyboardModifiers modifiers, bool repeat)>;
+    using Released = std::function<void(int key)>;
 
-    explicit KeyRoute(Answer answer)
+    explicit KeyRoute(Answer answer, Released released = {})
         : m_ahead(this)
         , m_behind(this)
         , m_answer(std::move(answer))
+        , m_released(std::move(released))
     {
         KWin::input()->installInputEventFilter(&m_ahead);
         KWin::input()->installInputEventFilter(&m_behind);
@@ -44,6 +47,7 @@ private:
         {
             auto &taken = m_route->m_taken;
             if (event->state == KWin::KeyboardKeyState::Released) {
+                if (m_route->m_released) m_route->m_released(event->key);
                 if (taken.contains(event->nativeScanCode)) event->key = Qt::Key_unknown;
                 return false;
             }
@@ -87,6 +91,7 @@ private:
     Ahead m_ahead;
     Behind m_behind;
     Answer m_answer;
+    Released m_released;
     QSet<quint32> m_taken;
 };
 

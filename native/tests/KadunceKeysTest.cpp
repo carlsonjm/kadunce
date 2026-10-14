@@ -26,19 +26,65 @@ int main() {
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, desktop) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier, desktop) == KeyAction::None,
           "Meta's arrows were taken with no cards shown");
+    // On the Active card Left and Right go along the row; Up and Down are
+    // taken so KDE does not tile the card, and step nothing: down lets a card
+    // go, so no Meta+Down steps a Stack. Tab goes round it.
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, active) == KeyAction::Previous
               && keyActionFor(Qt::Key_Right, Qt::MetaModifier, active) == KeyAction::Next
-              && keyActionFor(Qt::Key_Up, Qt::MetaModifier, active) == KeyAction::StackPrevious
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier, active) == KeyAction::StackNext,
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier, active) == KeyAction::Hold
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier, active) == KeyAction::Hold,
           "Meta's arrows did not move through the cards");
-    // A layout on a display sized Connected steps the focused pane's Stack,
-    // and leaves Left and Right alone.
-    const KeyContext connectedLayout{false, false, false, true};
-    check(keyActionFor(Qt::Key_Up, Qt::MetaModifier, connectedLayout) == KeyAction::StackPrevious
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier, connectedLayout) == KeyAction::StackNext
-              && keyActionFor(Qt::Key_Left, Qt::MetaModifier, connectedLayout) == KeyAction::None
-              && keyActionFor(Qt::Key_Down, Qt::NoModifier, connectedLayout) == KeyAction::None,
-          "Meta+Up/Down did not step a pane's Stack");
+    check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, active) == KeyAction::StackNext
+              && keyActionFor(Qt::Key_Tab, Qt::MetaModifier | Qt::ShiftModifier, active) == KeyAction::StackPrevious
+              && keyActionFor(Qt::Key_Backtab, Qt::MetaModifier | Qt::ShiftModifier, active) == KeyAction::StackPrevious
+              && keyActionFor(Qt::Key_Backtab, Qt::MetaModifier, active) == KeyAction::StackPrevious
+              && keyActionFor(Qt::Key_Tab, Qt::MetaModifier, spread) == KeyAction::StackNext,
+          "Meta+Tab did not go round the Stack");
+    check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, desktop) == KeyAction::None
+              && keyActionFor(Qt::Key_Tab, Qt::MetaModifier | Qt::ShiftModifier, desktop) == KeyAction::None,
+          "Meta+Tab was taken with no cards shown");
+    // A pane: the arrows move the focus, with Shift the pane itself; Shift+Up
+    // puts it deeper in a Stack and Shift+Down lets it go; Tab steps its
+    // Stack and the brackets move a divider.
+    const KeyContext pane{false, false, false, true};
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, pane) == KeyAction::FocusLeft
+              && keyActionFor(Qt::Key_Right, Qt::MetaModifier, pane) == KeyAction::FocusRight
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier, pane) == KeyAction::FocusUp
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier, pane) == KeyAction::FocusDown,
+          "Meta's arrows did not move the focus between panes");
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryLeft
+              && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryRight
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::Deeper
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::LetGo,
+          "Meta+Shift's arrows did not move the pane");
+    check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, pane) == KeyAction::StackNext
+              && keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, pane) == KeyAction::DividerLeft
+              && keyActionFor(Qt::Key_BracketRight, Qt::MetaModifier, pane) == KeyAction::DividerRight
+              && keyActionFor(Qt::Key_Down, Qt::NoModifier, pane) == KeyAction::None,
+          "A pane's Stack or divider key was not answered");
+    // A pane wins over the cards of Spread's display, and Spread over a pane.
+    const KeyContext paneBesideActive{true, false, false, true};
+    const KeyContext spreadOverPane{true, true, false, true};
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, paneBesideActive) == KeyAction::FocusLeft
+              && keyActionFor(Qt::Key_Left, Qt::MetaModifier, spreadOverPane) == KeyAction::Previous
+              && keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::None,
+          "A pane and Spread disagreed over a key");
+    // The Active card alone on a Connected display moves as a pane does, and
+    // its plain arrows still go along the row.
+    const KeyContext lone{true, false, false, false, true};
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::CarryLeft
+              && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::CarryRight
+              && keyActionFor(Qt::Key_Left, Qt::MetaModifier, lone) == KeyAction::Previous
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None,
+          "The lone card did not move by the keys");
+    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's.
+    for (const auto &context : {desktop, active, spread}) {
+        for (int key : {Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down})
+            check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
+                  "Meta+Shift's arrows were taken off a pane");
+        check(keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, context) == KeyAction::None,
+              "A bracket was taken off a pane");
+    }
     // Plain keys only in Spread, and only with no other key held.
     check(keyActionFor(Qt::Key_Left, Qt::NoModifier, active) == KeyAction::None
               && keyActionFor(Qt::Key_Return, Qt::NoModifier, active) == KeyAction::None,
@@ -67,6 +113,8 @@ int main() {
           "A keypad state hid Meta+S");
     // Held down, only moving repeats.
     check(keyActionRepeats(KeyAction::Next) && keyActionRepeats(KeyAction::StackPrevious)
+              && keyActionRepeats(KeyAction::FocusLeft) && keyActionRepeats(KeyAction::Deeper)
+              && !keyActionRepeats(KeyAction::CarryLeft) && !keyActionRepeats(KeyAction::LetGo)
               && !keyActionRepeats(KeyAction::Spread) && !keyActionRepeats(KeyAction::Release),
           "A held key repeated what should happen once");
     std::cout << "Kadunce's keys sit on Meta and in Spread, and leave Ctrl, Alt+Tab and Tettegouche's keys alone\n";

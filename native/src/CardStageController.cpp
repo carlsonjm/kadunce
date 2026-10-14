@@ -2737,6 +2737,15 @@ void CardStageController::forgetPaneStack(const KWin::EffectWindow *pane)
     m_paneStacks.remove(pane);
 }
 
+void CardStageController::forgetFromPaneStacks(const KWin::EffectWindow *window)
+{
+    for (auto it = m_paneStacks.begin(); it != m_paneStacks.end();) {
+        it.value().removeIf([window](const auto &member) { return !member || member == window; });
+        if (it.value().isEmpty()) it = m_paneStacks.erase(it);
+        else ++it;
+    }
+}
+
 bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
 {
     if (!face || liveCardIndex(face) < 0 || m_cardGrabActive || m_launcherGuestActive) return false;
@@ -3133,6 +3142,9 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();
     clearCardTransition();
+    // §11, Connected: a Stack fills one pane. Two cards that are now two
+    // panes wait behind neither, or Spread would join them again.
+    for (const auto &window : pair) forgetFromPaneStacks(window);
     for (const auto &window : pair) {
         if (window && !window->isDeleted()) {
             KWin::effects->setElevatedWindow(window, false);
@@ -3813,6 +3825,26 @@ void CardStageController::pageStack(int delta)
     if (m_arrivalWindow) clearCardTransition(); // Explicit browsing wins over auto-expand.
     finishCardGrab(false);
     browseStack(delta);
+}
+
+bool CardStageController::stepActiveStack(int delta)
+{
+    if (!m_active || m_launcherGuestActive || m_presentation != CardPresentation::Active
+        || delta == 0 || selectedIsBentoProjection()
+        || m_workspace.stackSizeForId(m_workspace.selectedId()) <= 1) return false;
+    finishCardGrab(false);
+    parkActiveSnapshot();
+    m_workspace.pageStack(delta);
+    if (!enterActive()) {
+        m_presentation = CardPresentation::Spread;
+        return false;
+    }
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce stepped the Active card's Stack to position"
+            << m_workspace.stackActivePositionForId(m_workspace.selectedId()) + 1
+            << "of" << m_workspace.stackSizeForId(m_workspace.selectedId());
+    return true;
 }
 
 void CardStageController::browseStack(int delta)

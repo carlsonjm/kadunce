@@ -486,7 +486,7 @@ bool DesktopStageController::takeSlotAtCap(Session &candidate, int slot,
 }
 
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
-    const std::function<bool()> &commitSource)
+    const std::function<bool()> &commitSource, bool growOnly)
 {
     if (m_restoring || !commitSource || !window || window->isDeleted()
         || !window->window() || window->isUserMove() || window->isUserResize()
@@ -509,6 +509,7 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     QList<QPointer<KWin::EffectWindow>> unshowable;
     const bool grew = reflowSession(candidate, window, true, true, &unshowable)
         && unshowable.isEmpty();
+    if (!grew && growOnly) return false;
     if (!grew) {
         // The layout is full, so the arrival takes one slot and only that
         // slot's occupant leaves. Re-solving instead would move the panes the
@@ -1054,6 +1055,25 @@ bool DesktopStageController::placePaneBySide(KWin::EffectWindow *window,
     return true;
 }
 
+bool DesktopStageController::swapPanes(KWin::EffectWindow *window, KWin::EffectWindow *other)
+{
+    if (!window || !other || window == other || !managesWindow(window) || !managesWindow(other))
+        return false;
+    KWin::LogicalOutput *output = window->screen();
+    if (!output || other->screen() != output) return false;
+    auto drop = prepareCardDrop(window, output, KWin::RectF(window->frameGeometry()));
+    if (!drop) return false;
+    drop->localTarget = other;
+    const auto placement = prepareLocalPlacement(*drop);
+    auto *session = sessionForOutput(output);
+    if (!placement || !session) return false;
+    const auto pending = captureEvictions(*session, *placement);
+    *session = *placement;
+    if (applySession(*session, false)) scheduleSettle();
+    publishEvictions(pending);
+    return true;
+}
+
 bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin::LogicalOutput *output,
     const KWin::RectF &geometry, const std::function<bool()> &commitSource,
     const std::function<void()> &releaseSource, CardDropIntent intent,
@@ -1186,6 +1206,8 @@ bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
     if (sourceKey.isEmpty() || sourceKey == outputKey(destination)) return false;
     if (!handoffWindowToOutput(window, destination, window->frameGeometry())) {
         // A refused transfer keeps the layout it had, the pane back in it.
+        qInfo() << "Kadunce" << Revision << "kept" << window->caption() << "in the layout on"
+                << sourceKey << "rather than hand it to" << outputKey(destination);
         auto source = m_sessions.find(sourceKey);
         if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
     }
@@ -2433,10 +2455,18 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
     const std::function<bool(const BentoProjectionSession &,
                              const std::function<bool()> &)> &accept)
 {
+    // Each refusal says why: from the keys, a refusal is otherwise a key
+    // that does nothing.
+    const auto refuse = [output](const char *why) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on"
+                << (output ? output->name() : QString()) << "out of Spread:" << why;
+        return false;
+    };
     if (m_restoring || !output || !m_host->isTabletOutputForDesktopStage(output)
-        || m_interactionWindow || m_railDrag) return false;
+        || m_interactionWindow || m_railDrag) return refuse("busy, or not Spread's display");
     const auto *session = sessionForOutput(output);
-    if (!session || session->applying || session->windows.isEmpty()) return false;
+    if (!session || session->applying || session->windows.isEmpty())
+        return refuse("no settled layout");
     // Preserve pane order alongside the authoritative rect vector. The largest
     // real pane is selected as the group lead without reordering that vector.
     auto ordered = session->windows;
@@ -2463,7 +2493,8 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         const auto saved = std::find_if(session->snapshots.cbegin(), session->snapshots.cend(),
             [&](const auto &s) { return s.window == window; });
         if (!window || window->isDeleted() || !window->window() || window->screen() != output
-            || saved == session->snapshots.cend() || !saved->valid) return false;
+            || saved == session->snapshots.cend() || !saved->valid)
+            return refuse("a pane is gone, elsewhere or has no record");
         BentoProjectionMember member{window,
             {window->window(), output, saved->geometry, saved->floatingGeometry,
             saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
@@ -2480,7 +2511,13 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         if (!projection.stackingOrder.contains(member))
             projection.stackingOrder.append(member);
     }
-    if (!validBentoProjectionShape(projectionShape(projection))) return false;
+    // A side snap whose window has since gone names no window; the panes
+    // left keep their places, and the group carries no side.
+    if (projection.side && !ordered.contains(projection.sideWindow)) {
+        projection.side.reset();
+        projection.sideWindow.clear();
+    }
+    if (!validBentoProjectionShape(projectionShape(projection))) return refuse("its shape does not hold");
     const auto generation = m_applicationGuard.generation();
     const QString key = outputKey(output);
     bool committed = false;
@@ -2495,7 +2532,8 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         committed = true;
         return true;
     });
-    return accepted && committed;
+    if (!accepted || !committed) return refuse("Spread did not take it");
+    return true;
 }
 
 bool DesktopStageController::resumeProjectedSession(

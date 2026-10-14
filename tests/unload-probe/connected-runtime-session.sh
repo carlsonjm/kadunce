@@ -5,7 +5,7 @@
 # layout's panes included. A picked card joins the layout beside the card in
 # use and the layout grows; full, the pane used longest ago leaves and becomes
 # a card; a picked pane opens the layout on it. A Stack fills one pane, and
-# Meta+Down steps it in place. The per-display choice is kept in kaduncerc and
+# Meta+Tab steps it in place. The per-display choice is kept in kaduncerc and
 # Active sizing brings back the Bento group. Every check is reported, so a
 # failure does not hide the rest.
 set -uo pipefail
@@ -314,18 +314,18 @@ check 'stack: the rest of it waits as a card' is_card "$other"
 slot_a=$(rect "$a")
 probe activateWindowId "$face" >/dev/null
 sleep .5
-probe key 108 125 >/dev/null
+probe key 15 125 >/dev/null
 sleep 1.2
 report stepped
-check 'step: Meta+Down puts the next card of the Stack in the pane' is_pane "$other"
+check 'step: Meta+Tab puts the next card of the Stack in the pane' is_pane "$other"
 check 'step: in the same place' same_rect "$other" "$slot_c"
 check 'step: the card it replaced waits in the Stack' is_card "$face"
 check 'step: the other pane did not move' same_rect "$a" "$slot_a"
 check 'step: still two panes' panes 2
-probe key 103 125 >/dev/null
+probe keyHeld 15 1 125 42 >/dev/null
 sleep 1.2
 report stepped-back
-check 'step back: Meta+Up returns the first card to the pane' is_pane "$face"
+check 'step back: Meta+Shift+Tab returns the first card to the pane' is_pane "$face"
 check 'step back: in the same place' same_rect "$face" "$slot_c"
 face_title=$(probe windowFacts | jq -r --arg id "$face" 'first(.[] | select(.id == $id)) | .caption')
 client closeCompanion "$face_title"
@@ -430,6 +430,13 @@ report fourth-under
 check 'fourth under: the preview is the bottom of the right column' previewed '.x > 1650 and .y > 650'
 check 'fourth under: it lands where the preview showed' placed_at "$a"
 check 'fourth under: the card above it moved up' geometry "$n" '.x > 1650 and .y < 200 and .height < 760'
+# The card a side snap placed leaves for the top edge; Meta+S still opens
+# Spread over the layout it left.
+snap "$a" 'Term A' 1280 3
+report snapped-left
+spread_key
+report snapped-left-spread
+check 'side gone: Meta+S opens Spread over the layout the snapped card left' presents cardLine
 end_pass place
 
 if (( failures > 0 )); then

@@ -74,6 +74,15 @@ struct StackScrub {
         stepped = std::clamp(stepped + notches, -from, size - 1);
         return follow(y);
     }
+    // A key passes one card a press; past the back it comes round to the
+    // front, as a Stack is a ring. Back toward the front it stops there.
+    int stepKey(int delta)
+    {
+        if (size <= 1) return place;
+        place = delta > 0 ? (place + delta) % size : std::max(place + delta, 0);
+        stepped = place - from;
+        return place;
+    }
     // The first place the ladder shows: the card last passed, the held card,
     // then those next behind it.
     [[nodiscard]] int ladderStart() const

@@ -498,8 +498,8 @@ rg -q 'void SpreadModel::pageStack' \
     "${native_dir}/src/SpreadModel.cpp"
 rg -q 'Horizontal paging did not treat a stack as one group' \
     "${native_dir}/tests/SpreadModelTest.cpp"
-rg -q 'case Qt::Key_Up: return context.cardsShown \? KeyAction::StackPrevious' "${native_dir}/src/KadunceKeys.h"
-rg -q 'case Qt::Key_Down: return context.cardsShown \? KeyAction::StackNext' "${native_dir}/src/KadunceKeys.h"
+rg -q 'case Qt::Key_Tab: return stack \? KeyAction::StackNext' "${native_dir}/src/KadunceKeys.h"
+rg -q 'case Qt::Key_Backtab: return stack \? KeyAction::StackPrevious' "${native_dir}/src/KadunceKeys.h"
 rg -q 'selectedStackContains' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'classifyStackGesture' \
     "${native_dir}/src/SpreadLayout.cpp" "${router_cpp}"
