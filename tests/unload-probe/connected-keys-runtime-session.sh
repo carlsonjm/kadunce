@@ -7,8 +7,9 @@
 # small display and back. The brackets move a divider. Meta+Shift+Up puts a
 # pane with no Stack into the Stack of the pane used before it, and puts a
 # Stack's card deeper, placed when Meta is let go; Meta+Tab steps the Stack
-# and Meta+Shift+Down takes a card out of it, or a pane out of the layout. A
-# pane carried to the small display takes its Stack with it.
+# and Meta+Shift+Down takes a card out of it, or a pane out of the layout, and
+# in Spread the centred card out of its Stack. A pane carried to the small
+# display takes its Stack with it.
 # Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -229,6 +230,31 @@ meta 15
 report stack-carried-step
 check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $first 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"
 check 'carry: the card behind now shows there' focused "$first"
+
+# In Spread, Meta+Shift+Down takes the centred card out of its Stack, as a
+# pull down does; the Stack keeps the pane with its next card.
+# The card let go earlier comes back, so the layout outlasts the join.
+fifth=${panes[4]:-}
+spread_key
+pick "$fourth"
+check 'spread: the card let go earlier is a pane again' is_pane "$fourth"
+focus_on "$fifth"
+focus_on "$third"
+meta_shift 103
+report spread-joined
+check 'spread: a Stack to let go of in Spread' behind_is "$third" "[\"$fifth\"]"
+spread_key
+select_card "$third" || echo "could not select $third"
+meta_shift 108
+report spread-let-go
+check 'spread: Meta+Shift+Down takes the centred card out of its Stack' \
+    context --arg id "$third" 'first(.applications[] | select(.windowId == $id)) | .stackSize == 1'
+check 'spread: Spread stays open' context '.cardStage.presentation == "cardLine"'
+select_card "$fifth" || echo "could not select $fifth"
+open_selected
+report spread-let-go-open
+check 'spread: the Stack keeps the pane' is_pane "$fifth"
+check 'spread: the card let go is no pane' is_card "$third"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

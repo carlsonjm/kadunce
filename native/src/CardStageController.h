@@ -370,6 +370,9 @@ public:
     void finishScrub();
     // Up closes the app under the finger; down takes its card out of a Stack.
     bool beginLift(const QPointF &position);
+    // Meta+Shift+Down in Spread: the centred card leaves its Stack, or on
+    // Connected a pane with none leaves the layout, as one pulled down does.
+    bool pullOutSelected();
     void updateLift(double travel);
     void finishLift(double velocity);
     // Input was taken away mid-stroke: the row and any lifted card go home.
@@ -659,6 +662,7 @@ private:
     void dropRowMotion();
     void throwLifted(double velocity);
     void pullOutLifted();
+    bool pullOut(KWin::EffectWindow *window, bool group);
     void endLift();
     void checkThrownCards();
     void returnThrownCard(KWin::EffectWindow *window, bool present);

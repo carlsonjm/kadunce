@@ -7176,6 +7176,8 @@ void Effect::runKeyAction(KeyAction action)
     case KeyAction::Deeper: stepKeyLadder(1); break;
     case KeyAction::LetGo:
         if (m_stackScrubByKeys) stepKeyLadder(-1);
+        else if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+            (void)m_cardStage->pullOutSelected();
         else letPaneGo();
         break;
     case KeyAction::DividerLeft: moveDividerByKey(-1); break;
