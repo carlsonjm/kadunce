@@ -24,7 +24,6 @@ subject to its owner. When two documents disagree, the owner governs.
 | `REQUESTS.md` | placement requests: how another program asks Kadunce to open an application at a point |
 | `TABLE.md` | Table: what it does to workspaces and their windows, how it looks, and its invariants |
 | `UPSTREAM.md` | problems in KDE software Shuffle could report or patch |
-| `../patches/kwin/README.md` | the version-bound KWin touch correction, its package provenance and rollback |
 
 ## Keeping documentation small
 

@@ -16,8 +16,7 @@ safety-control rule and who installs; this document owns the procedure.
 
 The `Arch current` GitHub check runs `./verify.sh` on every pull request, on
 `main` and daily, against Arch Linux's current KDE and Qt packages. It builds
-against stock KWin, not the corrected one in `../patches/kwin/`, and a pull
-request merges only once it passes.
+against stock KWin, and a pull request merges only once it passes.
 
 A fifth class, live mutation, installs, toggles the effect, injects input,
 restarts or logs out of the real session. Installation, session restart and
