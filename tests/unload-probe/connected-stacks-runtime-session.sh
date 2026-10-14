@@ -84,7 +84,7 @@ carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
 # along until the other comes under it, then rests in the middle until it
 # would join (CarryRow.h).
 carry_onto() {
-    local from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
+    local trail="" from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
     select_card "$from" >/dev/null 2>&1
     sleep .4
     read -r x y < <(seen_at "$from")
@@ -122,6 +122,7 @@ carry_onto() {
             sleep .05
             read -r aim at < <(carry_aim)
             [[ $aim == gap ]] || continue
+            trail+=" s:$aim$at"
             if (( t >= h ? at >= t + 1 : at <= t )); then break; fi
         done
     fi
@@ -132,8 +133,10 @@ carry_onto() {
         probe pointer "$((x0 + dx))" "$y"
         sleep .5
         read -r aim at < <(carry_aim)
+        trail+=" $((x0 + dx)):$aim$at"
         [[ $aim == join && $at == "$t" ]] && break
     done
+    echo "state carry-trail $trail"
     sleep .4
     echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
     probe button false
