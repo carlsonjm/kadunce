@@ -95,6 +95,22 @@ CommandResult callKWinEffects(const QString &method, const QString &effectId)
     });
 }
 
+// Whether the effect is running, as KWin answers. kwinrc says only what KWin
+// was asked to do, and the two part when an unload fails or KWin refuses the
+// plugin after an update; the switch shows and turns what is running. Where
+// KWin gives no answer, kwinrc decides.
+bool effectRunning()
+{
+    const CommandResult loaded = callKWinEffects(
+        QStringLiteral("isEffectLoaded"),
+        QString::fromLatin1(NativeEffectId));
+    const QByteArray answer = loaded.output.trimmed();
+    if (loaded.succeeded && (answer == "true" || answer == "false")) {
+        return answer == "true";
+    }
+    return effectEnabled();
+}
+
 void reconfigureKWin()
 {
     (void)runCommand(QStringLiteral("qdbus6"), {
@@ -186,7 +202,7 @@ public:
         QObject::connect(&m_notifier, &KStatusNotifierItem::activateRequested,
                          [this](bool, const QPoint &) {
             if (m_busy) return;
-            if (effectEnabled()) disable(); else enable();
+            if (effectRunning()) disable(); else enable();
         });
 
         m_toggle->setCheckable(true);
@@ -380,7 +396,7 @@ private:
 
     void refresh()
     {
-        const bool enabled = effectEnabled();
+        const bool enabled = effectRunning();
         m_toggle->setText(i18n("Cards on"));
         m_toggle->setChecked(enabled);
         m_toggle->setEnabled(!m_busy);
@@ -434,7 +450,7 @@ private:
 
     void enable()
     {
-        if (m_busy || effectEnabled()) {
+        if (m_busy || effectRunning()) {
             return;
         }
         updateHealth();
@@ -476,7 +492,7 @@ private:
 
     void disable()
     {
-        if (m_busy || !effectEnabled()) {
+        if (m_busy || !effectRunning()) {
             return;
         }
         setBusy(true);
