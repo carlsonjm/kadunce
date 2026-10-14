@@ -469,9 +469,8 @@ dock, never moves to another display on its own, and comes back when room frees
 up. An application too big for any slot takes the Active size, because one you
 just opened has to appear. Rejected: overflow on another desktop.
 
-The tablet names each window it pairs; this is the opposite answer on purpose.
-On the tablet a person places each card; a monitor is where Plasma windows pile
-up under a mouse, and the value is organizing the pile in one move. Rejected:
+On the tablet a person names each window it pairs; a monitor is where Plasma
+windows pile up under a mouse, and the value is organizing the pile in one move. Rejected:
 pairing on the monitor, which traded that for control, and sending overflow to
 the tablet, which moved windows between screens without you.
 
@@ -568,10 +567,11 @@ plain-window rule as the one-step way back.
 
 ### A big card display plays cards into its layout
 
-A card display with room for more than two panes is Connected
+A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): a picked card joins what is open, and each pane stays
-its own card, since one group card would hide many panes. Full, the pane used
-longest ago yields, since equal panes leave fit no answer.
+its own card, since one group card hides many panes. Full, the pane used
+longest ago yields, as equal panes give no answer. Solo was named Active
+until 14 October; Active now means only the card in use.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

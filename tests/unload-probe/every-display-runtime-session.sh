@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11, Every display, on two monitors with no touchscreen:
-# Virtual-0 at scale 2 is small and sized Active, Virtual-1 is large, sized
+# Virtual-0 at scale 2 is small and sized Solo, Virtual-1 is large, sized
 # Connected and chosen for Spread. Every window is a card on both. The small
 # display shows one card whole; the rest of its windows wait in Spread on the
 # large one, with the card it shows. A card of the small display picked in
@@ -160,8 +160,8 @@ sleep 1.8
 report start
 check 'start: the large display holds Spread, sized Connected' \
     context '[.displayContext.displays[] | select(.name == "Virtual-1" and .role == "tablet" and .sizing == "connected")] | length == 1'
-check 'start: the small display holds its own cards, sized Active' \
-    context '[.displayContext.displays[] | select(.name == "Virtual-0" and .holdsCards and .sizing == "active")] | length == 1'
+check 'start: the small display holds its own cards, sized Solo' \
+    context '[.displayContext.displays[] | select(.name == "Virtual-0" and .holdsCards and .sizing == "solo")] | length == 1'
 check 'start: no window is an ordinary window' \
     context '[.applications[] | select(.title != "unload-client" and (.hasCard | not) and (.pane | not))] | length == 0'
 check 'start: the small display shows one card' small_panes 1

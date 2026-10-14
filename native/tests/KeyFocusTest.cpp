@@ -19,7 +19,7 @@ int main()
 {
     using Kadunce::KeyDirection;
     using Kadunce::keyNeighbour;
-    // A small display at the left, sized Active and showing one card, and a
+    // A small display at the left, sized Solo and showing one card, and a
     // large one at its right whose layout is a full-height column beside two
     // panes stacked under each other.
     const QRectF tablet(8, 8, 1264, 784);

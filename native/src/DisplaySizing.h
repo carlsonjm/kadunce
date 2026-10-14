@@ -13,10 +13,10 @@
 
 namespace Kadunce
 {
-// How the display that holds Spread plays a card (CARD-LIFECYCLE.md §11).
-// Active shows one card at a time over the whole work area. Connected plays a
+// How a display plays cards (CARD-LIFECYCLE.md §1, §11). Solo shows one card
+// at a time over the whole work area, a Bento pair at most. Connected plays a
 // picked card into the display's layout beside what it already shows.
-enum class DisplaySizing { Active, Connected };
+enum class DisplaySizing { Solo, Connected };
 
 // Kadunce chooses by room, never by inches: the display's size in logical
 // pixels, at the scale the person set, so a panel or dock that takes some of
@@ -26,16 +26,19 @@ enum class DisplaySizing { Active, Connected };
 [[nodiscard]] constexpr DisplaySizing automaticSizing(int width, int height)
 {
     return bentoPaneCap(width, height) > BentoCompactPaneCap
-        ? DisplaySizing::Connected : DisplaySizing::Active;
+        ? DisplaySizing::Connected : DisplaySizing::Solo;
 }
 
-// A choice as kaduncerc's [Sizing] group keeps it, by display name. Anything
+// A choice as kaduncerc's [Sizing] group keeps it, by display name. "active"
+// is Solo's earlier name, still read because saved choices carry it. Anything
 // else, the empty choice included, lets Kadunce choose.
 [[nodiscard]] inline std::optional<DisplaySizing> parseSizing(const QString &text)
 {
-    if (text.compare(QStringLiteral("active"), Qt::CaseInsensitive) == 0)
-        return DisplaySizing::Active;
-    if (text.compare(QStringLiteral("connected"), Qt::CaseInsensitive) == 0)
+    const QString name = text.trimmed();
+    if (name.compare(QStringLiteral("solo"), Qt::CaseInsensitive) == 0
+        || name.compare(QStringLiteral("active"), Qt::CaseInsensitive) == 0)
+        return DisplaySizing::Solo;
+    if (name.compare(QStringLiteral("connected"), Qt::CaseInsensitive) == 0)
         return DisplaySizing::Connected;
     return std::nullopt;
 }
@@ -43,7 +46,7 @@ enum class DisplaySizing { Active, Connected };
 [[nodiscard]] inline QString sizingName(DisplaySizing sizing)
 {
     return sizing == DisplaySizing::Connected ? QStringLiteral("connected")
-                                              : QStringLiteral("active");
+                                              : QStringLiteral("solo");
 }
 
 // The person's choice for the display where there is one, else Kadunce's.

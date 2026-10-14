@@ -157,6 +157,20 @@ def check_retired_vocabulary() -> None:
             )
 
 
+def check_retired_sizing_name() -> None:
+    """Catch Solo's earlier name. Active means only the card in use; a display
+    is sized Solo or Connected. Matched across a line break, case-sensitively.
+    """
+    retired = re.compile(r"\bsized\s+" + "Act" + r"ive\b")
+    for path in tracked_documents():
+        if path.startswith("docs/archive/"):
+            continue
+        text = (ROOT / path).read_text()
+        for match in retired.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            errors.append(f"{path}:{line} names a display's sizing Active; it is Solo")
+
+
 
 
 # Live documents regrow when history is appended instead of filed. A document
@@ -205,6 +219,7 @@ check_index_coverage()
 check_archive_authority()
 check_word_budgets()
 check_retired_vocabulary()
+check_retired_sizing_name()
 
 if errors:
     for error in errors:
