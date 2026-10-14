@@ -621,6 +621,12 @@ public Q_SLOTS:
         KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now(), &device);
         KWin::input()->pointer()->processFrame();
     }
+    // The probe mouse moved by its own travel, as a real mouse reports it:
+    // pushed on at the screen's edge, its pointer stands while it goes on.
+    void contactNudge(int dx, int dy) {
+        KWin::input()->pointer()->processMotion({double(dx),double(dy)}, {double(dx),double(dy)}, now(), &device);
+        KWin::input()->pointer()->processFrame();
+    }
     // A mouse pressed and moved off in one go, as a quick drag arrives, with
     // no pause between for any hold to end.
     void contactPressAndMove(int x, int y) {

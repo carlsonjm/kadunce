@@ -574,6 +574,7 @@ private:
     // it is let go.
     bool followStackScrub(QPointF contact);
     void beginStackScrub(double y);
+    double stackScrubHand(double pointerY) const;
     void endStackScrub();
     void refreshStackScrubShown();
     // Where the ladder draws `window`: the card's box, and the part of it

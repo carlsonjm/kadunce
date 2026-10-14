@@ -189,6 +189,8 @@ scrubbing() { jq -e --argjson place "$1" --argjson ladder "$2" '.scrubPlace == $
 # The same by KWin's own title bar, as a person presses one: the mouse held
 # `hold` seconds, past the time KWin starts a held title bar's move on its own,
 # then drawn up `steps` cards' travel and the wheel turned `wheel` notches.
+# The title bar of a pane in the top row sits at the screen's edge, so the
+# mouse is pushed on past it, as a person's is.
 title_of() { probe titleBarOf "$1" | jq -r '[.x, .y] | map(floor) | @tsv'; }
 title_scrub() {
     local id=$1 steps=$2 hold=$3 wheel=${4:-0} x y dy
@@ -200,7 +202,7 @@ title_scrub() {
     sleep "$hold"
     if (( steps > 0 )); then
         for (( dy = 4; dy <= 20 + steps * 56; dy += 12 )); do
-            probe contactMotion "$x" "$((y - dy))" >/dev/null
+            probe contactNudge 0 -12 >/dev/null
             sleep .03
         done
     fi

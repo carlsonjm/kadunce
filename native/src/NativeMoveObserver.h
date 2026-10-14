@@ -308,7 +308,7 @@ private:
             const auto ticket = observer->m_contacts.soleCandidate();
             if (!ticket || ticket->owner().kind != CarryDevice::Pointer
                 || ticket->owner().device != observer->token(event->device)) return;
-            observer->m_contacts.motion(ticket->owner(), event->position);
+            observer->m_contacts.motion(ticket->owner(), event->position, event->delta);
         }
         void touchDown(KWin::TouchDownEvent *event) override
         {

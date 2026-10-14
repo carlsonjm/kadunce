@@ -1080,9 +1080,9 @@ Effect::Effect()
     m_carryRuntime->wheeled = [this](int notches) {
         if (!m_stackScrub.active()) {
             if (!m_stackScrubArmed || !m_stackScrubPane) return false;
-            beginStackScrub(KWin::effects->cursorPos().y());
+            beginStackScrub(stackScrubHand(KWin::effects->cursorPos().y()));
         }
-        m_stackScrub.wheel(notches, KWin::effects->cursorPos().y());
+        m_stackScrub.wheel(notches, stackScrubHand(KWin::effects->cursorPos().y()));
         refreshStackScrubShown();
         KWin::effects->addRepaintFull();
         return true;
@@ -7129,7 +7129,7 @@ bool Effect::followStackScrub(QPointF contact)
             if (m_carryRuntime) m_carryRuntime->cancel();
             return true;
         }
-        m_stackScrub.follow(contact.y());
+        m_stackScrub.follow(stackScrubHand(contact.y()));
         refreshStackScrubShown();
         KWin::effects->addRepaintFull();
         return true;
@@ -7137,7 +7137,7 @@ bool Effect::followStackScrub(QPointF contact)
     if (!m_stackScrubArmed || !m_carryRuntime) return false;
     const auto held = m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner());
     if (!held || !m_stackScrubPane) { m_stackScrubArmed = false; return false; }
-    const QPointF travel = contact - held->pressedPosition;
+    const QPointF travel = held->travel;
     const auto heldMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - held->pressedAt).count();
     switch (stackScrubStart(travel.x(), travel.y(), heldMs)) {
@@ -7146,10 +7146,19 @@ bool Effect::followStackScrub(QPointF contact)
     case StackScrubStart::Scrub: break;
     }
     beginStackScrub(held->pressedPosition.y());
-    m_stackScrub.follow(contact.y());
+    m_stackScrub.follow(stackScrubHand(contact.y()));
     refreshStackScrubShown();
     KWin::effects->addRepaintFull();
     return true;
+}
+
+double Effect::stackScrubHand(double pointerY) const
+{
+    // A pane in the top row has its title bar at the screen's edge, where the
+    // pointer stops; the hand's own travel still counts.
+    if (!m_carryRuntime) return pointerY;
+    const auto held = m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner());
+    return held ? held->pressedPosition.y() + held->travel.y() : pointerY;
 }
 
 void Effect::beginStackScrub(double y)

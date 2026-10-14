@@ -24,6 +24,10 @@ public:
         // from a drag begun at once.
         QPointF pressedPosition;
         std::chrono::steady_clock::time_point pressedAt;
+        // How far the hand has gone since, as the device moved: a mouse
+        // pushed on past the edge of the screen keeps travelling here while
+        // its pointer stands at the edge.
+        QPointF travel;
     };
     class Candidate {
     public:
@@ -52,10 +56,10 @@ public:
             found->trustworthy = false;
             return false;
         }
-        m_contacts.push_back({owner, position, true, position, std::chrono::steady_clock::now()});
+        m_contacts.push_back({owner, position, true, position, std::chrono::steady_clock::now(), {}});
         return true;
     }
-    bool motion(CarryOwner owner, QPointF position)
+    bool motion(CarryOwner owner, QPointF position, QPointF delta = {})
     {
         auto found = find(owner);
         if (found == m_contacts.end()) return false; // Never invent a missing down.
@@ -64,6 +68,7 @@ public:
             found->trustworthy = false;
             return false;
         }
+        found->travel += delta.isNull() ? position - found->position : delta;
         found->position = position;
         return true;
     }
