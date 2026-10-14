@@ -113,7 +113,8 @@ if that process disappears. A committed handoff selects the incoming real card.
 A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
 it never reaches the application under it, so it cannot promote that
 application to Active. Any rejected begin request leaves both applications in
-their existing standalone behavior.
+their existing standalone behavior; a rejection may name the `output` the
+launcher floats on, where the person is working.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest

@@ -186,6 +186,14 @@ check 'pick: the small display still shows one card' small_panes 1
 check 'pick: the large display went back to its own card' \
     context --arg mb "$mb" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $mb'
 check 'pick: the picked card has focus' focused "$waiting"
+# Search floats where the person is working, not on Spread's display.
+check 'pick: Search called now floats on the small display' python3 - <<'PY'
+import dbus, json
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+reply = json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))
+assert not reply["accepted"] and reply.get("output") == "Virtual-0", reply
+PY
 
 # A window carried to the small display is the card it shows.
 probe pointer 640 360

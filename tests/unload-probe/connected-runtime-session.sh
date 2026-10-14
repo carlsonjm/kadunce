@@ -232,7 +232,8 @@ check 'search over a layout: it floats, Spread stays closed' python3 - <<'PY'
 import dbus, json
 bus = dbus.SessionBus(private=True)
 kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
-assert not json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))["accepted"]
+reply = json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))
+assert not reply["accepted"] and reply.get("output"), reply
 assert json.loads(kadunce.workspaceContext())["cardStage"]["presentation"] == "bento"
 PY
 spread_key
