@@ -55,6 +55,9 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/TableLayout.h
         src/TablePresenter.cpp
         src/TablePresenter.h
+        src/SpokenLine.cpp
+        src/SpokenLine.h
+        src/SpreadReading.h
         src/SurfaceTone.h
         src/plugin.cpp
     INSTALL_NAMESPACE "kwin/effects/plugins/"
@@ -64,6 +67,7 @@ qt_add_resources(kwin4_effect_kadunce "kadunce_table"
     PREFIX "/kadunce"
     BASE src
     FILES src/table/Table.qml
+        src/spoken/SpokenLine.qml
 )
 
 target_link_libraries(kwin4_effect_kadunce
@@ -96,6 +100,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-table-layout-test PRIVATE src)
     target_link_libraries(kadunce-table-layout-test PRIVATE Qt6::Core)
     add_test(NAME table-layout COMMAND kadunce-table-layout-test)
+    add_executable(kadunce-spread-reading-test tests/SpreadReadingTest.cpp)
+    target_include_directories(kadunce-spread-reading-test PRIVATE src)
+    target_link_libraries(kadunce-spread-reading-test PRIVATE Qt6::Core)
+    add_test(NAME spread-reading COMMAND kadunce-spread-reading-test)
     add_executable(kadunce-row-page-motion-test tests/RowPageMotionTest.cpp)
     target_include_directories(kadunce-row-page-motion-test PRIVATE src)
     target_link_libraries(kadunce-row-page-motion-test PRIVATE Qt6::Core)
