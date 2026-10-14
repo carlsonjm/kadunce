@@ -339,39 +339,6 @@ check 'wheel: one notch up, it would go in second' scrubbing 1 "[\"${w[2]}\",\"$
 check 'wheel: the card it passed fills the pane' is_pane "${w[2]}"
 check 'wheel: it went in second' behind_is "${w[2]}" "[\"${w[3]}\",\"${w[6]}\"]"
 
-# By KWin's own title bars, as real applications have them: held past the time
-# KWin starts the move itself, the pane still reorders, and a held pane carried
-# sideways still swaps or stacks as a pane rather than becoming a window.
-for n in {1..12}; do probe serverDecorate "${w[$n]}" >/dev/null; done
-sleep 1.5
-report decorated
-check 'title: every pane has a title bar of KWin'"'"'s' bash -c "for id in ${w[2]} ${w[9]} ${w[12]}; do qdbus6 org.kde.KWin /UnloadProbe titleBarOf \$id | jq -e '.height > 0' || exit 1; done"
-check 'title: still four panes' panes 4
-title_scrub "${w[2]}" 1 .9
-report title-scrubbed
-check 'title held: drawn up one card, it would go in second' scrubbing 1 "[\"${w[3]}\",\"${w[2]}\",\"${w[6]}\"]"
-check 'title held: the card it passed fills the pane' is_pane "${w[3]}"
-check 'title held: it went in second' behind_is "${w[3]}" "[\"${w[2]}\",\"${w[6]}\"]"
-title_scrub "${w[3]}" 0 .9 -2
-report title-wheeled
-check 'title wheel: held still, two notches up, it would go in last' scrubbing 2 "[\"${w[2]}\",\"${w[6]}\",\"${w[3]}\"]"
-check 'title wheel: it went in last' behind_is "${w[2]}" "[\"${w[6]}\",\"${w[3]}\"]"
-check 'title wheel: still four panes' panes 4
-slot2=$(rect "${w[2]}") slot9=$(rect "${w[9]}")
-title_drag "${w[2]}" "${w[9]}" .9 .1
-report title-swapped
-check 'title swap: held, then carried and let go at once, it swaps' same_rect "${w[2]}" "$slot9"
-check 'title swap: and the other takes its place' same_rect "${w[9]}" "$slot2"
-check 'title swap: still four panes' panes 4
-check 'title swap: every Stack stays whole' each_behind 2
-check 'title swap: no window is left ordinary' all_held
-title_drag "${w[9]}" "${w[12]}" .1 .9
-report title-stacked
-check 'title stack: rested on a pane, it joins its Stack in front' behind_is "${w[9]}" "[\"${w[12]}\",\"${w[11]}\",\"${w[10]}\"]"
-check 'title stack: its own next card keeps its slot' is_pane "${w[8]}"
-check 'title stack: still four panes' panes 4
-check 'title stack: no window is left ordinary' all_held
-
 # A pane's card pulled down in Spread leaves its Stack; the Stack keeps the
 # pane with its next card.
 spread_key
@@ -394,6 +361,40 @@ report pulled-open
 check 'pull: the Stack keeps the pane' is_pane "${w[11]}"
 check 'pull: still four panes' panes 4
 check 'pull: the pulled card is no pane' is_card "${w[12]}"
+
+# By KWin's own title bars, as real applications have them: held past the time
+# KWin starts the move itself, the pane still reorders, and a held pane carried
+# sideways still swaps or stacks as a pane rather than becoming a window.
+for n in {1..12}; do probe serverDecorate "${w[$n]}" >/dev/null; done
+sleep 1.5
+report decorated
+check 'title: every pane has a title bar of KWin'"'"'s' bash -c "for id in ${w[2]} ${w[9]} ${w[11]}; do qdbus6 org.kde.KWin /UnloadProbe titleBarOf \$id | jq -e '.height > 0' || exit 1; done"
+check 'title: still four panes' panes 4
+title_scrub "${w[2]}" 1 .9
+report title-scrubbed
+check 'title held: drawn up one card, it would go in second' scrubbing 1 "[\"${w[3]}\",\"${w[2]}\",\"${w[6]}\"]"
+check 'title held: the card it passed fills the pane' is_pane "${w[3]}"
+check 'title held: it went in second' behind_is "${w[3]}" "[\"${w[2]}\",\"${w[6]}\"]"
+title_scrub "${w[3]}" 0 .9 -2
+report title-wheeled
+check 'title wheel: held still, two notches up, it would go in last' scrubbing 2 "[\"${w[2]}\",\"${w[6]}\",\"${w[3]}\"]"
+check 'title wheel: it went in last' behind_is "${w[2]}" "[\"${w[6]}\",\"${w[3]}\"]"
+check 'title wheel: still four panes' panes 4
+slot2=$(rect "${w[2]}") slot9=$(rect "${w[9]}")
+title_drag "${w[2]}" "${w[9]}" .9 .1
+report title-swapped
+check 'title swap: held, then carried and let go at once, it swaps' same_rect "${w[2]}" "$slot9"
+check 'title swap: and the other takes its place' same_rect "${w[9]}" "$slot2"
+check 'title swap: still four panes' panes 4
+check 'title swap: its Stack stays whole' behind_count "${w[2]}" 2
+check 'title swap: and the other'"'"'s too' behind_count "${w[9]}" 2
+check 'title swap: no window is left ordinary' all_held
+title_drag "${w[9]}" "${w[11]}" .1 .9
+report title-stacked
+check 'title stack: rested on a pane, it joins its Stack in front' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
+check 'title stack: its own next card keeps its slot' is_pane "${w[8]}"
+check 'title stack: still four panes' panes 4
+check 'title stack: no window is left ordinary' all_held
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
