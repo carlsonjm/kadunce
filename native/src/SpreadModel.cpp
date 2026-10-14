@@ -357,6 +357,45 @@ bool SpreadModel::stackSelectedWith(int destinationId, int insertionIndex,
     return invariantHolds();
 }
 
+std::vector<int> SpreadModel::stackFrontFirstForId(int cardId) const
+{
+    const int index = stackIndexForId(cardId);
+    if (index < 0) {
+        return {};
+    }
+    const CardStack &stack = m_stacks.at(static_cast<std::size_t>(index));
+    const int size = static_cast<int>(stack.cards.size());
+    std::vector<int> frontFirst;
+    frontFirst.reserve(static_cast<std::size_t>(size));
+    for (int distance = 0; distance < size; ++distance) {
+        const int remainder = (stack.activeIndex - distance) % size;
+        frontFirst.push_back(stack.cards.at(
+            static_cast<std::size_t>(remainder < 0 ? remainder + size : remainder)));
+    }
+    return frontFirst;
+}
+
+bool SpreadModel::moveStackMember(int cardId, int depth)
+{
+    const int stackIndex = stackIndexForId(cardId);
+    if (stackIndex < 0) {
+        return false;
+    }
+    std::vector<int> frontFirst = stackFrontFirstForId(cardId);
+    const int size = static_cast<int>(frontFirst.size());
+    if (size <= 1 || depth < 0 || depth >= size) {
+        return false;
+    }
+    frontFirst.erase(std::find(frontFirst.begin(), frontFirst.end(), cardId));
+    frontFirst.insert(frontFirst.begin() + depth, cardId);
+    // Back to the Stack's own order: each member follows the one behind it,
+    // the face last.
+    CardStack &stack = m_stacks.at(static_cast<std::size_t>(stackIndex));
+    stack.cards.assign(frontFirst.rbegin(), frontFirst.rend());
+    stack.activeIndex = size - 1;
+    return invariantHolds();
+}
+
 bool SpreadModel::releaseMember(int cardId)
 {
     const int stackIndex = stackIndexForId(cardId);
