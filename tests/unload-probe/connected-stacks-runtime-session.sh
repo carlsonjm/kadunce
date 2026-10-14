@@ -113,23 +113,21 @@ carry_onto() {
         x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
             '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
     else
-        # Lean the row along until the other is the next card past the held
-        # card's middle, then rest; it stands within a pitch further on, where
-        # a lean at the row's end, or a creep, brings it under the card.
-        probe pointer "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
-        for _ in {1..120}; do
+        # Lean the row along until the other card has passed under the held
+        # one, then step back inward: that stops the lean where it stands, and
+        # the other card lies within half a card behind.
+        x0=$(( t >= h ? mid + 600 : mid - 600 ))
+        probe pointer "$x0" "$y"
+        for _ in {1..160}; do
             sleep .05
             read -r aim at < <(carry_aim)
             [[ $aim == gap ]] || continue
-            if (( t >= h ? at >= t : at <= t + 1 )); then break; fi
+            if (( t >= h ? at >= t + 1 : at <= t )); then break; fi
         done
-        probe pointer "$mid" "$y"
-        sleep .6
-        x0=$mid
     fi
     steps=(0 -40 40 -80 80 -120 120 -160 160)
     jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null \
-        || steps=($(for k in {0..14}; do echo $(( (t >= h ? 1 : -1) * k * 40 )); done))
+        || steps=($(for k in {1..16}; do echo $(( (t >= h ? -1 : 1) * k * 40 )); done))
     for dx in "${steps[@]}"; do
         probe pointer "$((x0 + dx))" "$y"
         sleep .5
