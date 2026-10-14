@@ -29,6 +29,11 @@ public:
     std::function<void(KWin::Window *, QPointF)> nativeReleased;
     // A carry this filter owns was let go; committed says whether its drop landed.
     std::function<void(bool)> released;
+    // The hand lifted, whether or not a drop was waiting: a release, never a cancel.
+    std::function<void()> letGo;
+    // A wheel turned while a carry is held, in notches away from the person;
+    // true takes the turn.
+    std::function<bool(int)> wheeled;
     // Whether a touch is still down, as seen ahead of this filter.
     std::function<bool(qint64)> touchStillDown;
     NativeCarryRuntime() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
@@ -88,6 +93,7 @@ public:
             if (observed) observed(nullptr, result && result->committed ? "drop-committed" : "drop-not-committed");
             if (observed && result && !result->committed && result->refusal) observed(nullptr, result->refusal);
             if (released && result) released(result->committed);
+            if (letGo) letGo();
             if (ended) ended();
         } else if (action == A::Cancel) cancel();
         return action != A::Pass;
@@ -107,6 +113,15 @@ public:
             && tryEntry(e->position)) return dispatch(route.motion(route.owner()), route.owner(), e->position);
         auto owner = route.owner(); owner.kind = CarryDevice::Pointer; owner.device = observer.deviceToken(e->device);
         return dispatch(route.motion(owner), owner, e->position);
+    }
+    bool pointerAxis(KWin::PointerAxisEvent *e) override {
+        if (!route.active() || !wheeled || e->orientation != Qt::Vertical) return false;
+        // A wheel turned away from the person scrolls up, which KWin gives
+        // as less than nothing.
+        m_wheel -= e->deltaV120 != 0 ? e->deltaV120 / 120.0 : e->delta / 15.0;
+        const int notches = int(m_wheel);
+        m_wheel -= notches;
+        return notches == 0 ? wheeled(0) : wheeled(notches);
     }
     bool touchDown(KWin::TouchDownEvent *e) override {
         clearDeferred();
@@ -155,6 +170,7 @@ private:
     struct Deferred { QPointer<KWin::Window> window; NativeMoveObserver::Candidate ticket; QPointF lastPosition; };
     std::optional<Deferred> m_deferred;
     bool m_escapeTaken = false;
+    double m_wheel = 0.0;
     bool tryEntry(QPointF position) {
         if (!m_deferred) return false;
         const auto waiting = *m_deferred;

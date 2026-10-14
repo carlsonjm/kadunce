@@ -43,5 +43,21 @@ int main()
     require(Kadunce::stackScrubOrder(1, behind, 0) == std::vector<int>{1, 2, 3, 4, 5},
             "Let go where it began, nothing moves");
     require(Kadunce::stackScrubOrder(1, behind, 9).back() == 1, "Past the back it goes last");
+
+    using Kadunce::StackScrubStart;
+    require(Kadunce::stackScrubStart(2, -3, 900) == StackScrubStart::Undecided, "A tremor decides nothing");
+    require(Kadunce::stackScrubStart(0, -20, 400) == StackScrubStart::Scrub, "Held, then up, scrubs");
+    require(Kadunce::stackScrubStart(0, -20, 100) == StackScrubStart::Carry, "Up at once carries");
+    require(Kadunce::stackScrubStart(30, -10, 900) == StackScrubStart::Carry, "Held, then sideways, carries");
+    require(Kadunce::stackScrubStart(0, 20, 900) == StackScrubStart::Carry, "Held, then down, carries");
+
+    const auto front = Kadunce::stackLadderRung(100, 50, 800, 600, 0, 4);
+    const auto back = Kadunce::stackLadderRung(100, 50, 800, 600, 3, 4);
+    require(front.y == 50 + 3 * Kadunce::StackLadderRung && front.x == 100 && front.width == 800,
+            "The card in front stands lowest, full width");
+    require(back.y == 50 && back.x > 100 && back.width < 800, "The last shown stands at the top, narrower");
+    require(front.height == back.height && front.y + front.height == 650, "Every rung ends at the pane's foot");
+    const auto lone = Kadunce::stackLadderRung(0, 0, 400, 300, 0, 2);
+    require(lone.y == Kadunce::StackLadderRung, "Two shown take one rung");
     return EXIT_SUCCESS;
 }

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 
 namespace Kadunce
 {
@@ -13,6 +14,36 @@ inline constexpr int StackLadderShown = 4;
 inline constexpr double StackScrubStep = 56.0;
 // Height of each title bar the ladder shows above the card in front of it.
 inline constexpr double StackLadderRung = 30.0;
+
+// How long the title bar is held before the hand moves for the drag to scrub
+// rather than carry the pane, and how far the hand moves before that is told.
+inline constexpr long long StackScrubHoldMs = 350;
+inline constexpr double StackScrubSlop = 8.0;
+
+enum class StackScrubStart { Undecided, Scrub, Carry };
+// A hold, then travel mostly upward, scrubs; a drag begun at once, or one
+// leaving sideways or down, carries the pane as before.
+inline StackScrubStart stackScrubStart(double dx, double dy, long long heldMs)
+{
+    if (std::hypot(dx, dy) < StackScrubSlop) return StackScrubStart::Undecided;
+    return heldMs >= StackScrubHoldMs && dy < 0.0 && -dy >= std::abs(dx)
+        ? StackScrubStart::Scrub : StackScrubStart::Carry;
+}
+
+// Where the ladder draws the card `rung` places from its front (0 is the one
+// in front, drawn whole) of `count` shown, over a pane at x, y, width, height.
+// Each card behind stands one rung higher and a little narrower, so its
+// title bar shows above the card in front of it.
+struct StackRungBox { double x = 0, y = 0, width = 0, height = 0; };
+inline StackRungBox stackLadderRung(double x, double y, double width, double height,
+                                    int rung, int count)
+{
+    const int n = std::max(count, 1);
+    const int r = std::clamp(rung, 0, n - 1);
+    const double inset = width * 0.01 * r;
+    return {x + inset, y + (n - 1 - r) * StackLadderRung, width - 2 * inset,
+            std::max(0.0, height - (n - 1) * StackLadderRung)};
+}
 
 struct StackScrub {
     int size = 0;

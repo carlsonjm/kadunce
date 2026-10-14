@@ -4,8 +4,9 @@
 # on a tablet, cards let go on a pane's card join its Stack, and a pane's own
 # card is held and let go on another. The rest are built in the layout: a
 # pane carried onto another and rested there joins its Stack, its slot given
-# up, while one let go at once swaps. A pane's card pulled down in Spread leaves its Stack, and
-# the Stack keeps the pane. Every check is reported, so a failure does not
+# up, while one let go at once swaps. A pane's title bar held, then drawn up or
+# the wheel turned, puts it deeper in its Stack. A pane's card pulled down in
+# Spread leaves its Stack, and the Stack keeps the pane. Every check is reported, so a failure does not
 # hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -162,6 +163,29 @@ drag_onto() {
     sleep 1.2
 }
 aimed() { jq -e --arg id "$1" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"; }
+# A pane's title bar pressed and held, then drawn up `steps` cards' travel and
+# the wheel turned `wheel` notches (up for less than nothing); what the scrub
+# would do is kept to read afterwards.
+scrub_up() {
+    local id=$1 title=$2 steps=$3 wheel=${4:-0} x y dy
+    read -r x y <<<"$(probe windowGeometry "$id" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    client armMoveOf "$title"
+    probe contactButton true >/dev/null
+    sleep .6
+    for (( dy = 4; dy <= 20 + steps * 56; dy += 12 )); do
+        probe contactMotion "$x" "$((y - dy))" >/dev/null
+        sleep .03
+    done
+    if (( wheel != 0 )); then probe wheel "$wheel" >/dev/null; sleep .1; fi
+    kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
+    echo "state scrub-$id $(jq -c '{scrubPlace, scrubLadder}' "$XDG_RUNTIME_DIR/carry")"
+    probe contactButton false >/dev/null
+    sleep 1.2
+}
+scrubbing() { jq -e --argjson place "$1" --argjson ladder "$2" '.scrubPlace == $place and .scrubLadder == $ladder' "$XDG_RUNTIME_DIR/carry"; }
 
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
@@ -244,6 +268,22 @@ report built
 check 'built: four panes' panes 4
 check 'built: the last Stack waits behind its pane, front to back' behind_is "${w[12]}" "[\"${w[11]}\",\"${w[10]}\"]"
 check 'built: every pane holds a Stack of three' each_behind 2
+
+# A pane's title bar held, then drawn up, passes the cards behind it; let go,
+# it goes in there and the card it passed first fills the pane.
+scrub_up "${w[6]}" S6 2
+report scrubbed
+check 'scrub: held and drawn up two cards, it would go in last' \
+    scrubbing 2 "[\"${w[3]}\",\"${w[2]}\",\"${w[6]}\"]"
+check 'scrub: the card it passed first fills the pane' is_pane "${w[3]}"
+check 'scrub: it went in at the back' behind_is "${w[3]}" "[\"${w[2]}\",\"${w[6]}\"]"
+check 'scrub: still four panes' panes 4
+# The wheel, turned away while held, passes one card a notch.
+scrub_up "${w[3]}" S3 0 -1
+report wheeled
+check 'wheel: one notch up, it would go in second' scrubbing 1 "[\"${w[2]}\",\"${w[3]}\",\"${w[6]}\"]"
+check 'wheel: the card it passed fills the pane' is_pane "${w[2]}"
+check 'wheel: it went in second' behind_is "${w[2]}" "[\"${w[3]}\",\"${w[6]}\"]"
 
 # A pane's card pulled down in Spread leaves its Stack; the Stack keeps the
 # pane with its next card.

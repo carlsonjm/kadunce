@@ -12,6 +12,7 @@
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
 #include "PaneStackAim.h"
+#include "StackScrub.h"
 #include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
@@ -568,6 +569,17 @@ private:
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    // §11, Connected: a pane's face held by its title bar and drawn up passes
+    // the cards behind it, shown as a ladder of title bars, and goes in where
+    // it is let go.
+    bool followStackScrub(QPointF contact);
+    void beginStackScrub(double y);
+    void endStackScrub();
+    void refreshStackScrubShown();
+    // Where the ladder draws `window`: the card's box, and the part of it
+    // that shows.
+    [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
+    bool reorderPaneStack(KWin::EffectWindow *pane, int place);
     // The edges of the cards waiting behind each pane holding a Stack.
     void drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
@@ -954,6 +966,12 @@ private:
     // carry be resting still.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
     QPointer<KWin::EffectWindow> m_carryStackOnto;
+    // The carried pane holds a Stack and its hold is not yet told from a drag.
+    bool m_stackScrubArmed = false;
+    bool m_stackScrubLetGo = false;
+    StackScrub m_stackScrub;
+    QPointer<KWin::EffectWindow> m_stackScrubPane;
+    QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_stackScrubShown;
     QElapsedTimer m_paneStackClock;
     QTimer m_paneStackDwell;
     QPointF m_lastCarryContact;
