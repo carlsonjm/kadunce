@@ -180,6 +180,8 @@ KWin; elsewhere Plasma's touch edges reach Kadunce through its border actions
 
 Ordinary client contact remains native until a deliberate reserved edge or
 crossing proves Kadunce intent and KWin's native interaction is canceled once.
+A touch move is cancelled so that KWin's move filter keeps no contact from it,
+which would otherwise swallow the next touch move (`StaleTouchRelease.h`).
 Kadunce takes over a native move only while all of these still match:
 
 - the exact weak window identity;
