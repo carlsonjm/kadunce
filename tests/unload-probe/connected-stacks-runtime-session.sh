@@ -196,11 +196,11 @@ title_scrub() {
     probe activateWindowId "$id" >/dev/null
     sleep .3
     probe pointer "$x" "$y" >/dev/null
-    probe button true >/dev/null
+    probe contactButton true >/dev/null
     sleep "$hold"
     if (( steps > 0 )); then
         for (( dy = 4; dy <= 20 + steps * 56; dy += 12 )); do
-            probe pointer "$x" "$((y - dy))" >/dev/null
+            probe contactMotion "$x" "$((y - dy))" >/dev/null
             sleep .03
         done
     fi
@@ -208,7 +208,7 @@ title_scrub() {
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state title-scrub-$id $(jq -c '{scrubPlace, scrubLadder, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
     echo "state trace-title-scrub-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
-    probe button false >/dev/null
+    probe contactButton false >/dev/null
     sleep 1.2
 }
 # A pane carried by its title bar onto another pane, held `hold` seconds
@@ -220,18 +220,18 @@ title_drag() {
     probe activateWindowId "$id" >/dev/null
     sleep .3
     probe pointer "$x" "$y" >/dev/null
-    probe button true >/dev/null
+    probe contactButton true >/dev/null
     sleep "$hold"
-    probe pointer "$((x + 40))" "$((y + 20))" >/dev/null
+    probe contactMotion "$((x + 40))" "$((y + 20))" >/dev/null
     sleep .1
-    probe pointer "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
+    probe contactMotion "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
     sleep .1
-    probe pointer "$tx" "$ty" >/dev/null
+    probe contactMotion "$tx" "$ty" >/dev/null
     sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state title-drag-$id $(jq -c '{stackOnto, destinationRect, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
     echo "state trace-title-drag-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
-    probe button false >/dev/null
+    probe contactButton false >/dev/null
     sleep 1.2
 }
 # Every window is a pane or a card, never an ordinary window left over.
