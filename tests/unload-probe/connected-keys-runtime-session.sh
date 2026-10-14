@@ -80,13 +80,13 @@ kwriteconfig6 --file kaduncerc --group Spread --key Display Virtual-1
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-for title in 'Small' 'One' 'Two' 'Three' 'Four'; do client titledCompanion "$title" 500 400; sleep .5; done
+for title in 'Small' 'One' 'Two' 'Three' 'Four' 'Five'; do client titledCompanion "$title" 500 400; sleep .5; done
 probe sendCaptionToOutput 'Small' Virtual-0
-for title in 'One' 'Two' 'Three' 'Four'; do probe sendCaptionToOutput "$title" Virtual-1; done
+for title in 'One' 'Two' 'Three' 'Four' 'Five'; do probe sendCaptionToOutput "$title" Virtual-1; done
 sleep .5
 probe minimizeWindow "$(idOf unload-client)" true >/dev/null
 sleep .4
-small=$(idOf 'Small') one=$(idOf 'One') two=$(idOf 'Two') three=$(idOf 'Three') four=$(idOf 'Four')
+small=$(idOf 'Small') one=$(idOf 'One') two=$(idOf 'Two') three=$(idOf 'Three') four=$(idOf 'Four') five=$(idOf 'Five')
 probe activateWindowId "$one" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
@@ -153,11 +153,14 @@ report divider-left
 check 'divider: Meta+[ narrows it again' bash -c "(( \$(qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -r --arg id $left 'first(.[] | select(.id == \$id)) | .width') <= $wider - 60 ))"
 
 # Stacks: a pane with none joins the Stack of the pane used before it.
-# Four panes, so two joins still leave a layout.
+# Five panes, so two joins and a pane let go still leave a layout for a
+# pane holding a Stack to be carried out of.
 spread_key
 pick "$four"
+spread_key
+pick "$five"
 mapfile -t panes < <(large_panes)
-check 'stacks: the layout holds four panes' test "${#panes[@]}" -eq 4
+check 'stacks: the layout holds five panes' test "${#panes[@]}" -eq 5
 first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-} fourth=${panes[3]:-}
 focus_on "$second"
 focus_on "$first"
@@ -212,7 +215,7 @@ together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windo
     | (first($two[] | select(.windowId == $a)) | .paneStack == [$b])
       or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
 focus_on "$second"
-for _ in 1 2 3; do
+for _ in 1 2 3 4; do
     on_output "$second" Virtual-0 && break
     meta_shift 105
     focus_on "$second"
@@ -229,7 +232,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadu
 sleep .8
 report released
 check 'switched off: every window is an ordinary window on a display that exists' \
-    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length == 5 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length == 6 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
 kill "$client_pid" 2>/dev/null || true
 if (( failures > 0 )); then
     echo "FAIL: connected keys: $failures checks failed" >&2
