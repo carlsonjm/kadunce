@@ -7,7 +7,8 @@
 # small display and back. The brackets move a divider. Meta+Shift+Up puts a
 # pane with no Stack into the Stack of the pane used before it, and puts a
 # Stack's card deeper, placed when Meta is let go; Meta+Tab steps the Stack
-# and Meta+Shift+Down takes a card out of it, or a pane out of the layout.
+# and Meta+Shift+Down takes a card out of it, or a pane out of the layout. A
+# pane carried to the small display takes its Stack with it.
 # Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -196,6 +197,24 @@ focus_on "$four"
 meta_shift 108
 report left-layout
 check 'let go: a pane with no Stack leaves the layout as a card' is_card "$four"
+
+# A pane carried to another display takes its whole Stack with it.
+together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two
+    | (first($two[] | select(.windowId == $a)) | .paneStack == [$b])
+      or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
+focus_on "$second"
+for _ in 1 2 3; do
+    on_output "$second" Virtual-0 && break
+    meta_shift 105
+    focus_on "$second"
+done
+report stack-carried
+check 'carry: a pane holding a Stack reaches the small display' on_output "$second" Virtual-0
+check 'carry: its Stack came with it, in order' together "$second" "$first"
+meta 15
+report stack-carried-step
+check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $first 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"
+check 'carry: the card behind now shows there' focused "$first"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
