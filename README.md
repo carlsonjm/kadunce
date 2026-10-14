@@ -93,8 +93,9 @@ Every word the menu shows can be translated.
 The installer checks and builds Kadunce, then asks for permission to install the
 KWin plugin. Log out and back in afterwards so KWin loads it, and run it again
 after every KWin update. Kadunce runs on your distribution's own KWin.
-`patches/kwin/README.md` is an optional correction for a touch drag KWin can
-lose after one is cut short, reported to KDE as bug 526861.
+When Kadunce takes a touch drag from KWin, it leaves KWin nothing that loses
+the next one; `patches/kwin/README.md` is the earlier KWin-side correction, no
+longer needed.
 
 ## Turn off or uninstall
 

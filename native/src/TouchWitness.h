@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
+#include "StaleTouchRelease.h"
 #include <input.h>
 #include <input_event.h>
 #include <QDebug>
@@ -61,6 +62,7 @@ public:
         return false;
     }
     bool touchUp(KWin::TouchUpEvent *event) override {
+        if (event->id == StaleTouchRelease::Id) return false;
         m_down.remove(event->id);
         if (onTouchUp) onTouchUp(event->id);
         const auto unseen = m_unseenBottom.constFind(event->id);

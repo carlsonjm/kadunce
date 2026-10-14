@@ -1,9 +1,10 @@
 # KWin native touch-lifetime correction
 
 A version-bound correction to KWin 6.7.5, and the provenance and rollback
-contract of the local package that carries it. Kadunce runs on stock KWin;
-this correction is optional, and the problem it fixes is reported to KDE as bug
-526861. Kadunce's installer never patches, replaces or pins KWin, and this
+contract of the local package that carries it. Kadunce runs on stock KWin and
+no longer needs this correction: it clears the contact KWin's move filter would
+keep before it cancels a touch move (`native/src/StaleTouchRelease.h`). The
+problem is reported to KDE as bug 526861, closed there. Kadunce's installer never patches, replaces or pins KWin, and this
 repository distributes no package binary. Do not apply the patch to another KWin version without reviewing the
 upstream source and running the same focused regressions.
 

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CarrySession.h"
+#include "StaleTouchRelease.h"
 #include <effect/effecthandler.h>
 #include <window.h>
 #include <workspace.h>
@@ -89,7 +90,7 @@ public:
         // Even if that callback cancels/closes/removes source, its finish remains
         // takeover (never a drop). Recursive adoption is prohibited until return.
         m_cancellingWindow = window;
-        window->cancelInteractiveMoveResize();
+        StaleTouchRelease::cancel(window, owner.kind == CarryDevice::Touch);
         m_cancellingWindow.clear();
         // A deferred ordinary move may already have crossed outputs. Native
         // cancel returns to its original display; keep that authoritative home
