@@ -22,6 +22,11 @@ int main()
         const auto ticket = *contacts.soleCandidate();
         require(contacts.motion(owner, {-500,2000}), "Unbounded motion rejected");
         require(contacts.resolve(ticket)->position == QPointF(-500,2000), "Position stale or clamped");
+        require(contacts.held(owner)->travel == QPointF(-510,1980), "Travel lost the hand's motion");
+        // A mouse pushed on at the screen's edge: the pointer stands, the hand goes on.
+        require(contacts.motion(owner, {-500,2000}, {0,-40}), "Motion at the edge rejected");
+        require(contacts.held(owner)->travel == QPointF(-510,1940), "Travel ignored the device's own motion");
+        require(contacts.held(owner)->pressedPosition == QPointF(10,20), "Press position moved");
         CarryContacts foreign;
         foreign.press(owner, {});
         require(!foreign.resolve(ticket), "Other ledger accepted ticket");

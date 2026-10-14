@@ -446,14 +446,14 @@ does.
 
 ### Cancel
 
-A cancelled carry returns the window to its exact ownership and presentation
-state from before the carry.
+A cancelled carry returns the window to its ownership and presentation before
+it.
 
-An edge action commits only when released inside its valid edge zone.
+An edge action commits only when released in its edge zone.
 
 ## 11. Multiple displays
 
-Each display, on each desktop, has its own ownership session. An edge action
+Each display, per desktop, has its own ownership session. An edge action
 reads that display's state: its Active card, Bento layout and pane cap.
 
 Every display shows its windows as cards, and one holds Spread: the one you
@@ -474,13 +474,14 @@ holds more than two panes (§5), unless chosen for that display (`kaduncerc`
 `[Sizing]`). Active is the rest of this document.
 On Connected:
 
-- Spread is as on Active, each pane its own card. Search floats, joining
+- Spread is as on Active, each pane a card. Search floats, joining
   only an open Spread.
 - A card chosen or window opened joins the layout: paired with the card
   in use when none shows, else under §8.
-- A Stack fills one pane, its other cards' edges showing; stepping it or
-  closing its front plays the next. A pane rested on another joins its
-  Stack in front, leaving its slot to its own Stack; Spread holds panes.
+- A Stack fills one pane, the rest behind; stepping or closing its
+  front plays the next, and a card called comes forward; its title
+  bar held, then drawn up, reorders it. A pane rested on another joins
+  its Stack in front, leaving its slot to its own Stack.
 - A side snap or dock launch names a place, not a size: an edge's upper half
   beside, a full-height column; its lower half under, at that column's foot.
   Alone it keeps that place. An arrival fills open room, else

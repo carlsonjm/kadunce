@@ -69,6 +69,7 @@
 #include <QDebug>
 #include <QEasingCurve>
 #include <QJsonArray>
+#include <chrono>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -1062,11 +1063,29 @@ Effect::Effect()
         traceNativeMove(m_carriedWindow, "adopted");
         takeCarriedDialogs(m_carriedWindow);
         KWin::effects->setElevatedWindow(m_carriedWindow, true);
+        // §11, Connected: a pane holding a Stack, held before it is drawn up,
+        // reorders its Stack instead of being carried.
+        endStackScrub();
+        m_stackScrubArmed = m_desktopStage->managesWindow(m_carriedWindow)
+            && !m_cardStage->paneStack(m_carriedWindow).isEmpty();
+        if (m_stackScrubArmed) m_stackScrubPane = m_carriedWindow;
         KWin::effects->addRepaintFull();
     };
     m_carryRuntime->moved = [this](QPointF p) {
         m_carryDrawn = carriedPose();
+        if (followStackScrub(p)) return;
         updateNativeCarryDestination(p);
+    };
+    m_carryRuntime->letGo = [this] { m_stackScrubLetGo = m_stackScrub.active(); };
+    m_carryRuntime->wheeled = [this](int notches) {
+        if (!m_stackScrub.active()) {
+            if (!m_stackScrubArmed || !m_stackScrubPane) return false;
+            beginStackScrub(stackScrubHand(KWin::effects->cursorPos().y()));
+        }
+        m_stackScrub.wheel(notches, stackScrubHand(KWin::effects->cursorPos().y()));
+        refreshStackScrubShown();
+        KWin::effects->addRepaintFull();
+        return true;
     };
     m_carryRuntime->deferred = [this](KWin::Window *w) {
         // Native-drag visibility exception only: no controller start, which
@@ -1100,8 +1119,21 @@ Effect::Effect()
         const QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         const QRectF drawn = std::exchange(m_carryDrawn, QRectF());
         const bool landed = std::exchange(m_carryLanded, false);
+        // A Stack scrubbed goes in where it was let go, and nowhere when the
+        // scrub was cancelled. The pane never left its place.
+        const QPointer<KWin::EffectWindow> scrubbed = m_stackScrub.active() ? m_stackScrubPane : nullptr;
+        const int place = m_stackScrub.place;
+        const bool letGo = std::exchange(m_stackScrubLetGo, false);
+        endStackScrub();
         endNativeCarryPresentation();
         if (m_heldActiveMove == carried) m_heldActiveMove.clear();
+        if (scrubbed) {
+            if (letGo && place > 0)
+                QTimer::singleShot(0, this, [this, scrubbed, place] {
+                    if (scrubbed) (void)reorderPaneStack(scrubbed, place);
+                });
+            return;
+        }
         // §11, Every display: wherever the carry left it, a window loose on a
         // display holding its own cards becomes a card there.
         if (carried) QTimer::singleShot(0, this, [this, carried] { claimWindowForItsDisplay(carried); });
@@ -4349,6 +4381,7 @@ void Effect::endNativeCarryPresentation()
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
+    endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -4441,6 +4474,19 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
         // §11, Connected: the pane a carried pane would join in a Stack.
         {QStringLiteral("stackOnto"), m_carryStackOnto ? windowIdentity(m_carryStackOnto) : QString()},
+        // §11, Connected: the place a scrubbed face would go in at, and the
+        // cards its ladder shows, front first.
+        {QStringLiteral("scrubPlace"), m_stackScrub.active() ? m_stackScrub.place : -1},
+        {QStringLiteral("scrubLadder"), [this] {
+            QJsonArray ladder;
+            if (!m_stackScrub.active() || !m_stackScrubPane) return ladder;
+            const auto order = stackScrubOrder(m_stackScrubPane.data(),
+                m_cardStage->paneStack(m_stackScrubPane), m_stackScrub.place);
+            for (int i = m_stackScrub.ladderStart();
+                 i < std::min<int>(order.size(), m_stackScrub.ladderStart() + m_stackScrub.ladderCount()); ++i)
+                ladder.append(windowIdentity(order.at(i)));
+            return ladder;
+        }()},
         {QStringLiteral("titleBarHold"), KWin::input() && KWin::input()->touch()
             ? KWin::input()->touch()->decorationPressId() : -1},
         {QStringLiteral("inputBusy"), m_carryRuntime && m_carryRuntime->route.busy()},
@@ -4460,6 +4506,8 @@ QString Effect::nativeCarryState() const
 
 void Effect::updateNativeCarryDestination(QPointF contact)
 {
+    // A Stack being scrubbed has no destination: it goes back in its pane.
+    if (m_stackScrub.active()) return;
     const auto traceDestination = qScopeGuard([this] {
         const QString state = m_carryCardEntryOutput
             ? QStringLiteral("destination-card:%1").arg(m_carryCardEntryOutput->name())
@@ -7072,26 +7120,174 @@ bool Effect::stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto)
     return true;
 }
 
-void Effect::drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+bool Effect::followStackScrub(QPointF contact)
+{
+    if (m_stackScrub.active()) {
+        // A card closed or the pane gone mid-scrub leaves nothing to order.
+        if (!m_stackScrubPane
+            || int(m_cardStage->paneStack(m_stackScrubPane).size()) + 1 != m_stackScrub.size) {
+            if (m_carryRuntime) m_carryRuntime->cancel();
+            return true;
+        }
+        m_stackScrub.follow(stackScrubHand(contact.y()));
+        refreshStackScrubShown();
+        KWin::effects->addRepaintFull();
+        return true;
+    }
+    if (!m_stackScrubArmed || !m_carryRuntime) return false;
+    const auto held = m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner());
+    if (!held || !m_stackScrubPane) { m_stackScrubArmed = false; return false; }
+    const QPointF travel = held->travel;
+    const auto heldMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - held->pressedAt).count();
+    switch (stackScrubStart(travel.x(), travel.y(), heldMs)) {
+    case StackScrubStart::Undecided: return false;
+    case StackScrubStart::Carry: m_stackScrubArmed = false; return false;
+    case StackScrubStart::Scrub: break;
+    }
+    beginStackScrub(held->pressedPosition.y());
+    m_stackScrub.follow(stackScrubHand(contact.y()));
+    refreshStackScrubShown();
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+double Effect::stackScrubHand(double pointerY) const
+{
+    // A pane in the top row has its title bar at the screen's edge, where the
+    // pointer stops; the hand's own travel still counts.
+    if (!m_carryRuntime) return pointerY;
+    const auto held = m_carryRuntime->observer.contacts().held(m_carryRuntime->route.owner());
+    return held ? held->pressedPosition.y() + held->travel.y() : pointerY;
+}
+
+void Effect::beginStackScrub(double y)
+{
+    m_stackScrubArmed = false;
+    if (!m_stackScrubPane) return;
+    m_stackScrub.begin(int(m_cardStage->paneStack(m_stackScrubPane).size()) + 1, 0, y);
+    // Whatever the carry aimed at before the hold was told is withdrawn.
+    m_carryDestination.reset(); m_carryPreview.reset();
+    m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
+    m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
+    if (m_carryRuntime) m_carryRuntime->handoff.withdrawDrop();
+    qInfo() << "Kadunce" << Revision << "scrubs the Stack of" << m_stackScrubPane->caption()
+            << "of" << m_stackScrub.size;
+}
+
+void Effect::endStackScrub()
+{
+    const bool shown = m_stackScrub.active();
+    m_stackScrub.clear();
+    m_stackScrubArmed = false;
+    m_stackScrubPane.clear();
+    m_stackScrubShown.clear();
+    if (shown) KWin::effects->addRepaintFull();
+}
+
+void Effect::refreshStackScrubShown()
+{
+    // The cards behind are hidden while the layout shows; the ones on the
+    // ladder are drawn there, and only there.
+    QSet<KWin::EffectWindow *> ladder;
+    if (m_stackScrub.active() && m_stackScrubPane) {
+        const auto order = stackScrubOrder(m_stackScrubPane.data(),
+            m_cardStage->paneStack(m_stackScrubPane), m_stackScrub.place);
+        const int end = std::min<int>(order.size(), m_stackScrub.ladderStart() + m_stackScrub.ladderCount());
+        for (int i = m_stackScrub.ladderStart(); i < end; ++i)
+            if (order.at(i) && order.at(i) != m_stackScrubPane) ladder.insert(order.at(i));
+    }
+    for (auto it = m_stackScrubShown.begin(); it != m_stackScrubShown.end();)
+        it = ladder.contains(it.key()) ? std::next(it) : m_stackScrubShown.erase(it);
+    for (auto *window : std::as_const(ladder))
+        if (!m_stackScrubShown.contains(window) && !window->isDeleted())
+            m_stackScrubShown.insert(window, KWin::EffectWindowVisibleRef(window,
+                KWin::EffectWindow::PAINT_DISABLED | KWin::EffectWindow::PAINT_DISABLED_BY_MINIMIZE
+                | KWin::EffectWindow::PAINT_DISABLED_BY_DESKTOP));
+}
+
+std::optional<std::pair<QRectF, QRectF>> Effect::stackScrubRung(const KWin::EffectWindow *window) const
+{
+    if (!window || !m_stackScrub.active() || !m_stackScrubPane || m_stackScrubPane->isDeleted())
+        return std::nullopt;
+    const auto order = stackScrubOrder(m_stackScrubPane.data(),
+        m_cardStage->paneStack(m_stackScrubPane), m_stackScrub.place);
+    const int index = order.indexOf(const_cast<KWin::EffectWindow *>(window));
+    const int rung = index - m_stackScrub.ladderStart();
+    const int count = std::min<int>(m_stackScrub.ladderCount(), order.size() - m_stackScrub.ladderStart());
+    if (index < 0 || rung < 0 || rung >= count) return std::nullopt;
+    const QRectF pane(m_stackScrubPane->frameGeometry());
+    const auto box = stackLadderRung(pane.x(), pane.y(), pane.width(), pane.height(), rung, count);
+    const QRectF rect(box.x, box.y, box.width, box.height);
+    // The card in front shows whole; each behind it, its title bar.
+    return std::pair{rect, rung == 0 ? rect : QRectF(rect.x(), rect.y(), rect.width(), StackLadderRung)};
+}
+
+bool Effect::reorderPaneStack(KWin::EffectWindow *pane, int place)
+{
+    if (!pane || !m_desktopStage->managesWindow(pane)) return false;
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    if (behind.isEmpty() || place <= 0) return false;
+    const bool there = isOtherCardDisplay(pane->screen());
+    const QList<KWin::EffectWindow *> order = stackScrubOrder(pane, behind, place);
+    KWin::EffectWindow *face = order.first();
+    m_cardStage->forgetPaneStack(pane);
+    m_cardStage->notePaneStack(face, order.mid(1));
+    if (!m_desktopStage->replacePaneWithCard(pane, face,
+            [this, face, there] {
+                return there ? m_cardStage->releaseCardToDisplay(face)
+                             : m_cardStage->releaseCardToLiveBento(face);
+            })) {
+        m_cardStage->forgetPaneStack(face);
+        m_cardStage->notePaneStack(pane, behind);
+        return false;
+    }
+    m_cardHomes.remove(face);
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    KWin::effects->activateWindow(face);
+    qInfo() << "Kadunce" << Revision << "put" << pane->caption() << "at place" << place + 1
+            << "of its Stack; " << face->caption() << "is in front";
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+void Effect::drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
     KWin::LogicalOutput *screen)
 {
-    // §11, Connected: a pane holding a Stack shows the top and right edges of
-    // up to two cards waiting behind it, in the gap beside the pane.
-    if (!m_destinationShader || !screen || !connectedOutputForDesktopStage(screen)) return;
-    // Only over a layout as it shows, never over Spread, Table or a card.
-    if (screen == tabletOutput() && !m_cardStage->presentsBento()) return;
-    for (const auto &pane : m_desktopStage->panesOn(screen->name())) {
-        if (!pane || pane->isDeleted() || pane->isMinimized() || pane == m_carriedWindow) continue;
-        const int behind = std::min<int>(2, m_cardStage->paneStack(pane).size());
-        if (behind <= 0) continue;
-        const QRectF frame(pane->frameGeometry());
-        for (int k = behind; k >= 1; --k) {
-            const double offset = 3.0 * k;
-            drawDestinationOutline(renderTarget, viewport, deviceRegion, screen,
-                frame.translated(offset, -offset), frame);
-        }
+    // §11, Connected: a pane holding a Stack shows nothing of it at rest. Held
+    // and drawn up, the card on its ladder is outlined, so its place shows.
+    if (!m_destinationShader || !screen || !m_stackScrubPane || m_stackScrubPane->screen() != screen) return;
+    if (const auto rung = stackScrubRung(m_stackScrubPane))
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, rung->first);
+}
+
+bool Effect::callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card)
+{
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    const int at = behind.indexOf(card);
+    if (at < 0) return false;
+    const bool there = isOtherCardDisplay(pane->screen());
+    // As if stepped to it: the cards it passed go round to the back, in turn.
+    const QList<KWin::EffectWindow *> ring = behind.mid(at + 1) + QList<KWin::EffectWindow *>{pane} + behind.mid(0, at);
+    m_cardStage->forgetPaneStack(pane);
+    m_cardStage->notePaneStack(card, ring);
+    if (!m_desktopStage->replacePaneWithCard(pane, card,
+            [this, card, there] {
+                return there ? m_cardStage->releaseCardToDisplay(card)
+                             : m_cardStage->releaseCardToLiveBento(card);
+            })) {
+        m_cardStage->forgetPaneStack(card);
+        m_cardStage->notePaneStack(pane, behind);
+        return false;
     }
+    m_cardHomes.remove(card);
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    qInfo() << "Kadunce" << Revision << "brought" << card->caption() << "to the front of its Stack's pane";
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
@@ -7306,7 +7502,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
                             KWin::WindowPrePaintData &data)
 {
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
-        || yieldingPaneOpacity(window)) {
+        || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)) {
         data.setTransformed(); data.setTranslucent();
     }
     // Left undrawn, so it must not hide what is under it from the scene.
@@ -7476,7 +7672,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, front);
         overlaid.append(box);
     }
-    drawPaneStackEdges(renderTarget, viewport, deviceRegion, screen);
+    drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, QRectF(*m_placementPreview));
@@ -7830,6 +8026,11 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     // §11, Every display: a card waiting for another display never joins
     // this one's layout; focus handed to it is not a pick.
     if (cardHome(window)) return true;
+    // §11, Connected: a card waiting behind a pane, called, comes to the
+    // front of that pane. It never takes a pane of its own, which would part
+    // it from its Stack.
+    if (auto *pane = m_cardStage->paneHolding(window); pane && m_desktopStage->managesWindow(pane))
+        return callPaneStackCard(pane, window);
     KWin::LogicalOutput *output = window->screen();
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
     qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"
@@ -8181,6 +8382,28 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (m_previewDesktop) {
         if (!hiddenByDesktopPreview(window))
             if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        return paintResult(true);
+    }
+    // §11, Connected: a Stack scrubbed draws its ladder over its pane, and
+    // the cards on it nowhere else.
+    if (m_stackScrub.active() && (window == m_stackScrubPane || m_stackScrubShown.contains(window))) {
+        const auto rung = stackScrubRung(window);
+        if (!rung || !m_paintingOutput || m_stackScrubPane->screen() != m_paintingOutput)
+            return paintResult(true);
+        const auto [box, shows] = *rung;
+        const QSizeF size = QRectF(window->frameGeometry()).size();
+        if (size.isEmpty()) return paintResult(true);
+        // Its own shape, as wide as its rung, its title bar at the rung's top.
+        const KWin::Rect target = KWin::RectF(QRectF(box.x(), box.y(), box.width(),
+            box.width() * size.height() / size.width())).toRect();
+        KWin::Rect logicalRegion = window->expandedGeometry().toRect();
+        setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatio);
+        const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
+        const auto clip = deviceRegion
+            & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(shows.intersected(box))))
+            & roundedClip(deviceTarget, CardCornerRadius * viewport.scale());
+        if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
+            mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);

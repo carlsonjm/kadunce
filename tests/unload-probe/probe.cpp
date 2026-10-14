@@ -621,6 +621,12 @@ public Q_SLOTS:
         KWin::input()->pointer()->processMotionAbsolute({double(x),double(y)},now(), &device);
         KWin::input()->pointer()->processFrame();
     }
+    // The probe mouse moved by its own travel, as a real mouse reports it:
+    // pushed on at the screen's edge, its pointer stands while it goes on.
+    void contactNudge(int dx, int dy) {
+        KWin::input()->pointer()->processMotion({double(dx),double(dy)}, {double(dx),double(dy)}, now(), &device);
+        KWin::input()->pointer()->processFrame();
+    }
     // A mouse pressed and moved off in one go, as a quick drag arrives, with
     // no pause between for any hold to end.
     void contactPressAndMove(int x, int y) {
@@ -767,6 +773,31 @@ public Q_SLOTS:
             const auto r = window->frameGeometry();
             return QString::fromUtf8(QJsonDocument(QJsonObject{{"x",r.x()},{"y",r.y()},
                 {"width",r.width()},{"height",r.height()}}).toJson(QJsonDocument::Compact));
+        }
+        return QStringLiteral("{}");
+    }
+    // Gives a window KWin's own title bar, as an application without its own
+    // draws, so a scene presses a real title bar rather than asking the
+    // application to start a move.
+    bool serverDecorate(const QString &id) {
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (window->internalId().toString(QUuid::WithoutBraces) != id || !window->window()) continue;
+            window->window()->setDecorationPolicy(KWin::DecorationPolicy::Server);
+            return bool(window->window()->decoration());
+        }
+        return false;
+    }
+    // The middle of a window's title bar, on the screen, or nothing when it
+    // has no title bar of KWin's.
+    QString titleBarOf(const QString &id) {
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (window->internalId().toString(QUuid::WithoutBraces) != id || !window->window()) continue;
+            const auto *decoration = window->window()->decoration();
+            if (!decoration) break;
+            const auto title = decoration->titleBar();
+            const auto frame = window->frameGeometry();
+            return QString::fromUtf8(QJsonDocument(QJsonObject{{"x",frame.x() + title.center().x()},
+                {"y",frame.y() + title.center().y()},{"height",title.height()}}).toJson(QJsonDocument::Compact));
         }
         return QStringLiteral("{}");
     }

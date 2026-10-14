@@ -59,14 +59,14 @@ public:
     quint64 deviceToken(KWin::InputDevice *device) const { return m_devices.value(device).token; }
     void clearContacts()
     {
-        m_contacts.clear(); m_pointerSurface.clear(); m_decorationCandidate.reset();
+        m_contacts.clear(); m_pointerSurface.clear(); forgetDecoration();
         if (invalidated) invalidated();
     }
     // InputEventSpy has no touchCancel. The caller must forward cancellation
     // before any consumer can swallow it; this class chooses no filter priority.
     void cancelTouch()
     {
-        m_contacts.cancel(CarryDevice::Touch); m_decorationCandidate.reset();
+        m_contacts.cancel(CarryDevice::Touch); forgetDecoration();
         if (invalidated) invalidated();
     }
     bool watch(KWin::Window *window)
@@ -100,14 +100,19 @@ public:
                 // A consumer may unwatch/cancel during the native-start callback.
                 // Server-side decoration proof also applies to Xwayland. Only
                 // application-request proof requires an xdg-toplevel protocol.
-                if (!current(record) || !record->window->isInteractiveMove()
-                    || m_decorationWindow != record->window || !m_decorationCandidate) return;
-                const auto ticket = *m_decorationCandidate;
-                const auto contact = m_contacts.resolve(ticket);
+                // A title bar held still starts its move from KWin's own
+                // timer, a turn away from any decoration event; the press it
+                // began with still proves it while nothing else came down.
+                if (!current(record) || !record->window->isInteractiveMove()) return;
+                const auto ticket = m_decorationWindow == record->window && m_decorationCandidate
+                    ? m_decorationCandidate
+                    : m_decorationPressWindow == record->window ? m_decorationPress : std::nullopt;
+                if (!ticket) return;
+                const auto contact = m_contacts.resolve(*ticket);
                 if (!contact) return;
-                if (ticket.owner().kind == CarryDevice::Touch
-                    && KWin::input()->touch()->decorationPressId() != ticket.owner().contact) return;
-                if (identified) identified(record->window, ticket, contact->position, Proof::DecorationMotion);
+                if (ticket->owner().kind == CarryDevice::Touch
+                    && KWin::input()->touch()->decorationPressId() != ticket->owner().contact) return;
+                if (identified) identified(record->window, *ticket, contact->position, Proof::DecorationMotion);
             }));
         refreshProtocol(record);
         refreshDecoration(record);
@@ -124,7 +129,7 @@ public:
             record->decoration->removeEventFilter(this);
             m_decorations.remove(record->decoration);
         }
-        if (m_decorationWindow == window) m_decorationCandidate.reset();
+        if (m_decorationWindow == window || m_decorationPressWindow == window) forgetDecoration();
     }
     void clearWindows()
     {
@@ -236,7 +241,8 @@ private:
             record->decorationDestroyed = connect(decoration, &QObject::destroyed, this,
                 [this, decoration] { m_decorations.remove(decoration); });
         }
-        if (m_decorationWindow == record->window) m_decorationCandidate.reset();
+        if (m_decorationWindow == record->window || m_decorationPressWindow == record->window)
+            forgetDecoration();
     }
     bool eventFilter(QObject *object, QEvent *event) override
     {
@@ -245,6 +251,10 @@ private:
                 || event->type() == QEvent::HoverMove)) {
             m_decorationWindow = m_decorations.value(object);
             m_decorationCandidate = m_contacts.soleCandidate();
+            if (event->type() == QEvent::MouseButtonPress) {
+                m_decorationPressWindow = m_decorationWindow;
+                m_decorationPress = m_decorationCandidate;
+            }
             const auto generation = ++m_decorationEvent;
             QTimer::singleShot(0, this, [this, generation] {
                 if (generation == m_decorationEvent) m_decorationCandidate.reset();
@@ -271,7 +281,7 @@ private:
         // from QObject::destroyed. Duplicate removal is harmless.
         if (removed.touch) m_contacts.cancel(CarryDevice::Touch);
         if (m_pointerOwner.device == removed.token) m_pointerSurface.clear();
-        m_decorationCandidate.reset();
+        forgetDecoration();
         if (invalidated) invalidated();
         if (streamRemoved) {
             streamRemoved(CarryDevice::Pointer, removed.token);
@@ -298,7 +308,7 @@ private:
             const auto ticket = observer->m_contacts.soleCandidate();
             if (!ticket || ticket->owner().kind != CarryDevice::Pointer
                 || ticket->owner().device != observer->token(event->device)) return;
-            observer->m_contacts.motion(ticket->owner(), event->position);
+            observer->m_contacts.motion(ticket->owner(), event->position, event->delta);
         }
         void touchDown(KWin::TouchDownEvent *event) override
         {
@@ -316,7 +326,7 @@ private:
             const CarryOwner owner{CarryDevice::Touch, 1, event->id};
             observer->m_contacts.release(owner);
         }
-        void keyboardKey(KWin::KeyboardKeyEvent *) override { observer->m_decorationCandidate.reset(); }
+        void keyboardKey(KWin::KeyboardKeyEvent *) override { observer->forgetDecoration(); }
     };
     CarryContacts m_contacts;
     struct Device { quint64 token = 0; bool touch = false; };
@@ -330,7 +340,10 @@ private:
     QPointer<KWin::Window> m_touchWindow;
     QPointer<KWin::Window> m_decorationWindow;
     std::optional<Candidate> m_decorationCandidate;
+    QPointer<KWin::Window> m_decorationPressWindow;
+    std::optional<Candidate> m_decorationPress;
     quint64 m_decorationEvent = 0;
+    void forgetDecoration() { m_decorationCandidate.reset(); m_decorationPress.reset(); }
     Spy m_spy; // uninstalls before contact storage is destroyed
 };
 } // namespace Kadunce

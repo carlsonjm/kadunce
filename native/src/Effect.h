@@ -12,6 +12,7 @@
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
 #include "PaneStackAim.h"
+#include "StackScrub.h"
 #include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
@@ -565,11 +566,24 @@ private:
     void refillOtherDisplay(const QString &outputName);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
+    bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
-    // The edges of the cards waiting behind each pane holding a Stack.
-    void drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+    // §11, Connected: a pane's face held by its title bar and drawn up passes
+    // the cards behind it, shown as a ladder of title bars, and goes in where
+    // it is let go.
+    bool followStackScrub(QPointF contact);
+    void beginStackScrub(double y);
+    double stackScrubHand(double pointerY) const;
+    void endStackScrub();
+    void refreshStackScrubShown();
+    // Where the ladder draws `window`: the card's box, and the part of it
+    // that shows.
+    [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
+    bool reorderPaneStack(KWin::EffectWindow *pane, int place);
+    // The held card's place on the ladder of a Stack being scrubbed.
+    void drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
                             KWin::LogicalOutput *screen);
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
@@ -954,6 +968,12 @@ private:
     // carry be resting still.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
     QPointer<KWin::EffectWindow> m_carryStackOnto;
+    // The carried pane holds a Stack and its hold is not yet told from a drag.
+    bool m_stackScrubArmed = false;
+    bool m_stackScrubLetGo = false;
+    StackScrub m_stackScrub;
+    QPointer<KWin::EffectWindow> m_stackScrubPane;
+    QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_stackScrubShown;
     QElapsedTimer m_paneStackClock;
     QTimer m_paneStackDwell;
     QPointF m_lastCarryContact;

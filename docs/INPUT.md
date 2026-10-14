@@ -74,7 +74,7 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of the card display | The window pairs into Bento on your side with the Active card, or for the Active card the card used before it; the upper half, the larger pane. With none, it becomes the Active card. Connected, the upper half places it beside, a full-height column; the lower half under, at the bottom of that side's column. |
+| Drag a window by its title bar to the left or right edge of the card display | The window pairs into Bento on your side with the Active card, or for the Active card the card used before it; the upper half, the larger pane. With none, it becomes the Active card. Connected, `CARD-LIFECYCLE.md` §11 says where. |
 | `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor, pairing the Active card with the card used before it. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display without cards | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
@@ -89,9 +89,9 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 
 | Input | What happens |
 | --- | --- |
-| Open Spread | As on Active; each pane its own card. |
 | Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout on it. |
-| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack, its edges showing, steps in place. |
+| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
+| Hold a pane's title bar, then drag up or turn the wheel | Its card passes its Stack's cards, four title bars showing, and goes in where let go. |
 
 ## Table
 

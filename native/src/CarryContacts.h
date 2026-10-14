@@ -3,6 +3,7 @@
 
 #include "CarrySession.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -19,6 +20,14 @@ public:
         CarryOwner owner;
         QPointF position;
         bool trustworthy = true;
+        // Where and when it came down, so a hold before a drag can be told
+        // from a drag begun at once.
+        QPointF pressedPosition;
+        std::chrono::steady_clock::time_point pressedAt;
+        // How far the hand has gone since, as the device moved: a mouse
+        // pushed on past the edge of the screen keeps travelling here while
+        // its pointer stands at the edge.
+        QPointF travel;
     };
     class Candidate {
     public:
@@ -47,10 +56,10 @@ public:
             found->trustworthy = false;
             return false;
         }
-        m_contacts.push_back({owner, position});
+        m_contacts.push_back({owner, position, true, position, std::chrono::steady_clock::now(), {}});
         return true;
     }
-    bool motion(CarryOwner owner, QPointF position)
+    bool motion(CarryOwner owner, QPointF position, QPointF delta = {})
     {
         auto found = find(owner);
         if (found == m_contacts.end()) return false; // Never invent a missing down.
@@ -59,6 +68,7 @@ public:
             found->trustworthy = false;
             return false;
         }
+        found->travel += delta.isNull() ? position - found->position : delta;
         found->position = position;
         return true;
     }
@@ -94,6 +104,14 @@ public:
             || m_contacts.front().owner != candidate.m_owner)
             return std::nullopt;
         return m_contacts.front();
+    }
+
+    std::optional<Contact> held(CarryOwner owner) const
+    {
+        const auto found = std::find_if(m_contacts.cbegin(), m_contacts.cend(),
+                                        [&](const Contact &c) { return c.owner == owner; });
+        if (found == m_contacts.cend()) return std::nullopt;
+        return *found;
     }
 
 private:
