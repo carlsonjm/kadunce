@@ -56,6 +56,8 @@ together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windo
       or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
 apart() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b) | .stackId] as $ids
     | ($ids | length) == 2 and ($ids[0] == null or $ids[1] == null or $ids[0] != $ids[1])'; }
+# A card shown on a display fills it; a loose window keeps the size it had.
+fills() { probe windowFacts | jq -e --arg id "$1" 'first(.[] | select(.id == $id)) | .width > 1200'; }
 x_of() { probe windowFacts | jq -r --arg id "$1" 'first(.[] | select(.id == $id)) | .x'; }
 meta() { probe key "$1" 125 >/dev/null; sleep 1.2; }
 meta_shift() { probe keyHeld "$1" "${2:-1}" 125 42 >/dev/null; sleep 1.4; }
@@ -100,6 +102,7 @@ report carried
 check 'carry: Meta+Shift+Left takes the pane to the small display' on_output "$moved" Virtual-0
 check 'carry: it shows there' shown_on "$moved" Virtual-0
 check 'carry: there it is the card that display shows, not a loose window' is_pane "$moved"
+check 'carry: and it fills that display' fills "$moved"
 meta_shift 106
 report back
 check 'back: Meta+Shift+Right brings it to the large display' on_output "$moved" Virtual-1
@@ -122,6 +125,7 @@ carry_left "$front"
 report stack-carried
 check 'stack: the Stack reaches the small display' on_output "$front" Virtual-0
 check 'stack: there it is the card that display shows' is_pane "$front"
+check 'stack: and it fills that display' fills "$front"
 check 'stack: its Stack came with it' together "$front" "$rest"
 meta 15
 report stack-stepped

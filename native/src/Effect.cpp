@@ -2930,7 +2930,8 @@ void Effect::handleWindowOutputChanged()
                                                           : QList<KWin::EffectWindow *>{};
         if (window && !m_releasing && window->window() && !window->isUserMove()
             && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
-            && !cardHome(window) && m_cardStage->presentation() != CardPresentation::Spread
+            && !cardHome(window)
+            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
             && m_desktopStage->handoffPaneToOutput(window, window->window()->moveResizeOutput())) {
             // §11, Every display: on a display holding its own cards it is the
             // card shown there, with no layout to join as well, and its Stack
