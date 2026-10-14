@@ -70,6 +70,10 @@ qt_add_resources(kwin4_effect_kadunce "kadunce_table"
         src/spoken/SpokenLine.qml
 )
 
+# The KWin this build plays on; Effect::supported() turns Cards off on another.
+target_compile_definitions(kwin4_effect_kadunce PRIVATE
+    KADUNCE_BUILT_KWIN="${KWin_VERSION}")
+
 target_link_libraries(kwin4_effect_kadunce
     PRIVATE KDecoration3::KDecoration
     XCB::XCB
@@ -200,6 +204,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-display-sizing-test PRIVATE src)
     target_link_libraries(kadunce-display-sizing-test PRIVATE Qt6::Core)
     add_test(NAME display-sizing COMMAND kadunce-display-sizing-test)
+    add_executable(kadunce-kwin-match-test tests/KWinMatchTest.cpp)
+    target_include_directories(kadunce-kwin-match-test PRIVATE src)
+    target_link_libraries(kadunce-kwin-match-test PRIVATE Qt6::Core)
+    add_test(NAME kwin-match COMMAND kadunce-kwin-match-test)
     add_executable(kadunce-stack-scrub-test tests/StackScrubTest.cpp)
     target_include_directories(kadunce-stack-scrub-test PRIVATE src)
     add_test(NAME stack-scrub COMMAND kadunce-stack-scrub-test)
