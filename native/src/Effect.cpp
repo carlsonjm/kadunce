@@ -8370,6 +8370,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     }
     Q_EMIT workspaceContextChanged();
     syncDesktopPreview();
+    m_cardStage->liftSurfaceAboveCards(window);
     if (isDependentWindow(window)) {
         // Anything that activates it before the next turn is the application
         // opening it, not the person asking for it.

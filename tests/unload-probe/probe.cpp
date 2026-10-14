@@ -397,6 +397,17 @@ public Q_SLOTS:
         }
         return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
     }
+    // The order KWin draws windows in, which an elevated window leaves.
+    QString drawOrder() {
+        QJsonArray list;
+        for (auto *w : KWin::workspace()->stackingOrder()) {
+            if (w->isDeleted() || !w->windowItem()) continue;
+            list.append(QJsonObject{{"caption", w->caption()}, {"normal", w->isNormalWindow()},
+                {"notification", w->isNotification()}, {"layer", int(w->layer())},
+                {"z", w->windowItem()->z()}});
+        }
+        return QString::fromUtf8(QJsonDocument(list).toJson(QJsonDocument::Compact));
+    }
     // What KWin's window menu does with Move to Desktop.
     bool sendToDesktop(const QString &caption, const QString &desktopId) {
         auto *desktop = KWin::VirtualDesktopManager::self()->desktopForId(desktopId);
