@@ -51,7 +51,7 @@ are up, the bottom edge is theirs.
 | A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick stroke moves the row instead. |
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
-| Pull a Stack's card down | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. |
+| Pull a Stack's card down, or `Meta+Shift+Down` on the centred one | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. |
 | Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go and the card goes there, the front card showing; where it began, nothing changes. |
 
 ## Active card

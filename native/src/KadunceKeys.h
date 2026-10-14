@@ -34,7 +34,8 @@ enum class KeyAction {
     // A pane's card goes one place deeper in its Stack, or, in none, joins
     // the Stack of the pane used just before it.
     Deeper,
-    // A pane's card leaves its Stack, or, in none, leaves the layout.
+    // A pane's card leaves its Stack, or, in none, leaves the layout; in
+    // Spread, the centred card leaves its Stack as one pulled down does.
     LetGo,
     DividerLeft,
     DividerRight,
@@ -95,7 +96,7 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Left: return carry ? KeyAction::CarryLeft : KeyAction::None;
         case Qt::Key_Right: return carry ? KeyAction::CarryRight : KeyAction::None;
         case Qt::Key_Up: return pane ? KeyAction::Deeper : KeyAction::None;
-        case Qt::Key_Down: return pane ? KeyAction::LetGo : KeyAction::None;
+        case Qt::Key_Down: return pane || context.spreadShown ? KeyAction::LetGo : KeyAction::None;
         default: return KeyAction::None;
         }
     }

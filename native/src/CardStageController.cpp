@@ -4054,10 +4054,33 @@ void CardStageController::pullOutLifted()
 {
     const QPointer<KWin::EffectWindow> window = m_lift.window;
     const bool group = m_lift.inGroup;
-    const int cardId = liveCardIndex(window) + 1;
     // The card travels from where the finger left it to its own place.
     captureCardTransition(false, true);
     endLift();
+    (void)pullOut(window, group);
+}
+
+bool CardStageController::pullOutSelected()
+{
+    auto *window = selectedWindow();
+    if (!m_active || m_presentation != CardPresentation::Spread || !window || window->isDeleted()
+        || m_cardGrabActive || m_launcherGuestActive || m_lift.phase != Lift::Phase::None) {
+        return false;
+    }
+    const bool group = inProjectedLayout(window);
+    // A Bento group shows several panes, and the keys name none of them.
+    if (group && !panesAsCards()) return false;
+    // A card in no Stack has nothing to leave.
+    if (!group && m_workspace.stackSizeForId(liveCardIndex(window) + 1) <= 1) return false;
+    if (m_arrivalWindow) clearCardTransition();
+    // The card travels from the Stack to its own place.
+    captureCardTransition();
+    return pullOut(window, group);
+}
+
+bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
+{
+    const int cardId = liveCardIndex(window) + 1;
     // §11, Connected: a pane at the front of a Stack leaves the Stack as any
     // Stack's card does, and the Stack keeps the pane with its next card.
     KWin::EffectWindow *next = nullptr;
@@ -4071,7 +4094,7 @@ void CardStageController::pullOutLifted()
     if (cardId <= 0 || !pulled) {
         clearCardTransition();
         KWin::effects->addRepaintFull();
-        return;
+        return false;
     }
     m_slideLeavers = true;
     syncSelectedElevation();
@@ -4080,6 +4103,7 @@ void CardStageController::pullOutLifted()
             << (group ? "out of the Bento group" : "out of its Stack")
             << "; it now stands alone at entry"
             << m_workspace.model().entryIndexForId(cardId) + 1;
+    return true;
 }
 
 std::optional<CardRect> CardStageController::groupPaneDrawn(KWin::LogicalOutput *output,

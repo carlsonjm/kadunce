@@ -69,6 +69,10 @@ int main() {
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier, spreadOverPane) == KeyAction::Previous
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::None,
           "A pane and Spread disagreed over a key");
+    check(keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::LetGo
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::LetGo
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None,
+          "Meta+Shift+Down did not let the centred card of Spread go");
     // The Active card alone on a Connected display moves as a pane does, and
     // its plain arrows still go along the row.
     const KeyContext lone{true, false, false, false, true};
@@ -77,11 +81,13 @@ int main() {
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier, lone) == KeyAction::Previous
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None,
           "The lone card did not move by the keys");
-    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's.
+    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's, but for
+    // Shift+Down in Spread, which lets the centred card go from its Stack.
     for (const auto &context : {desktop, active, spread}) {
         for (int key : {Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down})
-            check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
-                  "Meta+Shift's arrows were taken off a pane");
+            if (key != Qt::Key_Down || !context.spreadShown)
+                check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
+                      "Meta+Shift's arrows were taken off a pane");
         check(keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, context) == KeyAction::None,
               "A bracket was taken off a pane");
     }
