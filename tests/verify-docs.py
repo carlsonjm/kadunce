@@ -39,7 +39,6 @@ def tracked_documents() -> list[str]:
             documents.append(path)
         elif path.endswith("/README.md") and path.split("/", 1)[0] in {
             "packaging",
-            "patches",
             "tests",
         }:
             documents.append(path)
@@ -66,7 +65,6 @@ REQUIRED_DOCUMENTS = [
     "docs/ITASCA-VISUAL-LANGUAGE.md",
     "docs/TETTEGOUCHE-CONTEXT.md",
     "docs/UPSTREAM.md",
-    "patches/kwin/README.md",
 ]
 PRIVATE_RECORD = "the private suite record (../shuffle/docs/suite)"
 RETIRED_DOCUMENTS = {
@@ -81,7 +79,8 @@ RETIRED_DOCUMENTS = {
     "docs/SHUFFLE-KEYBOARD-1.0-CONCEPT.md": "the shuffle-keyboard repository",
     "docs/KADUNCE-TABLE-1.0-CONCEPT.md": "docs/TABLE.md",
     "tests/unload-probe/README.md": "docs/TESTING.md",
-    "patches/kwin/package/README.md": "patches/kwin/README.md",
+    "patches/kwin/package/README.md": "Git history",
+    "patches/kwin/README.md": "Git history",
 }
 
 
