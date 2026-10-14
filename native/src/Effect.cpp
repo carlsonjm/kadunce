@@ -4173,9 +4173,18 @@ bool Effect::placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacemen
         KWin::RectF(active->frameGeometry()),
         DesktopStageController::CardDropIntent::ActivateBento, side, nullptr, true);
     if (!reserved) return false;
+    // Its Stack waits behind the pane it becomes, so the keys carry it whole.
+    QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(active);
+    behind.removeAll(active);
     QPointer<KWin::EffectWindow> carried = active;
     const bool placed = m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
         [this, carried] { return m_cardStage->releasePairToBento(carried, nullptr); });
+    if (placed && carried && !behind.isEmpty()) {
+        m_cardStage->notePaneStack(carried, behind);
+        m_cardStage->settlePaneStacks();
+        qInfo() << "Kadunce" << Revision << "placed" << carried->caption() << "alone with"
+                << behind.size() << "behind it";
+    }
     // The room left open shows the desktop, not the cards.
     if (placed) m_cardStage->syncSelectedElevation();
     return placed;
