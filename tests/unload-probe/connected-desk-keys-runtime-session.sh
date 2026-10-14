@@ -54,6 +54,7 @@ large_panes() { kad workspaceContext | jq -r '[.applications[] | select(.pane an
 pane_count() { large_panes | wc -l; }
 together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two
     | (first($two[] | select(.windowId == $a)) | .paneStack == [$b])
+      or (first($two[] | select(.windowId == $b)) | .paneStack == [$a])
       or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
 apart() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b) | .stackId] as $ids
     | ($ids | length) == 2 and ($ids[0] == null or $ids[1] == null or $ids[0] != $ids[1])'; }
@@ -136,37 +137,50 @@ check 'back: it is a card or a pane there, not a loose window' is_kept "$moved"
 check 'back: it takes back the pane it left' is_pane "$moved"
 check 'back: beside the pane it left beside' test "$(pane_count)" -eq 2
 
-# As a person makes one: the right pane carried to the left and back by its
-# title bar, swapping, then rested on the left pane, a Stack in the left half.
-# Each press of Meta+Shift+Right or Left then moves it once.
+# As a person makes one. A Stack made by hand is the Active card; one
+# Meta+Shift+Right sets it in the right half, and letting its card behind go
+# leaves a layout of two panes placed side by side.
+mapfile -t panes < <(large_panes)
+lefty=${panes[0]:-$zen} righty=${panes[1]:-$claude}
+if on_right_half "$lefty"; then lefty=${panes[1]:-$claude} righty=${panes[0]:-$zen}; fi
+title_drag "$righty" "$lefty" .1 .9
+report hand-stacked
+check 'hand: rested on the other pane, it stacks there' together "$righty" "$lefty"
+meta_shift 106
+report hand-placed
+check 'hand: one Meta+Shift+Right sets the Stack in the right half' on_right_half "$righty"
+(( $(pane_count) < 2 )) && meta_shift 108
+report hand-apart
+check 'hand: its card behind lets go beside it' test "$(pane_count)" -eq 2
+# Then, as on the desk: the right pane carried to the left by its title bar,
+# swapping, and the other carried back onto it and rested, a Stack in the left
+# half. Each press of Meta+Shift+Right or Left then moves it once.
 mapfile -t panes < <(large_panes)
 lefty=${panes[0]:-$zen} righty=${panes[1]:-$claude}
 if on_right_half "$lefty"; then lefty=${panes[1]:-$claude} righty=${panes[0]:-$zen}; fi
 title_drag "$righty" "$lefty" .9 .1
 report hand-swapped
 check 'hand: held and let go at once, the panes swap' on_left_half "$righty"
-title_drag "$righty" "$lefty" .1 .9
-report hand-stacked
-check 'hand: rested on the left pane, it stacks there' together "$righty" "$lefty"
-check 'hand: the Stack is a pane in the left half' on_left_half "$righty"
+title_drag "$lefty" "$righty" .1 .9
+report hand-restacked
+check 'hand: rested on the left pane, it stacks there' together "$lefty" "$righty"
+check 'hand: the Stack is a pane in the left half' on_left_half "$lefty"
 meta_shift 106
 report hand-right
-check 'hand: one Meta+Shift+Right moves the Stack to the right half' on_right_half "$righty"
+check 'hand: one Meta+Shift+Right moves the Stack to the right half' on_right_half "$lefty"
 meta_shift 105
 report hand-left
-check 'hand: one Meta+Shift+Left moves it back to the left half' on_left_half "$righty"
+check 'hand: one Meta+Shift+Left moves it back to the left half' on_left_half "$lefty"
 meta_shift 105
 report hand-across
-check 'hand: one more Meta+Shift+Left takes it to the small display' on_output "$righty" Virtual-0
-check 'hand: its Stack came with it' together "$righty" "$lefty"
+check 'hand: one more Meta+Shift+Left takes it to the small display' on_output "$lefty" Virtual-0
+check 'hand: its Stack came with it' together "$lefty" "$righty"
 meta_shift 106
 report hand-back
-check 'hand: Meta+Shift+Right brings the Stack back as a pane' is_pane "$righty"
+check 'hand: Meta+Shift+Right brings the Stack back as a pane' is_pane "$lefty"
 # Its card behind lets go into the open half, two panes again.
-probe activateWindowId "$righty" >/dev/null
-sleep .6
 (( $(pane_count) < 2 )) && meta_shift 108
-report hand-apart
+report hand-split
 
 # Both laid out again, one stacked on the other, and the Stack carried across.
 (( $(pane_count) == 2 )) || meta 48
