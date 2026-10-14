@@ -521,6 +521,9 @@ public:
     [[nodiscard]] bool handleWindowAdded(KWin::EffectWindow *window);
     void stageWindowArrival(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
+    // A window KWin keeps above applications, opened while a card is drawn
+    // elevated, is drawn above that card too.
+    void liftSurfaceAboveCards(KWin::EffectWindow *window);
     // The window left this stage's virtual desktop by other means, such as
     // KWin's window menu. It stops being a card here and goes back to the
     // place its record holds, as a release does; its new desktop takes it
@@ -667,6 +670,7 @@ private:
     void resetCardGrabState(KWin::EffectWindow *grabbed, bool stacked);
     void syncSelectedStackingOrder();
     void restoreOriginalStackingOrder();
+    void liftSurfacesAboveCards(bool cardsElevated);
 
     CardStageHost *m_host;
     std::shared_ptr<const int> m_carrySourceIdentity = std::make_shared<const int>(0);
@@ -733,6 +737,8 @@ private:
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
+    QList<QPointer<KWin::EffectWindow>> m_surfacesAboveCards;
+    bool m_cardsElevated = false;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;

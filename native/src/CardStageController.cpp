@@ -2435,9 +2435,11 @@ void CardStageController::syncSelectedElevation()
         holdCardsAside();
     else if (m_presentation != CardPresentation::Desktop) bringCardsBack();
     if (!m_active) {
+        liftSurfacesAboveCards(false);
         return;
     }
     const int selectedId = m_workspace.selectedId();
+    bool cardsElevated = false;
     // Tette owns the center for its entire guest lease, including drawer
     // collapse. Restore stack elevation only after the guest actually leaves.
     for (int index = 0; index < m_workspace.windows().size(); ++index) {
@@ -2445,15 +2447,40 @@ void CardStageController::syncSelectedElevation()
         if (window && !window->isDeleted()) {
             const bool selectedProjectionPane = selectedIsBentoProjection()
                 && isBentoProjectionPane(window);
-            KWin::effects->setElevatedWindow(window,
-                m_presentation == CardPresentation::Spread
-                    && !m_launcherGuestActive
-                    && (selectedProjectionPane
-                        || (index + 1 == selectedId
-                            && m_workspace.stackSizeForId(selectedId) > 1)));
+            const bool elevated = m_presentation == CardPresentation::Spread
+                && !m_launcherGuestActive
+                && (selectedProjectionPane
+                    || (index + 1 == selectedId
+                        && m_workspace.stackSizeForId(selectedId) > 1));
+            KWin::effects->setElevatedWindow(window, elevated);
+            cardsElevated = cardsElevated || elevated;
         }
     }
+    liftSurfacesAboveCards(cardsElevated);
     syncSelectedStackingOrder();
+}
+
+void CardStageController::liftSurfacesAboveCards(bool cardsElevated)
+{
+    // KWin draws an elevated window over everything it stacks, so the dock,
+    // a panel applet's popup, a notification and the keys would fall under
+    // the selected Stack. Each is elevated after the cards, in KWin's own
+    // order, and so stays drawn where KWin stacks it: above them.
+    for (const auto &surface : std::as_const(m_surfacesAboveCards))
+        if (surface && !surface->isDeleted()) KWin::effects->setElevatedWindow(surface, false);
+    m_surfacesAboveCards.clear();
+    m_cardsElevated = cardsElevated;
+    if (!cardsElevated) return;
+    for (auto *window : KWin::effects->stackingOrder()) liftSurfaceAboveCards(window);
+}
+
+void CardStageController::liftSurfaceAboveCards(KWin::EffectWindow *window)
+{
+    if (!m_cardsElevated || !window || window->isDeleted() || !window->window()
+        || window->window()->layer() <= KWin::NormalLayer || liveCardIndex(window) >= 0
+        || m_surfacesAboveCards.contains(window)) return;
+    KWin::effects->setElevatedWindow(window, true);
+    m_surfacesAboveCards.append(window);
 }
 
 void CardStageController::syncSelectedStackingOrder()
