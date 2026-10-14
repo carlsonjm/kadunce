@@ -12,6 +12,8 @@ namespace Kadunce {
 // Lock screen/VT remain ahead of this filter. Other devices and unowned input pass.
 class NativeCarryRuntime final : public QObject, public KWin::InputEventFilter {
 public:
+    // Installed before this filter's callbacks can cancel a native move.
+    StaleTouchRelease staleTouchRelease;
     NativeMoveObserver observer;
     NativeCarryHandoff handoff;
     CarryInputRoute route;
@@ -123,6 +125,7 @@ public:
         const CarryOwner owner{CarryDevice::Touch, 1, e->id}; return dispatch(route.motion(owner), owner, e->pos);
     }
     bool touchUp(KWin::TouchUpEvent *e) override {
+        if (e->id == StaleTouchRelease::Id) return false;
         if (m_deferred && m_deferred->ticket.owner() == CarryOwner{CarryDevice::Touch, 1, e->id}
             && nativeReleased) nativeReleased(m_deferred->window, m_deferred->lastPosition);
         clearDeferred();

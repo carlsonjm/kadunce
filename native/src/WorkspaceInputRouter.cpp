@@ -6,6 +6,7 @@
 #include "WorkspaceInputRouter.h"
 
 #include "SpreadLayout.h"
+#include "StaleTouchRelease.h"
 
 #include <input_event.h>
 #include <window.h>
@@ -793,6 +794,7 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
+    if (event->id == StaleTouchRelease::Id) return false;
     return keepTouch(routeTouchUp(event));
 }
 

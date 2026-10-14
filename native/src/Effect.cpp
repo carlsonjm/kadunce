@@ -4265,7 +4265,8 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
         QTimer::singleShot(0, this, [this, guarded] {
             if (!guarded || !guarded->window() || !guarded->isUserResize()
                 || !m_cardStage->managedRestore(guarded)) return;
-            guarded->window()->cancelInteractiveMoveResize();
+            const auto *touch = KWin::input() ? KWin::input()->touch() : nullptr;
+            StaleTouchRelease::cancel(guarded->window(), touch && touch->touchPointCount() > 0);
         });
         return;
     }
