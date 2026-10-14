@@ -151,12 +151,12 @@ check 'stack: Meta+Tab there steps its pane' focused "$front"
 check 'stack: still one Stack' together "$front" "$rest"
 
 # Laid out again as two panes, Spread shows two cards, not one Stack.
-(( $(pane_count) == 2 )) || meta 48
+# The Stack back in the pane it left alone, its card behind lets go into the
+# open half; Meta+B there would end the layout of one.
+(( $(pane_count) < 2 )) && meta_shift 108
 report relaid-again
-if (( $(pane_count) < 2 )); then
-    meta_shift 108
-    report split
-fi
+(( $(pane_count) < 2 )) && meta 48
+report split
 check 'spread: two panes on the large display' test "$(pane_count)" -eq 2
 spread_key
 report spread
