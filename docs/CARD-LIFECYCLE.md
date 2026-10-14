@@ -474,8 +474,8 @@ holds more than two panes (§5), unless chosen for that display (`kaduncerc`
 `[Sizing]`). Active is the rest of this document.
 On Connected:
 
-- Spread opens zoomed out, every card whole, each pane a card of its own and
-  no Bento group.
+- Spread is as on Active, each pane its own card. Search floats, joining
+  only an open Spread.
 - A card chosen or window opened joins the layout: paired with the card
   in use when none shows, else under §8.
 - A Stack fills one pane, its other cards' edges showing; stepping it or

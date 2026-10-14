@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11 on one 2560x1440 monitor with no touchscreen, sized
-# Connected by its room. Spread opens zoomed out, every card whole on screen,
-# and every window is a card of its own, a layout's panes included. A picked
-# card joins the layout beside the card in use and the layout grows; full,
-# the pane used longest ago leaves and becomes a card; a picked pane opens the
-# layout on it. A Stack fills one pane, and Meta+Down steps it in place. The
-# per-display choice is kept in kaduncerc and Active sizing brings back the
-# Bento group. Every check is reported, so a failure does not hide the rest.
+# Connected by its room. Spread shows the chosen card whole between its
+# neighbours' edges, as on Active, and every window is a card of its own, a
+# layout's panes included. A picked card joins the layout beside the card in
+# use and the layout grows; full, the pane used longest ago leaves and becomes
+# a card; a picked pane opens the layout on it. A Stack fills one pane, and
+# Meta+Down steps it in place. The per-display choice is kept in kaduncerc and
+# Active sizing brings back the Bento group. Every check is reported, so a
+# failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -54,28 +55,89 @@ each_its_own() {
     context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
         | ($c | length) >= 2 and all($c[]; .stackSize == 1) and ([$c[].stackId] | unique | length) == ($c | length)'
 }
-# Zoomed out, every card of the row shows whole on the display.
-all_whole() {
-    context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
-        | ($c | length) >= 2 and all($c[]; .spreadRect and .spreadRect.x >= 0 and .spreadRect.x + .spreadRect.width <= 2560)'
+# Spread as on Active: the selected card stands whole and centred, the
+# large card of the row.
+one_whole() {
+    context '.cardStage.selectedCardId as $s
+        | first(.applications[] | select(.windowId == $s)) | .spreadRect as $r
+        | ($r.x + $r.width / 2 - 1280) as $d
+        | $r.x >= 0 and $r.x + $r.width <= 2560 and $r.width > 1280 and $d < 8 and $d > -8'
 }
+selected_is() { context --arg id "$1" '.cardStage.selectedCardId == $id'; }
+selected_not() { context --arg id "$1" '.cardStage.selectedCardId != $id'; }
 rect() { probe windowFacts | jq -c --arg id "$1" 'first(.[] | select(.id == $id)) | {x, y, width, height}'; }
 same_rect() { [[ $(rect "$1") == "$2" ]]; }
-# A person's finger carries one card onto another in Spread and lets go.
+spread_left=0
+# Where a person presses a card of Spread: the middle of the part of it in
+# view, or nothing while it is out of view.
+seen_at() {
+    kad workspaceContext | jq -r --arg id "$1" --argjson left "$spread_left" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | select(. != null) | [([.x, $left] | max), ([.x + .width, $left + 2560] | min)] as [$l, $r]
+        | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
+}
+entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
+carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
+# A person's mouse carries one card onto another in Spread and lets go. Spread
+# shows one whole card and its neighbours' edges, so the card is carried as a
+# person does: pulled down, the row zooms out. Where all of it shows, the card
+# goes straight over the other; where it does not, the card leans the row
+# along until the other comes under it, then rests in the middle until it
+# would join (CarryRow.h).
 carry_onto() {
-    local from=$1 to=$2 x y tx ty
-    read -r x y < <(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe down 61 "$x" "$y"
+    local from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
+    select_card "$from" >/dev/null 2>&1
     sleep .4
-    probe motion 61 "$((x + 30))" "$y"
-    sleep .5
-    read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe motion 61 "$tx" "$ty"
-    sleep .7
-    echo "carry $(kad nativeCarryState | jq -c '{lineCarrying, carryAim}')"
-    probe up 61
+    read -r x y < <(seen_at "$from")
+    width=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
+    h=$(entry_of "$from")
+    e=$(entry_of "$to")
+    entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
+    items=$((entries - 1))
+    t=$(( e > h ? e - 1 : e ))
+    mid=$((spread_left + 1280))
+    probe pointer "$x" "$y"
+    probe button true
+    sleep .4
+    probe pointer "$((x + 30))" "$y"
+    sleep .3
+    y=$((y + 180))
+    probe pointer "$((x + 30))" "$y"
+    sleep .8
+    scale=$(kad nativeCarryState | jq -r '.carryScale')
+    # A pitch is a card and its gutter; the place the card left is a gap 0.7
+    # of a pitch wide.
+    pitch=$(jq -n --argjson w "$width" '$w * 1.1037')
+    if jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null; then
+        # All of it shows: the row stands centred.
+        x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
+            '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    else
+        # Lean the row along until the other is the next card past the held
+        # card's middle, then rest; it stands within a pitch further on, where
+        # a lean at the row's end, or a creep, brings it under the card.
+        probe pointer "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
+        for _ in {1..120}; do
+            sleep .05
+            read -r aim at < <(carry_aim)
+            [[ $aim == gap ]] || continue
+            if (( t >= h ? at >= t : at <= t + 1 )); then break; fi
+        done
+        probe pointer "$mid" "$y"
+        sleep .6
+        x0=$mid
+    fi
+    steps=(0 -40 40 -80 80 -120 120 -160 160)
+    jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null \
+        || steps=($(for k in {0..14}; do echo $(( (t >= h ? 1 : -1) * k * 40 )); done))
+    for dx in "${steps[@]}"; do
+        probe pointer "$((x0 + dx))" "$y"
+        sleep .5
+        read -r aim at < <(carry_aim)
+        [[ $aim == join && $at == "$t" ]] && break
+    done
+    sleep .4
+    echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
+    probe button false
     sleep .8
 }
 start_pass() {
@@ -120,9 +182,22 @@ check 'start: the card in use is Active' context --arg id "$d" '.cardStage.prese
 spread_key
 report spread
 check 'spread: Spread opens' presents cardLine
-check 'spread: zoomed out, every card shows whole' all_whole
-# Search called over Spread is Spread's guest, here too: the row returns to
-# its ordinary size beside it, and zooms out again once it has gone.
+check 'spread: the selected card stands whole and centred' one_whole
+# A wheel turned anywhere over Spread, open space too, moves the row a card.
+probe pointer 1280 160
+turn=-1
+probe wheel "$turn"
+sleep .8
+if selected_is "$d" >/dev/null 2>&1; then turn=1; probe wheel "$turn"; sleep .8; fi
+report wheel
+check 'wheel: a turn in open space centres another card' selected_not "$d"
+check 'wheel: it stands whole in the middle' one_whole
+probe wheel "$((-turn))"
+sleep .8
+check 'wheel: turned back, the row comes back' selected_is "$d"
+probe pointer 1280 720
+# Search called over Spread is Spread's guest, here too: the row keeps its
+# ordinary size beside it, and stands as it was once it has gone.
 python3 - <<'PY' &
 import dbus, json, time
 bus = dbus.SessionBus(private=True)
@@ -137,14 +212,14 @@ sleep .6
 report search
 check 'search: it opens as the guest of the monitor Spread' hosted
 check 'search: Spread stays open' presents cardLine
-check 'search: the cards beside it return to their ordinary size' \
+check 'search: the cards beside it keep their ordinary size' \
     context '[.applications[] | select(.spreadRect) | .spreadRect.width] | length > 0 and all(. > 1000)'
 kad endLauncherGuest
 kill "$owner_pid" 2>/dev/null; wait "$owner_pid" 2>/dev/null
 sleep .8
 report search-gone
-search_gone() { all_whole && context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'; }
-check 'search gone: Spread is open, zoomed out again' search_gone
+search_gone() { one_whole && context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'; }
+check 'search gone: Spread is open as it was' search_gone
 pick "$a"
 report paired
 check 'pick: the layout shows' layout_shown
@@ -152,11 +227,20 @@ check 'pick: the picked card is a pane' is_pane "$a"
 check 'pick: the card in use is the other pane' is_pane "$d"
 check 'pick: two panes' panes 2
 check 'pick: the picked pane has focus' focused "$a"
+# Called over the layout, Search floats on its own: Spread stays closed.
+check 'search over a layout: it floats, Spread stays closed' python3 - <<'PY'
+import dbus, json
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+reply = json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))
+assert not reply["accepted"] and reply.get("output"), reply
+assert json.loads(kadunce.workspaceContext())["cardStage"]["presentation"] == "bento"
+PY
 spread_key
 report spread-layout
 check 'spread over a layout: Spread opens' presents cardLine
 check 'spread over a layout: every pane is a card of its own, no group card' each_its_own
-check 'spread over a layout: every card shows whole' all_whole
+check 'spread over a layout: the selected card stands whole and centred' one_whole
 pick "$b"
 report grown
 check 'grow: the layout shows' layout_shown

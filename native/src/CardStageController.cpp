@@ -19,7 +19,6 @@
 #include "StackBrowseMotion.h"
 #include "SpreadStroke.h"
 #include "SpreadLayout.h"
-#include "SpreadZoom.h"
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
@@ -536,17 +535,6 @@ int CardStageController::visibleSlot(const KWin::EffectWindow *window) const
     if (m_workspace.count() == 2) {
         return rowNeighborSide();
     }
-    if (m_workspace.count() >= 3 && zoomedOut()) {
-        // Zoomed out, every entry whose card reaches the screen is drawn.
-        const int offset = entryOffset(window);
-        auto *output = m_host->tabletOutputForCardStage();
-        if (offset == 99 || !output) return 99;
-        const auto work = workArea(output);
-        const auto target = cardTargetForSlot(output, offset);
-        const double reach = target.width() * 0.2;
-        return target.right() + reach > work.left() && target.left() - reach < work.right()
-            ? offset : 99;
-    }
     if (m_workspace.count() >= 3) {
         // The row has two ends: nothing is drawn before the first entry or
         // after the last, though the order behind it still wraps.
@@ -784,11 +772,9 @@ std::optional<CardStageController::CarryFrame> CardStageController::carryFrame(
     if (!output) return std::nullopt;
     const KWin::RectF work = workArea(output);
     if (work.width() <= 0 || work.height() <= 0) return std::nullopt;
-    // The row a card is lifted from keeps the zoom it stood at.
-    const SpreadLayout layout = makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-        zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
+    const SpreadLayout layout = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     const CardRect &centre = layout.cards[1];
-    return CarryFrame{centre.x + zoomedRowShift(layout) + centre.width / 2.0, centre.y + centre.height / 2.0,
+    return CarryFrame{centre.x + centre.width / 2.0, centre.y + centre.height / 2.0,
                       centre.width + layout.gutter, centre.width, centre.height,
                       work.x(), work.width()};
 }
@@ -917,8 +903,7 @@ KWin::Rect CardStageController::cardTargetForSlot(
         && (!m_launcherGuestActive || m_launcherGuestArrival) && rowStands;
     const SpreadLayout layout = focusedPair
         ? makeFocusedPairLayout(work.x(), work.y(), work.width(), work.height())
-        : makeSpreadLayoutAt(work.x(), work.y(), work.width(), work.height(),
-              zoomedOut() ? spreadZoomedOutShare(m_workspace.model().count()) : SpreadCardShare);
+        : makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
     // Every Stack keeps the room its fan takes wherever it stands, so the gap
     // between two entries never depends on which is centred, and the row lands
     // on a Stack without anything beside it moving (CARD-LIFECYCLE.md §9).
@@ -953,7 +938,6 @@ KWin::Rect CardStageController::cardTargetForSlot(
         target.x += slot < 0 ? -other.right : slot > 0 ? -other.left : 0.0;
     } else {
         target = makeRowCardTarget(layout, slot, envelopeAt);
-        target.x += zoomedRowShift(layout);
     }
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
@@ -2668,22 +2652,6 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     return true;
-}
-
-double CardStageController::zoomedRowShift(const SpreadLayout &layout) const
-{
-    // Zoomed out, the whole row stands centred on the display, so the selected
-    // card stands where its place in the row puts it rather than in the middle.
-    const auto &spread = m_workspace.model();
-    if (!zoomedOut() || spread.count() < 3) return 0.0;
-    const double pitch = layout.cards[2].x - layout.cards[1].x;
-    return (spread.selectedIndex() - (spread.count() - 1) / 2.0) * pitch;
-}
-
-bool CardStageController::zoomedOut() const
-{
-    return m_presentation == CardPresentation::Spread && !m_launcherGuestActive
-        && m_host->connectedForCardStage();
 }
 
 bool CardStageController::hasBentoGroup() const

@@ -61,28 +61,74 @@ fills_small() {
           and .width >= $g.width * 0.8 and .height >= $g.height * 0.7'
 }
 focused() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .focused'; }
-in_spread() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect != null'; }
+# A card of Spread's row, there on the large display whether or not it is in view.
+in_spread() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .output == "Virtual-1"'; }
 small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.pane and .output == "Virtual-0")) | .windowId'; }
+# Spread lives on the large display, right of the small one.
+spread_left=2560
+# Where a person presses a card of Spread: the middle of the part of it in
+# view, or nothing while it is out of view.
+seen_at() {
+    kad workspaceContext | jq -r --arg id "$1" --argjson left "$spread_left" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | select(. != null) | [([.x, $left] | max), ([.x + .width, $left + 2560] | min)] as [$l, $r]
+        | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
+}
+entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
+carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
+# A person's finger carries one card onto another in Spread and lets go. Spread
+# shows one whole card and its neighbours' edges, so the card is carried as a
+# person does: pulled down, the row zooms out. Where all of it shows, the card
+# goes straight over the other; where it does not, the card leans the row
+# along until the other comes under it, then rests in the middle until it
+# would join (CarryRow.h).
 carry_onto() {
-    local from=$1 to=$2 x y tx ty
-    read -r x y < <(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
+    local from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
+    select_card "$from" >/dev/null 2>&1
+    sleep .4
+    read -r x y < <(seen_at "$from")
+    width=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
+    h=$(entry_of "$from")
+    e=$(entry_of "$to")
+    entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
+    items=$((entries - 1))
+    t=$(( e > h ? e - 1 : e ))
+    mid=$((spread_left + 1280))
     probe down 61 "$x" "$y"
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
-    sleep .5
-    read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe motion 61 "$tx" "$ty"
-    sleep .7
-    # The row the card is carried over can stand otherwise than the one it
-    # left, so the card follows where its target now stands.
-    read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe motion 61 "$tx" "$ty"
-    sleep .7
-    echo "carry $from from $x,$y onto $to at $tx,$ty"
-    report carrying
+    sleep .3
+    y=$((y + 180))
+    probe motion 61 "$((x + 30))" "$y"
+    sleep .8
+    scale=$(kad nativeCarryState | jq -r '.carryScale')
+    # A pitch is a card and its gutter; the place the card left is a gap 0.7
+    # of a pitch wide.
+    pitch=$(jq -n --argjson w "$width" '$w * 1.1037')
+    if jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null; then
+        # All of it shows: the row stands centred.
+        x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
+            '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    else
+        # Lean the row along until the held card's middle passes the other.
+        probe motion 61 "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
+        for _ in {1..120}; do
+            sleep .05
+            read -r aim at < <(carry_aim)
+            [[ $aim == gap ]] || continue
+            if (( t >= h ? at > t : at <= t )); then break; fi
+        done
+        probe motion 61 "$mid" "$y"
+        sleep .6
+        x0=$mid
+    fi
+    for dx in 0 -40 40 -80 80 -120 120 -160 160; do
+        probe motion 61 "$((x0 + dx))" "$y"
+        sleep .5
+        read -r aim at < <(carry_aim)
+        [[ $aim == join && $at == "$t" ]] && break
+    done
+    sleep .4
+    echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
     probe up 61
     sleep .8
 }
@@ -140,6 +186,14 @@ check 'pick: the small display still shows one card' small_panes 1
 check 'pick: the large display went back to its own card' \
     context --arg mb "$mb" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $mb'
 check 'pick: the picked card has focus' focused "$waiting"
+# Search floats where the person is working, not on Spread's display.
+check 'pick: Search called now floats on the small display' python3 - <<'PY'
+import dbus, json
+bus = dbus.SessionBus(private=True)
+kadunce = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+reply = json.loads(kadunce.beginLauncherGuest(bus.get_unique_name()))
+assert not reply["accepted"] and reply.get("output") == "Virtual-0", reply
+PY
 
 # A window carried to the small display is the card it shows.
 probe pointer 640 360

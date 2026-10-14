@@ -67,25 +67,77 @@ open_window() {
         pick "${w[$2]}"
     fi
 }
-# A person's finger carries one card onto another in Spread and lets go.
+spread_left=0
+# Where a person presses a card of Spread: the middle of the part of it in
+# view, or nothing while it is out of view.
+seen_at() {
+    kad workspaceContext | jq -r --arg id "$1" --argjson left "$spread_left" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | select(. != null) | [([.x, $left] | max), ([.x + .width, $left + 2560] | min)] as [$l, $r]
+        | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
+}
+entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
+carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
+# A person's mouse carries one card onto another in Spread and lets go. Spread
+# shows one whole card and its neighbours' edges, so the card is carried as a
+# person does: pulled down, the row zooms out. Where all of it shows, the card
+# goes straight over the other; where it does not, the card leans just past
+# the middle and the row creeps along until the other joins (CarryRow.h).
 carry_onto() {
-    local from=$1 to=$2 x y tx ty
-    read -r x y < <(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-    probe down 61 "$x" "$y"
+    local trail="" from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
+    select_card "$from" >/dev/null 2>&1
     sleep .4
-    probe motion 61 "$((x + 30))" "$y"
-    sleep .5
-    # The line closes up behind a lifted card, so its neighbour moves: aim,
-    # let the line settle, and aim again at where the card now is.
-    for _ in 1 2; do
-        read -r tx ty < <(kad workspaceContext | jq -r --arg id "$to" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-            | "\((.x + .width / 2) | floor) \((.y + .height / 2) | floor)"')
-        probe motion 61 "$tx" "$ty"
-        sleep .7
-    done
-    echo "state carry-$from $tx,$ty $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
-    probe up 61
+    read -r x y < <(seen_at "$from")
+    width=$(kad workspaceContext | jq -r --arg id "$from" 'first(.applications[] | select(.windowId == $id)) | .spreadRect.width')
+    h=$(entry_of "$from")
+    e=$(entry_of "$to")
+    entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
+    items=$((entries - 1))
+    t=$(( e > h ? e - 1 : e ))
+    echo "state carry-plan $from h=$h e=$e t=$t $(kad workspaceContext | jq -c '[.applications[] | select(.entry != null) | "\(.title):\(.entry):\(.stackSize)"]')"
+    mid=$((spread_left + 1280))
+    probe pointer "$x" "$y"
+    probe button true
+    sleep .4
+    probe pointer "$((x + 30))" "$y"
+    sleep .3
+    y=$((y + 180))
+    probe pointer "$((x + 30))" "$y"
+    sleep .8
+    scale=$(kad nativeCarryState | jq -r '.carryScale')
+    # A pitch is a card and its gutter; the place the card left is a gap 0.7
+    # of a pitch wide.
+    pitch=$(jq -n --argjson w "$width" '$w * 1.1037')
+    if jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null; then
+        # All of it shows: the row stands centred.
+        x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
+            '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    else
+        # Lean the row just past the middle, as a hand does: it creeps under
+        # the card, still parting and joining, until the other card comes
+        # under it.
+        x0=$(( t >= h ? mid + 290 : mid - 290 ))
+        probe pointer "$x0" "$y"
+        dx=0
+        for _ in {1..400}; do
+            sleep .05
+            read -r aim at < <(carry_aim)
+            [[ ${trail##* } == "$aim$at" ]] || trail+=" $aim$at"
+            [[ $aim == join && $at == "$t" ]] && break
+        done
+    fi
+    if jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null; then
+        for dx in 0 -40 40 -80 80 -120 120 -160 160; do
+            probe pointer "$((x0 + dx))" "$y"
+            sleep .5
+            read -r aim at < <(carry_aim)
+            trail+=" $((x0 + dx)):$aim$at"
+            [[ $aim == join && $at == "$t" ]] && break
+        done
+        sleep .4
+    fi
+    echo "state carry-trail $trail"
+    echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
+    probe button false
     sleep .8
 }
 # A pane carried by a press inside it onto another pane, let go after `rest`

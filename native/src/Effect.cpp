@@ -6061,7 +6061,15 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
         m_lastActiveApplication = focused;
     }
     if (presentationForInput() != WorkspacePresentation::Spread) {
-        if (!openSpread) {
+        // On Connected the layout is the primary view: Search floats over it
+        // rather than calling Spread up (CARD-LIFECYCLE.md §11).
+        if (!openSpread || connectedForCardStage()) {
+            // It floats where the person is: over the card in hand, or else
+            // under the pointer.
+            KWin::LogicalOutput *here = m_lastActiveApplication
+                ? m_lastActiveApplication->screen() : nullptr;
+            if (!here) here = KWin::effects->screenAt(KWin::effects->cursorPos().toPoint());
+            if (here) reply.insert(QStringLiteral("output"), here->name());
             return QString::fromUtf8(
                 QJsonDocument(reply).toJson(QJsonDocument::Compact));
         }
