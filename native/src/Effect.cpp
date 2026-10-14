@@ -7255,9 +7255,27 @@ void Effect::letPaneGo()
         m_cardHomes.remove(next);
         m_cardStage->settlePaneStacks();
         observeCardOwnership();
-        KWin::effects->activateWindow(next);
         qInfo() << "Kadunce" << Revision << "took" << pane->caption() << "out of its Stack by the keys";
-        KWin::effects->addRepaintFull();
+        // The card let go joins the layout as a pane of its own beside the
+        // Stack it left, as a card called while the layout shows does. On
+        // another display it waits in Spread, as one pulled down there does.
+        const QPointer<KWin::EffectWindow> released = pane;
+        const QPointer<KWin::EffectWindow> stayed = next;
+        QTimer::singleShot(0, this, [this, released, stayed, there] {
+            const bool joined = !there && released && !released->isDeleted()
+                && m_cardStage->liveCardIndex(released) >= 0
+                && m_desktopStage->admitCardToLiveBento(released,
+                    [this, released] { return m_cardStage->releaseCardToLiveBento(released); });
+            if (joined) {
+                qInfo() << "Kadunce" << Revision << "gave" << released->caption()
+                        << "a pane of its own by the keys";
+                observeCardOwnership();
+                KWin::effects->activateWindow(released);
+            } else if (stayed && !stayed->isDeleted()) {
+                KWin::effects->activateWindow(stayed);
+            }
+            KWin::effects->addRepaintFull();
+        });
         return;
     }
     // Out of the layout: it waits in Spread as a card.

@@ -202,7 +202,8 @@ check 'deeper: past the back it comes round to where it was' behind_is "$third" 
 focus_on "$third"
 meta_shift 108
 report let-go
-check 'let go: Meta+Shift+Down takes the card out of its Stack' is_card "$third"
+check 'let go: Meta+Shift+Down takes the card out of its Stack' behind_is "$third" '[]'
+check 'let go: it joins the layout as a pane of its own' is_pane "$third"
 check 'let go: the next card takes the pane' behind_is "$second" "[\"$first\"]"
 check 'let go: it is a pane' is_pane "$second"
 focus_on "$fourth"
@@ -215,7 +216,7 @@ together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windo
     | (first($two[] | select(.windowId == $a)) | .paneStack == [$b])
       or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
 focus_on "$second"
-for _ in 1 2 3 4; do
+for _ in 1 2 3 4 5; do
     on_output "$second" Virtual-0 && break
     meta_shift 105
     focus_on "$second"
