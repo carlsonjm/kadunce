@@ -143,7 +143,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; t
     esac
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group Wayland --key VirtualKeyboardMode "$keyboard_mode"
 fi
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${#xwayland_args[@]} != 0 ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == divider-tablet-runtime-session.sh ]]; then
@@ -176,7 +176,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then 
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-display-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh ]]; then session_timeout=120s; fi
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh ]]; then session_timeout=180s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh ]]; then session_timeout=240s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == table-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-top-runtime-session.sh ]]; then session_timeout=90s; fi

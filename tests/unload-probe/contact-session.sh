@@ -184,27 +184,6 @@ for kind in pointer touch; do
     probe contactEndMove
     probe contactDrop
 done
-# A title bar held still: KWin starts the move on its own once the drag time
-# passes, with no decoration event in that turn. It still correlates.
-for kind in pointer touch; do
-    probe contactObserve
-    test "$(probe contactStart)" = true
-    test "$(probe contactPrepareDecoration)" = true
-    sleep .5
-    bounds=$(probe contactState)
-    x=$(jq '.titleX | floor' <<<"$bounds")
-    y=$(jq '.titleY | floor' <<<"$bounds")
-    probe pointer "$x" "$y"
-    if [[ $kind == pointer ]]; then probe contactButton true; else probe down 45 "$x" "$y"; fi
-    sleep 1
-    held=$(probe contactState)
-    echo "DECORATION HELD $kind $held"
-    jq -e --arg kind "$kind" '.starts == 1 and .decorationMatches == 1
-        and .requests == 0 and .kind == $kind and .moving' <<<"$held"
-    if [[ $kind == pointer ]]; then probe contactButton false; else probe up 45; fi
-    probe contactEndMove
-    probe contactDrop
-done
 # Input remains usable after observer destruction.
 client reset
 probe pointer 500 350
@@ -239,5 +218,4 @@ echo 'PASS: real client move serials correlate pointer and seat-scoped touch; na
 echo 'PASS: keyboard move operation cannot borrow held pointer; cancellation and device removal clear candidates'
 echo 'PASS: observer unload leaves native input routing intact (no takeover enabled)'
 echo 'PASS: system titlebar pointer/touch motion correlates during decoration event dispatch'
-echo 'PASS: a system titlebar held still correlates when KWin starts the move on its own'
 echo 'PASS: exported resource lookup handles existing clients, observer recreation, close and new client'

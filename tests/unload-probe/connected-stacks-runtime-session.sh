@@ -186,6 +186,58 @@ scrub_up() {
     sleep 1.2
 }
 scrubbing() { jq -e --argjson place "$1" --argjson ladder "$2" '.scrubPlace == $place and .scrubLadder == $ladder' "$XDG_RUNTIME_DIR/carry"; }
+# The same by KWin's own title bar, as a person presses one: the mouse held
+# `hold` seconds, past the time KWin starts a held title bar's move on its own,
+# then drawn up `steps` cards' travel and the wheel turned `wheel` notches.
+title_of() { probe titleBarOf "$1" | jq -r '[.x, .y] | map(floor) | @tsv'; }
+title_scrub() {
+    local id=$1 steps=$2 hold=$3 wheel=${4:-0} x y dy
+    read -r x y <<<"$(title_of "$id")"
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    probe button true >/dev/null
+    sleep "$hold"
+    if (( steps > 0 )); then
+        for (( dy = 4; dy <= 20 + steps * 56; dy += 12 )); do
+            probe pointer "$x" "$((y - dy))" >/dev/null
+            sleep .03
+        done
+    fi
+    if (( wheel != 0 )); then probe wheel "$wheel" >/dev/null; sleep .1; fi
+    kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
+    echo "state title-scrub-$id $(jq -c '{scrubPlace, scrubLadder, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
+    echo "trace title-scrub-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
+    probe button false >/dev/null
+    sleep 1.2
+}
+# A pane carried by its title bar onto another pane, held `hold` seconds
+# first and let go after `rest` seconds there.
+title_drag() {
+    local id=$1 to=$2 hold=$3 rest=$4 x y tx ty
+    read -r x y <<<"$(title_of "$id")"
+    read -r tx ty <<<"$(probe windowGeometry "$to" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
+    probe activateWindowId "$id" >/dev/null
+    sleep .3
+    probe pointer "$x" "$y" >/dev/null
+    probe button true >/dev/null
+    sleep "$hold"
+    probe pointer "$((x + 40))" "$((y + 20))" >/dev/null
+    sleep .1
+    probe pointer "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
+    sleep .1
+    probe pointer "$tx" "$ty" >/dev/null
+    sleep "$rest"
+    kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
+    echo "state title-drag-$id $(jq -c '{stackOnto, destinationRect, lineCarrying}' "$XDG_RUNTIME_DIR/carry")"
+    echo "trace title-drag-$id $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
+    probe button false >/dev/null
+    sleep 1.2
+}
+# Every window is a pane or a card, never an ordinary window left over.
+all_held() {
+    context '[.applications[] | select(.title != "unload-client") | select((.hasCard | not) and (.pane | not) and (.minimized | not))] | length == 0'
+}
 
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
@@ -284,6 +336,39 @@ report wheeled
 check 'wheel: one notch up, it would go in second' scrubbing 1 "[\"${w[2]}\",\"${w[3]}\",\"${w[6]}\"]"
 check 'wheel: the card it passed fills the pane' is_pane "${w[2]}"
 check 'wheel: it went in second' behind_is "${w[2]}" "[\"${w[3]}\",\"${w[6]}\"]"
+
+# By KWin's own title bars, as real applications have them: held past the time
+# KWin starts the move itself, the pane still reorders, and a held pane carried
+# sideways still swaps or stacks as a pane rather than becoming a window.
+for n in {1..12}; do probe serverDecorate "${w[$n]}" >/dev/null; done
+sleep 1.5
+report decorated
+check 'title: every pane has a title bar of KWin'"'"'s' bash -c "for id in ${w[2]} ${w[9]} ${w[12]}; do qdbus6 org.kde.KWin /UnloadProbe titleBarOf \$id | jq -e '.height > 0' || exit 1; done"
+check 'title: still four panes' panes 4
+title_scrub "${w[2]}" 1 .9
+report title-scrubbed
+check 'title held: drawn up one card, it would go in second' scrubbing 1 "[\"${w[3]}\",\"${w[2]}\",\"${w[6]}\"]"
+check 'title held: the card it passed fills the pane' is_pane "${w[3]}"
+check 'title held: it went in second' behind_is "${w[3]}" "[\"${w[2]}\",\"${w[6]}\"]"
+title_scrub "${w[3]}" 0 .9 -2
+report title-wheeled
+check 'title wheel: held still, two notches up, it would go in last' scrubbing 2 "[\"${w[2]}\",\"${w[6]}\",\"${w[3]}\"]"
+check 'title wheel: it went in last' behind_is "${w[2]}" "[\"${w[6]}\",\"${w[3]}\"]"
+check 'title wheel: still four panes' panes 4
+slot2=$(rect "${w[2]}") slot9=$(rect "${w[9]}")
+title_drag "${w[2]}" "${w[9]}" .9 .1
+report title-swapped
+check 'title swap: held, then carried and let go at once, it swaps' same_rect "${w[2]}" "$slot9"
+check 'title swap: and the other takes its place' same_rect "${w[9]}" "$slot2"
+check 'title swap: still four panes' panes 4
+check 'title swap: every Stack stays whole' each_behind 2
+check 'title swap: no window is left ordinary' all_held
+title_drag "${w[9]}" "${w[12]}" .1 .9
+report title-stacked
+check 'title stack: rested on a pane, it joins its Stack in front' behind_is "${w[9]}" "[\"${w[12]}\",\"${w[11]}\",\"${w[10]}\"]"
+check 'title stack: its own next card keeps its slot' is_pane "${w[8]}"
+check 'title stack: still four panes' panes 4
+check 'title stack: no window is left ordinary' all_held
 
 # A pane's card pulled down in Spread leaves its Stack; the Stack keeps the
 # pane with its next card.
