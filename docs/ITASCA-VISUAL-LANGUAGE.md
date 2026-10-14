@@ -292,7 +292,8 @@ These established visuals are product identity or behavior, not migration target
 
 - Tette Dot / launcher identity.
 - Temperance's animated Bell and custom Weather glyph.
-- Kadunce's stacked-card tray mark.
+- Kadunce's pearl-card tray mark: one card between its neighbours' edges,
+  shared with Shuffle's dock Spread button (redesigned 14 Oct 2026).
 
 Lucide must not replace, redraw, simplify, or absorb these components. Preserve
 their geometry and behavior unless a focused product redesign changes the contract.
@@ -332,7 +333,7 @@ Ambient media is the reference:
 - Lucide is the canonical suite action family.
 - `#F8F8FF` is named **Ghost White** and remains the primary foreground.
 - The animated Temperance bell remains a documented Lucide-derived exception.
-- Tette Dot, Bell, Weather, and Kadunce's stacked-card tray mark remain protected.
+- Tette Dot, Bell, Weather, and Kadunce's pearl-card tray mark remain protected.
 - Corners come in three tiers: 8 px paper, 12 px notes, pills for actions.
 - Each repository owns its pinned Lucide subset; there is no runtime cross-repo
   asset dependency.
