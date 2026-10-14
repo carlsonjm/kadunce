@@ -67,20 +67,24 @@ open_window() {
         pick "${w[$2]}"
     fi
 }
+spread_left=0
 # Where a person presses a card of Spread: the middle of the part of it in
 # view, or nothing while it is out of view.
 seen_at() {
-    kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
-        | select(. != null) | [([.x, 0] | max), ([.x + .width, 2560] | min)] as [$l, $r]
+    kad workspaceContext | jq -r --arg id "$1" --argjson left "$spread_left" 'first(.applications[] | select(.windowId == $id)) | .spreadRect
+        | select(. != null) | [([.x, $left] | max), ([.x + .width, $left + 2560] | min)] as [$l, $r]
         | select($r - $l > 120) | "\((($l + $r) / 2) | floor) \((.y + .height / 2) | floor)"'
 }
 entry_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .entry'; }
+carry_aim() { kad nativeCarryState | jq -r '"\(.carryAim) \(.carryIndex)"'; }
 # A person's finger carries one card onto another in Spread and lets go. Spread
 # shows one whole card and its neighbours' edges, so the card is carried as a
-# person does: pulled down, the row zooms out to show all of it, and the card
-# rests over the other until it would join.
+# person does: pulled down, the row zooms out. Where all of it shows, the card
+# goes straight over the other; where it does not, the card leans the row
+# along until the other comes under it, then rests in the middle until it
+# would join (CarryRow.h).
 carry_onto() {
-    local from=$1 to=$2 x y h e entries t items scale width x0 dx
+    local from=$1 to=$2 x y h e entries t items scale width pitch mid x0 dx aim at k
     select_card "$from" >/dev/null 2>&1
     sleep .4
     read -r x y < <(seen_at "$from")
@@ -90,21 +94,40 @@ carry_onto() {
     entries=$(kad workspaceContext | jq '[.applications[] | .entry | select(. != null and . >= 0)] | max + 1')
     items=$((entries - 1))
     t=$(( e > h ? e - 1 : e ))
+    mid=$((spread_left + 1280))
     probe down 61 "$x" "$y"
     sleep .4
     probe motion 61 "$((x + 30))" "$y"
     sleep .3
-    probe motion 61 "$((x + 30))" "$((y + 180))"
+    y=$((y + 180))
+    probe motion 61 "$((x + 30))" "$y"
     sleep .8
     scale=$(kad nativeCarryState | jq -r '.carryScale')
-    # Zoomed to fit, the row stands centred, its gap 0.7 of a pitch wide where
-    # the card was (CarryRow.h); a pitch is a card and its gutter.
-    x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson w "$width" \
-        '($w * 1.1037) as $p | 1280 + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    # A pitch is a card and its gutter; the place the card left is a gap 0.7
+    # of a pitch wide.
+    pitch=$(jq -n --argjson w "$width" '$w * 1.1037')
+    if jq -ne --argjson s "$scale" '$s > 0.325' >/dev/null; then
+        # All of it shows: the row stands centred.
+        x0=$(jq -n --argjson t "$t" --argjson h "$h" --argjson n "$items" --argjson s "$scale" --argjson p "$pitch" --argjson m "$mid" \
+            '$m + (($t + (if $t >= $h then 0.7 else 0 end)) - ($n - 1 + 0.7) / 2) * $p * $s | floor')
+    else
+        # Lean the row along until the held card's middle passes the other.
+        probe motion 61 "$(( t >= h ? mid + 600 : mid - 600 ))" "$y"
+        for _ in {1..120}; do
+            sleep .05
+            read -r aim at < <(carry_aim)
+            [[ $aim == gap ]] || continue
+            if (( t >= h ? at > t : at <= t )); then break; fi
+        done
+        probe motion 61 "$mid" "$y"
+        sleep .6
+        x0=$mid
+    fi
     for dx in 0 -40 40 -80 80 -120 120 -160 160; do
-        probe motion 61 "$((x0 + dx))" "$((y + 180))"
+        probe motion 61 "$((x0 + dx))" "$y"
         sleep .5
-        [[ $(kad nativeCarryState | jq -r --argjson t "$t" 'select(.carryAim == "join" and .carryIndex == $t) | "y"') == y ]] && break
+        read -r aim at < <(carry_aim)
+        [[ $aim == join && $at == "$t" ]] && break
     done
     sleep .4
     echo "state carry-$from $((x0 + dx)) $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex, carryScale}')"
