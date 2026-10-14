@@ -90,7 +90,7 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Input | What happens |
 | --- | --- |
 | Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout on it. |
-| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack, its edges showing, steps in place. |
+| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its card passes its Stack's cards, four title bars showing, and goes in where let go. |
 
 ## Table

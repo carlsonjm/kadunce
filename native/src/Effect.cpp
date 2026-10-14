@@ -7243,30 +7243,15 @@ bool Effect::reorderPaneStack(KWin::EffectWindow *pane, int place)
     return true;
 }
 
-void Effect::drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+void Effect::drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
     KWin::LogicalOutput *screen)
 {
-    // §11, Connected: a pane holding a Stack shows the top and right edges of
-    // up to two cards waiting behind it, in the gap beside the pane.
-    if (!m_destinationShader || !screen || !connectedOutputForDesktopStage(screen)) return;
-    // The held card on its ladder is outlined, so the place it goes in shows.
-    if (m_stackScrubPane && m_stackScrubPane->screen() == screen)
-        if (const auto rung = stackScrubRung(m_stackScrubPane))
-            drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, rung->first);
-    // Only over a layout as it shows, never over Spread, Table or a card.
-    if (screen == tabletOutput() && !m_cardStage->presentsBento()) return;
-    for (const auto &pane : m_desktopStage->panesOn(screen->name())) {
-        if (!pane || pane->isDeleted() || pane->isMinimized() || pane == m_carriedWindow) continue;
-        const int behind = std::min<int>(2, m_cardStage->paneStack(pane).size());
-        if (behind <= 0) continue;
-        const QRectF frame(pane->frameGeometry());
-        for (int k = behind; k >= 1; --k) {
-            const double offset = 3.0 * k;
-            drawDestinationOutline(renderTarget, viewport, deviceRegion, screen,
-                frame.translated(offset, -offset), frame);
-        }
-    }
+    // §11, Connected: a pane holding a Stack shows nothing of it at rest. Held
+    // and drawn up, the card on its ladder is outlined, so its place shows.
+    if (!m_destinationShader || !screen || !m_stackScrubPane || m_stackScrubPane->screen() != screen) return;
+    if (const auto rung = stackScrubRung(m_stackScrubPane))
+        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, rung->first);
 }
 
 bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
@@ -7651,7 +7636,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, front);
         overlaid.append(box);
     }
-    drawPaneStackEdges(renderTarget, viewport, deviceRegion, screen);
+    drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
         drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, QRectF(*m_placementPreview));

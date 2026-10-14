@@ -478,7 +478,7 @@ On Connected:
   only an open Spread.
 - A card chosen or window opened joins the layout: paired with the card
   in use when none shows, else under §8.
-- A Stack fills one pane, its other cards' edges showing; stepping it or
+- A Stack fills one pane, the rest unseen behind it; stepping it or
   closing its front plays the next; its title bar held, then drawn up,
   reorders it. A pane rested on another joins its
   Stack in front, leaving its slot to its own Stack; Spread holds panes.

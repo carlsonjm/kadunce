@@ -580,8 +580,8 @@ private:
     // that shows.
     [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
     bool reorderPaneStack(KWin::EffectWindow *pane, int place);
-    // The edges of the cards waiting behind each pane holding a Stack.
-    void drawPaneStackEdges(const KWin::RenderTarget &renderTarget,
+    // The held card's place on the ladder of a Stack being scrubbed.
+    void drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
                             KWin::LogicalOutput *screen);
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
