@@ -1054,6 +1054,25 @@ bool DesktopStageController::placePaneBySide(KWin::EffectWindow *window,
     return true;
 }
 
+bool DesktopStageController::swapPanes(KWin::EffectWindow *window, KWin::EffectWindow *other)
+{
+    if (!window || !other || window == other || !managesWindow(window) || !managesWindow(other))
+        return false;
+    KWin::LogicalOutput *output = window->screen();
+    if (!output || other->screen() != output) return false;
+    auto drop = prepareCardDrop(window, output, KWin::RectF(window->frameGeometry()));
+    if (!drop) return false;
+    drop->localTarget = other;
+    const auto placement = prepareLocalPlacement(*drop);
+    auto *session = sessionForOutput(output);
+    if (!placement || !session) return false;
+    const auto pending = captureEvictions(*session, *placement);
+    *session = *placement;
+    if (applySession(*session, false)) scheduleSettle();
+    publishEvictions(pending);
+    return true;
+}
+
 bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin::LogicalOutput *output,
     const KWin::RectF &geometry, const std::function<bool()> &commitSource,
     const std::function<void()> &releaseSource, CardDropIntent intent,

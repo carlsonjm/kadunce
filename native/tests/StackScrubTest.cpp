@@ -32,6 +32,14 @@ int main()
     require(scrub.ladderStart() == 1, "The card last passed shows above the held one");
     require(scrub.wheel(-5, 600.0) == 0, "The wheel stops at the front");
 
+    StackScrub keys;
+    keys.begin(3, 0, 0.0);
+    require(keys.stepKey(1) == 1 && keys.stepKey(1) == 2, "Each key press passes one card");
+    require(keys.stepKey(1) == 0, "Past the back the card comes round to the front");
+    require(keys.stepKey(-1) == 0, "Back toward the front it stops there");
+    keys.stepKey(1);
+    require(keys.stepKey(-1) == 0 && keys.ladderStart() == 0, "A key back returns it one place");
+
     StackScrub small;
     small.begin(3, 0, 0.0);
     require(small.ladderCount() == 3 && small.ladderStart() == 0, "A small Stack shows whole");

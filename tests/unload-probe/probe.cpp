@@ -685,6 +685,19 @@ public Q_SLOTS:
         keyboard->processKey(code, KWin::KeyboardKeyState::Released, now());
         if (modifier > 0) keyboard->processKey(modifier, KWin::KeyboardKeyState::Released, now());
     }
+    // A key pressed `times` over while one or two modifiers stay held, then
+    // the modifiers let go: a person holding Meta and tapping a key.
+    void keyHeld(int code, int times, int modifier, int second) {
+        auto *keyboard = KWin::input()->keyboard();
+        if (modifier > 0) keyboard->processKey(modifier, KWin::KeyboardKeyState::Pressed, now());
+        if (second > 0) keyboard->processKey(second, KWin::KeyboardKeyState::Pressed, now());
+        for (int i = 0; i < times; ++i) {
+            keyboard->processKey(code, KWin::KeyboardKeyState::Pressed, now());
+            keyboard->processKey(code, KWin::KeyboardKeyState::Released, now());
+        }
+        if (second > 0) keyboard->processKey(second, KWin::KeyboardKeyState::Released, now());
+        if (modifier > 0) keyboard->processKey(modifier, KWin::KeyboardKeyState::Released, now());
+    }
     bool bentoInterrupt() { return bento.interrupt(); }
     bool sourcePrepare(bool bentoSource) { return bento.sourcePrepare(bentoSource); }
     bool nativeRestoreControlPrepare() { return bento.nativeRestoreControlPrepare(); }

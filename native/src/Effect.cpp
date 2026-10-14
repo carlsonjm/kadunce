@@ -864,7 +864,8 @@ Effect::Effect()
     m_keyRoute = std::make_unique<KeyRoute>(
         [this](int key, Qt::KeyboardModifiers modifiers, bool repeat) {
             return answerKey(key, modifiers, repeat);
-        });
+        },
+        [this](int key) { keyReleased(key); });
 
     // Three fingers down on the touchscreen, or four on a touchpad, open Spread
     // under the fingers. KDE's Overview, which claims the same moves, is set
@@ -6860,8 +6861,10 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
     KeyContext context;
     context.table = true;
     context.cardsShown = m_cardsShownForKeys;
-    context.paneStack = !context.cardsShown && m_cardStage->presentsBento()
-        && connectedForCardStage();
+    KWin::EffectWindow *focused = KWin::effects->activeWindow();
+    context.pane = focused && m_desktopStage->managesWindow(focused);
+    context.lone = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
+        && connectedForCardStage() && m_cardStage->activeCardIdentity();
     // Plain keys go to an effect holding the keyboard, as Table does while open.
     context.spreadShown = context.cardsShown && !KWin::effects->hasKeyboardGrab()
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -6870,6 +6873,10 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;
+    // A ladder shown by the keys answers only Shift's Up and Down; any other
+    // key of Kadunce's places the card first.
+    if (m_stackScrubByKeys && action != KeyAction::Deeper && action != KeyAction::LetGo)
+        QTimer::singleShot(0, this, &Effect::commitKeyLadder);
     // The action runs after the key's own handling, never inside an input
     // filter's callback.
     QTimer::singleShot(0, this, [this, action]() { runKeyAction(action); });
@@ -6892,8 +6899,252 @@ void Effect::runKeyAction(KeyAction action)
         if (m_cardStage->backFromSpread()) activateSelectedFromInput();
         break;
     case KeyAction::Table: toggleTable(); break;
+    case KeyAction::FocusLeft: focusToward(KeyDirection::Left); break;
+    case KeyAction::FocusRight: focusToward(KeyDirection::Right); break;
+    case KeyAction::FocusUp: focusToward(KeyDirection::Up); break;
+    case KeyAction::FocusDown: focusToward(KeyDirection::Down); break;
+    case KeyAction::CarryLeft: carryToward(KeyDirection::Left); break;
+    case KeyAction::CarryRight: carryToward(KeyDirection::Right); break;
+    case KeyAction::Deeper: stepKeyLadder(1); break;
+    case KeyAction::LetGo:
+        if (m_stackScrubByKeys) stepKeyLadder(-1);
+        else letPaneGo();
+        break;
+    case KeyAction::DividerLeft: moveDividerByKey(-1); break;
+    case KeyAction::DividerRight: moveDividerByKey(1); break;
+    case KeyAction::Hold:
     case KeyAction::None: break;
     }
+}
+
+QList<KWin::EffectWindow *> Effect::keyTargets() const
+{
+    QList<KWin::EffectWindow *> targets;
+    for (auto *output : KWin::effects->screens()) {
+        if (!output) continue;
+        for (const auto &pane : m_desktopStage->panesOn(output->name()))
+            if (pane && !pane->isDeleted() && !pane->isMinimized() && !targets.contains(pane.data()))
+                targets.append(pane.data());
+    }
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active)
+        if (KWin::EffectWindow *card = m_cardStage->activeCardIdentity(); card && !targets.contains(card))
+            targets.append(card);
+    return targets;
+}
+
+KWin::LogicalOutput *Effect::outputToward(const KWin::LogicalOutput *output, KeyDirection direction) const
+{
+    if (!output) return nullptr;
+    QList<KWin::LogicalOutput *> others;
+    QList<QRectF> rects;
+    for (auto *other : KWin::effects->screens()) {
+        if (!other || other == output) continue;
+        others.append(other);
+        rects.append(QRectF(other->geometry()));
+    }
+    const int to = keyNeighbour(QRectF(output->geometry()), rects, direction);
+    return to < 0 ? nullptr : others.at(to);
+}
+
+KWin::EffectWindow *Effect::paneUsedBefore(const KWin::EffectWindow *pane) const
+{
+    if (!pane || !pane->screen()) return nullptr;
+    KWin::EffectWindow *before = nullptr;
+    quint64 latest = 0;
+    for (const auto &other : m_desktopStage->panesOn(pane->screen()->name())) {
+        if (!other || other.data() == pane || other->isDeleted()) continue;
+        const quint64 at = m_activationOrder.value(windowIdentity(other.data()), 0);
+        if (!before || at > latest) {
+            before = other.data();
+            latest = at;
+        }
+    }
+    return before;
+}
+
+void Effect::focusToward(KeyDirection direction)
+{
+    KWin::EffectWindow *from = KWin::effects->activeWindow();
+    if (!from) return;
+    QList<KWin::EffectWindow *> targets = keyTargets();
+    targets.removeAll(from);
+    QList<QRectF> rects;
+    for (auto *target : std::as_const(targets)) rects.append(QRectF(target->frameGeometry()));
+    const int to = keyNeighbour(QRectF(from->frameGeometry()), rects, direction);
+    if (to < 0) return;
+    qInfo() << "Kadunce" << Revision << "moved the focus from" << from->caption()
+            << "to" << targets.at(to)->caption();
+    KWin::effects->activateWindow(targets.at(to));
+}
+
+void Effect::carryToward(KeyDirection direction)
+{
+    const bool right = direction == KeyDirection::Right;
+    KWin::EffectWindow *focused = KWin::effects->activeWindow();
+    if (focused && m_desktopStage->managesWindow(focused) && focused->window() && focused->screen()) {
+        KWin::LogicalOutput *output = focused->screen();
+        // A pane beside it on its display trades places with it.
+        QList<KWin::EffectWindow *> beside;
+        QList<QRectF> rects;
+        for (const auto &other : m_desktopStage->panesOn(output->name())) {
+            if (!other || other.data() == focused || other->isDeleted()) continue;
+            beside.append(other.data());
+            rects.append(QRectF(other->frameGeometry()));
+        }
+        const int to = keyNeighbour(QRectF(focused->frameGeometry()), rects, direction);
+        if (to >= 0) {
+            if (m_desktopStage->swapPanes(focused, beside.at(to))) {
+                qInfo() << "Kadunce" << Revision << "swapped" << focused->caption()
+                        << "with" << beside.at(to)->caption() << "by the keys";
+                observeCardOwnership();
+                KWin::effects->activateWindow(focused);
+            }
+            return;
+        }
+        // With open room toward that edge, it moves there, as a side snap
+        // would place it.
+        if (connectedOutputForDesktopStage(output)
+            && keyRoomToward(QRectF(focused->frameGeometry()), QRectF(output->geometry()), direction)
+            && m_desktopStage->placePaneBySide(focused, output, BentoSidePlacement{right, true, true})) {
+            qInfo() << "Kadunce" << Revision << "placed" << focused->caption()
+                    << (right ? "right" : "left") << "by the keys";
+            observeCardOwnership();
+            return;
+        }
+        // At the display's edge it goes on to the display beside, as KWin's
+        // own window-to-screen key sends it (handleWindowOutputChanged).
+        if (KWin::LogicalOutput *next = outputToward(output, direction)) {
+            qInfo() << "Kadunce" << Revision << "sends" << focused->caption() << "to" << next->name();
+            focused->window()->sendToOutput(next);
+        }
+        return;
+    }
+    // The Active card alone on a Connected display: a full card takes the
+    // half toward that side, a half moves into the open half, and at the edge
+    // it goes on to the display beside.
+    KWin::EffectWindow *card = m_cardStage->activeCardIdentity();
+    if (!card || !card->window() || !card->screen() || !connectedForCardStage()) return;
+    KWin::LogicalOutput *output = card->screen();
+    const QRectF frame(card->frameGeometry());
+    const QRectF display(output->geometry());
+    const bool wide = frame.width() > display.width() * 0.6;
+    if ((wide || keyRoomToward(frame, display, direction))
+        && placeActiveCardAlone(output, BentoSidePlacement{right, true, true})) {
+        qInfo() << "Kadunce" << Revision << "placed" << card->caption()
+                << (right ? "right" : "left") << "by the keys";
+        observeCardOwnership();
+        return;
+    }
+    if (KWin::LogicalOutput *next = outputToward(output, direction)) {
+        qInfo() << "Kadunce" << Revision << "sends" << card->caption() << "to" << next->name();
+        card->window()->sendToOutput(next);
+    }
+}
+
+void Effect::stepKeyLadder(int delta)
+{
+    // A ladder a hand is holding is the hand's.
+    if (m_stackScrub.active() && !m_stackScrubByKeys) return;
+    if (!m_stackScrub.active()) {
+        KWin::EffectWindow *pane = KWin::effects->activeWindow();
+        if (!pane || !m_desktopStage->managesWindow(pane) || delta <= 0) return;
+        if (m_cardStage->paneStack(pane).isEmpty()) {
+            // With no Stack it joins the one of the pane used before it, as a
+            // pane rested on another does.
+            if (KWin::EffectWindow *onto = paneUsedBefore(pane); onto && stackPaneOnto(pane, onto))
+                qInfo() << "Kadunce" << Revision << "stacked" << pane->caption() << "by the keys";
+            return;
+        }
+        m_stackScrubPane = pane;
+        m_stackScrubByKeys = true;
+        m_stackScrub.begin(int(m_cardStage->paneStack(pane).size()) + 1, 0, 0.0);
+        qInfo() << "Kadunce" << Revision << "shows the ladder of" << pane->caption() << "by the keys";
+    }
+    m_stackScrub.stepKey(delta);
+    refreshStackScrubShown();
+    KWin::effects->addRepaintFull();
+}
+
+void Effect::commitKeyLadder()
+{
+    if (!m_stackScrubByKeys) return;
+    const QPointer<KWin::EffectWindow> pane = m_stackScrub.active() ? m_stackScrubPane : nullptr;
+    const int place = m_stackScrub.place;
+    // A Stack that changed under the ladder has nothing to order.
+    const bool whole = pane && int(m_cardStage->paneStack(pane).size()) + 1 == m_stackScrub.size;
+    endStackScrub();
+    if (whole && place > 0) (void)reorderPaneStack(pane, place);
+}
+
+void Effect::keyReleased(int key)
+{
+    // Queued behind the actions of the keys pressed before it, so a ladder
+    // those keys begin is placed even when Meta is let go at once.
+    if (key == Qt::Key_Meta || key == Qt::Key_Super_L || key == Qt::Key_Super_R)
+        QTimer::singleShot(0, this, &Effect::commitKeyLadder);
+}
+
+void Effect::letPaneGo()
+{
+    KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    if (!pane || !m_desktopStage->managesWindow(pane)) return;
+    const bool there = isOtherCardDisplay(pane->screen());
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    if (!behind.isEmpty()) {
+        // Out of its Stack: the next card takes the pane, and this one waits
+        // in Spread as a card of its own, as one pulled down there does.
+        KWin::EffectWindow *next = behind.first();
+        m_cardStage->forgetPaneStack(pane);
+        m_cardStage->notePaneStack(next, behind.mid(1));
+        if (!m_desktopStage->replacePaneWithCard(pane, next,
+                [this, next, there] {
+                    return there ? m_cardStage->releaseCardToDisplay(next)
+                                 : m_cardStage->releaseCardToLiveBento(next);
+                })) {
+            m_cardStage->forgetPaneStack(next);
+            m_cardStage->notePaneStack(pane, behind);
+            return;
+        }
+        m_cardHomes.remove(next);
+        m_cardStage->settlePaneStacks();
+        observeCardOwnership();
+        KWin::effects->activateWindow(next);
+        qInfo() << "Kadunce" << Revision << "took" << pane->caption() << "out of its Stack by the keys";
+        KWin::effects->addRepaintFull();
+        return;
+    }
+    // Out of the layout: it waits in Spread as a card.
+    const bool left = there ? m_desktopStage->yieldPaneToSpread(pane)
+                            : m_desktopStage->extractPaneToCards(pane, [] { return true; });
+    if (!left) return;
+    qInfo() << "Kadunce" << Revision << "took" << pane->caption() << "out of its layout by the keys";
+    observeCardOwnership();
+}
+
+void Effect::moveDividerByKey(int delta)
+{
+    KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    if (!pane || !m_desktopStage->managesWindow(pane) || !pane->screen()) return;
+    const QRectF frame(pane->frameGeometry());
+    const QString output = pane->screen()->name();
+    // The divider at the pane's right edge, else at its left.
+    std::optional<DesktopStageController::GrabRail> chosen;
+    double best = 0.0;
+    for (const auto &rail : m_desktopStage->grabRails()) {
+        if (rail.output != output || !rail.vertical) continue;
+        if (rail.hitArea.bottom() < frame.top() || rail.hitArea.top() > frame.bottom()) continue;
+        const double x = rail.pill.center().x();
+        const double distance = std::min(std::abs(x - frame.right()), std::abs(x - frame.left()) + 1.0);
+        if (distance > 40.0 || (chosen && distance >= best)) continue;
+        chosen = rail;
+        best = distance;
+    }
+    if (!chosen) return;
+    const QPointF start = chosen->hitArea.center();
+    if (!m_desktopStage->beginRail(start)) return;
+    m_desktopStage->updateRail(start + QPointF(pane->screen()->geometry().width() * 0.05 * delta, 0.0));
+    m_desktopStage->finishRail(true);
+    qInfo() << "Kadunce" << Revision << "moved a divider of" << pane->caption() << "by the keys";
 }
 
 void Effect::activateSelectedFromInput()
@@ -7211,6 +7462,7 @@ void Effect::endStackScrub()
 {
     const bool shown = m_stackScrub.active();
     m_stackScrub.clear();
+    m_stackScrubByKeys = false;
     m_stackScrubArmed = false;
     m_stackScrubHeldStill = false;
     m_stackScrubPane.clear();

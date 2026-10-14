@@ -313,6 +313,9 @@ public:
     bool transferPreparedCard(const PreparedDrop &drop,
         const std::function<bool()> &commitSource,
         const std::function<void()> &releaseSource);
+    // Two panes of one display's layout trade places, as one let go on the
+    // other at once does.
+    bool swapPanes(KWin::EffectWindow *window, KWin::EffectWindow *other);
     // CARD-LIFECYCLE.md §11, Connected: a pane already in its display's
     // layout is placed by `side` as a side snap would place it.
     bool placePaneBySide(KWin::EffectWindow *window, KWin::LogicalOutput *output,

@@ -21,24 +21,24 @@ Apps and Files.
 
 | Input | What happens |
 | --- | --- |
-| Swipe up from the bottom edge | Spread opens and follows your finger; a quick flick opens it all the way. |
+| Swipe up from the bottom edge | Spread follows your finger; a quick flick opens it fully. |
 | Three fingers down on the touchscreen, or four on a touchpad | Spread opens past halfway, the Active card shrinking into the row under your fingers. |
 | `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout shrinks into the row as its group card. |
-| Drag the row sideways, by finger or mouse | The row follows, coasts after a flick, settles on a card and springs back at either end. |
+| Drag the row sideways, by finger or mouse | The row follows, coasts after a flick and springs back at either end. |
 | Wheel over the row | The row moves one card. |
 | `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |
 | `Meta+Left`, `Meta+Right` in Spread | The row moves to the card before or after. |
-| Tap or click empty space, or press `Escape` | You go back to where you were: the card last open, or the layout you opened Spread from. |
-| Flick a card up | Its application closes; one that asks first comes forward with its question. A short lift springs back. The Bento group never closes this way. |
-| Pull down on the Bento group | The pane under your finger leaves the layout and becomes a card of its own. |
-| Hold a card | It rises under your finger to be carried; Spread stays three across. Held off the middle, the row slides under it. |
-| Pull a held card down | The row zooms out to one set view, and returns when pushed back up; not over the Bento group. |
+| Tap or click empty space, or press `Escape` | You go back to the card last open, or the layout you opened Spread from. |
+| Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. Never the Bento group. |
+| Pull down on the Bento group | The pane under your finger leaves the layout as a card. |
+| Hold a card | It rises to be carried; Spread stays three across. Held off the middle, the row slides under it. |
+| Pull a held card down | The row zooms out to one set view until pushed back up; not over the Bento group. |
 | Let a held card go in a gap | It lands there as the row grows back to three across. |
-| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group it takes the pane under your finger, and the layout opens with it there. |
+| Let a held card go on another card, once that card has risen | The two become a Stack. On the Bento group it takes the pane under your finger and the layout opens. |
 | Let a held card go on another display | It becomes a Bento pane or an ordinary window there. |
-| Tap or click a card's stack of Gooseberry notes | They fan out until tapped again; hold one, or the stack for its top note, and let go on another card to stick it there. |
+| Tap or click a card's stack of Gooseberry notes | They fan out until tapped again; hold one, or the stack for its top note, and let go on another card to stick it. |
 | Right-click | Nothing: Spread has no window menu. |
-| Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke does not close it, and the keys type into it. |
+| Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke leaves it open; the keys type into it. |
 | Plasma's bottom or top touch edge, where no touchscreen drives a display | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
 
 A swipe that starts on the dock stays with the dock, and while the on-screen keys
@@ -52,7 +52,7 @@ are up, the bottom edge is theirs.
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
 | Pull a Stack's card down | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. |
-| Hold a Stack's card | It lifts out, and the Stack parts at an outlined place where it would go; sideways moves that place, left toward the back. Let go and the card takes it, and the card then in front shows; where it began, nothing changes. |
+| Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go and the card goes there, the front card showing; where it began, nothing changes. |
 
 ## Active card
 
@@ -61,12 +61,12 @@ are up, the bottom edge is theirs.
 | Tap or click a card in Spread | It grows into the Active card; the Bento group opens as its layout. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
-| Drag a window by its title bar to the top edge | It becomes the Active card, and a Bento pane leaves its layout. The first time on the card display, every other window there becomes a card too. |
+| Drag a window by its title bar to the top edge | It becomes the Active card, a Bento pane leaving its layout. The first time, every other window on the card display becomes a card too. |
 | Drag a window onto the card display | It becomes a card. |
-| Tap, click or swipe inward in the gap beside the Active card | The card before it (left gap) or after it (right gap) becomes Active. A Stack is a ring; Spread or the dock leave it. The pointer: a page tab. |
+| Tap, click or swipe inward in the gap beside the Active card | The card before (left) or after (right) becomes Active, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
-| `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack as a swipe goes. Only while cards are shown; elsewhere these keys stay KDE's. |
-| `Meta+Up`, `Meta+Down` | The previous or next card of the current Stack, likewise. |
+| `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. `Meta+Up` and `Meta+Down` do nothing here. |
+| `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
 | Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. |
 | Point in any other gutter | An arrow; nothing resizes there. |
 
@@ -74,12 +74,12 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of the card display | The window pairs into Bento on your side with the Active card, or for the Active card the card used before it; the upper half, the larger pane. With none, it becomes the Active card. Connected, `CARD-LIFECYCLE.md` §11 says where. |
-| `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor, pairing the Active card with the card used before it. |
+| Drag a window by its title bar to the left or right edge of the card display | It pairs into Bento on your side with the Active card, or for the Active card the card used before it, the upper half larger. With none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
+| `Meta+B` | Starts or ends Bento on Spread's display, or with cards on one display the largest monitor, pairing the Active card with the one used before. |
 | `Meta+Shift+B` | Monitors switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display without cards | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
-| Drag a Bento pane onto another pane of its layout | The two swap places; dropped on its own place, nothing changes. Connected, rested until two outlines show, it joins that pane's Stack. |
+| Drag a Bento pane onto another pane of its layout | The two swap places. Connected, rested until two outlines show, it joins that pane's Stack. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends, that pane a card. |
 | Press `Escape`, or add a finger, while dragging a window | The drag is cancelled. |
 
@@ -89,9 +89,14 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 
 | Input | What happens |
 | --- | --- |
-| Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout on it. |
-| `Meta+Up`, `Meta+Down` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
-| Hold a pane's title bar, then drag up or turn the wheel | Held, its Stack's title bars show; its card passes them and goes in where let go. |
+| Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout. |
+| `Meta`'s arrows on a pane | The focus goes that way, past the edge to that display. |
+| `Meta+Shift+Left`, `Right` on a pane or lone card | It swaps with the pane there, or takes the room, or goes to that display. |
+| `Meta+[`, `Meta+]` | The divider beside the pane moves. |
+| `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
+| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed when `Meta` is let go; with no Stack, it joins the pane used before. |
+| `Meta+Shift+Down` on a pane | Its card leaves its Stack, or with none, the layout. |
+| Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table
 
@@ -106,7 +111,7 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Let a lifted card go on `+` | A new workspace, named for the application, takes it. |
 | Let a lifted card go on its own place | It opens. |
 | Push back up to the edge and lift | Table closes; nothing changes. |
-| Flick down quickly | The tabs stay open as a menu bar, and nothing is chosen. |
+| Flick down quickly | The tabs stay open as a menu bar, nothing chosen. |
 | In the menu bar: tap a tab twice | The first tap previews it; the second enters it. |
 | In the menu bar: tap a card, or the preview | What it shows opens. |
 | In the menu bar: drag a card | It is carried like a lifted card. |
@@ -114,20 +119,20 @@ On a card display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Tap or lift on `+` | An empty workspace opens; its first application names it. |
 | Clear a workspace's name | Table offers to remove it (`TABLE.md`). |
 | `Meta+W` | Table opens as a menu bar on the display under the pointer, or closes. |
-| Push the pointer into a display's top-left corner | The menu bar opens there. The rest of the top edge stays with windows. |
+| Push the pointer into a display's top-left corner | The menu bar opens there; the rest of the edge stays with windows. |
 | Hover over, or click, a tab or a card | It previews, or opens, a card as the Active card. |
 | Wheel | Steps across the tabs, or the chosen tab's cards. |
-| `Left`, `Right`, `Down`, `Up` | The tab or card beside is chosen; down goes into the chosen tab's cards, up back to the tabs. |
+| `Left`, `Right`, `Down`, `Up` | The tab or card beside is chosen; down enters the tab's cards, up returns. |
 | `Enter` or `Space` | The chosen tab or card opens, a card as the Active card. |
-| `Escape` | Table closes and nothing changes; a name being typed keeps the old one. |
+| `Escape` | Table closes; a name being typed keeps the old one. |
 | `F2` | The chosen workspace's name can be typed; `Enter` keeps it. |
-| Three fingers up on the touchscreen, or four on a touchpad | Table comes down as a menu bar past halfway, on the card display or, from a touchpad, under the pointer; again closes it. |
+| Three fingers up on the touchscreen, or four on a touchpad | Table comes down as a menu bar past halfway, on the card display or from a touchpad under the pointer; again closes it. |
 
 ## Plasma desktop
 
 | Input | What happens |
 | --- | --- |
 | Switch Cards off in the tray | Every window returns to the ordinary Plasma desktop, then Kadunce unloads. |
-| `Meta+Esc` | Every window returns to the plain Plasma desktop until a window opens and starts cards again. |
-| Drag the Active card or a Bento pane to the bottom edge | It returns to the Plasma desktop where you let it go; other cards wait in Spread. |
-| Switch Cards on in the tray | The card display's windows become cards, the one in use the Active card. |
+| `Meta+Esc` | Every window returns to the Plasma desktop until a new window starts cards again. |
+| Drag the Active card or a Bento pane to the bottom edge | It returns to the Plasma desktop where let go; other cards wait in Spread. |
+| Switch Cards on in the tray | The card display's windows become cards, the one in use Active. |

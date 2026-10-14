@@ -24,6 +24,7 @@
 #include "TableGesture.h"
 #include "TableLayout.h"
 #include "TablePresenter.h"
+#include "KeyFocus.h"
 #include "KeyRoute.h"
 #include "HeldPointer.h"
 #include <options.h>
@@ -583,6 +584,27 @@ private:
     // that shows.
     [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
     bool reorderPaneStack(KWin::EffectWindow *pane, int place);
+    // INPUT.md § Connected, by the keys: Meta's arrows move the focus to the
+    // window beside, on this display or the next; with Shift the pane goes
+    // there, swapping with a pane beside it, into open room toward that edge,
+    // or on to the display beside. Shift+Up puts it deeper in its Stack, shown
+    // on the ladder until Meta is let go, or with no Stack joins the pane used
+    // before it; Shift+Down takes it out of its Stack, or out of the layout.
+    // The brackets move the divider beside it.
+    void focusToward(KeyDirection direction);
+    void carryToward(KeyDirection direction);
+    void stepKeyLadder(int delta);
+    void commitKeyLadder();
+    void letPaneGo();
+    void moveDividerByKey(int delta);
+    void keyReleased(int key);
+    // The windows the arrows reach: every display's panes, and the Active card.
+    [[nodiscard]] QList<KWin::EffectWindow *> keyTargets() const;
+    // The display beside `output` on that side, if any.
+    [[nodiscard]] KWin::LogicalOutput *outputToward(const KWin::LogicalOutput *output,
+                                                    KeyDirection direction) const;
+    // The pane of the same display used most recently before `pane`.
+    [[nodiscard]] KWin::EffectWindow *paneUsedBefore(const KWin::EffectWindow *pane) const;
     // The held card's place on the ladder of a Stack being scrubbed.
     void drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
@@ -787,7 +809,7 @@ private:
     // The two named cards become a Bento pair, `active` placed by `side`.
     bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
         KWin::EffectWindow *partner, BentoSidePlacement side);
-    // §11, Connected: Meta+Up/Down on a pane steps the Stack that fills it.
+    // §11, Connected: Meta+Tab on a pane steps the Stack that fills it.
     bool stepPaneStack(int delta);
     // §8: retire a layout that cannot take an arrival into a Spread group, so
     // the card the arrival becomes is not drawn over live panes. Both arrival
@@ -974,6 +996,8 @@ private:
     // Held long enough to show the ladder, but not yet drawn up or aside.
     bool m_stackScrubHeldStill = false;
     bool m_stackScrubLetGo = false;
+    // The ladder shows for Meta+Shift+Up, and is placed when Meta is let go.
+    bool m_stackScrubByKeys = false;
     StackScrub m_stackScrub;
     QPointer<KWin::EffectWindow> m_stackScrubPane;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_stackScrubShown;

@@ -8,7 +8,7 @@
 # display goes back to what it showed. A window carried to the small display
 # is the card it shows;
 # closing it brings back the card it used before. A Stack placed on the small
-# display fills it, and Meta+Down steps it there. With every window moved to
+# display fills it, and Meta+Tab steps it there. With every window moved to
 # the small display, Spread still opens, gathering the card it shows, and gives
 # it back as it closes. Every check is reported, so
 # a failure does not hide the rest.
@@ -244,10 +244,10 @@ check 'stack: the rest of it waits for the small display' waits_for_small "$othe
 check 'stack: the card it replaced waits in Spread for it' waits_for_small "$tc"
 probe activateWindowId "$face" >/dev/null
 sleep .5
-probe key 108 125 >/dev/null
+probe key 15 125 >/dev/null
 sleep 1.4
 report stepped
-check 'step: Meta+Down shows the next card of the Stack there' shown_small "$other"
+check 'step: Meta+Tab shows the next card of the Stack there' shown_small "$other"
 check 'step: it fills the small display' fills_small "$other"
 check 'step: the card it replaced waits in the Stack' waits_for_small "$face"
 check 'step: the large display still shows its own card' presents active

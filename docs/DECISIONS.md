@@ -323,14 +323,13 @@ which talk to Kadunce every frame; and the recognizer reaching over the dock.
 
 ### Kadunce's keys sit on Meta and are never written
 
-`Meta+S` opens Spread, `Meta+W` Table, `Meta`'s
-arrows move through cards while they are shown, `Meta+B` starts Bento and
-`Meta+Esc` lets go; an input filter ahead of KDE's shortcuts takes them only
-while Kadunce runs (`INPUT.md`, whose controls map lists them). `Ctrl` stays
-with applications, `Alt+Tab` with KDE, and `Meta+G` and `Meta+E` with
-Tettegouche. Rejected: KGlobalAccel, which writes every key to your
-settings and gives a shared key to its oldest owner; and `Ctrl` keys, which took
-Save, Bold and word moves from every application.
+A filter ahead of KDE's shortcuts takes Kadunce's keys only while it runs,
+the arrows only while cards or a layout show (`INPUT.md`). An arrow
+moves the focus that way; with `Shift` the window goes, at a layout's edge on
+to the next display. `Meta+Tab` steps a Stack; `Meta+Shift+Down` lets go one
+level and `Meta+Shift+Up`, the same keys turned round, puts a card deeper.
+Rejected: KGlobalAccel, which writes keys to your settings; `Ctrl`, which
+belongs to applications; `Meta+Up` stepping a Stack, giving down two meanings.
 
 ### KDE's Overview is set aside while Kadunce runs
 

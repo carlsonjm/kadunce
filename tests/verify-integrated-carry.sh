@@ -32,6 +32,7 @@ scenes=(
     connected-runtime production
     connected-stacks-runtime production
     every-display-runtime production
+    connected-keys-runtime production
     provenance-runtime production
     table-preview-runtime production
     desktop-settings-runtime production
