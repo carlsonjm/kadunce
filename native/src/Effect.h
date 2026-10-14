@@ -24,6 +24,7 @@
 #include "TableGesture.h"
 #include "TableLayout.h"
 #include "TablePresenter.h"
+#include "SpreadReader.h"
 #include "KeyRoute.h"
 #include "HeldPointer.h"
 #include <options.h>
@@ -464,6 +465,10 @@ private:
     QList<TableWorkspace> m_tableWorkspaces;
     TableLayout m_tableLayout;
     std::unique_ptr<TablePresenter> m_tablePresenter;
+    // Spread named for a screen reader, made only while one listens.
+    std::unique_ptr<SpreadReader> m_spreadReader;
+    [[nodiscard]] SpreadReading spreadReading();
+    void syncSpreadReader();
     QElapsedTimer m_tableTime;
     // The card in hand as last drawn, and the landing of the last card moved.
     QVariantMap m_tableCarried;

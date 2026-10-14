@@ -34,6 +34,16 @@ the compositor's frames through `OffscreenQuickScene`, taking no input. Table
 creates, renames and removes desktops through KWin; Kadunce keeps only which
 names are yours (`TABLE.md`).
 
+Spread is painted, so `SpreadReader` names it for a screen reader, and exists
+only while one listens. It keeps an undrawn `spread/SpreadReader.qml` scene
+listing each entry by the words `SpreadReading.h` gives it: application and
+title, a Stack's card count, a sleeping card, the Bento group by its panes'
+applications, and the entry's place in the row. While Spread shows on its own,
+the scene is Qt's focused window, as KWin's task switcher makes its own, and the
+chosen entry its focused item, so the reader speaks each card as Spread chooses
+it. Where keys and touches go is unchanged. Table and Search over Spread's centre
+are not read as Spread.
+
 `CardWorkspaceState<Handle>` is the mutable authority for Spread membership and
 its `SpreadModel`. `SpreadModel`, `SpreadLayout`, `BentoLayout`, and the value
 transfer planners are headlessly testable domain primitives. Rendering consumes

@@ -1342,6 +1342,7 @@ Effect::~Effect()
     if (m_gapHeld) KWin::effects->stopMouseInterception(this);
     m_table.close();
     if (m_tablePresenter) m_tablePresenter->hide();
+    m_spreadReader.reset();
     if (m_tableKeyboard) KWin::effects->ungrabKeyboard();
     giveTableCornerBack();
     endDesktopPreview();
@@ -6620,6 +6621,53 @@ bool Effect::notesShownInSpread() const
         && !m_cardStage->cardGrabActive() && !m_table.isOpen() && !m_previewDesktop;
 }
 
+// Spread's row as a screen reader hears it, from its first entry: each
+// entry by its front card, the Bento group by its panes.
+SpreadReading Effect::spreadReading()
+{
+    const SpreadModel &model = m_cardStage->model();
+    const auto &cards = m_cardStage->liveCards();
+    const int count = model.count();
+    QList<SpreadReadingEntry> entries;
+    entries.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        const int id = model.idAtOffset(i - model.selectedIndex());
+        KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
+        SpreadReadingEntry entry;
+        if (window && !window->isDeleted()) {
+            if (!m_cardStage->panesAsCards() && m_cardStage->inProjectedLayout(window)) {
+                for (const auto &pane : m_cardStage->bentoProjectionPanes())
+                    if (pane && !pane->isDeleted()) entry.group.append(applicationDisplayName(pane));
+                if (entry.group.isEmpty()) entry.group.append(applicationDisplayName(window));
+            } else {
+                entry.application = applicationDisplayName(window);
+                entry.title = window->caption();
+                entry.stacked = std::max(1, model.stackSizeForId(id));
+                entry.sleeping = window->isMinimized();
+            }
+        }
+        entries.append(entry);
+    }
+    return readSpread(entries, model.selectedIndex());
+}
+
+// Spread is named for a screen reader while it shows on its own, the
+// row's chosen entry holding the reader's focus; Table and Search over
+// Spread's centre speak for themselves.
+void Effect::syncSpreadReader()
+{
+    KWin::LogicalOutput *output = tabletOutput();
+    const bool reading = output && SpreadReader::listening() && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread && !m_table.isOpen()
+        && !m_cardStage->launcherGuestActive() && !m_previewDesktop && !m_cardStage->liveCards().isEmpty();
+    if (!reading) {
+        if (m_spreadReader && m_spreadReader->visible()) m_spreadReader->hide();
+        return;
+    }
+    if (!m_spreadReader) m_spreadReader = std::make_unique<SpreadReader>();
+    m_spreadReader->show(QRectF(output->geometry()).toRect(), spreadReading());
+}
+
 // Gooseberry's notes over a window are its layer surface that takes no keys;
 // its quick-note card takes them. While Spread is up the notes are drawn on
 // the cards instead, so that surface is left undrawn from the frame Spread
@@ -7370,6 +7418,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // leave a card's fan disagreeing with its window.
         if (m_notesSpreadShown && !wasShown && m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
         syncNotesPause();
+        syncSpreadReader();
     }
     showSleepingCardsInSpread();
     // Presentation changes repaint, so a frame is where a dependent's
