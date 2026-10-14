@@ -584,6 +584,7 @@ private:
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
+    bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);

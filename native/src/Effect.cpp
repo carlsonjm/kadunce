@@ -2917,7 +2917,7 @@ void Effect::handleWindowOutputChanged()
             && window != m_carriedWindow && window != m_nativeCarry && !cardHome(window)
             && m_cardStage->liveCardIndex(window) >= 0) {
             KWin::LogicalOutput *there = window->window()->moveResizeOutput();
-            if (isOtherCardDisplay(there) && m_cardStage->giveCardToDisplay(window, there)) {
+            if (isOtherCardDisplay(there) && giveCardWithItsStack(window, there)) {
                 KWin::effects->activateWindow(window);
                 observeCardOwnership();
                 Q_EMIT workspaceContextChanged();
@@ -5288,7 +5288,7 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
             QTimer::singleShot(0, this, [this, card, there] {
                 if (!card || card->isDeleted()) return;
                 KWin::LogicalOutput *display = KWin::effects->findScreen(there);
-                if (isOtherCardDisplay(display) && m_cardStage->giveCardToDisplay(card, display)) {
+                if (isOtherCardDisplay(display) && giveCardWithItsStack(card, display)) {
                     qInfo() << "Kadunce" << Revision << "gave" << card->caption() << "to" << there
                             << "where it was carried";
                     KWin::effects->activateWindow(card);
@@ -5359,7 +5359,7 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window)
             qInfo() << "Kadunce" << Revision << "leaves" << window->caption()
                     << "waiting for" << cardHome(window)->name();
         // A card of Spread's display carried here is the card it shows.
-        if (!cardHome(window) && m_cardStage->giveCardToDisplay(window, output)) {
+        if (!cardHome(window) && giveCardWithItsStack(window, output)) {
             qInfo() << "Kadunce" << Revision << "gave" << window->caption() << "to" << output->name()
                     << "where it was carried";
             KWin::effects->activateWindow(window);
@@ -7827,6 +7827,24 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     m_cardStage->settlePaneStacks();
     observeCardOwnership();
     activateShownPane(next);
+    return true;
+}
+
+bool Effect::giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display)
+{
+    // §11, Every display: a card given to another display takes its Stack
+    // with it. The cards behind wait for that display, behind the card it
+    // shows, so Meta+Tab there steps them.
+    QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(card);
+    behind.removeAll(card);
+    if (!display || !m_cardStage->giveCardToDisplay(card, display)) return false;
+    if (behind.isEmpty()) return true;
+    m_cardStage->notePaneStack(card, behind);
+    for (auto *member : std::as_const(behind))
+        if (member && !member->isDeleted()) m_cardHomes.insert(member, display->name());
+    m_cardStage->settlePaneStacks();
+    qInfo() << "Kadunce" << Revision << "gave" << card->caption() << "to" << display->name()
+            << "with" << behind.size() << "behind it";
     return true;
 }
 
