@@ -36,6 +36,26 @@ probe up 51
 sleep .5
 stacked_pair
 echo 'PASS: two cards form one ordinary stack'
+# Spread draws the selected Stack above every card, and a panel applet's popup
+# opened over it is still drawn above it, where KWin stacks it: both when the
+# popup opens over the Stack and when Spread opens under the popup.
+stack_drawn_above() { probe drawOrder | jq -e '[.[] | select(.normal) | .z] | max >= 1000' >/dev/null; }
+popup_drawn_above() { probe drawOrder | jq -e '([.[] | select(.normal) | .z] | max) as $cards
+    | [.[] | select(.notification)] | length == 1 and all(.z > $cards)' >/dev/null; }
+client popupSurface
+for attempt in {1..15}; do probe drawOrder | jq -e 'any(.notification)' >/dev/null && break; sleep .2; done
+stack_drawn_above || { echo "DIAG Stack not drawn above: $(probe drawOrder)"; false; }
+popup_drawn_above || { echo "DIAG popup under the Stack: $(probe drawOrder)"; false; }
+kad showActive
+sleep .5
+kad showCardLine
+sleep .5
+stack_drawn_above || { echo "DIAG Stack not drawn above again: $(probe drawOrder)"; false; }
+popup_drawn_above || { echo "DIAG popup under the Stack again: $(probe drawOrder)"; false; }
+client closePopup
+sleep .3
+stacked_pair
+echo 'PASS: a popup over the Stack in Spread is drawn above it'
 # §9: a release that never rose out of the stack rejoins it. This is the browse
 # distance, well inside the rise the release asks for.
 probe down 52 500 350
