@@ -430,6 +430,13 @@ report fourth-under
 check 'fourth under: the preview is the bottom of the right column' previewed '.x > 1650 and .y > 650'
 check 'fourth under: it lands where the preview showed' placed_at "$a"
 check 'fourth under: the card above it moved up' geometry "$n" '.x > 1650 and .y < 200 and .height < 760'
+# The card a side snap placed leaves for the top edge; Meta+S still opens
+# Spread over the layout it left.
+snap "$a" 'Term A' 1280 3
+report snapped-left
+spread_key
+report snapped-left-spread
+check 'side gone: Meta+S opens Spread over the layout the snapped card left' presents cardLine
 end_pass place
 
 if (( failures > 0 )); then

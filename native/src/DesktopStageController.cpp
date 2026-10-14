@@ -2452,10 +2452,18 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
     const std::function<bool(const BentoProjectionSession &,
                              const std::function<bool()> &)> &accept)
 {
+    // Each refusal says why: from the keys, a refusal is otherwise a key
+    // that does nothing.
+    const auto refuse = [output](const char *why) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on"
+                << (output ? output->name() : QString()) << "out of Spread:" << why;
+        return false;
+    };
     if (m_restoring || !output || !m_host->isTabletOutputForDesktopStage(output)
-        || m_interactionWindow || m_railDrag) return false;
+        || m_interactionWindow || m_railDrag) return refuse("busy, or not Spread's display");
     const auto *session = sessionForOutput(output);
-    if (!session || session->applying || session->windows.isEmpty()) return false;
+    if (!session || session->applying || session->windows.isEmpty())
+        return refuse("no settled layout");
     // Preserve pane order alongside the authoritative rect vector. The largest
     // real pane is selected as the group lead without reordering that vector.
     auto ordered = session->windows;
@@ -2482,7 +2490,8 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         const auto saved = std::find_if(session->snapshots.cbegin(), session->snapshots.cend(),
             [&](const auto &s) { return s.window == window; });
         if (!window || window->isDeleted() || !window->window() || window->screen() != output
-            || saved == session->snapshots.cend() || !saved->valid) return false;
+            || saved == session->snapshots.cend() || !saved->valid)
+            return refuse("a pane is gone, elsewhere or has no record");
         BentoProjectionMember member{window,
             {window->window(), output, saved->geometry, saved->floatingGeometry,
             saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
@@ -2499,7 +2508,13 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         if (!projection.stackingOrder.contains(member))
             projection.stackingOrder.append(member);
     }
-    if (!validBentoProjectionShape(projectionShape(projection))) return false;
+    // A side snap whose window has since gone names no window; the panes
+    // left keep their places, and the group carries no side.
+    if (projection.side && !ordered.contains(projection.sideWindow)) {
+        projection.side.reset();
+        projection.sideWindow.clear();
+    }
+    if (!validBentoProjectionShape(projectionShape(projection))) return refuse("its shape does not hold");
     const auto generation = m_applicationGuard.generation();
     const QString key = outputKey(output);
     bool committed = false;
@@ -2514,7 +2529,8 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         committed = true;
         return true;
     });
-    return accepted && committed;
+    if (!accepted || !committed) return refuse("Spread did not take it");
+    return true;
 }
 
 bool DesktopStageController::resumeProjectedSession(
