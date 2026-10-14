@@ -10,7 +10,7 @@ Check each against current KDE code first. Evidence: **measured**, **source**
 
 | What goes wrong for a person | Component | Evidence | Send as |
 | --- | --- | --- | --- |
-| After a drag is cut short with the finger down, the next touch drag moves no window and a tap can be lost. Kadunce clears it on its own cancels; KWin's own Escape during a touch move still hits it. | KWin move filter | measured; `patches/kwin/0001-*.patch` | reported: KDE bug 526861, closed |
+| After a drag is cut short with the finger down, the next touch drag moves no window and a tap can be lost. Kadunce clears it on its own cancels; KWin's own Escape during a touch move still hits it. | KWin move filter | measured; scene `touch-after-carry-runtime` | reported: KDE bug 526861, closed |
 | The keys pop up whenever an app enables a field soon after any touch: a tab switch, a new window. | KWin input method | source; hand tests | report, or a patch showing keys only for a touch on the field |
 | Turning automatic keys off also stops explicit requests for them. | KWin input method | source | report |
 | A raise request does nothing until some field has been touched once in the session. | KWin input method | measured | report |
