@@ -1516,6 +1516,32 @@ void CardStageController::followWorkArea(bool now)
     KWin::effects->addRepaintFull();
     const auto window = m_activeRestore.window;
     auto *tablet = m_host->tabletOutputForCardStage();
+    // §3: the cards behind the one presented stood in the Active place the
+    // area gave when they were taken. At sign-in that is before the panels
+    // have taken their room, so they still reach a panel, which then stays
+    // opaque until each card is brought forward. Those that reach past the
+    // place the area gives now stand in it; one inside it is left alone, so
+    // a panel giving room back moves nothing.
+    if (tablet && !m_cardGrabActive
+        && (m_presentation == CardPresentation::Active || m_presentation == CardPresentation::Spread)) {
+        const KWin::RectF place(activeTarget(tablet));
+        QList<QPointer<KWin::EffectWindow>> reaching;
+        for (const auto &card : std::as_const(m_workspace.windows())) {
+            if (!card || card->isDeleted() || !card->window() || card == window
+                || card->screen() != tablet
+                || card->isMinimized() || m_bentoProjectionWindows.contains(card)
+                || card->window()->isInteractiveMove() || card->window()->isInteractiveResize())
+                continue;
+            const KWin::RectF placed = card->window()->moveResizeGeometry();
+            if (placed.top() < place.top() - 1 || placed.left() < place.left() - 1
+                || placed.bottom() > place.bottom() + 1 || placed.right() > place.right() + 1)
+                reaching.append(card);
+        }
+        if (!reaching.isEmpty()) {
+            qInfo() << "Kadunce cards behind the Active one follow the work area:" << reaching.size();
+            settleCardsInActivePlace(reaching);
+        }
+    }
     if (m_presentation != CardPresentation::Active || !m_activeRestore.valid
         || !window || window->isDeleted() || !window->window() || !tablet) return;
     auto *client = window->window();
