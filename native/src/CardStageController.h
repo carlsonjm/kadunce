@@ -405,6 +405,8 @@ public:
     [[nodiscard]] bool finishCardGrabOnOutput(const QPointF &position);
     // Whether a card in Spread is under `position`.
     [[nodiscard]] bool cardAtPoint(const QPointF &position) const;
+    // The card in Spread a tap at `position` reaches, nearest the eye first.
+    [[nodiscard]] KWin::EffectWindow *cardUnderPoint(const QPointF &position) const;
     // A tap in Spread. A card fanned behind the centred Stack's face comes
     // forward; any other card is selected to open; empty space selects where
     // the person was, to go back to it.
@@ -543,6 +545,9 @@ public:
     void handleManualWindowChange(KWin::EffectWindow *window);
     // The Active card asked to fill the screen: it alone goes, the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
+    // The window that has just opened, maximizing or tiling itself as its
+    // application restores its saved state, stays the Active card.
+    bool keepOpeningStateInActivePlace(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
     bool admitBentoStack(const BentoProjectionSession &projection,
@@ -748,6 +753,13 @@ private:
     bool m_closeHandoff = false;
     QTimer m_arrivalTimer;
     QElapsedTimer m_arrivalWait;
+    // When each window opened, on m_openingClock: a state it asks for within
+    // OpeningStateGrace is its application restoring how it was left. At
+    // sign-in several open at once, and any of them can be the Active card
+    // when its own state arrives.
+    QHash<const KWin::EffectWindow *, qint64> m_openedAt;
+    QElapsedTimer m_openingClock;
+    static constexpr qint64 OpeningStateGrace = 2000;
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;

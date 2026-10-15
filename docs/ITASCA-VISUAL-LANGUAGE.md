@@ -234,12 +234,23 @@ they preserve these relationships and respect the user's animation settings.
   no final geometry. Dragging previews only the first 18% of its travel: the
   shoulder lifts 16 px and leans by less than a degree, then falls flat into the
   centre while the opposite neighbour stays still.
-- A card's stuck notes in Spread show as one 64 by 44 px mini note, 12 px
+- A stuck note placed on its window stands on the card in the same place, as
+  big as there, both scaled with the card and never smaller than 64 by 44 px;
+  one never resized starts 30% of the window wide, from 140 to 220 px, and
+  88 px tall. Its corners, margin and words shrink with it to 6 px, 5 px and
+  9 px. While the notes are put away it shows at 60%. It is drawn on the
+  window's picture as the card draws it each frame, so it moves with the card.
+- A card's stuck notes never placed show as one 64 by 44 px mini note, 12 px
   inside the card's bottom-right corner: the top note in its colour with a 6 px
   corner, a soft shadow and its first words in two lines of 9 px demibold. When
   there are several, the next note's edge peeks 4 px above it a shade deeper,
   and the count sits in 8 px at 65% in the mini note's bottom-right corner.
-  Fanned, each note is 136 by 88 px. Both keep their size on every card.
+  It keeps its size on every card, and a note carried is 136 by 88 px.
+- Notes folded on their window show as Gooseberry's dot there: an 18 px disc
+  in the top note's colour with a 1 px soft edge and the notes' shadow, the
+  count in 11 px demibold, "9+" past nine, in a 44 px target hung from the top
+  note's top-right corner. On a card it stands in the same place, scaled with
+  the card, but keeps its size on every card.
 
 ## Type hierarchy and casing
 

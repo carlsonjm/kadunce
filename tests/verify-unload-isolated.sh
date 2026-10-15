@@ -2,7 +2,7 @@
 set -euo pipefail
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|placement-runtime-session.sh|placement-display-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh|adopt-reach-runtime-session.sh|late-maximize-runtime-session.sh) ;;
+    guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|placement-runtime-session.sh|placement-display-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh|adopt-reach-runtime-session.sh|signin-reach-runtime-session.sh|late-maximize-runtime-session.sh|late-maximize-active-runtime-session.sh|late-maximize-signin-runtime-session.sh|notes-focus-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|touch-after-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh|bento-motion-runtime-session.sh) ;;
     stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
@@ -14,7 +14,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh) ;;
     card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|bento-key-sleeper-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
-    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|spread-signal-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
+    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|spread-signal-runtime-session.sh|context-line-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
     *) echo 'Unknown isolated probe session' >&2; exit 1 ;;

@@ -40,6 +40,7 @@
 #include "KeptPicture.h"
 #include "StuckNotes.h"
 
+#include <QJsonValue>
 #include <QList>
 #include <QHash>
 #include <QIcon>
@@ -194,6 +195,18 @@ public Q_SLOTS:
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
+    // A strip along a display's top edge kept from Table's pull, in that
+    // display's own coordinates, under the caller's key; held until cleared or
+    // the caller leaves the bus (TETTEGOUCHE-CONTEXT.md § Top-edge claims).
+    Q_SCRIPTABLE bool claimTopEdge(const QString &key, const QString &outputName,
+        double x, double y, double width, double height);
+    Q_SCRIPTABLE void clearTopEdgeClaim(const QString &key);
+    // A display whose context a surface shows in words, under the caller's
+    // key; while held, Kadunce draws none of its own words there and says
+    // them in the workspace context instead, until cleared or the caller
+    // leaves the bus (TETTEGOUCHE-CONTEXT.md § Context-line claims).
+    Q_SCRIPTABLE bool claimContextLine(const QString &key, const QString &outputName);
+    Q_SCRIPTABLE void clearContextLineClaim(const QString &key);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -240,11 +253,15 @@ private:
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
+    // Where each card's window is drawn this frame, inside its card: what
+    // KWin is told to draw it at, kept as it is told. Notes placed on the
+    // window stand on this, so they move with the picture frame by frame.
+    QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
     // Whether the Bento group's backdrop is drawn yet on the display painting.
     bool m_projectionBackdropDrawn = false;
-    QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
+    mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
-    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
+    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
@@ -736,6 +753,7 @@ private:
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] bool topEdgeClaimedForInput(const QPointF &position) const override;
     [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
     [[nodiscard]] bool clientReceivesTouchAt(const QPointF &position) const override;
     [[nodiscard]] std::optional<QSet<qint32>> touchesDownForInput() const override {
@@ -795,8 +813,10 @@ private:
     [[nodiscard]] bool cardAtForInput(const QPointF &position) const override;
     void tapSpreadFromInput(const QPointF &position) override;
     // Gooseberry's notes on Spread's cards (TETTEGOUCHE-CONTEXT.md § Stuck
-    // notes from Gooseberry): a stack at each card's corner, fanned while
-    // Gooseberry shows those notes, a note carried to another card by a hold.
+    // notes from Gooseberry): each placed note where it stands on its window,
+    // the rest in a stack at the card's corner. A tap on either opens the
+    // card with the notes out on the window, a tapped note ready to type; a
+    // hold carries a note to another card.
     [[nodiscard]] bool pressNotesFromInput(const QPointF &position) override;
     void moveNotesFromInput(const QPointF &position) override;
     void holdNotesFromInput() override;
@@ -805,9 +825,12 @@ private:
     // Notes are shown and answered only in Spread at rest on the card
     // display, with no guest in its centre and no card in hand.
     [[nodiscard]] bool notesShownInSpread() const;
+    // Gooseberry's surface of notes over a window, live or closing.
+    [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
+    [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
-    // stand at rest; the Bento group carries no notes.
+    // were last drawn; the Bento group carries no notes.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -821,6 +844,24 @@ private:
     bool m_notesSpreadShown = false;
     bool m_notesPaused = false;
     void syncNotesPause();
+    // As Spread closes onto an Active card whose notes are up, Spread keeps
+    // drawing them over the card, where Gooseberry draws them, until
+    // Gooseberry's own surface stands over the window, and keeps that surface
+    // undrawn till then; at most NotesHandoverLimitMs.
+    struct NotesHandover {
+        QPointer<KWin::EffectWindow> card;
+        QElapsedTimer since;
+        // Its notes were asked up from Spread, so they come up even before
+        // Gooseberry says they are.
+        bool asked = false;
+    };
+    std::optional<NotesHandover> m_notesHandover;
+    // The card whose notes a tap in this Spread asked up.
+    QUuid m_notesAskedFor;
+    static constexpr int NotesHandoverLimitMs = 800;
+    void syncNotesHandover(bool spreadClosed);
+    void paintNotesHandover(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                            QList<QRectF> &drawn);
     void syncSelectedElevation();
     void activateSelectedFromInput() override;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
@@ -1087,6 +1128,39 @@ private:
     int m_fanApertureSizeLocation = -1;
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
+    struct TopEdgeClaim {
+        QString owner;
+        QString output;
+        QRectF area;
+    };
+    // Keyed by the caller's bus name and its own key.
+    QHash<QString, TopEdgeClaim> m_topEdgeClaims;
+    struct ContextLineClaim {
+        QString owner;
+        QString output;
+    };
+    QHash<QString, ContextLineClaim> m_contextLineClaims;
+    // One watcher for both kinds of claim: a caller leaving drops all of them.
+    QPointer<QDBusServiceWatcher> m_topEdgeClaimWatcher;
+    void watchClaimOwner(const QString &owner);
+    [[nodiscard]] bool contextLineClaimed(const KWin::LogicalOutput *output) const;
+    // What Kadunce would say on a claimed display, for the workspace context:
+    // a refused gesture, the zones taken, or a card about to leave for the
+    // desktop. Spread's chosen entry is read from Card Stage as it is.
+    [[nodiscard]] QJsonValue contextNotice() const;
+    [[nodiscard]] QJsonValue spreadEntryContext() const;
+    // What those say, cheaply, so a frame that changes them announces it once.
+    [[nodiscard]] QString contextLineSignature() const;
+    QString m_reportedContextLine;
+    struct ZoneNotice {
+        QString text;
+        QElapsedTimer shown;
+    };
+    std::optional<ZoneNotice> m_zoneNotice;
+    // A notice no frame will clear, since nothing is drawn for it, ends here.
+    QTimer m_contextNoticeEnd;
+    // The display a card about to leave for the desktop is over, this frame.
+    QPointer<KWin::LogicalOutput> m_detachShownOn;
     QString m_launcherGuestOwner;
     QString m_launcherGuestPath;
     QString m_launcherGuestInterface;
@@ -1100,6 +1174,8 @@ private:
     QPointer<KWin::EffectWindow> m_guestFocusReturn;
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
+    // The keys coming back from Gooseberry's notes as Spread covers them.
+    NotesKeysReturn m_notesKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;

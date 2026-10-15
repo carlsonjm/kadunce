@@ -984,6 +984,15 @@ Effect::Effect()
     });
     m_carriedDialogsRelease.setSingleShot(true);
     m_carriedDialogsRelease.setInterval(1000);
+    // A notice said only in the workspace context has no frame to end it.
+    m_contextNoticeEnd.setSingleShot(true);
+    m_contextNoticeEnd.setInterval(GestureNoteTiming::TotalMs + 20);
+    connect(&m_contextNoticeEnd, &QTimer::timeout, this, [this] {
+        if (m_zoneNotice && m_zoneNotice->shown.elapsed() >= GestureNoteTiming::TotalMs) m_zoneNotice.reset();
+        if (m_gestureNote && m_gestureNote->shown.elapsed() >= GestureNoteTiming::TotalMs) m_gestureNote.reset();
+        Q_EMIT workspaceContextChanged();
+        KWin::effects->addRepaintFull();
+    });
     connect(&m_carriedDialogsRelease, &QTimer::timeout, this, &Effect::releaseCarriedDialogs);
     connect(KWin::workspace(), &KWin::Workspace::aboutToRearrange, this, [this]() {
         if (m_workAreaCheckQueued) return;
@@ -1209,6 +1218,7 @@ Effect::Effect()
         qInfo() << "Kadunce reads notes on" << entries.size() << "windows from Gooseberry," << shown << "shown";
         m_stuckNotes.setEntries(entries);
         syncNotesPause();
+        Q_EMIT workspaceContextChanged();
         if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
     });
 
@@ -2794,10 +2804,19 @@ void Effect::setUsesDrawnZones(bool uses)
 void Effect::switchZoneMode()
 {
     setUsesDrawnZones(!m_usesDrawnZones);
+    const QString text = m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill");
+    // A surface showing the context says it on its line instead of a popup
+    // over the work.
+    if (!m_contextLineClaims.isEmpty()) {
+        m_zoneNotice = ZoneNotice{text, {}};
+        m_zoneNotice->shown.start();
+        m_contextNoticeEnd.start();
+        Q_EMIT workspaceContextChanged();
+        return;
+    }
     auto message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
         QStringLiteral("/org/kde/osdService"), QStringLiteral("org.kde.osdService"), QStringLiteral("showText"));
-    message << QStringLiteral("view-grid")
-            << (m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill"));
+    message << QStringLiteral("view-grid") << text;
     QDBusConnection::sessionBus().asyncCall(message);
 }
 
@@ -3015,6 +3034,7 @@ void Effect::handleTransientChanged()
         client->move(onLeadDisplay(over, QSizeF(box.width(), box.height()),
             QPointF(over.center().x() - box.width() / 2.0, over.center().y() - box.height() / 2.0)));
         m_cardLabelTargets.remove(window);
+        m_cardFaceRects.remove(window);
         observeCardOwnership();
         qInfo() << "Kadunce" << window->caption() << "belongs to" << lead->caption()
                 << "and waits with it rather than as a card";
@@ -4373,7 +4393,7 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     if (m_carryRuntime && window->window()) m_carryRuntime->observer.watch(window->window());
 }
 
-QString Effect::applicationDisplayName(KWin::EffectWindow *window)
+QString Effect::applicationDisplayName(KWin::EffectWindow *window) const
 {
     if (!window) return {};
     const auto cached = m_applicationDisplayNames.constFind(window);
@@ -5657,6 +5677,159 @@ bool Effect::isPanelPoint(const QPointF &position) const
     return false;
 }
 
+bool Effect::claimTopEdge(const QString &key, const QString &outputName,
+    double x, double y, double width, double height)
+{
+    if (!calledFromDBus() || key.isEmpty() || outputName.isEmpty()
+        || !(width > 0.0) || !(height > 0.0)) {
+        return false;
+    }
+    const QString owner = message().service();
+    watchClaimOwner(owner);
+    m_topEdgeClaims.insert(owner + QLatin1Char('\n') + key,
+        TopEdgeClaim{owner, outputName, QRectF(x, y, width, height)});
+    return true;
+}
+
+void Effect::watchClaimOwner(const QString &owner)
+{
+    if (!m_topEdgeClaimWatcher) {
+        m_topEdgeClaimWatcher = new QDBusServiceWatcher(
+            QString(), QDBusConnection::sessionBus(),
+            QDBusServiceWatcher::WatchForUnregistration, this);
+        connect(m_topEdgeClaimWatcher, &QDBusServiceWatcher::serviceUnregistered,
+                this, [this](const QString &service) {
+            m_topEdgeClaims.removeIf([&service](const auto &claim) {
+                return claim.value().owner == service;
+            });
+            const bool hadLine = m_contextLineClaims.removeIf([&service](const auto &claim) {
+                return claim.value().owner == service;
+            }) > 0;
+            m_topEdgeClaimWatcher->removeWatchedService(service);
+            // Kadunce's own words come back on the displays it left.
+            if (hadLine) KWin::effects->addRepaintFull();
+        });
+    }
+    m_topEdgeClaimWatcher->addWatchedService(owner);
+}
+
+bool Effect::claimContextLine(const QString &key, const QString &outputName)
+{
+    if (!calledFromDBus() || key.isEmpty() || outputName.isEmpty()) return false;
+    const QString owner = message().service();
+    watchClaimOwner(owner);
+    m_contextLineClaims.insert(owner + QLatin1Char('\n') + key, ContextLineClaim{owner, outputName});
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+void Effect::clearContextLineClaim(const QString &key)
+{
+    if (!calledFromDBus()) return;
+    if (m_contextLineClaims.remove(message().service() + QLatin1Char('\n') + key) > 0)
+        KWin::effects->addRepaintFull();
+}
+
+bool Effect::contextLineClaimed(const KWin::LogicalOutput *output) const
+{
+    if (!output || m_contextLineClaims.isEmpty()) return false;
+    for (const ContextLineClaim &claim : m_contextLineClaims)
+        if (claim.output == output->name()) return true;
+    return false;
+}
+
+QJsonValue Effect::contextNotice() const
+{
+    const auto notice = [](const QString &kind, const QString &text, const KWin::LogicalOutput *output) {
+        return QJsonObject{
+            {QStringLiteral("kind"), kind},
+            {QStringLiteral("text"), text},
+            {QStringLiteral("output"), output ? output->name() : QString()},
+        };
+    };
+    if (m_detachShownOn) return notice(QStringLiteral("returnToDesktop"), tr("Return to desktop"), m_detachShownOn);
+    if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
+        return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
+    if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        return notice(QStringLiteral("zones"), m_zoneNotice->text, nullptr);
+    return QJsonValue(QJsonValue::Null);
+}
+
+QJsonValue Effect::spreadEntryContext() const
+{
+    if (!m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Spread)
+        return QJsonValue(QJsonValue::Null);
+    const SpreadModel &model = m_cardStage->model();
+    const auto &cards = m_cardStage->liveCards();
+    const int id = model.count() > 0 ? model.idAtOffset(0) : 0;
+    KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
+    if (!window || window->isDeleted()) return QJsonValue(QJsonValue::Null);
+    const bool bentoGroup = m_cardStage->usesBentoProjectionAperture(window);
+    QString name;
+    if (bentoGroup) {
+        QStringList paneNames;
+        for (const auto &pane : m_cardStage->bentoProjectionPanes())
+            if (pane && !pane->isDeleted()) paneNames.append(applicationDisplayName(pane));
+        name = bentoApplicationNames(paneNames);
+    }
+    if (name.isEmpty()) name = applicationDisplayName(window);
+    const int size = bentoGroup ? 1 : std::max(1, model.stackSizeForId(id));
+    return QJsonObject{
+        {QStringLiteral("cardId"), window->internalId().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("name"), name},
+        {QStringLiteral("bento"), bentoGroup},
+        {QStringLiteral("stackPosition"), size > 1 ? m_cardStage->shownStackPosition(id) + 1 : 1},
+        {QStringLiteral("stackSize"), size},
+        {QStringLiteral("sleeping"), !bentoGroup && window->isMinimized()},
+    };
+}
+
+QString Effect::contextLineSignature() const
+{
+    QString signature;
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) {
+        const SpreadModel &model = m_cardStage->model();
+        const auto &cards = m_cardStage->liveCards();
+        const int id = model.count() > 0 ? model.idAtOffset(0) : 0;
+        KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
+        if (window && !window->isDeleted()) {
+            signature = QStringLiteral("%1 %2 %3 %4 %5").arg(id)
+                .arg(m_cardStage->shownStackPosition(id)).arg(model.stackSizeForId(id))
+                .arg(window->isMinimized()).arg(m_cardStage->usesBentoProjectionAperture(window));
+        }
+    }
+    signature += QLatin1Char('\n');
+    if (m_detachShownOn) signature += QStringLiteral("d ") + m_detachShownOn->name();
+    else if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
+        signature += QStringLiteral("r ") + m_gestureNote->text;
+    else if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        signature += QStringLiteral("z ") + m_zoneNotice->text;
+    return signature;
+}
+
+void Effect::clearTopEdgeClaim(const QString &key)
+{
+    if (!calledFromDBus()) return;
+    m_topEdgeClaims.remove(message().service() + QLatin1Char('\n') + key);
+}
+
+bool Effect::topEdgeClaimedForInput(const QPointF &position) const
+{
+    if (m_topEdgeClaims.isEmpty()) return false;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (!output) continue;
+        const QRectF display(output->geometry());
+        if (!display.contains(position)) continue;
+        for (const TopEdgeClaim &claim : m_topEdgeClaims) {
+            if (claim.output == output->name()
+                && claim.area.translated(display.topLeft()).contains(position)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
 {
     // Asks for the window KWin itself would deliver the touch to, so a layer
@@ -5847,19 +6020,24 @@ QString Effect::workspaceContext() const
         applications.append(application);
     }
 
+    // A note being typed over a window has the keys, and the window it is
+    // stuck to stays the one in use: focus names that window and says so.
+    KWin::EffectWindow *notesHost = notesSurfaceHost(focused);
+    KWin::EffectWindow *inUse = notesHost ? notesHost : focused;
     QJsonObject focus;
-    if (focused && isApplicationWindow(focused)) {
-        const bool focusedHasCard = workspace.find(windowIdentity(focused)) != nullptr;
+    if (inUse && isApplicationWindow(inUse)) {
+        const bool focusedHasCard = workspace.find(windowIdentity(inUse)) != nullptr;
         focus = {
-            {QStringLiteral("windowId"), windowIdentity(focused)},
-            {QStringLiteral("appId"), applicationIdentity(focused)},
-            {QStringLiteral("title"), focused->caption()},
+            {QStringLiteral("windowId"), windowIdentity(inUse)},
+            {QStringLiteral("appId"), applicationIdentity(inUse)},
+            {QStringLiteral("title"), inUse->caption()},
             {QStringLiteral("hasCard"), focusedHasCard},
         };
         if (focusedHasCard) {
             focus.insert(QStringLiteral("cardId"),
-                         windowIdentity(focused));
+                         windowIdentity(inUse));
         }
+        if (notesHost) focus.insert(QStringLiteral("notes"), true);
     }
 
     QJsonArray selectedStack;
@@ -5916,7 +6094,9 @@ QString Effect::workspaceContext() const
                 ? QJsonValue(QJsonValue::Null)
                 : QJsonValue(selectedCardId)},
             {QStringLiteral("selectedStack"), selectedStack},
+            {QStringLiteral("spreadEntry"), spreadEntryContext()},
         }},
+        {QStringLiteral("notice"), contextNotice()},
         {QStringLiteral("desktopStage"), QJsonObject{
             {QStringLiteral("active"), hasActiveDesktopStage()},
         }},
@@ -6780,6 +6960,8 @@ void Effect::showGestureNote(KWin::LogicalOutput *output, QPointF contact, Gestu
     qInfo() << "Kadunce" << Revision << "refused a gesture on" << output->name() << ":" << text;
     m_gestureNote = std::move(note);
     KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
+    // Said rather than drawn on a claimed display, so no frame ends it.
+    if (contextLineClaimed(output)) m_contextNoticeEnd.start();
 }
 
 
@@ -6901,20 +7083,119 @@ void Effect::syncSpokenLine()
     m_spokenLine->say(QRectF(output->geometry()).toRect(), line);
 }
 
-// Gooseberry's notes over a window are its layer surface that takes no keys;
-// its quick-note card takes them. While Spread is up the notes are drawn on
-// the cards instead, so that surface is left undrawn from the frame Spread
-// opens, and through its fade as it goes, rather than once Gooseberry answers
-// the pause: the notes read as one set moving onto the card.
-bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
+// Gooseberry's notes over a window are a layer surface laid over that
+// window; its quick-note card is one that covers the whole display. A layer
+// surface carries no application id, so KWin names it by its program,
+// gooseberry, rather than by Gooseberry's desktop file name; either is taken.
+// The notes take the keys while they are open, so they are told from the card
+// by their size, and, while live, by taking no keys when they take none. A
+// closing surface keeps its size, so it is told the same way through its fade.
+bool Effect::isNotesSurface(const KWin::EffectWindow *window) const
 {
-    if (!m_notesSpreadShown || !window || !window->window()
-        || !window->window()->inherits("KWin::LayerShellV1Window")) {
+    if (!window || !window->window() || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    const QString identity = applicationIdentity(window);
+    if (identity.compare(QStringLiteral("io.github.carlsonjm.Gooseberry"), Qt::CaseInsensitive) != 0
+        && identity.compare(QStringLiteral("gooseberry"), Qt::CaseInsensitive) != 0) {
         return false;
     }
-    return !window->acceptsFocus()
-        && applicationIdentity(window).compare(QStringLiteral("io.github.carlsonjm.Gooseberry"),
-                                               Qt::CaseInsensitive) == 0;
+    if (!window->isDeleted() && !window->acceptsFocus()) return true;
+    const auto *output = window->screen();
+    return output && window->frameGeometry().toRect() != output->geometry();
+}
+
+// While Spread is up the notes are drawn on the cards instead, so that
+// surface is left undrawn from the frame Spread opens, and through its fade
+// as it goes, rather than once Gooseberry answers the pause: the notes read
+// as one set moving onto the card. As Spread closes, Spread's picture of them
+// stays over the Active card until the surface stands there (syncNotesHandover).
+bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
+{
+    return (m_notesSpreadShown || m_notesHandover) && isNotesSurface(window);
+}
+
+void Effect::syncNotesHandover(bool spreadClosed)
+{
+    if (spreadClosed) {
+        m_notesHandover.reset();
+        auto *card = m_cardStage->presentation() == CardPresentation::Active
+            ? m_cardStage->activeCardIdentity() : nullptr;
+        const auto *entry = card ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+        const bool asked = card && !m_notesAskedFor.isNull() && m_notesAskedFor == card->internalId();
+        m_notesAskedFor = {};
+        if (entry && (entry->shown || asked) && m_stuckNotesWatcher && m_stuckNotesWatcher->present()) {
+            m_notesHandover = NotesHandover{card, {}, asked};
+            m_notesHandover->since.start();
+        }
+    }
+    if (!m_notesHandover) return;
+    auto *card = m_notesHandover->card.data();
+    const auto *entry = card && !card->isDeleted() ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+    bool done = !entry || (!entry->shown && !m_notesHandover->asked) || !m_cardStage->isActive()
+        || m_cardStage->presentation() != CardPresentation::Active || m_cardStage->activeCardIdentity() != card
+        || m_notesHandover->since.elapsed() > NotesHandoverLimitMs;
+    if (!done) {
+        // Gooseberry's surface stands over the window once it is laid at the
+        // window's place and size, as Gooseberry lays it once the desktop says
+        // where the window is; from this frame it is drawn and Spread's
+        // picture is not.
+        const QRectF frame(card->frameGeometry());
+        const QRectF display = card->screen() ? QRectF(card->screen()->geometry()) : QRectF();
+        for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+            if (!window || window->isDeleted() || !window->window() || !window->window()->readyForPainting()
+                || !isNotesSurface(window)) continue;
+            if (notesSurfaceStandsOn(QRectF(window->frameGeometry()), frame, display)) {
+                done = true;
+                break;
+            }
+        }
+    }
+    if (done) {
+        const bool late = m_notesHandover->since.elapsed() > NotesHandoverLimitMs;
+        if (late) qInfo() << "Kadunce gave the Active card's notes back to Gooseberry without its surface in place";
+        m_notesHandover.reset();
+        KWin::effects->addRepaintFull();
+    }
+}
+
+void Effect::paintNotesHandover(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                QList<QRectF> &drawn)
+{
+    if (!m_notesHandover) return;
+    auto *card = m_notesHandover->card.data();
+    const auto *entry = card && !card->isDeleted() ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+    if (!entry) return;
+    for (const auto &mark : windowNoteMarks(QRectF(card->frameGeometry()), *entry)) {
+        if (mark.kind == CardNoteMark::Kind::Dot) {
+            m_noteStackRenderer.renderDot(renderTarget, viewport, mark.rect, entry->notes.first().colourHex,
+                                          mark.count);
+        } else {
+            m_noteStackRenderer.renderNote(renderTarget, viewport, mark.rect, entry->notes.at(mark.note), 1.0);
+        }
+        drawn << mark.rect;
+    }
+}
+
+// The window a note with the keys is stuck to: the latest used of those whose
+// notes Gooseberry says are up, or, where it has not said yet, the window last
+// in use, which the note was opened over.
+KWin::EffectWindow *Effect::notesSurfaceHost(const KWin::EffectWindow *window) const
+{
+    if (!isNotesSurface(window)) return nullptr;
+    KWin::EffectWindow *host = nullptr;
+    quint64 latest = 0;
+    for (KWin::EffectWindow *candidate : KWin::effects->stackingOrder()) {
+        if (!isApplicationWindow(candidate) || candidate->isMinimized()
+            || !m_stuckNotes.shown(candidate->internalId())) {
+            continue;
+        }
+        const quint64 used = m_activationOrder.value(windowIdentity(candidate));
+        if (!host || used > latest) {
+            host = candidate;
+            latest = used;
+        }
+    }
+    if (host) return host;
+    return isApplicationWindow(m_lastActiveApplication) ? m_lastActiveApplication.data() : nullptr;
 }
 
 QList<NotesCard> Effect::notesCards() const
@@ -6934,7 +7215,13 @@ QList<NotesCard> Effect::notesCards() const
                 || m_cardStage->usesBentoProjectionAperture(window)) continue;
             const int cardId = index + 1;
             if (model.stackPositionForId(cardId) != model.stackActivePositionForId(cardId)) continue;
-            cards.append({window->internalId(), QRectF(m_cardStage->posedTargetForWindow(tablet, window))});
+            // Where the card was last drawn, as the notes on it were; a card
+            // not drawn yet stands where Spread puts it.
+            const auto drawn = m_cardLabelTargets.constFind(window);
+            const QRectF rect = drawn != m_cardLabelTargets.cend()
+                ? *drawn : QRectF(m_cardStage->posedTargetForWindow(tablet, window));
+            cards.append({window->internalId(), rect, window->frameGeometry().size(),
+                          m_cardFaceRects.value(window)});
         }
     }
     return cards;
@@ -6968,26 +7255,34 @@ void Effect::holdNotesFromInput()
 
 void Effect::releaseNotesFromInput(const QPointF &position, bool still)
 {
-    const auto request = m_stuckNotes.release(position, still, notesCards());
+    const auto cards = notesCards();
+    const auto request = m_stuckNotes.release(position, still, cards);
     KWin::effects->addRepaintFull();
     auto *window = request ? notesCardWindow(request->window) : nullptr;
     if (!window || !m_stuckNotesWatcher) return;
     // Gooseberry acts and says so; what Spread draws follows its word.
     const QString windowId = window->internalId().toString();
-    if (request->kind == StuckNotesSpread::Request::Kind::Toggle) {
-        // A toggle that fails, or that changes nothing, brings no signal, so
-        // its reply is what ends a wrong guess.
-        m_stuckNotesWatcher->toggle(windowId, window->caption(), applicationIdentity(window),
-            [this, id = request->window](std::optional<bool> shown) {
-                if (!m_stuckNotes.toggleAnswered(id, shown)) return;
-                qInfo() << "Kadunce reads Gooseberry's notes again after a toggle of" << id
-                        << (shown ? "answered otherwise" : "went unanswered");
-                if (m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
-                if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
-            });
-    } else
+    using Kind = StuckNotesSpread::Request::Kind;
+    if (request->kind == Kind::Stick) {
         m_stuckNotesWatcher->stickTo(request->noteId, windowId, window->caption(),
                                      applicationIdentity(window));
+        return;
+    }
+    // A stuck note is typed on its window, never in Spread: the notes are
+    // asked up over the window, a tapped note ready to type, and the card
+    // opens as a tap on it anywhere else would. Gooseberry stays paused until
+    // the card is Active, and then shows them there.
+    if (request->kind == Kind::Write)
+        m_stuckNotesWatcher->write(request->noteId, windowId, window->caption(), applicationIdentity(window));
+    else
+        m_stuckNotesWatcher->show(windowId, window->caption(), applicationIdentity(window));
+    m_notesAskedFor = request->window;
+    const auto reaches = [this](const QPointF &at) {
+        auto *card = m_cardStage->cardUnderPoint(at);
+        return card ? card->internalId() : QUuid();
+    };
+    if (const auto at = StuckNotesSpread::openingPoint(request->window, position, cards, reaches))
+        tapSpreadFromInput(*at);
 }
 
 void Effect::syncNotesPause()
@@ -7017,7 +7312,7 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
     const auto &model = m_cardStage->model();
     const auto &windows = m_cardStage->liveCards();
     auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
-    QList<std::pair<const StuckNotesEntry *, QRectF>> fanned;
+    const auto carried = m_stuckNotes.carriedNote();
     for (int index = 0; index < windows.size(); ++index) {
         auto *window = windows.at(index).data();
         if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99
@@ -7027,35 +7322,37 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
         const auto *entry = m_stuckNotes.entryFor(window->internalId());
         const auto target = m_cardLabelTargets.constFind(window);
         if (!entry || target == m_cardLabelTargets.cend()) continue;
-        // A held card is above the row, so no stack of the row shows through it.
-        if (window != held && !heldRect.isEmpty()
-            && noteStackReach(*target, entry->count).intersects(heldRect)) continue;
-        // Out over the card, the notes take the stack's place: one or the
-        // other, never both.
-        if (m_stuckNotes.fanned(window->internalId()) && window != held) {
-            fanned.append({entry, *target});
-            continue;
-        }
-        const auto sheets = noteStackSquares(*target, entry->count);
-        QStringList colours;
-        for (int sheet = 0; sheet < sheets.size(); ++sheet) {
-            const int layer = std::min<int>(sheets.size() - 1 - sheet, entry->notes.size() - 1);
-            colours.append(entry->notes.at(layer).colourHex);
-        }
-        m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->notes.first().title,
-                                         entry->count);
-        drawn << sheets;
-    }
-    const auto carried = m_stuckNotes.carriedNote();
-    for (const auto &[entry, card] : std::as_const(fanned)) {
-        const auto rects = fannedNoteRects(card, entry->notes.size());
-        for (int index = 0; index < rects.size(); ++index) {
-            const auto &note = entry->notes.at(index);
-            // The note in hand leaves a faint place behind.
+        // Worked out afresh every frame from where the card and its window
+        // are drawn this frame, so the notes ride the card through every
+        // motion. A held card is above the row, so no note of the row shows
+        // through it.
+        const auto marks = cardNoteMarks(*target, m_cardFaceRects.value(window), window->frameGeometry().size(),
+                                         *entry);
+        for (const auto &mark : marks) {
+            if (window != held && !heldRect.isEmpty() && mark.reach.intersects(heldRect)) continue;
+            if (mark.kind == CardNoteMark::Kind::Dot) {
+                m_noteStackRenderer.renderDot(renderTarget, viewport, mark.rect, entry->notes.first().colourHex,
+                                              mark.count);
+                drawn << mark.rect;
+                continue;
+            }
+            if (mark.kind == CardNoteMark::Kind::Stack) {
+                QStringList colours;
+                for (const int note : mark.sheetNotes) colours.append(entry->notes.at(note).colourHex);
+                m_noteStackRenderer.renderStack(renderTarget, viewport, mark.sheets, colours,
+                                                 entry->notes.at(mark.note).title, mark.count);
+                drawn << mark.sheets;
+                continue;
+            }
+            const auto &note = entry->notes.at(mark.note);
+            // The note in hand leaves a faint place behind; one standing in
+            // its place is faint while its notes are put away.
             const bool lifted = carried && carried->id == note.id;
-            m_noteStackRenderer.renderNote(renderTarget, viewport, rects.at(index), note, lifted ? 0.35 : 1.0);
+            const bool putAway = !m_stuckNotes.shown(window->internalId());
+            m_noteStackRenderer.renderNote(renderTarget, viewport, mark.rect, note,
+                                           lifted ? 0.35 : putAway ? NoteGeometry::PutAwayOpacity : 1.0);
+            drawn << mark.rect;
         }
-        drawn << rects;
     }
     if (carried) {
         if (auto *target = notesCardWindow(m_stuckNotes.dropTarget(notesCards()));
@@ -8048,6 +8345,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // Spread opening reads every entry again, so a missed signal cannot
         // leave a card's fan disagreeing with its window.
         if (m_notesSpreadShown && !wasShown && m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
+        if (m_notesSpreadShown && !wasShown) m_notesAskedFor = {};
+        syncNotesHandover(wasShown && !m_notesSpreadShown);
         syncNotesPause();
         syncSpokenLine();
     }
@@ -8075,6 +8374,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     m_preparationNeighbors = neighbors;
     if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
+    // Each frame looks again for Gooseberry's surface over the Active card.
+    if (m_notesHandover) m_continueRepaint = true;
     if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
         && m_guestNeighborMotion.elapsed() < motion(220)) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -8160,7 +8461,11 @@ void Effect::postPaintScreen()
     // presentation it reports changes: the dock's Spread button and the
     // Context Bar follow at once.
     const int presentation = m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1;
-    if (presentation != std::exchange(m_reportedPresentation, presentation)) Q_EMIT workspaceContextChanged();
+    // What a context line says changes the same way, while one is claimed.
+    const QString line = m_contextLineClaims.isEmpty() ? QString() : contextLineSignature();
+    const bool lineChanged = line != std::exchange(m_reportedContextLine, line);
+    if (presentation != std::exchange(m_reportedPresentation, presentation) || lineChanged)
+        Q_EMIT workspaceContextChanged();
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
     }
@@ -8308,7 +8613,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingOutput = screen;
     m_projectionBackdropDrawn = false;
     if (!m_heldPictures.empty()) captureHeldPictures();
-    if (screen && screen == tabletOutput()) m_cardLabelTargets.clear();
+    if (screen && screen == tabletOutput()) {
+        m_cardLabelTargets.clear();
+        m_cardFaceRects.clear();
+    }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // Labels, rails and outlines belong to the current desktop's presentation.
     if (m_previewDesktop) return paintResult(true);
@@ -8361,6 +8669,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // outline window, or input grab belongs in the paint pass.
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
     const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
+    bool detachShown = false;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
     if (m_destinationShader && screen && preview
@@ -8375,11 +8684,16 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // The outline above is drawn for a Bento reservation, a Card Stage
         // entry or a card leaving at the bottom edge. §10 gives the bottom edge
         // the only detaching release, so a pane leaving its layout and a card
-        // leaving its display are labelled, and an entry never is.
+        // leaving its display are labelled, and an entry never is. A display
+        // whose context line is claimed has the words said there instead.
         if ((cardExit && cardExit == screen)
-            || (reservation && !cardEntry && reservation->detachesToDesktop()))
-            m_detachLabel.render(renderTarget, viewport, box);
+            || (reservation && !cardEntry && reservation->detachesToDesktop())) {
+            detachShown = true;
+            if (!contextLineClaimed(screen)) m_detachLabel.render(renderTarget, viewport, box);
+        }
     }
+    if (screen && detachShown != (m_detachShownOn == screen))
+        m_detachShownOn = detachShown ? screen : nullptr;
     // §11, Connected: a pane rested over another shows the Stack it would
     // join: the pane it covers drawn as a card standing behind a second.
     if (m_destinationShader && screen && m_carriedWindow && m_carryStackOnto && m_carryPreview
@@ -8405,7 +8719,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // A held card is above the row, so no name of the row shows through it.
         auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
-        for (int index = 0; index < windows.size(); ++index) {
+        // The names, and a Stack's place, are said on a claimed context line.
+        const bool namesSaid = contextLineClaimed(screen);
+        for (int index = 0; !namesSaid && index < windows.size(); ++index) {
             auto *window = windows.at(index).data();
             if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99)
                 continue;
@@ -8437,8 +8753,11 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
         paintStuckNotes(renderTarget, viewport, deviceRegion, screen, heldRect, overlaid);
     }
+    // Spread just closed onto the Active card: its notes as Spread drew them,
+    // now where Gooseberry draws them, until Gooseberry's own are there.
+    if (m_notesHandover && screen && screen == tabletOutput()) paintNotesHandover(renderTarget, viewport, overlaid);
     // A refused gesture's note, over everything on the display it was let go on.
-    if (m_gestureNote && screen && m_gestureNote->output == screen) {
+    if (m_gestureNote && screen && m_gestureNote->output == screen && !contextLineClaimed(screen)) {
         m_gestureNoteLabel.render(renderTarget, viewport, m_gestureNote->box, m_gestureNote->text,
                                   gestureNoteOpacity(m_gestureNote->shown.elapsed()));
         overlaid.append(m_gestureNote->box);
@@ -8529,6 +8848,11 @@ KWin::EffectWindow *Effect::selectedWindow() const
 
 void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
+    // Gooseberry's notes coming back over the Active card as Spread closes are
+    // already on screen as Spread's picture of them, so no opening animation
+    // of the desktop's plays on them.
+    if ((m_notesSpreadShown || m_notesHandover) && isNotesSurface(window))
+        window->setData(KWin::WindowAddedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
     if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     // A window just opened, from the dock or anywhere, appears in its pane.
     appearInPlace(window);
@@ -8627,6 +8951,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    // Nor does a closing one fade where it stood once Spread draws the notes.
+    if ((m_notesSpreadShown || m_notesHandover) && isNotesSurface(window))
+        window->setData(KWin::WindowClosedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
     if (m_dependents.contains(window)) {
         m_dependents.removeAll(window);
         m_heldDependents.removeAll(window);
@@ -8638,6 +8965,7 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_dialogsLead) releaseCarriedDialogs();
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
+    m_cardFaceRects.remove(window);
     m_previewRefs.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer
     // exists to own, and its identity may be reused by the next allocation.
@@ -8689,6 +9017,10 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    // Read before anything returns early, so every activation is counted.
+    const bool notesKeysBack = m_notesKeysReturn.activated(isNotesSurface(window),
+        m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread,
+        window && window == m_lastActiveApplication);
     if (m_holdingDependents) return;
     if (auto *lead = isDependentWindow(window) ? dependentLead(window) : nullptr) {
         if (!dependentShown(lead)) {
@@ -8716,6 +9048,13 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         m_lastActiveApplication = window;
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
         Q_EMIT workspaceContextChanged();
+    } else if (isNotesSurface(window)) {
+        Q_EMIT workspaceContextChanged();
+    }
+    if (notesKeysBack) {
+        qInfo() << "Kadunce" << Revision << "kept Spread as the notes gave the keys back to"
+                << window->caption();
+        return;
     }
     if (m_cardStage->launcherGuestActive()
         && isApplicationWindow(window)) {
@@ -9133,8 +9472,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);
-    // A sleeping card stands in Spread dimmed, so it can be found and woken.
-    if (m_sleepingShown.contains(window)) data.multiplyOpacity(SleepingCardOpacity);
+    // A sleeping card stands in Spread dimmed, so it can be found and woken,
+    // unless the context line says so instead and the card stands whole.
+    if (m_sleepingShown.contains(window) && !contextLineClaimed(tabletOutput()))
+        data.multiplyOpacity(SleepingCardOpacity);
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
@@ -9390,6 +9731,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
+    // KWin hands back where it will draw the window's frame, fitted inside
+    // the card this frame; a note placed on the window stands on exactly
+    // that, never on the slot the card is heading for.
+    if (!bentoProjection) m_cardFaceRects.insert(window, QRectF(logicalRegion));
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.

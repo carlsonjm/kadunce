@@ -91,6 +91,7 @@ scenes=(
     table-stack-layout-runtime tablet
     table-spread-runtime tablet
     spread-signal-runtime tablet
+    context-line-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
@@ -119,8 +120,12 @@ scenes=(
     guest-beside-runtime tablet
     companion-guest-runtime tablet
     companion-focus-runtime tablet
+    notes-focus-runtime tablet
     adopt-reach-runtime tablet
+    signin-reach-runtime tablet
     late-maximize-runtime tablet
+    late-maximize-active-runtime tablet
+    late-maximize-signin-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
     placement-display-runtime tablet
