@@ -102,7 +102,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 
 | Input | What happens |
 | --- | --- |
-| Pull down from the top edge: above the Active card, else anywhere along it | Table comes down, a tab per workspace; sliding across previews each on every display. A panel there keeps its taps. |
+| Pull down from the top edge: above the Active card, else anywhere along it | Table comes down, a tab per workspace; sliding across previews each everywhere. Panels keep their taps. |
 | Keep pulling past the tabs, then slide sideways | The tab under your finger stays chosen, its cards hanging below, each previewed as you slide. |
 | Lift on a tab | That workspace opens as it was left. |
 | Lift on a card | It opens as the Active card in its workspace. |
