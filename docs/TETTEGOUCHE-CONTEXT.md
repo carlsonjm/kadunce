@@ -209,17 +209,25 @@ waited for while drawing. An entry belongs to a card when one of its
 `windowIds` is the card's window UUID, compared as a UUID with or without
 braces; `Toggle` and `StickTo` name the window by that UUID with braces, its
 title, and its desktop file name. Kadunce reads each entry's count, whether its
-notes are `shown`, and its notes' ids, titles and colours, top note first.
+notes are `shown`, and its notes' ids, titles and colours, top note first, with
+each note's place, `x` and `y` as shares of the window, and size, `width` and
+`height` in the window's pixels, where Gooseberry gives them. A place that is
+absent, negative or unreadable leaves the note unplaced, as with a Gooseberry
+that sends none.
 
-In Spread each card with notes shows them as one mini note at its bottom-right
-corner, the same size on every card: the top note in its colour with its first
-words, the next note's edge peeking above it and the count quietly in its
+In Spread each note placed on its window stands on the card in the same place,
+as big as there, both scaled with the card and kept inside it, the newest on
+top; one never resized there is drawn at the size Gooseberry starts a note at.
+The notes never placed show as one mini note at the card's bottom-right
+corner, the same size on every card: the top one in its colour with its first
+words, the next one's edge peeking above it and their count quietly in its
 corner when there are several.
-A card's notes are fanned over it exactly while Gooseberry says they are shown
-over its window, so the two stay one state: notes out over a window arrive
-fanned, and notes fanned in Spread are still out after it closes. Fanned, the
-notes take the stack's place, so a card shows one or the other. A tap on the
-stack, or on a fanned note, toggles them, drawn at once and then as Gooseberry answers; a toggle that
+A card's notes are out exactly while Gooseberry says they are shown over its
+window, so the two stay one state: notes out over a window arrive out, and
+notes brought out in Spread are still out after it closes. Out, notes in place
+show in full rather than faint, and the unplaced notes fan out from the corner
+in the stack's place, so a card shows the stack or the fan. A tap on the stack,
+or on any note drawn, toggles them, drawn at once and then as Gooseberry answers; a toggle that
 fails or answers otherwise is drawn as Gooseberry's fresh `Windows()` says, and
 nothing else folds them. Holding a note carries it to another card (`INPUT.md` § Spread).
 This takes up Gooseberry's requests for a card's notes on its corner in Spread

@@ -6931,7 +6931,8 @@ QList<NotesCard> Effect::notesCards() const
                 || m_cardStage->usesBentoProjectionAperture(window)) continue;
             const int cardId = index + 1;
             if (model.stackPositionForId(cardId) != model.stackActivePositionForId(cardId)) continue;
-            cards.append({window->internalId(), QRectF(m_cardStage->posedTargetForWindow(tablet, window))});
+            cards.append({window->internalId(), QRectF(m_cardStage->posedTargetForWindow(tablet, window)),
+                          window->frameGeometry().size()});
         }
     }
     return cards;
@@ -7014,7 +7015,7 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
     const auto &model = m_cardStage->model();
     const auto &windows = m_cardStage->liveCards();
     auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
-    QList<std::pair<const StuckNotesEntry *, QRectF>> fanned;
+    const auto carried = m_stuckNotes.carriedNote();
     for (int index = 0; index < windows.size(); ++index) {
         auto *window = windows.at(index).data();
         if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99
@@ -7024,35 +7025,29 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
         const auto *entry = m_stuckNotes.entryFor(window->internalId());
         const auto target = m_cardLabelTargets.constFind(window);
         if (!entry || target == m_cardLabelTargets.cend()) continue;
-        // A held card is above the row, so no stack of the row shows through it.
-        if (window != held && !heldRect.isEmpty()
-            && noteStackReach(*target, entry->count).intersects(heldRect)) continue;
-        // Out over the card, the notes take the stack's place: one or the
-        // other, never both.
-        if (m_stuckNotes.fanned(window->internalId()) && window != held) {
-            fanned.append({entry, *target});
-            continue;
-        }
-        const auto sheets = noteStackSquares(*target, entry->count);
-        QStringList colours;
-        for (int sheet = 0; sheet < sheets.size(); ++sheet) {
-            const int layer = std::min<int>(sheets.size() - 1 - sheet, entry->notes.size() - 1);
-            colours.append(entry->notes.at(layer).colourHex);
-        }
-        m_noteStackRenderer.renderStack(renderTarget, viewport, sheets, colours, entry->notes.first().title,
-                                         entry->count);
-        drawn << sheets;
-    }
-    const auto carried = m_stuckNotes.carriedNote();
-    for (const auto &[entry, card] : std::as_const(fanned)) {
-        const auto rects = fannedNoteRects(card, entry->notes.size());
-        for (int index = 0; index < rects.size(); ++index) {
-            const auto &note = entry->notes.at(index);
-            // The note in hand leaves a faint place behind.
+        // A held card shows its notes as they stand while folded, and is above
+        // the row, so no note of the row shows through it.
+        const bool fanned = m_stuckNotes.fanned(window->internalId()) && window != held;
+        const auto marks = cardNoteMarks(*target, window->frameGeometry().size(), *entry, fanned);
+        for (const auto &mark : marks) {
+            if (window != held && !heldRect.isEmpty() && mark.reach.intersects(heldRect)) continue;
+            if (mark.kind == CardNoteMark::Kind::Stack) {
+                QStringList colours;
+                for (const int note : mark.sheetNotes) colours.append(entry->notes.at(note).colourHex);
+                m_noteStackRenderer.renderStack(renderTarget, viewport, mark.sheets, colours,
+                                                 entry->notes.at(mark.note).title, mark.count);
+                drawn << mark.sheets;
+                continue;
+            }
+            const auto &note = entry->notes.at(mark.note);
+            // The note in hand leaves a faint place behind; one standing in
+            // its place is faint while its notes are put away.
             const bool lifted = carried && carried->id == note.id;
-            m_noteStackRenderer.renderNote(renderTarget, viewport, rects.at(index), note, lifted ? 0.35 : 1.0);
+            const bool putAway = note.placed() && !m_stuckNotes.fanned(window->internalId());
+            m_noteStackRenderer.renderNote(renderTarget, viewport, mark.rect, note,
+                                           lifted ? 0.35 : putAway ? NoteGeometry::PutAwayOpacity : 1.0);
+            drawn << mark.rect;
         }
-        drawn << rects;
     }
     if (carried) {
         if (auto *target = notesCardWindow(m_stuckNotes.dropTarget(notesCards()));
