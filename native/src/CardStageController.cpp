@@ -22,6 +22,7 @@
 #include "FocusedPairLayout.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
+#include "ReleasePlace.h"
 
 #include <core/output.h>
 #include <effect/effecthandler.h>
@@ -62,6 +63,18 @@ constexpr int ThrownCloseWait = 2000;
 constexpr int ThrownQuestionWait = 400;
 // How long room a panel gave up must stay free before the Active card takes it.
 constexpr int WorkAreaGrowWait = 6000;
+
+// The display a restore record's place was taken on, by name, so that one
+// unplugged and plugged back in is still found, and its geometry then.
+QString outputNameOf(const KWin::LogicalOutput *output)
+{
+    return output ? output->name() : QString();
+}
+
+QRectF outputGeometryOf(const KWin::LogicalOutput *output)
+{
+    return output ? QRectF(output->geometry()) : QRectF();
+}
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -2596,7 +2609,9 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             .floatingGeometry = saved.floatingGeometry,
             .fullscreenRestoreGeometry = saved.fullscreenRestoreGeometry,
             .quickTileMode = saved.quickTileMode, .maximizeMode = saved.maximizeMode,
-            .fullScreen = saved.fullScreen, .minimized = saved.minimized, .valid = true});
+            .fullScreen = saved.fullScreen, .minimized = saved.minimized, .valid = true,
+            .outputName = outputNameOf(saved.output.data()),
+            .outputGeometry = outputGeometryOf(saved.output.data())});
         return true;
     };
     QList<QPointer<KWin::EffectWindow>> ordered;
@@ -3226,6 +3241,8 @@ bool CardStageController::admitCardFromOtherDisplay(
         .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
         .minimized = restore ? restore->minimized : client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
+        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
     };
     const bool started = !m_active;
     const int previousSelection = m_workspace.selectedIndex();
@@ -3378,6 +3395,8 @@ bool CardStageController::admitSleepingPaneAsCard(
         .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
         .minimized = restore ? restore->minimized : client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
+        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
     };
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) return false;
@@ -3582,6 +3601,8 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
         .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
         .minimized = restore ? restore->minimized : client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
+        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
     };
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) {
@@ -4794,6 +4815,8 @@ void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
         .fullScreen = client->isFullScreen(),
         .minimized = client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(client->output()),
+        .outputGeometry = outputGeometryOf(client->output()),
     });
     ++m_restoreGeneration;
 }
@@ -4843,6 +4866,8 @@ bool CardStageController::enterActive()
         .fullScreen = client->isFullScreen(),
         .minimized = client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(effectWindow->screen()),
+        .outputGeometry = outputGeometryOf(effectWindow->screen()),
     };
     if (client->isFullScreen()) {
         client->setFullScreen(false);
@@ -5028,34 +5053,30 @@ CardStageController::ActiveRestoreSnapshot CardStageController::onOwnDisplay(
     const ActiveRestoreSnapshot &snapshot) const
 {
     // §11, Every display: a card is given back on the display it belongs to,
-    // never at a place its record kept from a display it has since left.
-    KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(snapshot.window.data());
-    if (!own || QRectF(own->geometry()).contains(QRectF(snapshot.geometry).center())) return snapshot;
-    const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, own));
-    if (work.isEmpty()) return snapshot;
-    QRectF from;
+    // never at a place its record kept from a display it has since left. In
+    // every mode, a place whose display is gone, or that no display holds, is
+    // carried onto a display there is (ReleasePlace.h).
+    QList<ReleaseDisplay> displays;
     for (KWin::LogicalOutput *output : KWin::effects->screens())
-        if (QRectF(output->geometry()).contains(QRectF(snapshot.geometry).center()))
-            from = QRectF(output->geometry());
+        if (output) displays.append({output->name(), QRectF(output->geometry()),
+            QRectF(KWin::effects->clientArea(KWin::MaximizeArea, output))});
+    const KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(snapshot.window.data());
+    const KWin::LogicalOutput *standing = snapshot.window ? snapshot.window->screen() : nullptr;
+    if (!standing) standing = m_host->tabletOutputForCardStage();
+    const auto carry = releaseCarry(displays,
+        {QRectF(snapshot.geometry), snapshot.outputName, snapshot.outputGeometry},
+        own ? own->name() : QString(), standing ? standing->name() : QString());
+    if (!carry || carry->display.work.isEmpty()) return snapshot;
     const auto carried = [&](const KWin::RectF &place) {
-        if (place.width() <= 0 || place.height() <= 0) return place;
-        const double width = std::min(place.width(), work.width());
-        const double height = std::min(place.height(), work.height());
-        // The same share of the way across, or centred where the old display
-        // is gone.
-        const double across = from.width() > place.width()
-            ? (place.x() - from.x()) / (from.width() - place.width()) : 0.5;
-        const double down = from.height() > place.height()
-            ? (place.y() - from.y()) / (from.height() - place.height()) : 0.5;
-        return KWin::RectF(work.x() + std::clamp(across, 0.0, 1.0) * (work.width() - width),
-            work.y() + std::clamp(down, 0.0, 1.0) * (work.height() - height), width, height);
+        return KWin::RectF(carriedPlace(QRectF(place), carry->from, carry->display.work));
     };
     ActiveRestoreSnapshot moved = snapshot;
     moved.geometry = carried(snapshot.geometry);
     moved.floatingGeometry = carried(snapshot.floatingGeometry);
     moved.fullscreenRestoreGeometry = carried(snapshot.fullscreenRestoreGeometry);
     qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? snapshot.window->caption() : QString())
-            << "back on" << own->name() << "at" << moved.geometry << "not" << snapshot.geometry;
+            << "back on" << carry->display.name << "at" << moved.geometry << "not" << snapshot.geometry
+            << "taken on" << (snapshot.outputName.isEmpty() ? QStringLiteral("an unknown display") : snapshot.outputName);
     return moved;
 }
 
@@ -5175,6 +5196,8 @@ bool CardStageController::admitTransferredWindowToTablet(
         .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
         .minimized = restore ? restore->minimized : client->isMinimized(),
         .valid = true,
+        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
+        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
     };
     const KWin::RectF target(activeTarget(tablet));
     const auto ticket = m_transferGuard.issue();

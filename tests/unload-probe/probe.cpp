@@ -380,7 +380,13 @@ public Q_SLOTS:
         for (auto *w : KWin::workspace()->stackingOrder()) {
             if (w->isDeleted() || !w->isClient()) continue;
             const auto g = w->frameGeometry();
+            // Whether one display there now shows the whole frame. KWin names
+            // an output for every window, one standing off every display too.
+            bool onDisplay = false;
+            for (auto *o : KWin::effects->screens())
+                if (o && QRectF(o->geometry()).contains(QRectF(g))) onDisplay = true;
             list.append(QJsonObject{{"caption", w->caption()}, {"class", w->resourceClass()},
+                {"onDisplay", onDisplay},
                 {"id", w->internalId().toString(QUuid::WithoutBraces)},
                 {"normal", w->isNormalWindow()}, {"dialog", w->isDialog()},
                 {"transient", w->isTransient()}, {"modal", w->isModal()},

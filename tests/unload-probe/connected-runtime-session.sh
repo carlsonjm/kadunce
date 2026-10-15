@@ -159,7 +159,7 @@ end_pass() {
     qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
     sleep .8
     check "$1: switched off, every window is an ordinary window again" \
-        bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length >= 2 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
+        bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length >= 2 and all(.onDisplay and (.hidden | not) and (.minimized | not))'"
     kill "$client_pid" 2>/dev/null || true
     wait "$client_pid" 2>/dev/null || true
     sleep .5

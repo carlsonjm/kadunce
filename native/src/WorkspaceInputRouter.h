@@ -6,6 +6,7 @@
 #pragma once
 
 #include "SpreadStroke.h"
+#include "TouchEdge.h"
 
 #include <input.h>
 #include <input_event_spy.h>
@@ -36,6 +37,14 @@ struct WorkspaceInputGeometry {
     QRectF centerCard;
     double tabletBottomInclusive = 0.0;
     double centerRightInclusive = 0.0;
+    // The display a touchscreen drives, whose own edges a touch on it starts
+    // from; invalid when no touchscreen drives one.
+    TouchEdgeDisplay touchscreen;
+
+    [[nodiscard]] TouchEdgeDisplay spreadEdges() const
+    {
+        return {tablet, tabletBottomInclusive};
+    }
 
     [[nodiscard]] bool isValid() const
     {

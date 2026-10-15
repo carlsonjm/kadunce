@@ -532,7 +532,17 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     if (m_touchId < 0
         && m_target->presentationForInput() == WorkspacePresentation::Spread
         && m_target->isPanelPoint(event->pos)) return false;
-    if (!m_target->isTabletPoint(event->pos)) {
+    // A touchscreen can drive a display other than the Spread display. A
+    // touch there is Kadunce's only where it starts at that display's own
+    // bottom or top edge, and Search, open on the Spread display, leaves it
+    // to the window under it.
+    const WorkspaceInputGeometry edges = m_target->geometryForInput();
+    const auto edgeDisplay = touchEdgeDisplayAt(event->pos, edges.spreadEdges(), edges.touchscreen);
+    const bool topStrip = m_ownsSystemEdges && edges.isValid()
+        && atTouchTopEdge(event->pos, edgeDisplay, TopBezelWidth);
+    const bool offSpread = !m_target->isTabletPoint(event->pos);
+    if (offSpread && (m_target->launcherGuestActiveForInput()
+            || (!topStrip && touchModeAt(event->pos) != TouchMode::BottomEdge))) {
         return false;
     }
     if (!m_target->launcherGuestContainsForInput(event->pos)
@@ -562,15 +572,13 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     // Kadunce's too: a window drawing its own title bar keeps an invisible
     // resize border there, which would take the pull for a resize. Anywhere
     // else the client keeps a contact in the strip unless it becomes Table's
-    // pull.
-    const WorkspaceInputGeometry edges = m_target->geometryForInput();
+    // pull, and so does the top edge of a touchscreen off the Spread display,
+    // whatever the Spread display presents.
     const WorkspacePresentation topPresentation = m_target->presentationForInput();
     const bool aboveActive = m_target->aboveActiveCardForInput(event->pos);
-    const bool topStrip = m_ownsSystemEdges && edges.isValid()
-        && event->pos.y() < edges.tablet.y() + TopBezelWidth;
     if (topStrip && m_touchId < 0 && m_observedTouchIds.size() == 1
-        && topPresentation != WorkspacePresentation::Spread
-        && (topPresentation != WorkspacePresentation::Active || aboveActive)) {
+        && (offSpread || (topPresentation != WorkspacePresentation::Spread
+            && (topPresentation != WorkspacePresentation::Active || aboveActive)))) {
         m_topCandidateId = event->id;
         m_topCandidateStart = event->pos;
         m_topCandidateLast = event->pos;
@@ -591,8 +599,11 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         bottomNote("belongs to a surface of its own");
         return false;
     }
-    if (mode == TouchMode::BottomEdge
-        && m_target->presentationForInput() != WorkspacePresentation::Spread
+    // Spread open on the Spread display owns its bottom edge outright; the
+    // bottom of any other display keeps its windows' taps until it rises.
+    const bool bottomForWindows = offSpread
+        || m_target->presentationForInput() != WorkspacePresentation::Spread;
+    if (mode == TouchMode::BottomEdge && bottomForWindows
         && m_touchId < 0 && m_observedTouchIds.size() == 1
         && !m_target->clientReceivesTouchAt(event->pos)) {
         // A window frame reaches the bezel, as a Bento pane's can, or nothing
@@ -609,9 +620,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_ownedTouchIds.insert(event->id);
         return true;
     }
-    if (mode == TouchMode::BottomEdge
-        && m_target->presentationForInput() != WorkspacePresentation::Spread
-        && m_touchId < 0) {
+    if (mode == TouchMode::BottomEdge && bottomForWindows && m_touchId < 0) {
         if (m_observedTouchIds.size() == 1) {
             m_bottomCandidateId = event->id;
             m_bottomCandidateStart = event->pos;
@@ -1105,14 +1114,20 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
     }
     const WorkspacePresentation presentation =
         m_target->presentationForInput();
-    // With the keys up, the bottom is theirs.
+    // Each edge is the touched display's own, across as well as down. With
+    // the keys up, the bottom is theirs.
+    const auto display = touchEdgeDisplayAt(position, geometry.spreadEdges(), geometry.touchscreen);
     const bool atBottom = !m_target->inputPanelContainsForInput(position)
-        && position.y() >= geometry.tabletBottomInclusive - BottomBezelWidth;
-    const bool atTop = position.y()
-        < geometry.tablet.y() + SystemEdgeWidth;
+        && atTouchBottomEdge(position, display, BottomBezelWidth);
+    const bool atTop = atTouchTopEdge(position, display, SystemEdgeWidth);
     if (atBottom) {
         return m_ownsSystemEdges
             ? TouchMode::BottomEdge : TouchMode::None;
+    }
+    // Off the Spread display only an edge is Kadunce's; the rest of a
+    // touchscreen there is its windows'.
+    if (!m_target->isTabletPoint(position)) {
+        return TouchMode::None;
     }
     if (presentation == WorkspacePresentation::Spread && atTop) {
         return m_ownsSystemEdges
