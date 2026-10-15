@@ -464,11 +464,12 @@ chose while it is attached, else the one a touchscreen drives, else the largest
 Unplugged, its cards move to the next (§3), returning with the chosen display
 (`kaduncerc` `[Spread] Display`).
 
+Search floats on any display; only an open Spread takes it in.
+
 ### Connected
 
 A display is Connected when its logical size holds more than two panes (§5),
-unless chosen for it (`kaduncerc` `[Sizing]`). Search floats, joining only an
-open Spread.
+unless chosen for it (`kaduncerc` `[Sizing]`).
 
 | Behavior | Solo | Connected |
 | --- | --- | --- |
@@ -497,9 +498,8 @@ Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
 not KWin's default, are the layout: each
 window keeps a zone it fits, and KWin owns the edges until release.
 
-Moving a card between displays, with its restoration record, is a transfer under
-`ARCHITECTURE.md` § Transfer transaction. A failed transfer changes neither
-display.
+Moving a card between displays is a transfer (`ARCHITECTURE.md` § Transfer
+transaction); a failed one changes neither.
 
 ## 12. Window closure
 
