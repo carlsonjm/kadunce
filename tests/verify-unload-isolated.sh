@@ -92,10 +92,11 @@ fi
 # Every scene runs what a person gets by default: every display holds its own
 # cards, each sized by its room. Only the scenes about a display kept as
 # ordinary windows (CARD-LIFECYCLE.md § 11, `OtherDisplays=windows`) keep the
-# monitor that way: its own layout, the windows it organizes, and what it
-# hands back.
+# monitor that way: its own layout, the windows it organizes, what it hands
+# back, and Spread taking every card along when it moves, where by default
+# the display it leaves keeps its own.
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    monitor-*-runtime-session.sh|first-entry-runtime-session.sh|placement-display-runtime-session.sh|line-runtime-session.sh|tablet-runtime-session.sh|output-unplug-runtime-session.sh|table-multidisplay-runtime-session.sh)
+    monitor-*-runtime-session.sh|spread-display-runtime-session.sh|first-entry-runtime-session.sh|placement-display-runtime-session.sh|line-runtime-session.sh|tablet-runtime-session.sh|output-unplug-runtime-session.sh|table-multidisplay-runtime-session.sh)
         kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key OtherDisplays windows ;;
 esac
 xwayland_args=()
