@@ -5655,6 +5655,55 @@ bool Effect::isPanelPoint(const QPointF &position) const
     return false;
 }
 
+bool Effect::claimTopEdge(const QString &key, const QString &outputName,
+    double x, double y, double width, double height)
+{
+    if (!calledFromDBus() || key.isEmpty() || outputName.isEmpty()
+        || !(width > 0.0) || !(height > 0.0)) {
+        return false;
+    }
+    const QString owner = message().service();
+    if (!m_topEdgeClaimWatcher) {
+        m_topEdgeClaimWatcher = new QDBusServiceWatcher(
+            QString(), QDBusConnection::sessionBus(),
+            QDBusServiceWatcher::WatchForUnregistration, this);
+        connect(m_topEdgeClaimWatcher, &QDBusServiceWatcher::serviceUnregistered,
+                this, [this](const QString &service) {
+            m_topEdgeClaims.removeIf([&service](const auto &claim) {
+                return claim.value().owner == service;
+            });
+            m_topEdgeClaimWatcher->removeWatchedService(service);
+        });
+    }
+    m_topEdgeClaimWatcher->addWatchedService(owner);
+    m_topEdgeClaims.insert(owner + QLatin1Char('\n') + key,
+        TopEdgeClaim{owner, outputName, QRectF(x, y, width, height)});
+    return true;
+}
+
+void Effect::clearTopEdgeClaim(const QString &key)
+{
+    if (!calledFromDBus()) return;
+    m_topEdgeClaims.remove(message().service() + QLatin1Char('\n') + key);
+}
+
+bool Effect::topEdgeClaimedForInput(const QPointF &position) const
+{
+    if (m_topEdgeClaims.isEmpty()) return false;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (!output) continue;
+        const QRectF display(output->geometry());
+        if (!display.contains(position)) continue;
+        for (const TopEdgeClaim &claim : m_topEdgeClaims) {
+            if (claim.output == output->name()
+                && claim.area.translated(display.topLeft()).contains(position)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
 {
     // Asks for the window KWin itself would deliver the touch to, so a layer

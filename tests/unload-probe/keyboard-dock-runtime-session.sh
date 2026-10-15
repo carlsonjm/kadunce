@@ -64,6 +64,10 @@ record dock-arrived
 state | jq -e '.workArea.height == 736'
 is "Keyboard reveal probe" "$docked"
 echo 'PASS: a card sized before the dock took its room is sized again when it does'
+# So is the card behind it, which nobody has brought forward: left where it
+# was, it would reach the dock, which would stay opaque.
+frame "Keyboard top probe" | jq -e '.y >= 10 and .y + .height <= 726'
+echo 'PASS: a card behind the Active one stops above the dock that arrived after it'
 
 # The keys come up and the dock steps aside for them.
 client focusText "Keyboard reveal probe"
