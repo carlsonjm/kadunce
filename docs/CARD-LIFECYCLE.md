@@ -5,16 +5,15 @@ it. Which input causes each transition is `INPUT.md`.
 
 ## 1. Core model
 
-Each display is sized Solo, one card at a time over the whole work area and a
-Bento pair at most, or Connected, a picked card joining its layout (§11).
+Each display is sized Solo, one card at a time over the work area and a Bento
+pair at most, or Connected, a picked card joining its layout (§11).
 §3–§10 describe Solo; §11 lists every difference on Connected.
 
 Every eligible application window has exactly one owner:
 
 1. **Native**
 
-   - Plasma owns the window.
-   - It is outside Kadunce.
+   - Plasma owns the window, outside Kadunce.
 
 2. **Individual card**
 
@@ -24,12 +23,11 @@ Every eligible application window has exactly one owner:
 
 3. **Bento pane**
 
-   - Kadunce owns the window as part of the display's current visible Bento
-     combination.
+   - Kadunce owns the window as part of the display's visible Bento.
    - In Spread it appears inside the Bento group card (§11, A layout in
      Spread).
 
-A window cannot be an individual card and a Bento pane at the same time.
+A window is never an individual card and a Bento pane at once.
 
 ## 2. Presentation states
 
@@ -41,9 +39,8 @@ One individual card is shown; other cards remain owned and hidden.
 
 ### Bento
 
-The display's current Bento pane combination is shown.
-
-Individual cards remain owned and hidden.
+The display's current Bento pane combination is shown; individual cards stay
+owned and hidden.
 
 ### Spread
 
@@ -58,8 +55,9 @@ The Bento group is one Spread entry, whatever its pane count.
 ### Sleeping
 
 A minimized individual card remains owned but is not presented. Spread draws
-it dimmed in its place; selecting it there, by touch, click or keys, wakes it and presents it
-as Active.
+it dimmed in its place, or at full strength while a context line says it sleeps
+(`TETTEGOUCHE-CONTEXT.md` § Context-line claims). Selecting it wakes it and
+presents it as Active.
 
 ### Desktop
 

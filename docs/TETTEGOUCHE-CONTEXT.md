@@ -63,6 +63,17 @@ must reject unknown major versions instead of guessing at fields.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `table`: whether Table is open (`open`). A change is signalled as Table
   opens and as it closes.
+- `cardStage.spreadEntry`: in Spread, the entry it has chosen, the one in the
+  middle; otherwise `null`. It has the card's `cardId`, the `name` Spread
+  writes under it (the panes' names joined by ` · ` for a Bento group),
+  `bento`, its Stack's `stackPosition` and `stackSize` (1-based, `1` of `1`
+  for a lone card or a Bento group; while a card is held in its own Stack, the
+  place it will land in), and whether it is `sleeping`.
+- `notice`: what Kadunce is saying for a moment, or `null`: `kind` is
+  `refused` for a gesture that sprang back, `zones` for the monitors' zones
+  switched with Meta+Shift+B, or `returnToDesktop` while a card held over the
+  bottom edge would leave for the desktop; with its `text` in words and the
+  `output` it is said on, empty for every display.
 - `lastActivated`, optional on each application: an in-memory, monotonic
   sequence for this effect's lifetime. Snapshots without it keep
   focused/selected/frontmost ordering.
@@ -205,6 +216,33 @@ it is the surface's however it moves, and never Table's. A caller holds its
 strips under keys of its own; a new claim under the same key replaces the old,
 and every strip a caller holds goes when it leaves the bus. Kadunce refuses a
 claim with no key, display or area.
+
+## Context-line claims
+
+A surface that shows the workspace's context in words, a status bar's line,
+can take over the words Kadunce draws on a display:
+
+```text
+claimContextLine(key, outputName) -> bool
+clearContextLineClaim(key)
+```
+
+While a claim on a display holds, Kadunce draws no words there: no names or
+Stack places under Spread's cards, no note for a refused gesture, no
+`return to desktop` on the outline of a card leaving at the bottom edge, and
+sleeping cards stand in Spread at full strength rather than dimmed. The
+outlines, ladders and previews stay, since a hand is aimed at them. With any
+claim held, the zones switched with Meta+Shift+B are not sent to Plasma's
+popup. Everything left undrawn is in the workspace context instead
+(`cardStage.spreadEntry` and `notice`), and each change to it, the entry
+chosen as Spread moves, its Stack place as a card is reordered, a notice
+beginning or ending, sends `workspaceContextChanged` once. A notice lasts as
+long as the note it replaces would have, about two and a half seconds.
+
+Claims are kept as top-edge claims are: under the caller's own keys, a new
+claim under the same key replacing the old, all of a caller's going when it
+leaves the bus. Kadunce refuses a claim with no key or display. With no claim,
+Kadunce draws as it always has, and the context carries the same fields.
 
 ## Stuck notes from Gooseberry
 

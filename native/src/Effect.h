@@ -40,6 +40,7 @@
 #include "KeptPicture.h"
 #include "StuckNotes.h"
 
+#include <QJsonValue>
 #include <QList>
 #include <QHash>
 #include <QIcon>
@@ -200,6 +201,12 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool claimTopEdge(const QString &key, const QString &outputName,
         double x, double y, double width, double height);
     Q_SCRIPTABLE void clearTopEdgeClaim(const QString &key);
+    // A display whose context a surface shows in words, under the caller's
+    // key; while held, Kadunce draws none of its own words there and says
+    // them in the workspace context instead, until cleared or the caller
+    // leaves the bus (TETTEGOUCHE-CONTEXT.md § Context-line claims).
+    Q_SCRIPTABLE bool claimContextLine(const QString &key, const QString &outputName);
+    Q_SCRIPTABLE void clearContextLineClaim(const QString &key);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -252,9 +259,9 @@ private:
     QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
     // Whether the Bento group's backdrop is drawn yet on the display painting.
     bool m_projectionBackdropDrawn = false;
-    QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
+    mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
-    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
+    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
@@ -1128,7 +1135,32 @@ private:
     };
     // Keyed by the caller's bus name and its own key.
     QHash<QString, TopEdgeClaim> m_topEdgeClaims;
+    struct ContextLineClaim {
+        QString owner;
+        QString output;
+    };
+    QHash<QString, ContextLineClaim> m_contextLineClaims;
+    // One watcher for both kinds of claim: a caller leaving drops all of them.
     QPointer<QDBusServiceWatcher> m_topEdgeClaimWatcher;
+    void watchClaimOwner(const QString &owner);
+    [[nodiscard]] bool contextLineClaimed(const KWin::LogicalOutput *output) const;
+    // What Kadunce would say on a claimed display, for the workspace context:
+    // a refused gesture, the zones taken, or a card about to leave for the
+    // desktop. Spread's chosen entry is read from Card Stage as it is.
+    [[nodiscard]] QJsonValue contextNotice() const;
+    [[nodiscard]] QJsonValue spreadEntryContext() const;
+    // What those say, cheaply, so a frame that changes them announces it once.
+    [[nodiscard]] QString contextLineSignature() const;
+    QString m_reportedContextLine;
+    struct ZoneNotice {
+        QString text;
+        QElapsedTimer shown;
+    };
+    std::optional<ZoneNotice> m_zoneNotice;
+    // A notice no frame will clear, since nothing is drawn for it, ends here.
+    QTimer m_contextNoticeEnd;
+    // The display a card about to leave for the desktop is over, this frame.
+    QPointer<KWin::LogicalOutput> m_detachShownOn;
     QString m_launcherGuestOwner;
     QString m_launcherGuestPath;
     QString m_launcherGuestInterface;
