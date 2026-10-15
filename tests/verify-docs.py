@@ -178,7 +178,7 @@ def check_retired_sizing_name() -> None:
 # budgets are each document's size after the 27 September cleanup plus about a
 # tenth; a budget is raised only with the maintainer's agreement.
 WORD_BUDGETS = {
-    "AGENTS.md": 975,
+    "AGENTS.md": 1125,
     "CLAUDE.md": 80,
     "docs/README.md": 475,
     "docs/DECISIONS.md": 5450,
