@@ -33,7 +33,12 @@ jobs:
     steps:
       - name: Install build and session dependencies
         run: |
-          pacman -Syu --noconfirm --needed \
+          # Held on Arch's last Plasma 6.7 day from the Arch Linux Archive.
+          # KWin 6.8's virtual backend wants a GPU render device for OpenGL,
+          # which a hosted runner lacks, so every scene would stop at start.
+          # Move the date on once the scenes run headless on 6.8.
+          echo 'Server = https://archive.archlinux.org/repos/2026/10/14/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm --needed \
             base-devel cmake extra-cmake-modules git ripgrep python file perl dbus jq patch libkscreen python-dbus \
             qt6-base qt6-declarative qt6-tools qt6-wayland \
             kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \

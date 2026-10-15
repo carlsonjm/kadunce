@@ -110,5 +110,23 @@ int main()
                     && placedNoteRect(active, Window, place, size) == from,
             "A note's rectangle depended on the card before");
     }
+
+    // Over its window, a note is where Gooseberry draws it: placed, at its
+    // share of the window and moved back from an edge; never placed, at the
+    // top-right, each older one further left and down.
+    require(noteRectOnWindow(Window, QPointF(0.95, 0.95), QSizeF(400, 300), 0) == QRectF(1200, 700, 400, 300),
+        "A note at the window's edge was not moved back inside it");
+    require(noteRectOnWindow(Window, QPointF(-1, -1), QSizeF(), 0) == QRectF(1600 - 220 - 24, 44, 220, 88),
+        "A note never placed did not start at the window's top-right");
+    require(noteRectOnWindow(Window, QPointF(-1, -1), QSizeF(), 2) == QRectF(1600 - 220 - 24 - 28, 104, 220, 88),
+        "An older note never placed did not start further left and down");
+    require(noteRectOnWindow(QSizeF(), QPointF(0.5, 0.5), QSizeF(), 0).isEmpty(),
+        "A window of no size gave a note a place");
+    // Folded, the dot's 44 px target hangs from the top note's top-right
+    // corner, and keeps inside the window.
+    require(foldedDotCentre(Window, QRectF(100, 200, 220, 88)) == QPointF(100 + 220 - 22, 222),
+        "The dot did not hang from the top note's corner");
+    require(foldedDotCentre(Window, QRectF(-30, 990, 40, 80)) == QPointF(22, 1000 - 22),
+        "The dot left its window");
     return 0;
 }

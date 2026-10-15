@@ -246,6 +246,11 @@ they preserve these relationships and respect the user's animation settings.
   there are several, the next note's edge peeks 4 px above it a shade deeper,
   and the count sits in 8 px at 65% in the mini note's bottom-right corner.
   It keeps its size on every card, and a note carried is 136 by 88 px.
+- Notes folded on their window show as Gooseberry's dot there: an 18 px disc
+  in the top note's colour with a 1 px soft edge and the notes' shadow, the
+  count in 11 px demibold, "9+" past nine, in a 44 px target hung from the top
+  note's top-right corner. On a card it stands in the same place, scaled with
+  the card, but keeps its size on every card.
 
 ## Type hierarchy and casing
 

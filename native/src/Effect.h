@@ -818,8 +818,9 @@ private:
     // Notes are shown and answered only in Spread at rest on the card
     // display, with no guest in its centre and no card in hand.
     [[nodiscard]] bool notesShownInSpread() const;
-    [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
+    // Gooseberry's surface of notes over a window, live or closing.
     [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
     // were last drawn; the Bento group carries no notes.
@@ -836,6 +837,24 @@ private:
     bool m_notesSpreadShown = false;
     bool m_notesPaused = false;
     void syncNotesPause();
+    // As Spread closes onto an Active card whose notes are up, Spread keeps
+    // drawing them over the card, where Gooseberry draws them, until
+    // Gooseberry's own surface stands over the window, and keeps that surface
+    // undrawn till then; at most NotesHandoverLimitMs.
+    struct NotesHandover {
+        QPointer<KWin::EffectWindow> card;
+        QElapsedTimer since;
+        // Its notes were asked up from Spread, so they come up even before
+        // Gooseberry says they are.
+        bool asked = false;
+    };
+    std::optional<NotesHandover> m_notesHandover;
+    // The card whose notes a tap in this Spread asked up.
+    QUuid m_notesAskedFor;
+    static constexpr int NotesHandoverLimitMs = 800;
+    void syncNotesHandover(bool spreadClosed);
+    void paintNotesHandover(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                            QList<QRectF> &drawn);
     void syncSelectedElevation();
     void activateSelectedFromInput() override;
     [[nodiscard]] KWin::EffectWindow *selectedWindow() const;
@@ -1120,6 +1139,8 @@ private:
     QPointer<KWin::EffectWindow> m_guestFocusReturn;
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
+    // The keys coming back from Gooseberry's notes as Spread covers them.
+    NotesKeysReturn m_notesKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;

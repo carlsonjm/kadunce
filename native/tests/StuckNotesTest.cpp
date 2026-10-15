@@ -328,5 +328,125 @@ int main()
         require(!StuckNotesSpread::openingPoint(Right, onPlaced, placedCards, everywhereCentre),
             "A card not in Spread was opened");
     }
+
+    // Folded on the window, a card's notes are their dot: at the top note's
+    // top-right corner as it stands on the window, scaled with the card, the
+    // title bar's size on every card with a finger's 44 px around it. A tap on
+    // it asks for the top note ready to type; a hold carries that note.
+    {
+        auto folded = stuckNotesEntries({window({Centre.toString()},
+            {placedNote(QStringLiteral("p"), QStringLiteral("Placed"), 0.1, 0.2, 400, 300),
+             note(QStringLiteral("q"), QStringLiteral("Loose"), QStringLiteral("#FFE680"))}, 2, true)});
+        require(!folded.first().folded, "Notes were read as folded when Gooseberry did not say so");
+        QVariantMap map = window({Centre.toString()},
+            {placedNote(QStringLiteral("p"), QStringLiteral("Placed"), 0.1, 0.2, 400, 300),
+             note(QStringLiteral("q"), QStringLiteral("Loose"), QStringLiteral("#FFE680"))}, 2, true);
+        map.insert(QStringLiteral("folded"), true);
+        folded = stuckNotesEntries({map});
+        require(folded.first().folded, "Folded notes were not read as folded");
+        map.insert(QStringLiteral("shown"), false);
+        require(!stuckNotesEntries({map}).first().folded, "Notes put away were read as folded");
+
+        const auto dots = cardNoteMarks(CentreCard, {}, centreWindow, folded.first());
+        require(dots.size() == 1 && dots.first().kind == CardNoteMark::Kind::Dot && dots.first().count == 2,
+            "Folded notes were not one dot with their count");
+        // On the window the top note's top-right corner is at 0.1 * 2320 + 400
+        // across and 0.2 * 1520 down; the 44 px target hangs from it.
+        const double scale = CentreCard.width() / centreWindow.width();
+        const QPointF expected(CentreCard.x() + (0.1 * 2320 + 400 - 22) * scale,
+                               CentreCard.y() + (0.2 * 1520 + 22) * scale);
+        require(qAbs(dots.first().rect.center().x() - expected.x()) < 0.5
+                    && qAbs(dots.first().rect.center().y() - expected.y()) < 0.5,
+            "The dot did not stand where the top note does on the window");
+        require(dots.first().rect.width() == 2 * NotePlacement::DotRadius
+                    && dots.first().reach.width() == NotePlacement::DotTarget,
+            "The dot was not the title bar's size within a 44 px target");
+        require(cardNoteMarks(LeftCard, {}, QSizeF(1280, 840), folded.first()).first().rect.size()
+                    == dots.first().rect.size(),
+            "The dot changed size between cards");
+        require(cardNoteMarks(CentreCard, {}, QSizeF(), folded.first()).isEmpty(),
+            "A dot was drawn before its window's size was known");
+
+        StuckNotesSpread spread;
+        spread.setEntries(folded);
+        const QList<NotesCard> one{{Centre, CentreCard, centreWindow}};
+        const QPointF onDot = dots.first().rect.center();
+        require(spread.press(onDot, one) && spread.contact() == StuckNotesSpread::Contact::Note,
+            "A press on the dot was not the notes'");
+        const auto asked = spread.release(onDot, true, one);
+        require(asked && asked->kind == Kind::Write && asked->noteId == QStringLiteral("p"),
+            "A tap on the dot did not ask for the top note ready to type");
+        require(spread.press(onDot, one) && spread.hold() && spread.carriedNote()->id == QStringLiteral("p"),
+            "Holding the dot did not carry the top note");
+        spread.cancel();
+        require(!spread.press(CentreCard.center(), one), "A press off the dot was taken by folded notes");
+    }
+
+    // Over the Active card, as Spread hands over to Gooseberry, each note is
+    // where Gooseberry draws it: a placed one at its place in the window's
+    // own pixels, one never placed where Gooseberry starts it, not in a stack.
+    {
+        const QRectF frame(40, 60, 1600, 1000);
+        const auto entry = stuckNotesEntries({window({Centre.toString()},
+            {placedNote(QStringLiteral("p"), QStringLiteral("Placed"), 0.25, 0.5, 400, 300),
+             note(QStringLiteral("q"), QStringLiteral("Loose"), QStringLiteral("#FFE680"))}, 2, true)}).first();
+        const auto over = windowNoteMarks(frame, entry);
+        require(over.size() == 2 && over.at(0).note == 1 && over.at(1).note == 0,
+            "The window's notes were not drawn oldest lowest");
+        require(over.at(1).rect == QRectF(40 + 400, 60 + 500, 400, 300),
+            "A placed note was not where it stands on the window");
+        require(over.at(0).rect == QRectF(40 + 1600 - 220 - 24 - 14, 60 + 44 + 30, 220, 88),
+            "A note never placed was not where Gooseberry starts it");
+        auto foldedEntry = entry;
+        foldedEntry.folded = true;
+        const auto dot = windowNoteMarks(frame, foldedEntry);
+        require(dot.size() == 1 && dot.first().kind == CardNoteMark::Kind::Dot
+                    && dot.first().rect.center() == QPointF(40 + 800 - 22, 60 + 500 + 22),
+            "Folded notes over the window were not their dot at the top note's corner");
+    }
+
+    // Gooseberry's notes stand on the window once its surface is laid over it
+    // from its top-left, as big as the window or as its display allows.
+    {
+        const QRectF frame(40, 60, 1600, 1000);
+        const QRectF display(0, 0, 2560, 1600);
+        require(notesSurfaceStandsOn(frame, frame, display), "A surface over the window did not stand on it");
+        require(notesSurfaceStandsOn(frame.adjusted(0.5, 0, 0.5, 0), frame, display),
+            "A surface a rounding away did not stand on the window");
+        require(!notesSurfaceStandsOn(frame.translated(0, 40), frame, display),
+            "A surface below the window stood on it");
+        require(!notesSurfaceStandsOn(QRectF(40, 60, 800, 500), frame, display),
+            "A surface of another size stood on the window");
+        require(notesSurfaceStandsOn(QRectF(0, 0, 2560, 1600), QRectF(0, 0, 3000, 2000), display),
+            "A surface the display bounds did not stand on a larger window");
+        require(!notesSurfaceStandsOn(QRectF(), frame, display), "No surface stood on the window");
+    }
+
+    // The keys coming back from a note typed on as Spread opens are no pick
+    // of the card under it; any other activation is answered as before.
+    {
+        NotesKeysReturn keys;
+        require(!keys.activated(false, false, false), "A window activated alone was taken for the notes");
+        require(!keys.activated(true, false, false), "The notes taking the keys were taken for them coming back");
+        require(keys.activated(false, true, true),
+            "The keys back from the notes as Spread opened were taken for a pick of the card");
+        require(!keys.activated(false, true, true), "A second activation in Spread was taken for the notes");
+
+        NotesKeysReturn typing;
+        (void)typing.activated(true, false, false);
+        require(!typing.activated(false, false, true),
+            "A tap on the window beside a note typed on, Spread closed, was not answered");
+
+        NotesKeysReturn other;
+        (void)other.activated(true, false, false);
+        require(!other.activated(false, true, false),
+            "Another card asked for in Spread after the notes was taken for the keys coming back");
+
+        NotesKeysReturn nothing;
+        (void)nothing.activated(true, false, false);
+        (void)nothing.activated(false, true, false);
+        require(!nothing.activated(false, true, true),
+            "The notes giving the keys to nothing left a later pick unanswered");
+    }
     return 0;
 }
