@@ -6900,25 +6900,95 @@ void Effect::syncSpokenLine()
 }
 
 // Gooseberry's notes over a window are a layer surface laid over that
-// window; its quick-note card is one that covers the whole display and takes
-// the keys. The notes take the keys too while a note on them is being typed
-// on, so they are told apart by that as well as by the keys: a Gooseberry
-// surface that takes no keys, or that covers less than its display, is the
-// notes. While Spread is up the notes are drawn on the cards instead, so that
-// surface is left undrawn from the frame Spread opens, and through its fade
-// as it goes, rather than once Gooseberry answers the pause: the notes read
-// as one set moving onto the card.
-bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
+// window; its quick-note card is one that covers the whole display. A layer
+// surface carries no application id, so KWin names it by its program,
+// gooseberry, rather than by Gooseberry's desktop file name; either is taken.
+// The notes take the keys while they are open, so they are told from the card
+// by their size, and, while live, by taking no keys when they take none. A
+// closing surface keeps its size, so it is told the same way through its fade.
+bool Effect::isNotesSurface(const KWin::EffectWindow *window) const
 {
-    if (!m_notesSpreadShown || !window || !window->window()
-        || !window->window()->inherits("KWin::LayerShellV1Window")
-        || applicationIdentity(window).compare(QStringLiteral("io.github.carlsonjm.Gooseberry"),
-                                               Qt::CaseInsensitive) != 0) {
+    if (!window || !window->window() || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    const QString identity = applicationIdentity(window);
+    if (identity.compare(QStringLiteral("io.github.carlsonjm.Gooseberry"), Qt::CaseInsensitive) != 0
+        && identity.compare(QStringLiteral("gooseberry"), Qt::CaseInsensitive) != 0) {
         return false;
     }
-    if (!window->acceptsFocus()) return true;
+    if (!window->isDeleted() && !window->acceptsFocus()) return true;
     const auto *output = window->screen();
     return output && window->frameGeometry().toRect() != output->geometry();
+}
+
+// While Spread is up the notes are drawn on the cards instead, so that
+// surface is left undrawn from the frame Spread opens, and through its fade
+// as it goes, rather than once Gooseberry answers the pause: the notes read
+// as one set moving onto the card. As Spread closes, Spread's picture of them
+// stays over the Active card until the surface stands there (syncNotesHandover).
+bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
+{
+    return (m_notesSpreadShown || m_notesHandover) && isNotesSurface(window);
+}
+
+void Effect::syncNotesHandover(bool spreadClosed)
+{
+    if (spreadClosed) {
+        m_notesHandover.reset();
+        auto *card = m_cardStage->presentation() == CardPresentation::Active
+            ? m_cardStage->activeCardIdentity() : nullptr;
+        const auto *entry = card ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+        const bool asked = card && !m_notesAskedFor.isNull() && m_notesAskedFor == card->internalId();
+        m_notesAskedFor = {};
+        if (entry && (entry->shown || asked) && m_stuckNotesWatcher && m_stuckNotesWatcher->present()) {
+            m_notesHandover = NotesHandover{card, {}, asked};
+            m_notesHandover->since.start();
+        }
+    }
+    if (!m_notesHandover) return;
+    auto *card = m_notesHandover->card.data();
+    const auto *entry = card && !card->isDeleted() ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+    bool done = !entry || (!entry->shown && !m_notesHandover->asked) || !m_cardStage->isActive()
+        || m_cardStage->presentation() != CardPresentation::Active || m_cardStage->activeCardIdentity() != card
+        || m_notesHandover->since.elapsed() > NotesHandoverLimitMs;
+    if (!done) {
+        // Gooseberry's surface stands over the window once it is laid at the
+        // window's place and size, as Gooseberry lays it once the desktop says
+        // where the window is; from this frame it is drawn and Spread's
+        // picture is not.
+        const QRectF frame(card->frameGeometry());
+        const QRectF display = card->screen() ? QRectF(card->screen()->geometry()) : QRectF();
+        for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+            if (!window || window->isDeleted() || !window->window() || !window->window()->readyForPainting()
+                || !isNotesSurface(window)) continue;
+            if (notesSurfaceStandsOn(QRectF(window->frameGeometry()), frame, display)) {
+                done = true;
+                break;
+            }
+        }
+    }
+    if (done) {
+        const bool late = m_notesHandover->since.elapsed() > NotesHandoverLimitMs;
+        if (late) qInfo() << "Kadunce gave the Active card's notes back to Gooseberry without its surface in place";
+        m_notesHandover.reset();
+        KWin::effects->addRepaintFull();
+    }
+}
+
+void Effect::paintNotesHandover(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                QList<QRectF> &drawn)
+{
+    if (!m_notesHandover) return;
+    auto *card = m_notesHandover->card.data();
+    const auto *entry = card && !card->isDeleted() ? m_stuckNotes.entryFor(card->internalId()) : nullptr;
+    if (!entry) return;
+    for (const auto &mark : windowNoteMarks(QRectF(card->frameGeometry()), *entry)) {
+        if (mark.kind == CardNoteMark::Kind::Dot) {
+            m_noteStackRenderer.renderDot(renderTarget, viewport, mark.rect, entry->notes.first().colourHex,
+                                          mark.count);
+        } else {
+            m_noteStackRenderer.renderNote(renderTarget, viewport, mark.rect, entry->notes.at(mark.note), 1.0);
+        }
+        drawn << mark.rect;
+    }
 }
 
 QList<NotesCard> Effect::notesCards() const
@@ -6999,6 +7069,7 @@ void Effect::releaseNotesFromInput(const QPointF &position, bool still)
         m_stuckNotesWatcher->write(request->noteId, windowId, window->caption(), applicationIdentity(window));
     else
         m_stuckNotesWatcher->show(windowId, window->caption(), applicationIdentity(window));
+    m_notesAskedFor = request->window;
     const auto reaches = [this](const QPointF &at) {
         auto *card = m_cardStage->cardUnderPoint(at);
         return card ? card->internalId() : QUuid();
@@ -7052,6 +7123,12 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
                                          *entry);
         for (const auto &mark : marks) {
             if (window != held && !heldRect.isEmpty() && mark.reach.intersects(heldRect)) continue;
+            if (mark.kind == CardNoteMark::Kind::Dot) {
+                m_noteStackRenderer.renderDot(renderTarget, viewport, mark.rect, entry->notes.first().colourHex,
+                                              mark.count);
+                drawn << mark.rect;
+                continue;
+            }
             if (mark.kind == CardNoteMark::Kind::Stack) {
                 QStringList colours;
                 for (const int note : mark.sheetNotes) colours.append(entry->notes.at(note).colourHex);
@@ -8061,6 +8138,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // Spread opening reads every entry again, so a missed signal cannot
         // leave a card's fan disagreeing with its window.
         if (m_notesSpreadShown && !wasShown && m_stuckNotesWatcher) m_stuckNotesWatcher->refresh();
+        if (m_notesSpreadShown && !wasShown) m_notesAskedFor = {};
+        syncNotesHandover(wasShown && !m_notesSpreadShown);
         syncNotesPause();
         syncSpokenLine();
     }
@@ -8088,6 +8167,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     m_preparationNeighbors = neighbors;
     if (isTabletOutput(data.screen)) m_neighborPreparedThisFrame = false;
     m_continueRepaint = false;
+    // Each frame looks again for Gooseberry's surface over the Active card.
+    if (m_notesHandover) m_continueRepaint = true;
     if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
         && m_guestNeighborMotion.elapsed() < motion(220)) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -8447,6 +8528,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
         paintStuckNotes(renderTarget, viewport, deviceRegion, screen, heldRect, overlaid);
     }
+    // Spread just closed onto the Active card: its notes as Spread drew them,
+    // now where Gooseberry draws them, until Gooseberry's own are there.
+    if (m_notesHandover && screen && screen == tabletOutput()) paintNotesHandover(renderTarget, viewport, overlaid);
     // A refused gesture's note, over everything on the display it was let go on.
     if (m_gestureNote && screen && m_gestureNote->output == screen) {
         m_gestureNoteLabel.render(renderTarget, viewport, m_gestureNote->box, m_gestureNote->text,
@@ -8539,6 +8623,11 @@ KWin::EffectWindow *Effect::selectedWindow() const
 
 void Effect::handleWindowAdded(KWin::EffectWindow *window)
 {
+    // Gooseberry's notes coming back over the Active card as Spread closes are
+    // already on screen as Spread's picture of them, so no opening animation
+    // of the desktop's plays on them.
+    if ((m_notesSpreadShown || m_notesHandover) && isNotesSurface(window))
+        window->setData(KWin::WindowAddedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
     if (m_carriedWindow && m_carryRuntime) m_carryRuntime->cancel();
     // A window just opened, from the dock or anywhere, appears in its pane.
     appearInPlace(window);
@@ -8637,6 +8726,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    // Nor does a closing one fade where it stood once Spread draws the notes.
+    if ((m_notesSpreadShown || m_notesHandover) && isNotesSurface(window))
+        window->setData(KWin::WindowClosedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
     if (m_dependents.contains(window)) {
         m_dependents.removeAll(window);
         m_heldDependents.removeAll(window);

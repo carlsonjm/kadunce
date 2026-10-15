@@ -50,6 +50,9 @@ struct StuckNotesEntry {
     // Its notes are up over the window, which Spread shows by drawing those
     // in place in full rather than faint.
     bool shown = false;
+    // Up, but folded into one dot where the top note stands, which Spread
+    // draws in their place. A Gooseberry that does not say never folds.
+    bool folded = false;
 };
 
 // The entries of Windows() or WindowsChanged, each already a map. An entry
@@ -89,6 +92,7 @@ struct StuckNotesEntry {
             entry.notes.append(stuck);
         }
         entry.shown = map.value(QStringLiteral("shown")).toBool();
+        entry.folded = entry.shown && map.value(QStringLiteral("folded")).toBool();
         entry.count = std::max<int>(map.value(QStringLiteral("count")).toInt(), entry.notes.size());
         if (entry.windowIds.isEmpty() || entry.notes.isEmpty()) continue;
         entries.append(entry);
@@ -166,11 +170,13 @@ struct NoteGeometry {
 // the window is drawn; the stack keeps to the card's corner. A note that has
 // a place is never put in the stack: while its place on the card cannot be
 // worked out, as before the window's size is known, it is not drawn at all,
-// so it never starts from the corner and moves to its place.
+// so it never starts from the corner and moves to its place. Folded on the
+// window, the notes are their dot alone, a tap on it a tap on the top note.
 struct CardNoteMark {
-    enum class Kind { Stack, Note };
+    enum class Kind { Stack, Note, Dot };
     Kind kind = Kind::Note;
-    // The note in the entry: the note drawn, or the stack's top note.
+    // The note in the entry: the note drawn, or the stack's or the dot's top
+    // note.
     int note = 0;
     QRectF rect;
     QRectF reach;
@@ -181,12 +187,40 @@ struct CardNoteMark {
     int count = 0;
 };
 
+// The dot a window's folded notes are, on a card that shows the window at
+// `face`: where it stands on the window, scaled with the card, and the size
+// the title bar draws it at on every card, a finger's 44 px around it. Empty
+// while the window's size is not known.
+[[nodiscard]] inline std::optional<CardNoteMark> foldedDotMark(const QRectF &card, const QRectF &face,
+                                                               const QSizeF &window, const StuckNotesEntry &entry)
+{
+    using P = NotePlacement;
+    if (entry.notes.isEmpty() || face.isEmpty() || window.isEmpty()) return std::nullopt;
+    const auto &top = entry.notes.first();
+    const QPointF at = foldedDotCentre(window, noteRectOnWindow(window, top.place, top.size, 0));
+    const QPointF centre(face.x() + at.x() * face.width() / window.width(),
+                         face.y() + at.y() * face.height() / window.height());
+    CardNoteMark dot;
+    dot.kind = CardNoteMark::Kind::Dot;
+    dot.note = 0;
+    dot.count = std::max<int>(entry.count, int(entry.notes.size()));
+    dot.rect = QRectF(centre.x() - P::DotRadius, centre.y() - P::DotRadius, 2 * P::DotRadius, 2 * P::DotRadius);
+    dot.reach = QRectF(centre.x() - P::DotTarget / 2, centre.y() - P::DotTarget / 2, P::DotTarget, P::DotTarget)
+                    .intersected(card | face);
+    return dot;
+}
+
 [[nodiscard]] inline QList<CardNoteMark> cardNoteMarks(const QRectF &card, const QRectF &face,
                                                         const QSizeF &window, const StuckNotesEntry &entry)
 {
     QList<CardNoteMark> marks;
     if (card.isEmpty()) return marks;
     const QRectF drawn = face.isEmpty() ? card : face;
+    // Folded on the window, the notes are their dot on the card too.
+    if (entry.folded) {
+        if (const auto dot = foldedDotMark(card, drawn, window, entry)) marks.append(*dot);
+        return marks;
+    }
     QList<int> loose;
     for (int index = int(entry.notes.size()) - 1; index >= 0; --index) {
         const auto &note = entry.notes.at(index);
@@ -220,6 +254,45 @@ struct CardNoteMark {
     stack.reach = noteStackReach(card, stack.count);
     marks.append(stack);
     return marks;
+}
+
+// What the window's notes look like over it, in the compositor's pixels, the
+// lowest first: each note where Gooseberry draws it, a note never placed at
+// its starting place rather than in a stack, or the dot when they are folded.
+// Spread draws these over the Active card it has just opened until
+// Gooseberry's own notes stand there, so nothing moves as one gives way to
+// the other.
+[[nodiscard]] inline QList<CardNoteMark> windowNoteMarks(const QRectF &frame, const StuckNotesEntry &entry)
+{
+    QList<CardNoteMark> marks;
+    if (frame.isEmpty()) return marks;
+    if (entry.folded) {
+        if (const auto dot = foldedDotMark(frame, frame, frame.size(), entry)) marks.append(*dot);
+        return marks;
+    }
+    for (int index = int(entry.notes.size()) - 1; index >= 0; --index) {
+        const auto &note = entry.notes.at(index);
+        const QRectF rect = noteRectOnWindow(frame.size(), note.place, note.size, index).translated(frame.topLeft());
+        if (rect.isEmpty()) continue;
+        CardNoteMark mark;
+        mark.note = index;
+        mark.rect = rect;
+        mark.reach = rect;
+        marks.append(mark);
+    }
+    return marks;
+}
+
+// Whether Gooseberry's notes surface stands over the window: laid over it
+// from its top-left, as big as the window or as much of it as its display
+// holds, give or take the pixel either rounds to.
+[[nodiscard]] inline bool notesSurfaceStandsOn(const QRectF &surface, const QRectF &window, const QRectF &display)
+{
+    if (surface.isEmpty() || window.isEmpty()) return false;
+    const auto close = [](double a, double b) { return std::abs(a - b) <= 1.0; };
+    const QSizeF size = window.size().boundedTo(display.isEmpty() ? window.size() : display.size());
+    return close(surface.x(), window.x()) && close(surface.y(), window.y()) && close(surface.width(), size.width())
+        && close(surface.height(), size.height());
 }
 
 // Notes on Spread's cards, and the one contact the notes hold from press to
@@ -279,6 +352,8 @@ public:
             const auto marks = cardNoteMarks(card.rect, card.face, card.window, *entry);
             for (auto mark = marks.crbegin(); mark != marks.crend(); ++mark) {
                 if (!mark->reach.contains(position)) continue;
+                // A folded dot is its top note: a tap types on it, a hold
+                // carries it.
                 begin(mark->kind == CardNoteMark::Kind::Stack ? Contact::Stack : Contact::Note, card.id,
                       entry->notes.at(mark->note), position);
                 return true;

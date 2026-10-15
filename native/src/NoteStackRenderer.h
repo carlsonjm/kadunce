@@ -154,6 +154,48 @@ public:
         blit(renderTarget, viewport, texture, box, opacity);
     }
 
+    // A window's notes folded into their dot, as Gooseberry draws it over the
+    // window and the title bar draws its own: the top note's colour, a fine
+    // edge and the notes' soft shadow, so it reads on light and dark cards
+    // alike, and the count in it when there are several, 9+ past nine.
+    void renderDot(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                   const QRectF &disc, const QString &colourHex, int count)
+    {
+        if (disc.isEmpty()) return;
+        const QRectF box = disc.adjusted(-1, -1, 1, 3);
+        const QString key = QStringLiteral("dot") + QChar(0x1f) + colourHex + QChar(0x1f) + QString::number(count)
+            + QChar(0x1f) + QString::number(qRound(disc.width()));
+        auto *texture = m_textures.object(key);
+        if (!texture) {
+            QImage image = canvas(box.size());
+            QPainter painter(&image);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHint(QPainter::TextAntialiasing);
+            const QRectF face = disc.translated(-box.topLeft());
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor(0, 0, 0, 51));
+            painter.drawEllipse(face.translated(0, 2));
+            const QColor colour = noteColour(colourHex);
+            painter.setPen(QPen(QColor(0, 0, 0, 70), 1.0));
+            painter.setBrush(colour);
+            painter.drawEllipse(face.adjusted(0.5, 0.5, -0.5, -0.5));
+            if (count > 1) {
+                QFont font;
+                font.setPixelSize(11);
+                font.setWeight(QFont::DemiBold);
+                painter.setFont(font);
+                painter.setPen(wordsOn(colour));
+                painter.drawText(face, Qt::AlignCenter | Qt::TextSingleLine,
+                                 count > 9 ? QStringLiteral("9+") : QString::number(count));
+            }
+            painter.end();
+            texture = KWin::GLTexture::upload(image).release();
+            if (!texture) return;
+            m_textures.insert(key, texture);
+        }
+        blit(renderTarget, viewport, texture, box, 1.0);
+    }
+
 private:
     static QImage canvas(const QSizeF &size)
     {
