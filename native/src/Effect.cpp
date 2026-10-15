@@ -1209,6 +1209,7 @@ Effect::Effect()
         qInfo() << "Kadunce reads notes on" << entries.size() << "windows from Gooseberry," << shown << "shown";
         m_stuckNotes.setEntries(entries);
         syncNotesPause();
+        Q_EMIT workspaceContextChanged();
         if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
     });
 
@@ -5655,6 +5656,55 @@ bool Effect::isPanelPoint(const QPointF &position) const
     return false;
 }
 
+bool Effect::claimTopEdge(const QString &key, const QString &outputName,
+    double x, double y, double width, double height)
+{
+    if (!calledFromDBus() || key.isEmpty() || outputName.isEmpty()
+        || !(width > 0.0) || !(height > 0.0)) {
+        return false;
+    }
+    const QString owner = message().service();
+    if (!m_topEdgeClaimWatcher) {
+        m_topEdgeClaimWatcher = new QDBusServiceWatcher(
+            QString(), QDBusConnection::sessionBus(),
+            QDBusServiceWatcher::WatchForUnregistration, this);
+        connect(m_topEdgeClaimWatcher, &QDBusServiceWatcher::serviceUnregistered,
+                this, [this](const QString &service) {
+            m_topEdgeClaims.removeIf([&service](const auto &claim) {
+                return claim.value().owner == service;
+            });
+            m_topEdgeClaimWatcher->removeWatchedService(service);
+        });
+    }
+    m_topEdgeClaimWatcher->addWatchedService(owner);
+    m_topEdgeClaims.insert(owner + QLatin1Char('\n') + key,
+        TopEdgeClaim{owner, outputName, QRectF(x, y, width, height)});
+    return true;
+}
+
+void Effect::clearTopEdgeClaim(const QString &key)
+{
+    if (!calledFromDBus()) return;
+    m_topEdgeClaims.remove(message().service() + QLatin1Char('\n') + key);
+}
+
+bool Effect::topEdgeClaimedForInput(const QPointF &position) const
+{
+    if (m_topEdgeClaims.isEmpty()) return false;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (!output) continue;
+        const QRectF display(output->geometry());
+        if (!display.contains(position)) continue;
+        for (const TopEdgeClaim &claim : m_topEdgeClaims) {
+            if (claim.output == output->name()
+                && claim.area.translated(display.topLeft()).contains(position)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool Effect::surfaceOwnsTouchAt(const QPointF &position) const
 {
     // Asks for the window KWin itself would deliver the touch to, so a layer
@@ -5845,19 +5895,24 @@ QString Effect::workspaceContext() const
         applications.append(application);
     }
 
+    // A note being typed over a window has the keys, and the window it is
+    // stuck to stays the one in use: focus names that window and says so.
+    KWin::EffectWindow *notesHost = notesSurfaceHost(focused);
+    KWin::EffectWindow *inUse = notesHost ? notesHost : focused;
     QJsonObject focus;
-    if (focused && isApplicationWindow(focused)) {
-        const bool focusedHasCard = workspace.find(windowIdentity(focused)) != nullptr;
+    if (inUse && isApplicationWindow(inUse)) {
+        const bool focusedHasCard = workspace.find(windowIdentity(inUse)) != nullptr;
         focus = {
-            {QStringLiteral("windowId"), windowIdentity(focused)},
-            {QStringLiteral("appId"), applicationIdentity(focused)},
-            {QStringLiteral("title"), focused->caption()},
+            {QStringLiteral("windowId"), windowIdentity(inUse)},
+            {QStringLiteral("appId"), applicationIdentity(inUse)},
+            {QStringLiteral("title"), inUse->caption()},
             {QStringLiteral("hasCard"), focusedHasCard},
         };
         if (focusedHasCard) {
             focus.insert(QStringLiteral("cardId"),
-                         windowIdentity(focused));
+                         windowIdentity(inUse));
         }
+        if (notesHost) focus.insert(QStringLiteral("notes"), true);
     }
 
     QJsonArray selectedStack;
@@ -6989,6 +7044,29 @@ void Effect::paintNotesHandover(const KWin::RenderTarget &renderTarget, const KW
         }
         drawn << mark.rect;
     }
+}
+
+// The window a note with the keys is stuck to: the latest used of those whose
+// notes Gooseberry says are up, or, where it has not said yet, the window last
+// in use, which the note was opened over.
+KWin::EffectWindow *Effect::notesSurfaceHost(const KWin::EffectWindow *window) const
+{
+    if (!isNotesSurface(window)) return nullptr;
+    KWin::EffectWindow *host = nullptr;
+    quint64 latest = 0;
+    for (KWin::EffectWindow *candidate : KWin::effects->stackingOrder()) {
+        if (!isApplicationWindow(candidate) || candidate->isMinimized()
+            || !m_stuckNotes.shown(candidate->internalId())) {
+            continue;
+        }
+        const quint64 used = m_activationOrder.value(windowIdentity(candidate));
+        if (!host || used > latest) {
+            host = candidate;
+            latest = used;
+        }
+    }
+    if (host) return host;
+    return isApplicationWindow(m_lastActiveApplication) ? m_lastActiveApplication.data() : nullptr;
 }
 
 QList<NotesCard> Effect::notesCards() const
@@ -8822,6 +8900,8 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     if (isApplicationWindow(window)) {
         m_lastActiveApplication = window;
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
+        Q_EMIT workspaceContextChanged();
+    } else if (isNotesSurface(window)) {
         Q_EMIT workspaceContextChanged();
     }
     if (notesKeysBack) {
