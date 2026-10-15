@@ -78,5 +78,37 @@ int main()
     const QRectF tiny(0, 0, 40, 30);
     require(tiny.contains(placedNoteRect(tiny, Window, QPointF(0.5, 0.5), QSizeF())),
         "A note left a card smaller than itself");
+
+    // The note is worked out from whatever card is passed in, and nothing
+    // else: a card drawn part of the way between two places, as on every
+    // frame of Spread opening, closing or the row moving, carries the note
+    // the same part of the way, in place and in size, never from the place
+    // the card is heading for.
+    {
+        const QRectF active(0, 0, 1600, 1000);
+        const QRectF slot(420, 260, 480, 300);
+        const QPointF place(0.05, 0.08);
+        const QSizeF size(360, 240);
+        const QRectF from = placedNoteRect(active, Window, place, size);
+        const QRectF to = placedNoteRect(slot, Window, place, size);
+        for (const double t : {0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0}) {
+            const auto lerp = [t](double a, double b) { return a + (b - a) * t; };
+            const QRectF card(lerp(active.x(), slot.x()), lerp(active.y(), slot.y()),
+                              lerp(active.width(), slot.width()), lerp(active.height(), slot.height()));
+            const QRectF note = placedNoteRect(card, Window, place, size);
+            require(near(note.x(), lerp(from.x(), to.x())) && near(note.y(), lerp(from.y(), to.y()))
+                        && near(note.width(), lerp(from.width(), to.width()))
+                        && near(note.height(), lerp(from.height(), to.height())),
+                "An interpolated card did not give an interpolated note");
+            // Its place is the card's own, at the note's share of it.
+            require(near(note.x() - card.x(), place.x() * card.width())
+                        && near(note.y() - card.y(), place.y() * card.height()),
+                "A note left its share of the card drawn this frame");
+        }
+        // Back and forth, each card gives the same note: nothing is kept.
+        require(placedNoteRect(slot, Window, place, size) == to
+                    && placedNoteRect(active, Window, place, size) == from,
+            "A note's rectangle depended on the card before");
+    }
     return 0;
 }

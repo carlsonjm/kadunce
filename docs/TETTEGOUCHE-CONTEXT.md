@@ -198,16 +198,17 @@ interface: io.github.carlsonjm.Gooseberry.StuckNotes
 
 | Kadunce uses | When |
 | --- | --- |
-| `Windows()` | Gooseberry appears on the bus, a signal comes from a sender not yet heard from, Spread opens, or a `Toggle` fails or answers other than Spread expected |
+| `Windows()` | Gooseberry appears on the bus, a signal comes from a sender not yet heard from, or Spread opens |
 | signal `WindowsChanged(windows)` | It replaces everything Kadunce holds; Kadunce keeps no notes of its own |
-| `Toggle(windowId, caption, app)` | A card's stack is tapped; its reply, whether the notes are shown now, is read when it comes |
+| `Write(noteId, windowId, caption, app)` | A note drawn on a card is tapped: the card opens with the window's notes up and that note ready to type on the window. A build without it answers with an error, and Kadunce then asks `Show` |
+| `Show(windowId, caption, app)` | A card's stack is tapped: the card opens with the window's notes up |
 | `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
-| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn Gooseberry's layer surface that takes no keys, the notes over a window, fading or not |
+| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn the notes over a window, fading or not: Gooseberry's layer surface that takes no keys or covers less than its display, since its quick-note card covers the whole display and takes them |
 
 Every call is asynchronous, asks the bus not to start Gooseberry, and is never
 waited for while drawing. An entry belongs to a card when one of its
 `windowIds` is the card's window UUID, compared as a UUID with or without
-braces; `Toggle` and `StickTo` name the window by that UUID with braces, its
+braces; `Write`, `Show` and `StickTo` name the window by that UUID with braces, its
 title, and its desktop file name. Kadunce reads each entry's count, whether its
 notes are `shown`, and its notes' ids, titles and colours, top note first, with
 each note's place, `x` and `y` as shares of the window, and size, `width` and
@@ -218,18 +219,21 @@ that sends none.
 In Spread each note placed on its window stands on the card in the same place,
 as big as there, both scaled with the card and kept inside it, the newest on
 top; one never resized there is drawn at the size Gooseberry starts a note at.
+Each frame it stands on the window as KWin draws it on the card that frame, so
+it rides the card as Spread opens, closes and the row moves, and is never
+drawn in the corner on its way to its place.
 The notes never placed show as one mini note at the card's bottom-right
 corner, the same size on every card: the top one in its colour with its first
 words, the next one's edge peeking above it and their count quietly in its
 corner when there are several.
-A card's notes are out exactly while Gooseberry says they are shown over its
-window, so the two stay one state: notes out over a window arrive out, and
-notes brought out in Spread are still out after it closes. Out, notes in place
-show in full rather than faint, and the unplaced notes fan out from the corner
-in the stack's place, so a card shows the stack or the fan. A tap on the stack,
-or on any note drawn, toggles them, drawn at once and then as Gooseberry answers; a toggle that
-fails or answers otherwise is drawn as Gooseberry's fresh `Windows()` says, and
-nothing else folds them. Holding a note carries it to another card (`INPUT.md` § Spread).
+Notes in place show in full while Gooseberry says they are shown over the
+window, and faint while they are put away. A stuck note is typed on its window,
+never in Spread: a tap on a note opens its card, as a tap anywhere on the card
+does, and asks `Write`, so the note is out on the window with the others,
+ready to type; a tap on the stack opens the card and asks `Show`. Gooseberry
+stays paused until the card is Active, and then draws the notes over it.
+Nothing comes up over the card itself. Holding a note carries it to another
+card (`INPUT.md` § Spread).
 This takes up Gooseberry's requests for a card's notes on its corner in Spread
 and for carrying a note between cards. Spread never moves or resizes a window
 for a note, and the Bento group and the Active card show none.

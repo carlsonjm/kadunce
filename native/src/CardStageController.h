@@ -405,6 +405,8 @@ public:
     [[nodiscard]] bool finishCardGrabOnOutput(const QPointF &position);
     // Whether a card in Spread is under `position`.
     [[nodiscard]] bool cardAtPoint(const QPointF &position) const;
+    // The card in Spread a tap at `position` reaches, nearest the eye first.
+    [[nodiscard]] KWin::EffectWindow *cardUnderPoint(const QPointF &position) const;
     // A tap in Spread. A card fanned behind the centred Stack's face comes
     // forward; any other card is selected to open; empty space selects where
     // the person was, to go back to it.

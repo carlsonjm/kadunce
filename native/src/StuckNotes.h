@@ -3,7 +3,6 @@
 
 #include "NotePlacement.h"
 
-#include <QHash>
 #include <QList>
 #include <QPointF>
 #include <QRectF>
@@ -48,7 +47,8 @@ struct StuckNotesEntry {
     int count = 0;
     // The top note first.
     QList<StuckNote> notes;
-    // Its notes are out over the window, which Spread shows as fanned.
+    // Its notes are up over the window, which Spread shows by drawing those
+    // in place in full rather than faint.
     bool shown = false;
 };
 
@@ -104,10 +104,15 @@ struct NotesCard {
     // The window's own size, which the card shows scaled; placed notes stand
     // on the card only when it is known.
     QSizeF window;
+    // Where the window itself is drawn on the card this frame, which the card
+    // may show smaller than its slot and moves with it; empty for the slot.
+    QRectF face;
+
+    [[nodiscard]] QRectF drawnFace() const { return face.isEmpty() ? rect : face; }
 };
 
-// The stack and the fan are the same size on every card, whatever the
-// card's scale, so a near card's notes are no easier to hit than a far one's.
+// The stack is the same size on every card, whatever the card's scale, so a
+// near card's notes are no easier to hit than a far one's.
 struct NoteGeometry {
     // The stack is a mini note: the top note with its first words, the
     // next one's edge peeking above it when there are more.
@@ -118,12 +123,13 @@ struct NoteGeometry {
     static constexpr double Inset = 12.0;
     // A finger's reach around the mini note, an 80 by 60 px target.
     static constexpr double Reach = 8.0;
+    // A carried note, and the size a note's corners, margin and words are
+    // drawn for.
     static constexpr double NoteWidth = 136.0;
     static constexpr double NoteHeight = 88.0;
-    static constexpr double NoteGap = 8.0;
     static constexpr double Radius = 8.0;
     // A note standing in its place while its notes are put away is drawn
-    // faint, so a tap that brings them up shows.
+    // faint; brought up over the window, it is drawn in full.
     static constexpr double PutAwayOpacity = 0.6;
 };
 
@@ -149,36 +155,18 @@ struct NoteGeometry {
                           NoteGeometry::Reach, NoteGeometry::Reach);
 }
 
-// The notes fanned out over the card in the stack's place, the top note in
-// its corner, and the rest in rows leftward and then upward from it,
-// as many as the card holds. A card too small for one still shows the top
-// note beside its corner.
-[[nodiscard]] inline QList<QRectF> fannedNoteRects(const QRectF &card, int count)
-{
-    using G = NoteGeometry;
-    QList<QRectF> rects;
-    if (card.isEmpty() || count <= 0) return rects;
-    const auto fits = [](double length, double size) {
-        return std::max(1, int((length - 2 * G::Inset + G::NoteGap) / (size + G::NoteGap)));
-    };
-    const int columns = fits(card.width(), G::NoteWidth);
-    const int rows = fits(card.height(), G::NoteHeight);
-    const int shown = std::min(count, columns * rows);
-    for (int index = 0; index < shown; ++index) {
-        const int column = index % columns;
-        const int row = index / columns;
-        rects.append(QRectF(card.right() - G::Inset - G::NoteWidth - column * (G::NoteWidth + G::NoteGap),
-                            card.bottom() - G::Inset - G::NoteHeight - row * (G::NoteHeight + G::NoteGap),
-                            G::NoteWidth, G::NoteHeight));
-    }
-    return rects;
-}
-
 // What a card shows of its notes, in the order they are drawn, the lowest
 // first: each placed note where it stands on the window, the oldest lowest,
-// and over them the notes never placed, as the corner stack while folded or
-// fanned out from the corner while out. A press is the topmost mark's whose
-// reach holds it, so what is touched is what is drawn.
+// and over them the notes never placed, as the corner stack. A press is the
+// topmost mark's whose reach holds it, so what is touched is what is drawn.
+//
+// Every rectangle is worked out afresh from the rectangles passed in, with
+// nothing kept between calls, so a card drawn mid-motion carries its notes
+// exactly where it stands that frame. A placed note stands on `face`, where
+// the window is drawn; the stack keeps to the card's corner. A note that has
+// a place is never put in the stack: while its place on the card cannot be
+// worked out, as before the window's size is known, it is not drawn at all,
+// so it never starts from the corner and moves to its place.
 struct CardNoteMark {
     enum class Kind { Stack, Note };
     Kind kind = Kind::Note;
@@ -193,41 +181,34 @@ struct CardNoteMark {
     int count = 0;
 };
 
-[[nodiscard]] inline QList<CardNoteMark> cardNoteMarks(const QRectF &card, const QSizeF &window,
-                                                        const StuckNotesEntry &entry, bool fanned)
+[[nodiscard]] inline QList<CardNoteMark> cardNoteMarks(const QRectF &card, const QRectF &face,
+                                                        const QSizeF &window, const StuckNotesEntry &entry)
 {
     QList<CardNoteMark> marks;
     if (card.isEmpty()) return marks;
+    const QRectF drawn = face.isEmpty() ? card : face;
     QList<int> loose;
     for (int index = int(entry.notes.size()) - 1; index >= 0; --index) {
         const auto &note = entry.notes.at(index);
-        const QRectF rect = placedNoteRect(card, window, note.place, note.size);
-        if (rect.isEmpty()) {
+        if (!note.placed()) {
             loose.prepend(index);
             continue;
         }
+        const QRectF rect = placedNoteRect(drawn, window, note.place, note.size);
+        if (rect.isEmpty()) continue;
         CardNoteMark mark;
         mark.note = index;
         mark.rect = rect;
         // A finger's reach around it, kept on its own card.
         mark.reach = rect.adjusted(-NoteGeometry::Reach, -NoteGeometry::Reach,
-                                   NoteGeometry::Reach, NoteGeometry::Reach).intersected(card);
+                                   NoteGeometry::Reach, NoteGeometry::Reach).intersected(card | drawn);
         marks.append(mark);
     }
     if (loose.isEmpty()) return marks;
-    if (fanned) {
-        const auto rects = fannedNoteRects(card, int(loose.size()));
-        for (int index = int(rects.size()) - 1; index >= 0; --index) {
-            CardNoteMark mark;
-            mark.note = loose.at(index);
-            mark.rect = mark.reach = rects.at(index);
-            marks.append(mark);
-        }
-        return marks;
-    }
     // The count is of the notes in the stack; Gooseberry may count more notes
     // than it lists.
-    const int placed = int(entry.notes.size() - loose.size());
+    const int placed = int(std::count_if(entry.notes.cbegin(), entry.notes.cend(),
+                                         [](const StuckNote &note) { return note.placed(); }));
     CardNoteMark stack;
     stack.kind = CardNoteMark::Kind::Stack;
     stack.note = loose.first();
@@ -242,35 +223,29 @@ struct CardNoteMark {
 }
 
 // Notes on Spread's cards, and the one contact the notes hold from press to
-// release. Whether a card's notes are fanned is Gooseberry's: they are fanned
-// exactly while its entry says they are shown over the window, so notes out
-// over a window arrive fanned and stay out after Spread closes. A placed
-// note stands in its place either way; of the notes never placed, a card
-// shows one or the other, never both: the stack while folded, the fan in its
-// place while out (cardNoteMarks). A tap on the stack, or on any note drawn,
-// asks Gooseberry to toggle them, and shows the answer it expects until
-// Gooseberry says otherwise. A hold on a note drawn, or on a stack for its
-// top note, carries that note, and letting it go on another card asks
-// Gooseberry to stick it there. Any other press is not the notes'.
-// Gooseberry's reply to a toggle confirms the guess or ends it: a reply that
-// fails, or that names the other state, drops the guess and asks for a fresh
-// read, since no signal follows a toggle that changed nothing.
+// release. A stuck note is typed on its window, never in Spread: a tap on a
+// note drawn on a card opens that card with the note out on the window,
+// ready to type, and a tap on the stack opens it with the window's notes out.
+// Opening the card is the effect's, as for any tap on a card; this only says
+// what to ask Gooseberry. A hold on a note drawn, or on a stack for its top
+// note, carries that note, and letting it go on another card asks Gooseberry
+// to stick it there. Any other press is not the notes'.
 class StuckNotesSpread
 {
 public:
     enum class Contact { None, Stack, Note };
     struct Request {
-        enum class Kind { Toggle, Stick };
-        Kind kind = Kind::Toggle;
+        // Write: bring the window's notes up with this note ready to type.
+        // Show: bring the window's notes up. Stick: stick the note there.
+        enum class Kind { Write, Show, Stick };
+        Kind kind = Kind::Show;
         QUuid window;
         QString noteId;
     };
 
-    // Gooseberry's word replaces every guess made since it last spoke.
     void setEntries(const QList<StuckNotesEntry> &entries)
     {
         m_entries = entries;
-        m_expected.clear();
         if (m_carry && !noteOn(m_carry->from, m_carry->note.id)) m_carry.reset();
     }
 
@@ -284,24 +259,24 @@ public:
         return nullptr;
     }
 
-    [[nodiscard]] bool fanned(const QUuid &window) const
+    // Whether the window's notes are up over it, as Gooseberry last said.
+    [[nodiscard]] bool shown(const QUuid &window) const
     {
         const auto *entry = entryFor(window);
-        return entry && m_expected.value(window, entry->shown);
+        return entry && entry->shown;
     }
 
     [[nodiscard]] Contact contact() const { return m_contact; }
 
-    // A press in Spread. True when it is the notes': on a stack, on a note
-    // fanned over its card, or on a note standing in its place. Cards run
-    // nearest the eye first.
+    // A press in Spread. True when it is the notes': on a note standing in
+    // its place, or on a stack. Cards run nearest the eye first.
     bool press(const QPointF &position, const QList<NotesCard> &cards)
     {
         cancel();
         for (const auto &card : cards) {
             const auto *entry = entryFor(card.id);
             if (!entry) continue;
-            const auto marks = cardNoteMarks(card.rect, card.window, *entry, fanned(card.id));
+            const auto marks = cardNoteMarks(card.rect, card.face, card.window, *entry);
             for (auto mark = marks.crbegin(); mark != marks.crend(); ++mark) {
                 if (!mark->reach.contains(position)) continue;
                 begin(mark->kind == CardNoteMark::Kind::Stack ? Contact::Stack : Contact::Note, card.id,
@@ -326,14 +301,15 @@ public:
     }
 
     // The contact lifts; `still` when it never moved further than a tap may.
-    // Returns what to ask Gooseberry: to toggle a stack or a fanned note
-    // tapped still, or to
-    // stick a carried note let go on another card. Nothing else asks.
+    // Returns what to ask Gooseberry: a note tapped still is to be written on
+    // its window, a stack tapped still brings the window's notes up, and a
+    // carried note let go on another card is stuck there. Nothing else asks.
+    // A tap asks the same however the notes stand: it never puts them away.
     std::optional<Request> release(const QPointF &position, bool still, const QList<NotesCard> &cards)
     {
         const Contact contact = std::exchange(m_contact, Contact::None);
         const QUuid pressedOn = std::exchange(m_pressedOn, {});
-        m_pressed.reset();
+        const auto pressed = std::exchange(m_pressed, std::nullopt);
         if (m_carry) {
             const Carry carry = *std::exchange(m_carry, std::nullopt);
             const QUuid target = cardAt(position, cards);
@@ -341,22 +317,9 @@ public:
             return Request{Request::Kind::Stick, target, carry.note.id};
         }
         if (!still || contact == Contact::None || !entryFor(pressedOn)) return std::nullopt;
-        m_expected.insert(pressedOn, !fanned(pressedOn));
-        return Request{Request::Kind::Toggle, pressedOn, {}};
-    }
-
-    // Gooseberry answered a toggle of the window's notes: whether they are
-    // shown now, or nothing when the call failed. True when the guess made
-    // for it was wrong and dropped, so Windows() is to be read again. A reply
-    // that comes after Gooseberry has already said what it holds changes
-    // nothing, since its word has replaced the guess.
-    bool toggleAnswered(const QUuid &window, std::optional<bool> shown)
-    {
-        const auto guess = m_expected.constFind(window);
-        if (guess == m_expected.cend()) return false;
-        if (shown && *shown == *guess) return false;
-        m_expected.erase(guess);
-        return true;
+        if (contact == Contact::Note && pressed && noteOn(pressedOn, pressed->id))
+            return Request{Request::Kind::Write, pressedOn, pressed->id};
+        return Request{Request::Kind::Show, pressedOn, {}};
     }
 
     // The contact was taken away, or Spread closed under it: nothing is asked.
@@ -394,6 +357,30 @@ public:
                       NoteGeometry::NoteWidth, NoteGeometry::NoteHeight);
     }
 
+    // Where to tap the card a tap on its notes opens, as if it were tapped
+    // there: where the notes were let go, when a tap there reaches that card,
+    // or else the first of its centre and the middles of its four quarters
+    // that does, since a nearer card or the notes may cover part of it.
+    // `reaches` names the card a tap at a point reaches. Empty when no point
+    // reaches it.
+    template<typename Reaches>
+    [[nodiscard]] static std::optional<QPointF> openingPoint(const QUuid &window, const QPointF &position,
+                                                             const QList<NotesCard> &cards, Reaches reaches)
+    {
+        const auto card = std::find_if(cards.cbegin(), cards.cend(),
+                                       [&](const NotesCard &each) { return each.id == window; });
+        if (card == cards.cend() || window.isNull()) return std::nullopt;
+        const QRectF rect = card->rect;
+        const QPointF centre = rect.center();
+        const double dx = rect.width() / 4.0;
+        const double dy = rect.height() / 4.0;
+        for (const QPointF &at : {position, centre, centre + QPointF(-dx, -dy), centre + QPointF(dx, -dy),
+                                  centre + QPointF(-dx, dy), centre + QPointF(dx, dy)}) {
+            if (rect.contains(at) && reaches(at) == window) return at;
+        }
+        return std::nullopt;
+    }
+
 private:
     struct Carry {
         QUuid from;
@@ -425,8 +412,6 @@ private:
     }
 
     QList<StuckNotesEntry> m_entries;
-    // Toggles asked of Gooseberry and not yet answered, by window.
-    QHash<QUuid, bool> m_expected;
     Contact m_contact = Contact::None;
     QUuid m_pressedOn;
     std::optional<StuckNote> m_pressed;

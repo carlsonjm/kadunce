@@ -91,8 +91,8 @@ public:
         blit(renderTarget, viewport, texture, box, 1.0);
     }
 
-    // One note fanned out over its card, standing in its place, or carried:
-    // its colour and its title. A note smaller than a fanned one, as a placed
+    // One note standing in its place on its card, or carried: its colour and
+    // its title. A note smaller than a carried one, as a placed
     // note on a far card is, has its corners, margin and words scaled down
     // with it, never below what still reads.
     void renderNote(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,

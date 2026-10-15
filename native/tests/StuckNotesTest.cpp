@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 // Behavioral coverage of Gooseberry's notes on Spread's cards: what Kadunce
-// reads from the bus, the stack and fan geometry, and the one contact the
-// notes hold from press to release.
+// reads from the bus, where each note is drawn on its card, and the one
+// contact the notes hold from press to release.
 #include "StuckNotes.h"
 
 #include <cstdlib>
@@ -93,114 +93,53 @@ int main()
         "The top note was not at the bottom-right corner");
     require(noteStackReach(CentreCard, 4).width() >= 48, "The stack was too small to touch");
 
-    // The fan lies over its card, the top note at the corner, none overlapping.
-    const auto fan = fannedNoteRects(CentreCard, 4);
-    require(fan.size() == 4, "Not every note fanned out over a large card");
-    for (int i = 0; i < fan.size(); ++i) {
-        require(CentreCard.contains(fan.at(i)), "A fanned note left its card");
-        for (int j = i + 1; j < fan.size(); ++j)
-            require(!fan.at(i).intersects(fan.at(j)), "Two fanned notes overlapped");
-    }
-    require(qAbs(fan.first().bottom() - centreStack.last().bottom()) < 0.5
-                && qAbs(fan.first().right() - centreStack.last().right()) < 0.5,
-        "The top note did not fan out in the stack's corner");
-    require(fannedNoteRects(QRectF(0, 0, 60, 40), 3).size() == 1, "A tiny card lost its top note");
-
     using Kind = StuckNotesSpread::Request::Kind;
     const QPointF centreStackPoint = centreStack.last().center();
     const QPointF leftStackPoint = noteStackSquares(LeftCard, 1).last().center();
-    // A press off every stack is not the notes', fanned or not.
+    // A press off every stack is not the notes'.
     require(!notes.press(CentreCard.center(), Cards), "A press on a card was taken by its notes");
 
-    // A tap on a stack asks Gooseberry to toggle it and shows it fanned until
-    // Gooseberry answers; Gooseberry's answer is the truth.
+    // A tap on a stack brings the window's notes up, and asks nothing else:
+    // the effect opens the card, so the notes are typed on the window.
     require(notes.press(centreStackPoint, Cards), "A press on a stack was not the notes'");
-    auto toggle = notes.release(centreStackPoint, true, Cards);
-    require(toggle && toggle->kind == Kind::Toggle && toggle->window == Centre,
-        "A tap on a stack did not ask Gooseberry to toggle it");
-    require(notes.fanned(Centre), "A tapped stack did not fan while Gooseberry answered");
-    notes.setEntries(entries);
-    require(!notes.fanned(Centre), "A guess outlived Gooseberry's answer");
-    // A reply after Gooseberry has already said what it holds changes nothing.
-    require(!notes.toggleAnswered(Centre, std::nullopt) && !notes.fanned(Centre),
-        "A late reply overrode Gooseberry's word");
-
-    // Gooseberry's reply to a toggle confirms the guess or ends it, since a
-    // toggle that changes nothing brings no signal.
-    (void)notes.press(centreStackPoint, Cards);
-    (void)notes.release(centreStackPoint, true, Cards);
-    require(!notes.toggleAnswered(Centre, true) && notes.fanned(Centre),
-        "A reply that agreed with the guess dropped it or asked for a read");
-    notes.setEntries(entries);
-    (void)notes.press(centreStackPoint, Cards);
-    (void)notes.release(centreStackPoint, true, Cards);
-    require(notes.toggleAnswered(Centre, false) && !notes.fanned(Centre),
-        "A reply that contradicted the guess left Spread disagreeing with the window");
-    (void)notes.press(centreStackPoint, Cards);
-    (void)notes.release(centreStackPoint, true, Cards);
-    require(notes.toggleAnswered(Centre, std::nullopt) && !notes.fanned(Centre),
-        "A failed toggle left its guess standing");
-    require(!notes.toggleAnswered(Centre, std::nullopt), "A reply with no guess left asked for a read");
-    // Only the window answered for loses its guess.
-    (void)notes.press(centreStackPoint, Cards);
-    (void)notes.release(centreStackPoint, true, Cards);
-    (void)notes.press(leftStackPoint, Cards);
-    (void)notes.release(leftStackPoint, true, Cards);
-    require(notes.toggleAnswered(Left, std::nullopt) && notes.fanned(Centre) && !notes.fanned(Left),
-        "A failed toggle on one card dropped another card's guess");
-    notes.setEntries(entries);
+    auto tap = notes.release(centreStackPoint, true, Cards);
+    require(tap && tap->kind == Kind::Show && tap->window == Centre && tap->noteId.isEmpty(),
+        "A tap on a stack did not ask Gooseberry to bring the notes up");
+    // A tap never puts them away, however they stand.
     auto shownEntries = entries;
     shownEntries[0].shown = true;
     notes.setEntries(shownEntries);
-    require(notes.fanned(Centre), "Notes shown over a window did not arrive fanned");
+    require(notes.shown(Centre) && !notes.shown(Left), "Shown was not taken from Gooseberry");
+    (void)notes.press(centreStackPoint, Cards);
+    tap = notes.release(centreStackPoint, true, Cards);
+    require(tap && tap->kind == Kind::Show, "A tap on a stack whose notes are up put them away");
     // Shown is read from the bus as well.
     require(stuckNotesEntries({window({Centre.toString()},
                 {note(QStringLiteral("a"), QStringLiteral("x"), QStringLiteral("#FFE680"))}, 1, true)})
                 .first().shown, "An entry's shown was not read");
 
-    // Fanned, presses elsewhere are not the notes': a card still opens and the
-    // row still moves, and the notes stay out.
-    require(!notes.press(LeftCard.center(), Cards), "A press beside a fan was taken");
-    require(!notes.press(CentreCard.topLeft() + QPointF(20, 20), Cards), "A press on a fanned card's face was taken");
-    require(notes.fanned(Centre), "A press elsewhere folded the notes");
-    // A stroke on the stack asks nothing.
-    require(notes.press(centreStackPoint, Cards), "A press on a fanned stack was not the notes'");
-    require(!notes.release(centreStackPoint + QPointF(40, 0), false, Cards), "A moving stroke toggled a stack");
-    // Several cards may be fanned at once.
+    // Presses elsewhere are not the notes': a card still opens and the row
+    // still moves. A stroke on the stack asks nothing.
+    require(!notes.press(LeftCard.center(), Cards), "A press beside a stack was taken");
+    require(!notes.press(CentreCard.topLeft() + QPointF(20, 20), Cards), "A press on a card's face was taken");
+    require(notes.press(centreStackPoint, Cards), "A press on a stack was not the notes'");
+    require(!notes.release(centreStackPoint + QPointF(40, 0), false, Cards), "A moving stroke asked something");
     require(notes.press(leftStackPoint, Cards), "A press on a second stack was not the notes'");
-    toggle = notes.release(leftStackPoint, true, Cards);
-    require(toggle && toggle->window == Left && notes.fanned(Left) && notes.fanned(Centre),
-        "Fanning a second card folded the first");
-    // Only a tap on its own stack folds it.
-    (void)notes.press(centreStackPoint, Cards);
-    toggle = notes.release(centreStackPoint, true, Cards);
-    require(toggle && toggle->window == Centre && !notes.fanned(Centre), "A tap on a fanned stack did not fold it");
-    notes.setEntries(shownEntries);
+    tap = notes.release(leftStackPoint, true, Cards);
+    require(tap && tap->window == Left, "A tap on a second card's stack named another card");
 
-    // Hold a fanned note and carry it to another card: it is stuck there.
-    const QPointF third = fan.at(2).center();
-    require(notes.press(third, Cards) && notes.contact() == StuckNotesSpread::Contact::Note,
-        "A press on a fanned note was not the note's");
-    require(notes.hold() && notes.carrying(), "Holding a fanned note did not carry it");
-    require(notes.carriedNote()->id == QStringLiteral("c"), "The wrong note was carried");
+    // Holding the stack carries its top note; carried to another card it is
+    // stuck there; let go off every card, nothing.
+    require(notes.press(centreStackPoint, Cards) && notes.hold(), "Holding a stack carried nothing");
+    require(notes.carriedNote()->id == QStringLiteral("a"), "Holding a stack did not carry its top note");
     notes.move(RightCard.center());
     require(notes.dropTarget(Cards) == Right, "The card under a carried note was not its target");
     notes.move(CentreCard.center());
     require(notes.dropTarget(Cards).isNull(), "A note's own card was a target");
     const auto stick = notes.release(RightCard.center(), false, Cards);
-    require(stick && stick->kind == Kind::Stick && stick->noteId == QStringLiteral("c") && stick->window == Right,
+    require(stick && stick->kind == Kind::Stick && stick->noteId == QStringLiteral("a") && stick->window == Right,
         "Letting a carried note go on another card did not stick it there");
-    require(!notes.carrying() && notes.fanned(Centre), "Sticking a note changed what is fanned");
-    // The fan takes the stack's place: a tap on a fanned note folds them.
-    (void)notes.press(third, Cards);
-    const auto fold = notes.release(third, true, Cards);
-    require(fold && fold->kind == Kind::Toggle && fold->window == Centre && !notes.fanned(Centre),
-        "A tap on a fanned note did not fold them");
-    notes.setEntries(shownEntries);
-
-    // Holding the stack carries its top note; let go off every card, nothing.
-    require(notes.press(centreStackPoint, Cards) && notes.hold(), "Holding a stack carried nothing");
-    require(notes.carriedNote()->id == QStringLiteral("a"), "Holding a stack did not carry its top note");
+    require(notes.press(centreStackPoint, Cards) && notes.hold(), "Holding a stack again carried nothing");
     require(!notes.release(QPointF(5, 5), false, Cards), "A note let go off every card was stuck");
     // Let go on its own card, nothing, and a held stack is no tap.
     (void)notes.press(centreStackPoint, Cards);
@@ -209,10 +148,10 @@ int main()
 
     // A note that goes while carried is dropped; a cancelled contact asks
     // nothing; Gooseberry going away clears everything.
-    (void)notes.press(third, Cards);
+    (void)notes.press(centreStackPoint, Cards);
     (void)notes.hold();
     notes.setEntries({entries.at(1)});
-    require(!notes.carrying() && !notes.fanned(Centre), "A note gone from Gooseberry stayed in hand");
+    require(!notes.carrying(), "A note gone from Gooseberry stayed in hand");
     notes.setEntries(shownEntries);
     (void)notes.press(centreStackPoint, Cards);
     notes.cancel();
@@ -246,9 +185,9 @@ int main()
     const QSizeF centreWindow(2320, 1520);
     const QList<NotesCard> placedCards{{Centre, CentreCard, centreWindow}, {Left, LeftCard, QSizeF(1280, 840)}};
     const auto &placedEntry = placedEntries.first();
-    // Folded: each placed note in its place, the oldest lowest, and the
-    // stack over them with only the notes never placed.
-    auto marks = cardNoteMarks(CentreCard, centreWindow, placedEntry, false);
+    // Each placed note in its place, the oldest lowest, and the stack over
+    // them with only the notes never placed.
+    auto marks = cardNoteMarks(CentreCard, {}, centreWindow, placedEntry);
     require(marks.size() == 3, "A card did not show its placed notes and one stack");
     require(marks.at(0).note == 2 && marks.at(1).note == 0, "Placed notes were not drawn oldest lowest");
     require(marks.last().kind == CardNoteMark::Kind::Stack && marks.last().note == 1 && marks.last().count == 3,
@@ -258,53 +197,106 @@ int main()
         "A placed note was not drawn where it stands on the window");
     require(qAbs(marks.at(1).rect.x() - (CentreCard.x() + 0.1 * CentreCard.width())) < 0.5,
         "A placed note was not at its share of the card");
-    // Out: placed notes stay; the loose ones fan from the corner.
-    marks = cardNoteMarks(CentreCard, centreWindow, placedEntry, true);
-    require(marks.size() == 5, "Out, a card did not show every note once");
-    require(marks.at(0).note == 2 && marks.at(1).note == 0, "Out, placed notes moved");
-    const auto looseFan = fannedNoteRects(CentreCard, 3);
-    require(marks.last().note == 1 && marks.last().rect == looseFan.first(),
-        "Out, the top loose note did not fan out in the corner");
+    // Shown or put away, the notes stand the same: no fan comes up over the card.
+    require(cardNoteMarks(CentreCard, {}, centreWindow, placedEntry).size() == 3,
+        "A card's notes changed what they show");
     // Every note placed: no stack at all.
     const auto allPlaced = stuckNotesEntries({window({Left.toString()},
         {placedNote(QStringLiteral("u"), QStringLiteral("Only"), 0.5, 0.5)}, 1)});
-    require(cardNoteMarks(LeftCard, QSizeF(1280, 840), allPlaced.first(), false).size() == 1,
+    require(cardNoteMarks(LeftCard, {}, QSizeF(1280, 840), allPlaced.first()).size() == 1,
         "A card whose notes are all placed showed a stack");
-    // An older Gooseberry, or a window of unknown size: everything stacks.
-    require(cardNoteMarks(CentreCard, QSizeF(), placedEntry, false).size() == 1
-                && cardNoteMarks(CentreCard, QSizeF(), placedEntry, false).first().count == 5,
-        "Without a window size, notes did not all go to the stack");
+    // A window of unknown size: a placed note is not drawn rather than drawn
+    // in the stack, so it never starts from the corner and moves to its place.
+    {
+        const auto unknown = cardNoteMarks(CentreCard, {}, QSizeF(), placedEntry);
+        require(unknown.size() == 1 && unknown.first().kind == CardNoteMark::Kind::Stack
+                    && unknown.first().count == 3 && unknown.first().sheetNotes == QList<int>({3, 1}),
+            "Without a window size, a placed note went to the stack");
+    }
 
-    // A tap follows what is drawn: on a placed note, on the stack, and not on
-    // the card's face beside them.
+    // The window drawn smaller than its card, as KWin fits it: placed notes
+    // stand on the window as drawn, the stack keeps to the card's corner.
+    {
+        const QRectF face = CentreCard.adjusted(40, 30, -40, -30);
+        const auto onFace = cardNoteMarks(CentreCard, face, centreWindow, placedEntry);
+        require(onFace.at(1).rect == placedNoteRect(face, centreWindow, QPointF(0.1, 0.2), QSizeF(400, 300)),
+            "A placed note did not stand on the window as drawn");
+        require(onFace.last().rect == marks.last().rect, "The stack left the card's corner for the window's");
+    }
+
+    // A frame mid-motion: the card halfway from where it stood to its slot
+    // carries each placed note halfway too, with nothing kept from the frame
+    // before.
+    {
+        const QRectF from(0, 0, 2320, 1520);
+        const QRectF halfway(350, 150, 1740, 1140);
+        const auto start = cardNoteMarks(from, {}, centreWindow, placedEntry);
+        const auto middle = cardNoteMarks(halfway, {}, centreWindow, placedEntry);
+        const auto end = cardNoteMarks(CentreCard, {}, centreWindow, placedEntry);
+        for (int index = 0; index < 2; ++index) {
+            const QRectF a = start.at(index).rect;
+            const QRectF b = end.at(index).rect;
+            const QRectF m = middle.at(index).rect;
+            require(qAbs(m.x() - (a.x() + b.x()) / 2) < 0.5 && qAbs(m.y() - (a.y() + b.y()) / 2) < 0.5
+                        && qAbs(m.width() - (a.width() + b.width()) / 2) < 0.5
+                        && qAbs(m.height() - (a.height() + b.height()) / 2) < 0.5,
+                "A note did not move with its card mid-motion");
+        }
+        // The same frame again, after another, draws the same.
+        require(cardNoteMarks(halfway, {}, centreWindow, placedEntry).at(1).rect == middle.at(1).rect,
+            "A note's place depended on the frame before");
+    }
+
+    // A tap follows what is drawn: on a placed note it asks for that note
+    // ready to type on its window; on the stack it brings the notes up; on
+    // the card's face beside them it is not the notes'.
     notes.setEntries(placedEntries + allPlaced);
-    marks = cardNoteMarks(CentreCard, centreWindow, placedEntry, false);
     const QPointF onPlaced = marks.at(1).rect.center();
     require(notes.press(onPlaced, placedCards) && notes.contact() == StuckNotesSpread::Contact::Note,
         "A press on a placed note was not the note's");
-    toggle = notes.release(onPlaced, true, placedCards);
-    require(toggle && toggle->kind == Kind::Toggle && toggle->window == Centre && notes.fanned(Centre),
-        "A tap on a placed note did not toggle its card's notes");
-    // Out, the placed note is still where it was, and a tap there folds them.
-    require(notes.press(onPlaced, placedCards), "Out, a placed note was not where it was drawn");
-    toggle = notes.release(onPlaced, true, placedCards);
-    require(toggle && !notes.fanned(Centre), "A tap on a placed note did not fold its card's notes");
-    notes.setEntries(placedEntries + allPlaced);
+    tap = notes.release(onPlaced, true, placedCards);
+    require(tap && tap->kind == Kind::Write && tap->window == Centre && tap->noteId == QStringLiteral("p"),
+        "A tap on a placed note did not ask for it ready to type on its window");
+    // Asked again with the notes up, it asks the same: nothing is put away.
+    auto placedShown = placedEntries;
+    placedShown[0].shown = true;
+    notes.setEntries(placedShown + allPlaced);
+    require(notes.press(onPlaced, placedCards), "Up, a placed note was not where it was drawn");
+    tap = notes.release(onPlaced, true, placedCards);
+    require(tap && tap->kind == Kind::Write && tap->noteId == QStringLiteral("p"),
+        "A tap on a placed note whose notes are up did not ask for it to type on");
     const QPointF onStack = marks.last().rect.center();
     require(notes.press(onStack, placedCards) && notes.contact() == StuckNotesSpread::Contact::Stack,
         "A press on the stack of loose notes was not the stack's");
-    require(notes.hold() && notes.carriedNote()->id == QStringLiteral("q"),
+    tap = notes.release(onStack, true, placedCards);
+    require(tap && tap->kind == Kind::Show && tap->window == Centre, "A tap on the stack did not bring the notes up");
+    require(notes.press(onStack, placedCards) && notes.hold() && notes.carriedNote()->id == QStringLiteral("q"),
         "Holding the stack did not carry its top loose note");
     notes.cancel();
     require(!notes.press(QPointF(CentreCard.right() - 300, CentreCard.bottom() - 60), placedCards),
         "A press on the card's face, clear of every note, was taken");
+    // Pressed where it is drawn this frame: a card drawn smaller than its
+    // slot is pressed on its window's notes there.
+    {
+        const QRectF face = CentreCard.adjusted(40, 30, -40, -30);
+        const QList<NotesCard> faced{{Centre, CentreCard, centreWindow, face}};
+        const QPointF onDrawn = placedNoteRect(face, centreWindow, QPointF(0.1, 0.2), QSizeF(400, 300)).center();
+        require(notes.press(onDrawn, faced) && notes.contact() == StuckNotesSpread::Contact::Note,
+            "A press on a note where it is drawn was not the note's");
+        notes.cancel();
+    }
     // Where placed notes overlap, the one on top is the one pressed.
     const auto overlapping = stuckNotesEntries({window({Left.toString()},
         {placedNote(QStringLiteral("top"), QStringLiteral("Top"), 0.3, 0.3, 400, 300),
          placedNote(QStringLiteral("under"), QStringLiteral("Under"), 0.32, 0.32, 400, 300)}, 2)});
     notes.setEntries(overlapping);
-    const auto overlapMarks = cardNoteMarks(LeftCard, QSizeF(1280, 840), overlapping.first(), false);
+    const auto overlapMarks = cardNoteMarks(LeftCard, {}, QSizeF(1280, 840), overlapping.first());
     const QPointF both = overlapMarks.at(0).rect.intersected(overlapMarks.at(1).rect).center();
+    require(notes.press(both, placedCards) && notes.contact() == StuckNotesSpread::Contact::Note,
+        "A press on overlapping notes was not the notes'");
+    tap = notes.release(both, true, placedCards);
+    require(tap && tap->kind == Kind::Write && tap->noteId == QStringLiteral("top"),
+        "A tap on overlapping notes asked for the one beneath");
     require(notes.press(both, placedCards) && notes.hold() && notes.carriedNote()->id == QStringLiteral("top"),
         "A press on overlapping notes took the one beneath");
     // Carried to another card, a placed note sticks there as any note does.
@@ -312,5 +304,29 @@ int main()
     const auto moved = notes.release(CentreCard.center(), false, placedCards);
     require(moved && moved->kind == Kind::Stick && moved->noteId == QStringLiteral("top") && moved->window == Centre,
         "A placed note carried to another card was not stuck there");
+
+    // The card a tap on its notes opens is tapped where the notes were let
+    // go when that reaches it, or else where on the card a tap does.
+    {
+        const auto everywhereCentre = [](const QPointF &) { return Centre; };
+        auto at = StuckNotesSpread::openingPoint(Centre, onPlaced, placedCards, everywhereCentre);
+        require(at && *at == onPlaced, "A card was not opened where its note was tapped");
+        // A nearer card covers the note's spot: a part of the card it does
+        // not cover is tapped instead.
+        const QPointF covered = onPlaced;
+        const auto coveredThere = [covered](const QPointF &point) {
+            return point == covered ? Left : Centre;
+        };
+        at = StuckNotesSpread::openingPoint(Centre, covered, placedCards, coveredThere);
+        require(at && *at != covered && CentreCard.contains(*at), "A covered spot opened the nearer card");
+        // Off the card, as a stack's reach can be: the card itself is tapped.
+        at = StuckNotesSpread::openingPoint(Centre, QPointF(-10, -10), placedCards, everywhereCentre);
+        require(at && *at == CentreCard.center(), "A tap off the card did not open the card");
+        // A card no tap reaches, or one not in Spread, is not opened.
+        require(!StuckNotesSpread::openingPoint(Centre, onPlaced, placedCards, [](const QPointF &) { return Left; }),
+            "A card no tap reaches was opened");
+        require(!StuckNotesSpread::openingPoint(Right, onPlaced, placedCards, everywhereCentre),
+            "A card not in Spread was opened");
+    }
     return 0;
 }

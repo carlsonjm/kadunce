@@ -238,13 +238,14 @@ they preserve these relationships and respect the user's animation settings.
   big as there, both scaled with the card and never smaller than 64 by 44 px;
   one never resized starts 30% of the window wide, from 140 to 220 px, and
   88 px tall. Its corners, margin and words shrink with it to 6 px, 5 px and
-  9 px. While the notes are put away it shows at 60%.
+  9 px. While the notes are put away it shows at 60%. It is drawn on the
+  window's picture as the card draws it each frame, so it moves with the card.
 - A card's stuck notes never placed show as one 64 by 44 px mini note, 12 px
   inside the card's bottom-right corner: the top note in its colour with a 6 px
   corner, a soft shadow and its first words in two lines of 9 px demibold. When
   there are several, the next note's edge peeks 4 px above it a shade deeper,
   and the count sits in 8 px at 65% in the mini note's bottom-right corner.
-  Fanned, each of them is 136 by 88 px. Both keep their size on every card.
+  It keeps its size on every card, and a note carried is 136 by 88 px.
 
 ## Type hierarchy and casing
 
