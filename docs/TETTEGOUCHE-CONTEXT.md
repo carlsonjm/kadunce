@@ -59,6 +59,8 @@ must reject unknown major versions instead of guessing at fields.
   frozen interface value that a later versioned migration renames
   (`ROADMAP.md`).
 - `desktopStage`: whether any output currently owns a Bento session.
+- `table`: whether Table is open (`open`). A change is signalled as Table
+  opens and as it closes.
 - `lastActivated`, optional on each application: an in-memory, monotonic
   sequence for this effect's lifetime. Snapshots without it keep
   focused/selected/frontmost ordering.

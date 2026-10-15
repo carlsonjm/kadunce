@@ -2197,6 +2197,8 @@ void Effect::openTable(bool sticky, KWin::LogicalOutput *output)
     quietCardGap(KWin::effects->cursorPos());
     relayoutTable();
     refreshTable();
+    // A Table button elsewhere, the dock's among them, shows Table open.
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::closeTable()
@@ -2219,6 +2221,7 @@ void Effect::finishTable()
     if (m_tablePresenter) m_tablePresenter->close();
     quietCardGap(KWin::effects->cursorPos());
     scheduleDissolve();
+    Q_EMIT workspaceContextChanged();
 }
 
 int Effect::tableCardAt(const QPointF &local) const
@@ -5916,6 +5919,9 @@ QString Effect::workspaceContext() const
         }},
         {QStringLiteral("desktopStage"), QJsonObject{
             {QStringLiteral("active"), hasActiveDesktopStage()},
+        }},
+        {QStringLiteral("table"), QJsonObject{
+            {QStringLiteral("open"), m_table.isOpen()},
         }},
         {QStringLiteral("displayContext"), QJsonObject{
             {QStringLiteral("edgeBackend"), m_usesDirectSystemEdges
