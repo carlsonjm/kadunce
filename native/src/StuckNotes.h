@@ -295,6 +295,24 @@ struct CardNoteMark {
         && close(surface.height(), size.height());
 }
 
+// Gooseberry's notes hold the keys while a note is typed on. Spread opening
+// ends the typing, the notes give the keys back, and KWin hands them to the
+// window they lay over, the card Spread opened from. That activation is the
+// notes stepping aside, not someone asking for the card: answered as a pick,
+// it would put the card back in Active and drop the swipe still opening
+// Spread. Told every activation in order, it says whether this one is that.
+class NotesKeysReturn {
+public:
+    [[nodiscard]] bool activated(bool notesSurface, bool spreadShown, bool toWindowBefore)
+    {
+        const bool notesHeld = std::exchange(m_notesHeld, notesSurface);
+        return notesHeld && !notesSurface && spreadShown && toWindowBefore;
+    }
+
+private:
+    bool m_notesHeld = false;
+};
+
 // Notes on Spread's cards, and the one contact the notes hold from press to
 // release. A stuck note is typed on its window, never in Spread: a tap on a
 // note drawn on a card opens that card with the note out on the window,

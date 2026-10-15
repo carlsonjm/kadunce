@@ -1123,6 +1123,8 @@ private:
     QPointer<KWin::EffectWindow> m_guestFocusReturn;
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
+    // The keys coming back from Gooseberry's notes as Spread covers them.
+    NotesKeysReturn m_notesKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;

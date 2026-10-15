@@ -421,5 +421,32 @@ int main()
             "A surface the display bounds did not stand on a larger window");
         require(!notesSurfaceStandsOn(QRectF(), frame, display), "No surface stood on the window");
     }
+
+    // The keys coming back from a note typed on as Spread opens are no pick
+    // of the card under it; any other activation is answered as before.
+    {
+        NotesKeysReturn keys;
+        require(!keys.activated(false, false, false), "A window activated alone was taken for the notes");
+        require(!keys.activated(true, false, false), "The notes taking the keys were taken for them coming back");
+        require(keys.activated(false, true, true),
+            "The keys back from the notes as Spread opened were taken for a pick of the card");
+        require(!keys.activated(false, true, true), "A second activation in Spread was taken for the notes");
+
+        NotesKeysReturn typing;
+        (void)typing.activated(true, false, false);
+        require(!typing.activated(false, false, true),
+            "A tap on the window beside a note typed on, Spread closed, was not answered");
+
+        NotesKeysReturn other;
+        (void)other.activated(true, false, false);
+        require(!other.activated(false, true, false),
+            "Another card asked for in Spread after the notes was taken for the keys coming back");
+
+        NotesKeysReturn nothing;
+        (void)nothing.activated(true, false, false);
+        (void)nothing.activated(false, true, false);
+        require(!nothing.activated(false, true, true),
+            "The notes giving the keys to nothing left a later pick unanswered");
+    }
     return 0;
 }

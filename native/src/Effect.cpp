@@ -8792,6 +8792,10 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
+    // Read before anything returns early, so every activation is counted.
+    const bool notesKeysBack = m_notesKeysReturn.activated(isNotesSurface(window),
+        m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread,
+        window && window == m_lastActiveApplication);
     if (m_holdingDependents) return;
     if (auto *lead = isDependentWindow(window) ? dependentLead(window) : nullptr) {
         if (!dependentShown(lead)) {
@@ -8819,6 +8823,11 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         m_lastActiveApplication = window;
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
         Q_EMIT workspaceContextChanged();
+    }
+    if (notesKeysBack) {
+        qInfo() << "Kadunce" << Revision << "kept Spread as the notes gave the keys back to"
+                << window->caption();
+        return;
     }
     if (m_cardStage->launcherGuestActive()
         && isApplicationWindow(window)) {
