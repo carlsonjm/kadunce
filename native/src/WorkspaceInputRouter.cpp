@@ -573,7 +573,9 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     // resize border there, which would take the pull for a resize. Anywhere
     // else the client keeps a contact in the strip unless it becomes Table's
     // pull, and so does the top edge of a touchscreen off the Spread display,
-    // whatever the Spread display presents.
+    // whatever the Spread display presents. A panel along the top edge, a bar
+    // of status say, keeps its taps wherever it lies, above the Active card
+    // too: its contact is Table's only once it pulls down.
     const WorkspacePresentation topPresentation = m_target->presentationForInput();
     const bool aboveActive = m_target->aboveActiveCardForInput(event->pos);
     if (topStrip && m_touchId < 0 && m_observedTouchIds.size() == 1
@@ -582,7 +584,8 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         m_topCandidateId = event->id;
         m_topCandidateStart = event->pos;
         m_topCandidateLast = event->pos;
-        m_topCandidateOwned = aboveActive || m_target->inCardGapForInput(event->pos);
+        m_topCandidateOwned = (aboveActive || m_target->inCardGapForInput(event->pos))
+            && !m_target->isPanelPoint(event->pos);
         if (m_topCandidateOwned) m_ownedTouchIds.insert(event->id);
         return m_topCandidateOwned;
     }

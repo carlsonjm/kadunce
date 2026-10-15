@@ -46,7 +46,19 @@ struct Target : WorkspaceInputTarget {
     bool launcherGuestActiveForInput() const override { return guest; }
     bool launcherGuestContainsForInput(const QPointF &p) const override { return guest && centerCardContainsForInput(p); }
     bool isTabletPoint(const QPointF &p) const override { return geometryForInput().tablet.contains(p); }
-    bool isPanelPoint(const QPointF &p) const override { return QRectF(100,740,800,60).contains(p) || appletPopup.contains(p); }
+    // A panel along the top edge too, where one is set: a bar over the
+    // strip a pull down for Table starts from.
+    QRectF topPanel;
+    bool isPanelPoint(const QPointF &p) const override {
+        return QRectF(100,740,800,60).contains(p) || appletPopup.contains(p) || topPanel.contains(p);
+    }
+    // The Active card's frame starts where the centred card's does.
+    bool aboveActiveCardForInput(const QPointF &p) const override {
+        return presentation == WorkspacePresentation::Active && isTabletPoint(p)
+            && p.y() < geometryForInput().centerCard.top();
+    }
+    int tableBegins = 0;
+    void beginTableFromInput(const QPointF &) override { ++tableBegins; }
     bool surfaceOwnsTouchAt(const QPointF &p) const override { return surface.contains(p); }
     // Where KWin keeps a touch from every client: a window's frame, or bare screen.
     QRectF kwinOwn;
@@ -845,6 +857,31 @@ int main(int argc, char **argv) {
         KWin::TouchUpEvent up{}; up.id = down.id;
         require(input.touchUp(&up) && held.actions == afterDisable,
                 "Finger release after tray disable activated a card");
+    }
+    // A panel along the top edge keeps its taps over the Active card's
+    // gutter: the contact reaches the panel and becomes Table's only once it
+    // pulls down. Bare strip beside the panel stays Kadunce's, as before.
+    {
+        Target bar;
+        bar.presentation = WorkspacePresentation::Active;
+        bar.topPanel = QRectF(600,0,400,24);
+        WorkspaceInputRouter input(&bar);
+        KWin::TouchDownEvent down{801,{900,10},{}};
+        require(!input.touchDown(&down), "A tap on a top panel above the Active card was kept from it");
+        KWin::TouchUpEvent up{}; up.id = down.id;
+        require(!input.touchUp(&up) && bar.tableBegins == 0 && bar.actions == 0,
+                "A tap on a top panel did something besides reach the panel");
+        KWin::TouchDownEvent pull{802,{900,10},{}};
+        require(!input.touchDown(&pull), "A pull from a top panel was kept from it before it pulled");
+        KWin::TouchMotionEvent along{802,{900,40},{}};
+        require(input.touchMotion(&along) && bar.tableBegins == 1 && bar.cancellations == 1,
+                "A pull down from a top panel stopped opening Table");
+        KWin::TouchUpEvent lift{}; lift.id = pull.id;
+        input.touchUp(&lift);
+        KWin::TouchDownEvent bare{803,{300,10},{}};
+        require(input.touchDown(&bare), "Bare strip above the Active card stopped being kept");
+        KWin::TouchUpEvent bareUp{}; bareUp.id = bare.id;
+        input.touchUp(&bareUp);
     }
     WorkspaceInputRouter router(&target);
     KWin::PointerButtonEvent button{};
