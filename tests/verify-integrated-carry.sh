@@ -118,6 +118,7 @@ scenes=(
     guest-beside-runtime tablet
     companion-guest-runtime tablet
     companion-focus-runtime tablet
+    notes-focus-runtime tablet
     adopt-reach-runtime tablet
     signin-reach-runtime tablet
     late-maximize-runtime tablet

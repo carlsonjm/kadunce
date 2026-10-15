@@ -819,6 +819,8 @@ private:
     // display, with no guest in its centre and no card in hand.
     [[nodiscard]] bool notesShownInSpread() const;
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
     // were last drawn; the Bento group carries no notes.
     [[nodiscard]] QList<NotesCard> notesCards() const;

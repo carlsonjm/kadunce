@@ -46,7 +46,9 @@ must reject unknown major versions instead of guessing at fields.
 ## Version 1 payload
 
 - `focus`: focused window identity, application identity, title, and whether
-  Kadunce currently owns it as a card; otherwise `null`.
+  Kadunce currently owns it as a card; otherwise `null`. While a Gooseberry
+  note over a window has the keys, `focus` names that window, with `notes`
+  `true`: it stays the window in use.
 - `applications`: current-desktop application windows, including minimized
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
   identity, title, output, focus/minimize state, and current card membership.

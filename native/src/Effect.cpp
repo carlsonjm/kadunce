@@ -1209,6 +1209,7 @@ Effect::Effect()
         qInfo() << "Kadunce reads notes on" << entries.size() << "windows from Gooseberry," << shown << "shown";
         m_stuckNotes.setEntries(entries);
         syncNotesPause();
+        Q_EMIT workspaceContextChanged();
         if (m_cardStage && m_cardStage->isActive()) KWin::effects->addRepaintFull();
     });
 
@@ -5894,19 +5895,24 @@ QString Effect::workspaceContext() const
         applications.append(application);
     }
 
+    // A note being typed over a window has the keys, and the window it is
+    // stuck to stays the one in use: focus names that window and says so.
+    KWin::EffectWindow *notesHost = notesSurfaceHost(focused);
+    KWin::EffectWindow *inUse = notesHost ? notesHost : focused;
     QJsonObject focus;
-    if (focused && isApplicationWindow(focused)) {
-        const bool focusedHasCard = workspace.find(windowIdentity(focused)) != nullptr;
+    if (inUse && isApplicationWindow(inUse)) {
+        const bool focusedHasCard = workspace.find(windowIdentity(inUse)) != nullptr;
         focus = {
-            {QStringLiteral("windowId"), windowIdentity(focused)},
-            {QStringLiteral("appId"), applicationIdentity(focused)},
-            {QStringLiteral("title"), focused->caption()},
+            {QStringLiteral("windowId"), windowIdentity(inUse)},
+            {QStringLiteral("appId"), applicationIdentity(inUse)},
+            {QStringLiteral("title"), inUse->caption()},
             {QStringLiteral("hasCard"), focusedHasCard},
         };
         if (focusedHasCard) {
             focus.insert(QStringLiteral("cardId"),
-                         windowIdentity(focused));
+                         windowIdentity(inUse));
         }
+        if (notesHost) focus.insert(QStringLiteral("notes"), true);
     }
 
     QJsonArray selectedStack;
@@ -6959,15 +6965,48 @@ void Effect::syncSpokenLine()
 // as one set moving onto the card.
 bool Effect::notesSurfaceStepsAside(const KWin::EffectWindow *window) const
 {
-    if (!m_notesSpreadShown || !window || !window->window()
-        || !window->window()->inherits("KWin::LayerShellV1Window")
-        || applicationIdentity(window).compare(QStringLiteral("io.github.carlsonjm.Gooseberry"),
-                                               Qt::CaseInsensitive) != 0) {
+    return m_notesSpreadShown && isNotesSurface(window);
+}
+
+// Whether this is Gooseberry's notes over a window rather than its quick-note
+// card, told apart as notesSurfaceStepsAside tells them. A layer surface
+// carries no desktop file name, so KWin names it by its program.
+bool Effect::isNotesSurface(const KWin::EffectWindow *window) const
+{
+    if (!window || !window->window() || !window->window()->inherits("KWin::LayerShellV1Window")) {
+        return false;
+    }
+    const QString identity = applicationIdentity(window);
+    if (identity.compare(QStringLiteral("io.github.carlsonjm.Gooseberry"), Qt::CaseInsensitive) != 0
+        && identity.compare(QStringLiteral("gooseberry"), Qt::CaseInsensitive) != 0) {
         return false;
     }
     if (!window->acceptsFocus()) return true;
     const auto *output = window->screen();
     return output && window->frameGeometry().toRect() != output->geometry();
+}
+
+// The window a note with the keys is stuck to: the latest used of those whose
+// notes Gooseberry says are up, or, where it has not said yet, the window last
+// in use, which the note was opened over.
+KWin::EffectWindow *Effect::notesSurfaceHost(const KWin::EffectWindow *window) const
+{
+    if (!isNotesSurface(window)) return nullptr;
+    KWin::EffectWindow *host = nullptr;
+    quint64 latest = 0;
+    for (KWin::EffectWindow *candidate : KWin::effects->stackingOrder()) {
+        if (!isApplicationWindow(candidate) || candidate->isMinimized()
+            || !m_stuckNotes.shown(candidate->internalId())) {
+            continue;
+        }
+        const quint64 used = m_activationOrder.value(windowIdentity(candidate));
+        if (!host || used > latest) {
+            host = candidate;
+            latest = used;
+        }
+    }
+    if (host) return host;
+    return isApplicationWindow(m_lastActiveApplication) ? m_lastActiveApplication.data() : nullptr;
 }
 
 QList<NotesCard> Effect::notesCards() const
@@ -8775,6 +8814,8 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     if (isApplicationWindow(window)) {
         m_lastActiveApplication = window;
         m_activationOrder.insert(windowIdentity(window), ++m_activationSequence);
+        Q_EMIT workspaceContextChanged();
+    } else if (isNotesSurface(window)) {
         Q_EMIT workspaceContextChanged();
     }
     if (m_cardStage->launcherGuestActive()
