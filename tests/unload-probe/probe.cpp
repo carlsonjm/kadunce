@@ -204,15 +204,18 @@ public:
         }
         KWin::effects->postPaintScreen();
     }
-    void paintScreen(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
-                     int mask, const KWin::Region &region, KWin::LogicalOutput *screen) override {
+    // From KWin 6.8 the paint hooks say whether painting went on; the
+    // probe passes on what the chain says, as Kadunce does.
+    Kadunce::PaintResult paintScreen(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
+                                     int mask, const KWin::Region &region, KWin::LogicalOutput *screen) override {
         paintingOutput = screen;
-        KWin::effects->paintScreen(target, viewport, mask, region, screen);
+        const bool painted = Kadunce::painted([&] { return KWin::effects->paintScreen(target, viewport, mask, region, screen); });
         paintingOutput = nullptr;
+        return Kadunce::paintResult(painted);
     }
-    void paintWindow(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
-                     KWin::EffectWindow *window, int mask, const KWin::Region &region,
-                     KWin::WindowPaintData &data) override {
+    Kadunce::PaintResult paintWindow(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
+                                     KWin::EffectWindow *window, int mask, const KWin::Region &region,
+                                     KWin::WindowPaintData &data) override {
         if (carrying() && paintingOutput && handoff->carry().snapshot().window == window->window()) {
             const auto plan = Kadunce::carryPaintPlan(handoff->carry().snapshot().geometry,
                 handoff->carry().position(), KWin::RectF(paintingOutput->geometry()));
@@ -222,9 +225,10 @@ public:
                 carryPaintOutputs.insert(paintingOutput->name());
             }
             if (window->frameGeometry() != before) ++paintGeometryChanges;
-            return;
+            return Kadunce::paintResult(true);
         }
-        KWin::effects->paintWindow(target, viewport, window, mask, region, data);
+        return Kadunce::paintResult(Kadunce::painted([&] {
+            return KWin::effects->paintWindow(target, viewport, window, mask, region, data); }));
     }
     UnloadProbe() {
         KWin::input()->addInputDevice(&device);
