@@ -3,6 +3,8 @@
 // a switch the slide effect stays out of, and desktops created, renamed,
 // filled and removed through KWin's own objects. It is not Kadunce, and it is
 // never installed.
+#include "PaintResult.h"
+
 #include <core/output.h>
 #include <effect/effect.h>
 #include <effect/effecthandler.h>
@@ -72,12 +74,15 @@ public:
         KWin::effects->prePaintWindow(view, w, data);
     }
 
-    void paintWindow(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport, KWin::EffectWindow *w,
-                     int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data) override
+    Kadunce::PaintResult paintWindow(const KWin::RenderTarget &target, const KWin::RenderViewport &viewport,
+                                     KWin::EffectWindow *w, int mask, const KWin::Region &deviceRegion,
+                                     KWin::WindowPaintData &data) override
     {
-        if (drawn(w)) {
-            KWin::effects->paintWindow(target, viewport, w, mask, deviceRegion, data);
+        if (!drawn(w)) {
+            return Kadunce::paintResult(true);
         }
+        return Kadunce::paintResult(Kadunce::painted([&] {
+            return KWin::effects->paintWindow(target, viewport, w, mask, deviceRegion, data); }));
     }
 
 public Q_SLOTS:
