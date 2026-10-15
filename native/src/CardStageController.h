@@ -753,10 +753,12 @@ private:
     bool m_closeHandoff = false;
     QTimer m_arrivalTimer;
     QElapsedTimer m_arrivalWait;
-    // The last window to open, and since when: a state it asks for within
-    // OpeningStateGrace is its application restoring how it was left.
-    QPointer<KWin::EffectWindow> m_opening;
-    QElapsedTimer m_openingSince;
+    // When each window opened, on m_openingClock: a state it asks for within
+    // OpeningStateGrace is its application restoring how it was left. At
+    // sign-in several open at once, and any of them can be the Active card
+    // when its own state arrives.
+    QHash<const KWin::EffectWindow *, qint64> m_openedAt;
+    QElapsedTimer m_openingClock;
     static constexpr qint64 OpeningStateGrace = 2000;
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
