@@ -25,6 +25,7 @@ target_link_libraries(kadunce_unload_probe PRIVATE KWin::kwin Qt6::DBus KF6::Con
 add_library(kadunce_table_proof MODULE table-proof.cpp)
 set_target_properties(kadunce_table_proof PROPERTIES PREFIX "" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/kwin/effects/plugins")
 target_link_libraries(kadunce_table_proof PRIVATE KWin::kwin Qt6::DBus)
+target_include_directories(kadunce_table_proof PRIVATE ../../native/src)
 add_executable(table-proof-client table-client.cpp)
 target_link_libraries(table-proof-client PRIVATE Qt6::Gui Qt6::DBus)
 add_executable(unload-client client.cpp)

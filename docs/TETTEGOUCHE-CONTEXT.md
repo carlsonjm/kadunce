@@ -141,7 +141,8 @@ Tokens identify individual requests. Generation guards prevent delayed settles
 from ending newer leases. Both sides bound launch waiting to ten seconds. Unknown
 application identities time out rather than accept unrelated activations.
 
-`workspaceContextChanged` signals added, closed, and activated windows. Tette
+`workspaceContextChanged` signals added, closed, and activated windows, and
+the first frame drawn after the reported presentation changes. Tette
 ignores out-of-order snapshot replies. `bridgeUnavailable` is emitted before
 effect unload; service-owner loss is watched separately. Either clears guest
 input masking and pending launch/exit motion, returning Tette to standalone search.
