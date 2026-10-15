@@ -370,7 +370,7 @@ private:
     QString m_lastEdgeEntryLog;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
-        const QString &interfaceName, int protocol, bool openSpread);
+        const QString &interfaceName, int protocol);
     void callLauncherGuestOwner(const QString &method, const QVariantList &arguments = {});
     void handleLaunchWindowChanged();
     // The display holding cards: the one a touchscreen drives (TouchDisplay.h).

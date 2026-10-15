@@ -6246,7 +6246,7 @@ int Effect::launcherGuestProtocolVersion() const
 QString Effect::beginLauncherGuest(const QString &ownerService)
 {
     return acceptLauncherGuest(ownerService, QStringLiteral("/Launcher"),
-        QStringLiteral("io.github.carlsonjm.Tettegouche"), launcherGuestProtocolVersion(), true);
+        QStringLiteral("io.github.carlsonjm.Tettegouche"), launcherGuestProtocolVersion());
 }
 
 int Effect::companionGuestProtocolVersion() const
@@ -6269,11 +6269,11 @@ QString Effect::beginCompanionGuest(const QString &ownerService,
     // A companion takes the centre of a Spread already shown. Over an Active
     // card it draws its own card and needs nothing from Kadunce.
     return acceptLauncherGuest(ownerService, objectPath, interfaceName,
-        companionGuestProtocolVersion(), false);
+        companionGuestProtocolVersion());
 }
 
 QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
-    const QString &interfaceName, int protocol, bool openSpread)
+    const QString &interfaceName, int protocol)
 {
     QJsonObject reply{
         {QStringLiteral("protocol"), protocol},
@@ -6291,19 +6291,16 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
         m_lastActiveApplication = focused;
     }
     if (presentationForInput() != WorkspacePresentation::Spread) {
-        // On Connected the layout is the primary view: Search floats over it
-        // rather than calling Spread up (CARD-LIFECYCLE.md §11).
-        if (!openSpread || connectedForCardStage()) {
-            // It floats where the person is: over the card in hand, or else
-            // under the pointer.
-            KWin::LogicalOutput *here = m_lastActiveApplication
-                ? m_lastActiveApplication->screen() : nullptr;
-            if (!here) here = KWin::effects->screenAt(KWin::effects->cursorPos().toPoint());
-            if (here) reply.insert(QStringLiteral("output"), here->name());
-            return QString::fromUtf8(
-                QJsonDocument(reply).toJson(QJsonDocument::Compact));
-        }
-        showCardLine();
+        // A guest joins only a Spread already shown and never calls it up:
+        // Search floats the same on every display (CARD-LIFECYCLE.md §11).
+        // It floats where the person is: over the card in hand, or else
+        // under the pointer.
+        KWin::LogicalOutput *here = m_lastActiveApplication
+            ? m_lastActiveApplication->screen() : nullptr;
+        if (!here) here = KWin::effects->screenAt(KWin::effects->cursorPos().toPoint());
+        if (here) reply.insert(QStringLiteral("output"), here->name());
+        return QString::fromUtf8(
+            QJsonDocument(reply).toJson(QJsonDocument::Compact));
     }
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet || !m_cardStage->beginLauncherGuest()) {

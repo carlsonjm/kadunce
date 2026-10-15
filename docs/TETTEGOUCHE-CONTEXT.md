@@ -112,9 +112,11 @@ Kadunce watches the launcher's unique session-bus owner and restores Spread
 if that process disappears. A committed handoff selects the incoming real card.
 A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
 it never reaches the application under it, so it cannot promote that
-application to Active. Any rejected begin request leaves both applications in
-their existing standalone behavior; a rejection may name the `output` the
-launcher floats on, where the person is working.
+application to Active. Kadunce accepts the launcher only while Spread is presented,
+and never opens Spread for it (`CARD-LIFECYCLE.md` §11). Any rejected begin
+request leaves both applications in their existing standalone behavior; a
+rejection may name the `output` the launcher floats on, where the person is
+working.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
@@ -164,12 +166,11 @@ beginCompanionGuest(uniqueOwner, objectPath, interfaceName) -> compact JSON repl
 The reply is the launcher guest's, with `protocol: 1`. Kadunce answers on
 `objectPath` and `interfaceName` with the launcher guest's `dismissGuest` and
 `completeGuestLaunch(requestToken)`; every other call, launch preparation
-included, is the launcher guest's. Two rules differ:
+included, is the launcher guest's. Two rules apply:
 
-- A companion is accepted only while Spread is presented. Over an Active card
-  it is refused and Spread is not opened for it: the companion draws its own
-  card there, and an application it launches takes the Active card's place,
-  with Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
+- Over an Active card a companion, refused as the launcher is, draws its own
+  card, and an application it launches takes the Active card's place, with
+  Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
   Active).
 - Spread has one center. A guest asking while another holds it takes it, and
   Kadunce sends the one it replaces `dismissGuest` first; the launcher guest
