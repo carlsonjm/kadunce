@@ -89,11 +89,16 @@ chmod 700 "$unload_root/runtime"
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-stacks-runtime-session.sh ]]; then
     kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key WithoutTouchscreen false
 fi
-# Every display holds its own cards; the scenes before that rule keep the
-# displays other than Spread's to ordinary windows, except the one proving it.
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != every-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-keys-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-bento-key-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-desk-keys-runtime-session.sh ]]; then
-    kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key OtherDisplays windows
-fi
+# Every scene runs what a person gets by default: every display holds its own
+# cards, each sized by its room. Only the scenes about a display kept as
+# ordinary windows (CARD-LIFECYCLE.md § 11, `OtherDisplays=windows`) keep the
+# monitor that way: its own layout, the windows it organizes, what it hands
+# back, and Spread taking every card along when it moves, where by default
+# the display it leaves keeps its own.
+case ${KADUNCE_PROBE_SESSION:-session.sh} in
+    monitor-*-runtime-session.sh|spread-display-runtime-session.sh|first-entry-runtime-session.sh|placement-display-runtime-session.sh|line-runtime-session.sh|tablet-runtime-session.sh|output-unplug-runtime-session.sh|table-multidisplay-runtime-session.sh)
+        kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key OtherDisplays windows ;;
+esac
 xwayland_args=()
 xwayland_launcher=()
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then

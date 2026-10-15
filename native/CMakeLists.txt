@@ -41,6 +41,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/KeptPicture.h
         src/CardStageController.cpp
         src/CardStageController.h
+        src/ReleasePlace.h
         src/BentoLayout.cpp
         src/BentoLayout.h
         src/DesktopStageController.cpp
@@ -48,8 +49,10 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/DesktopStageController.h
         src/WorkspaceInputRouter.cpp
         src/WorkspaceInputRouter.h
+        src/TouchEdge.h
         src/Effect.cpp
         src/Effect.h
+        src/DesktopRemoval.h
         src/PaintResult.h
         src/TableGesture.h
         src/TableLayout.h
@@ -200,6 +203,18 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-touch-display-test PRIVATE src)
     target_link_libraries(kadunce-touch-display-test PRIVATE Qt6::Core)
     add_test(NAME touch-display COMMAND kadunce-touch-display-test)
+    add_executable(kadunce-touch-edge-test tests/TouchEdgeTest.cpp)
+    target_include_directories(kadunce-touch-edge-test PRIVATE src)
+    target_link_libraries(kadunce-touch-edge-test PRIVATE Qt6::Core)
+    add_test(NAME touch-edge COMMAND kadunce-touch-edge-test)
+    add_executable(kadunce-desktop-removal-test tests/DesktopRemovalTest.cpp)
+    target_include_directories(kadunce-desktop-removal-test PRIVATE src)
+    target_link_libraries(kadunce-desktop-removal-test PRIVATE Qt6::Core)
+    add_test(NAME desktop-removal COMMAND kadunce-desktop-removal-test)
+    add_executable(kadunce-release-place-test tests/ReleasePlaceTest.cpp)
+    target_include_directories(kadunce-release-place-test PRIVATE src)
+    target_link_libraries(kadunce-release-place-test PRIVATE Qt6::Core)
+    add_test(NAME release-place COMMAND kadunce-release-place-test)
     add_executable(kadunce-display-sizing-test tests/DisplaySizingTest.cpp)
     target_include_directories(kadunce-display-sizing-test PRIVATE src)
     target_link_libraries(kadunce-display-sizing-test PRIVATE Qt6::Core)

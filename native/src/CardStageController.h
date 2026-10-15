@@ -23,6 +23,8 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <QRectF>
+#include <QString>
 #include <QStringList>
 #include <QTimer>
 #include <functional>
@@ -557,6 +559,10 @@ private:
         bool fullScreen = false;
         bool minimized = false;
         bool valid = false;
+        // The display the place was taken on, and its geometry then, so a
+        // place whose display has gone is given back on one there is.
+        QString outputName;
+        QRectF outputGeometry;
     };
 
     void rebuildLiveCards();

@@ -134,7 +134,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadu
 sleep .8
 report released
 check 'switched off: every window is an ordinary window on a display that exists' \
-    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\")) | length == 3 and all(.output != \"\" and (.hidden | not) and (.minimized | not))'"
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\")) | length == 3 and all(.onDisplay and (.hidden | not) and (.minimized | not))'"
 if (( failures > 0 )); then
     echo "FAIL: spread display: $failures checks failed" >&2
     exit 1

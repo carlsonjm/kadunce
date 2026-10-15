@@ -21,6 +21,7 @@
 #include "MonitorDropIntent.h"
 #include "DeliberateEdgeEntry.h"
 #include "TouchDisplay.h"
+#include "DesktopRemoval.h"
 #include "StuckNotesWatcher.h"
 #include "SurfaceTone.h"
 #include "KWinMatch.h"
@@ -1219,7 +1220,7 @@ Effect::Effect()
         // After the carry filter, so that it sees every contact first.
         m_touchWitness = std::make_unique<TouchWitness>();
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
-            return m_inputRouter && isTabletPoint(position) && m_inputRouter->inBottomBezel(position);
+            return m_inputRouter && m_inputRouter->inBottomBezel(position);
         };
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
@@ -1728,10 +1729,16 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
     if (desktop) m_unenteredDesktops.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
     // lets them go as a release would, and the desktop they stand on now takes
-    // them as its own.
+    // them as its own (DesktopRemoval.h). Removing the desktop shown can come
+    // before the switch away from it, or with none, so the desktop KWin shows
+    // now is made current first.
     const QString id = desktop ? desktop->id() : QString();
     auto removed = m_sessions.find(id);
-    if (removed == m_sessions.end() || removed->second.get() == m_currentSession) return;
+    KWin::VirtualDesktop *shown = KWin::effects->currentDesktop();
+    const DesktopRemovalPlan plan = planDesktopRemoval(removed != m_sessions.end(), id,
+        m_currentSession ? m_currentSession->desktopId : QString(), shown ? shown->id() : QString());
+    if (!plan.release) return;
+    if (plan.switchFirst) handleDesktopChanged(desktop, shown);
     {
         SessionScope scope(this, removed->second.get());
         if (hasActiveDesktopStage()) {
@@ -1740,7 +1747,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
         }
         m_cardStage->release();
     }
-    m_sessions.erase(removed);
+    if (plan.forget) m_sessions.erase(removed);
     scheduleCardDisplaySettle();
     observeCardOwnership();
     Q_EMIT workspaceContextChanged();
@@ -2248,7 +2255,9 @@ bool Effect::aboveActiveCardForInput(const QPointF &position) const
 
 void Effect::beginTableFromInput(const QPointF &position)
 {
-    openTable(false);
+    // Table comes down where it is pulled, so the finger stays on its tabs:
+    // from a touchscreen's own top edge, on that touchscreen's display.
+    openTable(false, KWin::effects->screenAt(position.toPoint()));
     m_tableStrokeFrom = position;
 }
 
@@ -3986,17 +3995,17 @@ WorkspaceInputGeometry Effect::geometryForInput() const
         && !m_cardStage->launcherGuestActive()
         ? m_cardStage->posedTargetForWindow(tablet, selected)
         : cardTargetForSlot(tablet, 0);
-    // With Spread on another display, the touchscreen's own bottom edge is
-    // the one its swipe starts from.
+    // A touchscreen driving another display has that display's own edges to
+    // start from, whichever mode the display is in.
     KWin::LogicalOutput *touched = KWin::effects->findScreen(m_touchOutputName);
-    const double bottom = isOtherCardDisplay(touched) ? double(touched->geometry().bottom())
-                                                      : double(tabletRect.bottom());
-    return {
+    WorkspaceInputGeometry geometry{
         QRectF(tabletRect),
         QRectF(centerCard),
-        bottom,
+        double(tabletRect.bottom()),
         double(centerCard.right()),
     };
+    if (touched) geometry.touchscreen = {QRectF(touched->geometry()), double(touched->geometry().bottom())};
+    return geometry;
 }
 
 bool Effect::cardGrabActiveForInput() const
