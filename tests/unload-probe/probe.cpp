@@ -136,6 +136,19 @@ struct EdgeOrderProbe final : KWin::InputEventFilter {
     QPointF touchPosition;
 };
 
+// A vertical scroll step, not inverted. Newer KWin also asks whether it is an
+// autoscroll, before the time; older KWin has no such flag.
+template<typename Pointer>
+void verticalAxis(Pointer *pointer, qreal delta, qint32 deltaV120, KWin::PointerAxisSource source,
+                  std::chrono::microseconds time)
+{
+    if constexpr (requires { pointer->processAxis(KWin::PointerAxis::Vertical, delta, deltaV120, source, false, false, time); }) {
+        pointer->processAxis(KWin::PointerAxis::Vertical, delta, deltaV120, source, false, false, time);
+    } else {
+        pointer->processAxis(KWin::PointerAxis::Vertical, delta, deltaV120, source, false, time);
+    }
+}
+
 class UnloadProbe final : public KWin::Effect {
     Q_OBJECT
 public:
@@ -680,16 +693,14 @@ public Q_SLOTS:
     // A continuous vertical scroll, as a touchpad or finger source sends one
     // per frame: no notch, only a delta, down for a positive one.
     void fingerScroll(double delta) {
-        KWin::input()->pointer()->processAxis(KWin::PointerAxis::Vertical, delta, 0,
-                                              KWin::PointerAxisSource::Finger, false, now());
+        verticalAxis(KWin::input()->pointer(), delta, 0, KWin::PointerAxisSource::Finger, now());
         KWin::input()->pointer()->processFrame();
     }
     // Mouse wheel notches, down for a positive count.
     void wheel(int notches) {
         const int sign = notches < 0 ? -1 : 1;
         for (int i = 0; i < std::abs(notches); ++i) {
-            KWin::input()->pointer()->processAxis(KWin::PointerAxis::Vertical, 15.0 * sign, 120 * sign,
-                                                  KWin::PointerAxisSource::Wheel, false, now());
+            verticalAxis(KWin::input()->pointer(), 15.0 * sign, 120 * sign, KWin::PointerAxisSource::Wheel, now());
             KWin::input()->pointer()->processFrame();
         }
     }
