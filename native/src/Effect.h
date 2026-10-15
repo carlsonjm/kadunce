@@ -999,6 +999,9 @@ private:
     qint64 m_frameWork = 0;
     bool m_frameWanted = false;
     bool m_framingTablet = false;
+    // The presentation the workspace context last reported, -1 with cards
+    // off, so a frame that changes it announces the context once.
+    int m_reportedPresentation = -1;
     int m_framePreviewsMade = 0;
     void noteTabletFrameStart();
     void noteTabletFrameEnd(bool wanted);

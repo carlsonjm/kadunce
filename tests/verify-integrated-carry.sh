@@ -90,6 +90,7 @@ scenes=(
     table-stack-runtime tablet
     table-stack-layout-runtime tablet
     table-spread-runtime tablet
+    spread-signal-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet

@@ -8155,6 +8155,12 @@ void Effect::postPaintScreen()
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
+    // Spread, Bento and the rest open and close along many paths, and every
+    // one ends in a frame, so the context is announced here whenever the
+    // presentation it reports changes: the dock's Spread button and the
+    // Context Bar follow at once.
+    const int presentation = m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1;
+    if (presentation != std::exchange(m_reportedPresentation, presentation)) Q_EMIT workspaceContextChanged();
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
     }
