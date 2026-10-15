@@ -22,8 +22,11 @@ jobs:
   verify:
     name: Arch current
     runs-on: ubuntu-latest
+    # Arch Linux's official image as Arch publishes it to GitHub's own
+    # registry, which Actions reaches without Docker Hub's or Amazon's
+    # shared pull limits.
     container:
-      image: public.ecr.aws/docker/library/archlinux:latest
+      image: ghcr.io/archlinux/archlinux:latest
     timeout-minutes: 60
     steps:
       - name: Install build dependencies
