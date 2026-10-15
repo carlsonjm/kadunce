@@ -91,10 +91,15 @@ inline constexpr int BentoPaneBound = 24;
 // beside the one column and top/bottom split that makeBentoLayout(3) gives.
 [[nodiscard]] std::vector<BentoRect> makeAlternateThreePaneBentoLayout(
     bool landscape);
+// The space between Bento's panes, the same on every display: the card gutter
+// a person has set (ActiveSettings.h), or 14 where none is set.
+inline constexpr int DefaultBentoPaneGap = 14;
+[[nodiscard]] int bentoPaneGap();
+void setBentoPaneGap(int gap);
 [[nodiscard]] std::vector<BentoPixelRect> makePixelBentoLayout(
     const std::vector<BentoRect> &rects,
     int areaX, int areaY, int areaWidth, int areaHeight,
-    int gap = 14);
+    int gap = bentoPaneGap());
 // maximumVisible is the caller's own further limit; the display's pane cap
 // bounds it either way.
 [[nodiscard]] BentoAdmission chooseBentoAdmission(

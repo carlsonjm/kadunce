@@ -2683,6 +2683,20 @@ void DesktopStageController::restoreAllSessions()
     }
 }
 
+void DesktopStageController::relayAllSessions()
+{
+    if (m_interactionWindow) return;
+    bool placed = false;
+    const QStringList keys = m_sessions.keys();
+    for (const QString &key : keys) {
+        // Re-found by key: placing one layout can reenter this controller.
+        auto session = m_sessions.find(key);
+        if (session == m_sessions.end() || session->applying) continue;
+        placed = applySession(session.value(), false) || placed;
+    }
+    if (placed) scheduleSettle();
+}
+
 void DesktopStageController::cancelRestoredMinimizations()
 {
     m_restoredMinimizations.clear();
@@ -3285,8 +3299,8 @@ void DesktopStageController::adjustRail(Session &session,
         const BentoRect &rect = next.at(index);
         const QSizeF minimum = session.windows.at(index)->window()->minSize();
         const double advertised = vertical
-            ? (minimum.width() + 14.0) / area.width()
-            : (minimum.height() + 14.0) / area.height();
+            ? (minimum.width() + bentoPaneGap()) / area.width()
+            : (minimum.height() + bentoPaneGap()) / area.height();
         lower = std::max(lower, (vertical ? rect.x : rect.y)
                          + std::max(fallbackMinimum, advertised));
     }
@@ -3294,8 +3308,8 @@ void DesktopStageController::adjustRail(Session &session,
         const BentoRect &rect = next.at(index);
         const QSizeF minimum = session.windows.at(index)->window()->minSize();
         const double advertised = vertical
-            ? (minimum.width() + 14.0) / area.width()
-            : (minimum.height() + 14.0) / area.height();
+            ? (minimum.width() + bentoPaneGap()) / area.width()
+            : (minimum.height() + bentoPaneGap()) / area.height();
         upper = std::min(upper,
                          (vertical ? rect.x + rect.width
                                    : rect.y + rect.height)

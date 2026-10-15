@@ -578,7 +578,7 @@ rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${car
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior.
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
-    "618f54ba01bc41e1da8e1f091f85212a861feac0e9b84123080fe8b4f6e8181d"
+    "003f0966ad0d90db85b67b983be94f640763c553b613dc7e6b074c4b58cf25ea"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
@@ -660,7 +660,7 @@ rg -q 'EffectsHandler::windowActivated' "${effect_cpp}"
 rg -q 'handleWindowActivated' "${effect_cpp}" "${effect_header}" \
     "${card_cpp}" "${card_header}"
 rg -q 'promoted externally activated card' "${card_cpp}"
-rg -Fq 'std::clamp(requestedGutter, 6.0, 48.0)' \
+rg -Fq 'std::clamp(requestedGutter, 4.0, 48.0)' \
     "${native_dir}/src/SpreadLayout.cpp"
 if rg -q 'renderSyntheticLine|SYNTHETIC SPREAD|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Synthetic cards must never appear in the live effect" >&2

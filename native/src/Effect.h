@@ -372,6 +372,7 @@ private:
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void openGroupAfterDropForCardStage(const QRectF &from) override;
+    void cardGutterChangedForCardStage() override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override

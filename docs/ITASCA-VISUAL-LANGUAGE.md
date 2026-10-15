@@ -218,7 +218,8 @@ they preserve these relationships and respect the user's animation settings.
   shadow, or is maximized or full screen, keeps its corners, and Kadunce trims
   nothing while the separately installed Rounded Corners effect runs.
 - The Active card's gutter is output-relative, 10 px by default and bounded to
-  6–48 px, the same on every edge.
+  4–48 px, the same on every edge. Once it is set, Bento's panes stand that far
+  apart too, on every display; until then they stand 14 px apart.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
 - Opening Spread from the Active card or a Bento layout shrinks it from the

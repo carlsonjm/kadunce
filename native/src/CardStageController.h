@@ -107,6 +107,10 @@ public:
     // selected; open it so the question can be answered. A host that cannot
     // open a card leaves it selected in Spread.
     virtual void presentSelectedForCardStage() {}
+    // The card gutter changed while Kadunce runs, and Bento's panes stand that
+    // far apart: every layout the host shows is laid out again. A host
+    // without layouts has nothing to move.
+    virtual void cardGutterChangedForCardStage() {}
     // A card let go on a pane of the Bento group took that pane; open the
     // group as its layout, the card growing from `from`, where it was drawn.
     virtual void openGroupAfterDropForCardStage(const QRectF &) {}

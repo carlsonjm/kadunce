@@ -77,6 +77,7 @@ scenes=(
     switcher-hidden-runtime tablet
     gap-runtime tablet
     bento-top-runtime tablet
+    bento-gap-runtime tablet
     dialog-runtime tablet
     dialog-late-runtime tablet
     dialog-electron-runtime tablet
