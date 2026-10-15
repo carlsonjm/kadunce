@@ -240,6 +240,10 @@ private:
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
+    // Where each card's window is drawn this frame, inside its card: what
+    // KWin is told to draw it at, kept as it is told. Notes placed on the
+    // window stand on this, so they move with the picture frame by frame.
+    QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
     // Whether the Bento group's backdrop is drawn yet on the display painting.
     bool m_projectionBackdropDrawn = false;
     QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
@@ -795,8 +799,10 @@ private:
     [[nodiscard]] bool cardAtForInput(const QPointF &position) const override;
     void tapSpreadFromInput(const QPointF &position) override;
     // Gooseberry's notes on Spread's cards (TETTEGOUCHE-CONTEXT.md § Stuck
-    // notes from Gooseberry): a stack at each card's corner, fanned while
-    // Gooseberry shows those notes, a note carried to another card by a hold.
+    // notes from Gooseberry): each placed note where it stands on its window,
+    // the rest in a stack at the card's corner. A tap on either opens the
+    // card with the notes out on the window, a tapped note ready to type; a
+    // hold carries a note to another card.
     [[nodiscard]] bool pressNotesFromInput(const QPointF &position) override;
     void moveNotesFromInput(const QPointF &position) override;
     void holdNotesFromInput() override;
@@ -807,7 +813,7 @@ private:
     [[nodiscard]] bool notesShownInSpread() const;
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
-    // stand at rest; the Bento group carries no notes.
+    // were last drawn; the Bento group carries no notes.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,

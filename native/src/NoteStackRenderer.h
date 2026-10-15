@@ -20,6 +20,7 @@
 #include <QVector4D>
 
 #include <algorithm>
+#include <cmath>
 
 namespace Kadunce
 {
@@ -90,31 +91,40 @@ public:
         blit(renderTarget, viewport, texture, box, 1.0);
     }
 
-    // One note fanned out over its card, or carried: its colour and its title.
+    // One note standing in its place on its card, or carried: its colour and
+    // its title. A note smaller than a carried one, as a placed
+    // note on a far card is, has its corners, margin and words scaled down
+    // with it, never below what still reads.
     void renderNote(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                     const QRectF &box, const StuckNote &note, double opacity)
     {
         if (box.isEmpty() || opacity <= 0.0) return;
+        // A placed note grows and shrinks with its card as the row moves, so
+        // its picture is painted at the next size up in 8 px steps and laid
+        // over the box, rather than painted afresh every frame.
+        const QSizeF painted(std::ceil(box.width() / 8.0) * 8.0, std::ceil(box.height() / 8.0) * 8.0);
         const QString key = QStringLiteral("note") + QChar(0x1f) + note.title + QChar(0x1f)
-            + note.colourHex + QChar(0x1f) + QString::number(qRound(box.width()))
-            + QLatin1Char('x') + QString::number(qRound(box.height()));
+            + note.colourHex + QChar(0x1f) + QString::number(qRound(painted.width()))
+            + QLatin1Char('x') + QString::number(qRound(painted.height()));
         auto *texture = m_textures.object(key);
         if (!texture) {
-            QImage image = canvas(box.size());
+            QImage image = canvas(painted);
             QPainter painter(&image);
             painter.setRenderHint(QPainter::Antialiasing);
             painter.setRenderHint(QPainter::TextAntialiasing);
-            const QRectF face(QPointF(0, 0), box.size());
+            const QRectF face(QPointF(0, 0), painted);
+            const double scale = std::clamp(std::min(painted.width() / NoteGeometry::NoteWidth,
+                                                     painted.height() / NoteGeometry::NoteHeight), 0.0, 1.0);
             const QColor colour = noteColour(note.colourHex);
             painter.setPen(QPen(QColor(0, 0, 0, 70), 1.0));
             painter.setBrush(colour);
-            painter.drawRoundedRect(face.adjusted(0.5, 0.5, -0.5, -0.5),
-                                    NoteGeometry::Radius, NoteGeometry::Radius);
+            const double radius = std::max(NoteGeometry::MiniRadius, NoteGeometry::Radius * scale);
+            painter.drawRoundedRect(face.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
             QFont font;
-            font.setPixelSize(14);
+            font.setPixelSize(std::max(9, qRound(14 * scale)));
             painter.setFont(font);
             painter.setPen(wordsOn(colour));
-            constexpr double padding = 10.0;
+            const double padding = std::max(5.0, 10.0 * scale);
             const QRectF words = face.adjusted(padding, padding, -padding, -padding);
             // As many whole lines of the title as fit, the last one cut short.
             const QFontMetrics metrics(font);

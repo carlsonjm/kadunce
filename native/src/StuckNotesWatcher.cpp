@@ -157,29 +157,30 @@ void StuckNotesWatcher::pause(bool paused)
     send(QStringLiteral("Pause"), {paused});
 }
 
-void StuckNotesWatcher::toggle(const QString &windowId, const QString &caption, const QString &app,
-                               std::function<void(std::optional<bool>)> answered)
+void StuckNotesWatcher::show(const QString &windowId, const QString &caption, const QString &app)
 {
-    if (!m_present) {
-        if (answered) answered(std::nullopt);
-        return;
-    }
-    auto message = QDBusMessage::createMethodCall(Service, Path, Interface, QStringLiteral("Toggle"));
+    qInfo() << "Kadunce asks Gooseberry to bring up the notes on" << windowId;
+    send(QStringLiteral("Show"), {windowId, caption, app});
+}
+
+void StuckNotesWatcher::write(const QString &noteId, const QString &windowId, const QString &caption,
+                              const QString &app)
+{
+    if (!m_present) return;
+    qInfo() << "Kadunce asks Gooseberry for note" << noteId << "ready to type on" << windowId;
+    auto message = QDBusMessage::createMethodCall(Service, Path, Interface, QStringLiteral("Write"));
     message.setAutoStartService(false);
-    message.setArguments({windowId, caption, app});
+    message.setArguments({noteId, windowId, caption, app});
     auto *call = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
     connect(call, &QDBusPendingCallWatcher::finished, this,
-            [windowId, answered = std::move(answered)](QDBusPendingCallWatcher *finished) {
+            [this, windowId, caption, app](QDBusPendingCallWatcher *finished) {
         finished->deleteLater();
         const QDBusMessage reply = finished->reply();
-        std::optional<bool> shown;
-        if (reply.type() == QDBusMessage::ReplyMessage && !reply.arguments().isEmpty()
-            && reply.arguments().first().metaType() == QMetaType::fromType<bool>())
-            shown = reply.arguments().first().toBool();
-        else
-            qInfo() << "Kadunce's toggle of the notes on" << windowId << "had no answer from Gooseberry:"
-                    << (reply.type() == QDBusMessage::ErrorMessage ? reply.errorName() : QStringLiteral("no shown state"));
-        if (answered) answered(shown);
+        if (reply.type() != QDBusMessage::ErrorMessage) return;
+        // A Gooseberry from before Write still brings the notes up.
+        qInfo() << "Kadunce's Write had no answer from Gooseberry:" << reply.errorName()
+                << "- bringing the notes up instead";
+        show(windowId, caption, app);
     });
 }
 

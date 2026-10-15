@@ -4426,6 +4426,13 @@ bool CardStageController::cardAtPoint(const QPointF &position) const
         && cardAt(tablet, position);
 }
 
+KWin::EffectWindow *CardStageController::cardUnderPoint(const QPointF &position) const
+{
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_presentation != CardPresentation::Spread || !tablet) return nullptr;
+    return cardAt(tablet, position);
+}
+
 bool CardStageController::selectReturnEntry()
 {
     // Where the person was: the Bento layout they opened Spread from, or the

@@ -6,8 +6,6 @@
 #include <QString>
 #include <QVariantList>
 
-#include <functional>
-#include <optional>
 
 class QDBusServiceWatcher;
 
@@ -30,11 +28,12 @@ public:
     // aside without putting any note away. A build without Pause answers
     // with an error, which nothing waits for.
     void pause(bool paused);
-    // Shows a window's notes over it, or puts them away. `answered` takes
-    // Gooseberry's reply when it comes: whether they are shown now, or
-    // nothing when the call failed or could not be made.
-    void toggle(const QString &windowId, const QString &caption, const QString &app,
-                std::function<void(std::optional<bool>)> answered);
+    // Brings a window's notes up over it; nothing changes when they are up.
+    void show(const QString &windowId, const QString &caption, const QString &app);
+    // Brings a window's notes up over it with one of them ready to type on
+    // the window. A Gooseberry without Write answers with an error, and the
+    // notes are then only brought up.
+    void write(const QString &noteId, const QString &windowId, const QString &caption, const QString &app);
     // Reads every entry again, in case a signal was missed.
     void refresh() { fetch(); }
     // Sticks a note to another window.
