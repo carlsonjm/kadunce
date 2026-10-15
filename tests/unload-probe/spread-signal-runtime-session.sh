@@ -72,4 +72,5 @@ for way in showActive escape tap; do
     check "$way: closing Spread is announced" test "$closed" -ge 1
 done
 
-exit "$failures"
+(( failures == 0 )) || exit "$failures"
+echo 'PASS: opening and closing Spread each announce the workspace context, however Spread closes'
