@@ -576,6 +576,10 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     // whatever the Spread display presents. A panel along the top edge, a bar
     // of status say, keeps its taps wherever it lies, above the Active card
     // too: its contact is Table's only once it pulls down.
+    if (topStrip && m_target->topEdgeClaimedForInput(event->pos)) {
+        qInfo() << "Kadunce top-edge contact" << event->pos << "is not Table's: a surface claims it";
+        return false;
+    }
     const WorkspacePresentation topPresentation = m_target->presentationForInput();
     const bool aboveActive = m_target->aboveActiveCardForInput(event->pos);
     if (topStrip && m_touchId < 0 && m_observedTouchIds.size() == 1

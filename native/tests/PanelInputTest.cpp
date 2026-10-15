@@ -57,6 +57,9 @@ struct Target : WorkspaceInputTarget {
         return presentation == WorkspacePresentation::Active && isTabletPoint(p)
             && p.y() < geometryForInput().centerCard.top();
     }
+    // A strip a surface keeps from Table's pull.
+    QRectF claimed;
+    bool topEdgeClaimedForInput(const QPointF &p) const override { return claimed.contains(p); }
     int tableBegins = 0;
     void beginTableFromInput(const QPointF &) override { ++tableBegins; }
     bool surfaceOwnsTouchAt(const QPointF &p) const override { return surface.contains(p); }
@@ -878,6 +881,16 @@ int main(int argc, char **argv) {
                 "A pull down from a top panel stopped opening Table");
         KWin::TouchUpEvent lift{}; lift.id = pull.id;
         input.touchUp(&lift);
+        // A claimed strip on the panel keeps even a pull: Table never comes.
+        bar.claimed = QRectF(800,0,200,24);
+        KWin::TouchDownEvent claim{804,{900,10},{}};
+        require(!input.touchDown(&claim), "A touch on a claimed strip was kept from its surface");
+        KWin::TouchMotionEvent claimPull{804,{900,200},{}};
+        require(!input.touchMotion(&claimPull) && bar.tableBegins == 1 && bar.cancellations == 1,
+                "A pull from a claimed strip opened Table");
+        KWin::TouchUpEvent claimUp{}; claimUp.id = claim.id;
+        require(!input.touchUp(&claimUp), "A lift on a claimed strip was kept from its surface");
+        bar.claimed = QRectF();
         KWin::TouchDownEvent bare{803,{300,10},{}};
         require(input.touchDown(&bare), "Bare strip above the Active card stopped being kept");
         KWin::TouchUpEvent bareUp{}; bareUp.id = bare.id;

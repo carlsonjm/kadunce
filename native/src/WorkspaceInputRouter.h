@@ -166,6 +166,10 @@ public:
     // the edges of cards hidden behind it; a touch there is kept, unless it
     // lands on a panel.
     [[nodiscard]] virtual bool aboveActiveCardForInput(const QPointF &) const { return false; }
+    // A strip a surface along the top edge keeps from Table's pull
+    // (TETTEGOUCHE-CONTEXT.md § Top-edge claims): a contact starting there is
+    // the surface's, however it moves.
+    [[nodiscard]] virtual bool topEdgeClaimedForInput(const QPointF &) const { return false; }
     // Outside every window's frame, where only the invisible resize border of
     // a card or pane reaches.
     [[nodiscard]] virtual bool inCardGapForInput(const QPointF &) const { return false; }

@@ -183,6 +183,23 @@ companion opened as Search closes can still take the center.
 A companion is a layer-shell surface, as the launcher is. An ordinary window
 is a card, so it cannot hold the center.
 
+## Top-edge claims
+
+Pulling down from the top edge brings Table, and a contact on a panel there is
+the panel's until it pulls. A surface whose own pull means something else, a
+status bar's say, keeps a strip of the edge from Table:
+
+```text
+claimTopEdge(key, outputName, x, y, width, height) -> bool
+clearTopEdgeClaim(key)
+```
+
+The strip is in that display's own logical coordinates. A contact starting in
+it is the surface's however it moves, and never Table's. A caller holds its
+strips under keys of its own; a new claim under the same key replaces the old,
+and every strip a caller holds goes when it leaves the bus. Kadunce refuses a
+claim with no key, display or area.
+
 ## Stuck notes from Gooseberry
 
 Kadunce also reads from Gooseberry, the optional notes application, which may

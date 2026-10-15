@@ -194,6 +194,12 @@ public Q_SLOTS:
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
+    // A strip along a display's top edge kept from Table's pull, in that
+    // display's own coordinates, under the caller's key; held until cleared or
+    // the caller leaves the bus (TETTEGOUCHE-CONTEXT.md § Top-edge claims).
+    Q_SCRIPTABLE bool claimTopEdge(const QString &key, const QString &outputName,
+        double x, double y, double width, double height);
+    Q_SCRIPTABLE void clearTopEdgeClaim(const QString &key);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -736,6 +742,7 @@ private:
     [[nodiscard]] bool launcherGuestContainsForInput(
         const QPointF &position) const override;
     [[nodiscard]] bool isPanelPoint(const QPointF &position) const override;
+    [[nodiscard]] bool topEdgeClaimedForInput(const QPointF &position) const override;
     [[nodiscard]] bool surfaceOwnsTouchAt(const QPointF &position) const override;
     [[nodiscard]] bool clientReceivesTouchAt(const QPointF &position) const override;
     [[nodiscard]] std::optional<QSet<qint32>> touchesDownForInput() const override {
@@ -1084,6 +1091,14 @@ private:
     int m_fanApertureSizeLocation = -1;
     int m_fanApertureRadiusLocation = -1;
     QPointer<QDBusServiceWatcher> m_launcherGuestWatcher;
+    struct TopEdgeClaim {
+        QString owner;
+        QString output;
+        QRectF area;
+    };
+    // Keyed by the caller's bus name and its own key.
+    QHash<QString, TopEdgeClaim> m_topEdgeClaims;
+    QPointer<QDBusServiceWatcher> m_topEdgeClaimWatcher;
     QString m_launcherGuestOwner;
     QString m_launcherGuestPath;
     QString m_launcherGuestInterface;
