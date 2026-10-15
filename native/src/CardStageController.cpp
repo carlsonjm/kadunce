@@ -5431,6 +5431,8 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     m_presentation = CardPresentation::Spread;
     int previousSelection = m_workspace.selectedIndex();
     m_workspace.append(window, animateArrival || m_launcherGuestActive);
+    m_opening = window;
+    m_openingSince.start();
     retainManagedOwnership(window);
     m_originalCardStackingOrder.append(window);
     m_host->connectManagedWindowForCardStage(window);
@@ -5705,7 +5707,7 @@ void CardStageController::handleActiveGeometryChanged(
     if (client->isRequestedFullScreen()
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
-        letFillingCardGo(window);
+        if (!keepOpeningStateInActivePlace(window)) letFillingCardGo(window);
     } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
     }
@@ -5722,6 +5724,37 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
             << (window && window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     release();
+}
+
+bool CardStageController::keepOpeningStateInActivePlace(KWin::EffectWindow *window)
+{
+    // §3: an application restoring its saved state maximizes or tiles its
+    // window a moment after showing it, by which time it is the Active card.
+    // That is the window opening as it was left, not a person asking it to
+    // fill the screen, so its wish is kept in its restore record, release
+    // gives it back that way, and it stays the Active card. Full screen is
+    // still let go: a game or a film asks for it as it opens.
+    if (m_applyingWindowState || !window || window != m_opening || !m_openingSince.isValid()
+        || m_openingSince.elapsed() > OpeningStateGrace || !window->window()) return false;
+    KWin::Window *client = window->window();
+    if (client->isRequestedFullScreen()) return false;
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) return false;
+    m_activeRestore.maximizeMode = client->requestedMaximizeMode();
+    m_activeRestore.quickTileMode = client->requestedQuickTileMode();
+    {
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        if (client->requestedMaximizeMode() != KWin::MaximizeRestore)
+            client->maximize(KWin::MaximizeRestore);
+        if (client->requestedQuickTileMode() != KWin::QuickTileMode{})
+            client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
+        client->moveResize(KWin::RectF(activePlacement(tablet)));
+    }
+    m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "keeps" << window->caption()
+            << "the Active card: it opened in its saved state, given back on release";
+    return true;
 }
 
 void CardStageController::letFillingCardGo(KWin::EffectWindow *window)

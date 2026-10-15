@@ -121,6 +121,7 @@ scenes=(
     adopt-reach-runtime tablet
     signin-reach-runtime tablet
     late-maximize-runtime tablet
+    late-maximize-active-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
     placement-display-runtime tablet

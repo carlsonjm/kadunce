@@ -545,6 +545,9 @@ public:
     void handleManualWindowChange(KWin::EffectWindow *window);
     // The Active card asked to fill the screen: it alone goes, the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
+    // The window that has just opened, maximizing or tiling itself as its
+    // application restores its saved state, stays the Active card.
+    bool keepOpeningStateInActivePlace(KWin::EffectWindow *window);
     [[nodiscard]] std::optional<NativeMoveSnapshot> managedRestore(KWin::EffectWindow *window) const;
 
     bool admitBentoStack(const BentoProjectionSession &projection,
@@ -750,6 +753,11 @@ private:
     bool m_closeHandoff = false;
     QTimer m_arrivalTimer;
     QElapsedTimer m_arrivalWait;
+    // The last window to open, and since when: a state it asks for within
+    // OpeningStateGrace is its application restoring how it was left.
+    QPointer<KWin::EffectWindow> m_opening;
+    QElapsedTimer m_openingSince;
+    static constexpr qint64 OpeningStateGrace = 2000;
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;
