@@ -59,6 +59,21 @@ bool withinPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
         && frame.x() + frame.width() <= pixel.x + pixel.width + 1.5
         && frame.y() + frame.height() <= pixel.y + pixel.height + 1.5;
 }
+
+// A surface laid over one pane at its size, as Gooseberry's notes are over
+// the window they belong to, covers that pane and nothing beside it, so no
+// divider of the layout is hidden behind it.
+bool liesOverPane(const KWin::EffectWindow *window, const QList<QPointer<KWin::EffectWindow>> &panes)
+{
+    const QRectF frame(window->frameGeometry());
+    return std::any_of(panes.cbegin(), panes.cend(), [&frame](const auto &pane) {
+        if (!pane || pane->isDeleted()) return false;
+        const QRectF place(pane->frameGeometry());
+        return std::abs(frame.x() - place.x()) <= 1.5 && std::abs(frame.y() - place.y()) <= 1.5
+            && std::abs(frame.width() - place.width()) <= 1.5
+            && std::abs(frame.height() - place.height()) <= 1.5;
+    });
+}
 } // namespace
 
 
@@ -3225,6 +3240,23 @@ void DesktopStageController::handleWindowMoveResizeStarted(KWin::EffectWindow *w
             qInfo() << "Kadunce" << Revision
                     << "began Bento interaction" << logNameOf(window)
                     << (m_interactionResize ? "rail" : "carry");
+            // KWin resizes a pane by its own edge only where Kadunce drew no
+            // divider to take the press, so say which pane kept it from one.
+            if (m_interactionResize && session.zones.isEmpty()) {
+                if (auto *output = outputForKey(session.outputName)) {
+                    const auto pixels = sessionPixels(session, stageArea(output));
+                    for (int index = 0; index < session.windows.size() && index < int(pixels.size()); ++index) {
+                        const auto &pane = session.windows.at(index);
+                        const auto &place = pixels.at(std::size_t(index));
+                        if (pane && !pane->isDeleted()
+                            && (pane->screen() != output || pane->isMinimized()
+                                || !withinPixel(pane->frameGeometry(), place)))
+                            qInfo() << "Kadunce" << Revision << "drew no divider on" << session.outputName
+                                    << "as" << logNameOf(pane) << "stands at" << pane->frameGeometry()
+                                    << "outside its place" << QRectF(place.x, place.y, place.width, place.height);
+                    }
+                }
+            }
             return;
         }
     }
@@ -3335,6 +3367,7 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
                         auto *w = *it;
                         if (w == session.windows[i] || w == session.windows[j]) break;
                         if (w->isVisible() && !w->isDesktop() && !session.windows.contains(w)
+                            && !liesOverPane(w, session.windows)
                             && QRectF(w->frameGeometry()).intersects(QRectF(center.x()-16,center.y()-16,32,32))) {
                             covered = true; break;
                         }
@@ -3389,6 +3422,7 @@ bool DesktopStageController::beginRail(QPointF position)
             auto *w = *it;
             if (w == session.windows[rail.index]) break;
             if (w->isVisible() && !w->isDesktop() && !session.windows.contains(w)
+                && !liesOverPane(w, session.windows)
                 && QRectF(w->frameGeometry()).contains(position)) { covered = true; break; }
         }
         if (covered) continue;
