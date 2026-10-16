@@ -3020,8 +3020,8 @@ void CardStageController::release()
         return;
     }
     finishCardGrab(false);
-    clearCardTransition(); // Going away: a cancelled grab glides nowhere.
     endLauncherGuest();
+    clearCardTransition(); // Going away: a cancelled grab glides nowhere.
     const QPointer<KWin::EffectWindow> releasedWindow = selectedWindow();
     // Stop filtering the scene before fullscreen restoration changes layers,
     // activation or geometry. Those operations can synchronously reenter KWin.
@@ -3866,12 +3866,20 @@ void CardStageController::endLauncherGuest()
         return;
     }
     m_host->cancelInputForCardStage();
+    const bool easesPair = !m_launcherGuestArrival && m_workspace.count() == 2
+        && m_launcherGuestTransitionTimer.isValid();
+    // Search closing in Spread: the cards beside it glide back into the row
+    // from where they stood around it, as they glided apart for it.
+    if (!easesPair && m_launcherGuestActive && !m_launcherGuestArrival && m_active
+        && m_presentation == CardPresentation::Spread) {
+        captureCardTransition(true);
+    }
     if (!m_launcherGuestArrival && m_launcherGuestPendingPage != 0) {
         m_workspace.page(m_launcherGuestPendingPage);
     }
     // Keep the guest's established landing intact, then ease that landing
     // into the larger pair. The shoulder stays on the side it actually used.
-    if (!m_launcherGuestArrival && m_workspace.count() == 2 && m_launcherGuestTransitionTimer.isValid()) {
+    if (easesPair) {
         m_workspace.setPairNeighborSide(m_launcherGuestOffset < 0.0 ? -1 : 1);
         if (auto *output = m_host->tabletOutputForCardStage()) {
             const auto work = workArea(output);
