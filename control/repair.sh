@@ -1,27 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only the final copy is privileged: never build or execute source as root.
-if [[ ${1:-} == --install ]]; then
-    [[ $EUID == 0 && $# == 4 ]] || exit 2
-    candidate=$2
-    expected=$3
-    version=$4
-    [[ $expected =~ ^[0-9a-f]{64}$ && $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 2
-    [[ $(/usr/bin/kwin_wayland --version) == "kwin $version" ]] || { echo 'KWin changed during repair; rebuild again.'; exit 1; }
-    target=/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so
-    [[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
-    staged=$(mktemp /usr/lib/qt6/plugins/kwin/effects/plugins/.kadunce-repair.XXXXXX)
-    trap 'rm -f -- "$staged"' EXIT
-    /usr/bin/install -o root -g root -m 755 "$candidate" "$staged"
-    [[ $(sha256sum "$staged" | cut -d' ' -f1) == "$expected" ]] || exit 1
-    backup=$(mktemp /var/tmp/kadunce-plugin-backup.XXXXXX)
-    cp --preserve=all "$target" "$backup"
-    mv -fT -- "$staged" "$target"
-    echo "Installed. Previous plugin backup: $backup"
-    exit 0
-fi
-
+# Nothing in this script runs as root. It lives in the home folder, where
+# anything running as you can rewrite it, so the one privileged step goes to a
+# program only the administrator can change: Shuffle's install key where it is
+# set up, otherwise /usr/bin/install through the system's prompt, exactly as
+# install.sh places the plugin.
 [[ $# == 0 && $EUID != 0 ]] || { echo 'Run repair as your normal user, not root.'; exit 2; }
 repair_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/kadunce
@@ -55,7 +39,18 @@ fi
 # Check the factory built from headers, not just the executable queried above.
 strings "$candidate" | grep -F "org.kde.kwin.EffectPluginFactory$version" >/dev/null
 expected=$(sha256sum "$candidate" | cut -d' ' -f1)
+target=/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so
+[[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
+backup=$(mktemp "$state_dir/plugin-backup.XXXXXX")
+cp -- "$target" "$backup"
 echo 'Checks passed. Requesting permission to install one plugin file…'
-pkexec /usr/bin/bash "$repair_dir/repair.sh" --install "$candidate" "$expected" "$version"
+install_key=${KADUNCE_INSTALL_KEY:-/usr/local/libexec/shuffle/install-step}
+if [[ -x $install_key ]] && sudo -n -l "$install_key" kadunce install >/dev/null 2>&1; then
+    tar -C "$(dirname -- "$candidate")" -cf - "$(basename -- "$candidate")" | sudo -n "$install_key" kadunce install
+else
+    pkexec /usr/bin/install -Dm755 "$candidate" "$target"
+fi
+[[ $(sha256sum "$target" | cut -d' ' -f1) == "$expected" ]] || { echo 'The installed plugin is not the one built; nothing else was changed.'; exit 1; }
+echo "Installed. Previous plugin backup: $backup"
 echo 'Repair completed. No effect toggle, desktop restart, or source download was performed.'
 echo 'If KWin cached the previous plugin, save work and log out/in normally.'
