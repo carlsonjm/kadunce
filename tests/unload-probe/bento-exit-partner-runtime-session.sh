@@ -3,7 +3,7 @@
 # pane let go at the bottom edge returns to the desktop, and the pane left
 # behind is an individual card. Asked for as the dock asks, it shows as the
 # Active card, never in its old pane. The returned window, snapped to a side
-# edge, pairs with it, and Spread then shows that pair as one group.
+# edge, pairs with it, and Spread then shows each pane as its own card.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -86,13 +86,12 @@ sleep 1
 report snapped
 check "snapped: a Bento pair again" context '.desktopStage.active'
 
-# Spread shows that pair as one group card.
+# Spread shows that pair as two cards side by side.
 kad showCardLine
 sleep 1
 report spread
-check "Spread: the pair is one group" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
-check "Spread: no pane stands alone" context '[.applications[] | select(.hasCard and .stackSize == 1)] | length == 0'
+check "Spread: each pane is a card of its own" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 0'
 
 check "no ownership violations" context '(.ownershipViolations // []) | length == 0'
 if ((failures)); then echo "FAIL: bento exit partner: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: a pane let go at the bottom edge leaves its partner a card, shown whole when asked for, and pairing again makes one group'
+echo 'PASS: a pane let go at the bottom edge leaves its partner a card, shown whole when asked for, and pairing again shows each pane as its own card'

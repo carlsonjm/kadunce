@@ -14,11 +14,10 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 | Cards | Kadunce's name on a Shuffle install, and its tray switch | Current |
 | Card | An application window Kadunce holds on a card display | Locked |
 | Active card | The card in use: alone on a Solo display, the pane in use on a Connected one | Locked |
-| Spread | The ordered row of cards, Stacks and the Bento group you browse | Locked |
+| Spread | The ordered row of cards and Stacks you browse, each Bento pane a card | Locked |
 | Stack | Cards grouped by hand into one Spread entry; stepping through it goes round it as a ring | Locked |
 | Bento | Two or more windows shown together in one layout | Locked |
 | Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
-| Bento group | A Solo display's Bento layout as one card in Spread; on a Connected display each pane is its own card | Current |
 | Sleeping card | A minimized card, drawn dimmed in Spread | Current |
 | Card display | Every display; each holds its own cards | Current |
 | Spread display | The one display that holds Spread: the chosen one, else the touched one, else the largest | Current |

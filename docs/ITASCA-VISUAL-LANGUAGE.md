@@ -223,8 +223,8 @@ they preserve these relationships and respect the user's animation settings.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
-  screen it filled into its place in the row, a layout's panes together as its
-  group card, while the cards beside it slide in.
+  screen it filled into its place in the row, a layout's panes as their own
+  cards side by side, while the cards beside it slide in.
 - A carried window never jumps. Cancelled, refused or interrupted, it glides
   home from where it was under the hand; let go at the top edge it glides into
   the Active card's place, and at a side it grows into its pane from where it
