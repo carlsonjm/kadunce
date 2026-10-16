@@ -119,7 +119,7 @@ for pass in alone sleeper closed; do
     check "$pass: the pair stands side by side, left pane first" context --arg m "$main" --arg n "$neighbour" \
         '(first(.applications[] | select(.windowId == $m)) | .entry) + 1 == (first(.applications[] | select(.windowId == $n)) | .entry)'
     check "$pass: the chosen card names its partner" context \
-        '.cardStage.spreadEntry.bento and (.cardStage.spreadEntry.name | test("paired with"))'
+        '.cardStage.spreadEntry.bento and (.cardStage.spreadEntry.name | test(" · with "))'
 
     # A tap on the chosen pane's card opens the layout on it.
     read -r gx gy < <(kad workspaceContext | jq -r 'first(.applications[] | select(.selected and .spreadRect)) | .spreadRect
