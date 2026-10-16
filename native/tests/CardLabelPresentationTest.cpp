@@ -25,7 +25,7 @@ int main()
             == QStringLiteral("notes.txt"),
             "Caption fallback failed");
     require(pairedApplicationName(QStringLiteral("Firefox"), {QStringLiteral("Notes")})
-            == QString::fromUtf8("Firefox · paired with Notes"),
+            == QString::fromUtf8("Firefox · with Notes"),
             "A pair did not name its partner");
     require(pairedApplicationName(QStringLiteral("Firefox"),
                 {QStringLiteral("Notes"), {}, QStringLiteral("Files"), QStringLiteral("Kate")})

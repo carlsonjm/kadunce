@@ -37,7 +37,7 @@ struct CardLabelPresentation {
     }
     if (partners.isEmpty()) return applicationName;
     if (partners.size() == 1)
-        return QObject::tr("%1 · paired with %2").arg(applicationName, partners.first());
+        return QObject::tr("%1 · with %2").arg(applicationName, partners.first());
     const QString last = partners.takeLast();
     return QObject::tr("%1 · with %2 and %3")
         .arg(applicationName, partners.join(QStringLiteral(", ")), last);

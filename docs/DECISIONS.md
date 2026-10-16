@@ -498,10 +498,10 @@ A layout asks for its rects once and reads what arrived. Rejected: returning the
 whole session to the desktop when the reading disagreed, which §13 reserves for
 release and disable and a person reads as the layout vanishing. A client that
 moved itself while the placement arrived has refused nothing, so the layout asks
-once more; one that will not take its rect however often it is asked is a window
+once more; one that will not fit its rect however often it is asked is a window
 the layout cannot show, and leaves for card ownership while the settled panes
 keep theirs. One retry, bounded by the session's token, separates the two
-without guessing.
+without guessing. A pane short of its rect overlaps nothing, and stays.
 
 ## Safety and packaging
 

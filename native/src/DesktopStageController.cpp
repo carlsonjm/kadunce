@@ -49,6 +49,16 @@ bool onPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
     return std::abs(frame.x() - pixel.x) <= 1.5 && std::abs(frame.y() - pixel.y) <= 1.5
         && std::abs(frame.width() - pixel.width) <= 1.5 && std::abs(frame.height() - pixel.height) <= 1.5;
 }
+
+// A pane short of its rect, as a terminal keeping whole rows is or an
+// application still answering the size it was given, lies within it, and so
+// covers nothing beside it.
+bool withinPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
+{
+    return frame.x() >= pixel.x - 1.5 && frame.y() >= pixel.y - 1.5
+        && frame.x() + frame.width() <= pixel.x + pixel.width + 1.5
+        && frame.y() + frame.height() <= pixel.y + pixel.height + 1.5;
+}
 } // namespace
 
 
@@ -2190,24 +2200,30 @@ void DesktopStageController::settleParticipation(const QString &key)
     endLayoutIntoCardOwnership(key);
 }
 
+bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
+{
+    if (!bentoEndsAtOnePane(session)) return false;
+    // §11, Connected: a placed card keeps its place, and its room stays open.
+    // Columns a pair began leave no room, so their last pane ends as §5 says.
+    if (session.placed && !session.placed->paired) return false;
+    KWin::LogicalOutput *output = outputForKey(session.outputName);
+    // CARD-LIFECYCLE.md §5 hands the remaining pane to card ownership. Where
+    // the display cannot hold one there is nothing for Bento to end into, so
+    // the session keeps its combination rather than returning it to Plasma:
+    // §13 reserves that for release and disable.
+    if (!output || !m_host->outputCanOwnCards(output)) return false;
+    // §11, Every display: a display holding its own cards shows its last card
+    // whole, as its layout of one.
+    return !m_host->holdsOwnCardsForDesktopStage(output);
+}
+
 void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
 {
     if (m_restoring || m_interactionWindow || m_railDrag) return;
     const auto session = m_sessions.constFind(key);
     if (session == m_sessions.cend() || session->applying
-        || !bentoEndsAtOnePane(session.value())) return;
-    // §11, Connected: a placed card keeps its place, and its room stays open.
-    // Columns a pair began leave no room, so their last pane ends as §5 says.
-    if (session->placed && !session->placed->paired) return;
+        || !layoutEndsIntoCards(session.value())) return;
     KWin::LogicalOutput *output = outputForKey(key);
-    // CARD-LIFECYCLE.md §5 hands the remaining pane to card ownership. Where
-    // the display cannot hold one there is nothing for Bento to end into, so
-    // the session keeps its combination rather than returning it to Plasma:
-    // §13 reserves that for release and disable.
-    if (!output || !m_host->outputCanOwnCards(output)) return;
-    // §11, Every display: a display holding its own cards shows its last card
-    // whole, as its layout of one.
-    if (m_host->holdsOwnCardsForDesktopStage(output)) return;
     const QPointer<KWin::EffectWindow> remaining =
         session->windows.isEmpty() ? nullptr : session->windows.first();
     const QRectF drawn = remaining ? m_host->bentoPresentationRect(remaining) : QRectF();
@@ -2244,7 +2260,12 @@ bool DesktopStageController::extractPaneToCards(KWin::EffectWindow *window,
     // The departure is prepared and published by the same eviction §5 uses for
     // a window a layout cannot show, so a refused extraction leaves the layout
     // exactly as it was and an accepted one carries the pre-Bento record.
-    const bool outlasts = waitBehind && m_sessions.value(sourceKey).windows.size() > 2;
+    // §8: nothing is shown on top of live panes, so a pane leaving a layout
+    // that goes on presenting one waits behind it, however few are left.
+    Session rest = m_sessions.value(sourceKey);
+    rest.windows.removeAll(window);
+    rest.snapshots.removeIf([window](const auto &saved) { return saved.window == window; });
+    const bool outlasts = waitBehind && !rest.windows.isEmpty() && !layoutEndsIntoCards(rest);
     if (!evictToTablet(sourceKey, window, sourceValid,
             outlasts ? EvictedAs::HomedCard : EvictedAs::AwakeCard)) return false;
     // §5 may end what is left before it is laid out again, so only a layout
@@ -2435,12 +2456,14 @@ void DesktopStageController::settleSessions()
 }
 
 // CARD-LIFECYCLE.md §5: a window the layout cannot show leaves it for card
-// ownership, and a pane that would not take its rect twice is one. The panes
+// ownership, and a pane that will not fit its rect twice is one. The panes
 // that did settle keep theirs, and §5 ends a layout that falls to one. §13
 // reserves the native desktop for release and disable, so a settle never
 // returns a session to Plasma however little of it arrived. Where no display
 // can own a card nothing leaves, which is §5's own answer, and the layout
-// keeps the combination it has.
+// keeps the combination it has. A pane that stops short of its rect, as a
+// terminal keeping whole rows does or an application slow to wake answering
+// late, covers nothing beside it: it stays, short of its place.
 void DesktopStageController::shedUnsettledPanes(const QString &key)
 {
     const auto session = m_sessions.constFind(key);
@@ -2457,8 +2480,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         // read here as the layout failing to place a window that is asleep.
         if (window->isMinimized()) continue;
         const auto &pixel = pixels.at(std::size_t(index));
-        if (window->screen() == output
-            && onPixel(window->frameGeometry(), pixel)) continue;
+        if (window->screen() == output && withinPixel(window->frameGeometry(), pixel)) continue;
         qInfo() << "Kadunce" << Revision << "sheds" << logNameOf(window) << "from" << key
                 << "at" << window->frameGeometry() << "for its pane"
                 << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)
@@ -2477,7 +2499,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
     }
 }
 
-bool DesktopStageController::sessionGeometryMatches(const Session &session) const
+bool DesktopStageController::sessionGeometryMatches(const Session &session, bool shortOfPlace) const
 {
     auto *output = outputForKey(session.outputName);
     if (!output || session.windows.size() != static_cast<int>(session.rects.size())) return false;
@@ -2488,7 +2510,7 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
         if (!window || window->isDeleted() || !window->window()) return false;
         const auto &pixel = pixels.at(index);
         if (window->screen() != output || window->isMinimized()
-            || !onPixel(window->frameGeometry(), pixel)) return false;
+            || !(shortOfPlace ? withinPixel : onPixel)(window->frameGeometry(), pixel)) return false;
     }
     return true;
 }
@@ -3273,9 +3295,10 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
     if (m_restoring || m_interactionWindow) return rails;
     for (const auto &session : m_sessions) {
         auto *output = outputForKey(session.outputName);
-        // KWin owns the edges between panes in its zones.
+        // KWin owns the edges between panes in its zones. A pane short of its
+        // place still shares the divider at its place's edge.
         if (!output || session.applying || !session.zones.isEmpty()
-            || !sessionGeometryMatches(session)) continue;
+            || !sessionGeometryMatches(session, true)) continue;
         const QRectF area(stageArea(output));
         for (int i = 0; i < int(session.rects.size()); ++i) {
             const auto &a = session.rects[i];
@@ -3334,7 +3357,7 @@ bool DesktopStageController::railValid() const
     const auto it = m_sessions.constFind(m_railDrag->rail.output);
     auto *output = outputForKey(m_railDrag->rail.output);
     return it != m_sessions.cend() && output && stageArea(output) == m_railDrag->area
-        && it->windows == m_railDrag->original.windows && sessionGeometryMatches(*it);
+        && it->windows == m_railDrag->original.windows && sessionGeometryMatches(*it, true);
 }
 
 bool DesktopStageController::beginRail(QPointF position)
@@ -3369,7 +3392,11 @@ void DesktopStageController::updateRail(QPointF position)
     auto &drag = *m_railDrag;
     drag.preview = drag.original;
     const auto window = drag.original.windows[drag.rail.index];
-    const KWin::RectF start = window->frameGeometry();
+    // From the pane's place, not its frame, which can stop short of it.
+    const auto pixels = sessionPixels(drag.original, drag.area);
+    if (drag.rail.index >= static_cast<int>(pixels.size())) { finishRail(false); return; }
+    const auto &place = pixels.at(std::size_t(drag.rail.index));
+    const KWin::RectF start(place.x, place.y, place.width, place.height);
     QRectF finish(start);
     if (drag.rail.vertical) finish.setRight(finish.right()+position.x()-drag.contact.x());
     else finish.setBottom(finish.bottom()+position.y()-drag.contact.y());
