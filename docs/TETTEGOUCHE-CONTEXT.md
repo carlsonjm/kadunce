@@ -65,7 +65,7 @@ must reject unknown major versions instead of guessing at fields.
   opens and as it closes.
 - `cardStage.spreadEntry`: in Spread, the entry it has chosen, the one in the
   middle; otherwise `null`. It has the card's `cardId`, the `name` Spread
-  writes under it (for a pane's card, its application then `paired with` the
+  writes under it (for a pane's card, its application then `with` the
   panes beside it), `bento` (whether it is a pane's card), its Stack's
   `stackPosition` and `stackSize` (1-based, `1` of `1` for a lone card; while a card is held in its own Stack, the
   place it will land in), and whether it is `sleeping`.

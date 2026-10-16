@@ -33,10 +33,10 @@ inline QString spreadEntryName(const SpreadReadingEntry &entry)
     for (const QString &application : entry.pairedWith)
         if (!application.isEmpty()) partners.append(application);
     if (partners.size() == 1) {
-        parts.append(QObject::tr("paired with %1").arg(partners.first()));
+        parts.append(QObject::tr("with %1").arg(partners.first()));
     } else if (!partners.isEmpty()) {
         const QString last = partners.takeLast();
-        parts.append(QObject::tr("paired with %1 and %2").arg(partners.join(QStringLiteral(", ")), last));
+        parts.append(QObject::tr("with %1 and %2").arg(partners.join(QStringLiteral(", ")), last));
     }
     if (entry.stacked > 1) parts.append(QObject::tr("Stack of %1 cards").arg(entry.stacked));
     if (entry.sleeping) parts.append(QObject::tr("sleeping"));
