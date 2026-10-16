@@ -4377,10 +4377,27 @@ void Effect::toggleBento()
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
         qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with no layout";
+        const QPointer<KWin::EffectWindow> active = m_cardStage->activeCardIdentity();
         if (!pairActiveCardIntoBento(target)) {
+            // §11, Connected: the layout Spread holds, standing behind the
+            // Active card, is laid out again with that card in it, as picking
+            // the card from Spread would; its panes are no partners for it.
+            if (active && connectedOutputForDesktopStage(target)
+                && m_cardStage->stepActiveBackToLayout()) {
+                if (playPickedCardIntoLayout(active)) {
+                    qInfo() << "Kadunce" << Revision << "laid the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                } else {
+                    (void)m_cardStage->presentSelectedNow();
+                    qInfo() << "Kadunce" << Revision << "could not lay the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                }
+                observeCardOwnership();
+                return;
+            }
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
-                    << "and" << (m_cardStage->activeCardIdentity() ? "an" : "no") << "Active card";
+                    << "and" << (active ? "an" : "no") << "Active card";
         } else if (connectedOutputForDesktopStage(target)) {
             // §11, Connected: Bento auto-fill is the layout. The pair grows
             // to hold every open card of the display, as far as it has room.
@@ -7094,6 +7111,14 @@ bool Effect::isNotesSurface(const KWin::EffectWindow *window) const
     return output && window->frameGeometry().toRect() != output->geometry();
 }
 
+bool Effect::isSearchSurface(const KWin::EffectWindow *window)
+{
+    if (!window || !window->window() || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    const QString identity = applicationIdentity(window);
+    return identity.compare(QStringLiteral("io.github.carlsonjm.Tettegouche"), Qt::CaseInsensitive) == 0
+        || identity.compare(QStringLiteral("tettegouche"), Qt::CaseInsensitive) == 0;
+}
+
 // While Spread is up the notes are drawn on the cards instead, so that
 // surface is left undrawn from the frame Spread opens, and through its fade
 // as it goes, rather than once Gooseberry answers the pause: the notes read
@@ -9035,9 +9060,15 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
     // Read before anything returns early, so every activation is counted.
+    const bool spreadShown = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread;
+    const bool toWindowBefore = window && window == m_lastActiveApplication;
     const bool notesKeysBack = m_notesKeysReturn.activated(isNotesSurface(window),
-        m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread,
-        window && window == m_lastActiveApplication);
+        spreadShown, toWindowBefore);
+    // KWin may name no window between Search going and the card it hands
+    // the keys to, which is no activation of anything.
+    const bool searchKeysBack = window
+        && m_searchKeysReturn.activated(isSearchSurface(window), spreadShown, toWindowBefore);
     if (m_holdingDependents) return;
     if (auto *lead = isDependentWindow(window) ? dependentLead(window) : nullptr) {
         if (!dependentShown(lead)) {
@@ -9070,6 +9101,14 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     }
     if (notesKeysBack) {
         qInfo() << "Kadunce" << Revision << "kept Spread as the notes gave the keys back to"
+                << logNameOf(window);
+        return;
+    }
+    // Search closing hands the keys back to the card it opened over. That is
+    // Search going, not a pick of the card, even where Spread never took
+    // Search in as its guest and so has no guest ending to read it from.
+    if (searchKeysBack && !m_cardStage->launcherGuestActive()) {
+        qInfo() << "Kadunce" << Revision << "kept Spread as Search gave the keys back to"
                 << logNameOf(window);
         return;
     }

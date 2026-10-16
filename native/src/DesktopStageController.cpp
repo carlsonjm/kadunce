@@ -59,6 +59,21 @@ bool withinPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
         && frame.x() + frame.width() <= pixel.x + pixel.width + 1.5
         && frame.y() + frame.height() <= pixel.y + pixel.height + 1.5;
 }
+
+// A surface laid over one pane at its size, as Gooseberry's notes are over
+// the window they belong to, covers that pane and nothing beside it, so no
+// divider of the layout is hidden behind it.
+bool liesOverPane(const KWin::EffectWindow *window, const QList<QPointer<KWin::EffectWindow>> &panes)
+{
+    const QRectF frame(window->frameGeometry());
+    return std::any_of(panes.cbegin(), panes.cend(), [&frame](const auto &pane) {
+        if (!pane || pane->isDeleted()) return false;
+        const QRectF place(pane->frameGeometry());
+        return std::abs(frame.x() - place.x()) <= 1.5 && std::abs(frame.y() - place.y()) <= 1.5
+            && std::abs(frame.width() - place.width()) <= 1.5
+            && std::abs(frame.height() - place.height()) <= 1.5;
+    });
+}
 } // namespace
 
 
@@ -2746,13 +2761,20 @@ bool DesktopStageController::resumeProjectedSession(
     const std::function<bool()> &commitSource,
     const std::function<void()> &releaseSource)
 {
-    if (m_restoring || m_interactionWindow || m_railDrag || !projection.output
-        || outputForKey(projection.outputName) != projection.output
-        || sessionForOutput(projection.output)
-        || !m_host->isTabletOutputForDesktopStage(projection.output)
-        || !validBentoProjectionShape(projectionShape(projection))) {
+    // Each refusal says why: a pick or a key that resumes nothing is
+    // otherwise a press that did nothing.
+    const auto refuse = [&projection](const char *why) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                << "in Spread:" << why;
         return false;
-    }
+    };
+    if (m_restoring || m_interactionWindow || m_railDrag)
+        return refuse(m_interactionWindow ? "a pane is being moved or resized" : "busy");
+    if (!projection.output || outputForKey(projection.outputName) != projection.output
+        || !m_host->isTabletOutputForDesktopStage(projection.output))
+        return refuse("its display is gone or no longer holds Spread");
+    if (sessionForOutput(projection.output)) return refuse("the display already shows a layout");
+    if (!validBentoProjectionShape(projectionShape(projection))) return refuse("its shape is not whole");
     Session candidate;
     candidate.outputName = projection.outputName;
     candidate.rects = projection.rects;
@@ -2773,6 +2795,9 @@ bool DesktopStageController::resumeProjectedSession(
             || member.restore.window != member.window->window()
             || member.window->screen() != projection.output
             || member.window->isMinimized() != member.minimized) {
+            qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                    << "in Spread:" << logNameOf(member.window) << "is gone, on another display,"
+                    << "or woke or slept";
             return false;
         }
         if (pane) candidate.windows.append(member.window);
@@ -2799,11 +2824,16 @@ bool DesktopStageController::resumeProjectedSession(
     for (const auto &member : projection.sleeping) {
         if (!member.minimized || !append(member, false)) return false;
     }
-    if (workspaceArea(projection.output) != projection.workspaceArea) return false;
+    if (workspaceArea(projection.output) != projection.workspaceArea) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                << "in Spread: the room for windows changed from" << projection.workspaceArea
+                << "to" << workspaceArea(projection.output);
+        return false;
+    }
     const KWin::Rect area = stageArea(projection.output);
     const auto pixels = makePixelBentoLayout(candidate.rects,
         area.x(), area.y(), area.width(), area.height());
-    if (pixels.size() != std::size_t(candidate.windows.size())) return false;
+    if (pixels.size() != std::size_t(candidate.windows.size())) return refuse("its panes do not fit its places");
     // A pane's client can change its own frame while the group is projected, so
     // requiring every pane to already sit on the layout turned a pixel of drift
     // into a permanent refusal. CARD-LIFECYCLE.md §6 resumes the group whatever
@@ -3210,6 +3240,23 @@ void DesktopStageController::handleWindowMoveResizeStarted(KWin::EffectWindow *w
             qInfo() << "Kadunce" << Revision
                     << "began Bento interaction" << logNameOf(window)
                     << (m_interactionResize ? "rail" : "carry");
+            // KWin resizes a pane by its own edge only where Kadunce drew no
+            // divider to take the press, so say which pane kept it from one.
+            if (m_interactionResize && session.zones.isEmpty()) {
+                if (auto *output = outputForKey(session.outputName)) {
+                    const auto pixels = sessionPixels(session, stageArea(output));
+                    for (int index = 0; index < session.windows.size() && index < int(pixels.size()); ++index) {
+                        const auto &pane = session.windows.at(index);
+                        const auto &place = pixels.at(std::size_t(index));
+                        if (pane && !pane->isDeleted()
+                            && (pane->screen() != output || pane->isMinimized()
+                                || !withinPixel(pane->frameGeometry(), place)))
+                            qInfo() << "Kadunce" << Revision << "drew no divider on" << session.outputName
+                                    << "as" << logNameOf(pane) << "stands at" << pane->frameGeometry()
+                                    << "outside its place" << QRectF(place.x, place.y, place.width, place.height);
+                    }
+                }
+            }
             return;
         }
     }
@@ -3320,6 +3367,7 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
                         auto *w = *it;
                         if (w == session.windows[i] || w == session.windows[j]) break;
                         if (w->isVisible() && !w->isDesktop() && !session.windows.contains(w)
+                            && !liesOverPane(w, session.windows)
                             && QRectF(w->frameGeometry()).intersects(QRectF(center.x()-16,center.y()-16,32,32))) {
                             covered = true; break;
                         }
@@ -3374,6 +3422,7 @@ bool DesktopStageController::beginRail(QPointF position)
             auto *w = *it;
             if (w == session.windows[rail.index]) break;
             if (w->isVisible() && !w->isDesktop() && !session.windows.contains(w)
+                && !liesOverPane(w, session.windows)
                 && QRectF(w->frameGeometry()).contains(position)) { covered = true; break; }
         }
         if (covered) continue;
