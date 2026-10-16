@@ -1112,6 +1112,7 @@ Effect::Effect()
         m_carryDrawn = carriedPose();
         m_carryLanded = false;
         traceNativeMove(m_carriedWindow, "adopted");
+        syncNotesPause();
         takeCarriedDialogs(m_carriedWindow);
         KWin::effects->setElevatedWindow(m_carriedWindow, true);
         // §11, Connected: a pane holding a Stack, held before it is drawn up,
@@ -4655,6 +4656,7 @@ void Effect::endNativeCarryPresentation()
         unredirect(m_carriedWindow);
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
+    syncNotesPause();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     endStackScrub();
@@ -7276,13 +7278,15 @@ void Effect::releaseNotesFromInput(const QPointF &position, bool still)
 void Effect::syncNotesPause()
 {
     // Gooseberry's notes over the windows step aside while Spread covers them,
-    // and come back as it closes, still out.
+    // or while a window is carried, which they cannot follow under the hand,
+    // and come back as it closes or lands, still out.
     if (!m_stuckNotesWatcher || !m_stuckNotesWatcher->present()) {
         m_notesPaused = false;
         return;
     }
-    if (m_notesPaused == m_notesSpreadShown) return;
-    m_notesPaused = m_notesSpreadShown;
+    const bool aside = m_notesSpreadShown || bool(m_carriedWindow);
+    if (m_notesPaused == aside) return;
+    m_notesPaused = aside;
     m_stuckNotesWatcher->pause(m_notesPaused);
 }
 
