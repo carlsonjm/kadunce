@@ -513,12 +513,13 @@ private:
     bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
     void settleSessions();
-    // CARD-LIFECYCLE.md §5: a pane that will not take the rect it was given is
+    // CARD-LIFECYCLE.md §5: a pane that will not fit the rect it was given is
     // a window the layout cannot show, so it leaves for card ownership and the
     // layout keeps the panes that did settle. §13 keeps the native desktop for
     // release and disable, so no settle returns a session to Plasma.
     void shedUnsettledPanes(const QString &key);
-    bool sessionGeometryMatches(const Session &session) const;
+    // Every pane stands on its rect, or with `shortOfPlace` within it.
+    bool sessionGeometryMatches(const Session &session, bool shortOfPlace = false) const;
     void removeWindow(KWin::EffectWindow *window, bool restoreSnapshot);
     bool handoffWindowToOutput(KWin::EffectWindow *window,
                                KWin::LogicalOutput *destination,
@@ -554,6 +555,10 @@ private:
     // a cross-stage transfer. A display that cannot own cards has nowhere for
     // the pane to go, so its session keeps the combination it has.
     void endLayoutIntoCardOwnership(const QString &key);
+    // Whether a layout holding `session` ends into card ownership, as above,
+    // or goes on presenting what it holds: a display holding its own cards and
+    // a placed card's room keep a layout of one, and a sleeping pane keeps it.
+    [[nodiscard]] bool layoutEndsIntoCards(const Session &session) const;
     // CARD-LIFECYCLE.md §5: a layout shows its whole combination or it is not
     // that layout. `probe` is the value the caller is about to ask for,
     // including any arrival it is adding; one solve names what that value

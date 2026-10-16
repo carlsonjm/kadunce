@@ -5,15 +5,16 @@
 # windows, each given KWin's own title bar. The small display's Active card,
 # carried by that title bar and rested on a monitor window, joins the layout
 # as a pane of its own: no window there is taken into a Stack, none is drawn
-# over another, and the small display keeps its other card. Spread then moves
-# to the monitor, as choosing it in Settings does, while the small display
-# shows a card: that card stays there as the small display's own, its waiting
-# card goes with Spread, and the monitor's windows keep their places, with
-# nothing drawn over them. Asked for from the dock, that waiting card opens on
-# the small display, its own, and stays there though it stops short of its
-# place, as a terminal keeping whole rows does. Carried off from there onto
-# the monitor, it leaves the small display the card it showed before, never
-# nothing. Every check is reported, so a failure does not hide the rest.
+# over another, the window it rested on stays in the layout though it stops
+# short of its new pane, and the small display keeps its other card. Spread
+# then moves to the monitor, as choosing it in Settings does, while the small
+# display shows a card: that card stays there as the small display's own, its
+# waiting card goes with Spread, and the monitor's windows keep their places,
+# with nothing drawn over them. Asked for from the dock, that waiting card
+# opens on the small display, its own, and stays there though it stops short
+# of its place, as a terminal keeping whole rows does. Carried off from there
+# onto the monitor, it leaves the small display the card it showed before,
+# never nothing. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -73,6 +74,13 @@ apart() {
 frames_of() {
     probe windowFacts | jq -c --arg a "$1" --arg b "$2" --arg c "$3" \
         '[.[] | select(.id == $a or .id == $b or .id == $c) | {id, x, y, width, height}]'
+}
+# The first window stands shorter than the second, by more than a pixel's rounding.
+shorter() {
+    local a b
+    a=$(probe windowGeometry "$1" | jq '.height | floor') || return 1
+    b=$(probe windowGeometry "$2" | jq '.height | floor') || return 1
+    (( a < b - 12 ))
 }
 # Each window still stands where it stood, to a few pixels.
 stand_as() {
@@ -143,6 +151,9 @@ check 'start: the small display shows its own card' keeps_own "$ta"
 check 'start: its other card waits in Spread' waits_for "$tb" ''
 
 # The small display's card, carried by its title bar onto a monitor window.
+# The window it rests on keeps whole rows, as a terminal does, so it stops
+# short of the pane the layout of three gives it.
+client companionRows 'Mon B' 48
 title_carry "$ta" "$mb"
 report carried
 check 'carry: resting on a monitor window aims at no Stack' \
@@ -155,6 +166,8 @@ check 'carry: no window holds another as a Stack' no_stack
 check 'carry: no window on the monitor stands over another' apart Virtual-1
 check 'carry: the small display still holds its other card' \
     context --arg id "$tb" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .output == "Virtual-0"'
+check 'carry: the window short of its pane stays in the layout, short of it' shorter "$mb" "$ma"
+client companionRows 'Mon B' 0
 
 # A new card on the small display, in front, with the other waiting behind.
 probe pointer 640 360 >/dev/null
