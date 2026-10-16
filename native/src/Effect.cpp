@@ -4503,6 +4503,29 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     if (m_carryRuntime && window->window()) m_carryRuntime->observer.watch(window->window());
 }
 
+QStringList Effect::namesBehindInSpread(int cardId) const
+{
+    QStringList names;
+    const auto &cards = m_cardStage->liveCards();
+    const auto order = m_cardStage->model().stackPaintOrderForId(cardId);
+    // Painted farthest first, the face last.
+    for (auto id = order.crbegin(); id != order.crend(); ++id) {
+        if (id == order.crbegin()) continue;
+        KWin::EffectWindow *card = *id >= 1 && *id <= cards.size() ? cards.at(*id - 1).data() : nullptr;
+        if (card && !card->isDeleted()) names.append(applicationDisplayName(card));
+    }
+    return names;
+}
+
+QString Effect::spreadCardName(KWin::EffectWindow *window, int cardId) const
+{
+    const QStringList behind = namesBehindInSpread(cardId);
+    if (!behind.isEmpty()) return stackedApplicationName(applicationDisplayName(window), behind);
+    QStringList partners;
+    for (auto *pane : m_cardStage->layoutPartners(window)) partners.append(applicationDisplayName(pane));
+    return pairedApplicationName(applicationDisplayName(window), partners);
+}
+
 QString Effect::applicationDisplayName(KWin::EffectWindow *window) const
 {
     if (!window) return {};
@@ -5970,14 +5993,11 @@ QJsonValue Effect::spreadEntryContext() const
     const int id = model.count() > 0 ? model.idAtOffset(0) : 0;
     KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
     if (!window || window->isDeleted()) return QJsonValue(QJsonValue::Null);
-    // A pane's card names the panes it shares its layout with.
-    QStringList partners;
-    for (auto *pane : m_cardStage->layoutPartners(window)) partners.append(applicationDisplayName(pane));
     const int size = std::max(1, model.stackSizeForId(id));
     return QJsonObject{
         {QStringLiteral("cardId"), window->internalId().toString(QUuid::WithoutBraces)},
-        {QStringLiteral("name"), pairedApplicationName(applicationDisplayName(window), partners)},
-        {QStringLiteral("bento"), !partners.isEmpty()},
+        {QStringLiteral("name"), spreadCardName(window, id)},
+        {QStringLiteral("bento"), !m_cardStage->layoutPartners(window).isEmpty()},
         {QStringLiteral("stackPosition"), size > 1 ? m_cardStage->shownStackPosition(id) + 1 : 1},
         {QStringLiteral("stackSize"), size},
         {QStringLiteral("sleeping"), window->isMinimized()},
@@ -5995,7 +6015,7 @@ QString Effect::contextLineSignature() const
         if (window && !window->isDeleted()) {
             signature = QStringLiteral("%1 %2 %3 %4 %5").arg(id)
                 .arg(m_cardStage->shownStackPosition(id)).arg(model.stackSizeForId(id))
-                .arg(window->isMinimized()).arg(m_cardStage->layoutPartners(window).size());
+                .arg(window->isMinimized()).arg(spreadCardName(window, id));
         }
     }
     signature += QLatin1Char('\n');
@@ -6968,6 +6988,7 @@ QString Effect::spreadLine()
             entry.sleeping = window->isMinimized();
             for (auto *pane : m_cardStage->layoutPartners(window))
                 entry.pairedWith.append(applicationDisplayName(pane));
+            entry.behind = namesBehindInSpread(id);
         }
         entries.append(entry);
     }
@@ -8730,10 +8751,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             const int cardId = index + 1;
             if (model.stackPositionForId(cardId)
                 != model.stackActivePositionForId(cardId)) continue;
-            QStringList partners;
-            for (auto *pane : m_cardStage->layoutPartners(window))
-                partners.append(applicationDisplayName(pane));
-            const QString applicationName = pairedApplicationName(applicationDisplayName(window), partners);
+            const QString applicationName = spreadCardName(window, cardId);
             const int count = model.stackSizeForId(cardId);
             const auto target = m_cardLabelTargets.constFind(window);
             if (target == m_cardLabelTargets.cend()) continue;

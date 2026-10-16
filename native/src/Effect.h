@@ -262,6 +262,11 @@ private:
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
+    // The cards Spread shows behind a Stack's face, nearest first.
+    [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
+    // A card's name in Spread: a Stack names the cards behind its face, a
+    // pane alone the panes beside it.
+    [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
