@@ -147,6 +147,23 @@ public:
   return false;
  }
 };
+// Keeps whole rows, as a terminal does: given a height, the window it watches
+// takes the most whole rows that fit and stops short of the rest.
+class KeepsRows : public QObject {
+public:
+ KeepsRows(QWidget *w, int row) : QObject(w), m_row(row) { setObjectName("rows"); w->installEventFilter(this); }
+ bool eventFilter(QObject *watched, QEvent *e) override {
+  if (e->type()!=QEvent::Resize) return false;
+  auto *w = static_cast<QWidget *>(watched);
+  QTimer::singleShot(0, this, [w, row = m_row] {
+   const int whole = w->height() - w->height() % row;
+   if (whole > 0 && whole != w->height()) w->resize(w->width(), whole);
+  });
+  return false;
+ }
+private:
+ int m_row;
+};
 class Client : public QWidget {
  Q_OBJECT
 public:
@@ -219,12 +236,14 @@ public Q_SLOTS:
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) w->setMinimumSize(width, height);
  }
- // A client that stops short of the size it is given, as a terminal keeping
- // whole rows does. Zero leaves that side unbounded.
- void companionMaximumSize(const QString &title, int width, int height) {
+ // A client that keeps whole rows of the height given, as a terminal does, so
+ // it stops short of the size it is given. Zero takes every size again.
+ void companionRows(const QString &title, int row) {
   for (auto *w : QApplication::topLevelWidgets())
-   if (w->isWindow() && w->windowTitle().contains(title))
-    w->setMaximumSize(width > 0 ? width : QWIDGETSIZE_MAX, height > 0 ? height : QWIDGETSIZE_MAX);
+   if (w->isWindow() && w->windowTitle().contains(title)) {
+    delete w->findChild<QObject *>("rows", Qt::FindDirectChildrenOnly);
+    if (row > 0) new KeepsRows(w, row);
+   }
  }
  // A window whose only text field sits at its bottom edge, focused, so the
  // text cursor it reports is where a keyboard raised from below arrives first.

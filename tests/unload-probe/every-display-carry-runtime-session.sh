@@ -186,9 +186,7 @@ check 'move: no window holds another as a Stack' no_stack
 # a terminal keeping whole rows, it stops short of its place there, and it
 # stays: alone on that display it overlaps nothing.
 place=$(probe windowGeometry "$tc" | jq '.height | floor')
-client companionMinimumSize 'Tab B' 500 200
-client companionMaximumSize 'Tab B' 0 "$((place - 24))"
-sleep .4
+client companionRows 'Tab B' 48
 probe activateWindowId "$tb" >/dev/null
 sleep 1.4
 report dock
@@ -201,9 +199,7 @@ report dock-settled
 check 'dock: the card stops short of its place' \
     bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry '$tb' | jq -e --argjson p '$place' '.height < \$p - 12'"
 check 'dock: and still stands on the small display once it has settled' shown_on "$tb" Virtual-0
-client companionMaximumSize 'Tab B' 0 0
-client companionMinimumSize 'Tab B' 500 400
-sleep .4
+client companionRows 'Tab B' 0
 
 # Carried off by its title bar onto the monitor, the small display's card is
 # the monitor's own, and the small display shows the card it showed before.
