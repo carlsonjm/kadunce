@@ -24,8 +24,8 @@ Every eligible application window has exactly one owner:
 3. **Bento pane**
 
    - Kadunce owns the window as part of the display's visible Bento.
-   - In Spread it appears inside the Bento group card (§11, A layout in
-     Spread).
+   - In Spread it is a card of its own, beside the layout's other panes
+     (§6, Spread order).
 
 A window is never an individual card and a Bento pane at once.
 
@@ -48,9 +48,7 @@ Spread shows:
 
 - Every individual card
 - Every ordinary card stack
-- The display's Bento group, if Bento exists
-
-The Bento group is one Spread entry, whatever its pane count.
+- Each pane of the display's Bento layout, as a card of its own
 
 ### Sleeping
 
@@ -62,8 +60,8 @@ presents it as Active.
 ### Desktop
 
 The display that owns cards shows the ordinary desktop, with the window you
-returned to it at its bottom edge (§10) or by maximizing it. Every card and the
-Bento group stay owned, held aside out of sight and reach. Spread brings them
+returned to it at its bottom edge (§10) or by maximizing it. Every card and
+pane stay owned, held aside out of sight and reach. Spread brings them
 back, and going back returns here; choosing a card or opening an application
 presents one again, and asking for a returned window shows the desktop again.
 
@@ -192,7 +190,7 @@ The partner is the card Kadunce pairs with the carried window. It must be:
 - Owned as an individual card
 - Not sleeping
 
-The carried window, the Bento group, a live pane and a native window are never
+The carried window, a pane's card, a live pane and a native window are never
 partners.
 
 The Active card is a partner whether it stands alone in the Spread or is the
@@ -242,7 +240,7 @@ desktop, from an individual card, or is itself the Active card.
 
 The window becomes an independent Spread card when it is:
 
-- Taken out by you, at the top edge or from the group in Spread
+- Taken out by you, at the top edge or by a pull down on its card in Spread
 - Minimized
 - Displaced by a new pane combination
 - Removed because it no longer fits
@@ -269,7 +267,7 @@ A display with a live Bento layout does not begin a new pair. A left or right
 snap targets that layout.
 
 An individual card returns to a live Bento through an explicit left/right-edge
-action, by the user calling it forward, or by a drop on its group in Spread.
+action, or by the user calling it forward.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
 Where the return was a side release, the pane that yields is the one occupying
@@ -279,17 +277,13 @@ history decides it.
 A card called forward releases into no side, so §8 decides which pane yields.
 Every display answers a call forward; not every display offers the side gesture.
 
-In Spread, the group's pane under a held card gives way to a cutout and the
-card slides under it; let go, the card takes that pane's place, size and side,
-the layout opens, and the pane becomes a card just after the group (§9). A pane
-too small for the card does not give way.
-
 ## 6. Spread selection
 
 ### Spread order
 
 The Spread has one order. Its entries are individual cards, ordinary stacks and
-the display's Bento group. The row that shows it has two ends, and moving along
+the cards of the display's Bento panes, which stand side by side in the
+layout's order, left to right, until you move one. The row that shows it has two ends, and moving along
 it stops at them. When the card used before the Active card cannot pair, that
 order names a Bento partner, the search wrapping and stepping over entries until
 back where it started.
@@ -302,9 +296,11 @@ on, are presentation, deciding neither the partner nor a pane's side.
 That card becomes Active (§11, A picked card or new window). Everything
 else stays owned and hidden; no window returns to the native desktop.
 
-### Selecting the Bento group
+### Selecting a pane's card
 
-Only the Bento group resumes. Individual cards stay owned, hidden and out of it.
+Its layout resumes, that pane in use. A Stack holding a pane's card fills
+that pane with its front card, the rest behind. Individual cards stay owned,
+hidden and out of it.
 
 ### Returning to Spread
 
@@ -312,7 +308,7 @@ The same peer entries return:
 
 - Independent cards remain independent.
 - Ordinary stacks preserve their membership.
-- Bento returns as one grouped entry (§11, A layout in Spread).
+- Bento returns as its panes' cards, side by side.
 - Selection remains on the most recently presented entry.
 
 ## 7. Minimize behavior
@@ -391,20 +387,12 @@ A stack:
 - Takes no arrival from the native desktop: a carried window becomes a card
   under §8, and joining a stack is a separate act
 
-A Bento group:
-
-- Is not an ordinary stack
-- Cannot page its pane members
-- Cannot be inserted into another stack
-- Cannot retain removed panes
-
 ### Releasing a member
 
 A released member becomes an individual card just after the stack, which keeps
 its place, its order and the selection; a released front card gives way to its
 nearest neighbour. A release that does not complete leaves the stack unchanged.
-A Bento group gives up a pane the same way, and is never closed whole from
-Spread.
+A pane's card leaves its layout the same way.
 
 ### Reordering a member
 
@@ -467,7 +455,6 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 | Behavior | Solo | Connected |
 | --- | --- | --- |
-| A layout in Spread | One Bento group card | Each pane its own card |
 | A picked card or new window | Becomes Active (§6, §8) | Joins the layout: paired with the card in use when none shows, else under §8, filling open room, else joining the shortest column or starting one, whichever keeps panes larger |
 | A side snap | Takes its half's share (§3) | Names a place: an edge's upper half beside, a full-height column; its lower half under, at that column's foot; alone, it keeps that place |
 | A dock launch | Opens Active | Names a place, as a side snap does |

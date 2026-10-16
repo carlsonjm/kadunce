@@ -59,9 +59,9 @@ test "$(probe windowMinimized "$sleeper")" = false
 kad outputStageState | rg '^Virtual-0\|tablet\|.*\|0$'
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .bentoActive)] | length == 0'
 echo 'PASS: waking the sleeping card does not put it back into Bento'
-# Spread 2.0: in Spread the layout is one group card. A flick up on it closes
-# nothing; a pane pulled down out of it leaves the group, and a group down to
-# one pane ends, so both panes are cards.
+# In Spread each pane is a card of its own, side by side. A pane's card pulled
+# down leaves the layout, and a layout down to one pane ends, so both panes
+# are cards.
 kad showActive
 sleep .4
 # The card that ended the layout grew into the Active card's place.
@@ -72,21 +72,13 @@ sleep .8
 kad outputStageState | rg '^Virtual-0\|tablet\|.*\|2$'
 kad showCardLine
 sleep .8
-read -r gx gy gw gh < <(kad workspaceContext | jq -r '[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect
+kad workspaceContext | jq -e '([.applications[] | select(.hasCard and .stackSize == 1)] | length == 2)
+    and ([.applications[] | select(.hasCard) | .entry] | sort | .[1] - .[0] == 1)'
+echo 'PASS: in Spread each pane of the pair is a card of its own, side by side'
+read -r gx gy gw gh < <(kad workspaceContext | jq -r 'first(.applications[] | select(.selected and .spreadRect)) | .spreadRect
     | "\(.x | floor) \(.y | floor) \(.width | floor) \(.height | floor)"')
-x=$((gx + gw * 3 / 4))
+x=$((gx + gw / 2))
 y=$((gy + gh / 2))
-probe down 70 "$x" "$y"
-sleep .05
-probe motion 70 "$x" "$((y - 12))"
-sleep .02
-probe motion 70 "$x" "$((y - 200))"
-probe up 70
-sleep 1
-test "$(probe windowMinimized "$sleeper")" = false
-test "$(probe windowMinimized "$survivor")" = false
-kad workspaceContext | jq -e '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
-echo 'PASS: a flick up on the Bento group in Spread closes nothing'
 probe down 71 "$x" "$y"
 sleep .1
 probe motion 71 "$x" "$((y + 12))"
@@ -97,13 +89,13 @@ sleep 1
 kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"
     and ([.applications[] | select(.hasCard)] | length == 2 and all(.stackSize == 1))'
 kad workspaceContext | jq -e '[.displayContext.displays[] | select(.name == "Virtual-0" and .bentoActive)] | length == 0'
-echo 'PASS: a pane pulled down out of the Bento group leaves it, and both panes are cards'
+echo 'PASS: a pane'"'"'s card pulled down leaves its layout, and both panes are cards'
 # §3: each stands in the Active card's place again, so its card in Spread
 # shows the whole window rather than a pane's strip between bands of backing.
 echo "after the pull: $(probe windowGeometry "$sleeper" | jq -c .) $(probe windowGeometry "$survivor" | jq -c .)"
 test "$(probe windowGeometry "$sleeper" | jq -c .)" = "$place"
 test "$(probe windowGeometry "$survivor" | jq -c .)" = "$place"
-echo 'PASS: both panes pulled out of the group stand in the Active card'"'"'s place'
+echo 'PASS: both panes out of the layout stand in the Active card'"'"'s place'
 # §8 with no card owned: the Bento action pairs the two cards again, so the
 # layout holds every window and the display owns no card. A new window takes
 # a pane; the pane that yields becomes a card behind the layout, standing in

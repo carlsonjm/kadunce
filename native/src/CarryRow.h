@@ -60,15 +60,6 @@ inline constexpr double CarryHeldRise = 1.05;
 // off than that.
 inline constexpr double CarryJoinReach = 0.32;
 inline constexpr double CarryJoinKeep = 1.3;
-// Over a Bento group the held card names the pane under the finger, so the
-// group is reached across nearly its whole width, and kept no further off
-// than its own edge.
-inline constexpr double CarryGroupReach = 0.45;
-inline constexpr double CarryGroupKeep = 0.5;
-// Once named, a pane stays named until the finger is this fraction of the
-// pane's width beyond it, so a finger resting at the divider, or a little way
-// onto a pane too small for the card, keeps the pane it had.
-inline constexpr double CarryPaneKeep = 0.25;
 inline constexpr int CarryJoinDwell = 250;
 // That rest as the pause before stacking a person has set stretches it
 // (CardTuning.h), at its own share of the pause.
@@ -123,12 +114,9 @@ inline double carryZoomLevel(int entries, double pitch, double cardWidth, double
 }
 
 // Whether a card pulled `pull` logical pixels below where it was picked up
-// holds the row zoomed out, given whether it did. Resting on a Bento group,
-// where the card is drawn tucked under a pane rather than at the finger, the
-// row keeps the zoom it has.
-inline bool carryZoomed(bool zoomed, double pull, bool resting = false)
+// holds the row zoomed out, given whether it did.
+inline bool carryZoomed(bool zoomed, double pull)
 {
-    if (resting) return zoomed;
     return zoomed ? pull > CarryZoomRelease : pull > CarryZoomEngage;
 }
 
@@ -217,8 +205,6 @@ struct CarryAim {
     Kind kind = Kind::Gap;
     // The gap before item `index`, or the item under the card.
     int index = 0;
-    // Over a Bento group, the pane under the finger; otherwise -1.
-    int part = -1;
     bool operator==(const CarryAim &other) const = default;
 };
 
@@ -264,58 +250,15 @@ inline CarryAim carryAim(double centre, const std::vector<double> &positions, do
     return carryAim(centre, positions, cardWidth, reach, low, high);
 }
 
-// How far the point (x, y) stands outside `rect`, nothing inside it.
-inline double carryDistanceTo(const CardRect &rect, double x, double y)
-{
-    const double dx = std::max({rect.x - x, 0.0, x - rect.right()});
-    const double dy = std::max({rect.y - y, 0.0, y - rect.bottom()});
-    return std::hypot(dx, dy);
-}
-
-// The pane of a Bento group, drawn at `panes`, that a held card with the
-// finger at (x, y) would take: the pane under the finger, or nearest it, or
-// none (-1) when that pane cannot hold the card (`holds`). The pane `kept`,
-// named before, stays named while the finger is within `CarryPaneKeep` of
-// its width of it.
-inline int carryGroupPart(const std::vector<CardRect> &panes, const std::vector<bool> &holds,
-                          double x, double y, int kept)
-{
-    const int count = static_cast<int>(std::min(panes.size(), holds.size()));
-    const auto drawn = [&panes](int k) {
-        const auto &pane = panes[static_cast<std::size_t>(k)];
-        return pane.width > 0.0 && pane.height > 0.0;
-    };
-    if (kept >= 0 && kept < count && drawn(kept) && holds[static_cast<std::size_t>(kept)]
-        && carryDistanceTo(panes[static_cast<std::size_t>(kept)], x, y)
-            <= CarryPaneKeep * panes[static_cast<std::size_t>(kept)].width)
-        return kept;
-    int nearest = -1;
-    double distance = 0.0;
-    for (int k = 0; k < count; ++k) {
-        if (!drawn(k)) continue;
-        const double d = carryDistanceTo(panes[static_cast<std::size_t>(k)], x, y);
-        if (nearest < 0 || d < distance) {
-            nearest = k;
-            distance = d;
-        }
-    }
-    return nearest >= 0 && holds[static_cast<std::size_t>(nearest)] ? nearest : -1;
-}
-
 // The aim a held card has once it has been over `next` for `waited`
 // milliseconds, given the aim it had and the gap standing open. Resting on a
 // card joins it, and passing over one does nothing. The gap already open
 // answers at once and a new one waits a moment, which a card would leave
-// for at once. A pane it would take is the exception: while the card is still
-// within the group's keep (`onGroup`), it lets the pane go only once it has
-// rested off it as long as it rested to take it.
-inline CarryAim carryAimStep(const CarryAim &aim, const CarryAim &next, long long waited, int gap,
-                             bool onGroup)
+// for at once.
+inline CarryAim carryAimStep(const CarryAim &aim, const CarryAim &next, long long waited, int gap)
 {
     if (next == aim) return aim;
     if (next.kind == CarryAim::Kind::Card) return waited < carryJoinDwell() ? aim : next;
-    if (aim.kind == CarryAim::Kind::Card && aim.part >= 0 && onGroup)
-        return waited < carryJoinDwell() ? aim : next;
     if (next.index != gap && waited < CarryGapDwell)
         return aim.kind == CarryAim::Kind::Card ? CarryAim{CarryAim::Kind::Gap, gap} : aim;
     return next;

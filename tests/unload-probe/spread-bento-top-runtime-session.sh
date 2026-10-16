@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # INPUT.md § Active card and CARD-LIFECYCLE.md §6 on the display that can own
-# cards: a Bento pair chosen in Spread opens as its layout, and a pane of it
+# cards: a Bento pair stands in Spread as two cards side by side, the chosen
+# one naming its partner; either chosen opens the layout, and a pane of it
 # dragged by its title bar to the top edge leaves the layout as the Active
 # card. A layout resumed from Spread is a placed one, so its panes carry as
 # they do when the layout is first made: with no other card, beside a sleeping
@@ -100,40 +101,49 @@ for pass in alone sleeper closed; do
         check "$pass: the sleeping window is a card, asleep" \
             context --arg id "$sleeper" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .minimized'
     fi
-    # The layout shrinks into its group card in the row, from the screen it
-    # filled, rather than cutting to Spread.
+    # The pane in use shrinks into its own card in the row, from the screen
+    # it filled, rather than cutting to Spread.
     kad showCardLine
-    # The group is the selected entry, so the drawn selected card is it.
     shrink=()
     for sample in {1..6}; do shrink+=("$(kad nativeCarryState | jq '.lineRect.width')"); done
     sleep .9
     rest=$(kad nativeCarryState | jq '.lineRect.width')
-    echo "state $pass-shrink group card widths ${shrink[*]} at rest $rest"
-    check "$pass: the layout shrinks into its group card" \
+    echo "state $pass-shrink card widths ${shrink[*]} at rest $rest"
+    check "$pass: the pane in use shrinks into its card" \
         jq -se --argjson r "$rest" '$r > 0 and (map(select(. > $r)) | length > 0)' < <(printf '%s\n' "${shrink[@]}")
     report "$pass-spread"
-    check "$pass: Spread shows the pair as one group" context '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'
+    # Each pane is a card of its own, side by side in the layout's order: the
+    # card carried to the left edge stands just before its partner.
+    check "$pass: each pane is a card of its own" context --arg m "$main" --arg n "$neighbour" \
+        '[.applications[] | select((.windowId == $m or .windowId == $n) and .hasCard and .stackSize == 1)] | length == 2'
+    check "$pass: the pair stands side by side, left pane first" context --arg m "$main" --arg n "$neighbour" \
+        '(first(.applications[] | select(.windowId == $m)) | .entry) + 1 == (first(.applications[] | select(.windowId == $n)) | .entry)'
+    check "$pass: the chosen card names its partner" context \
+        '.cardStage.spreadEntry.bento and (.cardStage.spreadEntry.name | test("paired with"))'
 
-    # A tap on the group opens it as its layout.
-    read -r gx gy < <(kad workspaceContext | jq -r '[.applications[] | select(.hasCard and .stackSize == 2 and .spreadRect)][0].spreadRect
+    # A tap on the chosen pane's card opens the layout on it.
+    read -r gx gy < <(kad workspaceContext | jq -r 'first(.applications[] | select(.selected and .spreadRect)) | .spreadRect
         | "\(.x + .width / 2 | floor) \(.y + .height / 2 | floor)"')
     probe down "$touch" "$gx" "$gy"
     sleep .08
     probe up "$touch"
-    # Each pane grows from where the group card drew it, smaller than its
-    # place in the layout, rather than appearing there at once.
+    # Each pane grows from where its card was drawn, smaller than its place
+    # in the layout, rather than appearing there at once. A narrow pane's card
+    # can be wider than the pane, so it is the area that grows.
     growth=()
     for sample in {1..12}; do
-        growth+=("$(kad nativeCarryState | jq -c --arg id "$main" \
-            '[.bentoMotion[] | select(.window == $id)][0] // empty | {started, rect, target}')")
+        growth+=("$(kad nativeCarryState | jq -c \
+            '.bentoMotion[] | {started, rect, target}')")
         sleep .02
     done
-    printf '%s\n' "${growth[@]}" | grep . | sed "s/^/$pass: growth /"
-    check "$pass: a pane grows from the group card into the layout" \
-        jq -se 'map(select(.rect.width < .target.width)) | length > 0' < <(printf '%s\n' "${growth[@]}" | grep .)
+    printf '%s\n' "${growth[@]}" | grep . | sed "s/^/state $pass-growth /"
+    check "$pass: a pane grows from its card into the layout" \
+        jq -se 'map(select(.rect.width * .rect.height < .target.width * .target.height)) | length > 0' \
+        < <(printf '%s\n' "${growth[@]}" | grep .)
     sleep 1.2
     report "$pass-opened"
-    check "$pass: the tap opens the layout" context '.desktopStage.active and ([.applications[] | select(.hasCard and .stackSize == 2)] | length == 0)'
+    check "$pass: the tap opens the layout" context --arg m "$main" --arg n "$neighbour" \
+        '.desktopStage.active and ([.applications[] | select((.windowId == $m or .windowId == $n) and .hasCard)] | length == 0)'
 
     if [[ $pass == closed ]]; then
         # The sleeping card closes while the layout is shown; the layout stays.

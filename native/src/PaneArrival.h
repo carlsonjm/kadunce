@@ -5,8 +5,8 @@
 
 namespace Kadunce {
 
-// A card let go on a pane of the Bento group grows into that pane from where
-// it was let go (CARD-LIFECYCLE.md §5). Its client draws the pane's size a
+// A card carried into a pane grows into that pane from where it was let go
+// (CARD-LIFECYCLE.md §5). Its client draws the pane's size a
 // little after KWin asks for it, so the card first waits where it was let go
 // until the client's frame has the pane's shape, or for `PaneArrivalWaitCap`
 // milliseconds at most, and then moves the whole way in

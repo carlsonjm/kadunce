@@ -65,9 +65,9 @@ must reject unknown major versions instead of guessing at fields.
   opens and as it closes.
 - `cardStage.spreadEntry`: in Spread, the entry it has chosen, the one in the
   middle; otherwise `null`. It has the card's `cardId`, the `name` Spread
-  writes under it (the panes' names joined by ` · ` for a Bento group),
-  `bento`, its Stack's `stackPosition` and `stackSize` (1-based, `1` of `1`
-  for a lone card or a Bento group; while a card is held in its own Stack, the
+  writes under it (for a pane's card, its application then `paired with` the
+  panes beside it), `bento` (whether it is a pane's card), its Stack's
+  `stackPosition` and `stackSize` (1-based, `1` of `1` for a lone card; while a card is held in its own Stack, the
   place it will land in), and whether it is `sleeping`.
 - `notice`: what Kadunce is saying for a moment, or `null`: `kind` is
   `refused` for a gesture that sprang back, `zones` for the monitors' zones
@@ -311,4 +311,4 @@ Nothing comes up over the card itself. Holding a note carries it to another
 card (`INPUT.md` § Spread).
 This takes up Gooseberry's requests for a card's notes on its corner in Spread
 and for carrying a note between cards. Spread never moves or resizes a window
-for a note, and the Bento group and the Active card show none.
+for a note, and the Active card shows none.

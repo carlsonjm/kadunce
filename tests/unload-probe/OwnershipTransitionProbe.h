@@ -53,7 +53,7 @@ struct OwnershipTransitionProbe {
             lastRetiredProjection = windows;
             projectionStateClearedAtRetirement = std::all_of(
                 windows.cbegin(), windows.cend(), [this](const auto &window) {
-                    return !cards.usesBentoProjectionAperture(window);
+                    return !cards.inProjectedLayout(window);
                 });
         };
         QList<KWin::EffectWindow *> windows;
@@ -202,9 +202,9 @@ struct OwnershipTransitionProbe {
             if (area > largest) { largest = area; expectedLead = w; }
         }
         // §5 already gave the displaced pane to card ownership, so the card
-        // stage holds individual cards before the group card arrives. Each is
-        // ungrouped, so its entry count and live-card count agree, and the
-        // projection must add exactly one entry on top of them.
+        // stage holds individual cards before the layout's cards arrive. Each
+        // is ungrouped, so its entry count and live-card count agree, and the
+        // projection adds one entry per member, each a card of its own.
         const int individualsBefore = cards.model().count();
         if (cards.liveCards().size() != individualsBefore)
             return fail("Displaced panes did not reach card ownership as ungrouped cards");
@@ -228,7 +228,8 @@ struct OwnershipTransitionProbe {
         if (desktop.hasSessionOnOutput(tablet->name()) || !desktop.hasSessionOnOutput(monitor->name())
             || monitorWindow->window()->moveResizeGeometry() != monitorTile)
             return fail("Projection retained duplicate owner or changed monitor");
-        if (cards.model().count() != individualsBefore + 1
+        if (cards.model().count() != individualsBefore + transferred.panes.size()
+                + transferred.sleeping.size()
             || cards.liveCards().size() != individualsBefore + transferred.panes.size()
                 + transferred.sleeping.size()
             || cards.selectedWindow() != transferred.lead
@@ -244,7 +245,7 @@ struct OwnershipTransitionProbe {
         currentProjectionWindows.clear();
         for (const auto &saved : members) {
             currentProjectionWindows.append(saved.window);
-            if (!cards.usesBentoProjectionAperture(saved.window))
+            if (!cards.inProjectedLayout(saved.window))
                 return fail("Projection member lost Bento presentation provenance");
             const auto retained = cards.managedRestore(saved.window);
             if (!retained || retained->geometry != saved.restore.geometry
@@ -283,7 +284,7 @@ struct OwnershipTransitionProbe {
         cards.pageStack(1);
         cards.pageStack(-1);
         if (cards.selectedWindow() != selectedBeforeBrowse)
-            return fail("Bento group allowed member paging");
+            return fail("A pane's card paged as a Stack");
         return true;
     }
     bool ordinaryNeighbor() {
@@ -293,13 +294,13 @@ struct OwnershipTransitionProbe {
             return fail("Ordinary Spread neighbor missing/wrong output");
         origins.append({ordinary, ordinary->window()->moveResizeGeometry()});
         if (!cards.handleWindowAdded(ordinary) || cards.model().count() != entriesWithGroup + 1)
-            return fail("Ordinary neighbor did not coexist with Bento group card");
+            return fail("Ordinary neighbor did not coexist with the layout's cards");
         if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(-1);
         if (cards.selectedWindow() != projectedLead) cards.pageHorizontal(1);
         if (cards.selectedWindow() != projectedLead
             || cards.visibleSlot(ordinary) == 0
             || cards.visibleSlot(projectedLead) != 0)
-            return fail("Bento group did not remain one ordinary Spread neighbor");
+            return fail("The layout's lead card did not stay centred beside the ordinary neighbor");
         const auto ordinaryRestore = cards.managedRestore(ordinary);
         if (!ordinaryRestore) return fail("Ordinary neighbor lost its Spread restore");
         const int retirementCount = projectionRetirements;
@@ -314,9 +315,9 @@ struct OwnershipTransitionProbe {
             || projectionRetirements != retirementCount
             || std::any_of(currentProjectionWindows.cbegin(), currentProjectionWindows.cend(),
                 [this](const auto &window) {
-                    return !cards.usesBentoProjectionAperture(window);
+                    return !cards.inProjectedLayout(window);
                 }))
-            return fail("Rejected exact resume mutated group or ordinary neighbor ownership");
+            return fail("Rejected exact resume mutated the layout or ordinary neighbor ownership");
         cardHost.projectionResume = [this](const auto &projection,
             const auto &commit, const auto &release) {
             return desktop.resumeProjectedSession(projection, commit, release);
@@ -408,7 +409,7 @@ struct OwnershipTransitionProbe {
                 continue;
             }
             if (!desktop.ownsWindow(w)) return fail("Return dropped an owned member");
-            if (cards.usesBentoProjectionAperture(w))
+            if (cards.inProjectedLayout(w))
                 return fail("Released Spread retained projected presentation provenance");
         }
         return true;

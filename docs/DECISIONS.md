@@ -177,9 +177,8 @@ person cannot see is one they will look for elsewhere, and a retained associatio
 would have to be reconciled on every minimize and every displacement. A window
 §7 puts to sleep leaves as a sleeping card; only where no display can own a card
 does the session keep it, because dropping it would lose the record release
-needs. The group is one Spread entry, and neither it nor a window inside it
-passes the partner test, so a new layout cannot begin by taking a pane from the
-live one.
+needs. No pane's card passes the partner test, so a new layout cannot begin by
+taking a pane from the live one.
 
 ### The tablet keeps two panes; the three-pane grammar stays dormant
 
@@ -194,7 +193,7 @@ no display reaches; raising it reopens them and owes the retired
 Card Stage owns individual cards and Desktop Stage the display's Bento panes at
 the same time, and neither releases the other's windows. Rejected: alternate
 whole-display owners, under which starting Bento released every card to Plasma
-and resuming a group restored its Spread neighbours, which made §6's
+and resuming a layout restored its Spread neighbours, which made §6's
 "individual cards remain independently owned and hidden" unimplementable. A
 third card presentation names what Card Stage does while panes are on screen;
 it is presentation, not ownership, so there are still three owners and six
@@ -448,13 +447,14 @@ adding a service solely to preserve membership across unload.
 
 ## Rendering and output
 
-### Bento projects as one reversible group card
+### Every pane is its own card in Spread
 
-A layout in Spread is one ordinary card slot showing its live panes in place
-(`CARD-LIFECYCLE.md` §2, §9), and choosing it resumes the same session without a
-solve, so you get back exactly what you left. The stored pane rects stay
-authoritative: a pane whose own client moved it meanwhile is placed back on its
-rect rather than refusing the resume and leaving the group unopenable.
+On every display a layout in Spread is its panes' cards, side by side in the
+layout's order until you move one, and the context line names the panes each
+shares its layout with (`CARD-LIFECYCLE.md` §2, §6). Choosing one resumes the
+same session without a solve; a pane its own client moved meanwhile is placed
+back on its stored rect. Rejected: one group card for a Solo display's pair,
+the one place a window was not its own card, with gestures of its own.
 
 ### Sessions are output-local
 
@@ -567,8 +567,7 @@ plain-window rule as the one-step way back.
 ### A big display plays cards into its layout
 
 A display with room for more than two panes is Connected
-(`CARD-LIFECYCLE.md` §11): a picked card joins what is open, and each pane stays
-its own card, since one group card hides many panes. Full, the pane used
+(`CARD-LIFECYCLE.md` §11): a picked card joins what is open. Full, the pane used
 longest ago yields, as equal panes give no answer. Solo was named Active
 until 14 October; Active now means only the card in use.
 

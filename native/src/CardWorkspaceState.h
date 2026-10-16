@@ -158,10 +158,10 @@ public:
         ++m_ownershipRevision; // Also rejects duplicate commits/copies of the ticket.
         return true;
     }
-    // One logical group leaves in one step. Selecting the Bento group used to
-    // clear the whole stage, which released every unrelated card to Plasma and
-    // broke §6: the neighbours are not part of the entry being resumed. This
-    // removes exactly the group's members and leaves the rest owned.
+    // One layout's cards leave in one step. Resuming a layout must not clear
+    // the whole stage, which would release every unrelated card to Plasma and
+    // break §6: the neighbours are not part of the layout being resumed. This
+    // removes exactly the layout's members and leaves the rest owned.
     class PreparedGroupRemoval {
         friend class CardWorkspaceState;
         std::weak_ptr<const int> source;

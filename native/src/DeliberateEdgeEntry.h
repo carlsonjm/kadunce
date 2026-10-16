@@ -41,7 +41,7 @@ enum class EdgeEntryOutcome {
 struct EdgeEntryRequest {
     CarryEdge edge = CarryEdge::Top;
     // §3: Kadunce owns the display from its first Card or Bento action, whether
-    // what it holds is individual cards, stacks or a Bento group.
+    // what it holds is individual cards, stacks or a layout's cards.
     bool ownsDisplay = false;
     // Whether this display can hold cards at all. State and capability decide
     // the grammar; the display's hardware identity never does.

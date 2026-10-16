@@ -116,7 +116,7 @@ printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(fa
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
 rg -Fq 'if (m_stackBrowseDirection) return motion(StackBrowseDuration);' "$card_cpp"
 # A held card is drawn above the row, which keeps its own stacking order.
-rg -Fq 'if (selectedIsBentoProjection() || m_cardGrabActive) return;' "$card_cpp"
+rg -Fq 'if (m_cardGrabActive) return;' "$card_cpp"
 pickup=$(sed -n '/^void CardStageController::beginCardGrab(/,/^void CardStageController::updateCardGrab(/p' "$card_cpp")
 printf '%s\n' "$pickup" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?setElevatedWindow\(window, true\)/s)'
 router_cpp="${native_dir}/src/WorkspaceInputRouter.cpp"
@@ -625,18 +625,8 @@ rg -q 'event->deltaV120' "${router_cpp}"
 rg -q 'activateSelectedFromInput' "${router_cpp}" "${effect_cpp}" "${card_cpp}"
 rg -q 'm_ownedTouchIds' "${router_cpp}"
 rg -q 'makeCoverPaintRect' "${native_dir}/src/SpreadLayout.cpp"
-rg -q 'makeBentoCompositeGeometry' "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
-rg -q 'BentoWorkspaceTintOpacity = 0\.22F' "${effect_cpp}"
-rg -q 'bentoProjectionWorkspace' "${effect_cpp}" "${card_cpp}" "${card_header}"
-rg -q 'bentoProjectionRect' "${effect_cpp}" "${card_cpp}" "${card_header}"
-rg -q 'makeBentoProjectedPaneGeometry' \
-    "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
-rg -Fq 'mapBentoCompositeRect(composite, frame)' \
-    "${native_dir}/src/BentoCompositeGeometry.h"
-rg -q 'scaleBentoCompositeRadius' \
-    "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}" \
-    "${native_dir}/tests/BentoCompositeGeometryTest.cpp"
-rg -Fq '? projectionPaneClip : visualTarget' "${effect_cpp}"
+rg -q 'makeBentoStageArea' "${native_dir}/src/BentoCompositeGeometry.h"
+rg -q 'bentoProjectionRect' "${card_cpp}" "${card_header}"
 rg -Fq 'mapToDeviceCoordinatesAligned(apertureTarget)' "${effect_cpp}"
 rg -Fq 'roundedClip(deviceAperture, apertureRadius)' "${effect_cpp}"
 rg -Fq 'm_fanApertureSize = useFanAperture' "${effect_cpp}"
@@ -646,7 +636,7 @@ rg -q 'retireBentoProjectionForCardStage' \
 rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
 rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"
-rg -q 'usesBentoProjectionAperture' "${card_cpp}" "${effect_cpp}"
+rg -q 'inProjectedLayout' "${card_cpp}" "${effect_cpp}"
 rg -q 'workHeight \* 0\.54' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'workWidth \* spreadGutterShare' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'Own = 0\.056' "${native_dir}/src/CardTuning.h"
