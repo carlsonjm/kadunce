@@ -52,6 +52,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/TouchEdge.h
         src/Effect.cpp
         src/Effect.h
+        src/EffectGuest.cpp
+        src/EffectShared.h
         src/DesktopRemoval.h
         src/PaintResult.h
         src/TableGesture.h
@@ -74,8 +76,10 @@ qt_add_resources(kwin4_effect_kadunce "kadunce_table"
 )
 
 # The KWin this build plays on; Effect::supported() turns Cards off on another.
+# The version the journal names it by.
 target_compile_definitions(kwin4_effect_kadunce PRIVATE
-    KADUNCE_BUILT_KWIN="${KWin_VERSION}")
+    KADUNCE_BUILT_KWIN="${KWin_VERSION}"
+    KADUNCE_REVISION="${PROJECT_VERSION}")
 
 target_link_libraries(kwin4_effect_kadunce
     PRIVATE KDecoration3::KDecoration
@@ -204,6 +208,11 @@ if(BUILD_TESTING)
     target_link_libraries(kadunce-note-placement-test PRIVATE Qt6::Core)
     target_compile_options(kadunce-note-placement-test PRIVATE -UNDEBUG)
     add_test(NAME note-placement COMMAND kadunce-note-placement-test)
+    add_executable(kadunce-zone-contract-test tests/ZoneContractTest.cpp)
+    target_include_directories(kadunce-zone-contract-test PRIVATE src)
+    target_link_libraries(kadunce-zone-contract-test PRIVATE Qt6::Core)
+    target_compile_options(kadunce-zone-contract-test PRIVATE -UNDEBUG)
+    add_test(NAME zone-contract COMMAND kadunce-zone-contract-test)
     add_executable(kadunce-touch-display-test tests/TouchDisplayTest.cpp)
     target_include_directories(kadunce-touch-display-test PRIVATE src)
     target_link_libraries(kadunce-touch-display-test PRIVATE Qt6::Core)
@@ -224,6 +233,14 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-display-sizing-test PRIVATE src)
     target_link_libraries(kadunce-display-sizing-test PRIVATE Qt6::Core)
     add_test(NAME display-sizing COMMAND kadunce-display-sizing-test)
+    add_executable(kadunce-log-name-test tests/LogNameTest.cpp)
+    target_include_directories(kadunce-log-name-test PRIVATE src)
+    target_link_libraries(kadunce-log-name-test PRIVATE Qt6::Core)
+    add_test(NAME log-name COMMAND kadunce-log-name-test)
+    add_executable(kadunce-guest-caller-test tests/GuestCallerTest.cpp)
+    target_include_directories(kadunce-guest-caller-test PRIVATE src)
+    target_link_libraries(kadunce-guest-caller-test PRIVATE Qt6::Core)
+    add_test(NAME guest-caller COMMAND kadunce-guest-caller-test)
     add_executable(kadunce-kwin-match-test tests/KWinMatchTest.cpp)
     target_include_directories(kadunce-kwin-match-test PRIVATE src)
     target_link_libraries(kadunce-kwin-match-test PRIVATE Qt6::Core)

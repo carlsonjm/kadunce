@@ -13,6 +13,10 @@ struct BentoSidePlacement {
     // share. The upper half puts the card beside, in a column of its own; the
     // lower half puts it under what that side holds. Shares are even.
     bool connected = false;
+    // Whether a contact chose this side, which makes it a side snap. A pick,
+    // or a window opened beside the card in use, is paired on a side Kadunce
+    // names, and that places the card without snapping it.
+    bool snaps = true;
 };
 
 // Contact chooses intent; geometry is solved separately with native minimums.
@@ -235,14 +239,16 @@ inline std::optional<std::vector<BentoRect>> bentoSideLayout(BentoSidePlacement 
 // The result is one full-height pane beside a stacked pair, so where the contact
 // mapping names a shape this answers only when that is the shape named. Without
 // that the same snap resolved differently depending on which path could run.
+// paneCap is the display's own where its sizing names one (BentoLayout.h).
 inline std::optional<std::vector<BentoRect>> splitBentoColumn(
     const std::vector<BentoRect> &existing, const std::vector<BentoCandidate> &candidates,
-    int arrival, BentoSidePlacement choice, int width, int height)
+    int arrival, BentoSidePlacement choice, int width, int height,
+    std::optional<int> paneCap = std::nullopt)
 {
     if (existing.size() < 2 || existing.size() >= 8 || arrival < 0
         || arrival > int(existing.size()) || candidates.size() != existing.size()+(arrival == int(existing.size()))
         || width <= 0 || height <= 0
-        || int(candidates.size()) > bentoPaneCap(width, height)) return std::nullopt;
+        || int(candidates.size()) > bentoPaneCap(width, height, paneCap)) return std::nullopt;
     const auto order = bentoSideShapeOrder(choice, int(candidates.size()), width, height);
     const bool mapped = order.front() != BentoSideShape::Proportional;
     if (mapped && order.front() != BentoSideShape::LargeBesideStack) return std::nullopt;
@@ -291,10 +297,12 @@ inline std::optional<std::vector<BentoRect>> splitBentoColumn(
 // display's own pane cap bounds the search, preserve resident order, prefer more
 // panes. A resident this leaves out is not retained anywhere: CARD-LIFECYCLE.md
 // §5 makes it an individual card, and the publisher is what gives it one.
+// paneCap is that cap where the display's sizing names one (BentoLayout.h).
 inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement choice,
-    int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0)
+    int width, int height, const std::vector<BentoCandidate> &candidates, int required = 0,
+    std::optional<int> paneCap = std::nullopt)
 {
-    const int cap = bentoPaneCap(width, height);
+    const int cap = bentoPaneCap(width, height, paneCap);
     // The side proportions are the curated library's, so they read its
     // candidates; the grid past it reads them all below.
     const int count = std::min(BentoCuratedCandidates, int(candidates.size()));
@@ -321,7 +329,7 @@ inline std::optional<BentoAdmission> chooseBentoSideAdmission(BentoSidePlacement
     // where the three-pane grammar governs, the contact chose the shape and the
     // layout stays at two panes rather than solving a third some other way.
     const auto ordinary = cap > BentoCompactPaneCap
-        ? chooseBentoTransferAdmission(candidates, required, width, height, cap)
+        ? chooseBentoTransferAdmission(candidates, required, width, height, cap, cap)
         : std::optional<BentoAdmission>{};
     if (ordinary && (!best || ordinary->candidateIndices.size() > best->candidateIndices.size())
         && std::find(ordinary->candidateIndices.begin(), ordinary->candidateIndices.end(), 0)

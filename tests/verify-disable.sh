@@ -8,6 +8,7 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 scratch="$(mktemp -d /tmp/kadunce-disable-test.XXXXXX)"
 trap 'find "${scratch}" -depth -delete' EXIT
 
+unset XDG_STATE_HOME
 mkdir -p "${scratch}/bin"
 # kwinrc is one line per key here: key=value.
 cat > "${scratch}/bin/kwriteconfig6" <<'STUB'
@@ -45,6 +46,18 @@ grep -qx 'kwin4_effect_kadunceEnabled=false' "${scratch}/kwinrc-ok" \
     || fail "a confirmed unload did not leave kwinrc off"
 [[ -e "${scratch}/home-ok/.local/state/kadunce/disabled" ]] \
     || fail "a confirmed unload did not mark Cards switched off"
+
+# The mark goes where the installer and the tray look for it: the state
+# folder the session names, when it names one.
+export KWINRC="${scratch}/kwinrc-xdg"
+echo "kwin4_effect_kadunceEnabled=true" > "${KWINRC}"
+mkdir -p "${scratch}/home-xdg"
+HOME="${scratch}/home-xdg" XDG_STATE_HOME="${scratch}/state-xdg" UNLOAD=ok PATH="${scratch}/bin:${PATH}" \
+    bash "${project_dir}/disable.sh" >/dev/null 2>&1 || fail "a confirmed unload with a state folder named did not succeed"
+[[ -e "${scratch}/state-xdg/kadunce/disabled" ]] \
+    || fail "Cards were not marked off in the state folder the session names"
+[[ ! -e "${scratch}/home-xdg/.local/state/kadunce/disabled" ]] \
+    || fail "Cards were marked off outside the state folder the session names"
 
 for answer in false fail; do
     if run "${answer}"; then fail "an unload KWin did not confirm (${answer}) reported success"; fi

@@ -18,8 +18,10 @@ if ! unloaded="$(qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect 
     exit 1
 fi
 
-mkdir -p "${HOME}/.local/state/kadunce"
-touch "${HOME}/.local/state/kadunce/disabled"
+# The installer reads this, so a reinstall keeps Cards off.
+state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/kadunce"
+mkdir -p "${state_dir}"
+touch "${state_dir}/disabled"
 
 qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure \
     >/dev/null 2>&1 || true

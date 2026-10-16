@@ -7,6 +7,7 @@
 
 #include "BentoLayout.h"
 
+#include <QHash>
 #include <QString>
 
 #include <optional>
@@ -21,15 +22,24 @@ enum class DisplaySizing { Solo, Connected };
 // Kadunce chooses by room, never by inches: the display's size in logical
 // pixels, at the scale the person set, so a panel or dock that takes some of
 // it does not change the answer. A display with room for more than the
-// compact pane cap is Connected; it is the bound every layout path reads
-// (BentoLayout.h).
+// compact pane cap is Connected.
 [[nodiscard]] constexpr DisplaySizing automaticSizing(int width, int height)
 {
     return bentoPaneCap(width, height) > BentoCompactPaneCap
         ? DisplaySizing::Connected : DisplaySizing::Solo;
 }
 
-// A choice as kaduncerc's [Sizing] group keeps it, by display name. "active"
+// The pane cap a display's sizing gives every layout solve on it
+// (BentoLayout.h): Connected as many panes as minimum sizes allow, Solo a
+// Bento pair at most. Read from the sizing and never from the work area, a
+// display Connected with panels taking some of it, or chosen either way in
+// kaduncerc, lays out by the same rule its picks and snaps follow.
+[[nodiscard]] constexpr int sizingPaneCap(DisplaySizing sizing)
+{
+    return sizing == DisplaySizing::Connected ? BentoPaneBound : BentoCompactPaneCap;
+}
+
+// A choice as kaduncerc's [Sizing] group keeps it. "active"
 // is Solo's earlier name, still read because saved choices carry it. Anything
 // else, the empty choice included, lets Kadunce choose.
 [[nodiscard]] inline std::optional<DisplaySizing> parseSizing(const QString &text)
@@ -47,6 +57,23 @@ enum class DisplaySizing { Solo, Connected };
 {
     return sizing == DisplaySizing::Connected ? QStringLiteral("connected")
                                               : QStringLiteral("solo");
+}
+
+// A display's chosen sizing, from kaduncerc's [Sizing] group, by display name,
+// and [SizingDisplays], each of those names' lasting identity when chosen. A
+// choice follows its display's identity to the name it has now, and a name a
+// dock has since given another display carries no choice to it. A choice kept
+// before identities were is read by name. Empty when none was chosen.
+[[nodiscard]] inline QString chosenSizing(const QHash<QString, QString> &choices,
+    const QHash<QString, QString> &identities, const QString &name, const QString &identity)
+{
+    if (!identity.isEmpty()) {
+        for (auto it = identities.cbegin(); it != identities.cend(); ++it)
+            if (it.value() == identity && choices.contains(it.key())) return choices.value(it.key());
+    }
+    const QString recorded = identities.value(name);
+    if (!recorded.isEmpty() && !identity.isEmpty() && recorded != identity) return {};
+    return choices.value(name);
 }
 
 // The person's choice for the display where there is one, else Kadunce's.

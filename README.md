@@ -92,7 +92,8 @@ Every word the menu shows can be translated.
 
 The installer checks and builds Kadunce, then asks for permission to install the
 KWin plugin. Log out and back in afterwards so KWin loads it, and run it again
-after every KWin update. Kadunce runs on your distribution's own KWin.
+after every KWin update; Cards you switched off stay off through it. Kadunce
+runs on your distribution's own KWin.
 When Kadunce takes a touch drag from KWin, it leaves KWin nothing that loses
 the next one.
 
@@ -105,9 +106,10 @@ the next one.
 
 `disable.sh` returns every window to Plasma and turns Kadunce off until you turn
 it on again. The **Cards** switch stays in the system tray, so you can always
-turn Kadunce off completely. `uninstall.sh` removes what was installed and leaves
-this folder as it is; log out and back in if the plugin is still loaded in the
-current session.
+turn Kadunce off completely. `uninstall.sh` removes what was installed, the repair
+kit and Kadunce's state among it, keeps your settings in `kaduncerc` for a later
+install, and leaves this folder as it is; log out and back in if the plugin is
+still loaded in the current session.
 
 ## What's next
 

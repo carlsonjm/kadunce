@@ -9,6 +9,7 @@
 #include "StaleTouchRelease.h"
 
 #include <input_event.h>
+#include <touch_input.h>
 #include <window.h>
 #include <QDebug>
 
@@ -425,7 +426,11 @@ void WorkspaceInputRouter::TouchEvents::touchDown(KWin::TouchDownEvent *event)
     // none while an effect holds the pointer.
     if (target) target->touchBeganForInput();
     window = KWin::input() ? KWin::input()->findToplevel(event->pos) : nullptr;
-    tapping = fingers++ == 0;
+    // KWin's own count of contacts down, already holding this one, so a lift
+    // a cancelled touch never sent leaves nothing behind.
+    fingers = KWin::input() && KWin::input()->touch()
+        ? KWin::input()->touch()->touchPointCount() : fingers + 1;
+    tapping = fingers == 1;
     tapStart = event->pos;
     tapTime.start();
     counted();
@@ -440,7 +445,8 @@ void WorkspaceInputRouter::TouchEvents::touchMotion(KWin::TouchMotionEvent *even
 void WorkspaceInputRouter::TouchEvents::touchUp(KWin::TouchUpEvent *)
 {
     counted();
-    fingers = std::max(0, fingers - 1);
+    fingers = KWin::input() && KWin::input()->touch()
+        ? KWin::input()->touch()->touchPointCount() : std::max(0, fingers - 1);
     if (fingers != 0 || !tapping) return;
     tapping = false;
     if (target && tapTime.elapsed() <= TapLongestMs) target->tapEndedForInput(window.data());

@@ -67,6 +67,7 @@ cmake --build "${build_dir}" -j2 >/dev/null
 ctest --test-dir "${build_dir}" --output-on-failure
 bash -n "${control_dir}/repair.sh"
 bash -n "${control_dir}/prepare-repair.sh"
+bash "${control_dir}/tests/live-control-label.sh"
 test -x "${build_dir}/bin/kadunce-control"
 
 status=0

@@ -383,6 +383,26 @@ public Q_SLOTS:
   }
   w->resize(1280, height); w->show();
  }
+ // A status bar along the top edge of a named display, as a panel there is:
+ // it covers the band a window is carried to for that edge.
+ void topBarSurface(const QString &output, int height) {
+  if (qGuiApp->platformName() != "wayland") return;
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("topbar"); w->setWindowTitle("Top bar probe"); tint(w, QColor(0x10, 0x10, 0x10));
+  w->winId();
+  int width = 1280;
+  for (QScreen *screen : qGuiApp->screens())
+   if (screen->name() == output) { w->windowHandle()->setScreen(screen); width = screen->geometry().width(); }
+  if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
+   layer->setScope(QStringLiteral("dock"));
+   layer->setLayer(LayerShellQt::Window::LayerTop);
+   layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop
+    | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+   layer->setExclusiveZone(height);
+   layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+  }
+  w->resize(width, height); w->show();
+ }
  // A panel applet's popup, such as Status opens: a surface KWin keeps above
  // application windows, standing over the middle of the tablet.
  void popupSurface() {

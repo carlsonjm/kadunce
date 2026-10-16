@@ -173,6 +173,8 @@ public:
     // card to pair with, and retires as soon as that card stops being an
     // individual card.
     [[nodiscard]] KWin::EffectWindow *activeCardIdentity() const;
+    // The Active card an open Spread goes back to; none over the desktop.
+    [[nodiscard]] KWin::EffectWindow *cardSpreadOpenedOver() const;
     // CARD-LIFECYCLE.md §4 "Eligible as a Bento partner", asked in one place.
     // Adoption eligibility is a different question and never stands in for it.
     [[nodiscard]] bool isEligiblePartner(const KWin::EffectWindow *window) const;
