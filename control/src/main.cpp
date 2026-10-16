@@ -340,15 +340,15 @@ private:
         dialog->setWindowTitle(i18n("Cards settings"));
         auto *layout = new QFormLayout(dialog);
         auto *gutter = new QSpinBox(dialog);
-        gutter->setRange(6, 48);
+        gutter->setRange(4, 48);
         gutter->setSuffix(i18nc("@item:valuesuffix the gutter, in pixels", " px"));
         auto config = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
         config->reparseConfiguration();
         gutter->setValue(KConfigGroup(config, QStringLiteral("Effect-kadunce"))
             .readEntry("ActiveCardGutter", 10));
         layout->addRow(i18n("Active card gutter"), gutter);
-        auto *hint = new QLabel(i18n("Default: 10 px. Applies when a card becomes Active.\n"
-            "6–48 px. The gutter preserves room for edge swipes."), dialog);
+        auto *hint = new QLabel(i18n("Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
+            "4–48 px. The gutter preserves room for edge swipes."), dialog);
         hint->setWordWrap(true);
         layout->addRow(hint);
         auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, dialog);

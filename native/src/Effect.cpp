@@ -560,6 +560,12 @@ public:
         SessionScope scope(m_effect, m_session);
         cards().openGroupAfterDropForCardStage(from);
     }
+    // Each desktop's stage hears the gutter change and lays out its own.
+    void cardGutterChangedForCardStage() override
+    {
+        SessionScope scope(m_effect, m_session);
+        cards().cardGutterChangedForCardStage();
+    }
     void connectManagedWindowForCardStage(KWin::EffectWindow *window) override
     {
         SessionScope scope(m_effect, m_session);
@@ -7809,6 +7815,13 @@ void Effect::activateSelectedFromInput()
         }
         m_paneArrivalWindow.clear();
     });
+}
+
+void Effect::cardGutterChangedForCardStage()
+{
+    m_desktopStage->relayAllSessions();
+    // Spread draws a Bento group from the same layout, at the new spacing.
+    KWin::effects->addRepaintFull();
 }
 
 void Effect::openGroupAfterDropForCardStage(const QRectF &from)

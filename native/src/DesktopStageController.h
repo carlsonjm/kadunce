@@ -161,6 +161,10 @@ public:
     // side snap, so it keeps its places and can leave room open.
     [[nodiscard]] bool presentsPlacedLayoutOn(const QString &outputName) const;
     void restoreAllSessions();
+    // Every layout placed again where it stands, as after the space between
+    // panes changes. A layout being placed, or a pane in a person's hands,
+    // waits for its own next placement.
+    void relayAllSessions();
     // §11, Every display: a display holding its own cards begins its layout
     // with every window there, `preferred` shown first. False when it already
     // has one or has nothing to show.

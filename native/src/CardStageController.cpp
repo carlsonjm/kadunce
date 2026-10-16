@@ -88,7 +88,9 @@ CardStageController::CardStageController(CardStageHost *host)
     m_settings.onGutterChanged([this]() {
         const int moved = applyGutter();
         qInfo() << "Kadunce" << Revision << "Active card gutter is now"
-                << m_settings.gutter() << "px;" << moved << "cards took it";
+                << m_settings.gutter() << "px;" << moved << "cards took it; Bento's panes stand"
+                << bentoPaneGap() << "px apart";
+        m_host->cardGutterChangedForCardStage();
     });
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {

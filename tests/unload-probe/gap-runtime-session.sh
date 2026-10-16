@@ -96,8 +96,10 @@ gutter() {
 IFS=, read -r x0 y0 w0 h0 <<<"$(frame)"
 gutter 24 "$(( x0 + 14 )),$(( y0 + 14 )),$(( w0 - 28 )),$(( h0 - 28 ))"
 gutter 16 "$(( x0 + 6 )),$(( y0 + 6 )),$(( w0 - 12 )),$(( h0 - 12 ))"
+gutter 4 "$(( x0 - 6 )),$(( y0 - 6 )),$(( w0 + 12 )),$(( h0 + 12 ))"
+gutter 2 "$(( x0 - 6 )),$(( y0 - 6 )),$(( w0 + 12 )),$(( h0 + 12 ))"
 gutter 10 "$x0,$y0,$w0,$h0"
-echo "PASS: the Active card takes a gutter of 24, 16 and 10 the moment it is set"
+echo "PASS: the Active card takes a gutter of 24, 16, 4 and 10 the moment it is set, and none under 4"
 
 point "$gap" "$middle"
 test "$(probe mouseIntercepted)" = true
