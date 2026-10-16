@@ -256,6 +256,11 @@ Spread there and may carry it back into the layout.
 Where no display can hold a card, nothing leaves. The layout keeps the
 combination it has rather than shedding a window with no owner to become.
 
+A pane whose application stops short of its place, as a terminal keeping whole
+rows does or one slow to wake answering late, stays: it covers nothing beside
+it. Only one that will not fit its place leaves, and one that leaves a layout
+still presenting panes waits behind it, never shown over it (§8).
+
 ### One remaining pane
 
 When Bento falls to one visible pane, Bento ends and that pane becomes an
@@ -464,15 +469,15 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 ### Every display
 
-Each other display holds its own cards, sized by its size, and keeps what it
-shows while Spread is open; one picked or woken opens there. Sized
-Solo, it
-shows one card: one carried there is that card, closing it brings back the one
-before, and a placed Stack steps there. Sized Connected, it plays cards into
-its layout. A window opens on Spread's display; a card brought forward or
-paired there is that display's own, and its pane, chosen in Spread, opens the
-layout. Unplugged, its cards stay in Spread. Let go (§13), windows stay windows
-until one opens.
+Each other display holds its own cards and keeps what it shows while Spread
+is open; one picked, woken or called from the dock opens there. Sized Solo, it
+shows one card: one carried there is that card, closing or carrying it off
+brings back the one before, and a placed Stack steps there. That card stays
+though its application stops short of its place (§5). Sized Connected,
+it plays cards into its layout. A window opens on Spread's display; a card
+carried or paired there is its own, its pane in Spread opening the layout; one
+waiting elsewhere never pairs. Unplugged, its cards stay in Spread. Let go
+(§13), windows stay windows until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there

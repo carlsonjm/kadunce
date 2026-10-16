@@ -22,10 +22,10 @@ int main()
     check(spreadEntryName({u"Elisa"_s, u"Now playing"_s, 1, true}) == u"Elisa, Now playing, sleeping"_s,
           "a sleeping card says so");
     check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 1, false, {u"Kate"_s}})
-              == u"Firefox, Docs, paired with Kate"_s,
-          "a pane's card names the pane it is paired with");
+              == u"Firefox, Docs, with Kate"_s,
+          "a pane's card names the pane beside it");
     check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 1, false, {u"Kate"_s, u"Files"_s}})
-              == u"Firefox, Docs, paired with Kate and Files"_s,
+              == u"Firefox, Docs, with Kate and Files"_s,
           "a pane's card names every pane beside it");
     check(spreadEntryName({}) == u"Card"_s, "a card with nothing to say is still a card");
 

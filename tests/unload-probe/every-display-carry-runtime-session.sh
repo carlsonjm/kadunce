@@ -5,12 +5,16 @@
 # windows, each given KWin's own title bar. The small display's Active card,
 # carried by that title bar and rested on a monitor window, joins the layout
 # as a pane of its own: no window there is taken into a Stack, none is drawn
-# over another, and the small display keeps its other card. Spread then moves
-# to the monitor, as choosing it in Settings does, while the small display
-# shows a card: that card stays there as the small display's own, its waiting
-# card goes with Spread, and the monitor's windows keep their places, with
-# nothing drawn over them. Every check is reported, so a failure does not
-# hide the rest.
+# over another, the window it rested on stays in the layout though it stops
+# short of its new pane, and the small display keeps its other card. Spread
+# then moves to the monitor, as choosing it in Settings does, while the small
+# display shows a card: that card stays there as the small display's own, its
+# waiting card goes with Spread, and the monitor's windows keep their places,
+# with nothing drawn over them. Asked for from the dock, that waiting card
+# opens on the small display, its own, and stays there though it stops short
+# of its place, as a terminal keeping whole rows does. Carried off from there
+# onto the monitor, it leaves the small display the card it showed before,
+# never nothing. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -70,6 +74,13 @@ apart() {
 frames_of() {
     probe windowFacts | jq -c --arg a "$1" --arg b "$2" --arg c "$3" \
         '[.[] | select(.id == $a or .id == $b or .id == $c) | {id, x, y, width, height}]'
+}
+# The first window stands shorter than the second, by more than a pixel's rounding.
+shorter() {
+    local a b
+    a=$(probe windowGeometry "$1" | jq '.height | floor') || return 1
+    b=$(probe windowGeometry "$2" | jq '.height | floor') || return 1
+    (( a < b - 12 ))
 }
 # Each window still stands where it stood, to a few pixels.
 stand_as() {
@@ -140,6 +151,9 @@ check 'start: the small display shows its own card' keeps_own "$ta"
 check 'start: its other card waits in Spread' waits_for "$tb" ''
 
 # The small display's card, carried by its title bar onto a monitor window.
+# The window it rests on keeps whole rows, as a terminal does, so it stops
+# short of the pane the layout of three gives it.
+client companionRows 'Mon B' 48
 title_carry "$ta" "$mb"
 report carried
 check 'carry: resting on a monitor window aims at no Stack' \
@@ -152,6 +166,8 @@ check 'carry: no window holds another as a Stack' no_stack
 check 'carry: no window on the monitor stands over another' apart Virtual-1
 check 'carry: the small display still holds its other card' \
     context --arg id "$tb" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .output == "Virtual-0"'
+check 'carry: the window short of its pane stays in the layout, short of it' shorter "$mb" "$ma"
+client companionRows 'Mon B' 0
 
 # A new card on the small display, in front, with the other waiting behind.
 probe pointer 640 360 >/dev/null
@@ -178,14 +194,47 @@ check 'move: no window on the monitor stands over another' apart Virtual-1
 check 'move: no window on the small display stands over another' apart Virtual-0
 check 'move: no window holds another as a Stack' no_stack
 
+# Asked for from the dock, as a person taps it there, the card waiting for the
+# small display opens there, its own, though Spread lives on the monitor. Like
+# a terminal keeping whole rows, it stops short of its place there, and it
+# stays: alone on that display it overlaps nothing.
+place=$(probe windowGeometry "$tc" | jq '.height | floor')
+client companionRows 'Tab B' 48
+probe activateWindowId "$tb" >/dev/null
+sleep 1.4
+report dock
+check 'dock: the small display'"'"'s waiting card opens there' shown_on "$tb" Virtual-0
+check 'dock: the card it showed waits in Spread for it' waits_for "$tc" Virtual-0
+check 'dock: the monitor still shows its three windows as a layout' monitor_panes 3
+check 'dock: no window on the small display stands over another' apart Virtual-0
+sleep 1.5
+report dock-settled
+check 'dock: the card stops short of its place' \
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry '$tb' | jq -e --argjson p '$place' '.height < \$p - 12'"
+check 'dock: and still stands on the small display once it has settled' shown_on "$tb" Virtual-0
+client companionRows 'Tab B' 0
+
+# Carried off by its title bar onto the monitor, the small display's card is
+# the monitor's own, and the small display shows the card it showed before.
+title_carry "$tb" "$mb"
+report carried-off
+check 'carry off: the card carried is on the monitor, its own' \
+    context --arg id "$tb" 'first(.applications[] | select(.windowId == $id)) | .output == "Virtual-1" and .home == ""'
+check 'carry off: the small display shows the card it showed before' shown_on "$tc" Virtual-0
+check 'carry off: no window on the small display stands over another' apart Virtual-0
+check 'carry off: no window holds another as a Stack' no_stack
+
 # Spread comes back to the small display; the monitor keeps its layout.
 kad setSpreadDisplay Virtual-0
 sleep 2.5
 report back
 check 'back: the small display holds Spread again' holds_spread Virtual-0
-check 'back: the monitor still shows its three windows as a layout' monitor_panes 3
-check 'back: the small display has both its windows' \
-    context --arg c "$tc" --arg b "$tb" '[.applications[] | select((.windowId == $c or .windowId == $b) and .output == "Virtual-0")] | length == 2'
+check 'back: the monitor still shows a layout' \
+    context '[.applications[] | select(.pane and .output == "Virtual-1")] | length >= 3'
+check 'back: the small display keeps its card' \
+    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
+check 'back: the card carried to the monitor stays there' \
+    context --arg b "$tb" 'first(.applications[] | select(.windowId == $b)) | .output == "Virtual-1"'
 check 'back: no window on the monitor stands over another' apart Virtual-1
 check 'back: no window holds another as a Stack' no_stack
 
@@ -199,4 +248,4 @@ if (( failures > 0 )); then
     echo "FAIL: every display carry: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, and no display piles its windows into a Stack'
+echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, the dock opens a card on its own display, a display a card is carried off keeps one, and no display piles its windows into a Stack'
