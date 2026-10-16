@@ -152,6 +152,8 @@ private Q_SLOTS:
     void pageStackUp();
     void pageStackDown();
     void toggleBento();
+    // Search floating, as Tettegouche says it is shown or hidden.
+    void floatingLauncherShown(bool shown);
     [[nodiscard]] KWin::LogicalOutput *externalDesktopOutput() const;
     bool pairActiveCardIntoBento(KWin::LogicalOutput *output);
     bool pairActiveCardIntoBento(KWin::LogicalOutput *output, BentoSidePlacement side, bool walkLeft);
@@ -382,6 +384,13 @@ private:
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
         const QString &interfaceName, int protocol, bool openSpread);
     void callLauncherGuestOwner(const QString &method, const QVariantList &arguments = {});
+    // Search declined while Spread is not shown floats over the work. Spread
+    // opening asks it back, so it joins as though opened in Spread.
+    void floatLauncher(const QString &owner);
+    void forgetFloatingLauncher();
+    void inviteFloatingLauncher();
+    QString m_floatingLauncherOwner;
+    bool m_spreadOpenForLauncher = false;
     // Whether the call being answered may steer Spread's guest: one Kadunce
     // makes itself, or one over D-Bus from the guest's own connection
     // (GuestCaller.h).
@@ -606,6 +615,10 @@ private:
     // behind it there. With `leaveSpread`, Spread then goes back to what it
     // was opened from.
     bool showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread);
+    // A card waiting for its display, brought back where it stands there, as
+    // the dock wakes a minimized pane, goes home once this turn is over.
+    // Spread's own picks do not come here.
+    bool returnCardInUseOnItsDisplay(KWin::EffectWindow *card);
     // A display holding its own cards that shows none brings back the one it
     // used last.
     void refillOtherDisplay(const QString &outputName);
@@ -613,6 +626,11 @@ private:
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
     bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
+    // Spread moved off the display that presented this card Active: it stays
+    // there as the card that display shows, once the cards that went with
+    // Spread have left it.
+    void keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries = 0);
+    QPointer<KWin::EffectWindow> m_keptOnLeft;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
@@ -665,23 +683,12 @@ private:
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
     // holds its own cards and shows a Stack.
     [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
-    // Spread opening, however it opens, gathers the cards every other card
-    // display shows; those not chosen go back as it closes.
-    bool gatherCardsIntoSpread();
     // A window let go loose on a display holding its own cards becomes a card
     // there, as one opened there does.
     void claimWindowForItsDisplay(KWin::EffectWindow *window);
     // Whether another display holds its own cards, so where a carried Active
     // card lands decides what it becomes.
     [[nodiscard]] bool carriesToAnotherCardDisplay() const;
-    void returnGatheredCards();
-    // The cards each desktop's Spread gathered, with the display each came
-    // from, by desktop id. A desktop left while its Spread holds them keeps
-    // them, and they go back once it is shown again and its Spread closes.
-    using GatheredCards = QList<QPair<QPointer<KWin::EffectWindow>, QString>>;
-    QHash<QString, GatheredCards> m_gathered;
-    [[nodiscard]] QString scopedDesktopId() const;
-    QTimer m_gatherWatch;
     QHash<KWin::EffectWindow *, QString> m_cardHomes;
     bool m_cardsOnEveryDisplay = true;
     bool m_bezelStepsStack = false;

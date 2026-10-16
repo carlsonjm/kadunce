@@ -119,7 +119,9 @@ A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
 it never reaches the application under it, so it cannot promote that
 application to Active. Any rejected begin request leaves both applications in
 their existing standalone behavior; a rejection may name the `output` the
-launcher floats on, where the person is working.
+launcher floats on, where the person is working. Until the launcher then
+signals `shown(false)` on `/Launcher`, Spread opening, however it opens, calls
+its `open` there: it asks to begin again and joins as one opened in Spread.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest

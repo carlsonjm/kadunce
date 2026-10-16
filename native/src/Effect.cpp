@@ -977,9 +977,6 @@ Effect::Effect()
     connect(&m_keysWorkAreaRelease, &QTimer::timeout, this, &Effect::releaseKeysWorkArea);
     // A card let go lands, and settles, within this; its dialogs follow it
     // there and are then left where they stand.
-    // Spread that gathered cards gives them back once it has closed.
-    m_gatherWatch.setInterval(150);
-    connect(&m_gatherWatch, &QTimer::timeout, this, &Effect::returnGatheredCards);
     m_paneStackDwell.setSingleShot(true);
     connect(&m_paneStackDwell, &QTimer::timeout, this, [this] {
         if (m_carriedWindow) updateNativeCarryDestination(m_lastCarryContact);
@@ -1762,9 +1759,6 @@ void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualD
     m_currentSession = sessionFor(current);
     scopeTo(m_currentSession);
     setPagingShortcutsActive(m_cardStage->isActive());
-    // Cards this desktop's Spread gathered before it was left go back once
-    // its Spread has closed, below or later.
-    if (m_gathered.contains(scopedDesktopId())) m_gatherWatch.start();
     // Coming back finds the cards presented, not a Spread left open. It cannot
     // close on the way out: its cards are not on the desktop being shown.
     if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
@@ -1795,8 +1789,6 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
     if (m_table.isOpen()) closeTable();
     if (desktop && m_namedDesktops.removeAll(desktop->id()) > 0) saveNamedDesktops();
     if (desktop) m_unenteredDesktops.remove(desktop->id());
-    // Its session lets its cards go below, those it gathered among them.
-    if (desktop) m_gathered.remove(desktop->id());
     // A stack carried to it and not yet dealt goes with it.
     if (desktop) m_pendingDecks.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
@@ -3375,82 +3367,13 @@ bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
     return held;
 }
 
-bool Effect::gatherCardsIntoSpread()
-{
-    KWin::LogicalOutput *tablet = tabletOutput();
-    if (!m_cardsOnEveryDisplay || !tablet || m_releasing || m_carriedWindow
-        || (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread))
-        return false;
-    // §11, Every display: Spread shows every card, those the other displays
-    // show among them; the ones not chosen go back as it closes.
-    if (std::none_of(KWin::effects->screens().cbegin(), KWin::effects->screens().cend(),
-            [this](KWin::LogicalOutput *output) {
-                return isOtherCardDisplay(output) && !m_desktopStage->panesOn(output->name()).isEmpty();
-            })) return false;
-    // A layout here with no card behind it yet takes them behind it, as any
-    // arrival behind a layout does, so Spread opens the layout beside them.
-    const bool behindLayout = !m_cardStage->isActive()
-        && m_desktopStage->hasSessionOnOutput(tablet->name()) && m_cardStage->startBehindLayout();
-    bool gathered = false;
-    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
-        if (!isOtherCardDisplay(output)) continue;
-        const QString name = output->name();
-        const auto panes = m_desktopStage->panesOn(name);
-        for (const auto &pane : panes) {
-            if (!pane || pane->isDeleted() || !m_desktopStage->yieldPaneToSpread(pane)) continue;
-            m_gathered[scopedDesktopId()].append({pane, name});
-            gathered = true;
-        }
-    }
-    if (behindLayout) m_cardStage->stopBehindLayoutIfEmpty();
-    if (gathered) {
-        qInfo() << "Kadunce" << Revision << "gathered" << m_gathered.value(scopedDesktopId()).size()
-                << "cards from the other displays into Spread";
-        m_gatherWatch.start();
-    }
-    return gathered;
-}
-
-QString Effect::scopedDesktopId() const
-{
-    return m_scopedSession ? m_scopedSession->desktopId : QString();
-}
-
-void Effect::returnGatheredCards()
-{
-    // Only the desktop shown gives its cards back; its stages are the ones
-    // that hold them. Another desktop's wait until it is shown again.
-    const auto found = m_gathered.find(scopedDesktopId());
-    if (found == m_gathered.end()) {
-        m_gatherWatch.stop();
-        return;
-    }
-    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) return;
-    m_gatherWatch.stop();
-    const GatheredCards gathered = std::move(found.value());
-    m_gathered.erase(found);
-    QStringList displays;
-    for (const auto &[card, name] : gathered) {
-        if (!displays.contains(name)) displays.append(name);
-        KWin::LogicalOutput *home = card ? cardHome(card) : nullptr;
-        // Chosen, carried or stacked meanwhile, it is no longer just waiting.
-        if (!home || home->name() != name || card->isMinimized()
-            || m_cardStage->liveCardIndex(card) < 0
-            || m_cardStage->stackFrontToBack(card).size() > 1) continue;
-        // A display showing one card already shows the one chosen there.
-        if (showsOneCardForDesktopStage(home) && m_desktopStage->hasSessionOnOutput(name)) continue;
-        (void)showCardOnItsDisplay(card, false);
-    }
-    for (const QString &name : std::as_const(displays)) refillOtherDisplay(name);
-}
-
 void Effect::refillOtherDisplay(const QString &outputName)
 {
-    // Spread gathered this display's cards; they go back as it closes.
-    if (m_gathered.contains(scopedDesktopId())) return;
     KWin::LogicalOutput *output = KWin::effects->findScreen(outputName);
     if (!isOtherCardDisplay(output) || m_desktopStage->hasSessionOnOutput(outputName)
         || !m_cardStage->isActive()) return;
+    // The card this display showed before Spread left it is on its way back.
+    if (m_keptOnLeft && cardHome(m_keptOnLeft) == output) return;
     KWin::EffectWindow *latest = nullptr;
     quint64 used = 0;
     for (const auto &card : m_cardStage->liveCards()) {
@@ -3504,6 +3427,32 @@ bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
     KWin::effects->activateWindow(card);
     observeCardOwnership();
     Q_EMIT workspaceContextChanged();
+    return true;
+}
+
+bool Effect::returnCardInUseOnItsDisplay(KWin::EffectWindow *card)
+{
+    // §11, Every display: a pane minimized there waits in Spread asleep, where
+    // it stood. Woken there, by the dock or a task switcher, it is in use on
+    // that display, so it goes back to it, never Active on Spread's display.
+    const auto waitsThere = [this](KWin::EffectWindow *window) {
+        KWin::LogicalOutput *home = window ? cardHome(window) : nullptr;
+        return home && !m_releasing && !window->isDeleted() && window->window()
+            && !window->isMinimized() && window->screen() == home
+            && !window->isUserMove() && !window->isUserResize()
+            && window != m_carriedWindow && window != m_nativeCarry
+            && m_cardStage->liveCardIndex(window) >= 0 && !m_cardStage->cardGrabActive()
+            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread);
+    };
+    if (!waitsThere(card)) return false;
+    const QPointer<KWin::EffectWindow> woken = card;
+    QTimer::singleShot(0, this, [this, woken, waitsThere] {
+        if (!woken || !waitsThere(woken)) return;
+        const QString there = cardHome(woken)->name();
+        if (showCardOnItsDisplay(woken, false))
+            qInfo() << "Kadunce" << Revision << "gave" << logNameOf(woken) << "back to" << there
+                    << "where it was brought back";
+    });
     return true;
 }
 
@@ -4424,6 +4373,7 @@ void Effect::handleManagedWindowMinimizedChanged()
     // snap or a key asks.
     if (!m_releasing && !guarded->isMinimized() && !m_cardStage->isActive())
         (void)startTabletInCards(guarded);
+    if (!guarded->isMinimized()) (void)returnCardInUseOnItsDisplay(guarded);
 }
 
 void Effect::connectManagedWindow(KWin::EffectWindow *window)
@@ -5669,6 +5619,10 @@ void Effect::settleCardsOnDisplays()
             if (!m_cardDisplaySettleQueued) settleCardsOnDisplays();
         });
     }
+    // §11, Every display: the display Spread left keeps the card it showed,
+    // and the cards waiting in Spread went with Spread above.
+    if (moved && m_cardStage->presentation() == CardPresentation::Active)
+        keepShownCardOnDisplayLeft(m_cardStage->selectedWindow());
     // The arrival the person used last is the one they pick up again, so it
     // becomes the Active card and the others wait behind it. The card that was
     // in front stays in the line. Ties go to the higher window in the stack.
@@ -5718,6 +5672,45 @@ void Effect::restackCarriedDecks()
         it = decks.erase(it);
     }
     if (decks.isEmpty()) m_pendingDecks.erase(found);
+}
+
+void Effect::keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries)
+{
+    KWin::LogicalOutput *left = card ? cardHome(card) : nullptr;
+    if (!left || card->isDeleted() || m_releasing || !m_cardStage->isActive()
+        || m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->selectedWindow() != card) {
+        m_keptOnLeft.clear();
+        return;
+    }
+    // A card sent after Spread still stands on the display it left until its
+    // client answers. Given now, the card shown there would take it in as
+    // one of that display's own windows.
+    const auto &cards = m_cardStage->liveCards();
+    const bool leaving = std::any_of(cards.cbegin(), cards.cend(), [card, left](const auto &other) {
+        return other && other != card && !other->isDeleted() && !other->isMinimized()
+            && other->screen() == left;
+    });
+    if (leaving && tries < 20) {
+        m_keptOnLeft = card;
+        const QPointer<KWin::EffectWindow> shown = card;
+        QTimer::singleShot(50, this, [this, shown, tries] {
+            if (shown) keepShownCardOnDisplayLeft(shown, tries + 1);
+        });
+        return;
+    }
+    m_keptOnLeft.clear();
+    const QString there = left->name();
+    if (!giveCardWithItsStack(card, left)) {
+        qInfo() << "Kadunce" << Revision << "could not keep" << logNameOf(card) << "on" << there;
+        return;
+    }
+    m_cardHomes.remove(card);
+    qInfo() << "Kadunce" << Revision << "kept" << logNameOf(card) << "on" << there
+            << "as Spread moved";
+    KWin::effects->activateWindow(card);
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::cancelForwardedTouchForInput()
@@ -7149,10 +7142,6 @@ Effect::SpreadGesture::Mode Effect::beginSpreadGesture()
         return Mode::Refused;
     if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
         return Mode::Refused;
-    // §11, Every display: Spread shows every card however it is opened, so a
-    // swipe gathers the other displays' cards as Meta+S does. One that springs
-    // back gives them back as Spread closes.
-    (void)gatherCardsIntoSpread();
     // From the Active card the row forms under the fingers; from a layout or
     // the desktop the row has to be made first, so it opens past halfway.
     return m_cardStage->beginOpenSpread() ? Mode::Follow : Mode::Commit;
@@ -7527,6 +7516,8 @@ void Effect::activateSelectedFromInput()
             && m_cardStage->presentation() == CardPresentation::Spread) {
             // §11, Every display: a card that shows on another display
             // opens there, and Spread goes back to what it was opened from.
+            // One asleep there wakes first, where it waited.
+            if (cardHome(requested) && requested->isMinimized()) requested->unminimize();
             if (!requested->isMinimized() && cardHome(requested)
                 && showCardOnItsDisplay(requested, true)) {
                 m_paneArrivalWindow.clear();
@@ -7599,9 +7590,6 @@ void Effect::startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *o
 
 void Effect::toggle()
 {
-    // Only the person opening Spread gathers, by key here or by a swipe in
-    // beginSpreadGesture; going back from it never does.
-    (void)gatherCardsIntoSpread();
     toggleOwnedPresentation();
 }
 
@@ -7647,8 +7635,6 @@ void Effect::release()
     const auto settled = qScopeGuard([this, wasReleasing] { m_releasing = wasReleasing; });
     m_letGo = true;
     qInfo() << "Kadunce" << Revision << "lets every window go";
-    m_gatherWatch.stop();
-    m_gathered.clear();
     if (m_carryRuntime) m_carryRuntime->cancel();
     // §13 returns every managed window, whichever desktop holds it.
     bool hadBento = false;
@@ -8108,6 +8094,11 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         syncNotesHandover(wasShown && !m_notesSpreadShown);
         syncNotesPause();
         syncSpokenLine();
+        // Every way Spread opens ends in a frame of it formed; a swipe still
+        // under the fingers may yet spring back.
+        const bool spreadOpen = m_notesSpreadShown && !m_cardStage->spreadOpening();
+        if (spreadOpen && !std::exchange(m_spreadOpenForLauncher, true)) inviteFloatingLauncher();
+        if (!spreadOpen) m_spreadOpenForLauncher = false;
     }
     showSleepingCardsInSpread();
     // Presentation changes repaint, so a frame is where a dependent's
@@ -8814,6 +8805,10 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         }
         dismissLauncherGuestFromInput();
     }
+    // Asked for where it stands on its own display, a waiting card is never
+    // promoted here, which would open Spread for a window this display
+    // cannot show.
+    if (returnCardInUseOnItsDisplay(window)) return;
     if (admitActivatedCardToLiveBento(window)) return;
     m_cardStage->handleWindowActivated(window);
 }
@@ -8888,13 +8883,19 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
     // No layout yet: the pick and the card in use before it become one. With
     // no card in use, or the pick being that card, the pick is shown alone.
     // Spread leaves the keyboard with the card in use; the last application
-    // to have it stands in when nothing does.
+    // to have it stands in when nothing does. A window used on another
+    // display since is in use there, so the card Spread opened over is the
+    // one in use here (§11, Every display).
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
     const QPointer<KWin::EffectWindow> inUse = focused && isApplicationWindow(focused)
         ? focused : m_lastActiveApplication.data();
-    KWin::EffectWindow *partner = inUse && inUse != picked && !inUse->isDeleted()
-            && !inUse->isMinimized() && inUse->screen() == tablet
-            && m_cardStage->liveCardIndex(inUse) >= 0 ? inUse.data() : nullptr;
+    const auto partnerHere = [this, picked, tablet](KWin::EffectWindow *card) {
+        return card && card != picked && !card->isDeleted() && !card->isMinimized()
+            && card->screen() == tablet && m_cardStage->liveCardIndex(card) >= 0 ? card : nullptr;
+    };
+    KWin::EffectWindow *partner = partnerHere(inUse.data());
+    if (!partner && inUse && !inUse->isDeleted() && inUse->screen() != tablet)
+        partner = partnerHere(m_cardStage->cardSpreadOpenedOver());
     const QList<KWin::EffectWindow *> partnerBehind = partner
         ? m_cardStage->stackFrontToBack(partner).mid(1) : QList<KWin::EffectWindow *>{};
     if (!m_cardStage->presentSelectedNow()) return false;

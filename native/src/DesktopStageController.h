@@ -184,8 +184,8 @@ public:
     // own last refusal; a false answer publishes nothing.
     bool extractPaneToCards(KWin::EffectWindow *window,
         const std::function<bool()> &sourceValid);
-    // §11, Every display: a pane of a display holding its own cards waits in
-    // Spread, still that display's card, while Spread gathers every card.
+    // §11, Every display: a pane of a display holding its own cards taken out
+    // of what it shows waits in Spread, still that display's card.
     bool yieldPaneToSpread(KWin::EffectWindow *window);
     void stopPendingSettle();
     void cancelRestoredMinimizations();

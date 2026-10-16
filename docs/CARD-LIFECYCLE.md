@@ -467,8 +467,8 @@ Unplugged, its cards move to the next (§3), returning with the chosen one
 ### Connected
 
 A display is Connected when its logical size holds more than two panes (§5),
-unless chosen for it (`kaduncerc` `[Sizing]`, likewise). Search floats, joining only an
-open Spread.
+unless chosen for it (`kaduncerc` `[Sizing]`, likewise). Search floats, joining Spread
+once open.
 
 | Behavior | Solo | Connected |
 | --- | --- | --- |
@@ -482,8 +482,9 @@ open Spread.
 
 ### Every display
 
-Each other display holds its own cards, sized by its size. Spread shows every
-card, giving back those not chosen; one picked opens there. Sized Solo, it
+Each other display holds its own cards, sized by its size, and keeps what it
+shows while Spread is open; one picked or woken opens there. Sized
+Solo, it
 shows one card: one carried there is that card, closing it brings back the one
 before, and a placed Stack steps there. Sized Connected, it plays cards into
 its layout. A window opens on Spread's display. Unplugged, its cards stay in
@@ -493,7 +494,7 @@ Spread. Let go (§13), windows stay windows until one opens.
 windows or one Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
-Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
+Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T,
 not KWin's default, are the layout: each
 window keeps a zone it fits, and KWin owns the edges until release.
 

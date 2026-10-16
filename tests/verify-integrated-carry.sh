@@ -32,6 +32,8 @@ scenes=(
     connected-runtime production
     connected-stacks-runtime production
     every-display-runtime production
+    every-display-wake-runtime production
+    every-display-carry-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
     connected-desk-keys-runtime production
@@ -116,6 +118,7 @@ scenes=(
     spread-fingers-runtime tablet
     guest-drawer-runtime tablet
     guest-beside-runtime tablet
+    guest-float-runtime tablet
     companion-guest-runtime tablet
     companion-focus-runtime tablet
     notes-focus-runtime tablet

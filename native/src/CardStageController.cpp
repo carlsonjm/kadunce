@@ -213,6 +213,12 @@ KWin::EffectWindow *CardStageController::activeCardIdentity() const
         && liveCardIndex(m_presentedActive) >= 0 ? m_presentedActive.data() : nullptr;
 }
 
+KWin::EffectWindow *CardStageController::cardSpreadOpenedOver() const
+{
+    return m_presentation == CardPresentation::Spread && !m_returnToDesktop
+        ? activeCardIdentity() : nullptr;
+}
+
 bool CardStageController::canOwnCards(const KWin::LogicalOutput *output) const
 {
     // One workspace exists and it is bound to one output. CARD-LIFECYCLE.md §11
@@ -3303,8 +3309,8 @@ bool CardStageController::admitCardFromOtherDisplay(
         if (client->quickTileMode() != KWin::QuickTileMode{})
             client->setQuickTileMode(KWin::QuickTileMode{}, arrival->frameGeometry().center());
         const KWin::RectF target(activeTarget(tablet));
-        // Gathered as Spread opens over the Active card, it is drawn in the row
-        // at once: its picture is kept until its application has drawn itself
+        // Taken in while the Active card shows, it is drawn in the row as
+        // soon as Spread opens: its picture is kept until its application has drawn itself
         // at the new size, so a slow one shows no blank card.
         const QPointer<KWin::EffectWindow> held(arrival);
         const auto resize = [this, held, target] {
@@ -3494,6 +3500,13 @@ int CardStageController::returnCardsToDisplay(bool every)
         KWin::Window *client = window->window();
         if ((!every && client->moveResizeOutput() == tablet)
             || client->isInteractiveMove() || client->isInteractiveResize()) continue;
+        // §11, Every display: the card a display Spread has left still shows
+        // stays where it stands, as that display's own, rather than standing
+        // over whatever the new display shows.
+        if (window == presented) {
+            const KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(window);
+            if (own && own != tablet) continue;
+        }
         // KWin may have given the window back a state it held on that layout.
         // A card holds none of them; its restore record keeps the originals.
         if (client->isFullScreen()) client->setFullScreen(false);

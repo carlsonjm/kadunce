@@ -16,6 +16,7 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusServiceWatcher>
+#include <QDebug>
 #include <QEasingCurve>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -32,8 +33,59 @@ int Effect::launcherGuestProtocolVersion() const
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
 {
-    return acceptLauncherGuest(ownerService, QStringLiteral("/Launcher"),
+    const QString reply = acceptLauncherGuest(ownerService, QStringLiteral("/Launcher"),
         QStringLiteral("io.github.carlsonjm.Tettegouche"), launcherGuestProtocolVersion(), true);
+    // A refusal that names a display is one Search floats on, which only its
+    // own caller is given; a stranger's refusal names none.
+    const QJsonObject answer = QJsonDocument::fromJson(reply.toUtf8()).object();
+    const QString owner = ownerService.trimmed();
+    if (answer.value(QStringLiteral("accepted")).toBool()) {
+        if (owner == m_floatingLauncherOwner) forgetFloatingLauncher();
+    } else if (answer.contains(QStringLiteral("output"))) {
+        floatLauncher(owner);
+    }
+    return reply;
+}
+
+void Effect::floatLauncher(const QString &owner)
+{
+    if (owner == m_floatingLauncherOwner) return;
+    forgetFloatingLauncher();
+    m_floatingLauncherOwner = owner;
+    // Search asks to begin just before it shows, and says when it hides: a
+    // launcher kept ready runs on hidden, so being on the bus is not being open.
+    QDBusConnection::sessionBus().connect(owner, QStringLiteral("/Launcher"),
+        QStringLiteral("io.github.carlsonjm.Tettegouche"), QStringLiteral("shown"),
+        this, SLOT(floatingLauncherShown(bool)));
+}
+
+void Effect::forgetFloatingLauncher()
+{
+    if (m_floatingLauncherOwner.isEmpty()) return;
+    QDBusConnection::sessionBus().disconnect(m_floatingLauncherOwner, QStringLiteral("/Launcher"),
+        QStringLiteral("io.github.carlsonjm.Tettegouche"), QStringLiteral("shown"),
+        this, SLOT(floatingLauncherShown(bool)));
+    m_floatingLauncherOwner.clear();
+}
+
+void Effect::floatingLauncherShown(bool shown)
+{
+    if (!shown) forgetFloatingLauncher();
+}
+
+void Effect::inviteFloatingLauncher()
+{
+    // Spread has just opened, by any of its ways, under Search floating over
+    // it. Search opening again asks to begin, and is taken in beside the card
+    // in the middle as one opened in Spread is; were it left floating it would
+    // cover that card. Only the caller that asked is called, on its own object.
+    const QString owner = m_floatingLauncherOwner;
+    if (owner.isEmpty()) return;
+    forgetFloatingLauncher();
+    qInfo() << "Kadunce asks Search floating over the work into Spread";
+    QDBusConnection::sessionBus().send(QDBusMessage::createMethodCall(owner,
+        QStringLiteral("/Launcher"), QStringLiteral("io.github.carlsonjm.Tettegouche"),
+        QStringLiteral("open")));
 }
 
 int Effect::companionGuestProtocolVersion() const
