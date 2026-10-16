@@ -49,6 +49,7 @@ scenes=(
     membership-runtime production
     launch-runtime production
     side-runtime production
+    shadow-runtime production
     escape-carry-runtime production
     touch-after-carry-runtime production
     contact production

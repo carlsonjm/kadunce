@@ -846,6 +846,15 @@ public Q_SLOTS:
         }
         return QStringLiteral("{}");
     }
+    // Moves a window to a place a scene names, as a person dragging it would.
+    bool placeWindow(const QString &id, int x, int y) {
+        for (auto *window : KWin::effects->stackingOrder()) {
+            if (window->internalId().toString(QUuid::WithoutBraces) != id || !window->window()) continue;
+            window->window()->move(QPointF(x, y));
+            return true;
+        }
+        return false;
+    }
     bool minimizeWindow(const QString &id, bool minimized) {
         for (auto *window : KWin::effects->stackingOrder()) {
             if (window->internalId().toString(QUuid::WithoutBraces) != id || !window->window()) continue;

@@ -36,6 +36,7 @@ systemctl --user disable --now kadunce-control.service \
 rm -f -- "${control_binary}" "${control_service}" "${control_desktop}"
 # The repair kit is source and a script kept for a plugin no longer here.
 rm -rf -- "${repair_dir}"
+rm -f -- "$(dirname -- "${repair_dir}")/settings-keys"
 rmdir --ignore-fail-on-non-empty "$(dirname -- "${repair_dir}")" 2>/dev/null || true
 rm -f -- "${icon_dir}/512x512/apps/co.goodinput.kadunce-logo.png" \
     "${icon_dir}/scalable/apps/co.goodinput.kadunce-cards.svg" \

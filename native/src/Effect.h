@@ -290,6 +290,24 @@ private:
                                   int mask,
                                   const KWin::Region &deviceRegion,
                                   KWin::WindowPaintData &data);
+    // Whether this window casts a card shadow (CardShadow): a window Kadunce
+    // trims, while neither Spread nor Table is shown, which lay their cards
+    // out their own way.
+    [[nodiscard]] bool castsShadow(KWin::EffectWindow *window) const;
+    // Draws the shadow under the window as it is drawn this time, before it.
+    void paintCardShadow(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                         KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                         const KWin::WindowPaintData &data);
+    // Where each shadow falls, in logical pixels, so the screen is redrawn
+    // where one leaves or arrives: where its window stands, for the frame
+    // that moves it, and where it was last drawn, for one drawn elsewhere.
+    struct ShadowTrace {
+        QRectF expected;
+        QRectF drawn;
+    };
+    QHash<KWin::EffectWindow *, ShadowTrace> m_shadowTraces;
+    KWin::Region m_shadowRepaint;
+    void traceShadows(KWin::ScreenPrePaintData &data);
     struct BentoMotion {
         QPointer<KWin::EffectWindow> window;
         QPointer<KWin::LogicalOutput> output;
@@ -854,6 +872,8 @@ private:
     [[nodiscard]] bool notesShownInSpread() const;
     // Gooseberry's surface of notes over a window, live or closing.
     [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    // Tettegouche's Search surface, which holds the keys while it is open.
+    [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
@@ -1093,6 +1113,7 @@ private:
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
+    std::unique_ptr<KWin::GLShader> m_shadowShader;
     std::optional<KWin::RectF> m_carryPreview;
     // §11, Connected: the pane a carried pane rests over, which it joins in
     // a Stack once it has rested there; the pane it would join, once it
@@ -1209,6 +1230,9 @@ private:
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
+    // The keys coming back from Search as it closes over Spread, told the
+    // same way, whether or not Spread took Search in as its guest.
+    NotesKeysReturn m_searchKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;

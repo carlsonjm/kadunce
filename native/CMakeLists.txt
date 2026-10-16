@@ -12,6 +12,8 @@ set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 include(KDEInstallDirs)
 install(FILES ../assets/co.goodinput.kadunce-logo.png
     DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/512x512/apps)
+# The kwinrc [Effect-kadunce] keys this build reads, for a settings program.
+install(FILES settings-keys DESTINATION ${KDE_INSTALL_DATADIR}/kadunce)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
@@ -41,6 +43,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/KeptPicture.h
         src/CardStageController.cpp
         src/CardStageController.h
+        src/CardTuning.h
         src/ReleasePlace.h
         src/BentoLayout.cpp
         src/BentoLayout.h
@@ -269,8 +272,10 @@ if(BUILD_TESTING)
     add_test(NAME panel-input COMMAND kadunce-panel-input-test)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
-    add_executable(kadunce-window-handling-test tests/WindowHandlingTest.cpp src/BentoLayout.cpp)
+    add_executable(kadunce-window-handling-test tests/WindowHandlingTest.cpp src/BentoLayout.cpp src/SpreadLayout.cpp)
     target_include_directories(kadunce-window-handling-test PRIVATE src)
+    target_compile_definitions(kadunce-window-handling-test PRIVATE
+        KADUNCE_SETTINGS_KEYS="${CMAKE_CURRENT_SOURCE_DIR}/settings-keys")
     target_link_libraries(kadunce-window-handling-test PRIVATE KWin::kwin KF6::ConfigCore Qt6::Test)
     add_test(NAME window-handling COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:kadunce-window-handling-test>)
     add_executable(kadunce-placement-aim-test tests/PlacementAimTest.cpp)
