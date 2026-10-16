@@ -301,6 +301,9 @@ candidate:
   `journalctl --user -b --since "YYYY-MM-DD HH:MM" | grep Kadunce`, with an
   absolute `--since`; a relative one errors and, with stderr dropped, reads as an
   empty result.
+  It names windows by application and the start of their id, never by title.
+  What the pointer is over near a display's top edge is logged only with
+  `QT_LOGGING_RULES=kadunce.pointer.info=true` in KWin's environment.
 - Keys that do not appear while the folio keyboard is attached are KWin laptop
   mode, not a regression. Check
   `qdbus6 org.kde.KWin /org/kde/KWin org.kde.KWin.TabletModeManager.tabletMode`

@@ -256,7 +256,8 @@ private:
         quint64 count = 0;
         QElapsedTimer latest;
         QPointer<KWin::Window> window;
-        // The contacts down now, and whether the first of them is a tap yet.
+        // The contacts down now, as KWin counts them, and whether the first of
+        // them is a tap yet.
         int fingers = 0;
         bool tapping = false;
         QPointF tapStart;

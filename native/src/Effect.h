@@ -382,6 +382,14 @@ private:
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
         const QString &interfaceName, int protocol, bool openSpread);
     void callLauncherGuestOwner(const QString &method, const QVariantList &arguments = {});
+    // Whether the call being answered may steer Spread's guest: one Kadunce
+    // makes itself, or one over D-Bus from the guest's own connection
+    // (GuestCaller.h).
+    [[nodiscard]] bool callerIsGuest() const;
+    // What endLauncherGuest and cancelLauncherGuestLaunch do once the caller
+    // may ask it, and what Kadunce itself calls.
+    void closeLauncherGuest();
+    void dropLauncherGuestLaunch();
     void handleLaunchWindowChanged();
     // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
     [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
@@ -453,7 +461,10 @@ private:
         bool current = false;
         QList<TableCard> cards;
     };
+    // Each workspace as Table shows it, renaming none.
     [[nodiscard]] QList<TableWorkspace> tableWorkspaces();
+    // Reads Table's workspaces, and gives each unnamed one the name it shows.
+    void readTableWorkspaces();
     // The display Table opened on: the tablet for a finger, the display under
     // the pointer for the pointer and the keyboard.
     [[nodiscard]] KWin::LogicalOutput *tableOutput() const;
@@ -654,8 +665,8 @@ private:
     // The display a bottom swipe steps a Stack on: the touchscreen's, when it
     // holds its own cards and shows a Stack.
     [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
-    // Spread opened over a display showing no card of its own gathers the
-    // cards the other displays show; those not chosen go back as it closes.
+    // Spread opening, however it opens, gathers the cards every other card
+    // display shows; those not chosen go back as it closes.
     bool gatherCardsIntoSpread();
     // A window let go loose on a display holding its own cards becomes a card
     // there, as one opened there does.
@@ -664,7 +675,12 @@ private:
     // card lands decides what it becomes.
     [[nodiscard]] bool carriesToAnotherCardDisplay() const;
     void returnGatheredCards();
-    QList<QPair<QPointer<KWin::EffectWindow>, QString>> m_gathered;
+    // The cards each desktop's Spread gathered, with the display each came
+    // from, by desktop id. A desktop left while its Spread holds them keeps
+    // them, and they go back once it is shown again and its Spread closes.
+    using GatheredCards = QList<QPair<QPointer<KWin::EffectWindow>, QString>>;
+    QHash<QString, GatheredCards> m_gathered;
+    [[nodiscard]] QString scopedDesktopId() const;
     QTimer m_gatherWatch;
     QHash<KWin::EffectWindow *, QString> m_cardHomes;
     bool m_cardsOnEveryDisplay = true;
@@ -867,6 +883,9 @@ private:
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
+    // The display's chosen sizing as kaduncerc keeps it; empty when none.
+    [[nodiscard]] QString chosenSizingFor(const KWin::LogicalOutput *output) const;
+    void writeSpreadChoice();
     // CARD-LIFECYCLE.md §11, Connected: a card picked from Spread is played
     // into the display's layout. False leaves the pick to the Active path.
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
@@ -905,6 +924,7 @@ private:
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
     [[nodiscard]] bool hasActiveDesktopStage() const;
     void connectManagedWindow(KWin::EffectWindow *window);
+    void handleManagedWindowMinimizedChanged();
     bool admitTransferredWindowToTablet(
         KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; },
         const NativeMoveSnapshot *restore = nullptr) override;
@@ -1145,8 +1165,10 @@ private:
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;
     SpreadDisplayChoice m_spreadChoice;
-    // kaduncerc's [Sizing] group: each display's chosen sizing, by name.
+    // kaduncerc's [Sizing] group: each display's chosen sizing, by name, and
+    // [SizingDisplays]: the lasting identity each of those names had.
     QHash<QString, QString> m_sizingChoices;
+    QHash<QString, QString> m_sizingIdentities;
     QList<QPointer<KWin::EffectWindow>> m_dependents;
     QList<QPointer<KWin::EffectWindow>> m_heldDependents;
     QList<QPointer<KWin::EffectWindow>> m_freshDependents;

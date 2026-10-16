@@ -110,8 +110,11 @@ not insert the launcher into `SpreadModel`; real cards remain its sole mutable
 model state. Tettegouche owns and renders the interactive center card, while
 Kadunce mirrors its horizontal drag onto the adjacent real cards.
 
-Kadunce watches the launcher's unique session-bus owner and restores Spread
-if that process disappears. A committed handoff selects the incoming real card.
+`uniqueOwner` is the caller's own unique connection name: a begin naming any
+other is refused, and every later call above is answered only from the guest's
+own connection, so no program can steer or end another's guest, or have
+Kadunce call a third party. Kadunce watches the launcher's unique session-bus
+owner and restores Spread if that process disappears. A committed handoff selects the incoming real card.
 A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
 it never reaches the application under it, so it cannot promote that
 application to Active. Any rejected begin request leaves both applications in

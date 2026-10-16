@@ -4,6 +4,7 @@
 */
 
 #include "CardStageController.h"
+#include "LogName.h"
 
 #include "ActiveStep.h"
 #include "HeldTuck.h"
@@ -41,9 +42,14 @@
 namespace Kadunce
 {
 
+// The version this build is, as the journal names it (CMakeLists.txt).
+#ifndef KADUNCE_REVISION
+#define KADUNCE_REVISION "unversioned"
+#endif
+
 namespace
 {
-constexpr auto Revision = "0.1.0-kadunce-baseline";
+constexpr auto Revision = KADUNCE_REVISION;
 constexpr int PreviewTransitionDuration = 280;
 // A Stack parting for, paging under or closing after a card held in it.
 constexpr int HeldStackStepDuration = 360;
@@ -185,7 +191,7 @@ CardStageController::CardStageController(CardStageHost *host)
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
         client->moveResize(KWin::RectF(target));
         KWin::effects->addRepaintFull();
-        qInfo() << "Kadunce Active source settle" << window->caption()
+        qInfo() << "Kadunce Active source settle" << logNameOf(window)
                 << "target" << target << "remaining" << m_activeSettleRemaining;
     });
 }
@@ -1385,7 +1391,7 @@ void CardStageController::putBackKeyboardRoom()
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     room->window->window()->moveResize(room->base);
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce keyboard room returned" << room->window->caption()
+    qInfo() << "Kadunce keyboard room returned" << logNameOf(room->window)
             << "to" << room->base.toRect();
 }
 
@@ -1437,7 +1443,7 @@ void CardStageController::askKeyboardRoom(KWin::Window *client, double height,
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce keyboard room" << m_keyboardRoom->window->caption()
+    qInfo() << "Kadunce keyboard room" << logNameOf(m_keyboardRoom->window)
             << "height" << height << "target" << target;
 }
 
@@ -1557,12 +1563,12 @@ void CardStageController::followWorkArea(bool now)
     if (!now && grows) {
         m_workAreaGrowTimer.start();
         qInfo() << "Kadunce Active card waits before growing into room a panel gave up"
-                << window->caption() << "to" << target;
+                << logNameOf(window) << "to" << target;
         return;
     }
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
-    qInfo() << "Kadunce Active card follows the work area" << window->caption()
+    qInfo() << "Kadunce Active card follows the work area" << logNameOf(window)
             << "to" << target;
 }
 
@@ -1620,7 +1626,7 @@ void CardStageController::updateKeyboardRoom(bool resting)
             QScopedValueRollback<bool> applying(m_applyingWindowState, true);
             client->moveResize(base);
             KWin::effects->addRepaintFull();
-            qInfo() << "Kadunce keyboard room returned" << window->caption()
+            qInfo() << "Kadunce keyboard room returned" << logNameOf(window)
                     << "to" << base.toRect();
         }
         m_keyboardRoomRelease.start();
@@ -3013,7 +3019,7 @@ void CardStageController::release()
         KWin::workspace()->raiseWindow(releasedWindow->window());
         KWin::workspace()->activateWindow(releasedWindow->window(), true);
         qInfo() << "Kadunce fullscreen release: direct scene, restored focus"
-                << releasedWindow->caption() << releasedWindow->frameGeometry();
+                << logNameOf(releasedWindow) << releasedWindow->frameGeometry();
     }
     m_host->setPagingShortcutsForCardStage(false);
     m_workspace.clear();
@@ -3105,7 +3111,7 @@ bool CardStageController::adoptDisplayWithActive(KWin::EffectWindow *carried,
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "adopted the display as"
             << m_workspace.windows().size() << "individual cards; Active is"
-            << carried->caption();
+            << logNameOf(carried);
     return true;
 }
 
@@ -3296,7 +3302,19 @@ bool CardStageController::admitCardFromOtherDisplay(
             client->maximize(KWin::MaximizeRestore);
         if (client->quickTileMode() != KWin::QuickTileMode{})
             client->setQuickTileMode(KWin::QuickTileMode{}, arrival->frameGeometry().center());
-        client->moveResize(KWin::RectF(activeTarget(tablet)));
+        const KWin::RectF target(activeTarget(tablet));
+        // Gathered as Spread opens over the Active card, it is drawn in the row
+        // at once: its picture is kept until its application has drawn itself
+        // at the new size, so a slow one shows no blank card.
+        const QPointer<KWin::EffectWindow> held(arrival);
+        const auto resize = [this, held, target] {
+            if (!held || held->isDeleted() || !held->window() || liveCardIndex(held) < 0) return;
+            QScopedValueRollback<bool> resizing(m_applyingWindowState, true);
+            held->window()->moveResize(target);
+        };
+        if (m_presentation != CardPresentation::Active
+            || !m_host->holdPictureBeforeResizeForCardStage(arrival, resize))
+            client->moveResize(target);
         // Behind a layout or the Active card it is drawn nowhere, so it must
         // also be under them, or the touches on them would reach it.
         if (m_presentation == CardPresentation::Bento || m_presentation == CardPresentation::Active)
@@ -3304,7 +3322,7 @@ bool CardStageController::admitCardFromOtherDisplay(
     }
     if (m_presentation == CardPresentation::Desktop) holdCardsAside();
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "took" << arrival->caption()
+    qInfo() << "Kadunce" << Revision << "took" << logNameOf(arrival)
             << "as a card from another display;" << m_workspace.windows().size() << "individual cards";
     return true;
 }
@@ -3388,7 +3406,7 @@ bool CardStageController::sendCardToDisplay(KWin::EffectWindow *card, KWin::Logi
         KWin::RectF(activeTarget(destination)),
         [this, card] { return releaseCardToDisplay(card); }, [] {});
     if (accepted)
-        qInfo() << "Kadunce" << Revision << "showed card" << card->caption() << "on" << destination->name();
+        qInfo() << "Kadunce" << Revision << "showed card" << logNameOf(card) << "on" << destination->name();
     return accepted;
 }
 
@@ -3489,7 +3507,7 @@ int CardStageController::returnCardsToDisplay(bool every)
             ? activePlacement(tablet) : activeTarget(tablet);
         client->moveResize(KWin::RectF(target));
         ++returned;
-        qInfo() << "Kadunce" << Revision << "returned card" << window->caption()
+        qInfo() << "Kadunce" << Revision << "returned card" << logNameOf(window)
                 << "to" << tablet->name() << "target" << target;
     }
     if (returned == 0) return 0;
@@ -3561,7 +3579,7 @@ bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
     // panes, or the touches on them would reach it.
     if (m_presentation == CardPresentation::Bento) KWin::workspace()->lowerWindow(window->window());
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "took" << window->caption()
+    qInfo() << "Kadunce" << Revision << "took" << logNameOf(window)
             << "as a card after its display went away;"
             << m_workspace.windows().size() << "individual cards";
     return true;
@@ -3606,7 +3624,7 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
         : nullptr;
     if (refusal) {
         qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:" << refusal
-                << (window ? window->caption() : QString());
+                << (window ? logNameOf(window) : QString());
         return false;
     }
     QPointer<KWin::EffectWindow> arrival = window;
@@ -3633,7 +3651,7 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) {
         qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:"
-                << "the card workspace refused it" << window->caption();
+                << "the card workspace refused it" << logNameOf(window);
         return false;
     }
     if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
@@ -4083,7 +4101,7 @@ void CardStageController::throwLifted(double velocity)
     m_lift.phase = Lift::Phase::Throw;
     m_lift.velocity = std::min(velocity * 1000.0, -CloseThrowSpeed);
     qInfo() << "Kadunce" << Revision << "flicked card" << liveCardIndex(window) + 1
-            << "closed:" << window->caption();
+            << "closed:" << logNameOf(window);
     forgetCloseAsk(window);
     CloseAsk ask{window, {}, {}, {}};
     ask.asked.start();
@@ -4276,8 +4294,8 @@ bool CardStageController::handProjectedPaneTo(KWin::EffectWindow *pane, KWin::Ef
     // §3: the card stands in the Active card's place, as every card does.
     if (!pane->isMinimized()) settleCardsInActivePlace({pane});
     ++m_restoreGeneration;
-    qInfo() << "Kadunce" << Revision << "handed the pane of" << pane->caption()
-            << "to" << card->caption();
+    qInfo() << "Kadunce" << Revision << "handed the pane of" << logNameOf(pane)
+            << "to" << logNameOf(card);
     return true;
 }
 
@@ -4344,7 +4362,7 @@ bool CardStageController::detachProjectedPane(KWin::EffectWindow *pane)
     // §3: the card stands in the Active card's place, as every card does.
     if (!pane->isMinimized()) settleCardsInActivePlace({pane});
     ++m_restoreGeneration;
-    qInfo() << "Kadunce" << Revision << "took" << pane->caption() << "out of the layout";
+    qInfo() << "Kadunce" << Revision << "took" << logNameOf(pane) << "out of the layout";
     return true;
 }
 
@@ -4439,8 +4457,8 @@ bool CardStageController::replaceGroupPane(int part)
     // resumes over it, raising only its own panes.
     if (!pane->isDeleted() && !pane->isMinimized()) settleCardsInActivePlace({pane});
     ++m_restoreGeneration;
-    qInfo() << "Kadunce" << Revision << "card" << heldId << held->caption()
-            << "took pane" << part + 1 << "of the Bento group from" << pane->caption()
+    qInfo() << "Kadunce" << Revision << "card" << heldId << logNameOf(held)
+            << "took pane" << part + 1 << "of the Bento group from" << logNameOf(pane)
             << "; it now stands alone at entry" << m_workspace.model().entryIndexForId(paneId) + 1;
     return true;
 }
@@ -4750,7 +4768,7 @@ void CardStageController::returnThrownCard(KWin::EffectWindow *window, bool pres
         if (ask.window == window) asked = ask.asked.elapsed();
     forgetCloseAsk(window);
     if (!m_active || m_presentation != CardPresentation::Spread) return;
-    qInfo() << "Kadunce" << Revision << "flicked card came back:" << window->caption()
+    qInfo() << "Kadunce" << Revision << "flicked card came back:" << logNameOf(window)
             << (present ? "it asked a question" : "it did not close")
             << asked << "ms after it was asked to close";
     if (m_lift.phase == Lift::Phase::None && !m_cardGrabActive) {
@@ -4941,7 +4959,7 @@ bool CardStageController::enterActive()
     else
         KWin::workspace()->activateWindow(client, true);
     qInfo() << "Kadunce" << Revision
-            << "entered interactive Active with" << effectWindow->caption();
+            << "entered interactive Active with" << logNameOf(effectWindow);
     return true;
 }
 
@@ -5107,7 +5125,7 @@ CardStageController::ActiveRestoreSnapshot CardStageController::onOwnDisplay(
     moved.geometry = carried(snapshot.geometry);
     moved.floatingGeometry = carried(snapshot.floatingGeometry);
     moved.fullscreenRestoreGeometry = carried(snapshot.fullscreenRestoreGeometry);
-    qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? snapshot.window->caption() : QString())
+    qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? logNameOf(snapshot.window) : QString())
             << "back on" << carry->display.name << "at" << moved.geometry << "not" << snapshot.geometry
             << "taken on" << (snapshot.outputName.isEmpty() ? QStringLiteral("an unknown display") : snapshot.outputName);
     return moved;
@@ -5202,7 +5220,12 @@ std::optional<NativeMoveSnapshot> CardStageController::managedRestore(KWin::Effe
         if (s.window == window) { saved = &s; break; }
     }
     if (!saved || !saved->valid) return std::nullopt;
-    return NativeMoveSnapshot{window->window(), window->screen(), saved->geometry,
+    // The place belongs to the display it was taken on, while that display is
+    // attached, not to the one the card stands on now.
+    KWin::LogicalOutput *output = saved->outputName.isEmpty()
+        ? nullptr : KWin::effects->findScreen(saved->outputName);
+    if (!output) output = window->screen();
+    return NativeMoveSnapshot{window->window(), output, saved->geometry,
         saved->floatingGeometry, saved->fullscreenRestoreGeometry, saved->maximizeMode,
         saved->quickTileMode, saved->fullScreen, saved->minimized};
 }
@@ -5344,7 +5367,7 @@ bool CardStageController::growSelectedToActive()
     m_arrivalWait.start();
     m_arrivalTimer.start(motion(ArrivalExpandDuration));
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "growing the chosen card to Active" << window->caption();
+    qInfo() << "Kadunce" << Revision << "growing the chosen card to Active" << logNameOf(window);
     return true;
 }
 
@@ -5362,7 +5385,7 @@ void CardStageController::startArrivalTimer(KWin::EffectWindow *window)
     m_growingChosen = false;
     m_arrivalWait.start();
     m_arrivalTimer.start(motion(PreviewTransitionDuration));
-    qInfo() << "Kadunce new app settling at center" << window->caption();
+    qInfo() << "Kadunce new app settling at center" << logNameOf(window);
 }
 
 void CardStageController::stageWindowArrival(KWin::EffectWindow *window)
@@ -5466,7 +5489,7 @@ void CardStageController::finishNewArrival(KWin::EffectWindow *window,
     }
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision << "admitted new card"
-            << liveCardIndex(window) + 1 << window->caption() << "as Active";
+            << liveCardIndex(window) + 1 << logNameOf(window) << "as Active";
 }
 
 void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
@@ -5475,6 +5498,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     // may be reused by the next window, so it names no Stack from here on.
     m_paneStacks.remove(window);
     m_openedAt.remove(window);
+    m_heldInPlace.remove(window);
     for (const auto &ask : m_closeAsks) {
         if (ask.window != window) continue;
         qInfo() << "Kadunce" << Revision << "flicked card's app closed" << ask.asked.elapsed()
@@ -5571,7 +5595,7 @@ bool CardStageController::releaseCard(KWin::EffectWindow *window, bool restore)
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
         restoreWindowState(window->window(), *record, record->geometry, true);
     }
-    qInfo() << "Kadunce" << Revision << "let" << window->caption()
+    qInfo() << "Kadunce" << Revision << "let" << logNameOf(window)
             << "go for another desktop;" << m_workspace.windows().size() << "individual cards";
     if (m_workspace.windows().isEmpty()) {
         release();
@@ -5597,7 +5621,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     if (window == m_arrivalWindow) return; // Let its center/expand sequence finish.
     if (m_closeHandoff && m_presentation == CardPresentation::Spread) {
         qInfo() << "Kadunce" << Revision << "kept Spread as a closed card handed the focus to"
-                << window->caption();
+                << logNameOf(window);
         return;
     }
     // §2: this stage keeps its cards hidden while the display presents its
@@ -5658,7 +5682,7 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     }
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce" << Revision
-            << "promoted externally activated card" << window->caption();
+            << "promoted externally activated card" << logNameOf(window);
 }
 
 void CardStageController::handleActiveGeometryChanged(
@@ -5704,7 +5728,7 @@ void CardStageController::handleActiveGeometryChanged(
         return;
     }
     if (tablet && placed && placed != tablet && !m_cardGrabActive) {
-        qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+        qInfo() << "Kadunce" << Revision << "lets only" << logNameOf(window)
                 << "go: KWin placed it on" << placed->name();
         (void)releaseCard(window, false);
         return;
@@ -5757,7 +5781,7 @@ bool CardStageController::keepOpeningStateInActivePlace(KWin::EffectWindow *wind
     }
     m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
     KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "keeps" << window->caption()
+    qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(window)
             << "the Active card: it opened in its saved state, given back on release";
     return true;
 }
@@ -5769,7 +5793,7 @@ void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
         || !m_activeRestore.valid || m_activeRestore.window != window) return;
     // The new state wins, for that window alone: it goes without its old
     // snapshot replayed over the request, and the other cards wait aside.
-    qInfo() << "Kadunce" << Revision << "lets only" << window->caption()
+    qInfo() << "Kadunce" << Revision << "lets only" << logNameOf(window)
             << "go: it asked to fill the screen"
             << (window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};

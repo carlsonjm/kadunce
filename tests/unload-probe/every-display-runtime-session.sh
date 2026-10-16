@@ -8,7 +8,8 @@
 # display goes back to what it showed. A window carried to the small display
 # is the card it shows;
 # closing it brings back the card it used before. A Stack placed on the small
-# display fills it, and Meta+Tab steps it there. With every window moved to
+# display fills it, and Meta+Tab steps it there. Fingers open Spread with
+# the same cards Meta+S does. With every window moved to
 # the small display, Spread still opens, gathering the card it shows, and gives
 # it back as it closes. Every check is reported, so
 # a failure does not hide the rest.
@@ -251,6 +252,21 @@ check 'step: Meta+Tab shows the next card of the Stack there' shown_small "$othe
 check 'step: it fills the small display' fills_small "$other"
 check 'step: the card it replaced waits in the Stack' waits_for_small "$face"
 check 'step: the large display still shows its own card' presents active
+
+# Fingers open Spread from the Active card as the key does: the card the
+# small display shows is in it too, and picked there it opens there again.
+fingered=$(small_shows)
+for p in 0.2 0.4 0.6 0.8; do probe spreadGesture "$p" >/dev/null; sleep .05; done
+probe spreadGestureEnd >/dev/null
+sleep 1.4
+report fingers
+check 'fingers: Spread opens' presents cardLine
+check 'fingers: the card the small display shows is in it' in_spread "$fingered"
+pick "$fingered"
+report fingers-picked
+check 'fingers: picked, it shows on the small display again' shown_small "$fingered"
+check 'fingers: picked, the small display shows one card' small_panes 1
+check 'fingers: picked, the large display went back to its own card' presents active
 
 # Every window moved to the small display: Spread's display holds no card of
 # its own, and Spread still opens, holding the small display's cards.

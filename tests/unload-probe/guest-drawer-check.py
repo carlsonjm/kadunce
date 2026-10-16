@@ -13,6 +13,10 @@ assert reply["active"]["width"] > reply["card"]["width"]
 other = dbus.SessionBus(private=True)
 stranger = dbus.Interface(other.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
 assert not stranger.setLauncherGuestExpanded(True)
+# Another program can neither name this guest as its own nor end it.
+assert not json.loads(stranger.beginLauncherGuest(bus.get_unique_name()))["accepted"]
+assert not stranger.prepareLauncherGuestLaunch(["org.kde.konsole"], "stranger-token")
+stranger.endLauncherGuest()
 assert guest.setLauncherGuestExpanded(True)
 time.sleep(.10)
 assert 0 < json.loads(guest.nativeCarryState())["guestNeighborOpacity"] < 1
@@ -28,7 +32,7 @@ print("PASS: neighbor departure and return settle on a bounded shared clock")
 assert guest.setLauncherGuestExpanded(True)
 guest.endLauncherGuest()
 assert not guest.setLauncherGuestExpanded(True)
-print("PASS: expansion owner, compact/Active bounds, navigation suppression and closed lease")
+print("PASS: expansion owner, a stranger refused, compact/Active bounds, navigation suppression and closed lease")
 reply = json.loads(guest.beginLauncherGuest(bus.get_unique_name()))
 assert reply["accepted"] and guest.setLauncherGuestExpanded(True)
 bus.close()

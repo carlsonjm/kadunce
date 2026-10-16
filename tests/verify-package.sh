@@ -27,8 +27,10 @@ ctest --test-dir "${build_dir}" --output-on-failure >/dev/null
 DESTDIR="${stage_dir}" cmake --install "${build_dir}" --prefix /usr \
     >/dev/null
 
-plugin="${stage_dir}/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"
-test -f "${plugin}"
+# The plugin directory is the distribution's (lib, lib64 or multiarch).
+plugin="$(find "${stage_dir}" -path '*/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so' \
+    -print -quit)"
+test -n "${plugin}" && test -f "${plugin}"
 # Match against captured output, not through a pipe. `rg -q` exits on its first
 # match and closes the pipe, so under `pipefail` the producer can lose a
 # SIGPIPE race and fail a check that actually passed.

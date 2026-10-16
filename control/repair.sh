@@ -1,27 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# KWin looks for effects in Qt's plugin directory, which each distribution
+# places differently (lib, lib64, a multiarch lib); Qt itself says where.
+qt_plugin_dir() {
+    local tool dir
+    for tool in qtpaths6 qtpaths-qt6 /usr/lib/qt6/bin/qtpaths /usr/lib64/qt6/bin/qtpaths; do
+        command -v "${tool}" >/dev/null 2>&1 || continue
+        dir="$("${tool}" --query QT_INSTALL_PLUGINS 2>/dev/null)" || continue
+        [[ "${dir}" == /* ]] && { printf '%s\n' "${dir}"; return 0; }
+    done
+    printf '%s\n' /usr/lib/qt6/plugins
+}
 
-# Only the final copy is privileged: never build or execute source as root.
-if [[ ${1:-} == --install ]]; then
-    [[ $EUID == 0 && $# == 4 ]] || exit 2
-    candidate=$2
-    expected=$3
-    version=$4
-    [[ $expected =~ ^[0-9a-f]{64}$ && $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 2
-    [[ $(/usr/bin/kwin_wayland --version) == "kwin $version" ]] || { echo 'KWin changed during repair; rebuild again.'; exit 1; }
-    target=/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so
-    [[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
-    staged=$(mktemp /usr/lib/qt6/plugins/kwin/effects/plugins/.kadunce-repair.XXXXXX)
-    trap 'rm -f -- "$staged"' EXIT
-    /usr/bin/install -o root -g root -m 755 "$candidate" "$staged"
-    [[ $(sha256sum "$staged" | cut -d' ' -f1) == "$expected" ]] || exit 1
-    backup=$(mktemp /var/tmp/kadunce-plugin-backup.XXXXXX)
-    cp --preserve=all "$target" "$backup"
-    mv -fT -- "$staged" "$target"
-    echo "Installed. Previous plugin backup: $backup"
-    exit 0
-fi
-
+# Only the final copy is privileged: never build or execute source as root,
+# and never run as root anything kept where this account can write. The one
+# privileged step is the system's own install, or Shuffle's root-owned key.
 [[ $# == 0 && $EUID != 0 ]] || { echo 'Run repair as your normal user, not root.'; exit 2; }
 repair_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/kadunce
@@ -55,7 +48,20 @@ fi
 # Check the factory built from headers, not just the executable queried above.
 strings "$candidate" | grep -F "org.kde.kwin.EffectPluginFactory$version" >/dev/null
 expected=$(sha256sum "$candidate" | cut -d' ' -f1)
+target=$(qt_plugin_dir)/kwin/effects/plugins/kwin4_effect_kadunce.so
+[[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
+backup=$state_dir/kwin4_effect_kadunce.so.previous
+cp -- "$target" "$backup"
 echo 'Checks passed. Requesting permission to install one plugin file…'
-pkexec /usr/bin/bash "$repair_dir/repair.sh" --install "$candidate" "$expected" "$version"
+install_key=/usr/local/libexec/shuffle/install-step
+if [[ -x $install_key ]] && sudo -n -l "$install_key" kadunce install >/dev/null 2>&1; then
+    tar -C "$(dirname -- "$candidate")" -cf - "$(basename -- "$candidate")" \
+        | sudo -n "$install_key" kadunce install
+else
+    pkexec /usr/bin/install -Dm755 "$candidate" "$target"
+fi
+[[ $(sha256sum "$target" | cut -d' ' -f1) == "$expected" ]] \
+    || { echo 'The installed plugin is not the one built; use the full installer.'; exit 1; }
+echo "Installed. Previous plugin backup: $backup"
 echo 'Repair completed. No effect toggle, desktop restart, or source download was performed.'
 echo 'If KWin cached the previous plugin, save work and log out/in normally.'

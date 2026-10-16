@@ -4,6 +4,7 @@
 */
 
 #include "DesktopStageController.h"
+#include "LogName.h"
 #include "DesktopZones.h"
 #include "BentoCompositeGeometry.h"
 #include "BentoSessionTransfer.h"
@@ -50,9 +51,14 @@ bool onPixel(const KWin::RectF &frame, const BentoPixelRect &pixel)
 } // namespace
 
 
+// The version this build is, as the journal names it (CMakeLists.txt).
+#ifndef KADUNCE_REVISION
+#define KADUNCE_REVISION "unversioned"
+#endif
+
 namespace
 {
-constexpr auto Revision = "0.1.0-kadunce-baseline";
+constexpr auto Revision = KADUNCE_REVISION;
 }
 
 DesktopStageController::DesktopStageController(DesktopStageHost *host)
@@ -912,7 +918,7 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
                 residents += QStringLiteral(" %1x%2").arg(resident->window()->minSize().width())
                     .arg(resident->window()->minSize().height());
         const QString answer = QStringLiteral("%1 min %2x%3 side %4 residents%5 -> %6")
-            .arg(drop.window->caption()).arg(minimum.width()).arg(minimum.height())
+            .arg(logNameOf(drop.window)).arg(minimum.width()).arg(minimum.height())
             .arg(!drop.side ? QStringLiteral("none")
                  : drop.side->right ? QStringLiteral("right") : QStringLiteral("left"))
             .arg(residents)
@@ -1216,7 +1222,7 @@ bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
     if (sourceKey.isEmpty() || sourceKey == outputKey(destination)) return false;
     if (!handoffWindowToOutput(window, destination, window->frameGeometry())) {
         // A refused transfer keeps the layout it had, the pane back in it.
-        qInfo() << "Kadunce" << Revision << "kept" << window->caption() << "in the layout on"
+        qInfo() << "Kadunce" << Revision << "kept" << logNameOf(window) << "in the layout on"
                 << sourceKey << "rather than hand it to" << outputKey(destination);
         auto source = m_sessions.find(sourceKey);
         if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
@@ -1421,10 +1427,12 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
         const auto retained = cardRestores.constFind(window);
         const auto activeRestore = retained == cardRestores.cend()
             ? std::optional<NativeMoveSnapshot>() : std::optional<NativeMoveSnapshot>(*retained);
-        if (activeRestore && window && window->window() == activeRestore->window
-            && activeRestore->output == output) {
+        if (activeRestore && window && window->window() == activeRestore->window) {
             // Restoration was requested, but the client may still report Active
-            // bounds. Carry the source owner's record across this boundary.
+            // bounds. Carry the source owner's record across this boundary,
+            // with the display it was taken on, so a window that came from
+            // another display goes back there when the layout lets it go.
+            if (activeRestore->output) saved.outputName = outputKey(activeRestore->output);
             saved.geometry = activeRestore->geometry;
             saved.floatingGeometry = activeRestore->floatingGeometry;
             saved.fullscreenRestoreGeometry = activeRestore->fullscreenRestoreGeometry;
@@ -1961,7 +1969,7 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
                 &eviction.record)) {
             qWarning() << "Kadunce" << Revision
                        << "could not give a window the layout cannot show to card ownership:"
-                       << window->caption();
+                       << logNameOf(window);
         } else if (auto *output = outputForKey(eviction.sourceKey)) {
             m_host->paneYieldedForDesktopStage(window, output, drawn);
         }
@@ -2300,7 +2308,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         const auto &pixel = pixels.at(std::size_t(index));
         if (window->screen() == output
             && onPixel(window->frameGeometry(), pixel)) continue;
-        qInfo() << "Kadunce" << Revision << "sheds" << window->caption() << "from" << key
+        qInfo() << "Kadunce" << Revision << "sheds" << logNameOf(window) << "from" << key
                 << "at" << window->frameGeometry() << "for its pane"
                 << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)
                 << (window->isUserMove() ? "while KWin holds a move of it" : "");
@@ -2332,6 +2340,36 @@ bool DesktopStageController::sessionGeometryMatches(const Session &session) cons
             || !onPixel(window->frameGeometry(), pixel)) return false;
     }
     return true;
+}
+
+KWin::RectF DesktopStageController::fittedIntoWorkArea(const KWin::RectF &geometry,
+    KWin::LogicalOutput *output)
+{
+    const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const double width = std::min(geometry.width(), work.width());
+    const double height = std::min(geometry.height(), work.height());
+    const double right = std::max(work.x(), work.right() - width);
+    const double bottom = std::max(work.y(), work.bottom() - height);
+    return KWin::RectF(std::clamp(geometry.x(), work.x(), right),
+        std::clamp(geometry.y(), work.y(), bottom), width, height);
+}
+
+bool DesktopStageController::reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot)
+{
+    if (!client || (!snapshot.minimized && !snapshot.userMinimized)) return false;
+    if (client->frameGeometry() == client->moveResizeGeometry()
+        && client->maximizeMode() == snapshot.maximizeMode
+        && client->isFullScreen() == snapshot.fullScreen
+        && client->quickTileMode() == snapshot.quickTileMode) {
+        client->setMinimized(true);
+        return true;
+    }
+    // Observe the final native target, including maximize/tiling.
+    // Re-minimizing in the same configure can leave stale client bounds.
+    m_restoredMinimizations.push_back(std::make_unique<RestoredMinimization>(
+        client, RestoredMinimization::Target{client->moveResizeGeometry(),
+            snapshot.maximizeMode, snapshot.quickTileMode, snapshot.fullScreen}));
+    return false;
 }
 
 void DesktopStageController::restoreSession(const QString &key, bool outputRemoving)
@@ -2413,16 +2451,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         const bool floating = !snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
             && snapshot.quickTileMode == KWin::QuickTileMode{};
         if (!preserveGeometry || floating) {
-            const KWin::RectF work = KWin::effects->clientArea(
-                KWin::MaximizeArea, targetOutput);
-            const double width = std::min(restoreGeometry.width(), work.width());
-            const double height = std::min(restoreGeometry.height(), work.height());
-            const double right = std::max(work.x(), work.right() - width);
-            const double bottom = std::max(work.y(), work.bottom() - height);
-            restoreGeometry = KWin::RectF(
-                std::clamp(restoreGeometry.x(), work.x(), right),
-                std::clamp(restoreGeometry.y(), work.y(), bottom),
-                width, height);
+            restoreGeometry = fittedIntoWorkArea(restoreGeometry, targetOutput);
             if (preserveGeometry && restoreGeometry != snapshot.geometry)
                 qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
                         << restoreGeometry << "instead of" << snapshot.geometry
@@ -2433,21 +2462,9 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
         if (valid() && restoreWindowStateChecked(client.data(), snapshot, restoreGeometry,
                            preserveGeometry, true, false, valid)) {
-            if (snapshot.minimized || snapshot.userMinimized) {
-                if (client->frameGeometry() == client->moveResizeGeometry()
-                    && client->maximizeMode() == snapshot.maximizeMode
-                    && client->isFullScreen() == snapshot.fullScreen
-                    && client->quickTileMode() == snapshot.quickTileMode) {
-                    client->setMinimized(true);
-                    return valid() ? RestoreResult::Completed
-                        : (clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted);
-                }
-                // Observe the final native target, including maximize/tiling.
-                // Re-minimizing in the same configure can leave stale client bounds.
-                m_restoredMinimizations.push_back(std::make_unique<RestoredMinimization>(
-                    client, RestoredMinimization::Target{client->moveResizeGeometry(),
-                        snapshot.maximizeMode, snapshot.quickTileMode, snapshot.fullScreen}));
-            }
+            if (reminimizeRestored(client.data(), snapshot))
+                return valid() ? RestoreResult::Completed
+                    : (clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted);
             return RestoreResult::Completed;
         }
         return clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted;
@@ -2914,13 +2931,27 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
     m_applicationGuard.invalidate();
     if (restoreSnapshot && removedSnapshot.valid
         && removedSnapshot.window && removedSnapshot.window->window()) {
-        KWin::Window *client = removedSnapshot.window->window();
-        KWin::LogicalOutput *output = outputForKey(removedSnapshot.outputName);
-        if (output) {
-            client->sendToOutput(output);
-        }
-        client->setMinimized(false);
-        client->moveResize(removedSnapshot.geometry);
+        // The window leaves as restoreSession gives one back: on the display
+        // it came from while that is attached, maximized, tiled, full screen
+        // or minimized as it was before the layout.
+        QPointer<KWin::EffectWindow> leaving = removedSnapshot.window;
+        QPointer<KWin::Window> client = leaving->window();
+        KWin::LogicalOutput *original = outputForKey(removedSnapshot.outputName);
+        KWin::LogicalOutput *target = original ? original : leaving->screen();
+        if (!target) target = m_host->tabletOutputForDesktopStage();
+        const bool preserveGeometry = target && target == original;
+        const bool floating = !removedSnapshot.fullScreen
+            && removedSnapshot.maximizeMode == KWin::MaximizeRestore
+            && removedSnapshot.quickTileMode == KWin::QuickTileMode{};
+        KWin::RectF geometry = removedSnapshot.geometry;
+        if (target && (!preserveGeometry || floating)) geometry = fittedIntoWorkArea(geometry, target);
+        if (target) client->sendToOutput(target);
+        const auto valid = [&] {
+            return leaving && !leaving->isDeleted() && client && leaving->window() == client;
+        };
+        if (valid() && restoreWindowStateChecked(client.data(), removedSnapshot, geometry,
+                           preserveGeometry, true, false, valid))
+            (void)reminimizeRestored(client.data(), removedSnapshot);
     }
     auto source = m_sessions.find(sourceKey);
     if (source == m_sessions.end()) {
@@ -2965,7 +2996,7 @@ void DesktopStageController::handleWindowMoveResizeStarted(KWin::EffectWindow *w
             m_interactionResize = window->isUserResize();
             m_settleTimer.stop();
             qInfo() << "Kadunce" << Revision
-                    << "began Bento interaction" << window->caption()
+                    << "began Bento interaction" << logNameOf(window)
                     << (m_interactionResize ? "rail" : "carry");
             return;
         }

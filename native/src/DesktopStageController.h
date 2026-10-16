@@ -52,8 +52,9 @@ public:
         const = 0;
     // Whether this display can hold individual cards at all. CARD-LIFECYCLE.md
     // §5 ends Bento into one, so the rule needs the capability rather than the
-    // display's hardware identity; CARD-LIFECYCLE.md §11 gives any other output
-    // ordinary windows or per-output Bento, never cards.
+    // display's hardware identity. CARD-LIFECYCLE.md §11 gives every display
+    // its own cards; only with `[Spread] OtherDisplays=windows` does a display
+    // other than Spread's keep ordinary windows or per-output Bento instead.
     [[nodiscard]] virtual bool outputCanOwnCards(const KWin::LogicalOutput *) const {
         return false;
     }
@@ -475,6 +476,13 @@ private:
                   KWin::EffectWindow *preferred = nullptr,
                   std::optional<BentoSidePlacement> side = {});
     void restoreSession(const QString &key, bool outputRemoving = false);
+    // A place moved and shrunk into the room panels leave on output.
+    [[nodiscard]] static KWin::RectF fittedIntoWorkArea(const KWin::RectF &geometry,
+        KWin::LogicalOutput *output);
+    // A window given back that was minimized before its layout is minimized
+    // again: now, when KWin already holds its restored state, which returns
+    // true, else once KWin does.
+    bool reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot);
     bool applySession(Session &session, bool activateLead);
     void scheduleSettle();
     void settleSessions();

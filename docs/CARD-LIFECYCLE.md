@@ -453,21 +453,21 @@ An edge action commits only when released in its edge zone.
 Each display, per desktop, has its own ownership session. An edge action
 reads that display's state: its Active card, Bento layout and pane cap.
 
-Every display shows its windows as cards, and one holds Spread: the one you
-chose while it is attached, else the one a touchscreen drives, else the largest
+Every display shows its windows as cards, and one holds Spread: your choice
+while attached, else the touchscreen's, else the largest
 (`DECISIONS.md` § One display holds Spread). It may contain:
 
 - Individual cards
 - Ordinary stacks
 - At most one Bento layout
 
-Unplugged, its cards move to the next (§3), returning with the chosen display
-(`kaduncerc` `[Spread] Display`).
+Unplugged, its cards move to the next (§3), returning with the chosen one
+(`kaduncerc` `[Spread] Display`, kept by identity through renaming).
 
 ### Connected
 
 A display is Connected when its logical size holds more than two panes (§5),
-unless chosen for it (`kaduncerc` `[Sizing]`). Search floats, joining only an
+unless chosen for it (`kaduncerc` `[Sizing]`, likewise). Search floats, joining only an
 open Spread.
 
 | Behavior | Solo | Connected |

@@ -15,6 +15,7 @@
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QIcon>
+#include <QLibraryInfo>
 #include <QLockFile>
 #include <QMenu>
 #include <QProcess>
@@ -384,7 +385,9 @@ private:
 
     void updateHealth()
     {
-        const QPluginLoader plugin(QStringLiteral("/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"));
+        // Qt's plugin directory, where KWin finds effects on any distribution.
+        const QPluginLoader plugin(QLibraryInfo::path(QLibraryInfo::PluginsPath)
+            + QStringLiteral("/kwin/effects/plugins/kwin4_effect_kadunce.so"));
         const QString built = Compatibility::pluginVersion(plugin.metaData().value(QStringLiteral("IID")).toString());
         m_mismatch = Compatibility::mismatch(built, m_kwinVersion);
         m_health->setText(m_mismatch
