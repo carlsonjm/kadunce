@@ -264,6 +264,10 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
     if (!output || window->screen() != output
         || !m_host->isManagedWindowForCardStage(window)
         || liveCardIndex(window) < 0) return false;
+    // §11, Every display: a card waiting here for another display never joins
+    // this one's layout.
+    if (KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(window); own && own != output)
+        return false;
     // The Bento group is never a partner, and neither is a live pane.
     return !inProjectedLayout(window) && !isBentoProjectionPane(window);
 }

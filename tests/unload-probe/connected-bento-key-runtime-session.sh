@@ -4,8 +4,10 @@
 # sized Connected and chosen for Spread. With a layout of two panes there,
 # Table opens and closes, then Meta+B ends the layout into cards, the one in
 # use Active; Meta+B again lays out every card open there; and Meta+S
-# opens Spread over the layout and closes it again. Every check is reported,
-# so a failure does not hide the rest.
+# opens Spread over the layout and closes it again. A pane then carried by
+# KWin's title bar to the top edge, out of the three, is the Active card in
+# front of the other two, and one Meta+B lays all three out again. Every
+# check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -38,6 +40,28 @@ select_card() {
     selected "$id"
 }
 pick() { select_card "$1" || echo "could not select $1"; open_selected; }
+title_at() { probe titleBarOf "$1" | jq -r 'select(.x != null) | [.x, .y] | map(floor) | @tsv'; }
+# A person's mouse presses a window's title bar, KWin's own, and carries it
+# through each point given in turn before letting go.
+title_drag() {
+    local id=$1 x y; shift
+    read -r x y <<<"$(title_at "$id")"
+    [[ -n ${y:-} ]] || { echo "no title bar on $id"; return 0; }
+    probe pointer "$x" "$y" >/dev/null
+    sleep .1
+    probe contactButton true >/dev/null
+    sleep .1
+    probe contactMotion "$((x + 30))" "$((y + 40))" >/dev/null
+    sleep .15
+    while (( $# >= 2 )); do
+        probe contactMotion "$1" "$2" >/dev/null
+        shift 2
+        sleep .12
+    done
+    sleep .4
+    probe contactButton false >/dev/null
+    sleep 1.6
+}
 presents() { context --arg p "$1" '.cardStage.presentation == $p'; }
 large_panes() { kad workspaceContext | jq '[.applications[] | select(.pane and (.hasCard | not) and .output == "Virtual-1")] | length'; }
 panes_are() { [[ $(large_panes) == "$1" ]]; }
@@ -59,6 +83,8 @@ sleep .5
 probe minimizeWindow "$(idOf unload-client)" true >/dev/null
 sleep .4
 mail=$(idOf 'Mail') wallet=$(idOf 'Wallet') browser=$(idOf 'Browser')
+for id in "$mail" "$wallet" "$browser"; do probe serverDecorate "$id" >/dev/null; done
+sleep .4
 probe activateWindowId "$mail" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
@@ -103,6 +129,21 @@ sleep 1.2
 report final
 check 'spread: and Escape goes back to the layout' panes_are 3
 
+# Carried by its title bar to the top edge, a pane taken out of three is the
+# Active card in front of the two left. One Meta+B lays all three out again,
+# the carried one among them, rather than ending the two it stood in front of.
+read -r tx _ <<<"$(title_at "$browser")"
+title_drag "$browser" "$((tx + 30))" 200 "${tx:-0}" 100 "${tx:-0}" 40 "${tx:-0}" 12 "${tx:-0}" 2
+report top
+check 'top: the pane carried there is the Active card' \
+    context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+probe key 48 125 >/dev/null
+sleep 1.6
+report back-in
+check 'back: one Meta+B lays out every open card again' panes_are 3
+check 'back: the card carried to the top is a pane of it' \
+    context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 check 'switched off: every window is an ordinary window on a display that exists' \
@@ -112,4 +153,4 @@ if (( failures > 0 )); then
     echo "FAIL: connected bento key: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: Meta+B ends and remakes a layout on Connected, and Meta+S opens Spread over it, Table or no Table'
+echo 'PASS: Meta+B ends and remakes a layout on Connected, lays one standing behind the Active card out again with it, and Meta+S opens Spread over it, Table or no Table'

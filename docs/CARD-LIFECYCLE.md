@@ -477,15 +477,14 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 ### Every display
 
-Each other display holds its own cards, sized by its size, and keeps what it
-shows while Spread is open; one picked or woken opens there. Sized
-Solo, it
-shows one card: one carried there is that card, closing it brings back the one
-before, and a placed Stack steps there. Sized Connected, it plays cards into
-its layout. A window opens on Spread's display; a card brought forward or
-paired there is that display's own, and its pane, chosen in Spread, opens the
-layout. Unplugged, its cards stay in Spread. Let go (§13), windows stay windows
-until one opens.
+Each other display holds its own cards and keeps what it shows while Spread
+is open; one picked, woken or called from the dock opens there. Sized Solo, it
+shows one card: one carried there is that card, closing or carrying it off
+brings back the one before, and a placed Stack steps there. Sized Connected,
+it plays cards into its layout. A window opens on Spread's display; a card
+carried or paired there is its own, its pane in Spread opening the layout; one
+waiting elsewhere never pairs. Unplugged, its cards stay in Spread. Let go
+(§13), windows stay windows until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there
