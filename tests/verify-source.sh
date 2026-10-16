@@ -19,6 +19,8 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${project_dir}"
 native_dir="${project_dir}/native"
 effect_cpp="${native_dir}/src/Effect.cpp"
+# Spread's guest service, split out of Effect.cpp.
+effect_guest_cpp="${native_dir}/src/EffectGuest.cpp"
 effect_header="${native_dir}/src/Effect.h"
 card_cpp="${native_dir}/src/CardStageController.cpp"
 card_header="${native_dir}/src/CardStageController.h"
@@ -241,7 +243,9 @@ rg -q 'systemctl --user start kadunce-control\.service' \
 
 rg -q '"Id": "kwin4_effect_kadunce"' "${metadata_file}"
 rg -q 'kwin4_effect_kadunce' "${native_dir}/CMakeLists.txt"
-rg -q '0\.1\.0-kadunce-baseline' "${effect_cpp}" "${card_cpp}"
+rg -q 'constexpr auto Revision = KADUNCE_REVISION;' "${effect_cpp}"
+rg -q 'constexpr auto Revision = KADUNCE_REVISION;' "${card_cpp}"
+rg -q 'KADUNCE_REVISION="\$\{PROJECT_VERSION\}"' "${native_dir}/CMakeLists.txt"
 rg -q 'windowStepUserMovedResized' "${effect_cpp}" "${card_cpp}"
 rg -q 'armed Bento drop across output seam' "${desktop_cpp}"
 rg -q 'm_forwardedPointerButtons.remove\(event->button\)' "${router_cpp}"
@@ -258,8 +262,8 @@ rg -q 'Q_SCRIPTABLE bool finishLauncherGuest' "${effect_header}"
 rg -q 'Q_SCRIPTABLE bool prepareLauncherGuestLaunch' "${effect_header}"
 rg -q 'Q_SCRIPTABLE void cancelLauncherGuestLaunch' "${effect_header}"
 rg -q 'Q_SCRIPTABLE void endLauncherGuest' "${effect_header}"
-rg -q 'int Effect::launcherGuestProtocolVersion.*const' "${effect_cpp}"
-rg -q 'return 3;' "${effect_cpp}"
+rg -q 'int Effect::launcherGuestProtocolVersion.*const' "${effect_guest_cpp}"
+rg -q 'return 3;' "${effect_guest_cpp}"
 rg -q 'readyForPaintingChanged' "${effect_cpp}"
 rg -q 'desktopFileNameChanged' "${effect_cpp}"
 rg -q 'completeLauncherGuestForWindow\(candidate\)' "${effect_cpp}"
@@ -269,13 +273,13 @@ guest_guard=$(printf '%s\n' "$admission" | rg -n 'if \(m_launcherGuestActive\)' 
 promote=$(printf '%s\n' "$admission" | rg -n 'if \(!enterActive\(\)\)' | cut -d: -f1)
 test -n "$guest_guard" && test "$guest_guard" -lt "$promote"
 printf '%s\n' "$admission" | rg -q 'm_workspace.selectIndex\(previousSelection\)'
-rg -q 'QDBusServiceWatcher::WatchForUnregistration' "${effect_cpp}"
-rg -q 'm_cardStage->beginLauncherGuest' "${effect_cpp}"
+rg -q 'QDBusServiceWatcher::WatchForUnregistration' "${effect_guest_cpp}"
+rg -q 'm_cardStage->beginLauncherGuest' "${effect_guest_cpp}"
 rg -q 'm_cardStage->launcherGuestTarget' "${effect_cpp}" "${card_cpp}"
 rg -q 'launcherGuestTargetForSlot' "${effect_cpp}" "${card_cpp}" "${card_header}"
 rg -q 'makeLauncherGuestLayout' "${card_cpp}"
 rg -q 'm_launcherGuestGroupCount' "${card_cpp}"
-rg -q 'm_launcherGuestLaunchPending' "${effect_cpp}" "${effect_header}"
+rg -q 'm_launcherGuestLaunchPending' "${effect_cpp}" "${effect_guest_cpp}" "${effect_header}"
 rg -q 'QStringLiteral\("completeGuestLaunch"\)' "${effect_cpp}"
 rg -q 'launcherGuestTransitionProgress' "${effect_cpp}" "${card_cpp}" \
     "${card_header}"
@@ -283,7 +287,7 @@ rg -q 'LauncherGuestTransitionDuration = 220' "${card_cpp}"
 rg -q 'LauncherGuestDragPreview = 0\.18' "${card_cpp}"
 rg -q -- '-16\.0 \* liftBlend' "${effect_cpp}"
 rg -q 'slot < 0 \? -0\.8 : 0\.8' "${effect_cpp}"
-rg -q 'm_cardStage->endLauncherGuest' "${effect_cpp}"
+rg -q 'm_cardStage->endLauncherGuest' "${effect_guest_cpp}"
 rg -q 'launcherGuestContainsForInput' "${router_cpp}" "${router_header}"
 rg -q 'tapBesideLauncherGuestFromInput' "${router_cpp}" "${router_header}" \
     "${effect_cpp}" "${effect_header}"
@@ -673,7 +677,7 @@ rg -q 'Left neighbor is not a partial edge card' \
     "${native_dir}/tests/SpreadLayoutTest.cpp"
 rg -q 'Right neighbor is not a partial edge card' \
     "${native_dir}/tests/SpreadLayoutTest.cpp"
-rg -q 'native_plugin_system_target="/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce\.so"' \
+rg -q 'native_plugin_system_target="\$\(qt_plugin_dir\)/kwin/effects/plugins/kwin4_effect_kadunce\.so"' \
     "${project_dir}/install.sh"
 rg -q 'pkexec /usr/bin/install -Dm755' "${project_dir}/install.sh"
 

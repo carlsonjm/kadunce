@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# KWin looks for effects in Qt's plugin directory, which each distribution
+# places differently (lib, lib64, a multiarch lib); Qt itself says where.
+qt_plugin_dir() {
+    local tool dir
+    for tool in qtpaths6 qtpaths-qt6 /usr/lib/qt6/bin/qtpaths /usr/lib64/qt6/bin/qtpaths; do
+        command -v "${tool}" >/dev/null 2>&1 || continue
+        dir="$("${tool}" --query QT_INSTALL_PLUGINS 2>/dev/null)" || continue
+        [[ "${dir}" == /* ]] && { printf '%s\n' "${dir}"; return 0; }
+    done
+    printf '%s\n' /usr/lib/qt6/plugins
+}
 
 # Nothing in this script runs as root. It lives in the home folder, where
 # anything running as you can rewrite it, so the one privileged step goes to a
@@ -39,7 +50,7 @@ fi
 # Check the factory built from headers, not just the executable queried above.
 strings "$candidate" | grep -F "org.kde.kwin.EffectPluginFactory$version" >/dev/null
 expected=$(sha256sum "$candidate" | cut -d' ' -f1)
-target=/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so
+target=$(qt_plugin_dir)/kwin/effects/plugins/kwin4_effect_kadunce.so
 [[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
 backup=$(mktemp "$state_dir/plugin-backup.XXXXXX")
 cp -- "$target" "$backup"

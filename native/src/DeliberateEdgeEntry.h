@@ -32,8 +32,9 @@ enum class EdgeEntryOutcome {
     // Nothing pairs.
     PlaceAlone,
     // A display that cannot own cards reaches neither pairing rule, so an edge
-    // action there composes Bento across the display. CARD-LIFECYCLE.md §11
-    // gives any other output ordinary windows or per-output Bento, never cards.
+    // action there composes Bento across the display. Under CARD-LIFECYCLE.md
+    // §11 that is a display other than Spread's with `[Spread]
+    // OtherDisplays=windows`, which keeps ordinary windows or per-output Bento.
     ComposeDisplayBento,
 };
 

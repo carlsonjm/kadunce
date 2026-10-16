@@ -62,10 +62,10 @@ presents it as Active.
 ### Desktop
 
 The display that owns cards shows the ordinary desktop, with the window you
-returned to it at its bottom edge (§10). Every card and the Bento group stay
-owned, held aside out of sight and reach. Spread brings them back, and going
-back from it returns here; choosing a card or opening an application presents
-one again, and asking for a returned window shows the desktop again.
+returned to it at its bottom edge (§10) or by maximizing it. Every card and the
+Bento group stay owned, held aside out of sight and reach. Spread brings them
+back, and going back returns here; choosing a card or opening an application
+presents one again, and asking for a returned window shows the desktop again.
 
 ### Native desktop
 
@@ -133,9 +133,6 @@ during the carry never substitutes another window.
 
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
-
-Only the side edges pair. A top snap on a display Kadunce already owns makes the
-carried window an individual Active card.
 
 An entry commits completely or not at all. If adoption cannot be prepared safely,
 every window remains Native. If a pair cannot be prepared safely, the carried
@@ -423,7 +420,7 @@ An edge action is what a carried window's release at a screen edge means
 
 ### Top edge
 
-Make the carried window an independent Active card. The top edge never pairs.
+Make the carried window an independent Active card, or another display's lone card. It never pairs.
 
 ### Left or right edge
 
@@ -435,9 +432,8 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 Release the carried window to the ordinary Plasma desktop.
 
-On the display that owns cards, §2's Desktop is then shown with it and the rest
-waits in Spread; a last card ends the display's session, as §12's last closure
-does.
+On the display that owns cards, §2's Desktop is then shown with it; a last card
+ends the display's session, as §12's last closure does.
 
 ### Cancel
 
@@ -451,23 +447,23 @@ An edge action commits only when released in its edge zone.
 Each display, per desktop, has its own ownership session. An edge action
 reads that display's state: its Active card, Bento layout and pane cap.
 
-Every display shows its windows as cards, and one holds Spread: the one you
-chose while it is attached, else the one a touchscreen drives, else the largest
+Every display shows its windows as cards, and one holds Spread: your choice
+while attached, else the touchscreen's, else the largest
 (`DECISIONS.md` § One display holds Spread). It may contain:
 
 - Individual cards
 - Ordinary stacks
 - At most one Bento layout
 
-Unplugged, its cards move to the next (§3), returning with the chosen display
-(`kaduncerc` `[Spread] Display`).
+Unplugged, its cards move to the next (§3), returning with the chosen one
+(`kaduncerc` `[Spread] Display`, kept by identity through renaming).
 
-Search floats on any display; only an open Spread takes it in.
+Search floats on any display; Spread takes it in once open.
 
 ### Connected
 
 A display is Connected when its logical size holds more than two panes (§5),
-unless chosen for it (`kaduncerc` `[Sizing]`).
+unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 | Behavior | Solo | Connected |
 | --- | --- | --- |
@@ -476,23 +472,26 @@ unless chosen for it (`kaduncerc` `[Sizing]`).
 | A side snap | Takes its half's share (§3) | Names a place: an edge's upper half beside, a full-height column; its lower half under, at that column's foot; alone, it keeps that place |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A pane rested on another joins its Stack in front, leaving its slot to its own Stack |
-| A full layout | An arrival takes the smallest slot it fits (§8) | An arrival takes the fitting pane used longest ago; past minimum sizes, auto-fill lays all out, a snapped card kept at its side |
+| A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |
 | A pane leaving | §5 | §5, its room opening |
 
 ### Every display
 
-Each other display holds its own cards, sized by its size. Spread shows every
-card, giving back those not chosen; one picked opens there. Sized Solo, it
+Each other display holds its own cards, sized by its size, and keeps what it
+shows while Spread is open; one picked or woken opens there. Sized
+Solo, it
 shows one card: one carried there is that card, closing it brings back the one
 before, and a placed Stack steps there. Sized Connected, it plays cards into
-its layout. A window opens on Spread's display. Unplugged, its cards stay in
-Spread. Let go (§13), windows stay windows until one opens.
+its layout. A window opens on Spread's display; a card brought forward or
+paired there is that display's own, and its pane, chosen in Spread, opens the
+layout. Unplugged, its cards stay in Spread. Let go (§13), windows stay windows
+until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
-Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T, but
+Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T,
 not KWin's default, are the layout: each
 window keeps a zone it fits, and KWin owns the edges until release.
 

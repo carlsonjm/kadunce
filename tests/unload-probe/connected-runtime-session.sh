@@ -215,7 +215,7 @@ check 'search: it opens as the guest of the monitor Spread' hosted
 check 'search: Spread stays open' presents cardLine
 check 'search: the cards beside it keep their ordinary size' \
     context '[.applications[] | select(.spreadRect) | .spreadRect.width] | length > 0 and all(. > 1000)'
-kad endLauncherGuest
+# Only the guest may end itself; its program going away ends it too.
 kill "$owner_pid" 2>/dev/null; wait "$owner_pid" 2>/dev/null
 sleep .8
 report search-gone

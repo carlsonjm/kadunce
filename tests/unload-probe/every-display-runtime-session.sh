@@ -5,12 +5,13 @@
 # display shows one card whole; the rest of its windows wait in Spread on the
 # large one, with the card it shows. A card of the small display picked in
 # Spread opens there, the card it replaced waits in Spread, and the large
-# display goes back to what it showed. A window carried to the small display
-# is the card it shows;
+# display goes back to what it showed. Spread never takes the card the small
+# display shows. A window carried to the small display is the card it shows;
 # closing it brings back the card it used before. A Stack placed on the small
-# display fills it, and Meta+Tab steps it there. With every window moved to
-# the small display, Spread still opens, gathering the card it shows, and gives
-# it back as it closes. Every check is reported, so
+# display fills it, and Meta+Tab steps it there. Fingers open Spread with
+# the same cards Meta+S does. With every window moved to
+# the small display, Spread still opens with the cards waiting for it, and the
+# card it shows stays there. Every check is reported, so
 # a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -176,7 +177,7 @@ spread_key
 report spread
 check 'spread: Spread opens on the large display' presents cardLine
 check 'spread: the small display waiting card is in it' in_spread "$waiting"
-check 'spread: the card the small display shows is in it too' in_spread "$shown"
+check 'spread: the card the small display shows stays there' shown_small "$shown"
 pick "$waiting"
 report picked
 check 'pick: the picked card shows on the small display' shown_small "$waiting"
@@ -252,6 +253,21 @@ check 'step: it fills the small display' fills_small "$other"
 check 'step: the card it replaced waits in the Stack' waits_for_small "$face"
 check 'step: the large display still shows its own card' presents active
 
+# Fingers open Spread from the Active card as the key does, and leave the card
+# the small display shows there.
+fingered=$(small_shows)
+for p in 0.2 0.4 0.6 0.8; do probe spreadGesture "$p" >/dev/null; sleep .05; done
+probe spreadGestureEnd >/dev/null
+sleep 1.4
+report fingers
+check 'fingers: Spread opens' presents cardLine
+check 'fingers: the small display still shows its card' shown_small "$fingered"
+check 'fingers: still one card shown there' small_panes 1
+pick "$mb"
+report fingers-picked
+check 'fingers: picked, the large display went back to its own card' presents active
+check 'fingers: the small display shows the same card' shown_small "$fingered"
+
 # Every window moved to the small display: Spread's display holds no card of
 # its own, and Spread still opens, holding the small display's cards.
 probe sendCaptionToOutput 'Mon A' Virtual-0
@@ -264,16 +280,16 @@ check 'emptied: no card belongs to the large display' \
 check 'emptied: the small display shows one card' small_panes 1
 before=$(small_shows)
 spread_key
-report gathered
-check 'gathered: Spread opens' presents cardLine
-check 'gathered: the card the small display showed is in it' in_spread "$before"
-check 'gathered: the small display cards wait in it' waits_for_small "$ma"
-probe key 1 0 >/dev/null
-sleep 1.4
-report gave-back
-check 'gave back: Spread closed' bash -c "! qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -e '.cardStage.presentation == \"cardLine\"'"
-check 'gave back: the small display shows its card again' shown_small "$before"
-check 'gave back: still one card shown there' small_panes 1
+report emptied-spread
+check 'emptied: Spread opens' presents cardLine
+check 'emptied: the small display still shows its card' shown_small "$before"
+waiter=$(kad workspaceContext | jq -r 'first(.applications[] | select(.hasCard and .home == "Virtual-0" and .output == "Virtual-1")) | .windowId')
+check 'emptied: the cards waiting for the small display are in it' waits_for_small "$waiter"
+pick "$waiter"
+report emptied-picked
+check 'emptied: picked, it shows on the small display' shown_small "$waiter"
+check 'emptied: the card it replaced waits in Spread for it' waits_for_small "$before"
+check 'emptied: still one card shown there' small_panes 1
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

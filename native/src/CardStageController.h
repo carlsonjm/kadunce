@@ -173,6 +173,8 @@ public:
     // card to pair with, and retires as soon as that card stops being an
     // individual card.
     [[nodiscard]] KWin::EffectWindow *activeCardIdentity() const;
+    // The Active card an open Spread goes back to; none over the desktop.
+    [[nodiscard]] KWin::EffectWindow *cardSpreadOpenedOver() const;
     // CARD-LIFECYCLE.md §4 "Eligible as a Bento partner", asked in one place.
     // Adoption eligibility is a different question and never stands in for it.
     [[nodiscard]] bool isEligiblePartner(const KWin::EffectWindow *window) const;
@@ -547,7 +549,8 @@ public:
     bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
-    // The Active card asked to fill the screen: it alone goes, the rest wait aside.
+    // The Active card asked to fill the screen: it alone goes, returned to the
+    // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     // The window that has just opened, maximizing or tiling itself as its
     // application restores its saved state, stays the Active card.
@@ -930,6 +933,8 @@ private:
     // Cards held aside while the desktop is shown, and the windows returned
     // to it; activating one of those brings the desktop back.
     QList<QPointer<KWin::EffectWindow>> m_aside;
+    // What keeps each card aside on the task list.
+    QHash<const KWin::EffectWindow *, QMetaObject::Connection> m_asideListed;
     QList<QPointer<KWin::EffectWindow>> m_returnedToDesktop;
     void holdCardsAside();
     void bringCardsBack();

@@ -30,8 +30,13 @@ scenes=(
     no-touch-runtime production
     spread-display-runtime production
     connected-runtime production
+    connected-sizes-runtime production
     connected-stacks-runtime production
     every-display-runtime production
+    every-display-wake-runtime production
+    every-display-carry-runtime production
+    every-display-pane-runtime production
+    every-display-full-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
     connected-desk-keys-runtime production
@@ -119,6 +124,7 @@ scenes=(
     spread-fingers-runtime tablet
     guest-drawer-runtime tablet
     guest-beside-runtime tablet
+    guest-float-runtime tablet
     companion-guest-runtime tablet
     companion-focus-runtime tablet
     notes-focus-runtime tablet
@@ -127,6 +133,8 @@ scenes=(
     late-maximize-runtime tablet
     late-maximize-active-runtime tablet
     late-maximize-signin-runtime tablet
+    fill-return-runtime tablet
+    x11-fill-return-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
     placement-display-runtime tablet

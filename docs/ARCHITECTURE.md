@@ -229,9 +229,10 @@ the state and capability of the display it is released into, never from that
 display's hardware identity. Sessions are per output and per desktop; changing or releasing one
 output must not release another output's session.
 
-Dock safety uses the actual work area plus visible bottom dock frames. The bottom
-edge remains an intentional destination strip even where a dock occupies it; that
-grants Kadunce no ordinary dock hit testing, and panel input stays with the panel.
+Dock safety uses the actual work area plus visible bottom dock frames. The top
+and bottom edges remain intentional destination strips for a carried window even
+where a panel or dock occupies them; that grants Kadunce no ordinary dock hit
+testing, and panel input stays with the panel.
 Native releases get one bounded position correction with 10 px clearance;
 oversized windows retain a reachable title bar instead of being resized.
 
@@ -273,7 +274,8 @@ What each check proves, and the rules for private compositors, are
 ## Invariants
 
 1. A client has one physical KWin output and one owning native restore record.
-2. Spread never mutates real client geometry.
+2. Spread never mutates real client geometry, and never takes what another
+   display shows (`CARD-LIFECYCLE.md` §11, Every display).
 3. Destination acceptance precedes source removal.
 4. Rendering reads state and never edits controller models.
 5. Input routing emits semantic commands and never edits models directly.

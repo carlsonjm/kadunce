@@ -554,11 +554,10 @@ diagonal hand-off from the edge.
 Every window is a card on every display, each display sized by its own size,
 and one display holds Spread, so there is never a second ring of cards
 (`CARD-LIFECYCLE.md` §11): the one you choose while attached, else the one a
-touchscreen drives, else the largest. Kadunce finds the touched display from
-the touchscreen as KWin places it, never from the display's name; where two
-touchscreens drive different displays, the built-in one wins. When the Spread
+touchscreen drives, else the largest. Kadunce finds the touched display as KWin
+places the touchscreen, never by name; of two touchscreens, the built-in wins. When the Spread
 display goes away, its cards move to the next one, and back when it returns.
-A card picked in Spread opens on the display it lives on, and a Stack placed on
+Spread never takes what another display shows. A card picked in Spread opens on the display it lives on, and a Stack placed on
 a touchscreen display steps with its bottom swipe while another display holds
 Spread. Rejected: cards only on the Spread display, which left other displays
 plain; a Spread per display; cards only on a touched display; and a

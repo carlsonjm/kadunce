@@ -14,7 +14,7 @@ result does to a window.
 | Plasma desktop | Switch Cards off in the tray | `Meta+Esc` |
 
 Kadunce's keys sit on `Meta` and work only while it runs. `Ctrl` stays with
-applications, `Alt+Tab` with KDE, and `Meta+G` and `Meta+E` open Tettegouche's
+applications, `Alt+Tab` with KDE; `Meta+G` and `Meta+E` open Tettegouche's
 Apps and Files.
 
 ## Spread
@@ -95,7 +95,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+[`, `Meta+]` | The divider beside the pane moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed when `Meta` is let go; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane; with none, the layout. |
+| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane; else it waits in Spread. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table
