@@ -854,6 +854,8 @@ private:
     [[nodiscard]] bool notesShownInSpread() const;
     // Gooseberry's surface of notes over a window, live or closing.
     [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    // Tettegouche's Search surface, which holds the keys while it is open.
+    [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
@@ -1209,6 +1211,9 @@ private:
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
+    // The keys coming back from Search as it closes over Spread, told the
+    // same way, whether or not Spread took Search in as its guest.
+    NotesKeysReturn m_searchKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;
