@@ -170,6 +170,7 @@ restructure freely while it preserves the authority boundaries in
 | Focus handed back as a guest closes keeps Spread | companion focus, with the real Gooseberry | the dock and Search handing over |
 | Every card taken stands in the Active card's place, none reaching the bottom edge; release gives each back | adopt reach | the band clearing at switch-on |
 | A card its application maximizes behind the Active one goes back to the Active place, and release gives it back maximized | late maximize | the band clearing at sign-in |
+| An Active card maximized goes to the desktop, and asking for it under a card opened later shows it there | fill return | a real application's maximize button |
 | An application launched over the Active card takes its place, Spread never shown | active launch | a surface grown over the card handing over |
 | The disable control survives independently | control, live control, repair | the hand toggle |
 
