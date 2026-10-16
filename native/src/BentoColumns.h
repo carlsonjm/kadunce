@@ -11,10 +11,11 @@
 
 namespace Kadunce
 {
-// CARD-LIFECYCLE.md §11, Connected: a layout a side snap placed is a row of
-// columns, left to right, each holding its cards top to bottom. A column's top
-// slot may be open room, where the desktop shows; a lone column stands in the
-// half of the display it was placed on, and the other half is open too.
+// CARD-LIFECYCLE.md §11, Connected: a layout a side snap placed, or a pair
+// began, is a row of columns, left to right, each holding its cards top to
+// bottom. A column's top slot may be open room, where the desktop shows; a
+// lone column stands in the half of the display it was placed on, and the
+// other half is open too.
 template<class Handle>
 struct BentoColumnSlot {
     Handle window{};
@@ -26,6 +27,11 @@ template<class Handle>
 struct BentoColumns {
     std::vector<std::vector<BentoColumnSlot<Handle>>> columns;
     bool alignRight = false;
+    // Begun by pairing a pick or an opened window with the card in use, and
+    // placed by no side snap since. Nothing placed these columns, so they
+    // leave no room open: down to one column the layout is laid out whole
+    // again, and down to one pane it ends (§5).
+    bool paired = false;
     bool operator==(const BentoColumns &) const = default;
 };
 

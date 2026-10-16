@@ -136,9 +136,6 @@ during the carry never substitutes another window.
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
 
-Only the side edges pair. A top snap on a display Kadunce already owns makes the
-carried window an individual Active card.
-
 An entry commits completely or not at all. If adoption cannot be prepared safely,
 every window remains Native. If a pair cannot be prepared safely, the carried
 window and the partner keep the ownership and presentation they had.
@@ -425,7 +422,7 @@ An edge action is what a carried window's release at a screen edge means
 
 ### Top edge
 
-Make the carried window an independent Active card. The top edge never pairs.
+Make the carried window an independent Active card, or another display's lone card. It never pairs.
 
 ### Left or right edge
 
@@ -477,7 +474,7 @@ once open.
 | A side snap | Takes its half's share (§3) | Names a place: an edge's upper half beside, a full-height column; its lower half under, at that column's foot; alone, it keeps that place |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A pane rested on another joins its Stack in front, leaving its slot to its own Stack |
-| A full layout | An arrival takes the smallest slot it fits (§8) | An arrival takes the fitting pane used longest ago; past minimum sizes, auto-fill lays all out, a snapped card kept at its side |
+| A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |
 | A pane leaving | §5 | §5, its room opening |
 
 ### Every display
@@ -487,8 +484,10 @@ shows while Spread is open; one picked or woken opens there. Sized
 Solo, it
 shows one card: one carried there is that card, closing it brings back the one
 before, and a placed Stack steps there. Sized Connected, it plays cards into
-its layout. A window opens on Spread's display. Unplugged, its cards stay in
-Spread. Let go (§13), windows stay windows until one opens.
+its layout. A window opens on Spread's display; a card brought forward or
+paired there is that display's own, and its pane, chosen in Spread, opens the
+layout. Unplugged, its cards stay in Spread. Let go (§13), windows stay windows
+until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
 windows or one Bento layout, an edge snap organizing every window there

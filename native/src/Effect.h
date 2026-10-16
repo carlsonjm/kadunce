@@ -642,6 +642,9 @@ private:
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    // §11, Every display: the other panes of that display wait in Spread for
+    // it, and this one is the card it shows alone.
+    void showPaneAloneOnItsDisplay(KWin::EffectWindow *pane, KWin::LogicalOutput *output);
     // §11, Connected: a pane's face held by its title bar and drawn up passes
     // the cards behind it, shown as a ladder of title bars, and goes in where
     // it is let go.
@@ -689,6 +692,11 @@ private:
     // Whether another display holds its own cards, so where a carried Active
     // card lands decides what it becomes.
     [[nodiscard]] bool carriesToAnotherCardDisplay() const;
+    // The edge of `output` a carried window's contact reaches. A panel along
+    // the top edge, a status bar say, never takes that contact, so the top
+    // edge is reached over it; a panel anywhere else keeps its place.
+    [[nodiscard]] std::optional<CarryEdge> carryEdgeAt(const KWin::LogicalOutput *output,
+                                                       QPointF contact) const;
     QHash<KWin::EffectWindow *, QString> m_cardHomes;
     bool m_cardsOnEveryDisplay = true;
     bool m_bezelStepsStack = false;

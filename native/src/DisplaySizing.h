@@ -22,12 +22,21 @@ enum class DisplaySizing { Solo, Connected };
 // Kadunce chooses by room, never by inches: the display's size in logical
 // pixels, at the scale the person set, so a panel or dock that takes some of
 // it does not change the answer. A display with room for more than the
-// compact pane cap is Connected; it is the bound every layout path reads
-// (BentoLayout.h).
+// compact pane cap is Connected.
 [[nodiscard]] constexpr DisplaySizing automaticSizing(int width, int height)
 {
     return bentoPaneCap(width, height) > BentoCompactPaneCap
         ? DisplaySizing::Connected : DisplaySizing::Solo;
+}
+
+// The pane cap a display's sizing gives every layout solve on it
+// (BentoLayout.h): Connected as many panes as minimum sizes allow, Solo a
+// Bento pair at most. Read from the sizing and never from the work area, a
+// display Connected with panels taking some of it, or chosen either way in
+// kaduncerc, lays out by the same rule its picks and snaps follow.
+[[nodiscard]] constexpr int sizingPaneCap(DisplaySizing sizing)
+{
+    return sizing == DisplaySizing::Connected ? BentoPaneBound : BentoCompactPaneCap;
 }
 
 // A choice as kaduncerc's [Sizing] group keeps it. "active"

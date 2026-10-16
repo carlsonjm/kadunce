@@ -229,9 +229,10 @@ the state and capability of the display it is released into, never from that
 display's hardware identity. Sessions are per output and per desktop; changing or releasing one
 output must not release another output's session.
 
-Dock safety uses the actual work area plus visible bottom dock frames. The bottom
-edge remains an intentional destination strip even where a dock occupies it; that
-grants Kadunce no ordinary dock hit testing, and panel input stays with the panel.
+Dock safety uses the actual work area plus visible bottom dock frames. The top
+and bottom edges remain intentional destination strips for a carried window even
+where a panel or dock occupies them; that grants Kadunce no ordinary dock hit
+testing, and panel input stays with the panel.
 Native releases get one bounded position correction with 10 px clearance;
 oversized windows retain a reachable title bar instead of being resized.
 

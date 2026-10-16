@@ -30,10 +30,13 @@ scenes=(
     no-touch-runtime production
     spread-display-runtime production
     connected-runtime production
+    connected-sizes-runtime production
     connected-stacks-runtime production
     every-display-runtime production
     every-display-wake-runtime production
     every-display-carry-runtime production
+    every-display-pane-runtime production
+    every-display-full-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
     connected-desk-keys-runtime production

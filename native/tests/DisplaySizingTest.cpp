@@ -49,6 +49,17 @@ int main()
     require(displaySizing(QString(), 2560, 1440) == DisplaySizing::Connected
         && displaySizing(QStringLiteral("sideways"), 1706, 1066) == DisplaySizing::Solo,
         "An empty or unknown choice did not let Kadunce choose");
+    // The sizing names the pane cap, never the work area: a 1080p monitor
+    // with a 24 px bar and a 56 px dock is Connected by its size, though its
+    // 1900x980 stage area is below the compact bound, and lays out as many
+    // panes as minimum sizes allow. A monitor chosen Solo shows a pair.
+    require(automaticSizing(1920, 1080) == DisplaySizing::Connected
+        && bentoPaneCap(1900, 980) == BentoCompactPaneCap
+        && bentoPaneCap(1900, 980, sizingPaneCap(DisplaySizing::Connected)) == BentoPaneBound,
+        "A Connected monitor with panels capped at its work area's two panes");
+    require(bentoPaneCap(2540, 1410, sizingPaneCap(displaySizing(QStringLiteral("solo"), 2560, 1440)))
+            == BentoCompactPaneCap,
+        "A monitor chosen Solo kept the pane cap of its work area");
     require(sizingName(DisplaySizing::Connected) == QStringLiteral("connected")
         && sizingName(DisplaySizing::Solo) == QStringLiteral("solo")
         && parseSizing(sizingName(DisplaySizing::Solo)) == DisplaySizing::Solo,

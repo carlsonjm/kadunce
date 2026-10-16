@@ -45,6 +45,10 @@ struct BentoProjectionSession {
     std::optional<BentoSidePlacement> side;
     // The columns a side snap placed, when it placed the layout.
     std::optional<BentoPlacedColumns> placed;
+    // The card a side snap placed last and its side, which the layout keeps
+    // for it when it resumes (DesktopStageController.h).
+    QPointer<KWin::EffectWindow> snappedWindow;
+    std::optional<BentoSidePlacement> snappedSide;
     // Where Spread's group card draws each of `panes`, in that order, when the
     // group is chosen; the resumed layout grows each pane from there. Empty
     // when it is not drawn. Presentation only: no part of the shape.

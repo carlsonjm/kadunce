@@ -159,7 +159,8 @@ public:
     // press there must not reach whatever window lies behind the layout.
     [[nodiscard]] bool inPaneGutter(QPointF position) const;
     // CARD-LIFECYCLE.md §11, Connected: the display's layout was placed by a
-    // side snap, so it keeps its places and can leave room open.
+    // side snap, so it keeps its places and can leave room open. Columns a
+    // pair began (BentoColumns.h) leave none.
     [[nodiscard]] bool presentsPlacedLayoutOn(const QString &outputName) const;
     void restoreAllSessions();
     // §11, Every display: a display holding its own cards begins its layout
@@ -181,9 +182,11 @@ public:
     // CARD-LIFECYCLE.md §5 and §10: the carried pane leaves Bento for card
     // ownership in one published step, and §5's one-remaining-pane rule then
     // ends a layout with nothing left to compose. `sourceValid` is the carry's
-    // own last refusal; a false answer publishes nothing.
+    // own last refusal; a false answer publishes nothing. `waitBehind` keeps
+    // the pane a hidden card behind a layout that outlasts it (§8: nothing is
+    // shown on top of live panes); otherwise it is presented.
     bool extractPaneToCards(KWin::EffectWindow *window,
-        const std::function<bool()> &sourceValid);
+        const std::function<bool()> &sourceValid, bool waitBehind = false);
     // §11, Every display: a pane of a display holding its own cards taken out
     // of what it shows waits in Spread, still that display's card.
     bool yieldPaneToSpread(KWin::EffectWindow *window);
@@ -373,6 +376,13 @@ private:
         // pane leaving opens its room, an arrival fills open room, and one
         // with no room to fill lays the whole layout out again.
         std::optional<BentoPlacedColumns> placed;
+        // §11, Connected: the card a side snap placed last, and the side it
+        // was snapped to. It outlasts the snap: a full layout never gives it
+        // up to an arrival, and laid out again past minimum sizes it keeps
+        // that side. A Stack stepping in its pane keeps both; it is forgotten
+        // once nothing stands in that place.
+        QPointer<KWin::EffectWindow> snappedWindow;
+        std::optional<BentoSidePlacement> snappedSide;
         // This plan places its one window at `side` alone.
         bool placeAlone = false;
         quint64 applicationToken = 0;
@@ -443,9 +453,22 @@ private:
     // slot. The slot is the smallest whose pixel size satisfies the arrival's
     // minimum, so a window that only fits the wide pane takes the wide pane;
     // `nullopt` when no slot does, which is the arrival §8 answers with a card
-    // instead.
+    // instead. §11, Connected: the fitting slot used longest ago, never the
+    // snapped card's.
     [[nodiscard]] std::optional<int> slotForArrival(const Session &session,
                                                     KWin::EffectWindow *arrival) const;
+    // §11, Connected: an arrival no pane fits still joins where the whole
+    // layout, laid out again, can hold it. The panes used longest ago leave
+    // for Spread one at a time, never the snapped card, until that layout
+    // shows the arrival and every pane left; only those leave. Solved on
+    // `candidate`, a value copy of the live session, which gains the arrival.
+    // False changes nothing: no such layout exists, and §8 makes the arrival
+    // a card.
+    [[nodiscard]] bool autoFillYielding(Session &candidate, const RestoreSnapshot &arrival) const;
+    // The pane cap every solve on `output` reads (BentoLayout.h): its
+    // sizing's, Connected or Solo, where it plays cards; none for a display
+    // without cards, whose work area decides.
+    [[nodiscard]] std::optional<int> paneCap(const KWin::LogicalOutput *output) const;
     // Put the arrival in that slot on a value copy. The layout keeps its shape
     // and every other pane keeps its place, so exactly one window changes and
     // the panes the user did not touch do not move.

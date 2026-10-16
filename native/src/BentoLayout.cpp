@@ -337,11 +337,14 @@ namespace
 // The shapes one pane count offers. Past the curated eight they are every
 // even grid with no empty row, the library's own proportion first and the
 // rest by how far their column count is from it, so a minimum that misses one
-// grid's cells can still meet another's.
-std::vector<std::vector<BentoRect>> bentoShapes(int count, bool landscape)
+// grid's cells can still meet another's. On Connected two panes may also take
+// the even halves the curated pair does not offer, last, so they decide only
+// where no curated shape holds both.
+std::vector<std::vector<BentoRect>> bentoShapes(int count, bool landscape, bool connected)
 {
     std::vector<std::vector<BentoRect>> layouts{makeBentoLayout(count, landscape)};
     if (count == 2) layouts.push_back(makeAlternateTwoPaneBentoLayout(landscape));
+    if (count == 2 && connected) layouts.push_back(makeAlternateTwoPaneBentoLayout(!landscape));
     if (count == 3) layouts.push_back(makeAlternateThreePaneBentoLayout(landscape));
     if (count > BentoCuratedPaneCap) {
         const int preferred = bentoGridColumns(count, landscape);
@@ -362,14 +365,15 @@ std::vector<std::vector<BentoRect>> bentoShapes(int count, bool landscape)
 
 BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
-    int areaWidth, int areaHeight, int maximumVisible)
+    int areaWidth, int areaHeight, int maximumVisible, std::optional<int> paneCap,
+    bool connected)
 {
     const int visible = std::min({maximumVisible,
-                                  bentoPaneCap(areaWidth, areaHeight),
+                                  bentoPaneCap(areaWidth, areaHeight, paneCap),
                                   static_cast<int>(candidates.size())});
     const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
     for (int count = visible; count >= 1; --count) {
-        for (const std::vector<BentoRect> &layout : bentoShapes(count, landscape)) {
+        for (const std::vector<BentoRect> &layout : bentoShapes(count, landscape, connected)) {
             std::vector<int> assignment;
             if (findAssignment(candidates, count, layout,
                                areaWidth, areaHeight, assignment)) {
@@ -382,7 +386,8 @@ BentoAdmission chooseBentoAdmission(
 
 std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
-    int areaWidth, int areaHeight, int maximumVisible)
+    int areaWidth, int areaHeight, int maximumVisible, std::optional<int> paneCap,
+    bool connected)
 {
     if (arrivingIndex < 0 || arrivingIndex >= static_cast<int>(candidates.size())
         || areaWidth <= 0 || areaHeight <= 0 || maximumVisible <= 0)
@@ -394,9 +399,9 @@ std::optional<BentoAdmission> chooseBentoTransferAdmission(
             || candidate.width <= 0 || candidate.height <= 0) return std::nullopt;
     }
     const bool landscape = bentoLandscapeArea(areaWidth, areaHeight);
-    for (int count = std::min({maximumVisible, bentoPaneCap(areaWidth, areaHeight),
+    for (int count = std::min({maximumVisible, bentoPaneCap(areaWidth, areaHeight, paneCap),
                                static_cast<int>(candidates.size())}); count >= 1; --count) {
-        for (const auto &layout : bentoShapes(count, landscape)) {
+        for (const auto &layout : bentoShapes(count, landscape, connected)) {
             std::vector<int> assignment;
             if (findAssignment(candidates, count, layout, areaWidth, areaHeight,
                                assignment, arrivingIndex))
@@ -425,14 +430,14 @@ int bentoSlotForArrival(const std::vector<BentoPixelRect> &slots,
 
 int bentoSlotUsedLongestAgo(const std::vector<BentoPixelRect> &slots,
                             const std::vector<long long> &lastUsed,
-                            double minimumWidth, double minimumHeight)
+                            double minimumWidth, double minimumHeight, int kept)
 {
     if (!std::isfinite(minimumWidth) || !std::isfinite(minimumHeight)
         || minimumWidth < 0 || minimumHeight < 0 || lastUsed.size() != slots.size()) return -1;
     int chosen = -1;
     for (int index = 0; index < static_cast<int>(slots.size()); ++index) {
         const auto &slot = slots[index];
-        if (slot.width <= 0 || slot.height <= 0) continue;
+        if (index == kept || slot.width <= 0 || slot.height <= 0) continue;
         if (double(slot.width) < minimumWidth || double(slot.height) < minimumHeight) continue;
         if (chosen < 0 || lastUsed[index] < lastUsed[chosen]) chosen = index;
     }

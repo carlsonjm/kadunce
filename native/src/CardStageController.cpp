@@ -2871,6 +2871,7 @@ bool CardStageController::resumeSelectedBentoProjection()
                 if (inProjectedLayout(face) || !isEligiblePartner(face) || !restore) continue;
                 if (projection.lead == pane) projection.lead = face;
                 if (projection.sideWindow == pane) projection.sideWindow = face;
+                if (projection.snappedWindow == pane) projection.snappedWindow = face;
                 for (auto &stacked : projection.stackingOrder)
                     if (stacked == pane) stacked = face;
                 member = {face, *restore, false};
@@ -3203,6 +3204,12 @@ bool CardStageController::releasePairToBento(KWin::EffectWindow *carried,
             KWin::effects->setElevatedWindow(window, false);
             m_host->unredirectForCardStage(window);
         }
+    }
+    // A card left behind the layout is drawn nowhere, so the panes stand above
+    // it in KWin's own stacking too, or a press on a pane would reach it.
+    for (KWin::EffectWindow *pane : {partner, carried}) {
+        if (pane && !pane->isDeleted() && pane->window())
+            KWin::workspace()->raiseWindow(pane->window());
     }
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -4289,6 +4296,8 @@ bool CardStageController::handProjectedPaneTo(KWin::EffectWindow *pane, KWin::Ef
     *paneAt = {card, *restore, false};
     if (projection.lead == pane) projection.lead = card;
     if (projection.sideWindow == pane) projection.sideWindow = card;
+    // §11, Connected: the Stack keeps the snapped card's place, and so its standing.
+    if (projection.snappedWindow == pane) projection.snappedWindow = card;
     for (auto &stacked : projection.stackingOrder)
         if (stacked == pane) stacked = card;
     // The card stands in the place the pane was given.
@@ -4331,6 +4340,10 @@ bool CardStageController::detachProjectedPane(KWin::EffectWindow *pane)
         projection.sideWindow.clear();
         projection.side.reset();
     }
+    if (projection.snappedWindow == pane) {
+        projection.snappedWindow.clear();
+        projection.snappedSide.reset();
+    }
     // §11, Connected: the columns a side snap placed keep the panes left, and
     // the one taken out leaves its room open.
     std::vector<BentoRect> placedRects;
@@ -4339,9 +4352,12 @@ bool CardStageController::detachProjectedPane(KWin::EffectWindow *pane)
         std::vector<QPointer<KWin::EffectWindow>> handles;
         std::vector<BentoRect> rects;
         bentoColumnsLayout(*projection.placed, handles, rects);
+        // Columns a pair began stand no lone column (BentoColumns.h), so the
+        // panes left by such a pair are laid out afresh.
+        const bool lone = projection.placed->paired && projection.placed->columns.size() < 2;
         for (const auto &member : std::as_const(projection.panes)) {
             const auto at = std::find(handles.cbegin(), handles.cend(), member.window);
-            if (at == handles.cend()) { placedRects.clear(); break; }
+            if (lone || at == handles.cend()) { placedRects.clear(); break; }
             placedRects.push_back(rects[std::size_t(at - handles.cbegin())]);
         }
         if (placedRects.empty()) projection.placed.reset();
@@ -4448,6 +4464,7 @@ bool CardStageController::replaceGroupPane(int part)
     projection.panes[part] = {held, *restore, false};
     if (projection.lead == pane) projection.lead = held;
     if (projection.sideWindow == pane) projection.sideWindow = held;
+    if (projection.snappedWindow == pane) projection.snappedWindow = held;
     for (auto &stacked : projection.stackingOrder)
         if (stacked == pane) stacked = held;
     if (!validBentoProjectionShape(projectionShape(projection))) return false;
@@ -5219,6 +5236,10 @@ void CardStageController::forgetManagedRestore(KWin::EffectWindow *window)
         if (projection.sideWindow == window) {
             projection.sideWindow.clear();
             projection.side.reset();
+        }
+        if (projection.snappedWindow == window) {
+            projection.snappedWindow.clear();
+            projection.snappedSide.reset();
         }
         if (projection.panes.isEmpty()) m_bentoProjectionSession.reset();
     }

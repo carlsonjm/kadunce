@@ -1113,10 +1113,10 @@ Effect::Effect()
         KWin::effects->setElevatedWindow(m_nativeCarry, true);
     };
     m_carryRuntime->entryRequested = [this](const PreparedCarrySource &source, QPointF p) {
-        if (isPanelPoint(p)) return false;
         for (auto *output : KWin::effects->screens()) {
             if (!QRectF(output->geometry()).contains(p)) continue;
-            if (monitorCarryEdge(QRectF(output->geometry()), p)) return true;
+            if (carryEdgeAt(output, p)) return true;
+            if (isPanelPoint(p)) return false;
             return output->name() != source.origin().output
                 && (isTabletOutput(output) || m_desktopStage->hasSessionOnOutput(output->name()));
         }
@@ -3329,6 +3329,11 @@ KWin::LogicalOutput *Effect::cardHome(const KWin::EffectWindow *card) const
 {
     const auto home = m_cardHomes.constFind(const_cast<KWin::EffectWindow *>(card));
     if (home == m_cardHomes.cend()) return nullptr;
+    // A pane, or a card of the layout Spread shows, waits for no display: it
+    // is its layout's. Choosing it opens that layout, and nothing that sends
+    // a waiting card home takes it from a layout and leaves its place open.
+    if (m_desktopStage->managesWindow(const_cast<KWin::EffectWindow *>(card))
+        || m_cardStage->inProjectedLayout(card)) return nullptr;
     KWin::LogicalOutput *output = KWin::effects->findScreen(home.value());
     return isOtherCardDisplay(output) ? output : nullptr;
 }
@@ -4264,8 +4269,13 @@ bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow 
     if (!reserved) return false;
     QPointer<KWin::EffectWindow> carried = active;
     QPointer<KWin::EffectWindow> named = reserved->namedPartner();
-    return m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
-        [this, carried, named] { return m_cardStage->releasePairToBento(carried, named); });
+    if (!m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
+            [this, carried, named] { return m_cardStage->releasePairToBento(carried, named); }))
+        return false;
+    // Both are panes of this display's layout now, whatever they waited for.
+    if (carried) m_cardHomes.remove(carried.data());
+    if (named) m_cardHomes.remove(named.data());
+    return true;
 }
 
 void Effect::toggleBento()
@@ -4720,8 +4730,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool desktopWindow = handoff.source()->isDesktopWindow();
     const bool local = target->name() == handoff.source()->origin().output;
     const bool tablet = isTabletOutput(target);
-    const auto edge = isPanelPoint(contact) ? std::nullopt
-        : monitorCarryEdge(QRectF(target->geometry()), contact);
+    const auto edge = carryEdgeAt(target, contact);
     // Every return below that leaves an edge without a drop names why, and a
     // drop that is previewed but then refused at release cannot go there.
     std::optional<GestureRefusal> refusal;
@@ -4818,6 +4827,40 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool extractingPane = liveLayout && edge && *edge == CarryEdge::Top
         && m_desktopStage->managesWindow(m_carriedWindow)
         && m_cardStage->canOwnCards(target);
+    // §11, Every display: on a display holding its own cards a pane carried
+    // to the top edge is the card it shows alone, and the panes beside it
+    // wait in Spread for it, as the top edge makes a card alone on Spread's.
+    if (local && liveLayout && edge && *edge == CarryEdge::Top && isOtherCardDisplay(target)
+        && m_desktopStage->managesWindow(m_carriedWindow)
+        && m_desktopStage->panesOn(target->name()).size() > 1) {
+        const auto destination = monitorDropIntent(target->name(), 0,
+            std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}}, std::nullopt);
+        if (!destination) return;
+        QPointer<KWin::EffectWindow> carried = m_carriedWindow;
+        QPointer<KWin::LogicalOutput> output = target;
+        m_carryPreview = KWin::RectF(area);
+        const QString line = applicationIdentity(m_carriedWindow)
+            + QStringLiteral(" at the top edge would make the card alone there");
+        if (line != m_lastEdgeEntryLog) {
+            m_lastEdgeEntryLog = line;
+            qInfo() << "Kadunce" << Revision << qPrintable(line);
+        }
+        handoff.previewDrop(*destination,
+            [this, carried, output] {
+                return carried && output && !carried->isDeleted() && carried->screen() == output
+                    && m_desktopStage->managesWindow(carried);
+            },
+            [this, carried, output](const PreparedCarrySource &) {
+                if (!carried || !output) return false;
+                // After the carry has let the window go, so nothing it holds
+                // is retired under it.
+                QTimer::singleShot(0, this, [this, carried, output] {
+                    if (carried && output) showPaneAloneOnItsDisplay(carried, output);
+                });
+                return true;
+            });
+        return;
+    }
     if (local && edge && (!liveLayout || extractingPane)) {
         const bool leftEdge = *edge == CarryEdge::Left;
         const bool sideEdge = leftEdge || *edge == CarryEdge::Right;
@@ -4901,6 +4944,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     // It grows into its pane from where it was let go, as a
                     // card let go on a pane of the group in Spread does.
                     if (committed) startPaneArrival(carried, output, drawn);
+                    // Both are panes of this display's layout now.
+                    if (committed && carried) m_cardHomes.remove(carried.data());
+                    if (committed && named) m_cardHomes.remove(named.data());
                     return committed;
                 });
             return;
@@ -5457,6 +5503,14 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         const QPointer<KWin::EffectWindow> moved = window;
         QTimer::singleShot(0, this, [this, moved] { claimWindowForItsDisplay(moved); });
     }
+}
+
+std::optional<CarryEdge> Effect::carryEdgeAt(const KWin::LogicalOutput *output, QPointF contact) const
+{
+    if (!output) return std::nullopt;
+    const auto edge = monitorCarryEdge(QRectF(output->geometry()), contact);
+    if (edge && *edge != CarryEdge::Top && isPanelPoint(contact)) return std::nullopt;
+    return edge;
 }
 
 bool Effect::carriesToAnotherCardDisplay() const
@@ -6546,8 +6600,7 @@ void Effect::updateCardGrab(const QPointF &position)
     if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack()) return;
     for (auto *output : KWin::effects->screens()) {
         if (!QRectF(output->geometry()).contains(position)) continue;
-        const auto edge = isPanelPoint(position) ? std::nullopt
-            : monitorCarryEdge(QRectF(output->geometry()), position);
+        const auto edge = carryEdgeAt(output, position);
         std::optional<BentoSidePlacement> side;
         if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
             side = bentoSideChoice(*edge == CarryEdge::Right, position.y(),
@@ -6672,8 +6725,8 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
     // action of their own: a release there is an ordinary drop.
     if (auto *edgeOutput = KWin::effects->screenAt(position.toPoint());
         edgeOutput && QRectF(edgeOutput->geometry()).contains(position)
-        && m_cardStage->canOwnCards(edgeOutput) && !isPanelPoint(position)
-        && monitorCarryEdge(QRectF(edgeOutput->geometry()), position) == CarryEdge::Top) {
+        && m_cardStage->canOwnCards(edgeOutput)
+        && carryEdgeAt(edgeOutput, position) == CarryEdge::Top) {
         m_cardStage->finishCardGrab(false);
         m_lineDestinationWindow.clear();
         return true;
@@ -7468,12 +7521,23 @@ void Effect::letPaneGo()
         });
         return;
     }
-    // Out of the layout: it waits in Spread as a card.
+    // Out of the layout: it waits in Spread as a card, and the pane used
+    // last has the keys.
+    const QString outputName = pane->screen() ? pane->screen()->name() : QString();
+    const QPointer<KWin::EffectWindow> released = pane;
     const bool left = there ? m_desktopStage->yieldPaneToSpread(pane)
-                            : m_desktopStage->extractPaneToCards(pane, [] { return true; });
+                            : m_desktopStage->extractPaneToCards(pane, [] { return true; }, true);
     if (!left) return;
     qInfo() << "Kadunce" << Revision << "took" << logNameOf(pane) << "out of its layout by the keys";
     observeCardOwnership();
+    KWin::EffectWindow *latest = nullptr;
+    for (const auto &standing : m_desktopStage->panesOn(outputName)) {
+        if (!standing || standing == released || standing->isDeleted() || standing->isMinimized())
+            continue;
+        if (!latest || lastUsedForDesktopStage(standing) > lastUsedForDesktopStage(latest))
+            latest = standing.data();
+    }
+    if (latest && KWin::effects->activeWindow() == released) KWin::effects->activateWindow(latest);
 }
 
 void Effect::moveDividerByKey(int delta)
@@ -7716,6 +7780,23 @@ bool Effect::stepPaneStack(int delta)
         && pane->screen() == tabletOutput();
     if (!here && !isOtherCardDisplay(pane->screen())) return false;
     return stepPane(pane, delta);
+}
+
+void Effect::showPaneAloneOnItsDisplay(KWin::EffectWindow *pane, KWin::LogicalOutput *output)
+{
+    if (!pane || pane->isDeleted() || !output || !isOtherCardDisplay(output)
+        || !m_desktopStage->managesWindow(pane)) return;
+    const QString name = output->name();
+    int waiting = 0;
+    for (const auto &other : m_desktopStage->panesOn(name)) {
+        if (!other || other == pane || other->isDeleted() || other->isMinimized()) continue;
+        if (m_desktopStage->yieldPaneToSpread(other)) ++waiting;
+    }
+    qInfo() << "Kadunce" << Revision << "shows" << logNameOf(pane) << "alone on" << name
+            << "with" << waiting << "waiting in Spread for it";
+    observeCardOwnership();
+    KWin::effects->activateWindow(pane);
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto)
@@ -8648,6 +8729,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         }
         // §11, Connected: a window opening beside the one card shown joins it
         // in a layout, as a pick from Spread does, rather than replacing it.
+        // The right edge names its place only, and snaps nothing; the pair
+        // shares the width evenly, as every Connected layout does.
         KWin::LogicalOutput *spread = tabletOutput();
         const QPointer<KWin::EffectWindow> shown = spread && connectedForCardStage()
                 && !m_cardStage->presentsBento() && !m_cardStage->launcherGuestActive()
@@ -8664,7 +8747,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
             && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
             && m_cardStage->liveCardIndex(candidate) >= 0
-            && pairCardsIntoBento(spread, candidate, shown, BentoSidePlacement{true, true})) {
+            && pairCardsIntoBento(spread, candidate, shown,
+                   BentoSidePlacement{true, true, true, false})) {
             qInfo() << "Kadunce" << Revision << "paired opened" << logNameOf(candidate)
                     << "with" << logNameOf(shown);
             m_cardStage->notePaneStack(shown, shownBehind);
@@ -8811,6 +8895,11 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     if (returnCardInUseOnItsDisplay(window)) return;
     if (admitActivatedCardToLiveBento(window)) return;
     m_cardStage->handleWindowActivated(window);
+    // §11, Every display: a waiting card brought forward here, as the dock or
+    // a task switcher does, is the Active card here, this display's own now,
+    // as one carried here is.
+    if (m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->activeCardIdentity() == window) m_cardHomes.remove(window);
 }
 
 bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
@@ -8880,8 +8969,10 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
         KWin::effects->activateWindow(picked);
         return true;
     }
-    // No layout yet: the pick and the card in use before it become one. With
-    // no card in use, or the pick being that card, the pick is shown alone.
+    // No layout yet: the pick and the card in use before it become one, the
+    // pick on the right and the two sharing the width evenly, as §11 sizes
+    // every Connected layout. With no card in use, or the pick being that
+    // card, the pick is shown alone.
     // Spread leaves the keyboard with the card in use; the last application
     // to have it stands in when nothing does. A window used on another
     // display since is in use there, so the card Spread opened over is the
@@ -8899,7 +8990,8 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
     const QList<KWin::EffectWindow *> partnerBehind = partner
         ? m_cardStage->stackFrontToBack(partner).mid(1) : QList<KWin::EffectWindow *>{};
     if (!m_cardStage->presentSelectedNow()) return false;
-    if (partner && pairCardsIntoBento(tablet, picked, partner, BentoSidePlacement{true, true})) {
+    if (partner && pairCardsIntoBento(tablet, picked, partner,
+            BentoSidePlacement{true, true, true, false})) {
         m_cardStage->notePaneStack(picked, behind);
         m_cardStage->notePaneStack(partner, partnerBehind);
         m_cardStage->settlePaneStacks();
