@@ -221,6 +221,11 @@ public:
     // is selected, so a picked card can join it. A refused
     // resume leaves the selection where it was.
     [[nodiscard]] bool resumeBentoGroup();
+    // §11, Connected: the Active card standing in front of the layout Spread
+    // holds steps back into Spread at once, with no motion, so the layout
+    // can resume around it as it does for a pick. Refused unless the Active
+    // card is shown with that layout behind it.
+    [[nodiscard]] bool stepActiveBackToLayout();
     // §11, Connected: a Stack fills one pane. A pane's Stack is the cards
     // waiting behind it, front to back after the pane, as a ring; the cards
     // stay this stage's, hidden while the layout shows. notePaneStack records

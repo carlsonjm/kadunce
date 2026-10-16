@@ -2645,6 +2645,18 @@ bool CardStageController::resumeBentoGroup()
     return false;
 }
 
+bool CardStageController::stepActiveBackToLayout()
+{
+    if (!hasBentoGroup() || m_presentation != CardPresentation::Active
+        || !activeCardIdentity() || m_cardGrabActive || m_launcherGuestActive) return false;
+    m_host->cancelInputForCardStage();
+    finishCardGrab(false);
+    parkActiveSnapshot();
+    m_presentation = CardPresentation::Spread;
+    syncSelectedElevation();
+    return true;
+}
+
 QList<KWin::EffectWindow *> CardStageController::paneStack(const KWin::EffectWindow *pane) const
 {
     QList<KWin::EffectWindow *> result;

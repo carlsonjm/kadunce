@@ -4334,10 +4334,27 @@ void Effect::toggleBento()
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
         qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with no layout";
+        const QPointer<KWin::EffectWindow> active = m_cardStage->activeCardIdentity();
         if (!pairActiveCardIntoBento(target)) {
+            // §11, Connected: the layout Spread holds, standing behind the
+            // Active card, is laid out again with that card in it, as picking
+            // the card from Spread would; its panes are no partners for it.
+            if (active && connectedOutputForDesktopStage(target)
+                && m_cardStage->stepActiveBackToLayout()) {
+                if (playPickedCardIntoLayout(active)) {
+                    qInfo() << "Kadunce" << Revision << "laid the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                } else {
+                    (void)m_cardStage->presentSelectedNow();
+                    qInfo() << "Kadunce" << Revision << "could not lay the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                }
+                observeCardOwnership();
+                return;
+            }
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
-                    << "and" << (m_cardStage->activeCardIdentity() ? "an" : "no") << "Active card";
+                    << "and" << (active ? "an" : "no") << "Active card";
         } else if (connectedOutputForDesktopStage(target)) {
             // §11, Connected: Bento auto-fill is the layout. The pair grows
             // to hold every open card of the display, as far as it has room.

@@ -2746,13 +2746,20 @@ bool DesktopStageController::resumeProjectedSession(
     const std::function<bool()> &commitSource,
     const std::function<void()> &releaseSource)
 {
-    if (m_restoring || m_interactionWindow || m_railDrag || !projection.output
-        || outputForKey(projection.outputName) != projection.output
-        || sessionForOutput(projection.output)
-        || !m_host->isTabletOutputForDesktopStage(projection.output)
-        || !validBentoProjectionShape(projectionShape(projection))) {
+    // Each refusal says why: a pick or a key that resumes nothing is
+    // otherwise a press that did nothing.
+    const auto refuse = [&projection](const char *why) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                << "in Spread:" << why;
         return false;
-    }
+    };
+    if (m_restoring || m_interactionWindow || m_railDrag)
+        return refuse(m_interactionWindow ? "a pane is being moved or resized" : "busy");
+    if (!projection.output || outputForKey(projection.outputName) != projection.output
+        || !m_host->isTabletOutputForDesktopStage(projection.output))
+        return refuse("its display is gone or no longer holds Spread");
+    if (sessionForOutput(projection.output)) return refuse("the display already shows a layout");
+    if (!validBentoProjectionShape(projectionShape(projection))) return refuse("its shape is not whole");
     Session candidate;
     candidate.outputName = projection.outputName;
     candidate.rects = projection.rects;
@@ -2773,6 +2780,9 @@ bool DesktopStageController::resumeProjectedSession(
             || member.restore.window != member.window->window()
             || member.window->screen() != projection.output
             || member.window->isMinimized() != member.minimized) {
+            qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                    << "in Spread:" << logNameOf(member.window) << "is gone, on another display,"
+                    << "or woke or slept";
             return false;
         }
         if (pane) candidate.windows.append(member.window);
@@ -2799,11 +2809,16 @@ bool DesktopStageController::resumeProjectedSession(
     for (const auto &member : projection.sleeping) {
         if (!member.minimized || !append(member, false)) return false;
     }
-    if (workspaceArea(projection.output) != projection.workspaceArea) return false;
+    if (workspaceArea(projection.output) != projection.workspaceArea) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                << "in Spread: the room for windows changed from" << projection.workspaceArea
+                << "to" << workspaceArea(projection.output);
+        return false;
+    }
     const KWin::Rect area = stageArea(projection.output);
     const auto pixels = makePixelBentoLayout(candidate.rects,
         area.x(), area.y(), area.width(), area.height());
-    if (pixels.size() != std::size_t(candidate.windows.size())) return false;
+    if (pixels.size() != std::size_t(candidate.windows.size())) return refuse("its panes do not fit its places");
     // A pane's client can change its own frame while the group is projected, so
     // requiring every pane to already sit on the layout turned a pixel of drift
     // into a permanent refusal. CARD-LIFECYCLE.md §6 resumes the group whatever

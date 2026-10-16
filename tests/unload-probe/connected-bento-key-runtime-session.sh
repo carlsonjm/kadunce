@@ -6,8 +6,10 @@
 # use Active; Meta+B again lays out every card open there; and Meta+S
 # opens Spread over the layout and closes it again. A pane then carried by
 # KWin's title bar to the top edge, out of the three, is the Active card in
-# front of the other two, and one Meta+B lays all three out again. Every
-# check is reported, so a failure does not hide the rest.
+# front of the other two, and one Meta+B lays all three out again. A pane let
+# go to wait as a card, called up in front of the layout Spread holds, joins
+# it again by one Meta+B. Every check is reported, so a failure does not hide
+# the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -144,6 +146,31 @@ check 'back: one Meta+B lays out every open card again' panes_are 3
 check 'back: the card carried to the top is a pane of it' \
     context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
 
+# A pane let go with Meta+Shift+Down waits as a card. With Spread open over
+# the layout, the card called up by its application, as the dock does, is the
+# Active card in front of the layout Spread holds, whose panes are no
+# partners for it. One Meta+B lays the layout out again with it.
+probe activateWindowId "$browser" >/dev/null
+sleep .6
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.4
+report waiting
+check 'waiting: the pane let go waits as a card' panes_are 2
+spread_key
+report spread-held
+check 'held: Meta+S opens Spread over the layout of two' presents cardLine
+probe activateWindowId "$browser" >/dev/null
+sleep 1.4
+report called
+check 'called: the waiting card is Active in front of the layout' \
+    context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+probe key 48 125 >/dev/null
+sleep 1.6
+report held-back-in
+check 'held: one Meta+B lays the layout held behind it out again' panes_are 3
+check 'held: the Active card is a pane of it' \
+    context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 check 'switched off: every window is an ordinary window on a display that exists' \
@@ -153,4 +180,4 @@ if (( failures > 0 )); then
     echo "FAIL: connected bento key: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: Meta+B ends and remakes a layout on Connected, lays one standing behind the Active card out again with it, and Meta+S opens Spread over it, Table or no Table'
+echo 'PASS: Meta+B ends and remakes a layout on Connected, lays one standing behind the Active card out again with it, live or held in Spread, and Meta+S opens Spread over it, Table or no Table'
