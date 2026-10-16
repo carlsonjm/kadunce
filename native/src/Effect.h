@@ -616,13 +616,15 @@ private:
     // behind it there. With `leaveSpread`, Spread then goes back to what it
     // was opened from.
     bool showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread);
-    // A card waiting for its display, brought back where it stands there, as
-    // the dock wakes a minimized pane, goes home once this turn is over.
-    // Spread's own picks do not come here.
+    // A card waiting in Spread for its display, asked for by the dock or a
+    // task switcher, goes home once this turn is over. Spread's own picks do
+    // not come here.
     bool returnCardInUseOnItsDisplay(KWin::EffectWindow *card);
     // A display holding its own cards that shows none brings back the one it
     // used last.
     void refillOtherDisplay(const QString &outputName);
+    // The same, for the display a carry took the card it showed from.
+    void refillDisplayCarriedFrom(KWin::EffectWindow *carried, const QString &origin);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
@@ -1081,6 +1083,8 @@ private:
     int m_neighborPreparationFrames = 0;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
+    // The display a carry Kadunce draws picked its window up from.
+    QString m_carryOrigin;
     // The Active card under a KWin move that has not yet gone anywhere, and
     // where it began. A tap an application reads as a move does not let the
     // cards go; travel does.

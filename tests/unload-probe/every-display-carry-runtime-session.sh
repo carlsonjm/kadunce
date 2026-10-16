@@ -9,8 +9,10 @@
 # to the monitor, as choosing it in Settings does, while the small display
 # shows a card: that card stays there as the small display's own, its waiting
 # card goes with Spread, and the monitor's windows keep their places, with
-# nothing drawn over them. Every check is reported, so a failure does not
-# hide the rest.
+# nothing drawn over them. Asked for from the dock, that waiting card opens on
+# the small display, its own, and carried off from there onto the monitor it
+# leaves the small display the card it showed before, never nothing. Every
+# check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -178,14 +180,37 @@ check 'move: no window on the monitor stands over another' apart Virtual-1
 check 'move: no window on the small display stands over another' apart Virtual-0
 check 'move: no window holds another as a Stack' no_stack
 
+# Asked for from the dock, as a person taps it there, the card waiting for the
+# small display opens there, its own, though Spread lives on the monitor.
+probe activateWindowId "$tb" >/dev/null
+sleep 1.4
+report dock
+check 'dock: the small display'"'"'s waiting card opens there' shown_on "$tb" Virtual-0
+check 'dock: the card it showed waits in Spread for it' waits_for "$tc" Virtual-0
+check 'dock: the monitor still shows its three windows as a layout' monitor_panes 3
+check 'dock: no window on the small display stands over another' apart Virtual-0
+
+# Carried off by its title bar onto the monitor, the small display's card is
+# the monitor's own, and the small display shows the card it showed before.
+title_carry "$tb" "$mb"
+report carried-off
+check 'carry off: the card carried is on the monitor, its own' \
+    context --arg id "$tb" 'first(.applications[] | select(.windowId == $id)) | .output == "Virtual-1" and .home == ""'
+check 'carry off: the small display shows the card it showed before' shown_on "$tc" Virtual-0
+check 'carry off: no window on the small display stands over another' apart Virtual-0
+check 'carry off: no window holds another as a Stack' no_stack
+
 # Spread comes back to the small display; the monitor keeps its layout.
 kad setSpreadDisplay Virtual-0
 sleep 2.5
 report back
 check 'back: the small display holds Spread again' holds_spread Virtual-0
-check 'back: the monitor still shows its three windows as a layout' monitor_panes 3
-check 'back: the small display has both its windows' \
-    context --arg c "$tc" --arg b "$tb" '[.applications[] | select((.windowId == $c or .windowId == $b) and .output == "Virtual-0")] | length == 2'
+check 'back: the monitor still shows a layout' \
+    context '[.applications[] | select(.pane and .output == "Virtual-1")] | length >= 3'
+check 'back: the small display keeps its card' \
+    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
+check 'back: the card carried to the monitor stays there' \
+    context --arg b "$tb" 'first(.applications[] | select(.windowId == $b)) | .output == "Virtual-1"'
 check 'back: no window on the monitor stands over another' apart Virtual-1
 check 'back: no window holds another as a Stack' no_stack
 
@@ -199,4 +224,4 @@ if (( failures > 0 )); then
     echo "FAIL: every display carry: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, and no display piles its windows into a Stack'
+echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, the dock opens a card on its own display, a display a card is carried off keeps one, and no display piles its windows into a Stack'

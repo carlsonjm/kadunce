@@ -1070,6 +1070,7 @@ Effect::Effect()
             m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
         }
         m_carriedWindow = w->effectWindow();
+        m_carryOrigin = w->output() ? w->output()->name() : QString();
         m_carryDrawn = carriedPose();
         m_carryLanded = false;
         traceNativeMove(m_carriedWindow, "adopted");
@@ -1144,6 +1145,8 @@ Effect::Effect()
         const QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         const QRectF drawn = std::exchange(m_carryDrawn, QRectF());
         const bool landed = std::exchange(m_carryLanded, false);
+        const QString origin = std::exchange(m_carryOrigin, QString());
+        if (landed) refillDisplayCarriedFrom(carried, origin);
         // A Stack scrubbed goes in where it was let go, and nowhere when the
         // scrub was cancelled. The pane never left its place.
         const QPointer<KWin::EffectWindow> scrubbed = m_stackScrub.active() ? m_stackScrubPane : nullptr;
@@ -3413,6 +3416,17 @@ void Effect::refillOtherDisplay(const QString &outputName)
     if (latest) (void)showCardOnItsDisplay(latest, false);
 }
 
+void Effect::refillDisplayCarriedFrom(KWin::EffectWindow *carried, const QString &origin)
+{
+    // §11, Every display: carried away, the card a display holding its own
+    // cards showed leaves the one it used before, as closing it does. A carry
+    // that went nowhere left the display its card.
+    KWin::LogicalOutput *left = KWin::effects->findScreen(origin);
+    if (!carried || carried->isDeleted() || !isOtherCardDisplay(left) || carried->screen() == left)
+        return;
+    QTimer::singleShot(0, this, [this, origin] { refillOtherDisplay(origin); });
+}
+
 bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
 {
     KWin::LogicalOutput *home = cardHome(card);
@@ -3458,17 +3472,21 @@ bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
 
 bool Effect::returnCardInUseOnItsDisplay(KWin::EffectWindow *card)
 {
-    // §11, Every display: a pane minimized there waits in Spread asleep, where
-    // it stood. Woken there, by the dock or a task switcher, it is in use on
-    // that display, so it goes back to it, never Active on Spread's display.
+    // §11, Every display: a card waiting in Spread for another display, asked
+    // for by the dock or a task switcher, opens on that display, its own,
+    // wherever Spread lives. A pane minimized there waits the same way, where
+    // it stood, and woken goes back to it. Only a card carried to another
+    // display becomes that display's. Focus given to the card Spread's display
+    // already shows, or handed on while Spread is open, asks for nothing.
     const auto waitsThere = [this](KWin::EffectWindow *window) {
         KWin::LogicalOutput *home = window ? cardHome(window) : nullptr;
         return home && !m_releasing && !window->isDeleted() && window->window()
-            && !window->isMinimized() && window->screen() == home
-            && !window->isUserMove() && !window->isUserResize()
+            && !window->isMinimized() && !window->isUserMove() && !window->isUserResize()
             && window != m_carriedWindow && window != m_nativeCarry
             && m_cardStage->liveCardIndex(window) >= 0 && !m_cardStage->cardGrabActive()
-            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread);
+            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+            && !(m_cardStage->presentation() == CardPresentation::Active
+                 && m_cardStage->activeCardIdentity() == window);
     };
     if (!waitsThere(card)) return false;
     const QPointer<KWin::EffectWindow> woken = card;
@@ -3477,7 +3495,7 @@ bool Effect::returnCardInUseOnItsDisplay(KWin::EffectWindow *card)
         const QString there = cardHome(woken)->name();
         if (showCardOnItsDisplay(woken, false))
             qInfo() << "Kadunce" << Revision << "gave" << logNameOf(woken) << "back to" << there
-                    << "where it was brought back";
+                    << "where it was asked for";
     });
     return true;
 }
@@ -4319,6 +4337,7 @@ void Effect::toggleBento()
         && m_cardStage->canOwnCards(target)) {
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
+        qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with no layout";
         if (!pairActiveCardIntoBento(target)) {
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
@@ -4335,13 +4354,22 @@ void Effect::toggleBento()
     QList<QPointer<KWin::EffectWindow>> former = m_desktopStage->panesOn(target->name());
     QPointer<KWin::EffectWindow> inUse = KWin::effects->activeWindow();
     if (!former.contains(inUse)) inUse = former.isEmpty() ? nullptr : former.first();
+    // §11, Connected: a layout standing behind the Active card, as the top
+    // edge leaves one when a pane is taken out of three or more, is not what
+    // the display shows. The key lays it out again with that card in it, at
+    // one press, rather than ending what was not shown.
+    const QPointer<KWin::EffectWindow> inFront = m_cardsOnEveryDisplay && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active && connectedOutputForDesktopStage(target)
+        ? m_cardStage->activeCardIdentity() : nullptr;
+    qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with a layout of"
+            << former.size() << (inFront ? QString(QStringLiteral("behind ") + logNameOf(inFront)) : QStringLiteral("shown"));
     (void)m_desktopStage->toggleOnOutput(target->name());
     observeCardOwnership();
     // §11, Every display: a layout ended by the key leaves its windows as
     // cards, the one in use Active, so the key pairs them again. With cards
     // already held behind the layout, its panes join them.
     if (!m_cardsOnEveryDisplay || !m_cardStage->canOwnCards(target)) return;
-    QTimer::singleShot(0, this, [this, former, inUse, target = QPointer(target)] {
+    QTimer::singleShot(0, this, [this, former, inUse, inFront, target = QPointer(target)] {
         if (!m_cardStage->isActive()) {
             (void)startTabletInCards(inUse);
             return;
@@ -4351,9 +4379,17 @@ void Effect::toggleBento()
             if (window && !window->isDeleted() && window->screen() == target
                 && m_cardStage->liveCardIndex(window) < 0)
                 (void)m_cardStage->admitArrivalAsCard(window);
-        if (inUse && m_cardStage->liveCardIndex(inUse) >= 0) (void)m_cardStage->promoteToActive(inUse);
+        KWin::EffectWindow *front = inFront && !inFront->isDeleted()
+            && m_cardStage->liveCardIndex(inFront) >= 0 ? inFront.data() : nullptr;
+        KWin::EffectWindow *active = front ? front : inUse.data();
+        if (active && m_cardStage->liveCardIndex(active) >= 0) (void)m_cardStage->promoteToActive(active);
         qInfo() << "Kadunce" << Revision << "ended the layout on" << target->name()
-                << "into cards," << (inUse ? logNameOf(inUse) : QString()) << "Active";
+                << "into cards," << (active ? logNameOf(active) : QString()) << "Active";
+        if (front && pairActiveCardIntoBento(target)) {
+            qInfo() << "Kadunce" << Revision << "laid the layout on" << target->name()
+                    << "out again with" << logNameOf(front) << "in it";
+            QTimer::singleShot(0, this, [this, target] { fillLayoutWithCards(target); });
+        }
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     });
@@ -5515,6 +5551,7 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
     if (carried) {
         syncSelectedElevation();
         KWin::effects->addRepaintFull();
+        refillDisplayCarriedFrom(window, source);
     }
     // §11, Every display: whatever else let it go, a window left loose on a
     // display holding its own cards becomes a card there.
