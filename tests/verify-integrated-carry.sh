@@ -114,7 +114,6 @@ scenes=(
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
-    spread-bento-drop-runtime tablet
     spread-bento-top-runtime tablet
     bento-motion-runtime tablet
     bento-key-sleeper-runtime tablet

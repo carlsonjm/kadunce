@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <QObject>
 #include <QString>
 #include <QStringList>
 
@@ -24,22 +25,27 @@ struct CardLabelPresentation {
     return {};
 }
 
-[[nodiscard]] inline QString bentoApplicationNames(
-    const QStringList &visiblePaneNames)
+// A pane's card names the layout it belongs to: the card's own application,
+// then the applications it shares the layout with, in the layout's order.
+[[nodiscard]] inline QString pairedApplicationName(
+    const QString &applicationName, const QStringList &partnerNames)
 {
-    QStringList names;
-    names.reserve(visiblePaneNames.size());
-    for (const auto &name : visiblePaneNames) {
+    QStringList partners;
+    for (const auto &name : partnerNames) {
         const QString trimmed = name.trimmed();
-        if (!trimmed.isEmpty()) names.append(trimmed);
+        if (!trimmed.isEmpty()) partners.append(trimmed);
     }
-    return names.join(QStringLiteral(" · "));
+    if (partners.isEmpty()) return applicationName;
+    if (partners.size() == 1)
+        return QObject::tr("%1 · paired with %2").arg(applicationName, partners.first());
+    const QString last = partners.takeLast();
+    return QObject::tr("%1 · with %2 and %3")
+        .arg(applicationName, partners.join(QStringLiteral(", ")), last);
 }
 
-[[nodiscard]] inline QString stackPositionLabel(int position, int count,
-                                                bool bentoGroup)
+[[nodiscard]] inline QString stackPositionLabel(int position, int count)
 {
-    return !bentoGroup && count > 1 && position >= 0 && position < count
+    return count > 1 && position >= 0 && position < count
         ? QStringLiteral("%1 / %2").arg(position + 1).arg(count)
         : QString();
 }

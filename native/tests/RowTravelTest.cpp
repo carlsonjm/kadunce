@@ -115,13 +115,10 @@ int main() {
     check(liftOutcome(-300, 0, false) == LiftOutcome::Close, "long lift did not close");
     check(liftOutcome(-60, -1.2, false) == LiftOutcome::Close, "flick up did not close");
     check(liftOutcome(-120, -0.2, false) == LiftOutcome::Return, "short slow lift closed");
-    // A Bento group never closes by a flick: up only gives a little and comes
-    // back, however hard; down takes the pane out as it does a Stack's card.
-    check(groupLiftShown(-900) > -60.5 && groupLiftShown(-900) < 0, "a group rose past its give");
-    check(groupLiftShown(200) == 200, "a group pane did not follow a pull down");
-    check(groupLiftOutcome(groupLiftShown(-900), -5.0) == LiftOutcome::Return, "a flick up closed a group");
-    check(groupLiftOutcome(200, 0.2) == LiftOutcome::PullOut, "a pull down did not take the pane out");
-    check(groupLiftOutcome(60, 0.1) == LiftOutcome::Return, "a short pull took the pane out");
+    // A pane's card closes and comes out as a Stack's card does.
+    check(liftOutcome(-300, 0, true) == LiftOutcome::Close, "a pane's card did not close");
+    check(liftOutcome(200, 0.2, true) == LiftOutcome::PullOut, "a pull down did not take the pane out");
+    check(liftOutcome(60, 0.1, true) == LiftOutcome::Return, "a short pull took the pane out");
     check(liftOutcome(-30, -3.0, true) == LiftOutcome::Return, "twitch closed");
     // Down takes a card out of a Stack, and nothing else.
     check(liftOutcome(150, 0, true) == LiftOutcome::PullOut, "long pull did not take card out");

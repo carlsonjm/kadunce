@@ -16,28 +16,28 @@ struct SpreadReadingEntry {
     // Cards in the entry's Stack, its face included; 1 for a card alone.
     int stacked = 1;
     bool sleeping = false;
-    // The applications in the Bento group this entry is, in pane order;
-    // empty for a card or a Stack.
-    QStringList group;
+    // The applications of the panes sharing this card's layout, in the
+    // layout's order; empty for a card in no layout.
+    QStringList pairedWith;
 };
 
 // What Spread says for an entry, as Table names its cards: the application
-// and the window's title, then whether it is a Stack and how many cards it
-// holds, and whether the card is sleeping. The Bento group is named by the
-// applications laid out in it.
+// and the window's title, the panes it shares a layout with, then whether it
+// is a Stack and how many cards it holds, and whether the card is sleeping.
 inline QString spreadEntryName(const SpreadReadingEntry &entry)
 {
     QStringList parts;
-    if (!entry.group.isEmpty()) {
-        QStringList applications;
-        for (const QString &application : entry.group)
-            if (!application.isEmpty()) applications.append(application);
-        parts.append(QObject::tr("Bento group"));
-        if (!applications.isEmpty()) parts.append(applications.join(QObject::tr(" and ")));
-        return parts.join(QStringLiteral(", "));
-    }
     if (!entry.application.isEmpty()) parts.append(entry.application);
     if (!entry.title.isEmpty() && entry.title != entry.application) parts.append(entry.title);
+    QStringList partners;
+    for (const QString &application : entry.pairedWith)
+        if (!application.isEmpty()) partners.append(application);
+    if (partners.size() == 1) {
+        parts.append(QObject::tr("paired with %1").arg(partners.first()));
+    } else if (!partners.isEmpty()) {
+        const QString last = partners.takeLast();
+        parts.append(QObject::tr("paired with %1 and %2").arg(partners.join(QStringLiteral(", ")), last));
+    }
     if (entry.stacked > 1) parts.append(QObject::tr("Stack of %1 cards").arg(entry.stacked));
     if (entry.sleeping) parts.append(QObject::tr("sleeping"));
     if (parts.isEmpty()) parts.append(QObject::tr("Card"));

@@ -21,9 +21,12 @@ int main()
           "a Stack says how many cards it holds");
     check(spreadEntryName({u"Elisa"_s, u"Now playing"_s, 1, true}) == u"Elisa, Now playing, sleeping"_s,
           "a sleeping card says so");
-    check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 2, false, {u"Firefox"_s, u"Kate"_s}})
-              == u"Bento group, Firefox and Kate"_s,
-          "the Bento group is named by its panes");
+    check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 1, false, {u"Kate"_s}})
+              == u"Firefox, Docs, paired with Kate"_s,
+          "a pane's card names the pane it is paired with");
+    check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 1, false, {u"Kate"_s, u"Files"_s}})
+              == u"Firefox, Docs, paired with Kate and Files"_s,
+          "a pane's card names every pane beside it");
     check(spreadEntryName({}) == u"Card"_s, "a card with nothing to say is still a card");
 
     const QList<SpreadReadingEntry> row{{u"Firefox"_s, u"Docs"_s}, {u"Kate"_s, u"notes.txt"_s, 2}};

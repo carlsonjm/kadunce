@@ -24,18 +24,18 @@ int main()
     require(humanApplicationName({}, {}, {}, QStringLiteral("notes.txt"))
             == QStringLiteral("notes.txt"),
             "Caption fallback failed");
-    require(bentoApplicationNames({QStringLiteral("Kate"), QStringLiteral("Firefox"),
-                                   QStringLiteral("Kate")})
-            == QString::fromUtf8("Kate · Firefox · Kate"),
-            "Bento pane order or duplicate labels were lost");
-    require(bentoApplicationNames({QStringLiteral("Kate"), {}, QStringLiteral("Firefox")})
-            == QString::fromUtf8("Kate · Firefox"),
-            "Empty pane label was not ignored");
-    require(stackPositionLabel(1, 3, false) == QStringLiteral("2 / 3"),
+    require(pairedApplicationName(QStringLiteral("Firefox"), {QStringLiteral("Notes")})
+            == QString::fromUtf8("Firefox · paired with Notes"),
+            "A pair did not name its partner");
+    require(pairedApplicationName(QStringLiteral("Firefox"),
+                {QStringLiteral("Notes"), {}, QStringLiteral("Files"), QStringLiteral("Kate")})
+            == QString::fromUtf8("Firefox · with Notes, Files and Kate"),
+            "A layout did not name every pane beside the card");
+    require(pairedApplicationName(QStringLiteral("Firefox"), {}) == QStringLiteral("Firefox"),
+            "A card in no layout named a partner");
+    require(stackPositionLabel(1, 3) == QStringLiteral("2 / 3"),
             "Stack position label is incorrect");
-    require(stackPositionLabel(0, 3, true).isEmpty(),
-            "Non-pageable Bento group exposed a stack position");
-    require(stackPositionLabel(0, 1, false).isEmpty(),
+    require(stackPositionLabel(0, 1).isEmpty(),
             "Standalone card exposed a stack position");
     std::cout << "Card label presentation checks passed\n";
 }
