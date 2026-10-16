@@ -273,18 +273,4 @@ inline LiftOutcome liftOutcome(double shown, double velocity, bool inStack)
     return LiftOutcome::Return;
 }
 
-// A pane of a Bento group comes out by a pull down, and a flick up never
-// closes a group, so up only gives a little and springs back.
-inline double groupLiftShown(double travel)
-{
-    if (travel >= 0.0) return travel;
-    return -60.0 * (1.0 - std::exp(travel / 120.0));
-}
-
-inline LiftOutcome groupLiftOutcome(double shown, double velocity)
-{
-    return liftOutcome(shown, velocity, true) == LiftOutcome::PullOut
-        ? LiftOutcome::PullOut : LiftOutcome::Return;
-}
-
 } // namespace Kadunce

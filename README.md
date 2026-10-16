@@ -35,8 +35,9 @@ entirely.
   card.
 - **Stack:** related cards kept together, which you move through one at a time,
   round and round from the card you opened.
-- **Bento:** several cards side by side in one layout. In Spread the whole layout
-  is one group card, and choosing it brings back the same panes and proportions.
+- **Bento:** several cards side by side in one layout. In Spread each pane is its
+  own card, beside the others, and choosing one brings back the same panes and
+  proportions.
   A window that leaves a layout becomes its own card. Each display has one Bento
   layout at a time.
 - **Table:** your workspaces as a row of tabs along the top, each with its cards

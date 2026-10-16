@@ -2818,7 +2818,7 @@ bool DesktopStageController::resumeProjectedSession(
             && applySession(resumed.value(), false))
             scheduleSettle();
     }
-    // Each pane grows from where the group card drew it to its place in the
+    // Each pane grows from where its card was drawn to its place in the
     // layout, replacing any motion placing it gave.
     if (const auto resumed = m_sessions.constFind(resumedKey); resumed != m_sessions.cend()
         && projection.drawnPanes.size() == resumed->windows.size()) {

@@ -259,8 +259,6 @@ private:
     // KWin is told to draw it at, kept as it is told. Notes placed on the
     // window stand on this, so they move with the picture frame by frame.
     QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
-    // Whether the Bento group's backdrop is drawn yet on the display painting.
-    bool m_projectionBackdropDrawn = false;
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
@@ -315,10 +313,6 @@ private:
         QList<QPointer<KWin::EffectWindow>> partners;
     };
     QHash<const KWin::EffectWindow *, LeftLayout> m_leftLayouts;
-    // A card let go on a pane of the Bento group grows into that pane from
-    // where it was drawn, once the group has opened as its layout.
-    QPointer<KWin::EffectWindow> m_paneArrivalWindow;
-    QRectF m_paneArrivalFrom;
     void startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
     QRectF bentoPresentationRect(KWin::EffectWindow *window) const override;
     void animateBentoLayout(KWin::LogicalOutput *output,
@@ -373,7 +367,6 @@ private:
     void finishLiftFromInput(double velocity) override { m_cardStage->finishLift(velocity); }
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
-    void openGroupAfterDropForCardStage(const QRectF &from) override;
     void cardGutterChangedForCardStage() override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
@@ -864,7 +857,7 @@ private:
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
-    // were last drawn; the Bento group carries no notes.
+    // were last drawn.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,

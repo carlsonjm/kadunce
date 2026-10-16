@@ -49,8 +49,8 @@ struct BentoProjectionSession {
     // for it when it resumes (DesktopStageController.h).
     QPointer<KWin::EffectWindow> snappedWindow;
     std::optional<BentoSidePlacement> snappedSide;
-    // Where Spread's group card draws each of `panes`, in that order, when the
-    // group is chosen; the resumed layout grows each pane from there. Empty
+    // Where Spread draws each of `panes`' cards, in that order, when the
+    // layout is chosen; the resumed layout grows each pane from there. Empty
     // when it is not drawn. Presentation only: no part of the shape.
     QList<QRectF> drawnPanes;
 };

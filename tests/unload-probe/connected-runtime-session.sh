@@ -5,8 +5,8 @@
 # layout's panes included. A picked card joins the layout beside the card in
 # use and the layout grows; full, the pane used longest ago leaves and becomes
 # a card; a picked pane opens the layout on it. A Stack fills one pane, and
-# Meta+Tab steps it in place. The per-display choice is kept in kaduncerc and
-# Solo sizing brings back the Bento group; a choice still saved as "active",
+# Meta+Tab steps it in place. The per-display choice is kept in kaduncerc, and
+# Solo sizing keeps each pane its own card; a choice still saved as "active",
 # Solo's earlier name, reads and is kept as Solo. Every check is reported, so a
 # failure does not hide the rest.
 set -uo pipefail
@@ -51,7 +51,7 @@ is_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $
 panes() { context --argjson n "$1" '[.applications[] | select(.title != "unload-client" and (.hasCard | not) and (.minimized | not))] | length == $n'; }
 layout_shown() { context '.cardStage.presentation == "bento" and ([.displayContext.displays[] | select(.bentoActive)] | length == 1)'; }
 focused() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .focused'; }
-# Every card stands alone: no window of the layout hides inside a group card.
+# Every card stands alone: no window of the layout hides inside another.
 each_its_own() {
     context '[.applications[] | select(.hasCard and (.minimized | not))] as $c
         | ($c | length) >= 2 and all($c[]; .stackSize == 1) and ([$c[].stackId] | unique | length) == ($c | length)'
@@ -240,7 +240,7 @@ PY
 spread_key
 report spread-layout
 check 'spread over a layout: Spread opens' presents cardLine
-check 'spread over a layout: every pane is a card of its own, no group card' each_its_own
+check 'spread over a layout: every pane is a card of its own' each_its_own
 check 'spread over a layout: the selected card stands whole and centred' one_whole
 pick "$b"
 report grown
@@ -266,8 +266,7 @@ check 'chosen: the monitor is sized Solo' context '[.displayContext.displays[] |
 check 'chosen: kaduncerc keeps it as solo' bash -c "kreadconfig6 --file kaduncerc --group Sizing --key Virtual-0 | grep -qx solo"
 spread_key
 report solo-spread
-check 'solo sizing: the layout is one group card in Spread again' \
-    context '[.applications[] | select(.hasCard and .stackSize >= 3)] | length >= 3'
+check 'solo sizing: every pane is still a card of its own in Spread' each_its_own
 spread_key
 kad setDisplaySizing Virtual-0 ''
 sleep .6

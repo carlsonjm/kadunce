@@ -34,11 +34,6 @@ int main() {
           "the zoom flickered between its lines, or did not come back");
     check(!carryZoomed(false, -400.0), "a push up zoomed out");
     check(CarryZoomEngage - CarryZoomRelease >= 80.0, "a hand resting between the zoom's lines could cross both");
-    // Resting on a Bento group, the card is drawn under a pane and not at the
-    // finger, so the row keeps its zoom however the finger drifts.
-    for (bool zoomed : {false, true})
-        for (double pull : {-400.0, 0.0, CarryZoomRelease - 1, CarryZoomEngage + 1, 400.0})
-            check(carryZoomed(zoomed, pull, true) == zoomed, "a hand resting on a Bento group changed the zoom");
     // It glides by the same ratio each moment, from end to end.
     check(carryZoomAt(1.0, CarryZoomScale, 0.0) == 1.0
               && std::abs(carryZoomAt(1.0, CarryZoomScale, 1.0) - CarryZoomScale) < 1e-12,
@@ -105,76 +100,33 @@ int main() {
     // Over the first item's centre: that card.
     check(carryAim(10, parted, card, joinable, 0, 3) == CarryAim{CarryAim::Kind::Card, 0},
           "a card under the held one was not the aim");
-    // A Bento group cannot be joined, so over it is still a gap.
+    // A card that cannot be joined is still a gap.
     check(carryAim(3 * pitch, parted, card, joinable, 0, 3).kind == CarryAim::Kind::Gap,
           "a card that cannot be joined was joined");
     // Halfway between two cards is never over either.
     check(carryAim(2.5 * pitch, parted, card, joinable, 0, 3).kind == CarryAim::Kind::Gap,
           "the space between two cards joined one");
-    // A Bento group that can take the card is reached across nearly its
-    // whole width, so either pane can be named; a card is not.
-    const std::vector<double> reach{CarryJoinReach, CarryJoinReach, CarryGroupReach};
-    check(carryAim(3 * pitch + 0.4 * card, parted, card, reach, 0, 3)
-              == CarryAim{CarryAim::Kind::Card, 2},
-          "the far pane of a Bento group could not be reached");
+    // A card is joined from near its centre, not from its edge.
+    const std::vector<double> reach{CarryJoinReach, CarryJoinReach, CarryJoinReach};
     check(carryAim(10 + 0.4 * card, parted, card, reach, 0, 3).kind == CarryAim::Kind::Gap,
           "a card was joined from its edge");
-    check(carryAim(3 * pitch - 0.5 * pitch, parted, card, reach, 0, 3).kind == CarryAim::Kind::Gap,
-          "the space beside a Bento group joined it");
-    check(CarryGroupKeep * card < 0.5 * pitch, "a Bento group was kept past its neighbour's gap");
-    // Over a Bento pair drawn side by side, the pane under the finger is the
-    // one it would take, and the nearest when the finger is just off it.
-    const std::vector<CardRect> pair{{100, 300, 395, 500}, {495, 300, 395, 500}};
-    const std::vector<bool> both{true, true};
-    check(carryGroupPart(pair, both, 200, 500, -1) == 0 && carryGroupPart(pair, both, 800, 500, -1) == 1
-              && carryGroupPart(pair, both, 950, 250, -1) == 1,
-          "the pane under the finger was not the one named");
-    // Named, a pane stays named across the divider until the finger is well
-    // into the other, and then the other is.
-    const double keep = CarryPaneKeep * 395;
-    for (double x : {490.0, 495.0, 500.0, 495.0 + keep - 1})
-        check(carryGroupPart(pair, both, x, 500, 0) == 0, "a finger resting at the divider swapped panes");
-    check(carryGroupPart(pair, both, 495.0 + keep + 1, 500, 0) == 1, "a finger well into the other pane kept the first");
-    check(carryGroupPart(pair, both, 495.0 - keep - 1, 500, 1) == 0, "the way back did not swap at the same reach");
-    // A pane too small for the card names nothing, except a little way onto
-    // it from the pane it had.
-    const std::vector<bool> leftOnly{true, false};
-    check(carryGroupPart(pair, leftOnly, 800, 500, -1) == -1, "a pane too small for the card was named");
-    check(carryGroupPart(pair, leftOnly, 495.0 + keep - 1, 500, 0) == 0,
-          "a finger just onto a pane too small for the card let the pane it had go");
-    check(carryGroupPart(pair, leftOnly, 495.0 + keep + 1, 500, 0) == -1,
-          "a finger well onto a pane too small for the card kept a pane");
-    check(carryGroupPart(pair, both, 800, 500, 5) == 1 && carryGroupPart({}, {}, 0, 0, 0) == -1,
-          "a pane that is not there was named");
 
     // Resting on a card joins it once it has waited; passing over does not.
     const CarryAim gapAim{CarryAim::Kind::Gap, 1};
     const CarryAim joinAim{CarryAim::Kind::Card, 0};
-    const CarryAim paneAim{CarryAim::Kind::Card, 2, 0};
-    const CarryAim otherPane{CarryAim::Kind::Card, 2, 1};
-    check(carryAimStep(gapAim, joinAim, CarryJoinDwell - 1, 1, false) == gapAim
-              && carryAimStep(gapAim, joinAim, CarryJoinDwell, 1, false) == joinAim,
+    check(carryAimStep(gapAim, joinAim, CarryJoinDwell - 1, 1) == gapAim
+              && carryAimStep(gapAim, joinAim, CarryJoinDwell, 1) == joinAim,
           "a card was joined before the hand rested on it, or never");
-    check(carryAimStep(paneAim, otherPane, CarryJoinDwell - 1, 1, true) == paneAim
-              && carryAimStep(paneAim, otherPane, CarryJoinDwell, 1, true) == otherPane,
-          "the other pane was named before the hand rested on it, or never");
     // Its own gap answers at once, a new one after a moment, and a card it
     // was joining is let go of at once while that gap waits.
-    check(carryAimStep(CarryAim{CarryAim::Kind::Gap, 2}, gapAim, 0, 1, false) == gapAim,
+    check(carryAimStep(CarryAim{CarryAim::Kind::Gap, 2}, gapAim, 0, 1) == gapAim,
           "the gap already open did not answer at once");
-    check(carryAimStep(gapAim, CarryAim{CarryAim::Kind::Gap, 3}, CarryGapDwell - 1, 1, false) == gapAim
-              && carryAimStep(gapAim, CarryAim{CarryAim::Kind::Gap, 3}, CarryGapDwell, 1, false)
+    check(carryAimStep(gapAim, CarryAim{CarryAim::Kind::Gap, 3}, CarryGapDwell - 1, 1) == gapAim
+              && carryAimStep(gapAim, CarryAim{CarryAim::Kind::Gap, 3}, CarryGapDwell, 1)
                   == CarryAim{CarryAim::Kind::Gap, 3},
           "a new gap did not wait a moment");
-    check(carryAimStep(joinAim, CarryAim{CarryAim::Kind::Gap, 3}, 0, 1, false) == gapAim,
+    check(carryAimStep(joinAim, CarryAim{CarryAim::Kind::Gap, 3}, 0, 1) == gapAim,
           "a card left was still joined");
-    // Still over the group, a pane is let go only once the hand has rested
-    // off it as long as it rested to take it; carried off the group, at once.
-    for (const auto &next : {gapAim, CarryAim{CarryAim::Kind::Gap, 3}})
-        check(carryAimStep(paneAim, next, CarryJoinDwell - 1, 1, true) == paneAim
-                  && carryAimStep(paneAim, next, CarryJoinDwell, 1, true) == next,
-              "a pane was let go while the hand still rested on the group, or never");
-    check(carryAimStep(paneAim, gapAim, 0, 1, false) == gapAim, "a pane was kept by a card carried off the group");
 
     // Sliding, the gap follows the card at once, over a card or not.
     const auto closed = positions({0.0, 0.0, 0.0}, pitch);
