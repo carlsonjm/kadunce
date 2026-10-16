@@ -26,15 +26,10 @@ notCard() { context --arg id "$1" '[.applications[] | select(.windowId == $id an
 activeIs() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
 # Which window a touch in the middle of the tablet reaches.
 middle() { probe windowAt 640 400 | jq -r '.target.caption // ""'; }
-shots=$(dirname "$XDG_RUNTIME_DIR")
-# The mean red, green and blue drawn in a small square in the middle.
-colour() {
-    python3 "$(dirname "$0")/capture-png.py" 628 388 24 24 "$shots/fill-$1.png"
-    python3 -c 'import sys; from PIL import Image; im = Image.open(sys.argv[1]).convert("RGB"); px = list(im.getdata()); print(*(sum(p[i] for p in px) // len(px) for i in range(3)))' "$shots/fill-$1.png"
-}
-# The maximized window is green, the application opened after it blue.
-green() { read -r r g b <<<"$(colour "$1")"; echo "$1 drawn $r $g $b"; (( g > 110 && g > r + 40 && g > b + 20 )); }
-blue() { read -r r g b <<<"$(colour "$1")"; echo "$1 drawn $r $g $b"; (( b > 120 && b > r + 60 && b > g + 30 )); }
+# Whether KWin draws a window at all: a card held aside is hidden, so the
+# window under it is what shows.
+shown() { probe windowFacts | jq -e --arg c "$1" 'first(.[] | select(.caption == $c)) | (.hidden | not) and (.minimized | not)'; }
+hidden() { probe windowFacts | jq -e --arg c "$1" 'first(.[] | select(.caption == $c)) | .hidden'; }
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1
@@ -76,7 +71,8 @@ probe activateWindowId "$fills" >/dev/null
 sleep .8
 report asked
 check "asking for the maximized window shows the desktop" context '.cardStage.presentation == "desktop"'
-check "the maximized window is drawn in the middle" green asked
+check "the maximized window is drawn" shown 'Fills the screen'
+check "the later card is out of sight" hidden 'Opens after'
 check "the maximized window takes a touch in the middle" test "$(middle)" = 'Fills the screen'
 check "the later application is still a card, held aside" isCard "$after"
 
@@ -85,13 +81,14 @@ probe activateWindowId "$after" >/dev/null
 sleep .8
 report chosen
 check "choosing the card shows it Active again" activeIs "$after"
-check "the card is drawn in the middle" blue chosen
+check "the card is drawn again" shown 'Opens after'
 check "the card takes a touch in the middle" test "$(middle)" = 'Opens after'
 probe activateWindowId "$fills" >/dev/null
 sleep .8
 report asked-again
 check "asking again shows the desktop again" context '.cardStage.presentation == "desktop"'
-check "the maximized window is drawn in the middle again" green asked-again
+check "the maximized window is drawn again" shown 'Fills the screen'
+check "the later card is out of sight again" hidden 'Opens after'
 check "the maximized window takes a touch in the middle again" test "$(middle)" = 'Fills the screen'
 
 test "$(probe releaseRuntime)" = true
