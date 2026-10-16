@@ -929,6 +929,8 @@ private:
     // Cards held aside while the desktop is shown, and the windows returned
     // to it; activating one of those brings the desktop back.
     QList<QPointer<KWin::EffectWindow>> m_aside;
+    // What keeps each card aside on the task list.
+    QHash<const KWin::EffectWindow *, QMetaObject::Connection> m_asideListed;
     QList<QPointer<KWin::EffectWindow>> m_returnedToDesktop;
     void holdCardsAside();
     void bringCardsBack();

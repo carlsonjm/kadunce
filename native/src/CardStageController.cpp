@@ -1831,13 +1831,25 @@ void CardStageController::holdCardsAside()
         if (!window || window->isDeleted() || !window->window()
             || window->window()->isHidden() || m_aside.contains(window)) continue;
         window->setData(CardAsideRole, true);
-        window->window()->setHidden(true);
+        KWin::Window *client = window->window();
+        client->setHidden(true);
+        // KWin takes a hidden X11 window off the task list too, and again
+        // whenever it rechecks the window. A card held aside is still open, so
+        // it stays listed as a Wayland card does, unless its application
+        // asked otherwise.
+        const auto keepListed = [client] {
+            if (client->isHidden() && client->skipTaskbar() != client->originalSkipTaskbar())
+                client->setSkipTaskbar(client->originalSkipTaskbar());
+        };
+        keepListed();
+        m_asideListed.insert(window, QObject::connect(client, &KWin::Window::skipTaskbarChanged, keepListed));
         m_aside.append(window);
     }
 }
 
 void CardStageController::bringCardsBack()
 {
+    for (const auto &listed : std::exchange(m_asideListed, {})) QObject::disconnect(listed);
     for (const auto &window : std::exchange(m_aside, {})) {
         if (!window || window->isDeleted()) continue;
         window->setData(CardAsideRole, QVariant());
@@ -3392,6 +3404,7 @@ bool CardStageController::releaseCardToDisplay(KWin::EffectWindow *card)
     m_host->cancelInputForCardStage();
     clearCardTransition();
     if (m_aside.removeAll(card) > 0) {
+        QObject::disconnect(m_asideListed.take(card));
         card->setData(CardAsideRole, QVariant());
         if (card->window()) card->window()->setHidden(false);
     }
@@ -5546,6 +5559,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     forgetCloseAsk(window);
     m_originalCardStackingOrder.removeAll(window);
     m_aside.removeAll(window);
+    QObject::disconnect(m_asideListed.take(window));
     m_returnedToDesktop.removeAll(window);
     const int closedIndex = liveCardIndex(window);
     if (!m_active || closedIndex < 0) {

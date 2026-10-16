@@ -29,7 +29,7 @@ jobs:
       image: ghcr.io/archlinux/archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime connected-sizes-runtime connected-stacks-runtime every-display-runtime every-display-wake-runtime every-display-carry-runtime every-display-pane-runtime every-display-full-runtime connected-keys-runtime connected-bento-key-runtime connected-desk-keys-runtime stack-runtime late-maximize-active-runtime late-maximize-signin-runtime fill-return-runtime guest-float-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime connected-sizes-runtime connected-stacks-runtime every-display-runtime every-display-wake-runtime every-display-carry-runtime every-display-pane-runtime every-display-full-runtime connected-keys-runtime connected-bento-key-runtime connected-desk-keys-runtime stack-runtime late-maximize-active-runtime late-maximize-signin-runtime fill-return-runtime x11-fill-return-runtime guest-float-runtime' }}
     steps:
       - name: Install build and session dependencies
         run: |

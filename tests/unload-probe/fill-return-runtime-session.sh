@@ -5,8 +5,10 @@
 # the Active card over the desktop. Asking for the maximized window then, as
 # the dock or a task switcher does, shows the desktop again with it there,
 # drawn and taking touches, never left behind that card; choosing the card
-# brings it back; and release gives the window back maximized. Needs the
-# tablet fixture.
+# brings it back; and release gives the window back maximized. The card held
+# aside meanwhile stays in the dock, which x11-fill-return proves for an X11
+# application, the one KWin would take off the task list. Needs the tablet
+# fixture.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -30,6 +32,8 @@ middle() { probe windowAt 640 400 | jq -r '.target.caption // ""'; }
 # window under it is what shows.
 shown() { probe windowFacts | jq -e --arg c "$1" 'first(.[] | select(.caption == $c)) | (.hidden | not) and (.minimized | not)'; }
 hidden() { probe windowFacts | jq -e --arg c "$1" 'first(.[] | select(.caption == $c)) | .hidden'; }
+# Whether the dock lists a window.
+listed() { probe windowFacts | jq -e --arg c "$1" 'first(.[] | select(.caption == $c)) | .skipTaskbar | not'; }
 for attempt in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1
@@ -73,6 +77,7 @@ report asked
 check "asking for the maximized window shows the desktop" context '.cardStage.presentation == "desktop"'
 check "the maximized window is drawn" shown 'Fills the screen'
 check "the later card is out of sight" hidden 'Opens after'
+check "the later card stays in the dock" listed 'Opens after'
 check "the maximized window takes a touch in the middle" test "$(middle)" = 'Fills the screen'
 check "the later application is still a card, held aside" isCard "$after"
 
@@ -89,6 +94,7 @@ report asked-again
 check "asking again shows the desktop again" context '.cardStage.presentation == "desktop"'
 check "the maximized window is drawn again" shown 'Fills the screen'
 check "the later card is out of sight again" hidden 'Opens after'
+check "the later card stays in the dock again" listed 'Opens after'
 check "the maximized window takes a touch in the middle again" test "$(middle)" = 'Fills the screen'
 
 test "$(probe releaseRuntime)" = true
