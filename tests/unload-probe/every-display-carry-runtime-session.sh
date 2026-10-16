@@ -10,9 +10,10 @@
 # shows a card: that card stays there as the small display's own, its waiting
 # card goes with Spread, and the monitor's windows keep their places, with
 # nothing drawn over them. Asked for from the dock, that waiting card opens on
-# the small display, its own, and carried off from there onto the monitor it
-# leaves the small display the card it showed before, never nothing. Every
-# check is reported, so a failure does not hide the rest.
+# the small display, its own, and stays there though it stops short of its
+# place, as a terminal keeping whole rows does. Carried off from there onto
+# the monitor, it leaves the small display the card it showed before, never
+# nothing. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -181,7 +182,13 @@ check 'move: no window on the small display stands over another' apart Virtual-0
 check 'move: no window holds another as a Stack' no_stack
 
 # Asked for from the dock, as a person taps it there, the card waiting for the
-# small display opens there, its own, though Spread lives on the monitor.
+# small display opens there, its own, though Spread lives on the monitor. Like
+# a terminal keeping whole rows, it stops short of its place there, and it
+# stays: alone on that display it overlaps nothing.
+place=$(probe windowGeometry "$tc" | jq '.height | floor')
+client companionMinimumSize 'Tab B' 500 200
+client companionMaximumSize 'Tab B' 0 "$((place - 24))"
+sleep .4
 probe activateWindowId "$tb" >/dev/null
 sleep 1.4
 report dock
@@ -189,6 +196,14 @@ check 'dock: the small display'"'"'s waiting card opens there' shown_on "$tb" Vi
 check 'dock: the card it showed waits in Spread for it' waits_for "$tc" Virtual-0
 check 'dock: the monitor still shows its three windows as a layout' monitor_panes 3
 check 'dock: no window on the small display stands over another' apart Virtual-0
+sleep 1.5
+report dock-settled
+check 'dock: the card stops short of its place' \
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry '$tb' | jq -e --argjson p '$place' '.height < \$p - 12'"
+check 'dock: and still stands on the small display once it has settled' shown_on "$tb" Virtual-0
+client companionMaximumSize 'Tab B' 0 0
+client companionMinimumSize 'Tab B' 500 400
+sleep .4
 
 # Carried off by its title bar onto the monitor, the small display's card is
 # the monitor's own, and the small display shows the card it showed before.

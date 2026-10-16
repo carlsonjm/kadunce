@@ -467,7 +467,9 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 Each other display holds its own cards and keeps what it shows while Spread
 is open; one picked, woken or called from the dock opens there. Sized Solo, it
 shows one card: one carried there is that card, closing or carrying it off
-brings back the one before, and a placed Stack steps there. Sized Connected,
+brings back the one before, and a placed Stack steps there. That card stays
+though its application keeps a size short of its place, as a terminal keeping
+whole rows does: alone there, it overlaps nothing. Sized Connected,
 it plays cards into its layout. A window opens on Spread's display; a card
 carried or paired there is its own, its pane in Spread opening the layout; one
 waiting elsewhere never pairs. Unplugged, its cards stay in Spread. Let go

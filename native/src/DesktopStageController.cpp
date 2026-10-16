@@ -2440,7 +2440,10 @@ void DesktopStageController::settleSessions()
 // reserves the native desktop for release and disable, so a settle never
 // returns a session to Plasma however little of it arrived. Where no display
 // can own a card nothing leaves, which is §5's own answer, and the layout
-// keeps the combination it has.
+// keeps the combination it has. A pane alone on a display other than Spread's
+// overlaps nothing, so the size its application keeps, as a terminal keeping
+// whole rows does, is no reason to send it to Spread's display: it stays where
+// it is shown, short of its place (§11, Every display).
 void DesktopStageController::shedUnsettledPanes(const QString &key)
 {
     const auto session = m_sessions.constFind(key);
@@ -2449,6 +2452,8 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         || session->windows.size() != static_cast<int>(session->rects.size())) return;
     const auto area = stageArea(output);
     const auto pixels = sessionPixels(*session, area);
+    const bool alone = session->windows.size() == 1
+        && !m_host->isTabletOutputForDesktopStage(output);
     QList<QPointer<KWin::EffectWindow>> unsettled;
     for (int index = 0; index < session->windows.size(); ++index) {
         const auto &window = session->windows.at(index);
@@ -2458,7 +2463,7 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
         if (window->isMinimized()) continue;
         const auto &pixel = pixels.at(std::size_t(index));
         if (window->screen() == output
-            && onPixel(window->frameGeometry(), pixel)) continue;
+            && (alone || onPixel(window->frameGeometry(), pixel))) continue;
         qInfo() << "Kadunce" << Revision << "sheds" << logNameOf(window) << "from" << key
                 << "at" << window->frameGeometry() << "for its pane"
                 << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)

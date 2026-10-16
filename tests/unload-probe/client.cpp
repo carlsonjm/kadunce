@@ -219,6 +219,13 @@ public Q_SLOTS:
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) w->setMinimumSize(width, height);
  }
+ // A client that stops short of the size it is given, as a terminal keeping
+ // whole rows does. Zero leaves that side unbounded.
+ void companionMaximumSize(const QString &title, int width, int height) {
+  for (auto *w : QApplication::topLevelWidgets())
+   if (w->isWindow() && w->windowTitle().contains(title))
+    w->setMaximumSize(width > 0 ? width : QWIDGETSIZE_MAX, height > 0 ? height : QWIDGETSIZE_MAX);
+ }
  // A window whose only text field sits at its bottom edge, focused, so the
  // text cursor it reports is where a keyboard raised from below arrives first.
  void textCompanion() {
