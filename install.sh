@@ -4,11 +4,22 @@ set -euo pipefail
 
 project_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 native_effect_id="kwin4_effect_kadunce"
+# KWin looks for effects in Qt's plugin directory, which each distribution
+# places differently (lib, lib64, a multiarch lib); Qt itself says where.
+qt_plugin_dir() {
+    local tool dir
+    for tool in qtpaths6 qtpaths-qt6 /usr/lib/qt6/bin/qtpaths /usr/lib64/qt6/bin/qtpaths; do
+        command -v "${tool}" >/dev/null 2>&1 || continue
+        dir="$("${tool}" --query QT_INSTALL_PLUGINS 2>/dev/null)" || continue
+        [[ "${dir}" == /* ]] && { printf '%s\n' "${dir}"; return 0; }
+    done
+    printf '%s\n' /usr/lib/qt6/plugins
+}
 build_root="$(mktemp -d /tmp/kadunce-install.XXXXXX)"
 native_build_dir="${build_root}/native"
 control_build_dir="${build_root}/control"
 native_plugin_source="${native_build_dir}/bin/kwin/effects/plugins/kwin4_effect_kadunce.so"
-native_plugin_system_target="/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so"
+native_plugin_system_target="$(qt_plugin_dir)/kwin/effects/plugins/kwin4_effect_kadunce.so"
 control_binary_source="${control_build_dir}/bin/kadunce-control"
 control_binary_target="${HOME}/.local/bin/kadunce-control"
 control_service_target="${HOME}/.config/systemd/user/kadunce-control.service"
@@ -19,6 +30,13 @@ install_succeeded=false
 registration_started=false
 previous_native_enabled="$(kreadconfig6 --file kwinrc --group Plugins \
     --key "${native_effect_id}Enabled" --default false)"
+# Cards switched off, by the tray or disable.sh, which leave kwinrc off and
+# this mark, stay off through a reinstall such as the one after a KWin update.
+keep_cards_off=false
+if [[ "${previous_native_enabled}" == false \
+      && -e "${install_state_dir}/disabled" ]]; then
+    keep_cards_off=true
+fi
 
 cleanup() {
     local status=$?
@@ -120,14 +138,17 @@ kwriteconfig6 --file kwinrc --group Plugins \
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
     "${native_effect_id}" >/dev/null 2>&1 || true
 
-kwriteconfig6 --file kwinrc --group Plugins \
-    --key "${native_effect_id}Enabled" true
+if [[ "${keep_cards_off}" != true ]]; then
+    kwriteconfig6 --file kwinrc --group Plugins \
+        --key "${native_effect_id}Enabled" true
+fi
 
 /usr/bin/install -d "${install_state_dir}"
-rm -f "${install_state_dir}/disabled"
+[[ "${keep_cards_off}" == true ]] || rm -f "${install_state_dir}/disabled"
 {
     printf 'installed_at=%s\n' "$(date --iso-8601=seconds)"
-    printf 'candidate_revision=0.1.0-kadunce-baseline\n'
+    printf 'candidate_revision=%s\n' \
+        "$(sed -n 's/^project(kadunce_native VERSION \([^ ]*\).*/\1/p' "${project_dir}/native/CMakeLists.txt")"
     printf 'candidate_sha256=%s\n' \
         "$(sha256sum "${native_plugin_source}" | cut -d' ' -f1)"
     printf 'installed_sha256=%s\n' \
@@ -157,10 +178,11 @@ fi
 # Kadunce at all until something else loads it. Ask for it by name, then prove
 # the effect constructed by talking to the object it registers, because a
 # loaded plugin that failed to build its controllers still reports loaded.
-qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
-    "${native_effect_id}" >/dev/null 2>&1 || true
 effect_loaded=false
+[[ "${keep_cards_off}" == true ]] || qdbus6 org.kde.KWin /Effects \
+    org.kde.kwin.Effects.loadEffect "${native_effect_id}" >/dev/null 2>&1 || true
 for _ in $(seq 1 20); do
+    [[ "${keep_cards_off}" != true ]] || break
     if [[ "$(qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded \
             "${native_effect_id}" 2>/dev/null)" == true ]] \
        && qdbus6 org.kde.KWin /Kadunce >/dev/null 2>&1; then
@@ -197,10 +219,16 @@ controls_map() {
         inmap { exit }' "$1"
 }
 
-echo "Kadunce installed and enabled."
+if [[ "${keep_cards_off}" == true ]]; then
+    echo "Kadunce installed. Cards stay off, as they were; the tray switch turns them on."
+else
+    echo "Kadunce installed and enabled."
+fi
 echo "All six installation steps completed. It is now safe to restart Plasma."
 echo "Receipt: ${install_receipt}"
-if [[ "${effect_loaded}" != true ]]; then
+if [[ "${keep_cards_off}" == true ]]; then
+    live_summary="Cards stay off, as they were; the tray switch turns them on."
+elif [[ "${effect_loaded}" != true ]]; then
     live_summary="Restart Plasma: the workspace has no Kadunce running."
     echo "WARNING: the effect did not come back after this install." >&2
     echo "The plugin is in place and enabled, but KWin is not running it," >&2

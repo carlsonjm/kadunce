@@ -24,6 +24,9 @@ struct TouchDisplayOutput {
     QSizeF physicalSize;
     // Logical pixels, for a display that reports no physical size.
     QSizeF size;
+    // KWin's lasting identity for the display, which a dock renumbering its
+    // connectors leaves alone; empty where KWin gives none.
+    QString identity;
 };
 
 struct TouchDisplayDevice {
@@ -104,9 +107,32 @@ struct SpreadDisplayChoice {
     // away, still has a card display. Without it only a touched or chosen
     // display holds cards, and every other display keeps Bento.
     bool withoutTouchscreen = true;
+    // The chosen display's lasting identity, kept beside its name.
+    QString identity;
 };
 
-// The one display that holds cards. The chosen display while it is attached;
+// The chosen display as attached now, by name; empty while it is away. A
+// choice that knows its display's identity finds it by that, so a dock that
+// renumbers its connectors moves nothing, and a different monitor given the
+// old name is not taken for it. A choice kept before identities were is found
+// by name.
+inline QString chosenOutputName(const QList<TouchDisplayOutput> &outputs,
+    const SpreadDisplayChoice &choice)
+{
+    if (!choice.identity.isEmpty()) {
+        for (const auto &output : outputs)
+            if (output.identity == choice.identity) return output.name;
+        return {};
+    }
+    if (!choice.display.isEmpty()) {
+        for (const auto &output : outputs)
+            if (output.name == choice.display) return output.name;
+    }
+    return {};
+}
+
+// The one display that holds Spread, as every display holds its own cards
+// (CARD-LIFECYCLE.md §11). The chosen display while it is attached;
 // when it goes away, or none was chosen, the touchscreen's display, else the
 // largest. A chosen display that comes back takes Spread back. Empty only with
 // no display, or when the person keeps cards to a touchscreen and none drives
@@ -114,10 +140,8 @@ struct SpreadDisplayChoice {
 inline QString cardOutputName(const QList<TouchDisplayOutput> &outputs,
     const QList<TouchDisplayDevice> &devices, const SpreadDisplayChoice &choice = {})
 {
-    if (!choice.display.isEmpty()) {
-        for (const auto &output : outputs)
-            if (output.name == choice.display) return output.name;
-    }
+    const QString chosen = chosenOutputName(outputs, choice);
+    if (!chosen.isEmpty()) return chosen;
     const QString touched = touchOutputName(outputs, devices);
     if (!touched.isEmpty() || !choice.withoutTouchscreen) return touched;
     return largestOutputName(outputs);

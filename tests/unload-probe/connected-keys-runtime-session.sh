@@ -211,6 +211,8 @@ focus_on "$fourth"
 meta_shift 108
 report left-layout
 check 'let go: a pane with no Stack leaves the layout as a card' is_card "$fourth"
+check 'let go: the layout stays in view, with no card over it' context '.cardStage.presentation == "bento"'
+check 'let go: a pane of the layout has the keys' context 'first(.applications[] | select(.focused)) | .pane and (.hasCard | not)'
 
 # A pane carried to another display takes its whole Stack with it.
 together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two

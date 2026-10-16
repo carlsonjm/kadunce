@@ -264,6 +264,85 @@ int main()
         && monitorSide && monitorSide->candidateIndices.size() == 5,
         "A larger display lost panes to the compact cap");
 
+    // CARD-LIFECYCLE.md §11: the cap is the display's sizing's where it has
+    // one, never its work area's. A 1920x1080 monitor with a 24 px bar and a
+    // 56 px dock leaves a 1900x980 stage, which by area caps at two.
+    constexpr int panelledWidth = 1900;
+    constexpr int panelledHeight = 980;
+    const std::vector<BentoCandidate> fourSmall(4, {300, 200, 500, 400, false});
+    require(bentoPaneCap(panelledWidth, panelledHeight) == BentoCompactPaneCap
+        && bentoPaneCap(panelledWidth, panelledHeight, std::nullopt) == BentoCompactPaneCap
+        && bentoPaneCap(panelledWidth, panelledHeight, BentoPaneBound) == BentoPaneBound
+        && bentoPaneCap(monitorWidth, monitorHeight, BentoCompactPaneCap) == BentoCompactPaneCap,
+        "A pane cap given by the display's sizing did not replace the work area's");
+    require(chooseBentoAdmission(fourSmall, panelledWidth, panelledHeight)
+                .candidateIndices.size() == 2
+        && chooseBentoAdmission(fourSmall, panelledWidth, panelledHeight, BentoPaneBound,
+               BentoPaneBound).candidateIndices.size() == 4,
+        "Ordinary admission read the work area's cap over the display's");
+    const auto sizedTransfer = chooseBentoTransferAdmission(fourSmall, 3,
+        panelledWidth, panelledHeight, BentoPaneBound, BentoPaneBound);
+    require(sizedTransfer && sizedTransfer->candidateIndices.size() == 4,
+        "A transfer read the work area's cap over the display's");
+    const auto areaSide = chooseBentoSideAdmission({false, true, true},
+        panelledWidth, panelledHeight, fourSmall);
+    const auto sizedSide = chooseBentoSideAdmission({false, true, true},
+        panelledWidth, panelledHeight, fourSmall, 0, BentoPaneBound);
+    require(areaSide && areaSide->candidateIndices.size() == 2
+        && sizedSide && sizedSide->candidateIndices.size() == 4,
+        "Edge admission read the work area's cap over the display's");
+    const std::vector<BentoRect> halves{{0, 0, .5, 1}, {.5, 0, .5, 1}};
+    const std::vector<BentoCandidate> threeSmall(3, {100, 100, 400, 400, false});
+    require(!splitBentoColumn(halves, threeSmall, 2, {true, false, true},
+                panelledWidth, panelledHeight)
+        && splitBentoColumn(halves, threeSmall, 2, {true, false, true},
+               panelledWidth, panelledHeight, BentoPaneBound),
+        "Splitting a column read the work area's cap over the display's");
+    // Chosen Solo, a monitor shows a pair at most however much room it has.
+    const auto soloSide = chooseBentoSideAdmission({false, false},
+        monitorWidth, monitorHeight, fiveSmall, 0, BentoCompactPaneCap);
+    require(chooseBentoAdmission(fiveSmall, monitorWidth, monitorHeight, BentoPaneBound,
+                BentoCompactPaneCap).candidateIndices.size() == 2
+        && soloSide && soloSide->candidateIndices.size() == 2,
+        "A monitor chosen Solo showed more than a pair");
+
+    // §11, Connected: shares are even, so two windows too wide for the 0.38
+    // pane and too tall for half the height stand side by side in halves. On
+    // the 2560x1440 monitor three 1200x900 windows show two that way; Solo,
+    // and a display without cards, keep the curated pair and show one.
+    const std::vector<BentoCandidate> threeTall(3, {1200, 900, 1200, 900, false});
+    const auto curatedTall = chooseBentoAdmission(threeTall, monitorWidth, monitorHeight,
+        BentoPaneBound, BentoCompactPaneCap);
+    const auto evenTall = chooseBentoAdmission(threeTall, monitorWidth, monitorHeight,
+        BentoPaneBound, BentoPaneBound, true);
+    const auto evenTallPixels = makePixelBentoLayout(evenTall.rects, 10, 10,
+        monitorWidth, monitorHeight);
+    require(curatedTall.candidateIndices.size() == 1
+        && chooseBentoAdmission(threeTall, monitorWidth, monitorHeight)
+               .candidateIndices.size() == 1
+        && evenTall.candidateIndices == std::vector<int>({0, 1})
+        && evenTallPixels.size() == 2
+        && evenTallPixels[0].x == 10 && evenTallPixels[0].width == evenTallPixels[1].width
+        && evenTallPixels[0].height == monitorHeight && evenTallPixels[1].height == monitorHeight
+        && evenTallPixels[1].x + evenTallPixels[1].width == 10 + monitorWidth,
+        "Connected auto-fill did not stand two tall windows side by side in halves");
+    const auto evenTallTransfer = chooseBentoTransferAdmission(threeTall, 2,
+        monitorWidth, monitorHeight, BentoPaneBound, BentoPaneBound, true);
+    const auto curatedTallTransfer = chooseBentoTransferAdmission(threeTall, 2,
+        monitorWidth, monitorHeight, BentoPaneBound, BentoPaneBound);
+    require(evenTallTransfer && evenTallTransfer->candidateIndices.size() == 2
+        && std::count(evenTallTransfer->candidateIndices.cbegin(),
+               evenTallTransfer->candidateIndices.cend(), 2) == 1
+        && curatedTallTransfer && curatedTallTransfer->candidateIndices == std::vector<int>({2}),
+        "A transfer on Connected did not stand beside a tall pane in halves");
+    // Where a curated pair holds both, Connected keeps it: the halves come last.
+    const std::vector<BentoCandidate> twoSmall(2, {300, 200, 500, 400, false});
+    const auto connectedPair = chooseBentoAdmission(twoSmall, monitorWidth, monitorHeight,
+        BentoPaneBound, BentoPaneBound, true);
+    require(connectedPair.rects.size() == 2 && std::abs(connectedPair.rects[0].width - .62) < 1e-9
+        && std::abs(connectedPair.rects[1].x - .62) < 1e-9,
+        "Connected auto-fill dropped the curated pair where it fits");
+
     // Past eight panes, minimum sizes decide the count. On the 2560x1440
     // monitor twelve 600x450 windows fill a four-by-three grid, and a
     // thirteenth fits no five-by-three cell, so it is the one left out.
@@ -402,6 +481,13 @@ int main()
     require(bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, wide + 1, 200) == -1
         && bentoSlotUsedLongestAgo(tabletSlots, {7}, 200, 200) == -1,
         "A slot was offered with no fit, or without a use for every slot");
+    // The snapped card's slot never gives way, though used longest ago, and
+    // an arrival only it fits is offered none.
+    require(bentoSlotUsedLongestAgo(tabletSlots, {3, 7}, 200, 200, 0) == 1
+        && bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, 200, 200, 0) == 1,
+        "A full Connected layout gave up the snapped card's slot");
+    require(bentoSlotUsedLongestAgo(tabletSlots, {7, 3}, narrow + 1, 200, 0) == -1,
+        "An arrival only the snapped card's slot fits was offered it");
 
     // CARD-LIFECYCLE.md §5: a side release onto a full layout displaces the
     // pane occupying that side. With a full-height pane on the left and a
@@ -584,6 +670,43 @@ int main()
         require(!bentoColumnsFromRects<int>({1, 2, 3},
                     {{0.0, 0.0, 1.0, 0.5}, {0.0, 0.5, 0.5, 0.5}, {0.5, 0.5, 0.5, 0.5}}),
             "A layout split across did read as columns");
+
+        // A pick paired with the card in use on a 1900x980 stage: two even
+        // columns, the pick on the right. A third widens to thirds, the first
+        // two keeping their order, and a fourth joins the shortest column,
+        // rightmost, so the first two keep their places too.
+        Columns pair;
+        pair.columns = {{{1, false}}, {{2, false}}};
+        pair.paired = true;
+        const auto pixelOf = [&](const Columns &layout, int window) {
+            std::vector<int> handles;
+            std::vector<BentoRect> rects;
+            bentoColumnsLayout(layout, handles, rects);
+            const auto pixels = makePixelBentoLayout(rects, 10, 34, 1900, 980);
+            for (std::size_t i = 0; i < handles.size(); ++i)
+                if (handles[i] == window) return pixels[i];
+            return BentoPixelRect{};
+        };
+        const auto at = [&](const Columns &layout, int window, BentoPixelRect want) {
+            const auto got = pixelOf(layout, window);
+            return got.x == want.x && got.y == want.y && got.width == want.width
+                && got.height == want.height;
+        };
+        require(at(pair, 1, {10, 34, 943, 980}) && at(pair, 2, {967, 34, 943, 980}),
+            "A Connected pair did not share the width evenly");
+        pair.columns.push_back({{3, false}});
+        require(at(pair, 1, {10, 34, 626, 980}) && at(pair, 2, {650, 34, 619, 980})
+                && at(pair, 3, {1284, 34, 626, 980}),
+            "A third column did not share the width in thirds");
+        bentoColumnsJoin(pair, 4);
+        require(shape(pair) == std::vector<std::vector<int>>{{1}, {2}, {3, 4}}
+                && at(pair, 1, {10, 34, 626, 980}) && at(pair, 2, {650, 34, 619, 980})
+                && at(pair, 3, {1284, 34, 626, 483}) && at(pair, 4, {1284, 531, 626, 483}),
+            "A fourth card moved the first two, or did not join the rightmost column");
+        // Columns a pair began stay so through arrivals and leavings.
+        bentoColumnsRemove(pair, 2);
+        require(pair.paired && shape(pair) == std::vector<std::vector<int>>{{1}, {3, 4}},
+            "Columns a pair began forgot it when a card left");
 
         // Beside, a column of its own shares the width evenly.
         const auto even = bentoSideLayout({true, true, true}, 2560, 1400,

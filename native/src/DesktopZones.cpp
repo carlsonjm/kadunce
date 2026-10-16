@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "DesktopZones.h"
+#include "ZoneContract.h"
 
 #include <core/output.h>
 #include <core/rect.h>
 #include <window.h>
 #include <workspace.h>
 
+#include <QDebug>
+#include <QMetaMethod>
 #include <QMetaObject>
+#include <QHash>
 #include <QSequentialIterable>
 #include <QVariant>
 
@@ -65,6 +69,32 @@ bool isUntouchedDefault(const QList<QObject *> &leaves)
     return true;
 }
 
+// Whether KWin's tiles still publish what zones read and call, checked once
+// for each kind of tile KWin makes. A KWin that renamed any of it is told in
+// the journal, and its displays keep the curated library.
+bool keepsZoneContract(const QObject *tile)
+{
+    static QHash<const QMetaObject *, bool> checked;
+    const QMetaObject *meta = tile->metaObject();
+    const auto found = checked.constFind(meta);
+    if (found != checked.cend()) return found.value();
+    const QStringList missing = missingZoneContract(
+        [meta](const QString &name) { return meta->indexOfProperty(name.toLatin1().constData()) >= 0; },
+        [meta](const QString &name) {
+            for (int index = 0; index < meta->methodCount(); ++index) {
+                const QMetaMethod method = meta->method(index);
+                if (method.name() == name.toLatin1() && method.parameterCount() == 1
+                    && method.returnType() == QMetaType::Bool) return true;
+            }
+            return false;
+        });
+    if (!missing.isEmpty())
+        qWarning() << "Kadunce: this KWin's zones lack" << missing.join(QStringLiteral(", "))
+                   << "; drawn zones are not used";
+    checked.insert(meta, missing.isEmpty());
+    return missing.isEmpty();
+}
+
 } // namespace
 
 QRectF zoneWindowRect(QObject *tile)
@@ -88,7 +118,7 @@ QList<DrawnZone> drawnZones(KWin::LogicalOutput *output)
     QList<DrawnZone> zones;
     if (!output || !KWin::workspace()) return zones;
     QObject *root = asObject(KWin::workspace()->rootTile(output));
-    if (!root) return zones;
+    if (!root || !keepsZoneContract(root)) return zones;
     QList<QObject *> leaves;
     collectLeaves(root, leaves);
     if (leaves.size() < 2 || isUntouchedDefault(leaves)) return zones;

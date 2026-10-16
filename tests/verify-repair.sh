@@ -6,7 +6,7 @@ trap 'rm -rf -- "$scratch"' EXIT
 bash "$project_dir/control/prepare-repair.sh" "$scratch/snapshot"
 mkdir "$scratch/bin"
 install -m755 "$project_dir/control/tests/deny-install.sh" "$scratch/bin/pkexec"
-target=/usr/lib/qt6/plugins/kwin/effects/plugins/kwin4_effect_kadunce.so
+target=$(qtpaths6 --query QT_INSTALL_PLUGINS 2>/dev/null || echo /usr/lib/qt6/plugins)/kwin/effects/plugins/kwin4_effect_kadunce.so
 before=$(sha256sum "$target")
 status=0
 PATH="$scratch/bin:$PATH" XDG_STATE_HOME="$scratch/state" bash "$scratch/snapshot/repair.sh" >"$scratch/result" 2>&1 || status=$?

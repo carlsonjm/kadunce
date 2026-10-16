@@ -102,5 +102,25 @@ int main()
         "Cards kept to a touchscreen survived their chosen display going away");
     require(cardOutputName({}, {}, chosen("DP-1")).isEmpty(),
         "A chosen display with no display attached produced a card display");
+
+    // A choice that knows its display's identity follows it to a new name, as
+    // a dock renumbering its connectors gives, and is not taken in by another
+    // monitor given the old name.
+    const TouchDisplayOutput Docked{QStringLiteral("DP-1"), false, QSizeF(527, 296), QSizeF(), QStringLiteral("dell")};
+    const TouchDisplayOutput Renumbered{QStringLiteral("DP-3"), false, QSizeF(527, 296), QSizeF(), QStringLiteral("dell")};
+    const TouchDisplayOutput Stranger{QStringLiteral("DP-1"), false, QSizeF(598, 336), QSizeF(), QStringLiteral("lg")};
+    SpreadDisplayChoice remembered = chosen("DP-1");
+    remembered.identity = QStringLiteral("dell");
+    require(cardOutputName({Z13Panel, Docked}, {Z13Touch}, remembered) == QStringLiteral("DP-1"),
+        "A remembered monitor did not hold Spread under its own name");
+    require(cardOutputName({Z13Panel, Renumbered}, {Z13Touch}, remembered) == QStringLiteral("DP-3"),
+        "A remembered monitor renumbered by a dock lost Spread");
+    require(cardOutputName({Z13Panel, Stranger}, {Z13Touch}, remembered) == QStringLiteral("eDP-1"),
+        "Another monitor given the remembered one's name took Spread");
+    require(chosenOutputName({Z13Panel, Stranger}, remembered).isEmpty(),
+        "Another monitor given the remembered one's name was taken for it");
+    // A choice kept before identities were is still found by name.
+    require(chosenOutputName({Z13Panel, Stranger}, chosen("DP-1")) == QStringLiteral("DP-1"),
+        "A choice kept by name alone was not found");
     return 0;
 }

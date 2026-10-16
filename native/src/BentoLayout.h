@@ -45,7 +45,8 @@ struct BentoAdmission
 // One maximum visible pane count per display, read by every admission path.
 // A work area this small has room for the three-pane grammar only; a larger
 // one uses the curated library. The bound is the work area, never the
-// hardware the work area belongs to.
+// hardware the work area belongs to, where the display has no sizing to
+// name it (the overload below).
 inline constexpr int BentoCompactAreaWidth = 1800;
 inline constexpr int BentoCompactAreaHeight = 1000;
 inline constexpr int BentoCompactPaneCap = 2;
@@ -72,6 +73,18 @@ inline constexpr int BentoPaneBound = 24;
         ? BentoCompactPaneCap : BentoPaneBound;
 }
 
+// The cap a solve reads. A display that plays cards has one from its sizing
+// (DisplaySizing.h), which panels and docks cannot change and kaduncerc's
+// [Sizing] choice can; a solve given it reads it in place of the work area's,
+// or a display sized Connected would cap at two whenever panels left its work
+// area below the compact bound. A display without cards has no sizing, and
+// its work area decides.
+[[nodiscard]] constexpr int bentoPaneCap(int areaWidth, int areaHeight,
+                                         std::optional<int> paneCap)
+{
+    return paneCap ? *paneCap : bentoPaneCap(areaWidth, areaHeight);
+}
+
 // Orientation is a proportion of the work area. A landscape-shaped work area
 // is landscape on every path that lays panes out inside it.
 [[nodiscard]] constexpr bool bentoLandscapeArea(int areaWidth, int areaHeight)
@@ -96,10 +109,17 @@ inline constexpr int BentoPaneBound = 24;
     int areaX, int areaY, int areaWidth, int areaHeight,
     int gap = 14);
 // maximumVisible is the caller's own further limit; the display's pane cap
-// bounds it either way.
+// bounds it either way. paneCap is that cap where the display's sizing names
+// it; left out, the work area's own stands in. connected is a display sized
+// Connected (CARD-LIFECYCLE.md §11), whose columns share its width evenly:
+// after the curated shapes its two panes may also take even halves the other
+// way, side by side on a landscape display, so two windows too wide for the
+// narrow pane and too tall for half its height still stand together. Nothing
+// else changes with it.
 [[nodiscard]] BentoAdmission chooseBentoAdmission(
     const std::vector<BentoCandidate> &candidates,
-    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound);
+    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound,
+    std::optional<int> paneCap = std::nullopt, bool connected = false);
 
 // A transfer is accepted only if the arriving candidate has a visible pane.
 // Leaving any candidate out is not a private matter either way: the caller
@@ -107,7 +127,8 @@ inline constexpr int BentoPaneBound = 24;
 // admission that would drop a resident a refusal rather than a rearrangement.
 [[nodiscard]] std::optional<BentoAdmission> chooseBentoTransferAdmission(
     const std::vector<BentoCandidate> &candidates, int arrivingIndex,
-    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound);
+    int areaWidth, int areaHeight, int maximumVisible = BentoPaneBound,
+    std::optional<int> paneCap = std::nullopt, bool connected = false);
 
 // CARD-LIFECYCLE.md §8: a layout that cannot grow gives the arrival one slot,
 // and only that slot's occupant leaves. The slot is the smallest whose pixel
@@ -123,11 +144,13 @@ inline constexpr int BentoPaneBound = 24;
 // layout gives the arrival the slot of the window used longest ago, among the
 // slots whose pixel size satisfies the arrival's minimum. lastUsed holds each
 // slot's last use, later uses larger; a tie goes to the earlier slot. Only that
-// slot's occupant leaves, as for bentoSlotForArrival. Returns -1 when no slot
-// fits or the uses do not name every slot.
+// slot's occupant leaves, as for bentoSlotForArrival. `kept`, when not -1, is
+// the slot of the card a side snap placed, which never gives way. Returns -1
+// when no slot fits or the uses do not name every slot.
 [[nodiscard]] int bentoSlotUsedLongestAgo(const std::vector<BentoPixelRect> &slots,
                                           const std::vector<long long> &lastUsed,
-                                          double minimumWidth, double minimumHeight);
+                                          double minimumWidth, double minimumHeight,
+                                          int kept = -1);
 
 // CARD-LIFECYCLE.md §5: the pane a full layout gives up to a side release is
 // the one occupying the side released into. A pane occupies a side when it

@@ -49,10 +49,38 @@ int main()
     require(displaySizing(QString(), 2560, 1440) == DisplaySizing::Connected
         && displaySizing(QStringLiteral("sideways"), 1706, 1066) == DisplaySizing::Solo,
         "An empty or unknown choice did not let Kadunce choose");
+    // The sizing names the pane cap, never the work area: a 1080p monitor
+    // with a 24 px bar and a 56 px dock is Connected by its size, though its
+    // 1900x980 stage area is below the compact bound, and lays out as many
+    // panes as minimum sizes allow. A monitor chosen Solo shows a pair.
+    require(automaticSizing(1920, 1080) == DisplaySizing::Connected
+        && bentoPaneCap(1900, 980) == BentoCompactPaneCap
+        && bentoPaneCap(1900, 980, sizingPaneCap(DisplaySizing::Connected)) == BentoPaneBound,
+        "A Connected monitor with panels capped at its work area's two panes");
+    require(bentoPaneCap(2540, 1410, sizingPaneCap(displaySizing(QStringLiteral("solo"), 2560, 1440)))
+            == BentoCompactPaneCap,
+        "A monitor chosen Solo kept the pane cap of its work area");
     require(sizingName(DisplaySizing::Connected) == QStringLiteral("connected")
         && sizingName(DisplaySizing::Solo) == QStringLiteral("solo")
         && parseSizing(sizingName(DisplaySizing::Solo)) == DisplaySizing::Solo,
         "A sizing did not survive being written and read back");
+
+    // A choice follows its display's identity to a new name, and a name a
+    // dock has since given another display carries no choice to it.
+    const QHash<QString, QString> choices{{QStringLiteral("DP-1"), QStringLiteral("solo")}};
+    const QHash<QString, QString> identities{{QStringLiteral("DP-1"), QStringLiteral("dell")}};
+    require(chosenSizing(choices, identities, QStringLiteral("DP-1"), QStringLiteral("dell")) == QStringLiteral("solo"),
+        "A display's choice was not kept under its own name");
+    require(chosenSizing(choices, identities, QStringLiteral("DP-3"), QStringLiteral("dell")) == QStringLiteral("solo"),
+        "A display renumbered by a dock lost its choice");
+    require(chosenSizing(choices, identities, QStringLiteral("DP-1"), QStringLiteral("lg")).isEmpty(),
+        "Another display given the old name took its choice");
+    // Choices kept before identities were are read by name.
+    require(chosenSizing(choices, {}, QStringLiteral("DP-1"), QStringLiteral("lg")) == QStringLiteral("solo")
+        && chosenSizing(choices, {}, QStringLiteral("DP-1"), QString()) == QStringLiteral("solo"),
+        "A choice kept by name alone was not read");
+    require(chosenSizing(choices, identities, QStringLiteral("HDMI-A-1"), QStringLiteral("lg")).isEmpty(),
+        "A display never chosen for carried a choice");
     std::cout << "display sizing: ok\n";
     return 0;
 }
