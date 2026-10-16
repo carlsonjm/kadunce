@@ -155,6 +155,9 @@ public:
     // False when `window` is no pane of another display's layout.
     bool handoffPaneToOutput(KWin::EffectWindow *window, KWin::LogicalOutput *destination);
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
+    // A layout on the display whose panes have taken their places, as
+    // Spread needs before it can hold the layout.
+    [[nodiscard]] bool hasSettledSessionOnOutput(const QString &outputName) const;
     // Between a layout's panes, inside the box they fill together: the gutter a
     // press there must not reach whatever window lies behind the layout.
     [[nodiscard]] bool inPaneGutter(QPointF position) const;

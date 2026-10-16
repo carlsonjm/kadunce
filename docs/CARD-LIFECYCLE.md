@@ -413,7 +413,7 @@ An edge action is what a carried window's release at a screen edge means
 
 ### Top edge
 
-Make the carried window an independent Active card, or another display's lone card. It never pairs.
+Make the carried window an independent Active card, or another display's lone card, never paired. Connected, the panes it left wait in Spread until `Meta+B`, a Stack or an edge.
 
 ### Left or right edge
 

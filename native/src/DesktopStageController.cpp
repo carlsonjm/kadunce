@@ -1360,6 +1360,12 @@ bool DesktopStageController::hasSessionOnOutput(
     return m_sessions.contains(outputName);
 }
 
+bool DesktopStageController::hasSettledSessionOnOutput(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session != m_sessions.cend() && !session->applying && !m_interactionWindow;
+}
+
 bool DesktopStageController::inPaneGutter(QPointF position) const
 {
     for (const auto &session : m_sessions) {

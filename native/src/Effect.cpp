@@ -4367,9 +4367,9 @@ void Effect::toggleBento()
     QList<QPointer<KWin::EffectWindow>> former = m_desktopStage->panesOn(target->name());
     QPointer<KWin::EffectWindow> inUse = KWin::effects->activeWindow();
     if (!former.contains(inUse)) inUse = former.isEmpty() ? nullptr : former.first();
-    // §11, Connected: a layout standing behind the Active card, as the top
-    // edge leaves one when a pane is taken out of three or more, is not what
-    // the display shows. The key lays it out again with that card in it, at
+    // §11, Connected: a layout standing behind the Active card, as one does
+    // until Spread can hold what the top edge left, is not what the display
+    // shows. The key lays it out again with that card in it, at
     // one press, rather than ending what was not shown.
     const QPointer<KWin::EffectWindow> inFront = m_cardsOnEveryDisplay && m_cardStage->isActive()
         && m_cardStage->presentation() == CardPresentation::Active && connectedOutputForDesktopStage(target)
@@ -5106,6 +5106,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         : !admitTransferredWindowToTablet(carried, sourceValid)) return false;
                     (void)m_cardStage->promoteToActive(carried);
                     glideIntoActive(carried, output, drawn);
+                    if (extractingPane && output && isTabletOutput(output) && connectedForCardStage()
+                        && m_desktopStage->hasSessionOnOutput(output->name())) {
+                        // After the glide, so the card is drawn where it lands.
+                        QTimer::singleShot(motion(260), this, [this, carried, output] {
+                            holdLayoutLeftBehind(carried, output);
+                        });
+                    }
                     return true;
                 });
             return;
@@ -9186,6 +9193,33 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
         KWin::effects->activateWindow(picked);
     }
     return true;
+}
+
+void Effect::holdLayoutLeftBehind(KWin::EffectWindow *card, KWin::LogicalOutput *output, int tries)
+{
+    const QPointer<KWin::EffectWindow> shown = card;
+    const QPointer<KWin::LogicalOutput> display = output;
+    // Only while the card is still the one shown alone in front of it.
+    if (!shown || shown->isDeleted() || !display || display != tabletOutput() || m_releasing
+        || !m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->activeCardIdentity() != shown
+        || !m_desktopStage->hasSessionOnOutput(display->name())) return;
+    if (!m_desktopStage->hasSettledSessionOnOutput(display->name())) {
+        if (tries > 0) QTimer::singleShot(100, this, [this, shown, display, tries] {
+            if (shown && display) holdLayoutLeftBehind(shown, display, tries - 1);
+        });
+        return;
+    }
+    if (!m_desktopStage->transferTabletSessionToSpread(display,
+            [this](const auto &projection, const auto &commit) {
+                return m_cardStage->admitBentoStack(projection, commit);
+            })) return;
+    // Spread took the layout and shows its row; the card stays shown alone.
+    (void)m_cardStage->promoteToActive(shown);
+    qInfo() << "Kadunce" << Revision << "held the layout" << logNameOf(shown) << "left on"
+            << display->name() << "in Spread behind it";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output)

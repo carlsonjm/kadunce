@@ -5,8 +5,9 @@
 # Table opens and closes, then Meta+B ends the layout into cards, the one in
 # use Active; Meta+B again lays out every card open there; and Meta+S
 # opens Spread over the layout and closes it again. A pane then carried by
-# KWin's title bar to the top edge, out of the three, is the Active card in
-# front of the other two, and one Meta+B lays all three out again. A pane let
+# KWin's title bar to the top edge, out of the three, is the Active card
+# shown alone, the other two waiting in Spread, and one Meta+B lays all three
+# out again. A pane let
 # go to wait as a card, called up in front of the layout Spread holds, joins
 # it again by one Meta+B. Every check is reported, so a failure does not hide
 # the rest.
@@ -139,6 +140,7 @@ title_drag "$browser" "$((tx + 30))" 200 "${tx:-0}" 100 "${tx:-0}" 40 "${tx:-0}"
 report top
 check 'top: the pane carried there is the Active card' \
     context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+check 'top: the two it left wait in Spread, none live behind it' panes_are 0
 probe key 48 125 >/dev/null
 sleep 1.6
 report back-in

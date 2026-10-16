@@ -920,6 +920,12 @@ private:
     // the card the arrival becomes is not drawn over live panes. Both arrival
     // paths ask this before handing the window to Card Stage.
     [[nodiscard]] bool retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output);
+    // §11, Connected: a pane taken to the top edge out of three or more is
+    // the card shown alone. The panes it left are held in Spread for it, as
+    // the cards of a Solo display wait there, rather than standing live
+    // behind it where any of them can rise over it. Spread can take them
+    // once they have settled, so this asks again a few times.
+    void holdLayoutLeftBehind(KWin::EffectWindow *card, KWin::LogicalOutput *output, int tries = 20);
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
