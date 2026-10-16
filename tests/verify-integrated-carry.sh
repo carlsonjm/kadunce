@@ -133,6 +133,7 @@ scenes=(
     late-maximize-runtime tablet
     late-maximize-active-runtime tablet
     late-maximize-signin-runtime tablet
+    fill-return-runtime tablet
     active-launch-runtime tablet
     placement-runtime tablet
     placement-display-runtime tablet

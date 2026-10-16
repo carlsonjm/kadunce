@@ -1866,8 +1866,11 @@ void CardStageController::showDesktop()
     syncSelectedElevation();
     m_host->setPagingShortcutsForCardStage(false);
     // The window last returned to the desktop takes the keys first, so KWin
-    // has no hidden card to hand them on from.
-    m_returnedToDesktop.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    // has no hidden card to hand them on from; one that is a card again since
+    // is no longer on the desktop.
+    m_returnedToDesktop.removeIf([this](const auto &w) {
+        return !w || w->isDeleted() || liveCardIndex(w) >= 0;
+    });
     if (!m_returnedToDesktop.isEmpty() && m_returnedToDesktop.last()->window())
         KWin::workspace()->activateWindow(m_returnedToDesktop.last()->window(), true);
     holdCardsAside();
@@ -5834,7 +5837,10 @@ void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
             << (window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     (void)releaseCard(window, false);
-    if (m_active && m_presentation == CardPresentation::Active) showDesktop();
+    // §2, Desktop: it is a window returned to the desktop like one let go at
+    // the bottom edge, so asking for it under a card opened later shows the
+    // desktop again rather than leave it behind that card.
+    if (m_active && m_presentation == CardPresentation::Active) returnWindowToDesktop(window);
 }
 
 } // namespace Kadunce

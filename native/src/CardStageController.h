@@ -549,7 +549,8 @@ public:
     bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
-    // The Active card asked to fill the screen: it alone goes, the rest wait aside.
+    // The Active card asked to fill the screen: it alone goes, returned to the
+    // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     // The window that has just opened, maximizing or tiling itself as its
     // application restores its saved state, stays the Active card.
