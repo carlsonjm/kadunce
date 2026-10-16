@@ -98,6 +98,14 @@ CardStageController::CardStageController(CardStageHost *host)
                 << bentoPaneGap() << "px apart";
         m_host->cardGutterChangedForCardStage();
     });
+    m_settings.onTuningChanged([]() {
+        const CardTuning &tuning = cardTuning();
+        qInfo() << "Kadunce" << Revision << "cards tuned: corners" << tuning.cornerRadius << "px; sleeping"
+                << (tuning.sleepingDimmed ? (*tuning.sleepingDimmed ? "dimmed" : "at full strength") : "as the context line says")
+                << "; stacking after" << tuning.stackPauseMs << "ms; cards behind a Stack"
+                << (tuning.stackBehindShown ? "shown" : "hidden") << "; Spread peek" << tuning.spreadPeek;
+        KWin::effects->addRepaintFull();
+    });
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {
         const auto window = m_arrivalWindow;
@@ -1283,7 +1291,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
         CardStackPose closed = makeClosedStackPose(
             memberCount - 1 - closedDepth, memberCount,
             tablet->geometry().width());
-        closed.visible = closedDepth <= 3;
+        closed.visible = closed.visible && closedDepth <= 3;
         if (cardGrabActive() && m_carry.inStack && spread.sameStack(cardId, spread.selectedId())) {
             // The Stack a card is held in parts front to back at the place it
             // would take: the cards in front of it to the right of the seam,
@@ -1323,6 +1331,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                     : base.right() - work.x();
                 pose = neighborStackPose(closedDepth, memberCount, side,
                     available, extent);
+                pose.visible = pose.visible && (closedDepth == 0 || cardTuning().stackBehindShown);
             }
         }
     }
@@ -2299,7 +2308,7 @@ void CardStageController::advanceCarry(double seconds)
     } else if (m_carry.moved && m_carry.candidate.kind == CarryAim::Kind::Card) {
         m_carry.riseIndex = m_carry.candidate.index;
         m_carry.risePart = m_carry.candidate.part;
-        riseTarget = 0.6 * std::min(1.0, double(m_carry.candidateSince.elapsed()) / CarryJoinDwell);
+        riseTarget = 0.6 * std::min(1.0, double(m_carry.candidateSince.elapsed()) / double(carryJoinDwell()));
     }
     ease(m_carry.rise, riseTarget, seconds, 0.05, 0.002);
     if (riseTarget == 0.0 && m_carry.rise == 0.0) {

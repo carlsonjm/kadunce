@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
+#include "CardTuning.h"
 #include "SpreadLayout.h"
 #include "SpreadStroke.h"
 #include <algorithm>
@@ -69,6 +70,12 @@ inline constexpr double CarryGroupKeep = 0.5;
 // onto a pane too small for the card, keeps the pane it had.
 inline constexpr double CarryPaneKeep = 0.25;
 inline constexpr int CarryJoinDwell = 250;
+// That rest as the pause before stacking a person has set stretches it
+// (CardTuning.h), at its own share of the pause.
+inline long long carryJoinDwell()
+{
+    return std::lround(CarryJoinDwell * cardTuning().stackPauseScale());
+}
 // A new gap waits this long, so a card passing over another does not open
 // and close the row behind it.
 inline constexpr int CarryGapDwell = 60;
@@ -306,9 +313,9 @@ inline CarryAim carryAimStep(const CarryAim &aim, const CarryAim &next, long lon
                              bool onGroup)
 {
     if (next == aim) return aim;
-    if (next.kind == CarryAim::Kind::Card) return waited < CarryJoinDwell ? aim : next;
+    if (next.kind == CarryAim::Kind::Card) return waited < carryJoinDwell() ? aim : next;
     if (aim.kind == CarryAim::Kind::Card && aim.part >= 0 && onGroup)
-        return waited < CarryJoinDwell ? aim : next;
+        return waited < carryJoinDwell() ? aim : next;
     if (next.index != gap && waited < CarryGapDwell)
         return aim.kind == CarryAim::Kind::Card ? CarryAim{CarryAim::Kind::Gap, gap} : aim;
     return next;

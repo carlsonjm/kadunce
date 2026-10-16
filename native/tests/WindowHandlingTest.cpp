@@ -1,4 +1,7 @@
 #include "ActiveSettings.h"
+#include "CarryRow.h"
+#include "PaneStackAim.h"
+#include "SpreadLayout.h"
 #include "DisplayHandoffPolicy.h"
 #include "WindowStateRestore.h"
 #include "NativePlacement.h"
@@ -9,9 +12,11 @@
 #include "PerOutputDesktopsPolicy.h"
 #include "KeyboardRoom.h"
 #include <QCoreApplication>
+#include <QFile>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTest>
+#include <cmath>
 #include <cstdlib>
 #include <source_location>
 using namespace Qt::StringLiterals;
@@ -246,6 +251,14 @@ int main(int argc, char **argv)
         require(cardPaintRoute(paintingTablet, true, false, false, true)
                 == CardPaintRoute::Hidden);
     }
+    if (app.arguments().size() == 5) {
+        auto config = KSharedConfig::openConfig(app.arguments()[2], KConfig::SimpleConfig);
+        KConfigGroup(config, QStringLiteral("Effect-kadunce")).writeEntry(
+            app.arguments()[3].toUtf8().constData(), app.arguments()[4], KConfig::Notify);
+        config->sync();
+        QTest::qWait(100);
+        return 0;
+    }
     if (app.arguments().size() == 4) {
         auto config = KSharedConfig::openConfig(app.arguments()[2], KConfig::SimpleConfig);
         KConfigGroup(config, QStringLiteral("Effect-kadunce")).writeEntry(
@@ -299,5 +312,43 @@ int main(int argc, char **argv)
     }
     require(Kadunce::makePixelBentoLayout({{0.0, 0.0, 0.5, 1.0}, {0.5, 0.0, 0.5, 1.0}}, 0, 0, 1000, 800)[1].x
             - 500 == 5);
+
+    // Nothing tuned, every card setting stands at Kadunce's own.
+    require(Kadunce::cardTuning() == Kadunce::CardTuning{});
+    require(Kadunce::carryJoinDwell() == Kadunce::CarryJoinDwell);
+    require(Kadunce::paneStackDwell() == Kadunce::PaneStackDwell);
+    require(std::abs(Kadunce::spreadGutterShare(Kadunce::cardTuning().spreadPeek) - 0.056) < 1e-9);
+    int tunings = 0;
+    settings.onTuningChanged([&tunings] { ++tunings; });
+    const auto tune = [&](const char *key, const char *value, auto reached) {
+        const int before = tunings;
+        require(QProcess::execute(app.applicationFilePath(),
+            {QStringLiteral("--write-key"), path, QString::fromUtf8(key), QString::fromUtf8(value)}) == 0);
+        for (int attempt = 0; attempt < 100 && !reached(); ++attempt) QTest::qWait(10);
+        require(reached());
+        require(tunings > before);
+    };
+    tune("CardCornerRadius", "12", [] { return Kadunce::cardTuning().cornerRadius == 12.0; });
+    tune("CardCornerRadius", "40", [] { return Kadunce::cardTuning().cornerRadius == 15.0; });
+    tune("SleepingDimmed", "false", [] { return Kadunce::cardTuning().sleepingDimmed == std::optional<bool>(false); });
+    tune("StackPauseMs", "900", [] { return Kadunce::cardTuning().stackPauseMs == 800; });
+    // Spread's own shorter rest keeps its share of the pause.
+    require(Kadunce::paneStackDwell() == 800);
+    require(Kadunce::carryJoinDwell() == std::lround(Kadunce::CarryJoinDwell * 800.0 / 450.0));
+    tune("StackBehind", "none", [] { return !Kadunce::cardTuning().stackBehindShown; });
+    require(!Kadunce::makeOpenStackPose(0, 3, 1, 400).visible && Kadunce::makeOpenStackPose(1, 3, 1, 400).visible);
+    require(!Kadunce::makeClosedStackPose(0, 3, 1024).visible && Kadunce::makeClosedStackPose(2, 3, 1024).visible);
+    tune("SpreadPeek", "1", [] { return Kadunce::cardTuning().spreadPeek == 1.0; });
+    // A wider peek narrows the space between Spread's cards, the cards
+    // themselves keeping their size.
+    const auto wide = Kadunce::makeSpreadLayout(0, 0, 1000, 800);
+    require(std::abs(wide.gutter - 20.0) < 1e-9 && std::abs(wide.cards[1].width - 540.0) < 1e-9);
+    tune("SpreadPeek", "0", [] { return Kadunce::cardTuning().spreadPeek == 0.0; });
+    require(std::abs(Kadunce::makeSpreadLayout(0, 0, 1000, 800).gutter - 120.0) < 1e-9);
+
+    // The keys installed for a settings program are the keys read.
+    QFile installed(QStringLiteral(KADUNCE_SETTINGS_KEYS));
+    require(installed.open(QIODevice::ReadOnly | QIODevice::Text));
+    require(QString::fromUtf8(installed.readAll()).split(u'\n', Qt::SkipEmptyParts) == Kadunce::settingsKeys());
     return 0;
 }
