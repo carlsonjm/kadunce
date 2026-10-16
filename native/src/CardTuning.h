@@ -27,6 +27,9 @@ struct CardTuning {
     // SpreadPeek: how far Spread's neighbours show past the centre card, from
     // 0, the narrowest, to 1, the widest; 0.5 is Kadunce's own.
     double spreadPeek = DefaultSpreadPeek;
+    // CardShadow: how deep a shadow each loose window and card casts on what
+    // is under it, from 0, none, which is Kadunce's own, to 1, the deepest.
+    double shadow = 0.0;
 
     [[nodiscard]] double stackPauseScale() const { return double(stackPauseMs) / DefaultStackPauseMs; }
     bool operator==(const CardTuning &) const = default;
@@ -39,6 +42,26 @@ inline CardTuning &cardTuningStore()
 }
 [[nodiscard]] inline const CardTuning &cardTuning() { return cardTuningStore(); }
 inline void setCardTuning(const CardTuning &tuning) { cardTuningStore() = tuning; }
+
+// The shadow a card casts at a depth from 0 to 1, in logical pixels: how far
+// it softens, how far it falls below the card, and how dark it is where it
+// meets the card's edge. At 0 there is none.
+struct CardShadowShape {
+    double blur = 0.0;
+    double offset = 0.0;
+    double opacity = 0.0;
+    [[nodiscard]] bool cast() const { return opacity > 0.0; }
+    // How far past the card the shadow reaches on each side, below the most.
+    [[nodiscard]] double reachAbove() const { return std::max(0.0, blur - offset); }
+    [[nodiscard]] double reachSides() const { return blur; }
+    [[nodiscard]] double reachBelow() const { return blur + offset; }
+};
+[[nodiscard]] inline CardShadowShape cardShadowShape(double depth)
+{
+    const double d = std::clamp(depth, 0.0, 1.0);
+    if (d <= 0.0) return {};
+    return {6.0 + 30.0 * d, 2.0 + 6.0 * d, 0.10 + 0.40 * d};
+}
 
 // The space between Spread's cards as a share of the work area's width, for a
 // peek from 0 to 1: the wider the peek, the narrower the space, so more of

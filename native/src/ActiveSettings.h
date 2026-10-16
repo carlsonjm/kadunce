@@ -18,7 +18,7 @@ inline const QStringList &settingsKeys()
 {
     static const QStringList keys{QStringLiteral("ActiveCardGutter"), QStringLiteral("CardCornerRadius"),
         QStringLiteral("SleepingDimmed"), QStringLiteral("StackPauseMs"), QStringLiteral("StackBehind"),
-        QStringLiteral("SpreadPeek")};
+        QStringLiteral("SpreadPeek"), QStringLiteral("CardShadow")};
     return keys;
 }
 
@@ -64,6 +64,7 @@ private:
         tuning.stackBehindShown = group.readEntry("StackBehind", QStringLiteral("hairline")).trimmed().toLower()
             != QStringLiteral("none");
         tuning.spreadPeek = std::clamp(group.readEntry("SpreadPeek", CardTuning::DefaultSpreadPeek), 0.0, 1.0);
+        tuning.shadow = std::clamp(group.readEntry("CardShadow", 0.0), 0.0, 1.0);
         setCardTuning(tuning);
         if (!(tuning == tuningBefore) && m_tuningChanged) m_tuningChanged();
     }

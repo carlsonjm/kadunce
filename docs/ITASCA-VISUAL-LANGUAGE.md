@@ -226,10 +226,12 @@ they preserve these relationships and respect the user's animation settings.
   dim every sleeping card in Spread and false to draw each at full strength; `StackPauseMs`,
   200–800 ms (450 unset), how long a carried pane rests on another before they
   stack, Spread's shorter rest keeping its share; `StackBehind`, `hairline` or
-  `none`, whether Spread shows the cards behind a Stack's front; and
+  `none`, whether Spread shows the cards behind a Stack's front;
   `SpreadPeek`, 0–1 (0.5 unset), how far Spread's neighbours show, narrowing
   the space between its cards from 12% of the work area to 2% while the cards
-  keep their size.
+  keep their size; and `CardShadow`, 0–1 (0, none, unset), how deep a soft
+  shadow every window Kadunce trims casts below itself, outside Spread and
+  Table, which lay their cards out their own way.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
