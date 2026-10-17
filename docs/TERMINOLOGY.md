@@ -56,7 +56,7 @@ Shuffle, the Shuffle Keyboard and Split Rock.
   entry ids, scriptable method names) change only in a coordinated, versioned
   release, because changing one breaks installed copies. `co.goodinput.*` names
   Kadunce, Temperance and the Tettegouche plugin; `io.github.carlsonjm.*` still
-  names Tettegouche's desktop entries and Gooseberry (`ROADMAP.md`).
+  names Tettegouche's desktop entries and Gooseberry.
 - **Internal terms** never reach a person. Solo, Connected and "display sizing"
   stay out of on-screen words, the tour and the site; there a display simply
   shows one card or a layout.
@@ -72,4 +72,4 @@ Temperance has no guard yet.
 Kadunce's guard permits two installed spellings and nothing else: the
 `showCardLine` scriptable method and the `cardLine` workspace-context value,
 both consumed by Tettegouche. The `co.goodinput` rename left them in place; a
-later versioned migration retires them together (`ROADMAP.md`).
+later versioned migration retires them together.

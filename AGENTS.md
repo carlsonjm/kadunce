@@ -68,8 +68,9 @@ subject, and `docs/README.md` routes every subject to its owner.
   checks both.
 - This repository is public. Its documents, code comments and commit messages
   describe the product: Kadunce does things, you act, shipped behavior is in the
-  present tense, and planned behavior lives only in `docs/ROADMAP.md`. They carry
-  no names, approvals or approval dates, and no chat or handover narration.
+  present tense, and planned behavior is kept privately; `docs/LIMITATIONS.md`
+  says what Kadunce does not do yet. They carry no names, approvals or approval
+  dates, and no chat or handover narration.
   `tests/verify-public.py` checks what a check can, in files and in commits not
   yet pushed; who decided what belongs in the private suite record.
 - The plan, what work learned, its status and cross-agent handoffs live
