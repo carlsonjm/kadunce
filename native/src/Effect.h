@@ -377,6 +377,7 @@ private:
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void cardGutterChangedForCardStage() override;
+    void cardPulledOutForCardStage(KWin::EffectWindow *card, KWin::EffectWindow *pane) override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override

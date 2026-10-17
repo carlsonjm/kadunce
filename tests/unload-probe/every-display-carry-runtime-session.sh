@@ -15,7 +15,9 @@
 # of its place, as a terminal keeping whole rows does. Carried off from there
 # onto the monitor, it leaves the small display the card it showed before,
 # never nothing. A card let out of a Stack on the small display, with Spread
-# on the monitor, joins the monitor's layout. Every check is reported, so a failure does not hide the rest.
+# on the monitor, joins the monitor's layout; one pulled out of that Stack in
+# Spread joins it once picked. Every check is reported, so a failure does not
+# hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -95,6 +97,19 @@ stand_as() {
 # let go.
 # Let go a moment after reaching the window, sooner than a rest that stacks;
 # a third argument rests that long first.
+spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
+selected() { [[ $(kad workspaceContext | jq -r '.cardStage.selectedCardId') == "$1" ]]; }
+select_card() {
+    local id=$1 key
+    for key in 105 106; do
+        for _ in {1..8}; do
+            selected "$id" && return 0
+            probe key "$key" 0 >/dev/null
+            sleep .35
+        done
+    done
+    selected "$id"
+}
 title_carry() {
     local id=$1 onto=$2 rest=${3:-.2} x y tx ty
     read -r x y <<<"$(probe titleBarOf "$id" | jq -r '[.x, .y] | map(floor) | @tsv')"
@@ -299,6 +314,30 @@ sleep 1
 check 'Spread rest: the card carried is a monitor pane' monitor_pane "$ma"
 check 'Spread rest: the pane it rested on waits behind it' \
     context --arg c "$ma" --arg t "$ta" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+
+# Rested on the small display's card again, it brings the Stack it holds.
+# Pulled out of that Stack in Spread on the monitor, a card waits for
+# Spread's display rather than the small one, and picked it joins the layout
+# there as a pane of its own.
+title_carry "$ma" "$td" 1.0
+sleep 1
+report rested-again
+check 'again: the card it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+spread_key
+select_card "$td" || echo "could not select $td"
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.4
+report pulled
+check 'pull: the card pulled out waits for Spread' waits_for "$td" ''
+check 'pull: it is no longer in the Stack' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) == null'
+select_card "$td" || echo "could not select $td"
+probe key 28 0 >/dev/null
+sleep 1.6
+report pulled-picked
+check 'pull: picked, it is a pane of the layout Spread shows' monitor_pane "$td"
+check 'pull: no window on the monitor stands over another' apart Virtual-1
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

@@ -4091,6 +4091,7 @@ bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
     if (group && cardId > 0 && m_workspace.stackSizeForId(cardId) > 1)
         for (auto *member : stackFrontToBack(window))
             if (member != window) { next = member; break; }
+    KWin::EffectWindow *holder = group ? nullptr : paneHolding(window);
     const bool pulled = cardId > 0
         && (next ? handProjectedPaneTo(window, next) && m_workspace.releaseMember(cardId)
             : group ? takePaneOutOfLayout(window)
@@ -4107,6 +4108,7 @@ bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
             << (group ? "out of its layout" : "out of its Stack")
             << "; it now stands alone at entry"
             << m_workspace.model().entryIndexForId(cardId) + 1;
+    if (holder) m_host->cardPulledOutForCardStage(window, holder);
     return true;
 }
 

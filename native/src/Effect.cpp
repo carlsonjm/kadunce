@@ -552,6 +552,11 @@ public:
         SessionScope scope(m_effect, m_session);
         cards().cardGutterChangedForCardStage();
     }
+    void cardPulledOutForCardStage(KWin::EffectWindow *card, KWin::EffectWindow *pane) override
+    {
+        SessionScope scope(m_effect, m_session);
+        cards().cardPulledOutForCardStage(card, pane);
+    }
     void connectManagedWindowForCardStage(KWin::EffectWindow *window) override
     {
         SessionScope scope(m_effect, m_session);
@@ -7768,6 +7773,25 @@ void Effect::carryToward(KeyDirection direction)
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(card) << "to" << next->name();
         card->window()->sendToOutput(next);
     }
+}
+
+void Effect::cardPulledOutForCardStage(KWin::EffectWindow *card, KWin::EffectWindow *pane)
+{
+    // §11, Connected: pulled out of the Stack a Solo display's card holds, a
+    // card waits for Spread's display, there being no room for a pane beside
+    // that card, so picked it joins the layout there as a pane of its own.
+    KWin::LogicalOutput *spread = tabletOutput();
+    KWin::LogicalOutput *there = pane ? pane->screen() : nullptr;
+    if (!card || card->isDeleted() || !card->window() || !spread || !there || there == spread
+        || !isOtherCardDisplay(there) || sizingFor(there) != DisplaySizing::Solo
+        || !connectedForCardStage() || !m_desktopStage->managesWindow(pane)) return;
+    m_cardStage->forgetFromPaneStacks(card);
+    m_cardHomes.remove(card);
+    if (card->screen() != spread) card->window()->sendToOutput(spread);
+    qInfo() << "Kadunce" << Revision << logNameOf(card) << "pulled out of the Stack on" << there->name()
+            << "waits for" << spread->name();
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::spillCardToLayoutBeside(KWin::EffectWindow *card)
