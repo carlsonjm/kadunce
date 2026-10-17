@@ -924,6 +924,10 @@ private:
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
     // §11, Connected: the Active card takes the place `side` names, alone.
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
+    // A side snap of the Active card brings back the layout Spread holds,
+    // with the card in the place the snap named.
+    void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+                                BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.
     bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
         KWin::EffectWindow *partner, BentoSidePlacement side);

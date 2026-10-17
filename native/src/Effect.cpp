@@ -4305,6 +4305,31 @@ bool Effect::placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacemen
     return placed;
 }
 
+void Effect::layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+    BentoSidePlacement side, const QRectF &drawn)
+{
+    if (!card || card->isDeleted() || !output || !isTabletOutput(output)) return;
+    m_aloneOnPurpose.removeAll(card);
+    const QPointer<KWin::EffectWindow> placed = card;
+    if (m_cardStage->activeCardIdentity() == card && m_cardStage->stepActiveBackToLayout()
+        && playPickedCardIntoLayout(card) && placed && m_desktopStage->managesWindow(card)) {
+        (void)m_desktopStage->placePaneBySide(card, output, side);
+        m_cardHomes.remove(card);
+        startPaneArrival(card, output, drawn);
+        qInfo() << "Kadunce" << Revision << "laid the layout on" << output->name() << "out again with"
+                << logNameOf(card) << "at the" << (side.right ? "right" : "left") << "edge";
+    } else if (placed && m_cardStage->activeCardIdentity() == card && !m_cardStage->hasBentoGroup()
+               && placeActiveCardAlone(output, side)) {
+        // The layout had no room for it and stays in Spread.
+        startPaneArrival(card, output, drawn);
+    } else {
+        (void)m_cardStage->presentSelectedNow();
+        qInfo() << "Kadunce" << Revision << "could not lay the layout on" << output->name()
+                << "out again with" << (placed ? logNameOf(card) : QStringLiteral("a closed card"));
+    }
+    observeCardOwnership();
+}
+
 bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
     KWin::EffectWindow *partner, BentoSidePlacement side)
 {
@@ -5070,6 +5095,26 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             m_carryPreview = m_desktopStage->cardDropPreview(*reserved);
             if (!m_carryPreview) return;
             m_carryDestination = reserved;
+            // §11, Connected: the layout the card left waits in Spread, and a
+            // side snap is a purposeful act, so the layout comes back with the
+            // card in the place its contact names and the others beside it.
+            if (m_cardStage->hasBentoGroup() && m_cardStage->activeCardIdentity() == m_carriedWindow) {
+                const BentoSidePlacement place = *side;
+                handoff.previewDrop(*destination,
+                    [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
+                    [this, carried, output, bento, place](const PreparedCarrySource &source) {
+                        if (!carried || !output || !(bento ? m_desktopStage->nativeCarrySourceValid(source)
+                                                           : m_cardStage->nativeCarrySourceValid(source)))
+                            return false;
+                        const QRectF drawn = carriedPose();
+                        // After the carry has let the card go, as Meta+B would.
+                        QTimer::singleShot(0, this, [this, carried, output, place, drawn] {
+                            if (carried && output) layOutHeldLayoutBeside(carried, output, place, drawn);
+                        });
+                        return true;
+                    });
+                return;
+            }
             handoff.previewDrop(*destination,
                 [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
                 [this, reserved, carried, output, bento](const PreparedCarrySource &source) {

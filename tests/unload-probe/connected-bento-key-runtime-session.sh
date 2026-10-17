@@ -7,10 +7,11 @@
 # opens Spread over the layout and closes it again. A pane then carried by
 # KWin's title bar to the top edge, out of the three, is the Active card
 # shown alone, the other two waiting in Spread; picked from Spread it is shown
-# alone again, and one Meta+B lays all three out again. A pane let
-# go to wait as a card, called up in front of the layout Spread holds, joins
-# it again by one Meta+B. Every check is reported, so a failure does not hide
-# the rest.
+# alone again; snapped to the left edge it takes the left with the two
+# beside it, and after the top edge again one Meta+B lays all three out
+# again. A pane let go to wait as a card, called up in front of the layout
+# Spread holds, joins it again by one Meta+B. Every check is reported, so a
+# failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -149,6 +150,20 @@ report top-picked
 check 'top: picked from Spread, it is the Active card alone again' \
     context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 check 'top: the two still wait in Spread' panes_are 0
+# Carried by its title bar to the left edge, it is snapped on purpose: the
+# two waiting in Spread come back, and it takes the left beside them.
+read -r lx ly <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-1")) | .geometry | [.x, .y] | map(floor) | @tsv')"
+title_drag "$browser" "$((lx + 300))" "$((ly + 300))" "$((lx + 60))" "$((ly + 300))" "$((lx + 3))" "$((ly + 300))"
+report edge
+check 'edge: the two waiting in Spread come back beside it' panes_are 3
+on_left() { probe windowGeometry "$browser" | jq -e --argjson m "$(probe windowGeometry "$mail")" \
+    --argjson w "$(probe windowGeometry "$wallet")" '.x < $m.x and .x < $w.x'; }
+check 'edge: the card snapped there takes the left' on_left
+# Carried to the top edge again, it is alone in front of the two once more.
+read -r tx _ <<<"$(title_at "$browser")"
+title_drag "$browser" "$((tx + 30))" 200 "${tx:-0}" 100 "${tx:-0}" 40 "${tx:-0}" 12 "${tx:-0}" 2
+report top-again
+check 'top again: the two it left wait in Spread' panes_are 0
 probe key 48 125 >/dev/null
 sleep 1.6
 report back-in
