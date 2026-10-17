@@ -51,7 +51,13 @@ must reject unknown major versions instead of guessing at fields.
   `true`: it stays the window in use.
 - `applications`: current-desktop application windows, including minimized
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
-  identity, title, output, focus/minimize state, and current card membership.
+  identity, title, output, focus/minimize state, and current card membership,
+  with `stage`, the display whose card stage holds it as a card, empty when
+  none does. Spread's cards name Spread's display. A display sized Solo that
+  is not Spread's shows one card on a card stage of its own, which names that
+  display: that card has a `cardId` but no place in Spread, so it carries no
+  `cardIndex` or Stack fields, and the cards waiting behind it are its
+  `paneStack`.
 - `cardStage`: whether Card Stage is active, its presentation, the selected
   card UUID, and ordered selected-stack member UUIDs. The presentation is one
   of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
@@ -79,7 +85,9 @@ must reject unknown major versions instead of guessing at fields.
 - `displayContext`: the selected edge backend (`z13-direct`, a frozen value
   meaning Kadunce's own router, whenever a touchscreen drives a display, or
   `plasma-native`), every output's role (`tablet` for the one card display),
-  geometry, and Bento ownership, and `spreadDisplay`, the display the person
+  geometry, and Bento ownership, each display's `presentation` (`layout`, a
+  card stage presentation as above, or `none`) and the windows it `shows` that
+  way, and `spreadDisplay`, the display the person
   chose for Spread, empty while Kadunce chooses.
 
 `windowId` and `cardId` use KWin's internal UUID and are stable for the life of

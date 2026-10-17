@@ -431,6 +431,12 @@ private:
     struct DesktopSession;
     class SessionHost;
     class SessionScope;
+    // CARD-LIFECYCLE.md §11, Every display: a display sized Solo that holds
+    // its own cards shows one of them as an Active card of its own, held by a
+    // card stage of its own, a display stage, one per desktop and display. It
+    // holds no Spread; the cards waiting for it wait in Spread's stage.
+    struct DisplayStage;
+    class DisplayStageHost;
     DesktopSession *sessionFor(KWin::VirtualDesktop *desktop);
     // The session whose cards or layouts hold the window, if any does.
     [[nodiscard]] DesktopSession *sessionHolding(const KWin::EffectWindow *window) const;
@@ -630,9 +636,49 @@ private:
     // A card waiting behind a pane, or behind another card in Spread's row.
     [[nodiscard]] bool waitsWithItsStack(const KWin::EffectWindow *card) const;
     void settleStacksOfArrival();
+    // Whether this display shows its card on a display stage of its own.
+    [[nodiscard]] bool usesDisplayStage(const KWin::LogicalOutput *output) const;
+    // The scoped desktop's display stage on that display; with `create`, one
+    // is made for a display that uses one.
+    CardStageController *displayStageOn(const QString &outputName, bool create = false);
+    [[nodiscard]] CardStageController *displayStageHolding(const KWin::EffectWindow *window) const;
+    // The display whose stage holds the window as its card; empty when none does.
+    [[nodiscard]] QString displayHolding(const KWin::EffectWindow *window) const;
+    // The card a display stage presents there, if it presents one.
+    [[nodiscard]] KWin::EffectWindow *shownOnDisplayStage(const QString &outputName) const;
+    // Runs f with each of the scoped desktop's display stages.
+    template<typename F> void forEachDisplayStage(F &&f);
+    // The card becomes the one the display shows, taken from wherever
+    // `commitSource` releases it; the card it showed before waits in Spread
+    // for that display.
+    bool admitCardToDisplayStage(KWin::EffectWindow *card, KWin::LogicalOutput *display,
+        const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore, bool focus);
+    // A display stage's card leaves for another display: Spread's, another
+    // display stage, or a layout. Answers false where none takes it.
+    bool admitCardFromDisplayStage(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+        const std::function<bool()> &commitSource);
+    // The card a display stage shows goes back to Spread's stage, waiting for
+    // that display when it still holds cards.
+    bool returnFromDisplayStage(KWin::EffectWindow *card);
+    // The card a display stage shows steps to the next card of its Stack.
+    bool stepDisplayStack(KWin::EffectWindow *face, int delta);
+    // A pane leaves its layout as the card a display stage shows.
+    bool takePaneToDisplayStage(KWin::EffectWindow *pane, KWin::LogicalOutput *display);
+    void letDisplayCardGo(KWin::EffectWindow *card);
+    // A window carried by its title bar onto a display stage's display is
+    // its card; rested on the card shown there, that card waits behind it.
+    bool carryToDisplayStage(KWin::EffectWindow *carried, KWin::LogicalOutput *display,
+        KWin::EffectWindow *onto);
+    QPointer<KWin::EffectWindow> m_boundForDisplay;
+    QString m_boundDisplay;
+    // Every display stage whose display no longer uses one gives its card
+    // back to Spread; `leaving` is a display on its way out.
+    void settleDisplayStages(const KWin::LogicalOutput *leaving = nullptr);
     // Every display holding its own cards and showing none of them begins
     // its layout with the windows on it, or shows the card it used last.
     bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
+    bool holdDisplayStage(KWin::LogicalOutput *output, KWin::EffectWindow *preferred,
+        const std::function<bool(KWin::EffectWindow *)> &waiting);
     // A card waiting in Spread shows on its own display, its Stack waiting
     // behind it there. With `leaveSpread`, Spread then goes back to what it
     // was opened from.

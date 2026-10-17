@@ -28,7 +28,7 @@ idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
         displays: [.displayContext.displays[] | {name, role, sizing, holdsCards, bentoActive, geometry}],
-        apps: [.applications[] | {title, output, hasCard, pane, home, stackId, focused, minimized, spreadRect}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, home, stackId, paneStack, focused, minimized, spreadRect}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden})')"
 }
 presents() { context --arg p "$1" '.cardStage.presentation == $p'; }
@@ -48,11 +48,12 @@ select_card() {
 }
 pick() { select_card "$1" || echo "could not select $1"; open_selected; }
 app() { kad workspaceContext | jq -c --arg id "$1" 'first(.applications[] | select(.windowId == $id))'; }
-# A pane of the small display, shown there.
-shown_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .pane and .output == "Virtual-0" and (.hasCard | not)'; }
+# The card the small display shows on its own card stage, there.
+shown_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == "Virtual-0" and .output == "Virtual-0" and (.pane | not)'; }
 # A card waiting in Spread on the large display, to show on the small one.
 waits_for_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .home == "Virtual-0" and .output == "Virtual-1"'; }
-small_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-0")] | length == $n'; }
+# What the small display shows: its own card, or a pane it should not have.
+small_panes() { context --argjson n "$1" '[.applications[] | select(.stage == "Virtual-0" or (.pane and .output == "Virtual-0"))] | length == $n'; }
 # The one card the small display shows fills it, a gutter inside each edge.
 fills_small() {
     local g
@@ -64,7 +65,7 @@ fills_small() {
 focused() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .focused'; }
 # A card of Spread's row, there on the large display whether or not it is in view.
 in_spread() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .output == "Virtual-1"'; }
-small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.pane and .output == "Virtual-0")) | .windowId'; }
+small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.stage == "Virtual-0")) | .windowId'; }
 # Spread lives on the large display, right of the small one.
 spread_left=2560
 # Where a person presses a card of Spread: the middle of the part of it in
@@ -276,7 +277,7 @@ probe sendCaptionToOutput 'Mon B' Virtual-0
 sleep 1.5
 report emptied
 check 'emptied: no card belongs to the large display' \
-    context '[.applications[] | select(.title != "unload-client" and .hasCard and .home != "Virtual-0")] | length == 0'
+    context '[.applications[] | select(.title != "unload-client" and .hasCard and .stage != "Virtual-0" and .home != "Virtual-0")] | length == 0'
 check 'emptied: the small display shows one card' small_panes 1
 before=$(small_shows)
 spread_key

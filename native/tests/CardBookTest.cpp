@@ -172,6 +172,30 @@ int main()
             "A Solo display showing two cards was not named");
     }
 
+    // A display's own stage shows its card: it fronts a Stack as a pane does
+    // and counts as shown; held by Spread's stage as well, it is held twice.
+    {
+        CardBookEntry shown;
+        shown.window = 30;
+        shown.screen = tablet;
+        shown.stage = tablet;
+        auto behind = card(31, monitor, tablet);
+        behind.behindPanes = {30};
+        require(checkCardBook(displays, {shown, behind}).empty(),
+            "A display stage's card and its Stack were named");
+        auto twice = shown;
+        twice.card = true;
+        require(names(checkCardBook(displays, {twice}), 30, CardBookMismatch::Rule::CardAndPane),
+            "A card held by Spread and a display stage was not named");
+        auto strayed = shown;
+        strayed.screen = monitor;
+        require(names(checkCardBook(displays, {strayed}), 30, CardBookMismatch::Rule::PaneOffItsDisplay),
+            "A display stage's card off its display was not named");
+        require(names(checkCardBook(displays, {shown, pane(32, tablet)}), 0,
+                    CardBookMismatch::Rule::SoloShowsTwo),
+            "A Solo display showing a stage card and a pane was not named");
+    }
+
     for (auto rule = int(CardBookMismatch::Rule::CardAndPane);
          rule <= int(CardBookMismatch::Rule::SoloShowsTwo); ++rule)
         require(!cardBookRuleName(CardBookMismatch::Rule(rule)).isEmpty(), "A rule has no name");

@@ -3259,29 +3259,56 @@ bool CardStageController::admitCardFromOtherDisplay(
 bool CardStageController::giveCardToDisplay(KWin::EffectWindow *card,
     KWin::LogicalOutput *destination)
 {
-    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || !destination
-        || !tablet || liveCardIndex(card) < 0) return false;
-    if (m_presentation == CardPresentation::Active && selectedWindow() == card) {
-        // Only a card of this display's own comes back in front of it; one
-        // waiting for another display is never shown here.
-        const auto shown = [&](KWin::EffectWindow *other) {
-            KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
-            return other && other != card && !other->isDeleted() && other->window()
-                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
-                && (!own || own == tablet);
-        };
-        KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
-        if (back) {
-            if (!selectCardEntry(back)) return false;
-            m_presentation = CardPresentation::Spread;
-            if (!enterActive()) return false;
-        } else {
-            parkActiveSnapshot();
-            showDesktop();
-        }
-    }
+        || !m_host->tabletOutputForCardStage() || liveCardIndex(card) < 0) return false;
+    if (!stepAsideFrom(card)) return false;
     return sendCardToDisplay(card, destination);
+}
+
+bool CardStageController::stepAsideFrom(KWin::EffectWindow *card)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || !tablet || m_presentation != CardPresentation::Active || selectedWindow() != card)
+        return true;
+    // Only a card of this display's own comes back in front of it; one
+    // waiting for another display is never shown here.
+    const auto shown = [&](KWin::EffectWindow *other) {
+        KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
+        return other && other != card && !other->isDeleted() && other->window()
+            && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
+            && (!own || own == tablet);
+    };
+    KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
+    if (back) {
+        if (!selectCardEntry(back)) return false;
+        m_presentation = CardPresentation::Spread;
+        return enterActive();
+    }
+    parkActiveSnapshot();
+    showDesktop();
+    return true;
+}
+
+bool CardStageController::releaseCardToStage(KWin::EffectWindow *card)
+{
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || liveCardIndex(card) < 0)
+        return false;
+    return stepAsideFrom(card) && releaseCardToDisplay(card);
+}
+
+bool CardStageController::presentCardActive(KWin::EffectWindow *card, bool focus)
+{
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || card->isDeleted()
+        || card->isMinimized() || liveCardIndex(card) < 0) return false;
+    if (m_presentation == CardPresentation::Active && selectedWindow() == card) return true;
+    if (!selectCardEntry(card)) return false;
+    if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
+    m_presentation = CardPresentation::Spread;
+    if (!focus) m_focusAfterActive = KWin::effects->activeWindow();
+    if (enterActive()) return true;
+    m_focusAfterActive.clear();
+    showDesktop();
+    return false;
 }
 
 bool CardStageController::releaseCardToDisplay(KWin::EffectWindow *card)
@@ -4653,8 +4680,10 @@ bool CardStageController::enterActive()
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     KWin::EffectWindow *effectWindow = selectedWindow();
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
-    if (!m_host->isManagedWindowForCardStage(effectWindow) || !tablet
-        || effectWindow->screen() != tablet || !effectWindow->window()) {
+    // A card just taken in from another display was asked to move here, and
+    // KWin may not have put it here yet.
+    if (!m_host->isManagedWindowForCardStage(effectWindow) || !tablet || !effectWindow->window()
+        || (effectWindow->screen() != tablet && effectWindow->window()->moveResizeOutput() != tablet)) {
         qWarning() << "Kadunce" << Revision
                    << "cannot admit the selected card to Active";
         return false;

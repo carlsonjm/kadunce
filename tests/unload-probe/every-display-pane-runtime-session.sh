@@ -28,7 +28,7 @@ idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
         displays: [.displayContext.displays[] | {name, role, sizing, holdsCards, bentoActive, geometry}],
-        apps: [.applications[] | {title, windowId, output, hasCard, pane, home, focused, minimized}]}')"
+        apps: [.applications[] | {title, windowId, output, hasCard, pane, stage, home, focused, minimized}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client" and .normal) | {caption, output, x, y, width, height, hidden})')"
     echo "stages $1 $(kad outputStageState | tr '\n' ' ')"
 }
@@ -50,10 +50,11 @@ select_card() {
 }
 # The large display shows this card, Active, and no layout.
 active_card() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
-# A pane of the small display, shown there.
-shown_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .pane and .output == "Virtual-0" and (.hasCard | not)'; }
-small_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-0")] | length == $n'; }
-small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.pane and .output == "Virtual-0")) | .windowId'; }
+# The card the small display shows on its own card stage, there.
+shown_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == "Virtual-0" and .output == "Virtual-0" and (.pane | not)'; }
+# What the small display shows: its own card, or a pane it should not have.
+small_panes() { context --argjson n "$1" '[.applications[] | select(.stage == "Virtual-0" or (.pane and .output == "Virtual-0"))] | length == $n'; }
+small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.stage == "Virtual-0")) | .windowId'; }
 # A card waiting in Spread for the small display.
 waits_for_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .home == "Virtual-0"'; }
 # A card or pane of the large display, waiting for no other display.

@@ -34,16 +34,16 @@ idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
         displays: [.displayContext.displays[] | {name, role, sizing, holdsCards}],
-        apps: [.applications[] | {title, output, hasCard, pane, paneStack, stackSize, home, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, paneStack, stackSize, home, focused, minimized}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden, minimized})')"
     echo "stages $1 $(kad outputStageState | tr '\n' ' ')"
 }
 holds_spread() { context --arg d "$1" '[.displayContext.displays[] | select(.name == $d and .role == "tablet")] | length == 1'; }
 # Spread's display shows this card, Active.
 keeps_own() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
-# A window on that display, shown there, held by no card.
+# The card that display, not Spread's, shows there on its own card stage.
 shown_on() { context --arg id "$1" --arg d "$2" 'first(.applications[] | select(.windowId == $id))
-    | .output == $d and (.hasCard | not) and (.minimized | not)'; }
+    | .output == $d and .hasCard and .stage == $d and (.pane | not) and (.minimized | not)'; }
 monitor_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
     | .pane and .output == "Virtual-1" and (.hasCard | not) and (.minimized | not)'; }
 monitor_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-1")] | length == $n'; }
@@ -292,8 +292,7 @@ report rested-on-small
 check 'small rest: the carry names the card it would join' \
     jq -e --arg id "$td" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
 sleep 1
-check 'small rest: the pane carried stands on the small display' \
-    context --arg c "$ma" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
+check 'small rest: the pane carried is the card the small display shows' shown_on "$ma" Virtual-0
 check 'small rest: the card it rested on waits behind it' \
     context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
 # Let out of that Stack by the keys, it has no room for a pane beside the
@@ -351,8 +350,7 @@ check 'stack: a monitor pane holds a Stack' \
 title_carry "$tc" "$ma"
 sleep 1
 report stack-carried
-check 'stack carry: the pane carried stands on the small display' \
-    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .pane and .output == "Virtual-0"'
+check 'stack carry: the pane carried is the card the small display shows' shown_on "$tc" Virtual-0
 check 'stack carry: its Stack came with it' \
     context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($m) != null'
 check 'stack carry: the card behind waits for the small display' waits_for "$mb" Virtual-0
@@ -366,8 +364,7 @@ sleep .1
 probe button false >/dev/null
 sleep 1.4
 report stack-clicked
-check 'gap: a click beside it shows the card behind' \
-    context --arg m "$mb" 'first(.applications[] | select(.windowId == $m)) | .pane and .output == "Virtual-0"'
+check 'gap: a click beside it shows the card behind' shown_on "$mb" Virtual-0
 check 'gap: the card it showed waits behind it' \
     context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $m)) | (.paneStack // []) | index($c) != null'
 probe pointer 900 360 >/dev/null
@@ -381,8 +378,7 @@ sleep .05
 probe up 7 >/dev/null
 sleep 1.4
 report stack-swiped
-check 'gap: a swipe in from the left steps it back' \
-    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .pane and .output == "Virtual-0"'
+check 'gap: a swipe in from the left steps it back' shown_on "$tc" Virtual-0
 check 'gap: no window on the small display stands over another' apart Virtual-0
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce

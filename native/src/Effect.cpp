@@ -447,6 +447,13 @@ KWin::Region roundedClip(const KWin::Rect &rect, double radius)
 
 }
 
+// One display's own card stage on one desktop, its host declared first so it
+// outlives the stage.
+struct Effect::DisplayStage {
+    std::unique_ptr<DisplayStageHost> host;
+    std::unique_ptr<CardStageController> cards;
+};
+
 // One virtual desktop's ownership session. Its host is declared first so it
 // outlives the stages that call it.
 struct Effect::DesktopSession {
@@ -455,6 +462,8 @@ struct Effect::DesktopSession {
     std::unique_ptr<SessionHost> host;
     std::unique_ptr<DesktopStageController> layouts;
     std::unique_ptr<CardStageController> cards;
+    // Each display stage of this desktop, by display name.
+    std::map<QString, std::unique_ptr<DisplayStage>> displays;
 };
 
 // Names one session's stages for the length of a call. Leaving hands back the
@@ -737,6 +746,104 @@ private:
     DesktopSession *m_session;
 };
 
+// A display stage presents on its own display and answers for it as the
+// display it holds cards on. It holds no Spread there, so it pages nothing,
+// draws no layout and hands no card to one: a card leaving it is the
+// effect's to place. Every other answer is its desktop's, as Spread's stage's
+// is.
+class Effect::DisplayStageHost final : public CardStageHost
+{
+public:
+    DisplayStageHost(Effect *effect, DesktopSession *session, const QString &output)
+        : m_effect(effect)
+        , m_session(session)
+        , m_output(output)
+    {
+    }
+
+    KWin::LogicalOutput *tabletOutputForCardStage() const override
+    {
+        KWin::LogicalOutput *output = KWin::effects->findScreen(m_output);
+        return output && output->name() == m_output ? output : nullptr;
+    }
+    bool isTabletOutputForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        return output && output->name() == m_output;
+    }
+    bool isManagedWindowForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().isManagedWindowForCardStage(window);
+    }
+    bool mayHoldWindowForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().mayHoldWindowForCardStage(window);
+    }
+    std::optional<double> inputPanelTopForCardStage(KWin::LogicalOutput *output) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().inputPanelTopForCardStage(output);
+    }
+    bool keyboardTypesIntoForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().keyboardTypesIntoForCardStage(window);
+    }
+    KWin::RectF workAreaForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return cards().workAreaForCardStage(output);
+    }
+    // The paging keys page Spread's cards; this display steps its Stack
+    // through the effect.
+    void setPagingShortcutsForCardStage(bool) override {}
+    // Input and motion under way are Spread's; nothing here cancels them.
+    void cancelInputForCardStage() override {}
+    void connectManagedWindowForCardStage(KWin::EffectWindow *window) override
+    {
+        SessionScope scope(m_effect, m_session);
+        cards().connectManagedWindowForCardStage(window);
+    }
+    void unredirectForCardStage(KWin::EffectWindow *window) override
+    {
+        SessionScope scope(m_effect, m_session);
+        cards().unredirectForCardStage(window);
+    }
+    void retireBentoProjectionForCardStage(const QList<QPointer<KWin::EffectWindow>> &) override {}
+    // A card KWin put on another display holding cards leaves for it.
+    bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
+    {
+        SessionScope scope(m_effect, m_session);
+        return output && output->name() != m_output
+            && (m_effect->isTabletOutput(output) || m_effect->isOtherCardDisplay(output));
+    }
+    // Let go, its card is given back on this display, its own.
+    KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *) const override
+    {
+        return tabletOutputForCardStage();
+    }
+    bool admitCardToDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const KWin::RectF &, const std::function<bool()> &commitSource,
+        const std::function<void()> &) override
+    {
+        SessionScope scope(m_effect, m_session);
+        return m_effect->admitCardFromDisplayStage(window, output, commitSource);
+    }
+    bool resumeBentoProjectionForCardStage(const BentoProjectionSession &,
+        const std::function<bool()> &, const std::function<void()> &) override
+    {
+        return false;
+    }
+
+private:
+    CardStageHost &cards() const { return *m_effect; }
+
+    Effect *m_effect;
+    DesktopSession *m_session;
+    QString m_output;
+};
+
 template<typename F>
 void Effect::forEachSession(F &&f)
 {
@@ -773,8 +880,19 @@ Effect::DesktopSession *Effect::sessionHolding(const KWin::EffectWindow *window)
     for (const auto &entry : m_sessions) {
         if (entry.second->cards->liveCardIndex(window) >= 0
             || entry.second->layouts->managesWindow(held)) return entry.second.get();
+        for (const auto &display : entry.second->displays)
+            if (display.second->cards->liveCardIndex(window) >= 0) return entry.second.get();
     }
     return nullptr;
+}
+
+template<typename F>
+void Effect::forEachDisplayStage(F &&f)
+{
+    if (!m_scopedSession) return;
+    std::vector<CardStageController *> stages;
+    for (const auto &display : m_scopedSession->displays) stages.push_back(display.second->cards.get());
+    for (CardStageController *stage : stages) f(*stage);
 }
 
 void Effect::scopeTo(DesktopSession *session)
@@ -1005,6 +1123,7 @@ Effect::Effect()
             m_workAreaCheckQueued = false;
             followKeysWorkArea();
             m_cardStage->followWorkArea();
+            forEachDisplayStage([](CardStageController &stage) { stage.followWorkArea(); });
         });
     });
     // Displays that came or went since the keys came up are not the ones held.
@@ -1036,9 +1155,14 @@ Effect::Effect()
                 [this, panel](const KWin::RectF &old) {
                     m_cardStage->repaintKeyboardEdge(old, panel->frameGeometry());
                     m_cardStage->refreshKeyboardRoom();
+                    forEachDisplayStage([&](CardStageController &stage) {
+                        stage.repaintKeyboardEdge(old, panel->frameGeometry());
+                        stage.refreshKeyboardRoom();
+                    });
                 });
         }
         m_cardStage->refreshKeyboardRoom();
+        forEachDisplayStage([](CardStageController &stage) { stage.refreshKeyboardRoom(); });
     };
     connect(KWin::effects, &KWin::EffectsHandler::inputPanelChanged, this,
             watchInputPanel);
@@ -1052,11 +1176,17 @@ Effect::Effect()
         connect(method, &KWin::InputMethod::visibleChanged, this,
                 &Effect::followKeysWorkArea);
         connect(method, &KWin::InputMethod::visibleChanged, this,
-                [this]() { m_cardStage->keepKeyboardRoomPlacement(); });
+                [this]() {
+                    m_cardStage->keepKeyboardRoomPlacement();
+                    forEachDisplayStage([](CardStageController &stage) { stage.keepKeyboardRoomPlacement(); });
+                });
         for (const auto signal : {&KWin::InputMethod::visibleChanged,
                                   &KWin::InputMethod::activeWindowChanged}) {
             connect(method, signal, this,
-                    [this]() { m_cardStage->refreshKeyboardRoom(); });
+                    [this]() {
+                        m_cardStage->refreshKeyboardRoom();
+                        forEachDisplayStage([](CardStageController &stage) { stage.refreshKeyboardRoom(); });
+                    });
         }
     }
 
@@ -1587,6 +1717,9 @@ void Effect::refreshCardOutput()
         m_letGo = false;
         QTimer::singleShot(0, this, [this] { (void)startTabletInCards(nullptr); });
     }
+    // The display Spread came to shows no card of its own any more: that card
+    // is Spread's now. One Spread left may show its own from here on.
+    settleDisplayStages();
     scheduleCardDisplaySettle();
     Q_EMIT workspaceContextChanged();
 }
@@ -1678,6 +1811,10 @@ void Effect::setDisplaySizing(const QString &outputName, const QString &sizing)
         }
     }
     group.sync();
+    // A display no longer sized Solo gives the card it showed on its own stage
+    // back to Spread, and shows it again as its layout's.
+    settleDisplayStages();
+    QTimer::singleShot(0, this, [this] { (void)holdOtherDisplaysInCards(); });
     Q_EMIT workspaceContextChanged();
     KWin::effects->addRepaintFull();
 }
@@ -1839,6 +1976,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
             m_desktopStage->stopPendingSettle();
             m_desktopStage->restoreAllSessions();
         }
+        forEachDisplayStage([](CardStageController &stage) { stage.release(); });
         m_cardStage->release();
     }
     if (plan.forget) m_sessions.erase(removed);
@@ -1855,6 +1993,7 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
         && (!window->isOnDesktop(holder->desktop) || window->isOnAllDesktops())) {
         SessionScope scope(this, holder);
         if (m_cardStage->liveCardIndex(window) >= 0) (void)m_cardStage->releaseCard(window);
+        else if (CardStageController *own = displayStageHolding(window)) (void)own->releaseCard(window);
         else m_desktopStage->releaseWindow(window);
     }
     if (window->isOnCurrentDesktop()) scheduleCardDisplaySettle();
@@ -3063,6 +3202,16 @@ void Effect::handleWindowOutputChanged()
                 return;
             }
         }
+        // §11, Every display: a pane sent to a display showing its own card
+        // is the card that display shows, its Stack waiting behind it.
+        if (window && !m_releasing && window->window() && !window->isUserMove()
+            && !window->isUserResize() && window != m_carriedWindow && window != m_nativeCarry
+            && m_desktopStage->managesWindow(window)
+            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+            && takePaneToDisplayStage(window, window->window()->moveResizeOutput())) {
+            KWin::effects->activateWindow(window);
+            return;
+        }
         // A pane sent to another display leaves its layout there as one
         // carried there by its title bar does. Spread moves no pane.
         const QList<KWin::EffectWindow *> behind = window ? m_cardStage->paneStack(window)
@@ -3320,7 +3469,9 @@ bool Effect::isTabletOutputForDesktopStage(
 bool Effect::allowsDesktopStageOnOutput(
     const KWin::LogicalOutput *output) const
 {
-    return output && KWin::effects->screens().contains(const_cast<KWin::LogicalOutput *>(output));
+    // A display showing its card on a display stage keeps no layout.
+    return output && KWin::effects->screens().contains(const_cast<KWin::LogicalOutput *>(output))
+        && !usesDisplayStage(output);
 }
 
 bool Effect::isManagedWindowForDesktopStage(
@@ -3396,6 +3547,8 @@ QString Effect::waitingFor(const KWin::EffectWindow *card, int depth) const
     if (holder && KWin::effects->stackingOrder().contains(holder) && !holder->isDeleted()) {
         if (const QString layout = m_desktopStage->outputHoldingPane(holder); !layout.isEmpty())
             return isOtherCardDisplay(KWin::effects->findScreen(layout)) ? layout : QString();
+        // Behind the card a display shows on its own stage, for that display.
+        if (const QString shown = displayHolding(holder); !shown.isEmpty()) return shown;
         if (m_cardStage->liveCardIndex(holder) >= 0) return waitingFor(holder, depth + 1);
     }
     const auto stack = m_cardStage->stackFrontToBack(card);
@@ -3433,6 +3586,10 @@ bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
             continue;
         }
         KWin::EffectWindow *preferred = waiting(arrival) ? arrival : nullptr;
+        if (usesDisplayStage(output)) {
+            if (holdDisplayStage(output, preferred, waiting)) held = true;
+            continue;
+        }
         if (m_desktopStage->holdOutput(output, preferred)) {
             held = true;
             qInfo() << "Kadunce" << Revision << "holds the windows on" << output->name() << "as cards";
@@ -3445,11 +3602,45 @@ bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
     return held;
 }
 
+bool Effect::holdDisplayStage(KWin::LogicalOutput *output, KWin::EffectWindow *preferred,
+    const std::function<bool(KWin::EffectWindow *)> &waiting)
+{
+    // §11, Every display: the window asked for, or else the one used last,
+    // is the card the display shows; the rest of its windows wait in Spread
+    // for it. A display already showing a card takes none here.
+    const QString name = output->name();
+    if (shownOnDisplayStage(name)) return false;
+    KWin::EffectWindow *shown = preferred;
+    quint64 used = 0;
+    QList<QPointer<KWin::EffectWindow>> windows;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (!waiting(window)) continue;
+        windows.append(window);
+        if (preferred) continue;
+        const quint64 at = m_activationOrder.value(windowIdentity(window));
+        if (!shown || at >= used) {
+            shown = window;
+            used = at;
+        }
+    }
+    if (!shown || !admitCardToDisplayStage(shown, output, [] { return true; }, nullptr, shown == preferred))
+        return false;
+    for (const auto &window : std::as_const(windows)) {
+        if (!window || window == shown || window->isDeleted()) continue;
+        if (!m_cardStage->admitCardFromOtherDisplay(window, [] { return true; }, nullptr)) continue;
+        m_cardHomes.insert(window, name);
+    }
+    settleStacksOfArrival();
+    qInfo() << "Kadunce" << Revision << "holds the windows on" << name << "as cards, showing"
+            << logNameOf(shown);
+    return true;
+}
+
 void Effect::refillOtherDisplay(const QString &outputName)
 {
     KWin::LogicalOutput *output = KWin::effects->findScreen(outputName);
     if (!isOtherCardDisplay(output) || m_desktopStage->hasSessionOnOutput(outputName)
-        || !m_cardStage->isActive()) return;
+        || !m_cardStage->isActive() || shownOnDisplayStage(outputName)) return;
     // The card this display showed before Spread left it is on its way back.
     if (m_keptOnLeft && cardHome(m_keptOnLeft) == output) return;
     KWin::EffectWindow *latest = nullptr;
@@ -3555,6 +3746,8 @@ KWin::LogicalOutput *Effect::stackSwipeDisplay() const
 {
     KWin::LogicalOutput *touched = KWin::effects->findScreen(m_touchOutputName);
     if (!isOtherCardDisplay(touched)) return nullptr;
+    if (KWin::EffectWindow *own = shownOnDisplayStage(touched->name()))
+        return !m_cardStage->paneStack(own).isEmpty() ? touched : nullptr;
     for (const auto &pane : m_desktopStage->panesOn(touched->name()))
         if (pane && !m_cardStage->paneStack(pane).isEmpty()) return touched;
     return nullptr;
@@ -3596,6 +3789,16 @@ std::optional<NativeMoveSnapshot> Effect::activeRestoreForDesktopStage(KWin::Eff
     return m_cardStage->managedRestore(window);
 }
 
+namespace {
+// The display KWin lists under this name; none when it lists none.
+KWin::LogicalOutput *screenNamed(const QString &name)
+{
+    if (name.isEmpty()) return nullptr;
+    KWin::LogicalOutput *output = KWin::effects->findScreen(name);
+    return output && output->name() == name ? output : nullptr;
+}
+}
+
 bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
     const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore)
 {
@@ -3606,6 +3809,10 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
     // ownership behind it, as any arrival behind a layout does.
     // §11, Every display: a window another display holding its own cards no
     // longer shows waits in Spread, and shows there again when chosen.
+    if (window && window == m_boundForDisplay) {
+        KWin::LogicalOutput *display = screenNamed(m_boundDisplay);
+        return display && admitCardToDisplayStage(window, display, commitSource, restore, true);
+    }
     KWin::LogicalOutput *from = window ? window->screen() : nullptr;
     if (isOtherCardDisplay(from)) {
         const QString home = from->name();
@@ -3632,6 +3839,242 @@ void Effect::settleStacksOfArrival()
         if (m_releasing || !m_cardStage) return;
         m_cardStage->settlePaneStacks();
         observeCardOwnership();
+    });
+}
+
+bool Effect::usesDisplayStage(const KWin::LogicalOutput *output) const
+{
+    return isOtherCardDisplay(output) && sizingFor(output) == DisplaySizing::Solo;
+}
+
+CardStageController *Effect::displayStageOn(const QString &outputName, bool create)
+{
+    if (!m_scopedSession || outputName.isEmpty()) return nullptr;
+    auto &displays = m_scopedSession->displays;
+    if (const auto found = displays.find(outputName); found != displays.end())
+        return found->second->cards.get();
+    if (!create || !usesDisplayStage(screenNamed(outputName))) return nullptr;
+    auto stage = std::make_unique<DisplayStage>();
+    stage->host = std::make_unique<DisplayStageHost>(this, m_scopedSession, outputName);
+    stage->cards = std::make_unique<CardStageController>(static_cast<CardStageHost *>(stage->host.get()));
+    CardStageController *cards = stage->cards.get();
+    displays.emplace(outputName, std::move(stage));
+    return cards;
+}
+
+CardStageController *Effect::displayStageHolding(const KWin::EffectWindow *window) const
+{
+    if (!window || !m_scopedSession) return nullptr;
+    for (const auto &display : m_scopedSession->displays)
+        if (display.second->cards->liveCardIndex(window) >= 0) return display.second->cards.get();
+    return nullptr;
+}
+
+QString Effect::displayHolding(const KWin::EffectWindow *window) const
+{
+    if (!window || !m_scopedSession) return {};
+    for (const auto &display : m_scopedSession->displays)
+        if (display.second->cards->liveCardIndex(window) >= 0) return display.first;
+    return {};
+}
+
+KWin::EffectWindow *Effect::shownOnDisplayStage(const QString &outputName) const
+{
+    if (!m_scopedSession) return nullptr;
+    const auto found = m_scopedSession->displays.find(outputName);
+    if (found == m_scopedSession->displays.end()) return nullptr;
+    const CardStageController *stage = found->second->cards.get();
+    KWin::EffectWindow *shown = stage->isActive() && stage->presentation() == CardPresentation::Active
+        ? stage->activeCardIdentity() : nullptr;
+    return shown && !shown->isDeleted() && stage->liveCardIndex(shown) >= 0 ? shown : nullptr;
+}
+
+bool Effect::admitCardToDisplayStage(KWin::EffectWindow *card, KWin::LogicalOutput *display,
+    const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore, bool focus)
+{
+    CardStageController *stage = display ? displayStageOn(display->name(), true) : nullptr;
+    if (!stage || !card || card->isDeleted()) return false;
+    const QString name = display->name();
+    const QPointer<KWin::EffectWindow> previous = shownOnDisplayStage(name);
+    if (previous == card) return false;
+    if (!stage->admitCardFromOtherDisplay(card, commitSource, restore)) {
+        qInfo() << "Kadunce" << Revision << "could not take" << logNameOf(card) << "as the card"
+                << name << "shows";
+        return false;
+    }
+    m_cardHomes.remove(card);
+    stepInUnseen(card);
+    if (!stage->presentCardActive(card, focus))
+        qWarning() << "Kadunce" << Revision << "took" << logNameOf(card) << "on" << name
+                   << "but could not show it there";
+    // The card shown before waits in Spread for this display.
+    if (previous && !previous->isDeleted() && previous != card) (void)returnFromDisplayStage(previous);
+    qInfo() << "Kadunce" << Revision << name << "shows" << logNameOf(card) << "as its own card";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
+}
+
+bool Effect::admitCardFromDisplayStage(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+    const std::function<bool()> &commitSource)
+{
+    CardStageController *from = displayStageHolding(card);
+    const QString left = displayHolding(card);
+    if (!from || !card || !output || output->name() == left) return false;
+    const auto restore = from->managedRestore(card);
+    const NativeMoveSnapshot *record = restore ? &*restore : nullptr;
+    bool taken = false;
+    if (usesDisplayStage(output)) {
+        taken = admitCardToDisplayStage(card, output, commitSource, record, true);
+    } else if (isTabletOutput(output) || isOtherCardDisplay(output)) {
+        taken = m_cardStage->admitCardFromOtherDisplay(card, commitSource, record);
+        if (taken) {
+            m_cardHomes.remove(card);
+            // Spread's display takes it as its Active card; a display
+            // showing a layout takes it into that layout.
+            if (isTabletOutput(output)) (void)m_cardStage->promoteToActive(card);
+            else (void)m_cardStage->sendCardToDisplay(card, output);
+            settleStacksOfArrival();
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+        }
+    }
+    if (taken) {
+        qInfo() << "Kadunce" << Revision << logNameOf(card) << "left" << left << "for" << output->name();
+        QTimer::singleShot(0, this, [this, left] { refillOtherDisplay(left); });
+    }
+    return taken;
+}
+
+bool Effect::returnFromDisplayStage(KWin::EffectWindow *card)
+{
+    CardStageController *stage = displayStageHolding(card);
+    const QString name = displayHolding(card);
+    if (!stage || !card) return false;
+    const auto restore = stage->managedRestore(card);
+    const QPointer<KWin::EffectWindow> moving = card;
+    if (!m_cardStage->admitCardFromOtherDisplay(card,
+            [stage, moving] { return moving && stage->releaseCardToStage(moving); },
+            restore ? &*restore : nullptr)) {
+        qInfo() << "Kadunce" << Revision << "could not give" << logNameOf(card) << "back to Spread from" << name;
+        return false;
+    }
+    // A display that is gone keeps its name, so the card waits for it to return.
+    KWin::LogicalOutput *display = screenNamed(name);
+    if (!display || isOtherCardDisplay(display)) m_cardHomes.insert(card, name);
+    else m_cardHomes.remove(card);
+    settleStacksOfArrival();
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
+}
+
+bool Effect::stepDisplayStack(KWin::EffectWindow *face, int delta)
+{
+    // CARD-LIFECYCLE.md §11: the card a display shows steps to the next card
+    // of its Stack, which waited in Spread behind it; the one it showed goes
+    // round to the back.
+    KWin::LogicalOutput *display = screenNamed(displayHolding(face));
+    const QList<KWin::EffectWindow *> behind = face ? m_cardStage->paneStack(face) : QList<KWin::EffectWindow *>{};
+    if (!display || behind.isEmpty()) return false;
+    KWin::EffectWindow *next = delta > 0 ? behind.first() : behind.last();
+    QList<KWin::EffectWindow *> ring = behind;
+    ring.removeAll(next);
+    if (delta > 0) ring.append(face);
+    else ring.prepend(face);
+    const auto restore = m_cardStage->managedRestore(next);
+    CardStageController *spread = m_cardStage;
+    const QPointer<KWin::EffectWindow> moving = next;
+    m_cardStage->forgetPaneStack(face);
+    m_cardStage->notePaneStack(next, ring);
+    if (!admitCardToDisplayStage(next, display,
+            [spread, moving] { return moving && spread->releaseCardToDisplay(moving); },
+            restore ? &*restore : nullptr, true)) {
+        m_cardStage->forgetPaneStack(next);
+        m_cardStage->notePaneStack(face, behind);
+        return false;
+    }
+    for (auto *member : std::as_const(ring)) m_cardHomes.remove(member);
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    KWin::effects->activateWindow(next);
+    return true;
+}
+
+bool Effect::carryToDisplayStage(KWin::EffectWindow *carried, KWin::LogicalOutput *display,
+    KWin::EffectWindow *onto)
+{
+    // Whoever holds the carried window gives it up the way it gives a card
+    // to another display; a window no one holds is taken as it is.
+    bool taken = false;
+    if (m_cardStage->liveCardIndex(carried) >= 0) {
+        taken = giveCardWithItsStack(carried, display);
+    } else if (m_desktopStage->managesWindow(carried)) {
+        taken = takePaneToDisplayStage(carried, display);
+    } else if (CardStageController *own = displayStageHolding(carried)) {
+        taken = own->giveCardToDisplay(carried, display);
+    } else {
+        taken = admitCardToDisplayStage(carried, display, [] { return true; }, nullptr, true);
+    }
+    if (!taken || displayHolding(carried) != display->name()) return taken;
+    if (onto && onto != carried && m_cardStage->liveCardIndex(onto) >= 0) {
+        // The card it rested on, and that card's own Stack, wait behind it.
+        QList<KWin::EffectWindow *> behind{onto};
+        behind.append(m_cardStage->paneStack(onto));
+        for (auto *member : m_cardStage->paneStack(carried))
+            if (!behind.contains(member)) behind.append(member);
+        m_cardStage->forgetPaneStack(onto);
+        m_cardStage->notePaneStack(carried, behind);
+        for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
+        m_cardStage->settlePaneStacks();
+        qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto)
+                << "on" << display->name();
+    }
+    KWin::effects->activateWindow(carried);
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
+}
+
+bool Effect::takePaneToDisplayStage(KWin::EffectWindow *pane, KWin::LogicalOutput *display)
+{
+    if (!pane || pane->isDeleted() || !display || !usesDisplayStage(display)
+        || !m_desktopStage->managesWindow(pane)) return false;
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    // The pane leaves its layout through the door any pane leaves by; that
+    // door hands this one to the display stage instead of to Spread.
+    m_boundForDisplay = pane;
+    m_boundDisplay = display->name();
+    const bool taken = m_desktopStage->extractPaneToCards(pane, {}, false);
+    m_boundForDisplay.clear();
+    m_boundDisplay.clear();
+    if (!taken || displayHolding(pane) != display->name()) return false;
+    for (auto *member : behind) m_cardHomes.remove(member);
+    m_cardStage->settlePaneStacks();
+    qInfo() << "Kadunce" << Revision << "took pane" << logNameOf(pane) << "to" << display->name()
+            << "as its own card with" << behind.size() << "behind it";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
+}
+
+void Effect::settleDisplayStages(const KWin::LogicalOutput *leaving)
+{
+    forEachSession([&] {
+        if (!m_scopedSession) return;
+        QStringList names;
+        for (const auto &display : m_scopedSession->displays) names.append(display.first);
+        for (const QString &name : std::as_const(names)) {
+            KWin::LogicalOutput *output = screenNamed(name);
+            if (output && output != leaving && usesDisplayStage(output)) continue;
+            CardStageController *stage = displayStageOn(name);
+            if (!stage || !stage->isActive()) continue;
+            const QList<QPointer<KWin::EffectWindow>> cards = stage->liveCards();
+            for (const auto &card : cards)
+                if (card && !card->isDeleted()) (void)returnFromDisplayStage(card);
+            // Where Spread could not take them, they are let go where they stand.
+            if (stage->isActive()) stage->release();
+        }
     });
 }
 
@@ -3745,6 +4188,7 @@ void Effect::releaseKeysWorkArea()
     if (m_keysWorkAreas.isEmpty()) return;
     m_keysWorkAreas.clear();
     m_cardStage->followWorkArea(true);
+    forEachDisplayStage([](CardStageController &stage) { stage.followWorkArea(true); });
 }
 
 bool Effect::keyboardTypesIntoForCardStage(
@@ -3770,6 +4214,9 @@ void Effect::keyboardHeading(double height, int durationMs)
     // height is measured from.
     const KWin::RectF keys = panel->frameGeometry();
     m_cardStage->keyboardHeading(keys.y() + keys.height() - height, durationMs);
+    forEachDisplayStage([&](CardStageController &stage) {
+        stage.keyboardHeading(keys.y() + keys.height() - height, durationMs);
+    });
 }
 
 void Effect::raiseKeyboard()
@@ -3936,6 +4383,7 @@ void Effect::releaseLeavingKeys()
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method || !method->isVisible()) m_keysForPerson = false;
     m_cardStage->refreshKeyboardRoom();
+    forEachDisplayStage([](CardStageController &stage) { stage.refreshKeyboardRoom(); });
     followKeysWorkArea();
 }
 
@@ -4090,6 +4538,12 @@ bool Effect::admitCardToDesktopStage(
     const KWin::RectF &geometry, const std::function<bool()> &commitSource,
     const std::function<void()> &releaseSource)
 {
+    // §11, Every display: a display sized Solo that holds its own cards shows
+    // a card sent there as its own Active card, never as a layout's pane.
+    if (usesDisplayStage(output)) {
+        const auto restore = m_cardStage->managedRestore(window);
+        return admitCardToDisplayStage(window, output, commitSource, restore ? &*restore : nullptr, true);
+    }
     if (m_carryDestination && window == m_carriedWindow)
         return m_desktopStage->transferPreparedCard(*m_carryDestination, commitSource, releaseSource);
     if (m_placementDrop && window == m_placementDrop->card())
@@ -4231,7 +4685,8 @@ void Effect::finishBezelSpreadFromInput(double rise, double speed, bool cancelle
         KWin::LogicalOutput *display = stackSwipeDisplay();
         const bool far = display && rise >= display->geometry().height() * BezelSpreadTravel / 2.0;
         if (display && !cancelled && (far || speed >= BezelFlickSpeed)) {
-            const auto panes = m_desktopStage->panesOn(display->name());
+            auto panes = m_desktopStage->panesOn(display->name());
+            if (KWin::EffectWindow *own = shownOnDisplayStage(display->name())) panes.append(own);
             KWin::EffectWindow *focused = KWin::effects->activeWindow();
             KWin::EffectWindow *pane = focused && panes.contains(focused)
                 && !m_cardStage->paneStack(focused).isEmpty() ? focused : nullptr;
@@ -4542,6 +4997,14 @@ void Effect::handleManagedWindowMinimizedChanged()
     if (!guarded) return;
     DesktopSession *holder = sessionHolding(guarded);
     SessionScope scope(this, holder ? holder : m_currentSession);
+    // §7 on a display's own stage: the card it shows, minimized, sleeps in
+    // Spread waiting for that display, which shows the card it used before.
+    if (guarded->isMinimized() && displayStageHolding(guarded)) {
+        const QString there = displayHolding(guarded);
+        if (returnFromDisplayStage(guarded))
+            QTimer::singleShot(0, this, [this, there] { refillOtherDisplay(there); });
+        return;
+    }
     m_desktopStage->handleWindowMinimizedChanged(guarded);
     // §3: the display that can own cards, holding none, takes a window picked
     // back from minimized as its Active card, as it takes a window that opens
@@ -4662,11 +5125,11 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
     if (window && window->window() && window->isUserResize()
-        && m_cardStage->managedRestore(window)) {
+        && (m_cardStage->managedRestore(window) || displayStageHolding(window))) {
         QPointer<KWin::EffectWindow> guarded = window;
         QTimer::singleShot(0, this, [this, guarded] {
             if (!guarded || !guarded->window() || !guarded->isUserResize()
-                || !m_cardStage->managedRestore(guarded)) return;
+                || (!m_cardStage->managedRestore(guarded) && !displayStageHolding(guarded))) return;
             const auto *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             StaleTouchRelease::cancel(guarded->window(), touch && touch->touchPointCount() > 0);
         });
@@ -4721,9 +5184,10 @@ void Effect::beginLegacyNativeMove(KWin::EffectWindow *window)
     // An application may start a move on a tap in its own title area, which
     // then ends where it began. The cards are let go only once the Active card
     // travels, so a tap leaves them as they were.
-    if (window->isUserMove() && !window->isUserResize() && m_cardStage->isActive()
-        && m_cardStage->presentation() == CardPresentation::Active
-        && m_cardStage->selectedWindow() == window) {
+    if (window->isUserMove() && !window->isUserResize()
+        && (displayStageHolding(window) || (m_cardStage->isActive()
+            && m_cardStage->presentation() == CardPresentation::Active
+            && m_cardStage->selectedWindow() == window))) {
         m_heldActiveMove = window;
         m_heldActiveMoveOrigin = QRectF(window->frameGeometry()).topLeft();
         qInfo() << "Kadunce" << Revision << "keeps the cards while" << applicationIdentity(window)
@@ -5003,6 +5467,41 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         showDesktopWithReturned(output, released);
                     });
                 return committed;
+            });
+        return;
+    }
+    // §11, Every display: carried onto a display showing its card on its own
+    // stage, a window is the card that display shows, its Stack with it. The
+    // card shown there waits in Spread for it; rested on that card first, it
+    // waits behind the arrival, as a pane rested on another does.
+    if (!local && usesDisplayStage(target)) {
+        QPointer<KWin::EffectWindow> carried = m_carriedWindow;
+        QPointer<KWin::LogicalOutput> output = target;
+        KWin::EffectWindow *shown = shownOnDisplayStage(target->name());
+        QPointer<KWin::EffectWindow> onto;
+        if (shown && shown != m_carriedWindow && !edge && QRectF(shown->frameGeometry()).contains(contact)) {
+            aimingPane = true;
+            if (!m_paneStackClock.isValid()) m_paneStackClock.start();
+            const long long now = m_paneStackClock.elapsed();
+            if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(shown), now)) {
+                m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
+            } else {
+                m_paneStackDwell.stop();
+                m_carryStackOnto = shown;
+                onto = shown;
+            }
+        }
+        m_carryPreview = onto ? KWin::RectF(onto->frameGeometry()) : KWin::RectF(activeTarget(target));
+        const auto destination = monitorDropIntent(target->name(), 0, std::nullopt);
+        if (!destination) return;
+        handoff.previewDrop(*destination,
+            [carried, output] {
+                return carried && !carried->isDeleted() && output
+                    && KWin::effects->screens().contains(output.data());
+            },
+            [this, carried, output, onto, aimed = bool(onto)](const PreparedCarrySource &) {
+                if (!carried || !output || (aimed && !onto)) return false;
+                return carryToDisplayStage(carried, output, onto);
             });
         return;
     }
@@ -5701,7 +6200,8 @@ void Effect::handleManagedStateChanged()
             if (window == m_settlingWindow) clearDropSettle();
             DesktopSession *holder = sessionHolding(window);
             SessionScope scope(this, holder ? holder : m_currentSession);
-            m_cardStage->handleActiveGeometryChanged(window);
+            if (CardStageController *own = displayStageHolding(window)) own->handleActiveGeometryChanged(window);
+            else m_cardStage->handleActiveGeometryChanged(window);
             return;
         }
     }
@@ -5737,7 +6237,39 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
         if (m_dialogsLead) m_carriedDialogsRelease.start();
     }
     bool givenToDisplay = false;
-    if (window && window == m_heldActiveMove) {
+    if (window && window == m_heldActiveMove && displayStageHolding(window)) {
+        // §11, Every display: the card a display shows on its own stage,
+        // carried by its title bar, is the card of the display it lands on;
+        // let go on its own display it goes back to its place.
+        m_heldActiveMove.clear();
+        givenToDisplay = true;
+        KWin::LogicalOutput *landed = window->screen();
+        CardStageController *own = displayStageHolding(window);
+        if (!landed || landed->name() == displayHolding(window)) {
+            own->followWorkArea(true);
+        } else {
+            const QPointer<KWin::EffectWindow> card = window;
+            const QString there = landed->name();
+            QTimer::singleShot(0, this, [this, card, there] {
+                CardStageController *stage = card ? displayStageHolding(card) : nullptr;
+                KWin::LogicalOutput *display = screenNamed(there);
+                if (!stage || !display) return;
+                if ((isTabletOutput(display) || isOtherCardDisplay(display))
+                    && stage->giveCardToDisplay(card, display)) {
+                    qInfo() << "Kadunce" << Revision << "gave" << logNameOf(card) << "to" << there
+                            << "where it was carried";
+                    KWin::effects->activateWindow(card);
+                    return;
+                }
+                // A display holding no cards takes it as an ordinary window.
+                const QString left = displayHolding(card);
+                (void)stage->releaseCard(card, false);
+                QTimer::singleShot(0, this, [this, left] { refillOtherDisplay(left); });
+                observeCardOwnership();
+                Q_EMIT workspaceContextChanged();
+            });
+        }
+    } else if (window && window == m_heldActiveMove) {
         m_heldActiveMove.clear();
         KWin::LogicalOutput *landed = window->screen();
         if (isOtherCardDisplay(landed)) {
@@ -5840,7 +6372,11 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window)
     }
     qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "left loose on"
             << output->name() << "as a card there";
-    const bool taken = m_desktopStage->hasSessionOnOutput(output->name())
+    // A display already showing its own card shows the window left there
+    // instead, the card it showed waiting in Spread for it.
+    const bool taken = usesDisplayStage(output) && shownOnDisplayStage(output->name())
+        ? admitCardToDisplayStage(window, output, [] { return true; }, nullptr, true)
+        : m_desktopStage->hasSessionOnOutput(output->name())
         ? m_desktopStage->handleWindowAdded(window) : holdOtherDisplaysInCards(window);
     if (taken) {
         KWin::effects->activateWindow(window);
@@ -5864,6 +6400,11 @@ bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window,
     const auto derived = source ? std::optional<NativeMoveSnapshot>(source->restoreSnapshot())
         : std::nullopt;
     if (!restore && derived) restore = &*derived;
+    // A pane leaving its layout for a display stage is that display's card.
+    if (window && window == m_boundForDisplay) {
+        KWin::LogicalOutput *display = screenNamed(m_boundDisplay);
+        return display && admitCardToDisplayStage(window, display, commitSource, restore, true);
+    }
     // §11, Every display: a window a display holding its own cards does not
     // show is a card waiting in Spread, not the Active card here. A window
     // carried across is the person's own act and arrives as one.
@@ -5881,6 +6422,8 @@ void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     cancelInputForCardStage();
     if (m_table.isOpen() && tableOutput() == output) closeTable();
+    // The card a display going away shows waits in Spread for it to return.
+    settleDisplayStages(output);
     forEachSession([&] { m_desktopStage->handleScreenRemoved(output); });
     // KWin still lists the display while announcing its removal.
     QTimer::singleShot(0, this, &Effect::refreshCardOutput);
@@ -6379,6 +6922,8 @@ QString Effect::workspaceContext() const
             continue;
         }
         const auto *card = workspace.find(windowIdentity(window));
+        // A card a display shows on its own stage is a card, outside Spread.
+        const QString ownStage = card ? QString() : displayHolding(window);
         QJsonObject application{
             {QStringLiteral("windowId"), windowIdentity(window)},
             {QStringLiteral("appId"), applicationIdentity(window)},
@@ -6388,8 +6933,12 @@ QString Effect::workspaceContext() const
             {QStringLiteral("focused"), window == focused},
             {QStringLiteral("lastActivated"), static_cast<qint64>(m_activationOrder.value(windowIdentity(window)))},
             {QStringLiteral("minimized"), window->isMinimized()},
-            {QStringLiteral("hasCard"), card != nullptr},
+            {QStringLiteral("hasCard"), card != nullptr || !ownStage.isEmpty()},
             {QStringLiteral("pane"), m_desktopStage->managesWindow(window)},
+            // The display whose card stage holds it as a card: Spread's, or
+            // the display's own; empty when none does.
+            {QStringLiteral("stage"), !ownStage.isEmpty() ? ownStage
+                : card && tabletOutput() ? tabletOutput()->name() : QString()},
             // §11, Connected: the cards waiting behind a pane, front to back.
             {QStringLiteral("paneStack"), [&] {
                 QJsonArray behind;
@@ -6398,6 +6947,7 @@ QString Effect::workspaceContext() const
             }()},
             {QStringLiteral("home"), cardHome(window) ? cardHome(window)->name() : QString()},
         };
+        if (!ownStage.isEmpty()) application.insert(QStringLiteral("cardId"), windowIdentity(window));
         if (card) {
             application.insert(QStringLiteral("cardId"),
                                windowIdentity(window));
@@ -6432,7 +6982,8 @@ QString Effect::workspaceContext() const
     KWin::EffectWindow *inUse = notesHost ? notesHost : focused;
     QJsonObject focus;
     if (inUse && isApplicationWindow(inUse)) {
-        const bool focusedHasCard = workspace.find(windowIdentity(inUse)) != nullptr;
+        const bool focusedHasCard = workspace.find(windowIdentity(inUse)) != nullptr
+            || !displayHolding(inUse).isEmpty();
         focus = {
             {QStringLiteral("windowId"), windowIdentity(inUse)},
             {QStringLiteral("appId"), applicationIdentity(inUse)},
@@ -6470,6 +7021,23 @@ QString Effect::workspaceContext() const
             continue;
         }
         const bool tablet = isTabletOutput(output);
+        // What the display presents and the windows it shows that way: the
+        // Active card on Spread's display, a layout's panes anywhere.
+        QJsonArray shows;
+        QString presents = QStringLiteral("none");
+        if (m_desktopStage->hasSessionOnOutput(output->name())) {
+            presents = QStringLiteral("layout");
+            for (const auto &pane : m_desktopStage->panesOn(output->name()))
+                if (pane && !pane->isMinimized()) shows.append(windowIdentity(pane));
+        } else if (tablet && m_cardStage->isActive()) {
+            presents = presentation;
+            if (m_cardStage->presentation() == CardPresentation::Active && m_cardStage->activeCardIdentity())
+                shows.append(windowIdentity(m_cardStage->activeCardIdentity()));
+        } else if (KWin::EffectWindow *own = shownOnDisplayStage(output->name())) {
+            // Its own stage presents the card it shows, Active.
+            presents = QStringLiteral("active");
+            shows.append(windowIdentity(own));
+        }
         displays.append(QJsonObject{
             {QStringLiteral("name"), output->name()},
             {QStringLiteral("role"), tablet
@@ -6480,6 +7048,8 @@ QString Effect::workspaceContext() const
             {QStringLiteral("sizing"), sizingName(sizingFor(output))},
             {QStringLiteral("sizingChosen"), !chosenSizingFor(output).isEmpty()},
             {QStringLiteral("holdsCards"), tablet || isOtherCardDisplay(output)},
+            {QStringLiteral("presentation"), presents},
+            {QStringLiteral("shows"), shows},
         });
     }
 
@@ -6974,6 +7544,8 @@ KWin::EffectWindow *Effect::stackedPaneAloneAt(const QPointF &position) const
     for (auto *output : KWin::effects->screens())
         if (QRectF(output->geometry()).contains(position)) { display = output; break; }
     if (!isOtherCardDisplay(display) || isPanelPoint(position)) return nullptr;
+    if (KWin::EffectWindow *own = shownOnDisplayStage(display->name()))
+        return !m_cardStage->paneStack(own).isEmpty() ? own : nullptr;
     KWin::EffectWindow *alone = nullptr;
     for (const auto &pane : m_desktopStage->panesOn(display->name())) {
         if (!pane || pane->isDeleted() || pane->isMinimized()) continue;
@@ -7873,7 +8445,8 @@ void Effect::cardPulledOutForCardStage(KWin::EffectWindow *card, KWin::EffectWin
     KWin::LogicalOutput *there = pane ? pane->screen() : nullptr;
     if (!card || card->isDeleted() || !card->window() || !spread || !there || there == spread
         || !isOtherCardDisplay(there) || sizingFor(there) != DisplaySizing::Solo
-        || !connectedForCardStage() || !m_desktopStage->managesWindow(pane)) return;
+        || !connectedForCardStage()
+        || (!m_desktopStage->managesWindow(pane) && !displayStageHolding(pane))) return;
     m_cardStage->forgetFromPaneStacks(card);
     m_cardHomes.remove(card);
     if (card->screen() != spread) card->window()->sendToOutput(spread);
@@ -7976,6 +8549,10 @@ void Effect::keyReleased(int key)
 void Effect::letPaneGo()
 {
     KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    if (pane && displayStageHolding(pane)) {
+        letDisplayCardGo(pane);
+        return;
+    }
     if (!pane || !m_desktopStage->managesWindow(pane)) return;
     const bool there = isOtherCardDisplay(pane->screen());
     const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
@@ -8040,6 +8617,49 @@ void Effect::letPaneGo()
             latest = standing.data();
     }
     if (latest && KWin::effects->activeWindow() == released) KWin::effects->activateWindow(latest);
+}
+
+void Effect::letDisplayCardGo(KWin::EffectWindow *card)
+{
+    // §11, Every display: the card a display shows on its own stage, let go
+    // by the keys, leaves its Stack, whose next card that display shows. It
+    // has no room for a pane beside that card, so it joins the layout Spread's
+    // display shows, or waits in Spread for it. Alone, it waits in Spread for
+    // its display, which shows the card it used before.
+    KWin::LogicalOutput *display = screenNamed(displayHolding(card));
+    if (!display) return;
+    const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(card);
+    const QPointer<KWin::EffectWindow> released = card;
+    if (behind.isEmpty()) {
+        const QString there = display->name();
+        if (returnFromDisplayStage(card))
+            QTimer::singleShot(0, this, [this, there] { refillOtherDisplay(there); });
+        return;
+    }
+    KWin::EffectWindow *next = behind.first();
+    const auto restore = m_cardStage->managedRestore(next);
+    CardStageController *spread = m_cardStage;
+    const QPointer<KWin::EffectWindow> moving = next;
+    m_cardStage->forgetPaneStack(card);
+    m_cardStage->notePaneStack(next, behind.mid(1));
+    if (!admitCardToDisplayStage(next, display,
+            [spread, moving] { return moving && spread->releaseCardToDisplay(moving); },
+            restore ? &*restore : nullptr, false)) {
+        m_cardStage->forgetPaneStack(next);
+        m_cardStage->notePaneStack(card, behind);
+        return;
+    }
+    for (auto *member : behind) m_cardHomes.remove(member);
+    if (released) m_cardHomes.remove(released);
+    m_cardStage->settlePaneStacks();
+    observeCardOwnership();
+    qInfo() << "Kadunce" << Revision << "took" << logNameOf(card) << "out of its Stack on"
+            << display->name() << "by the keys";
+    KWin::LogicalOutput *spreadDisplay = tabletOutput();
+    if (released && spreadDisplay && connectedForCardStage()
+        && m_desktopStage->hasSessionOnOutput(spreadDisplay->name()))
+        joinSpilledCard(released, spreadDisplay->name(), 20);
+    else if (moving) KWin::effects->activateWindow(moving);
 }
 
 void Effect::moveDividerByKey(int delta)
@@ -8203,6 +8823,11 @@ void Effect::release()
             m_desktopStage->restoreAllSessions();
         }
         hadCards = hadCards || m_cardStage->isActive();
+        // Each display's own card goes back where its record holds, on that display.
+        forEachDisplayStage([&](CardStageController &stage) {
+            hadCards = hadCards || stage.isActive();
+            stage.release();
+        });
         m_cardStage->release();
         // Kept, a Stack would stand behind that window again when cards
         // next start, though every window is its own now.
@@ -8271,6 +8896,7 @@ bool Effect::stepPaneStack(int delta)
     // CARD-LIFECYCLE.md §11: the focused pane's Stack steps in place. The
     // pane's slot shows the next card, and the layout keeps its shape.
     KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    if (pane && displayStageHolding(pane)) return stepDisplayStack(pane, delta);
     if (!pane || !m_desktopStage->managesWindow(pane)) return false;
     const bool here = m_cardStage->presentsBento() && connectedForCardStage()
         && pane->screen() == tabletOutput();
@@ -8523,6 +9149,7 @@ bool Effect::callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *car
 
 bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
 {
+    if (pane && displayStageHolding(pane)) return stepDisplayStack(pane, delta);
     if (!pane || !m_desktopStage->managesWindow(pane)) return false;
     const bool there = isOtherCardDisplay(pane->screen());
     const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
@@ -9117,14 +9744,19 @@ void Effect::observeCardOwnership()
     QSet<quintptr> held;
     for (const auto &entry : m_sessions) {
         const DesktopSession *session = entry.second.get();
-        for (const auto &window : session->cards->liveCards()) {
-            if (!window) continue;
-            const auto identity = reinterpret_cast<quintptr>(window.data());
-            if (held.contains(identity))
-                reported.push_back({identity, OwnershipViolation::Rule::TwoOwners,
-                                    QStringLiteral("desktop ") + entry.first});
-            held.insert(identity);
-            cards.push_back(identity);
+        // A display stage's card is an individual card as Spread's are.
+        std::vector<const CardStageController *> stages{session->cards.get()};
+        for (const auto &display : session->displays) stages.push_back(display.second->cards.get());
+        for (const CardStageController *stage : stages) {
+            for (const auto &window : stage->liveCards()) {
+                if (!window) continue;
+                const auto identity = reinterpret_cast<quintptr>(window.data());
+                if (held.contains(identity))
+                    reported.push_back({identity, OwnershipViolation::Rule::TwoOwners,
+                                        QStringLiteral("desktop ") + entry.first});
+                held.insert(identity);
+                cards.push_back(identity);
+            }
         }
         for (auto view : session->layouts->ownershipView()) {
             if (session != m_currentSession) view.output += QStringLiteral(" on desktop ") + entry.first;
@@ -9203,6 +9835,16 @@ void Effect::readCardBook()
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
         if (paneOf.contains(reinterpret_cast<quintptr>(window))) add(window);
     for (const auto &card : m_cardStage->liveCards()) add(card.data());
+    QHash<quintptr, QString> stageOf;
+    if (m_scopedSession) {
+        for (const auto &display : m_scopedSession->displays) {
+            for (const auto &card : display.second->cards->liveCards()) {
+                if (!card) continue;
+                add(card.data());
+                stageOf.insert(reinterpret_cast<quintptr>(card.data()), display.first);
+            }
+        }
+    }
     QHash<quintptr, std::vector<quintptr>> behind;
     const auto &stacks = m_cardStage->paneStackRecords();
     for (auto it = stacks.cbegin(); it != stacks.cend(); ++it) {
@@ -9223,6 +9865,7 @@ void Effect::readCardBook()
         entry.screen = window->screen() ? window->screen()->name() : QString();
         entry.card = m_cardStage->liveCardIndex(window) >= 0;
         entry.paneOf = paneOf.value(it.key());
+        entry.stage = stageOf.value(it.key());
         entry.home = waitingFor(window);
         entry.behindPanes = behind.value(it.key());
         if (entry.card) {
@@ -9390,7 +10033,13 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     // §11, Every display: a display holding its own cards that loses the last
     // card it shows brings back the one it used before.
     const bool otherPane = isOtherCardDisplay(window->screen()) && m_desktopStage->managesWindow(window);
-    const QString paneDisplay = otherPane ? window->screen()->name() : QString();
+    QString paneDisplay = otherPane ? window->screen()->name() : QString();
+    // The card a display shows on its own stage gives its place to the next
+    // card of its Stack, or to the card that display used before.
+    const QString ownDisplay = displayHolding(window);
+    const bool ownWasFocused = KWin::effects->activeWindow() == window || !KWin::effects->activeWindow();
+    const QList<KWin::EffectWindow *> ownBehind = ownDisplay.isEmpty()
+        ? QList<KWin::EffectWindow *>{} : m_cardStage->paneStack(window);
     // CARD-LIFECYCLE.md §11: a Stack stays whole until one card is left, so a
     // closing pane's slot goes to the next card of its Stack.
     if (((m_cardStage->presentsBento() && connectedForCardStage()) || otherPane)
@@ -9414,7 +10063,25 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     forEachSession([&] {
         m_desktopStage->handleWindowClosed(window);
         m_cardStage->handleWindowClosed(window);
+        forEachDisplayStage([&](CardStageController &stage) { stage.handleWindowClosed(window); });
     });
+    if (KWin::LogicalOutput *own = screenNamed(ownDisplay); own && !ownBehind.isEmpty()) {
+        KWin::EffectWindow *next = ownBehind.first();
+        const auto restore = m_cardStage->managedRestore(next);
+        CardStageController *spread = m_cardStage;
+        const QPointer<KWin::EffectWindow> moving = next;
+        if (admitCardToDisplayStage(next, own,
+                [spread, moving] { return moving && spread->releaseCardToDisplay(moving); },
+                restore ? &*restore : nullptr, ownWasFocused)) {
+            m_cardStage->notePaneStack(next, ownBehind.mid(1));
+            for (auto *member : ownBehind) m_cardHomes.remove(member);
+            m_cardStage->settlePaneStacks();
+        } else {
+            paneDisplay = ownDisplay;
+        }
+    } else if (!ownDisplay.isEmpty()) {
+        paneDisplay = ownDisplay;
+    }
     if (!paneDisplay.isEmpty()) {
         QTimer::singleShot(0, this, [this, paneDisplay] { refillOtherDisplay(paneDisplay); });
     }
@@ -9498,6 +10165,11 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
             return;
         }
         dismissLauncherGuestFromInput();
+    }
+    // The card a display shows on its own stage is that stage's to present.
+    if (CardStageController *own = displayStageHolding(window)) {
+        own->handleWindowActivated(window);
+        return;
     }
     // Asked for where it stands on its own display, a waiting card is never
     // promoted here, which would open Spread for a window this display
@@ -9720,7 +10392,8 @@ void Effect::handleActiveGeometryChanged(KWin::EffectWindow *window,
 {
     DesktopSession *holder = sessionHolding(window);
     SessionScope scope(this, holder ? holder : m_currentSession);
-    m_cardStage->handleActiveGeometryChanged(window);
+    if (CardStageController *own = displayStageHolding(window)) own->handleActiveGeometryChanged(window);
+    else m_cardStage->handleActiveGeometryChanged(window);
 }
 
 void Effect::handleSessionStateChanged()
@@ -10058,6 +10731,18 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask,
             window == m_nativeCarry ? deviceRegion & KWin::Region(outputClip) : deviceRegion, data); })) return paintResult(false);
         return paintResult(true);
+    }
+
+    // A display stage's card makes the same room for keys typing into it.
+    if (const CardStageController *own = displayStageHolding(window)) {
+        if (const auto edge = own->keyboardRoomEdge(window)) {
+            const KWin::RectF output = m_paintingOutput->geometry();
+            const KWin::RectF above(output.x(), output.y(), output.width(),
+                                    std::max(0.0, *edge - output.y()));
+            if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask,
+                deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data); })) return paintResult(false);
+            return paintResult(true);
+        }
     }
 
     if (m_cardStage->presentation() == CardPresentation::Active) {

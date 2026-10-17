@@ -3018,6 +3018,8 @@ bool DesktopStageController::handoffWindowToOutput(
         || (detach && outputKey(destination) != sourceKey)) {
         return false;
     }
+    // A display that keeps no layout takes no pane; its host places the window.
+    if (!detach && !m_host->allowsDesktopStageOnOutput(destination)) return false;
 
     KWin::RectF destinationGeometry = requestedGeometry;
     if (!destination->geometry().intersects(destinationGeometry.toRect())) {

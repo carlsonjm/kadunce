@@ -487,6 +487,16 @@ public:
     // that display's layout. Moved from Active, this display presents the card
     // used before it again.
     bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // The card this display presents Active is about to leave it: the card
+    // used before it is presented again, or the desktop is shown. A card not
+    // in front leaves nothing to step aside from.
+    bool stepAsideFrom(KWin::EffectWindow *card);
+    // §11, Every display: this card leaves for another display's card stage,
+    // in one step, Active or not. Its record goes with it, read before.
+    bool releaseCardToStage(KWin::EffectWindow *card);
+    // A card of this stage is presented Active at once, with no growth. With
+    // `focus` false the window the person is using keeps the keys.
+    bool presentCardActive(KWin::EffectWindow *card, bool focus);
     // The next entry into Active keeps the focus on this window, a card just
     // shown on another display, instead of taking it for the Active card.
     void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }
