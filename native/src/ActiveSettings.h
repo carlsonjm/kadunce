@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BentoLayout.h"
+
 #include <KConfigGroup>
 #include <KConfigWatcher>
 #include <KSharedConfig>
@@ -23,15 +25,19 @@ public:
     }
     int gutter() const { return m_gutter; }
     // Called after the gutter changes while Kadunce runs, so the cards already
-    // standing in it take the new one at once.
+    // standing in it, and Bento's panes, take the new one at once.
     void onGutterChanged(std::function<void()> changed) { m_changed = std::move(changed); }
 private:
     void reload()
     {
         const int before = m_gutter;
-        m_gutter = std::clamp(KConfigGroup(m_config, QStringLiteral("Effect-kadunce"))
-            .readEntry("ActiveCardGutter", 10), 6, 48);
-        if (m_gutter != before && m_changed) m_changed();
+        const int paneGapBefore = bentoPaneGap();
+        const KConfigGroup group(m_config, QStringLiteral("Effect-kadunce"));
+        m_gutter = std::clamp(group.readEntry("ActiveCardGutter", 10), 4, 48);
+        // Bento's panes stand the same distance apart once a gutter is set;
+        // until then they keep their own 14.
+        setBentoPaneGap(group.hasKey("ActiveCardGutter") ? m_gutter : DefaultBentoPaneGap);
+        if ((m_gutter != before || bentoPaneGap() != paneGapBefore) && m_changed) m_changed();
     }
     KSharedConfig::Ptr m_config;
     KConfigWatcher::Ptr m_watcher;

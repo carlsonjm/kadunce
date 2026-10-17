@@ -56,7 +56,8 @@ inline std::vector<BentoSideShape> bentoSideShapeOrder(
                                       BentoSideShape::VerticalPanes};
 }
 
-constexpr double BentoSideHalfGap = 7.0; // Existing makePixelBentoLayout gap / 2.
+// Half the space makePixelBentoLayout leaves between panes.
+inline double bentoSideHalfGap() { return bentoPaneGap() / 2.0; }
 
 // Rect order is arrival, then existing companions, so the two line up.
 inline bool bentoPanesHoldMinimums(const std::vector<BentoRect> &rects,
@@ -84,13 +85,13 @@ inline std::optional<std::vector<BentoRect>> bentoLargeBesideStackLayout(
     const BentoCandidate &whole = companions[0];
     const BentoCandidate &upper = companions[1];
     const double low = (std::max({1.0, arrival.minimumWidth, upper.minimumWidth})
-        + BentoSideHalfGap) / width;
+        + bentoSideHalfGap()) / width;
     const double high = 1.0
-        - (std::max(1.0, whole.minimumWidth) + BentoSideHalfGap) / width;
+        - (std::max(1.0, whole.minimumWidth) + bentoSideHalfGap()) / width;
     if (low > high) return std::nullopt;
     const double stack = std::clamp(1.0 / 3.0, low, high);
-    const double lowCut = (upper.minimumHeight + BentoSideHalfGap) / height;
-    const double highCut = 1.0 - (arrival.minimumHeight + BentoSideHalfGap) / height;
+    const double lowCut = (upper.minimumHeight + bentoSideHalfGap()) / height;
+    const double highCut = 1.0 - (arrival.minimumHeight + bentoSideHalfGap()) / height;
     if (lowCut > highCut) return std::nullopt;
     const double cut = std::clamp(0.5, lowCut, highCut);
     const double stackX = choice.right ? 1.0 - stack : 0.0;
@@ -117,7 +118,7 @@ inline std::optional<std::vector<BentoRect>> bentoVerticalPanesLayout(
     std::array<double, 3> needed{};
     double total = 0.0;
     for (int i = 0; i < 3; ++i) {
-        const double inset = BentoSideHalfGap * ((i > 0) + (i < 2));
+        const double inset = bentoSideHalfGap() * ((i > 0) + (i < 2));
         needed[i] = (std::max(1.0, columns[i]->minimumWidth) + inset) / width;
         total += needed[i];
     }
@@ -144,7 +145,7 @@ inline std::optional<std::vector<BentoRect>> bentoProportionalSideLayout(
     BentoSidePlacement choice, int width, int height,
     const BentoCandidate &arrival, const std::vector<BentoCandidate> &companions)
 {
-    constexpr double halfGap = BentoSideHalfGap;
+    const double halfGap = bentoSideHalfGap();
     const double low = (std::max(1.0, arrival.minimumWidth) + halfGap) / width;
     // Connected, a column of its own shares the width evenly with the columns
     // beside it.
@@ -279,8 +280,8 @@ inline std::optional<std::vector<BentoRect>> splitBentoColumn(
         r.x = std::min(r.x,old.x); r.width = end-r.x;
     } else result.push_back({});
     const auto column = existing[target];
-    const double low = (candidates[choice.large ? arrival : target].minimumHeight+7.0)/height;
-    const double high = 1.0-(candidates[choice.large ? target : arrival].minimumHeight+7.0)/height;
+    const double low = (candidates[choice.large ? arrival : target].minimumHeight+bentoSideHalfGap())/height;
+    const double high = 1.0-(candidates[choice.large ? target : arrival].minimumHeight+bentoSideHalfGap())/height;
     if (low > high) return std::nullopt;
     const double cut = std::clamp(.5,low,high);
     result[choice.large ? arrival : target] = {column.x,0,column.width,cut};

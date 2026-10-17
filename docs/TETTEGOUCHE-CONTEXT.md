@@ -58,9 +58,21 @@ must reject unknown major versions instead of guessing at fields.
   layout while Card Stage holds its cards hidden), `desktop` (the card display
   shows the Plasma desktop while Card Stage holds its cards hidden), or
   `active`. `cardLine` is a
-  frozen interface value that a later versioned migration renames
-  (`ROADMAP.md`).
+  frozen interface value that a later versioned migration renames.
 - `desktopStage`: whether any output currently owns a Bento session.
+- `table`: whether Table is open (`open`). A change is signalled as Table
+  opens and as it closes.
+- `cardStage.spreadEntry`: in Spread, the entry it has chosen, the one in the
+  middle; otherwise `null`. It has the card's `cardId`, the `name` Spread
+  writes under it (for a pane's card, its application then `with` the
+  panes beside it), `bento` (whether it is a pane's card), its Stack's
+  `stackPosition` and `stackSize` (1-based, `1` of `1` for a lone card; while a card is held in its own Stack, the
+  place it will land in), and whether it is `sleeping`.
+- `notice`: what Kadunce is saying for a moment, or `null`: `kind` is
+  `refused` for a gesture that sprang back, `zones` for the monitors' zones
+  switched with Meta+Shift+B, or `returnToDesktop` while a card held over the
+  bottom edge would leave for the desktop; with its `text` in words and the
+  `output` it is said on, empty for every display.
 - `lastActivated`, optional on each application: an in-memory, monotonic
   sequence for this effect's lifetime. Snapshots without it keep
   focused/selected/frontmost ordering.
@@ -117,11 +129,13 @@ Kadunce call a third party. Kadunce watches the launcher's unique session-bus
 owner and restores Spread if that process disappears. A committed handoff selects the incoming real card.
 A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
 it never reaches the application under it, so it cannot promote that
-application to Active. Any rejected begin request leaves both applications in
-their existing standalone behavior; a rejection may name the `output` the
-launcher floats on, where the person is working. Until the launcher then
-signals `shown(false)` on `/Launcher`, Spread opening, however it opens, calls
-its `open` there: it asks to begin again and joins as one opened in Spread.
+application to Active. Kadunce accepts the launcher only while Spread is presented,
+and never opens Spread for it (`CARD-LIFECYCLE.md` §11). Any rejected begin
+request leaves both applications in their existing standalone behavior; a
+rejection may name the `output` the launcher floats on, where the person is
+working. Until the launcher then signals `shown(false)` on `/Launcher`, Spread
+opening, however it opens, calls its `open` there: it asks to begin again and
+joins as one opened in Spread.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
@@ -144,7 +158,8 @@ Tokens identify individual requests. Generation guards prevent delayed settles
 from ending newer leases. Both sides bound launch waiting to ten seconds. Unknown
 application identities time out rather than accept unrelated activations.
 
-`workspaceContextChanged` signals added, closed, and activated windows. Tette
+`workspaceContextChanged` signals added, closed, and activated windows, and
+the first frame drawn after the reported presentation changes. Tette
 ignores out-of-order snapshot replies. `bridgeUnavailable` is emitted before
 effect unload; service-owner loss is watched separately. Either clears guest
 input masking and pending launch/exit motion, returning Tette to standalone search.
@@ -171,12 +186,11 @@ beginCompanionGuest(uniqueOwner, objectPath, interfaceName) -> compact JSON repl
 The reply is the launcher guest's, with `protocol: 1`. Kadunce answers on
 `objectPath` and `interfaceName` with the launcher guest's `dismissGuest` and
 `completeGuestLaunch(requestToken)`; every other call, launch preparation
-included, is the launcher guest's. Two rules differ:
+included, is the launcher guest's. Two rules apply:
 
-- A companion is accepted only while Spread is presented. Over an Active card
-  it is refused and Spread is not opened for it: the companion draws its own
-  card there, and an application it launches takes the Active card's place,
-  with Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
+- Over an Active card a companion, refused as the launcher is, draws its own
+  card, and an application it launches takes the Active card's place, with
+  Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
   Active).
 - Spread has one center. A guest asking while another holds it takes it, and
   Kadunce sends the one it replaces `dismissGuest` first; the launcher guest
@@ -207,6 +221,33 @@ strips under keys of its own; a new claim under the same key replaces the old,
 and every strip a caller holds goes when it leaves the bus. Kadunce refuses a
 claim with no key, display or area.
 
+## Context-line claims
+
+A surface that shows the workspace's context in words, a status bar's line,
+can take over the words Kadunce draws on a display:
+
+```text
+claimContextLine(key, outputName) -> bool
+clearContextLineClaim(key)
+```
+
+While a claim on a display holds, Kadunce draws no words there: no names or
+Stack places under Spread's cards, no note for a refused gesture, no
+`return to desktop` on the outline of a card leaving at the bottom edge, and
+sleeping cards stand in Spread at full strength rather than dimmed. The
+outlines, ladders and previews stay, since a hand is aimed at them. With any
+claim held, the zones switched with Meta+Shift+B are not sent to Plasma's
+popup. Everything left undrawn is in the workspace context instead
+(`cardStage.spreadEntry` and `notice`), and each change to it, the entry
+chosen as Spread moves, its Stack place as a card is reordered, a notice
+beginning or ending, sends `workspaceContextChanged` once. A notice lasts as
+long as the note it replaces would have, about two and a half seconds.
+
+Claims are kept as top-edge claims are: under the caller's own keys, a new
+claim under the same key replacing the old, all of a caller's going when it
+leaves the bus. Kadunce refuses a claim with no key or display. With no claim,
+Kadunce draws as it always has, and the context carries the same fields.
+
 ## Stuck notes from Gooseberry
 
 Kadunce also reads from Gooseberry, the optional notes application, which may
@@ -227,7 +268,7 @@ interface: io.github.carlsonjm.Gooseberry.StuckNotes
 | `Write(noteId, windowId, caption, app)` | A note drawn on a card is tapped: the card opens with the window's notes up and that note ready to type on the window. A build without it answers with an error, and Kadunce then asks `Show` |
 | `Show(windowId, caption, app)` | A card's stack is tapped: the card opens with the window's notes up |
 | `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
-| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away; `false` as it closes. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn the notes over a window: Gooseberry's layer surface, named by KWin after its program `gooseberry` since a layer surface carries no app id, that takes no keys or covers less than its display, since its quick-note card covers the whole display and takes them. KWin's open and close animations are held off that surface while Spread is shown, so it never shrinks or fades over a card |
+| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away, and as a window is picked up to be carried, so they do not stay behind under the hand; `false` as Spread closes or the carried window lands. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn the notes over a window: Gooseberry's layer surface, named by KWin after its program `gooseberry` since a layer surface carries no app id, that takes no keys or covers less than its display, since its quick-note card covers the whole display and takes them. KWin's open and close animations are held off that surface while Spread is shown, so it never shrinks or fades over a card |
 
 Every call is asynchronous, asks the bus not to start Gooseberry, and is never
 waited for while drawing. An entry belongs to a card when one of its
@@ -269,4 +310,4 @@ Nothing comes up over the card itself. Holding a note carries it to another
 card (`INPUT.md` § Spread).
 This takes up Gooseberry's requests for a card's notes on its corner in Spread
 and for carrying a note between cards. Spread never moves or resizes a window
-for a note, and the Bento group and the Active card show none.
+for a note, and the Active card shows none.

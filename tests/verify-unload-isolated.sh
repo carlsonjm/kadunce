@@ -4,18 +4,18 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|guest-float-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|placement-runtime-session.sh|placement-display-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh|adopt-reach-runtime-session.sh|signin-reach-runtime-session.sh|late-maximize-runtime-session.sh|late-maximize-active-runtime-session.sh|late-maximize-signin-runtime-session.sh|fill-return-runtime-session.sh|notes-focus-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|touch-after-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh|bento-motion-runtime-session.sh) ;;
-    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh) ;;
+    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh|bento-gap-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh|keyboard-first-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|spread-display-runtime-session.sh|connected-runtime-session.sh|connected-stacks-runtime-session.sh|every-display-runtime-session.sh|every-display-wake-runtime-session.sh|every-display-carry-runtime-session.sh|every-display-pane-runtime-session.sh|every-display-full-runtime-session.sh|connected-keys-runtime-session.sh|connected-bento-key-runtime-session.sh|connected-desk-keys-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
-    spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
+    spread-fingers-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
     connected-sizes-runtime-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh|x11-fill-return-runtime-session.sh) ;;
     card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|bento-key-sleeper-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
-    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
+    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|spread-signal-runtime-session.sh|context-line-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
     *) echo 'Unknown isolated probe session' >&2; exit 1 ;;
@@ -44,7 +44,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-sizes-runtime-session.sh
 fi
 scale_args=()
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
-    spread-fingers-runtime-session.sh|spread-bento-drop-runtime-session.sh|spread-bento-top-runtime-session.sh|flick-ask-runtime-session.sh) scalable=1 ;;
+    spread-fingers-runtime-session.sh|spread-bento-top-runtime-session.sh|flick-ask-runtime-session.sh) scalable=1 ;;
     keyboard-runtime-session.sh|keyboard-offscreen-runtime-session.sh) scalable=1 ;;
     *) scalable=0 ;;
 esac
@@ -112,7 +112,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
@@ -185,12 +185,12 @@ session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then session_timeout=70s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-display-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-drop-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-wake-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-carry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-pane-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-full-runtime-session.sh ]]; then session_timeout=120s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == guest-float-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-wake-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-carry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-pane-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-full-runtime-session.sh ]]; then session_timeout=120s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-keys-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-bento-key-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-desk-keys-runtime-session.sh ]]; then session_timeout=240s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-spread-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-sizes-runtime-session.sh ]]; then session_timeout=180s; fi
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == guest-float-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == table-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-top-runtime-session.sh ]]; then session_timeout=90s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == table-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-top-runtime-session.sh ]]; then session_timeout=90s; fi
 # Every log line, Kadunce's included, goes to this session's log, not the
 # journal of the person whose machine runs the test.
 timeout "$session_timeout" env "${session_env[@]}" "${scaled_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \

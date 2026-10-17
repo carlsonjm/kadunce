@@ -12,9 +12,11 @@ qt_plugin_dir() {
     printf '%s\n' /usr/lib/qt6/plugins
 }
 
-# Only the final copy is privileged: never build or execute source as root,
-# and never run as root anything kept where this account can write. The one
-# privileged step is the system's own install, or Shuffle's root-owned key.
+# Nothing in this script runs as root. It lives in the home folder, where
+# anything running as you can rewrite it, so the one privileged step goes to a
+# program only the administrator can change: Shuffle's install key where it is
+# set up, otherwise /usr/bin/install through the system's prompt, exactly as
+# install.sh places the plugin.
 [[ $# == 0 && $EUID != 0 ]] || { echo 'Run repair as your normal user, not root.'; exit 2; }
 repair_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/kadunce
@@ -50,18 +52,16 @@ strings "$candidate" | grep -F "org.kde.kwin.EffectPluginFactory$version" >/dev/
 expected=$(sha256sum "$candidate" | cut -d' ' -f1)
 target=$(qt_plugin_dir)/kwin/effects/plugins/kwin4_effect_kadunce.so
 [[ -f $target && ! -L $target ]] || { echo 'Expected plugin missing; use the full installer.'; exit 1; }
-backup=$state_dir/kwin4_effect_kadunce.so.previous
+backup=$(mktemp "$state_dir/plugin-backup.XXXXXX")
 cp -- "$target" "$backup"
 echo 'Checks passed. Requesting permission to install one plugin file…'
-install_key=/usr/local/libexec/shuffle/install-step
+install_key=${KADUNCE_INSTALL_KEY:-/usr/local/libexec/shuffle/install-step}
 if [[ -x $install_key ]] && sudo -n -l "$install_key" kadunce install >/dev/null 2>&1; then
-    tar -C "$(dirname -- "$candidate")" -cf - "$(basename -- "$candidate")" \
-        | sudo -n "$install_key" kadunce install
+    tar -C "$(dirname -- "$candidate")" -cf - "$(basename -- "$candidate")" | sudo -n "$install_key" kadunce install
 else
     pkexec /usr/bin/install -Dm755 "$candidate" "$target"
 fi
-[[ $(sha256sum "$target" | cut -d' ' -f1) == "$expected" ]] \
-    || { echo 'The installed plugin is not the one built; use the full installer.'; exit 1; }
+[[ $(sha256sum "$target" | cut -d' ' -f1) == "$expected" ]] || { echo 'The installed plugin is not the one built; nothing else was changed.'; exit 1; }
 echo "Installed. Previous plugin backup: $backup"
 echo 'Repair completed. No effect toggle, desktop restart, or source download was performed.'
 echo 'If KWin cached the previous plugin, save work and log out/in normally.'

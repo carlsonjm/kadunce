@@ -308,6 +308,21 @@ std::vector<BentoRect> makeAlternateThreePaneBentoLayout(bool landscape)
                                  {0.0, 2.0 * third, 1.0, third}};
 }
 
+namespace
+{
+int s_bentoPaneGap = DefaultBentoPaneGap;
+}
+
+int bentoPaneGap()
+{
+    return s_bentoPaneGap;
+}
+
+void setBentoPaneGap(int gap)
+{
+    s_bentoPaneGap = std::max(0, gap);
+}
+
 std::vector<BentoPixelRect> makePixelBentoLayout(
     const std::vector<BentoRect> &rects,
     int areaX, int areaY, int areaWidth, int areaHeight, int gap)

@@ -15,7 +15,7 @@
         "ServiceTypes": [
             "KWin/Effect"
         ],
-        "Version": "0.1.0"
+        "Version": "1.1.0"
     },
     "X-KDE-Ordering": 50
 }

@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "CardLabelPresentation.h"
+
 namespace Kadunce
 {
 
@@ -16,28 +18,27 @@ struct SpreadReadingEntry {
     // Cards in the entry's Stack, its face included; 1 for a card alone.
     int stacked = 1;
     bool sleeping = false;
-    // The applications in the Bento group this entry is, in pane order;
-    // empty for a card or a Stack.
-    QStringList group;
+    // The applications of the panes sharing this card's layout, in the
+    // layout's order; empty for a card in no layout.
+    QStringList pairedWith;
+    // A Stack's cards waiting behind its face, nearest first, as many as
+    // Spread shows. Said in place of the panes beside it.
+    QStringList behind;
 };
 
 // What Spread says for an entry, as Table names its cards: the application
-// and the window's title, then whether it is a Stack and how many cards it
-// holds, and whether the card is sleeping. The Bento group is named by the
-// applications laid out in it.
+// and the window's title, the panes it shares a layout with, then whether it
+// is a Stack and how many cards it holds, and whether the card is sleeping.
+// A Stack names the cards behind its face instead of the panes beside it.
 inline QString spreadEntryName(const SpreadReadingEntry &entry)
 {
     QStringList parts;
-    if (!entry.group.isEmpty()) {
-        QStringList applications;
-        for (const QString &application : entry.group)
-            if (!application.isEmpty()) applications.append(application);
-        parts.append(QObject::tr("Bento group"));
-        if (!applications.isEmpty()) parts.append(applications.join(QObject::tr(" and ")));
-        return parts.join(QStringLiteral(", "));
-    }
     if (!entry.application.isEmpty()) parts.append(entry.application);
     if (!entry.title.isEmpty() && entry.title != entry.application) parts.append(entry.title);
+    const QString behind = namesInLine(entry.behind);
+    const QString partners = namesInLine(entry.pairedWith);
+    if (!behind.isEmpty()) parts.append(QObject::tr("then %1").arg(behind));
+    else if (!partners.isEmpty()) parts.append(QObject::tr("with %1").arg(partners));
     if (entry.stacked > 1) parts.append(QObject::tr("Stack of %1 cards").arg(entry.stacked));
     if (entry.sleeping) parts.append(QObject::tr("sleeping"));
     if (parts.isEmpty()) parts.append(QObject::tr("Card"));

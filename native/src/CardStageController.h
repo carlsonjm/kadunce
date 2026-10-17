@@ -107,9 +107,10 @@ public:
     // selected; open it so the question can be answered. A host that cannot
     // open a card leaves it selected in Spread.
     virtual void presentSelectedForCardStage() {}
-    // A card let go on a pane of the Bento group took that pane; open the
-    // group as its layout, the card growing from `from`, where it was drawn.
-    virtual void openGroupAfterDropForCardStage(const QRectF &) {}
+    // The card gutter changed while Kadunce runs, and Bento's panes stand that
+    // far apart: every layout the host shows is laid out again. A host
+    // without layouts has nothing to move.
+    virtual void cardGutterChangedForCardStage() {}
     // Whether this display is sized Connected (DisplaySizing.h). A host that
     // draws no distinction answers Solo.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
@@ -200,33 +201,34 @@ public:
     // Stacks cards that stand alone behind face, as a stack carried here from
     // another desktop left it. Not an ownership transition.
     bool stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
-    // Presentation provenance only. These windows entered Spread while their
-    // live surfaces still had Bento pane dimensions; membership and restoration
-    // remain entirely in the ordinary workspace/restore owners.
-    [[nodiscard]] bool usesBentoProjectionAperture(
-        const KWin::EffectWindow *window) const;
     // Whether the window belongs to the display's layout while Spread shows
-    // it: a pane of it, or a window sleeping with it. On a display sized
-    // Connected each is a card of its own in the row; elsewhere they are the
-    // Bento group, drawn through its aperture.
+    // it: a pane of it, or a window sleeping with it, each a card of its own
+    // in the row.
     [[nodiscard]] bool inProjectedLayout(const KWin::EffectWindow *window) const;
-    // Spread shows the layout's panes as cards of their own (Connected).
-    [[nodiscard]] bool panesAsCards() const { return m_panesAsCards && m_bentoProjectionSession; }
+    // §11, Connected: a pane leaves the layout from Spread and becomes a card
+    // of its own; the panes left keep the layout, laid out again.
+    bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     [[nodiscard]] bool isBentoProjectionPane(
         const KWin::EffectWindow *window) const;
-    [[nodiscard]] bool selectedIsBentoProjection() const;
     [[nodiscard]] bool selectedIsBentoGroup() const;
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> bentoProjectionPanes() const;
-    [[nodiscard]] KWin::Rect bentoProjectionWorkspace() const;
+    // The other awake panes of the layout a pane's card belongs to, in the
+    // layout's order; empty for a card in no layout.
+    [[nodiscard]] QList<KWin::EffectWindow *> layoutPartners(const KWin::EffectWindow *window) const;
     [[nodiscard]] std::optional<BentoRect> bentoProjectionRect(
         const KWin::EffectWindow *window) const;
     [[nodiscard]] bool resumeSelectedBentoProjection();
-    // Whether Spread holds the display's Bento group.
+    // Whether Spread holds the display's layout, as its panes' cards.
     [[nodiscard]] bool hasBentoGroup() const;
-    // CARD-LIFECYCLE.md §11, Connected: the group resumes as its layout
-    // whichever entry is selected, so a picked card can join it. A refused
+    // CARD-LIFECYCLE.md §11, Connected: the layout resumes whichever entry
+    // is selected, so a picked card can join it. A refused
     // resume leaves the selection where it was.
     [[nodiscard]] bool resumeBentoGroup();
+    // §11, Connected: the Active card standing in front of the layout Spread
+    // holds steps back into Spread at once, with no motion, so the layout
+    // can resume around it as it does for a pick. Refused unless the Active
+    // card is shown with that layout behind it.
+    [[nodiscard]] bool stepActiveBackToLayout();
     // §11, Connected: a Stack fills one pane. A pane's Stack is the cards
     // waiting behind it, front to back after the pane, as a ring; the cards
     // stay this stage's, hidden while the layout shows. notePaneStack records
@@ -300,22 +302,6 @@ public:
     [[nodiscard]] StackOutline stackOutline() const;
     [[nodiscard]] QString carryAimName() const;
     [[nodiscard]] int carryAimIndex() const;
-    // The pane of the Bento group a held card would take, by window id.
-    [[nodiscard]] QString carryAimPane() const;
-    // How far the pane of the Bento group a held card rests on has given way
-    // to a cutout, from 0 to 1; every other window, 0.
-    [[nodiscard]] double carryPaneRecess(const KWin::EffectWindow *window) const;
-    // Where a held card resting on a pane is drawn as it slides under the
-    // group (HeldTuck.h): how far, its tucked rect and tilt, and the cutout
-    // and group it slides under.
-    struct HeldTuck {
-        double progress = 0.0;
-        KWin::Rect tucked;
-        double rotation = 0.0;
-        KWin::Rect pane;
-        KWin::Rect group;
-    };
-    [[nodiscard]] std::optional<HeldTuck> heldTuck() const;
     [[nodiscard]] double carryScale() const;
     [[nodiscard]] bool animationsRunning() const;
     [[nodiscard]] bool launcherGuestActive() const;
@@ -505,6 +491,9 @@ public:
     }
     // §10: a carried window with nothing to pair with becomes the Active card.
     bool promoteToActive(KWin::EffectWindow *window);
+    // A card joins another's Stack in front of it, the Stack's other cards
+    // behind in their order.
+    bool stackCardOnto(KWin::EffectWindow *card, KWin::EffectWindow *onto);
     // A display was plugged in or out, and KWin moves windows between
     // displays when that happens, cards included: it evacuates a removed
     // display and puts windows back where they last stood on a layout it has
@@ -649,28 +638,6 @@ private:
     // stood, or a layout from the screen it filled, and its neighbours slide
     // in from the sides. Spread only.
     void formRowFromActive();
-    // Where the Bento group card draws its pane `pane`.
-    [[nodiscard]] std::optional<CardRect> groupPaneDrawn(KWin::LogicalOutput *output,
-                                                         KWin::EffectWindow *pane) const;
-    // The Bento group's pane under `position`, or the nearest to it.
-    [[nodiscard]] KWin::EffectWindow *groupPaneAt(KWin::LogicalOutput *output,
-                                                  const QPointF &position) const;
-    // §5: a pane pulled down out of the Bento group leaves it, and a group
-    // down to one pane ends, so on the tablet every member becomes a card.
-    bool pullPaneOutOfGroup(KWin::EffectWindow *pane);
-    // The Bento group's pane `part`, in the order the group stores them.
-    [[nodiscard]] KWin::EffectWindow *groupPane(int part) const;
-    // Whether the held card may take a pane of the Bento group at all.
-    [[nodiscard]] bool groupTakesHeldCard() const;
-    // Whether the Bento group's pane `part` is large enough for the held card.
-    [[nodiscard]] bool groupPaneHolds(int part) const;
-    // The pane under `position` the held card would take, or -1 when that
-    // pane is too small for it; the pane `kept`, named before, stays while
-    // the finger is near it (carryGroupPart).
-    [[nodiscard]] int groupPartFor(const QPointF &position, int kept) const;
-    // §5: a card let go on a pane of the Bento group in Spread takes that
-    // pane's place, and the pane becomes a card just after the group.
-    bool replaceGroupPane(int part);
     void browseStack(int delta);
     void commitRowStop();
     void dropRowMotion();
@@ -730,8 +697,7 @@ private:
         double y = 0.0;
         double velocity = 0.0; // pixels per second
         bool inStack = false;
-        // A pane of the Bento group: it comes out by a pull down, and a flick
-        // up closes nothing.
+        // A pane's card: a pull down takes it out of its layout.
         bool inGroup = false;
         Phase phase = Phase::None;
     };
@@ -772,15 +738,9 @@ private:
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
-    // The layout came into Spread as one card per pane (Connected) rather
-    // than as the Bento group.
-    bool m_panesAsCards = false;
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;
     // face in front of behind, in order, as one Stack of cards already here.
     bool restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
-    // §11, Connected: a pane leaves the layout from Spread and becomes a card
-    // of its own; the panes left keep the layout, laid out again.
-    bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     // The same, for a held pane let go on another card, while it is held.
     bool detachProjectedPane(KWin::EffectWindow *pane);
     // §11, Connected: a pane's card leaves its Stack, and the Stack keeps the
@@ -837,12 +797,8 @@ private:
     QPointF m_cardGrabOffset;
     QPointF m_cardGrabStart;
     KWin::Rect m_cardGrabTarget;
-    // Where a card that took a pane of the Bento group was drawn as it was
-    // let go, kept until the grab has ended and the group can open from it.
-    std::optional<QRectF> m_openGroupFrom;
     double m_cardGrabRotation = 0.0;
     QElapsedTimer m_cardGrabScaleTimer;
-    QPointF m_cardGrabPointer;
     QString m_cardGrabDestinationOutput;
     bool m_cardGrabActive = false;
     // The row under a held card; CarryRow.h says how it moves.
@@ -883,11 +839,9 @@ private:
         // held card's centre stood then, `settleX`.
         int settle = -1;
         double settleX = 0.0;
-        // The card a held one rests on rises; it settles as it is left. Over
-        // a Bento group only the pane `risePart` rises.
+        // The card a held one rests on rises; it settles as it is left.
         double rise = 0.0;
         int riseIndex = -1;
-        int risePart = -1;
         // Where on the card the finger holds it, as fractions of its size.
         QPointF grip;
         int heldIndex = 0;

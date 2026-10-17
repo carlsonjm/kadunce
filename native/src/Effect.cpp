@@ -14,8 +14,6 @@
 #include "PendingLaunch.h"
 #include "PlacementAim.h"
 #include "SpreadLayout.h"
-#include "BentoCompositeGeometry.h"
-#include "HeldTuck.h"
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
 #include "PaneArrival.h"
@@ -27,6 +25,7 @@
 #include "StuckNotesWatcher.h"
 #include "SurfaceTone.h"
 #include "KWinMatch.h"
+#include "DisplayBounds.h"
 #include <QCoreApplication>
 #include <cursor.h>
 #include <cursorsource.h>
@@ -118,7 +117,6 @@ constexpr double CardCornerRadius = 8.0;
 constexpr qint64 FrameStallMs = 50;
 // How far the Active card must travel under a KWin move before the cards let go.
 constexpr double ActiveMoveTravel = 12.0;
-constexpr float BentoWorkspaceTintOpacity = 0.22F;
 // A swipe up from the bottom bezel has opened Spread all the way once it has
 // risen this share of the tablet's height past where it committed, about the
 // four centimetres KWin gives three fingers on the tablet.
@@ -548,12 +546,11 @@ public:
         SessionScope scope(m_effect, m_session);
         cards().presentSelectedForCardStage();
     }
-    // A card let go on a pane of the Bento group took it: the group opens as
-    // its layout, on the desktop whose stage has it, the card growing there.
-    void openGroupAfterDropForCardStage(const QRectF &from) override
+    // Each desktop's stage hears the gutter change and lays out its own.
+    void cardGutterChangedForCardStage() override
     {
         SessionScope scope(m_effect, m_session);
-        cards().openGroupAfterDropForCardStage(from);
+        cards().cardGutterChangedForCardStage();
     }
     void connectManagedWindowForCardStage(KWin::EffectWindow *window) override
     {
@@ -983,6 +980,15 @@ Effect::Effect()
     });
     m_carriedDialogsRelease.setSingleShot(true);
     m_carriedDialogsRelease.setInterval(1000);
+    // A notice said only in the workspace context has no frame to end it.
+    m_contextNoticeEnd.setSingleShot(true);
+    m_contextNoticeEnd.setInterval(GestureNoteTiming::TotalMs + 20);
+    connect(&m_contextNoticeEnd, &QTimer::timeout, this, [this] {
+        if (m_zoneNotice && m_zoneNotice->shown.elapsed() >= GestureNoteTiming::TotalMs) m_zoneNotice.reset();
+        if (m_gestureNote && m_gestureNote->shown.elapsed() >= GestureNoteTiming::TotalMs) m_gestureNote.reset();
+        Q_EMIT workspaceContextChanged();
+        KWin::effects->addRepaintFull();
+    });
     connect(&m_carriedDialogsRelease, &QTimer::timeout, this, &Effect::releaseCarriedDialogs);
     connect(KWin::workspace(), &KWin::Workspace::aboutToRearrange, this, [this]() {
         if (m_workAreaCheckQueued) return;
@@ -1061,9 +1067,14 @@ Effect::Effect()
             m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
         }
         m_carriedWindow = w->effectWindow();
+        // Carried again, it goes where this carry puts it; the top edge marks it
+        // alone again when it lets go there.
+        m_aloneOnPurpose.removeAll(m_carriedWindow);
+        m_carryOrigin = w->output() ? w->output()->name() : QString();
         m_carryDrawn = carriedPose();
         m_carryLanded = false;
         traceNativeMove(m_carriedWindow, "adopted");
+        syncNotesPause();
         takeCarriedDialogs(m_carriedWindow);
         KWin::effects->setElevatedWindow(m_carriedWindow, true);
         // §11, Connected: a pane holding a Stack, held before it is drawn up,
@@ -1135,6 +1146,8 @@ Effect::Effect()
         const QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         const QRectF drawn = std::exchange(m_carryDrawn, QRectF());
         const bool landed = std::exchange(m_carryLanded, false);
+        const QString origin = std::exchange(m_carryOrigin, QString());
+        if (landed) refillDisplayCarriedFrom(carried, origin);
         // A Stack scrubbed goes in where it was let go, and nowhere when the
         // scrub was cancelled. The pane never left its place.
         const QPointer<KWin::EffectWindow> scrubbed = m_stackScrub.active() ? m_stackScrubPane : nullptr;
@@ -2269,6 +2282,8 @@ void Effect::openTable(bool sticky, KWin::LogicalOutput *output)
     quietCardGap(KWin::effects->cursorPos());
     relayoutTable();
     refreshTable();
+    // A Table button elsewhere, the dock's among them, shows Table open.
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::closeTable()
@@ -2291,6 +2306,7 @@ void Effect::finishTable()
     if (m_tablePresenter) m_tablePresenter->close();
     quietCardGap(KWin::effects->cursorPos());
     scheduleDissolve();
+    Q_EMIT workspaceContextChanged();
 }
 
 int Effect::tableCardAt(const QPointF &local) const
@@ -2865,10 +2881,19 @@ void Effect::setUsesDrawnZones(bool uses)
 void Effect::switchZoneMode()
 {
     setUsesDrawnZones(!m_usesDrawnZones);
+    const QString text = m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill");
+    // A surface showing the context says it on its line instead of a popup
+    // over the work.
+    if (!m_contextLineClaims.isEmpty()) {
+        m_zoneNotice = ZoneNotice{text, {}};
+        m_zoneNotice->shown.start();
+        m_contextNoticeEnd.start();
+        Q_EMIT workspaceContextChanged();
+        return;
+    }
     auto message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
         QStringLiteral("/org/kde/osdService"), QStringLiteral("org.kde.osdService"), QStringLiteral("showText"));
-    message << QStringLiteral("view-grid")
-            << (m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill"));
+    message << QStringLiteral("view-grid") << text;
     QDBusConnection::sessionBus().asyncCall(message);
 }
 
@@ -2996,6 +3021,12 @@ void Effect::handleWindowOutputChanged()
     auto *client = qobject_cast<KWin::Window *>(sender());
     const QPointer<KWin::EffectWindow> window = client ? client->effectWindow() : nullptr;
     if (!window) return;
+    // The window learns how large it may grow on the display it is on now, and
+    // a pane it fell short of there is asked for again within those bounds.
+    if (sendDisplayBounds(client, client->moveResizeOutput()) && m_desktopStage->managesWindow(window))
+        QTimer::singleShot(0, this, [this, window] {
+            if (window && !window->isDeleted()) (void)m_desktopStage->replacePaneShortOfPlace(window);
+        });
     // A window KWin sends to another display some other way than a display
     // change, such as its window-to-screen shortcut, is answered as one that
     // opened there. KWin reports the change inside the move that makes it, so
@@ -3392,6 +3423,17 @@ void Effect::refillOtherDisplay(const QString &outputName)
     if (latest) (void)showCardOnItsDisplay(latest, false);
 }
 
+void Effect::refillDisplayCarriedFrom(KWin::EffectWindow *carried, const QString &origin)
+{
+    // §11, Every display: carried away, the card a display holding its own
+    // cards showed leaves the one it used before, as closing it does. A carry
+    // that went nowhere left the display its card.
+    KWin::LogicalOutput *left = KWin::effects->findScreen(origin);
+    if (!carried || carried->isDeleted() || !isOtherCardDisplay(left) || carried->screen() == left)
+        return;
+    QTimer::singleShot(0, this, [this, origin] { refillOtherDisplay(origin); });
+}
+
 bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
 {
     KWin::LogicalOutput *home = cardHome(card);
@@ -3437,17 +3479,21 @@ bool Effect::showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread)
 
 bool Effect::returnCardInUseOnItsDisplay(KWin::EffectWindow *card)
 {
-    // §11, Every display: a pane minimized there waits in Spread asleep, where
-    // it stood. Woken there, by the dock or a task switcher, it is in use on
-    // that display, so it goes back to it, never Active on Spread's display.
+    // §11, Every display: a card waiting in Spread for another display, asked
+    // for by the dock or a task switcher, opens on that display, its own,
+    // wherever Spread lives. A pane minimized there waits the same way, where
+    // it stood, and woken goes back to it. Only a card carried to another
+    // display becomes that display's. Focus given to the card Spread's display
+    // already shows, or handed on while Spread is open, asks for nothing.
     const auto waitsThere = [this](KWin::EffectWindow *window) {
         KWin::LogicalOutput *home = window ? cardHome(window) : nullptr;
         return home && !m_releasing && !window->isDeleted() && window->window()
-            && !window->isMinimized() && window->screen() == home
-            && !window->isUserMove() && !window->isUserResize()
+            && !window->isMinimized() && !window->isUserMove() && !window->isUserResize()
             && window != m_carriedWindow && window != m_nativeCarry
             && m_cardStage->liveCardIndex(window) >= 0 && !m_cardStage->cardGrabActive()
-            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread);
+            && !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+            && !(m_cardStage->presentation() == CardPresentation::Active
+                 && m_cardStage->activeCardIdentity() == window);
     };
     if (!waitsThere(card)) return false;
     const QPointer<KWin::EffectWindow> woken = card;
@@ -3456,7 +3502,7 @@ bool Effect::returnCardInUseOnItsDisplay(KWin::EffectWindow *card)
         const QString there = cardHome(woken)->name();
         if (showCardOnItsDisplay(woken, false))
             qInfo() << "Kadunce" << Revision << "gave" << logNameOf(woken) << "back to" << there
-                    << "where it was brought back";
+                    << "where it was asked for";
     });
     return true;
 }
@@ -4281,6 +4327,8 @@ bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow 
 void Effect::toggleBento()
 {
     m_letGo = false;
+    // §10: Meta+B lays a card the top edge left alone out with the rest.
+    m_aloneOnPurpose.clear();
     if (m_carryRuntime) m_carryRuntime->cancel();
     // CARD-LIFECYCLE.md §3: external Bento while docked, tablet Bento while
     // undocked. This read the pointer before, which on a touch tablet is
@@ -4298,10 +4346,28 @@ void Effect::toggleBento()
         && m_cardStage->canOwnCards(target)) {
         // §11, Every display: windows given back there are cards again first.
         if (m_cardsOnEveryDisplay && !m_cardStage->isActive()) (void)startTabletInCards(nullptr);
+        qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with no layout";
+        const QPointer<KWin::EffectWindow> active = m_cardStage->activeCardIdentity();
         if (!pairActiveCardIntoBento(target)) {
+            // §11, Connected: the layout Spread holds, standing behind the
+            // Active card, is laid out again with that card in it, as picking
+            // the card from Spread would; its panes are no partners for it.
+            if (active && connectedOutputForDesktopStage(target)
+                && m_cardStage->stepActiveBackToLayout()) {
+                if (playPickedCardIntoLayout(active)) {
+                    qInfo() << "Kadunce" << Revision << "laid the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                } else {
+                    (void)m_cardStage->presentSelectedNow();
+                    qInfo() << "Kadunce" << Revision << "could not lay the layout on" << target->name()
+                            << "out again with" << logNameOf(active) << "in it";
+                }
+                observeCardOwnership();
+                return;
+            }
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
-                    << "and" << (m_cardStage->activeCardIdentity() ? "an" : "no") << "Active card";
+                    << "and" << (active ? "an" : "no") << "Active card";
         } else if (connectedOutputForDesktopStage(target)) {
             // §11, Connected: Bento auto-fill is the layout. The pair grows
             // to hold every open card of the display, as far as it has room.
@@ -4314,13 +4380,22 @@ void Effect::toggleBento()
     QList<QPointer<KWin::EffectWindow>> former = m_desktopStage->panesOn(target->name());
     QPointer<KWin::EffectWindow> inUse = KWin::effects->activeWindow();
     if (!former.contains(inUse)) inUse = former.isEmpty() ? nullptr : former.first();
+    // §11, Connected: a layout standing behind the Active card, as one does
+    // until Spread can hold what the top edge left, is not what the display
+    // shows. The key lays it out again with that card in it, at
+    // one press, rather than ending what was not shown.
+    const QPointer<KWin::EffectWindow> inFront = m_cardsOnEveryDisplay && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active && connectedOutputForDesktopStage(target)
+        ? m_cardStage->activeCardIdentity() : nullptr;
+    qInfo() << "Kadunce" << Revision << "Meta+B on" << target->name() << "with a layout of"
+            << former.size() << (inFront ? QString(QStringLiteral("behind ") + logNameOf(inFront)) : QStringLiteral("shown"));
     (void)m_desktopStage->toggleOnOutput(target->name());
     observeCardOwnership();
     // §11, Every display: a layout ended by the key leaves its windows as
     // cards, the one in use Active, so the key pairs them again. With cards
     // already held behind the layout, its panes join them.
     if (!m_cardsOnEveryDisplay || !m_cardStage->canOwnCards(target)) return;
-    QTimer::singleShot(0, this, [this, former, inUse, target = QPointer(target)] {
+    QTimer::singleShot(0, this, [this, former, inUse, inFront, target = QPointer(target)] {
         if (!m_cardStage->isActive()) {
             (void)startTabletInCards(inUse);
             return;
@@ -4330,9 +4405,17 @@ void Effect::toggleBento()
             if (window && !window->isDeleted() && window->screen() == target
                 && m_cardStage->liveCardIndex(window) < 0)
                 (void)m_cardStage->admitArrivalAsCard(window);
-        if (inUse && m_cardStage->liveCardIndex(inUse) >= 0) (void)m_cardStage->promoteToActive(inUse);
+        KWin::EffectWindow *front = inFront && !inFront->isDeleted()
+            && m_cardStage->liveCardIndex(inFront) >= 0 ? inFront.data() : nullptr;
+        KWin::EffectWindow *active = front ? front : inUse.data();
+        if (active && m_cardStage->liveCardIndex(active) >= 0) (void)m_cardStage->promoteToActive(active);
         qInfo() << "Kadunce" << Revision << "ended the layout on" << target->name()
-                << "into cards," << (inUse ? logNameOf(inUse) : QString()) << "Active";
+                << "into cards," << (active ? logNameOf(active) : QString()) << "Active";
+        if (front && pairActiveCardIntoBento(target)) {
+            qInfo() << "Kadunce" << Revision << "laid the layout on" << target->name()
+                    << "out again with" << logNameOf(front) << "in it";
+            QTimer::singleShot(0, this, [this, target] { fillLayoutWithCards(target); });
+        }
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     });
@@ -4433,7 +4516,30 @@ void Effect::connectManagedWindow(KWin::EffectWindow *window)
     if (m_carryRuntime && window->window()) m_carryRuntime->observer.watch(window->window());
 }
 
-QString Effect::applicationDisplayName(KWin::EffectWindow *window)
+QStringList Effect::namesBehindInSpread(int cardId) const
+{
+    QStringList names;
+    const auto &cards = m_cardStage->liveCards();
+    const auto order = m_cardStage->model().stackPaintOrderForId(cardId);
+    // Painted farthest first, the face last.
+    for (auto id = order.crbegin(); id != order.crend(); ++id) {
+        if (id == order.crbegin()) continue;
+        KWin::EffectWindow *card = *id >= 1 && *id <= cards.size() ? cards.at(*id - 1).data() : nullptr;
+        if (card && !card->isDeleted()) names.append(applicationDisplayName(card));
+    }
+    return names;
+}
+
+QString Effect::spreadCardName(KWin::EffectWindow *window, int cardId) const
+{
+    const QStringList behind = namesBehindInSpread(cardId);
+    if (!behind.isEmpty()) return stackedApplicationName(applicationDisplayName(window), behind);
+    QStringList partners;
+    for (auto *pane : m_cardStage->layoutPartners(window)) partners.append(applicationDisplayName(pane));
+    return pairedApplicationName(applicationDisplayName(window), partners);
+}
+
+QString Effect::applicationDisplayName(KWin::EffectWindow *window) const
 {
     if (!window) return {};
     const auto cached = m_applicationDisplayNames.constFind(window);
@@ -4560,6 +4666,7 @@ void Effect::endNativeCarryPresentation()
         unredirect(m_carriedWindow);
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
+    syncNotesPause();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     endStackScrub();
@@ -4680,7 +4787,6 @@ QString Effect::nativeCarryState() const
         // under it has stepped back.
         {QStringLiteral("carryAim"), m_cardStage->carryAimName()},
         {QStringLiteral("carryIndex"), m_cardStage->carryAimIndex()},
-        {QStringLiteral("carryPane"), m_cardStage->carryAimPane()},
         {QStringLiteral("carryScale"), m_cardStage->carryScale()}
     }).toJson(QJsonDocument::Compact));
 }
@@ -4941,8 +5047,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                             [this, carried, named] {
                                 return m_cardStage->releasePairToBento(carried, named);
                             });
-                    // It grows into its pane from where it was let go, as a
-                    // card let go on a pane of the group in Spread does.
+                    // It grows into its pane from where it was let go.
                     if (committed) startPaneArrival(carried, output, drawn);
                     // Both are panes of this display's layout now.
                     if (committed && carried) m_cardHomes.remove(carried.data());
@@ -5038,6 +5143,16 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         : !admitTransferredWindowToTablet(carried, sourceValid)) return false;
                     (void)m_cardStage->promoteToActive(carried);
                     glideIntoActive(carried, output, drawn);
+                    // §10: taken out of a layout to stand alone, it is called
+                    // back alone too, until Meta+B or an edge lays it out.
+                    if (extractingPane && output && isTabletOutput(output)) markAloneOnPurpose(carried);
+                    if (extractingPane && output && isTabletOutput(output) && connectedForCardStage()
+                        && m_desktopStage->hasSessionOnOutput(output->name())) {
+                        // After the glide, so the card is drawn where it lands.
+                        QTimer::singleShot(motion(260), this, [this, carried, output] {
+                            holdLayoutLeftBehind(carried, output);
+                        });
+                    }
                     return true;
                 });
             return;
@@ -5054,12 +5169,31 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge
         && connectedOutputForDesktopStage(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+    // Carried in from another display and rested on Spread's Active card, or
+    // on a pane there however that display is sized, as the card another
+    // display shows alone is one, it lands as it would and then joins that
+    // Stack.
+    if (!over && !local && !desktopWindow && !edge) {
+        if (tablet && m_cardStage->isActive()
+            && m_cardStage->presentation() == CardPresentation::Active) {
+            KWin::EffectWindow *card = m_cardStage->selectedWindow();
+            if (card && card != m_carriedWindow && !card->isDeleted()
+                && QRectF(card->frameGeometry()).contains(contact)) over = card;
+        }
+        if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
+            over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
+    }
+    QPointer<KWin::EffectWindow> stackAfter;
     if (over) {
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();
         if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now)) {
             m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
+        } else if (!local) {
+            m_paneStackDwell.stop();
+            m_carryStackOnto = over;
+            stackAfter = over;
         } else {
             m_paneStackDwell.stop();
             m_carryStackOnto = over;
@@ -5107,16 +5241,67 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         : monitorDropIntent(target->name(), 0,
             existing ? std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}} : std::nullopt, edge);
     if (!destination) return;
+    if (stackAfter) m_carryPreview = KWin::RectF(stackAfter->frameGeometry());
     handoff.previewDrop(*destination,
-        [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
-        [this, reserved, bento, output, geometry, targetRect = m_carryPreview,
+        [this, reserved, stackAfter, aimed = bool(stackAfter)] {
+            return m_desktopStage->cardDropValid(*reserved) && (!aimed || (stackAfter && !stackAfter->isDeleted()));
+        },
+        [this, reserved, bento, output, geometry, stackAfter, targetRect = stackAfter ? std::optional<KWin::RectF>{} : m_carryPreview,
          arrival = m_carriedWindow](const PreparedCarrySource &source) {
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
                 : m_cardStage->transferNativeCarryToDesktop(source, output, geometry);
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
+            if (committed && stackAfter) {
+                QPointer<KWin::EffectWindow> carried = arrival;
+                QPointer<KWin::EffectWindow> onto = stackAfter;
+                QTimer::singleShot(0, this, [this, carried, onto] { stackWhenLanded(carried, onto); });
+            }
             return committed;
         });
+}
+
+void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto, int tries)
+{
+    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) return;
+    // CARD-LIFECYCLE.md §11: once it stands where it was carried, as a pane
+    // of that layout or as the tablet's card, it joins the Stack it rested on.
+    bool stacked = false;
+    if (m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto)) {
+        stacked = stackPaneOnto(carried, onto);
+    } else if (KWin::LogicalOutput *there = carried->screen();
+               m_desktopStage->managesWindow(carried) && m_cardStage->liveCardIndex(onto) >= 0
+               && there && cardHome(onto) == there) {
+        // §11, Every display: the card a display showed alone gave its place
+        // to the arrival and waits for that display; it waits behind it, as
+        // a card given there with its Stack does.
+        QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(onto);
+        if (behind.isEmpty()) behind.append(onto);
+        behind.append(m_cardStage->paneStack(carried));
+        m_cardStage->notePaneStack(carried, behind);
+        for (auto *member : std::as_const(behind))
+            if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
+        m_cardStage->settlePaneStacks();
+        stacked = true;
+        qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto)
+                << "waiting for" << there->name();
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
+    } else if (m_cardStage->liveCardIndex(carried) >= 0 && m_cardStage->liveCardIndex(onto) >= 0) {
+        stacked = m_cardStage->stackCardOnto(carried, onto);
+        if (stacked) {
+            qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto);
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+        }
+    }
+    if (stacked) return;
+    if (tries <= 0) {
+        qInfo() << "Kadunce" << Revision << "could not stack" << logNameOf(carried) << "on"
+                << logNameOf(onto) << "after it landed";
+        return;
+    }
+    QTimer::singleShot(100, this, [this, carried, onto, tries] { stackWhenLanded(carried, onto, tries - 1); });
 }
 
 void Effect::showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWindow *returned)
@@ -5496,6 +5681,7 @@ void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
     if (carried) {
         syncSelectedElevation();
         KWin::effects->addRepaintFull();
+        refillDisplayCarriedFrom(window, source);
     }
     // §11, Every display: whatever else let it go, a window left loose on a
     // display holding its own cards becomes a card there.
@@ -5815,6 +6001,14 @@ bool Effect::claimTopEdge(const QString &key, const QString &outputName,
         return false;
     }
     const QString owner = message().service();
+    watchClaimOwner(owner);
+    m_topEdgeClaims.insert(owner + QLatin1Char('\n') + key,
+        TopEdgeClaim{owner, outputName, QRectF(x, y, width, height)});
+    return true;
+}
+
+void Effect::watchClaimOwner(const QString &owner)
+{
     if (!m_topEdgeClaimWatcher) {
         m_topEdgeClaimWatcher = new QDBusServiceWatcher(
             QString(), QDBusConnection::sessionBus(),
@@ -5824,13 +6018,100 @@ bool Effect::claimTopEdge(const QString &key, const QString &outputName,
             m_topEdgeClaims.removeIf([&service](const auto &claim) {
                 return claim.value().owner == service;
             });
+            const bool hadLine = m_contextLineClaims.removeIf([&service](const auto &claim) {
+                return claim.value().owner == service;
+            }) > 0;
             m_topEdgeClaimWatcher->removeWatchedService(service);
+            // Kadunce's own words come back on the displays it left.
+            if (hadLine) KWin::effects->addRepaintFull();
         });
     }
     m_topEdgeClaimWatcher->addWatchedService(owner);
-    m_topEdgeClaims.insert(owner + QLatin1Char('\n') + key,
-        TopEdgeClaim{owner, outputName, QRectF(x, y, width, height)});
+}
+
+bool Effect::claimContextLine(const QString &key, const QString &outputName)
+{
+    if (!calledFromDBus() || key.isEmpty() || outputName.isEmpty()) return false;
+    const QString owner = message().service();
+    watchClaimOwner(owner);
+    m_contextLineClaims.insert(owner + QLatin1Char('\n') + key, ContextLineClaim{owner, outputName});
+    KWin::effects->addRepaintFull();
     return true;
+}
+
+void Effect::clearContextLineClaim(const QString &key)
+{
+    if (!calledFromDBus()) return;
+    if (m_contextLineClaims.remove(message().service() + QLatin1Char('\n') + key) > 0)
+        KWin::effects->addRepaintFull();
+}
+
+bool Effect::contextLineClaimed(const KWin::LogicalOutput *output) const
+{
+    if (!output || m_contextLineClaims.isEmpty()) return false;
+    for (const ContextLineClaim &claim : m_contextLineClaims)
+        if (claim.output == output->name()) return true;
+    return false;
+}
+
+QJsonValue Effect::contextNotice() const
+{
+    const auto notice = [](const QString &kind, const QString &text, const KWin::LogicalOutput *output) {
+        return QJsonObject{
+            {QStringLiteral("kind"), kind},
+            {QStringLiteral("text"), text},
+            {QStringLiteral("output"), output ? output->name() : QString()},
+        };
+    };
+    if (m_detachShownOn) return notice(QStringLiteral("returnToDesktop"), tr("Return to desktop"), m_detachShownOn);
+    if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
+        return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
+    if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        return notice(QStringLiteral("zones"), m_zoneNotice->text, nullptr);
+    return QJsonValue(QJsonValue::Null);
+}
+
+QJsonValue Effect::spreadEntryContext() const
+{
+    if (!m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Spread)
+        return QJsonValue(QJsonValue::Null);
+    const SpreadModel &model = m_cardStage->model();
+    const auto &cards = m_cardStage->liveCards();
+    const int id = model.count() > 0 ? model.idAtOffset(0) : 0;
+    KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
+    if (!window || window->isDeleted()) return QJsonValue(QJsonValue::Null);
+    const int size = std::max(1, model.stackSizeForId(id));
+    return QJsonObject{
+        {QStringLiteral("cardId"), window->internalId().toString(QUuid::WithoutBraces)},
+        {QStringLiteral("name"), spreadCardName(window, id)},
+        {QStringLiteral("bento"), !m_cardStage->layoutPartners(window).isEmpty()},
+        {QStringLiteral("stackPosition"), size > 1 ? m_cardStage->shownStackPosition(id) + 1 : 1},
+        {QStringLiteral("stackSize"), size},
+        {QStringLiteral("sleeping"), window->isMinimized()},
+    };
+}
+
+QString Effect::contextLineSignature() const
+{
+    QString signature;
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) {
+        const SpreadModel &model = m_cardStage->model();
+        const auto &cards = m_cardStage->liveCards();
+        const int id = model.count() > 0 ? model.idAtOffset(0) : 0;
+        KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
+        if (window && !window->isDeleted()) {
+            signature = QStringLiteral("%1 %2 %3 %4 %5").arg(id)
+                .arg(m_cardStage->shownStackPosition(id)).arg(model.stackSizeForId(id))
+                .arg(window->isMinimized()).arg(spreadCardName(window, id));
+        }
+    }
+    signature += QLatin1Char('\n');
+    if (m_detachShownOn) signature += QStringLiteral("d ") + m_detachShownOn->name();
+    else if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
+        signature += QStringLiteral("r ") + m_gestureNote->text;
+    else if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        signature += QStringLiteral("z ") + m_zoneNotice->text;
+    return signature;
 }
 
 void Effect::clearTopEdgeClaim(const QString &key)
@@ -6116,9 +6397,14 @@ QString Effect::workspaceContext() const
                 ? QJsonValue(QJsonValue::Null)
                 : QJsonValue(selectedCardId)},
             {QStringLiteral("selectedStack"), selectedStack},
+            {QStringLiteral("spreadEntry"), spreadEntryContext()},
         }},
+        {QStringLiteral("notice"), contextNotice()},
         {QStringLiteral("desktopStage"), QJsonObject{
             {QStringLiteral("active"), hasActiveDesktopStage()},
+        }},
+        {QStringLiteral("table"), QJsonObject{
+            {QStringLiteral("open"), m_table.isOpen()},
         }},
         {QStringLiteral("displayContext"), QJsonObject{
             {QStringLiteral("edgeBackend"), m_usesDirectSystemEdges
@@ -6355,6 +6641,7 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
             // Active card carried there: alone on an open display, or among
             // the columns of the layout the card was played into.
             if (side.connected) {
+                m_aloneOnPurpose.removeAll(placed);
                 // A layout already standing takes the card as a pane first,
                 // as a pick from Spread would; only an open display places
                 // it alone.
@@ -6756,6 +7043,8 @@ void Effect::showGestureNote(KWin::LogicalOutput *output, QPointF contact, Gestu
     qInfo() << "Kadunce" << Revision << "refused a gesture on" << output->name() << ":" << text;
     m_gestureNote = std::move(note);
     KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
+    // Said rather than drawn on a claimed display, so no frame ends it.
+    if (contextLineClaimed(output)) m_contextNoticeEnd.start();
 }
 
 
@@ -6767,8 +7056,8 @@ bool Effect::notesShownInSpread() const
         && !m_cardStage->cardGrabActive() && !m_table.isOpen() && !m_previewDesktop;
 }
 
-// What Spread says for its chosen entry: each entry by its front card, the
-// Bento group by its panes, with the entry's place in the row.
+// What Spread says for its chosen entry: each entry by its front card, a
+// pane's card with the panes beside it, and the entry's place in the row.
 QString Effect::spreadLine()
 {
     const SpreadModel &model = m_cardStage->model();
@@ -6781,16 +7070,13 @@ QString Effect::spreadLine()
         KWin::EffectWindow *window = id >= 1 && id <= cards.size() ? cards.at(id - 1).data() : nullptr;
         SpreadReadingEntry entry;
         if (window && !window->isDeleted()) {
-            if (!m_cardStage->panesAsCards() && m_cardStage->inProjectedLayout(window)) {
-                for (const auto &pane : m_cardStage->bentoProjectionPanes())
-                    if (pane && !pane->isDeleted()) entry.group.append(applicationDisplayName(pane));
-                if (entry.group.isEmpty()) entry.group.append(applicationDisplayName(window));
-            } else {
-                entry.application = applicationDisplayName(window);
-                entry.title = window->caption();
-                entry.stacked = std::max(1, model.stackSizeForId(id));
-                entry.sleeping = window->isMinimized();
-            }
+            entry.application = applicationDisplayName(window);
+            entry.title = window->caption();
+            entry.stacked = std::max(1, model.stackSizeForId(id));
+            entry.sleeping = window->isMinimized();
+            for (auto *pane : m_cardStage->layoutPartners(window))
+                entry.pairedWith.append(applicationDisplayName(pane));
+            entry.behind = namesBehindInSpread(id);
         }
         entries.append(entry);
     }
@@ -6895,6 +7181,14 @@ bool Effect::isNotesSurface(const KWin::EffectWindow *window) const
     if (!window->isDeleted() && !window->acceptsFocus()) return true;
     const auto *output = window->screen();
     return output && window->frameGeometry().toRect() != output->geometry();
+}
+
+bool Effect::isSearchSurface(const KWin::EffectWindow *window)
+{
+    if (!window || !window->window() || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    const QString identity = applicationIdentity(window);
+    return identity.compare(QStringLiteral("io.github.carlsonjm.Tettegouche"), Qt::CaseInsensitive) == 0
+        || identity.compare(QStringLiteral("tettegouche"), Qt::CaseInsensitive) == 0;
 }
 
 // While Spread is up the notes are drawn on the cards instead, so that
@@ -7005,8 +7299,7 @@ QList<NotesCard> Effect::notesCards() const
         for (int index = 0; index < windows.size(); ++index) {
             auto *window = windows.at(index).data();
             if (!window || window->isDeleted() || (window == selected) != (pass == 0)
-                || m_cardStage->paintSlot(window) == 99 || m_cardStage->thrownAway(window)
-                || m_cardStage->usesBentoProjectionAperture(window)) continue;
+                || m_cardStage->paintSlot(window) == 99 || m_cardStage->thrownAway(window)) continue;
             const int cardId = index + 1;
             if (model.stackPositionForId(cardId) != model.stackActivePositionForId(cardId)) continue;
             // Where the card was last drawn, as the notes on it were; a card
@@ -7082,13 +7375,15 @@ void Effect::releaseNotesFromInput(const QPointF &position, bool still)
 void Effect::syncNotesPause()
 {
     // Gooseberry's notes over the windows step aside while Spread covers them,
-    // and come back as it closes, still out.
+    // or while a window is carried, which they cannot follow under the hand,
+    // and come back as it closes or lands, still out.
     if (!m_stuckNotesWatcher || !m_stuckNotesWatcher->present()) {
         m_notesPaused = false;
         return;
     }
-    if (m_notesPaused == m_notesSpreadShown) return;
-    m_notesPaused = m_notesSpreadShown;
+    const bool aside = m_notesSpreadShown || bool(m_carriedWindow);
+    if (m_notesPaused == aside) return;
+    m_notesPaused = aside;
     m_stuckNotesWatcher->pause(m_notesPaused);
 }
 
@@ -7109,8 +7404,7 @@ void Effect::paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin:
     const auto carried = m_stuckNotes.carriedNote();
     for (int index = 0; index < windows.size(); ++index) {
         auto *window = windows.at(index).data();
-        if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99
-            || m_cardStage->usesBentoProjectionAperture(window)) continue;
+        if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99) continue;
         const int cardId = index + 1;
         if (model.stackPositionForId(cardId) != model.stackActivePositionForId(cardId)) continue;
         const auto *entry = m_stuckNotes.entryFor(window->internalId());
@@ -7584,27 +7878,24 @@ void Effect::activateSelectedFromInput()
             if (cardHome(requested) && requested->isMinimized()) requested->unminimize();
             if (!requested->isMinimized() && cardHome(requested)
                 && showCardOnItsDisplay(requested, true)) {
-                m_paneArrivalWindow.clear();
                 return;
             }
-            // CARD-LIFECYCLE.md section 6: selecting the Bento group resumes
-            // the group. A refused resume is not an invitation to try the
-            // individual-card path on it, which cannot admit a pane and leaves
-            // the selection doing nothing at all.
+            // CARD-LIFECYCLE.md section 6: choosing a pane's card resumes its
+            // layout, on that pane. A refused resume is not an invitation to
+            // try the individual-card path on it, which cannot admit a pane
+            // and leaves the selection doing nothing at all.
             if (m_cardStage->selectedIsBentoGroup()) {
-                const bool panesAsCards = m_cardStage->panesAsCards();
                 if (!m_cardStage->resumeSelectedBentoProjection()) {
                     qWarning() << "Kadunce" << Revision
-                               << "declined to resume the selected Bento group";
-                } else if (m_paneArrivalWindow == requested) {
-                    // A card let go on a pane grows into it from where it was.
-                    startPaneArrival(requested, tabletOutput(), m_paneArrivalFrom);
-                } else if (panesAsCards && m_desktopStage->managesWindow(requested)) {
-                    // §11: a pane picked as its own card opens the layout on it.
+                               << "declined to resume the selected Bento layout";
+                } else if (m_desktopStage->managesWindow(requested)
+                           && KWin::effects->activeWindow() != requested) {
                     KWin::effects->activateWindow(requested);
                 }
                 observeCardOwnership();
-            } else if (!requested->isMinimized() && playPickedCardIntoLayout(requested)) {
+            // §10: a card the top edge left alone is picked alone, as it left.
+            } else if (!requested->isMinimized() && !m_aloneOnPurpose.contains(requested)
+                       && playPickedCardIntoLayout(requested)) {
                 observeCardOwnership();
             } else if (requested->isMinimized()) {
                 // §2: selecting a sleeping card wakes it and presents it as
@@ -7614,19 +7905,13 @@ void Effect::activateSelectedFromInput()
                 toggleOwnedPresentation(true);
             }
         }
-        m_paneArrivalWindow.clear();
     });
 }
 
-void Effect::openGroupAfterDropForCardStage(const QRectF &from)
+void Effect::cardGutterChangedForCardStage()
 {
-    // CARD-LIFECYCLE.md §5: a card let go on a pane takes it, and the group
-    // opens as its layout, as choosing it in Spread does. A card that was
-    // waiting for another display is a pane here now, so it opens here.
-    m_paneArrivalWindow = selectedWindow();
-    if (m_paneArrivalWindow) m_cardHomes.remove(m_paneArrivalWindow.data());
-    m_paneArrivalFrom = from;
-    activateSelectedFromInput();
+    m_desktopStage->relayAllSessions();
+    KWin::effects->addRepaintFull();
 }
 
 void Effect::startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *output,
@@ -7664,8 +7949,8 @@ void Effect::toggleOwnedPresentation(bool growToActive)
         dismissLauncherGuestFromInput();
     }
     {
-        // §2: the live session becomes the Bento group entry in Spread, whether
-        // or not this stage already owns individual cards beside it.
+        // §2: the live session's panes become cards in Spread, whether or not
+        // this stage already owns individual cards beside them.
         KWin::LogicalOutput *tablet = tabletOutput();
         if (tablet && m_desktopStage->hasSessionOnOutput(tablet->name())) {
             m_desktopStage->transferTabletSessionToSpread(tablet,
@@ -7683,7 +7968,7 @@ void Effect::toggleOwnedPresentation(bool growToActive)
         && m_cardStage->presentation() != CardPresentation::Desktop) {
         if (!m_cardStage->resumeSelectedBentoProjection()) {
             qWarning() << "Kadunce" << Revision
-                       << "declined to resume the selected Bento group";
+                       << "declined to resume the selected Bento layout";
         }
         observeCardOwnership();
         return;
@@ -8287,6 +8572,16 @@ void Effect::postPaintScreen()
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
+    // Spread, Bento and the rest open and close along many paths, and every
+    // one ends in a frame, so the context is announced here whenever the
+    // presentation it reports changes: the dock's Spread button and the
+    // Context Bar follow at once.
+    const int presentation = m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1;
+    // What a context line says changes the same way, while one is claimed.
+    const QString line = m_contextLineClaims.isEmpty() ? QString() : contextLineSignature();
+    const bool lineChanged = line != std::exchange(m_reportedContextLine, line);
+    if (presentation != std::exchange(m_reportedPresentation, presentation) || lineChanged)
+        Q_EMIT workspaceContextChanged();
     if (continueRepaint) {
         KWin::effects->addRepaintFull();
     }
@@ -8432,7 +8727,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                          KWin::LogicalOutput *screen)
 {
     m_paintingOutput = screen;
-    m_projectionBackdropDrawn = false;
     if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) {
         m_cardLabelTargets.clear();
@@ -8490,6 +8784,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // outline window, or input grab belongs in the paint pass.
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
     const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
+    bool detachShown = false;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
     if (m_destinationShader && screen && preview
@@ -8504,11 +8799,16 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // The outline above is drawn for a Bento reservation, a Card Stage
         // entry or a card leaving at the bottom edge. §10 gives the bottom edge
         // the only detaching release, so a pane leaving its layout and a card
-        // leaving its display are labelled, and an entry never is.
+        // leaving its display are labelled, and an entry never is. A display
+        // whose context line is claimed has the words said there instead.
         if ((cardExit && cardExit == screen)
-            || (reservation && !cardEntry && reservation->detachesToDesktop()))
-            m_detachLabel.render(renderTarget, viewport, box);
+            || (reservation && !cardEntry && reservation->detachesToDesktop())) {
+            detachShown = true;
+            if (!contextLineClaimed(screen)) m_detachLabel.render(renderTarget, viewport, box);
+        }
     }
+    if (screen && detachShown != (m_detachShownOn == screen))
+        m_detachShownOn = detachShown ? screen : nullptr;
     // §11, Connected: a pane rested over another shows the Stack it would
     // join: the pane it covers drawn as a card standing behind a second.
     if (m_destinationShader && screen && m_carriedWindow && m_carryStackOnto && m_carryPreview
@@ -8534,25 +8834,16 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // A held card is above the row, so no name of the row shows through it.
         auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
-        for (int index = 0; index < windows.size(); ++index) {
+        // The names, and a Stack's place, are said on a claimed context line.
+        const bool namesSaid = contextLineClaimed(screen);
+        for (int index = 0; !namesSaid && index < windows.size(); ++index) {
             auto *window = windows.at(index).data();
             if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99)
                 continue;
             const int cardId = index + 1;
             if (model.stackPositionForId(cardId)
                 != model.stackActivePositionForId(cardId)) continue;
-            const bool bentoGroup = m_cardStage->usesBentoProjectionAperture(window);
-            QString applicationName;
-            if (bentoGroup) {
-                QStringList paneNames;
-                for (const auto &pane : m_cardStage->bentoProjectionPanes()) {
-                    if (pane && !pane->isDeleted())
-                        paneNames.append(applicationDisplayName(pane));
-                }
-                applicationName = bentoApplicationNames(paneNames);
-            } else {
-                applicationName = applicationDisplayName(window);
-            }
+            const QString applicationName = spreadCardName(window, cardId);
             const int count = model.stackSizeForId(cardId);
             const auto target = m_cardLabelTargets.constFind(window);
             if (target == m_cardLabelTargets.cend()) continue;
@@ -8561,7 +8852,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             m_cardLabelRenderer.render(renderTarget, viewport,
                 *target,
                 {applicationName, stackPositionLabel(
-                    m_cardStage->shownStackPosition(cardId), count, bentoGroup)});
+                    m_cardStage->shownStackPosition(cardId), count)});
             overlaid.append(CardLabelRenderer::labelRect(*target));
         }
         paintStuckNotes(renderTarget, viewport, deviceRegion, screen, heldRect, overlaid);
@@ -8570,7 +8861,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // now where Gooseberry draws them, until Gooseberry's own are there.
     if (m_notesHandover && screen && screen == tabletOutput()) paintNotesHandover(renderTarget, viewport, overlaid);
     // A refused gesture's note, over everything on the display it was let go on.
-    if (m_gestureNote && screen && m_gestureNote->output == screen) {
+    if (m_gestureNote && screen && m_gestureNote->output == screen && !contextLineClaimed(screen)) {
         m_gestureNoteLabel.render(renderTarget, viewport, m_gestureNote->box, m_gestureNote->text,
                                   gestureNoteOpacity(m_gestureNote->shown.elapsed()));
         overlaid.append(m_gestureNote->box);
@@ -8834,9 +9125,15 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
 void Effect::handleWindowActivated(KWin::EffectWindow *window)
 {
     // Read before anything returns early, so every activation is counted.
+    const bool spreadShown = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Spread;
+    const bool toWindowBefore = window && window == m_lastActiveApplication;
     const bool notesKeysBack = m_notesKeysReturn.activated(isNotesSurface(window),
-        m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread,
-        window && window == m_lastActiveApplication);
+        spreadShown, toWindowBefore);
+    // KWin may name no window between Search going and the card it hands
+    // the keys to, which is no activation of anything.
+    const bool searchKeysBack = window
+        && m_searchKeysReturn.activated(isSearchSurface(window), spreadShown, toWindowBefore);
     if (m_holdingDependents) return;
     if (auto *lead = isDependentWindow(window) ? dependentLead(window) : nullptr) {
         if (!dependentShown(lead)) {
@@ -8872,6 +9169,14 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
                 << logNameOf(window);
         return;
     }
+    // Search closing hands the keys back to the card it opened over. That is
+    // Search going, not a pick of the card, even where Spread never took
+    // Search in as its guest and so has no guest ending to read it from.
+    if (searchKeysBack && !m_cardStage->launcherGuestActive()) {
+        qInfo() << "Kadunce" << Revision << "kept Spread as Search gave the keys back to"
+                << logNameOf(window);
+        return;
+    }
     if (m_cardStage->launcherGuestActive()
         && isApplicationWindow(window)) {
         if (m_launcherGuestLaunchPending) {
@@ -8893,6 +9198,7 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     // promoted here, which would open Spread for a window this display
     // cannot show.
     if (returnCardInUseOnItsDisplay(window)) return;
+    if (callAloneAsItLeft(window)) return;
     if (admitActivatedCardToLiveBento(window)) return;
     m_cardStage->handleWindowActivated(window);
     // §11, Every display: a waiting card brought forward here, as the dock or
@@ -8900,6 +9206,37 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     // as one carried here is.
     if (m_cardStage->presentation() == CardPresentation::Active
         && m_cardStage->activeCardIdentity() == window) m_cardHomes.remove(window);
+}
+
+void Effect::markAloneOnPurpose(KWin::EffectWindow *card)
+{
+    m_aloneOnPurpose.removeIf([](const auto &held) { return !held || held->isDeleted(); });
+    if (card && !m_aloneOnPurpose.contains(card)) m_aloneOnPurpose.append(card);
+}
+
+bool Effect::callAloneAsItLeft(KWin::EffectWindow *window)
+{
+    // CARD-LIFECYCLE.md §10: a card the top edge took out of a layout is
+    // called from the dock or Spread as it left, alone, and the layout on
+    // Spread's display waits in Spread for it. Only Meta+B or an edge lays it
+    // out among them.
+    if (!window || window->isDeleted() || !m_aloneOnPurpose.contains(window)
+        || !isCardWindow(window) || m_cardStage->liveCardIndex(window) < 0
+        || m_desktopStage->managesWindow(window) || m_cardStage->paneHolding(window)
+        || m_cardStage->stackFrontToBack(window).size() > 1) return false;
+    KWin::LogicalOutput *output = tabletOutput();
+    if (!output || window->screen() != output) return false;
+    const bool held = m_cardStage->inProjectedLayout(window);
+    if (held && !m_cardStage->takePaneOutOfLayout(window)) return false;
+    const bool live = m_cardStage->presentsBento() && m_desktopStage->hasSessionOnOutput(output->name());
+    if (!held && !live) return false;
+    if (live && !retireLayoutIntoSpreadGroup(output)) return false;
+    (void)m_cardStage->promoteToActive(window);
+    qInfo() << "Kadunce" << Revision << "called" << logNameOf(window) << "alone, as it left the layout on"
+            << output->name();
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    return true;
 }
 
 bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
@@ -8998,6 +9335,33 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
         KWin::effects->activateWindow(picked);
     }
     return true;
+}
+
+void Effect::holdLayoutLeftBehind(KWin::EffectWindow *card, KWin::LogicalOutput *output, int tries)
+{
+    const QPointer<KWin::EffectWindow> shown = card;
+    const QPointer<KWin::LogicalOutput> display = output;
+    // Only while the card is still the one shown alone in front of it.
+    if (!shown || shown->isDeleted() || !display || display != tabletOutput() || m_releasing
+        || !m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->activeCardIdentity() != shown
+        || !m_desktopStage->hasSessionOnOutput(display->name())) return;
+    if (!m_desktopStage->hasSettledSessionOnOutput(display->name())) {
+        if (tries > 0) QTimer::singleShot(100, this, [this, shown, display, tries] {
+            if (shown && display) holdLayoutLeftBehind(shown, display, tries - 1);
+        });
+        return;
+    }
+    if (!m_desktopStage->transferTabletSessionToSpread(display,
+            [this](const auto &projection, const auto &commit) {
+                return m_cardStage->admitBentoStack(projection, commit);
+            })) return;
+    // Spread took the layout and shows its row; the card stays shown alone.
+    (void)m_cardStage->promoteToActive(shown);
+    qInfo() << "Kadunce" << Revision << "held the layout" << logNameOf(shown) << "left on"
+            << display->name() << "in Spread behind it";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output)
@@ -9306,8 +9670,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);
-    // A sleeping card stands in Spread dimmed, so it can be found and woken.
-    if (m_sleepingShown.contains(window)) data.multiplyOpacity(SleepingCardOpacity);
+    // A sleeping card stands in Spread dimmed, so it can be found and woken,
+    // unless the context line says so instead and the card stands whole.
+    if (m_sleepingShown.contains(window) && !contextLineClaimed(tabletOutput()))
+        data.multiplyOpacity(SleepingCardOpacity);
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
@@ -9376,8 +9742,6 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     const int slot = m_cardStage->paintSlot(window);
     const bool grabbedWindow = m_cardStage->cardGrabActive()
         && window == m_cardStage->selectedWindow();
-    // Resting on a pane of the Bento group, the held card slides under it.
-    const auto heldTuck = grabbedWindow ? m_cardStage->heldTuck() : std::nullopt;
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
         grabbedWindow);
@@ -9456,16 +9820,6 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target = m_cardStage->cardGrabTarget();
         const auto offset = m_cardStage->cardGrabOffset();
         target.translate(qRound(offset.x()), qRound(offset.y()));
-        // It takes the pane's shape as it goes (CARD-LIFECYCLE.md §5).
-        if (heldTuck) {
-            const auto blended = heldTuckBlend(
-                {double(target.x()), double(target.y()), double(target.width()), double(target.height())},
-                {double(heldTuck->tucked.x()), double(heldTuck->tucked.y()),
-                 double(heldTuck->tucked.width()), double(heldTuck->tucked.height())},
-                heldTuck->progress);
-            target = KWin::Rect(qRound(blended.x), qRound(blended.y),
-                                qRound(blended.width), qRound(blended.height));
-        }
     } else {
         target.translate(qRound(paintPose.x), qRound(paintPose.y));
     }
@@ -9478,49 +9832,13 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target.translate(qRound(direction * (1.0 - opacity) * target.width() * 0.25), 0);
     }
     paintPose.rotation += launcherGuestRotation;
-    if (heldTuck) paintPose.rotation += heldTuck->rotation * heldTuck->progress;
     if (!paintPose.visible) {
         return paintResult(true);
     }
     KWin::Rect visualTarget = target;
-    KWin::Rect projectionPaneClip;
-    const bool bentoProjection =
-        m_cardStage->usesBentoProjectionAperture(window);
-    BentoCompositeGeometry composite;
-    if (bentoProjection && m_cardStage->isBentoProjectionPane(window)) {
-        const auto workspace = m_cardStage->bentoProjectionWorkspace();
-        const auto storedRect = m_cardStage->bentoProjectionRect(window);
-        composite = makeBentoCompositeGeometry(
-            {double(target.x()), double(target.y()),
-             double(target.width()), double(target.height())},
-            {double(workspace.x()), double(workspace.y()),
-             double(workspace.width()), double(workspace.height())});
-        const auto frame = window->frameGeometry();
-        const auto expanded = window->expandedGeometry();
-        const auto pane = storedRect ? makeBentoProjectedPaneGeometry(composite,
-            {double(workspace.x()), double(workspace.y()),
-             double(workspace.width()), double(workspace.height())}, *storedRect,
-            {frame.x(), frame.y(), frame.width(), frame.height()},
-            {expanded.x(), expanded.y(), expanded.width(), expanded.height()})
-            : std::nullopt;
-        if (!pane) return paintResult(true);
-        visualTarget = KWin::Rect(qRound(pane->targetSurface.x),
-            qRound(pane->targetSurface.y), qRound(pane->targetSurface.width),
-            qRound(pane->targetSurface.height));
-        projectionPaneClip = KWin::Rect(qRound(pane->targetClip.x),
-            qRound(pane->targetClip.y), qRound(pane->targetClip.width),
-            qRound(pane->targetClip.height));
-        // The pane a held card would take gives way to a cutout, so the card
-        // can slide under the group in its place (CARD-LIFECYCLE.md §5).
-        const double recess = m_cardStage->carryPaneRecess(window);
-        if (recess > 0.0) data.multiplyOpacity(1.0 - recess);
-    } else if (bentoProjection) {
-        return paintResult(true); // CARD-LIFECYCLE.md §7: a sleeping group member is owned and
-                // minimized, so the group shows its panes and not this window.
-    }
-    // A card shaped unlike its slot, as a pane of a Connected display is, is
-    // drawn whole at its own shape, with no backing either side of it.
-    if (!bentoProjection && !grabbedWindow && logicalRegion.width() > 0 && logicalRegion.height() > 0
+    // A card shaped unlike its slot, as a pane's card can be, is drawn whole
+    // at its own shape, with no backing either side of it.
+    if (!grabbedWindow && logicalRegion.width() > 0 && logicalRegion.height() > 0
         && visualTarget.width() > 0 && visualTarget.height() > 0) {
         const double shape = double(logicalRegion.width()) / logicalRegion.height();
         const double slotShape = double(visualTarget.width()) / visualTarget.height();
@@ -9534,39 +9852,21 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         }
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    // The group's backdrop goes under its panes, so the first pane drawn on
-    // this display draws it. KWin draws raised windows last, so that is not
-    // always the lowest pane in its stacking order.
-    const bool paintProjectionBackdrop = bentoProjection && !m_projectionBackdropDrawn;
-    if (paintProjectionBackdrop) m_projectionBackdropDrawn = true;
-    if (!bentoProjection || paintProjectionBackdrop) {
-        const auto surface = bentoProjection
-            ? QRectF(composite.targetUnion.x, composite.targetUnion.y,
-                     composite.targetUnion.width, composite.targetUnion.height)
-            : QRectF(visualTarget);
+    {
         const KWin::Region outputFence(
             viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
         paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-            bentoProjection ? outputFence : deviceRegion & outputFence,
-            surface, paintPose.rotation, float(data.opacity()), 0.0f,
-            bentoProjection ? QVector3D(0.0F, 0.0F, 0.0F)
-                            : SurfaceTone::current().cardBacking(),
-            bentoProjection ? BentoWorkspaceTintOpacity : 1.0F);
+            deviceRegion & outputFence, QRectF(visualTarget), paintPose.rotation,
+            float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
     }
-    m_cardLabelTargets.insert(window, bentoProjection
-        ? QRectF(composite.targetUnion.x, composite.targetUnion.y,
-                 composite.targetUnion.width, composite.targetUnion.height)
-        : QRectF(target));
-    // Ordinary cards keep the fixed backing path. A Bento projection maps every
-    // live pane from its stored Bento rect through one authoritative desktop
-    // work area while the canonical slot still owns Spread layout and input.
+    m_cardLabelTargets.insert(window, QRectF(target));
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
     // KWin hands back where it will draw the window's frame, fitted inside
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.
-    if (!bentoProjection) m_cardFaceRects.insert(window, QRectF(logicalRegion));
+    m_cardFaceRects.insert(window, QRectF(logicalRegion));
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.
@@ -9580,11 +9880,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         data.setRotationOrigin(QVector3D(originX, originY, 0.0));
     }
 
-    // deviceRegion is KWin's actual renderer clip. The visual aperture can be
-    // smaller than the canonical slot for a projected Bento pane, but cannot
-    // alter Spread pitch, input reservation, or the output fence.
-    const KWin::Rect apertureTarget = bentoProjection
-        ? projectionPaneClip : visualTarget;
+    // deviceRegion is KWin's actual renderer clip.
+    const KWin::Rect apertureTarget = visualTarget;
     const KWin::Rect deviceAperture =
         viewport.mapToDeviceCoordinatesAligned(apertureTarget);
     // QRegion remains only the hard output fence. Each visible preview uses
@@ -9600,23 +9897,12 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
-    const KWin::Region compositeFence = bentoProjection
-        ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::Rect(
-            qRound(composite.targetUnion.x), qRound(composite.targetUnion.y),
-            qRound(composite.targetUnion.width), qRound(composite.targetUnion.height))))
-        : outputFence;
-    const KWin::Region paneFence = bentoProjection
-        ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(projectionPaneClip))
-        : outputFence;
-    const double apertureRadius = bentoProjection
-        ? scaleBentoCompositeRadius(composite, CardCornerRadius)
-            * viewport.scale()
-        : CardCornerRadius * viewport.scale();
-    const KWin::Region cardClip = (rotatedFanCard && !bentoProjection
+    const double apertureRadius = CardCornerRadius * viewport.scale();
+    const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceAperture)
             : roundedClip(deviceAperture, apertureRadius)))
-        & outputFence & compositeFence & paneFence;
+        & outputFence;
     m_fanApertureWindow = useFanAperture ? window : nullptr;
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
@@ -9629,28 +9915,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureRadius = useFanAperture
         ? static_cast<float>(apertureRadius) : 0.0F;
 
-    bool drawn = true;
-    if (heldTuck) {
-        // Under the group the card shows only through the cutout and past the
-        // group's edge; the rest of it fades as it slides beneath.
-        const KWin::Region group(viewport.mapToDeviceCoordinatesAligned(heldTuck->group));
-        const KWin::Region hole(viewport.mapToDeviceCoordinatesAligned(heldTuck->pane));
-        const double under = heldTuckUnder(heldTuck->progress);
-        const KWin::Region over = cardClip & group.subtracted(hole);
-        if (under < 1.0 && !over.isEmpty()) {
-            KWin::WindowPaintData fading(data);
-            fading.multiplyOpacity(1.0 - under);
-            drawn = painted([&] { return KWin::effects->paintWindow(
-                renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, over, fading); });
-        }
-        drawn = drawn && painted([&] { return KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-            cardClip & outputFence.subtracted(group).united(hole), data); });
-    } else {
-        drawn = painted([&] { return KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-            cardClip, data); });
-    }
+    const bool drawn = painted([&] { return KWin::effects->paintWindow(
+        renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
+        cardClip, data); });
 
     m_fanApertureWindow = nullptr;
     m_fanPaintSize = {};

@@ -82,6 +82,7 @@ scenes=(
     switcher-hidden-runtime tablet
     gap-runtime tablet
     bento-top-runtime tablet
+    bento-gap-runtime tablet
     dialog-runtime tablet
     dialog-late-runtime tablet
     dialog-electron-runtime tablet
@@ -95,6 +96,8 @@ scenes=(
     table-stack-runtime tablet
     table-stack-layout-runtime tablet
     table-spread-runtime tablet
+    spread-signal-runtime tablet
+    context-line-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
@@ -111,7 +114,6 @@ scenes=(
     monitor-return-runtime tablet
     monitor-bottom-runtime tablet
     monitor-zones-runtime tablet
-    spread-bento-drop-runtime tablet
     spread-bento-top-runtime tablet
     bento-motion-runtime tablet
     bento-key-sleeper-runtime tablet

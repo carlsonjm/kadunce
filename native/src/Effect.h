@@ -40,6 +40,7 @@
 #include "KeptPicture.h"
 #include "StuckNotes.h"
 
+#include <QJsonValue>
 #include <QList>
 #include <QHash>
 #include <QIcon>
@@ -202,6 +203,12 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool claimTopEdge(const QString &key, const QString &outputName,
         double x, double y, double width, double height);
     Q_SCRIPTABLE void clearTopEdgeClaim(const QString &key);
+    // A display whose context a surface shows in words, under the caller's
+    // key; while held, Kadunce draws none of its own words there and says
+    // them in the workspace context instead, until cleared or the caller
+    // leaves the bus (TETTEGOUCHE-CONTEXT.md § Context-line claims).
+    Q_SCRIPTABLE bool claimContextLine(const QString &key, const QString &outputName);
+    Q_SCRIPTABLE void clearContextLineClaim(const QString &key);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -252,11 +259,18 @@ private:
     // KWin is told to draw it at, kept as it is told. Notes placed on the
     // window stand on this, so they move with the picture frame by frame.
     QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
-    // Whether the Bento group's backdrop is drawn yet on the display painting.
-    bool m_projectionBackdropDrawn = false;
-    QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
+    mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
-    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window);
+    [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
+    // The cards Spread shows behind a Stack's face, nearest first.
+    [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
+    // A window carried to another display and rested on a pane or card there
+    // joins that Stack once it has landed; it retries while the landing settles.
+    void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
+                         int tries = 20);
+    // A card's name in Spread: a Stack names the cards behind its face, a
+    // pane alone the panes beside it.
+    [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
@@ -308,10 +322,6 @@ private:
         QList<QPointer<KWin::EffectWindow>> partners;
     };
     QHash<const KWin::EffectWindow *, LeftLayout> m_leftLayouts;
-    // A card let go on a pane of the Bento group grows into that pane from
-    // where it was drawn, once the group has opened as its layout.
-    QPointer<KWin::EffectWindow> m_paneArrivalWindow;
-    QRectF m_paneArrivalFrom;
     void startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
     QRectF bentoPresentationRect(KWin::EffectWindow *window) const override;
     void animateBentoLayout(KWin::LogicalOutput *output,
@@ -366,7 +376,7 @@ private:
     void finishLiftFromInput(double velocity) override { m_cardStage->finishLift(velocity); }
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
-    void openGroupAfterDropForCardStage(const QRectF &from) override;
+    void cardGutterChangedForCardStage() override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
@@ -382,7 +392,7 @@ private:
     QString m_lastEdgeEntryLog;
     bool completeLauncherGuestForWindow(KWin::EffectWindow *window);
     QString acceptLauncherGuest(const QString &ownerService, const QString &objectPath,
-        const QString &interfaceName, int protocol, bool openSpread);
+        const QString &interfaceName, int protocol);
     void callLauncherGuestOwner(const QString &method, const QVariantList &arguments = {});
     // Search declined while Spread is not shown floats over the work. Spread
     // opening asks it back, so it joins as though opened in Spread.
@@ -615,13 +625,15 @@ private:
     // behind it there. With `leaveSpread`, Spread then goes back to what it
     // was opened from.
     bool showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread);
-    // A card waiting for its display, brought back where it stands there, as
-    // the dock wakes a minimized pane, goes home once this turn is over.
-    // Spread's own picks do not come here.
+    // A card waiting in Spread for its display, asked for by the dock or a
+    // task switcher, goes home once this turn is over. Spread's own picks do
+    // not come here.
     bool returnCardInUseOnItsDisplay(KWin::EffectWindow *card);
     // A display holding its own cards that shows none brings back the one it
     // used last.
     void refillOtherDisplay(const QString &outputName);
+    // The same, for the display a carry took the card it showed from.
+    void refillDisplayCarriedFrom(KWin::EffectWindow *carried, const QString &origin);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
@@ -631,6 +643,8 @@ private:
     // Spread have left it.
     void keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries = 0);
     QPointer<KWin::EffectWindow> m_keptOnLeft;
+    // Cards the top edge took out of a layout, called back alone (§10).
+    QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
@@ -851,10 +865,12 @@ private:
     [[nodiscard]] bool notesShownInSpread() const;
     // Gooseberry's surface of notes over a window, live or closing.
     [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    // Tettegouche's Search surface, which holds the keys while it is open.
+    [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
-    // were last drawn; the Bento group carries no notes.
+    // were last drawn.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -897,6 +913,8 @@ private:
     // answered here; false leaves it to Card Stage, which by then is no longer
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    void markAloneOnPurpose(KWin::EffectWindow *card);
+    [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
     // The display's chosen sizing as kaduncerc keeps it; empty when none.
     [[nodiscard]] QString chosenSizingFor(const KWin::LogicalOutput *output) const;
@@ -915,6 +933,12 @@ private:
     // the card the arrival becomes is not drawn over live panes. Both arrival
     // paths ask this before handing the window to Card Stage.
     [[nodiscard]] bool retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output);
+    // §11, Connected: a pane taken to the top edge out of three or more is
+    // the card shown alone. The panes it left are held in Spread for it, as
+    // the cards of a Solo display wait there, rather than standing live
+    // behind it where any of them can rise over it. Spread can take them
+    // once they have settled, so this asks again a few times.
+    void holdLayoutLeftBehind(KWin::EffectWindow *card, KWin::LogicalOutput *output, int tries = 20);
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
@@ -1068,6 +1092,9 @@ private:
     qint64 m_frameWork = 0;
     bool m_frameWanted = false;
     bool m_framingTablet = false;
+    // The presentation the workspace context last reported, -1 with cards
+    // off, so a frame that changes it announces the context once.
+    int m_reportedPresentation = -1;
     int m_framePreviewsMade = 0;
     void noteTabletFrameStart();
     void noteTabletFrameEnd(bool wanted);
@@ -1077,6 +1104,8 @@ private:
     int m_neighborPreparationFrames = 0;
     QPointer<KWin::EffectWindow> m_nativeCarry;
     QString m_nativeCarrySource;
+    // The display a carry Kadunce draws picked its window up from.
+    QString m_carryOrigin;
     // The Active card under a KWin move that has not yet gone anywhere, and
     // where it began. A tap an application reads as a move does not let the
     // cards go; travel does.
@@ -1160,7 +1189,32 @@ private:
     };
     // Keyed by the caller's bus name and its own key.
     QHash<QString, TopEdgeClaim> m_topEdgeClaims;
+    struct ContextLineClaim {
+        QString owner;
+        QString output;
+    };
+    QHash<QString, ContextLineClaim> m_contextLineClaims;
+    // One watcher for both kinds of claim: a caller leaving drops all of them.
     QPointer<QDBusServiceWatcher> m_topEdgeClaimWatcher;
+    void watchClaimOwner(const QString &owner);
+    [[nodiscard]] bool contextLineClaimed(const KWin::LogicalOutput *output) const;
+    // What Kadunce would say on a claimed display, for the workspace context:
+    // a refused gesture, the zones taken, or a card about to leave for the
+    // desktop. Spread's chosen entry is read from Card Stage as it is.
+    [[nodiscard]] QJsonValue contextNotice() const;
+    [[nodiscard]] QJsonValue spreadEntryContext() const;
+    // What those say, cheaply, so a frame that changes them announces it once.
+    [[nodiscard]] QString contextLineSignature() const;
+    QString m_reportedContextLine;
+    struct ZoneNotice {
+        QString text;
+        QElapsedTimer shown;
+    };
+    std::optional<ZoneNotice> m_zoneNotice;
+    // A notice no frame will clear, since nothing is drawn for it, ends here.
+    QTimer m_contextNoticeEnd;
+    // The display a card about to leave for the desktop is over, this frame.
+    QPointer<KWin::LogicalOutput> m_detachShownOn;
     QString m_launcherGuestOwner;
     QString m_launcherGuestPath;
     QString m_launcherGuestInterface;
@@ -1176,6 +1230,9 @@ private:
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
+    // The keys coming back from Search as it closes over Spread, told the
+    // same way, whether or not Spread took Search in as its guest.
+    NotesKeysReturn m_searchKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;

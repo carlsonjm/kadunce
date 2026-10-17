@@ -7,6 +7,13 @@ import dbus
 assert os.environ["XDG_RUNTIME_DIR"].startswith("/tmp/kadunce-unload-")
 bus = dbus.SessionBus(private=True)
 guest = dbus.Interface(bus.get_object("org.kde.KWin", "/Kadunce"), "co.goodinput.Kadunce")
+# Over the Active card Search floats on the tablet and Spread stays closed.
+reply = json.loads(guest.beginLauncherGuest(bus.get_unique_name()))
+assert not reply["accepted"] and reply["output"] == "Virtual-0"
+assert json.loads(guest.workspaceContext())["cardStage"]["presentation"] != "cardLine"
+print("PASS: Search called over the Active card floats and Spread stays closed")
+guest.showCardLine()
+time.sleep(.5)
 reply = json.loads(guest.beginLauncherGuest(bus.get_unique_name()))
 assert reply["accepted"] and reply["presentationCapability"] == 1
 assert reply["active"]["width"] > reply["card"]["width"]
@@ -33,6 +40,7 @@ assert guest.setLauncherGuestExpanded(True)
 guest.endLauncherGuest()
 assert not guest.setLauncherGuestExpanded(True)
 print("PASS: expansion owner, a stranger refused, compact/Active bounds, navigation suppression and closed lease")
+guest.showCardLine()
 reply = json.loads(guest.beginLauncherGuest(bus.get_unique_name()))
 assert reply["accepted"] and guest.setLauncherGuestExpanded(True)
 bus.close()

@@ -3,11 +3,12 @@
 # Search called while Spread is not shown floats over the work. Spread then
 # opened under it, by Meta+S or by a swipe from the bottom bezel, asks it back,
 # and it takes the centre with a card standing each side, as Search opened in
-# Spread does, rather than floating over the card in the middle. Search hidden
-# before Spread opens is not called back.
+# Spread does, rather than floating over the card in the middle. Search going
+# lets the cards beside it glide back. Search hidden before Spread opens is
+# not called back.
 #
-# The tablet holds three cards and is sized Connected, where Search over the
-# work floats. Search is played by a launcher of the scene's own: it asks to
+# The tablet holds three cards and is sized Connected, then Solo: Search over
+# the work floats on either. Search is played by a launcher of the scene's own: it asks to
 # begin when it starts and again when told to open, and can say it has hidden.
 # Needs the tablet fixture: its touchscreen makes the bezel Kadunce's. Every
 # check is reported, so a failure does not hide the ones after it.
@@ -75,7 +76,7 @@ for attempt in {1..40}; do
 done
 
 touch=80
-for pass in connected:key connected:swipe connected:hidden; do
+for pass in connected:key connected:swipe connected:hidden solo:key solo:swipe; do
     sizing=${pass%:*} opener=${pass#*:} touch=$((touch + 1)) name=${pass/:/-}
     # KWin opens a window on the display under the pointer.
     probe pointer 600 400
@@ -150,6 +151,27 @@ for pass in connected:key connected:swipe connected:hidden; do
             jq -e --argjson m "$middle" 'length > 0 and all(.[]; .x + .width <= $m or .x >= $m)' <<<"$cards"
         check "$name: a card stands each side of Search" \
             jq -e --argjson m "$middle" 'any(.[]; .x + .width <= $m) and any(.[]; .x >= $m)' <<<"$cards"
+        # Search going, by its owner leaving, the cards beside it glide back
+        # into the row from where they stood around it, as they glided apart
+        # for it, rather than jumping there.
+        rects() { kad workspaceContext | jq -c '[.applications[] | select(.spreadRect) | {id: .windowId, x: .spreadRect.x}]'; }
+        joined=$(rects)
+        kill "$owner_pid" 2>/dev/null
+        samples=()
+        for _ in {1..12}; do samples+=("$(rects)"); sleep .03; done
+        sleep .6
+        settled=$(rects)
+        report "$name-closed"
+        echo "$name: cards joined $joined settled $settled"
+        check "$name: Spread stays open as Search goes" context '.cardStage.presentation == "cardLine" and (.cardStage.launcherGuestActive | not)'
+        check "$name: the cards beside Search glide back into the row" python3 - "$joined" "$settled" "${samples[@]}" <<'PY'
+import json, sys
+joined, settled = (dict((c["id"], c["x"]) for c in json.loads(a)) for a in sys.argv[1:3])
+moved = {i: (joined[i], settled[i]) for i in joined if i in settled and abs(joined[i] - settled[i]) > 4}
+assert moved, "no card moved back"
+between = lambda x, a, b: min(a, b) + 2 < x < max(a, b) - 2
+assert any(between(c["x"], *moved[c["id"]]) for s in sys.argv[3:] for c in json.loads(s) if c["id"] in moved)
+PY
     fi
 
     kill "$owner_pid" 2>/dev/null

@@ -1,24 +1,6 @@
-# Roadmap
+# Known limits
 
-What is planned for Kadunce, and what it does not do yet.
-
-## Planned
-
-- A card or pane KWin moves to a monitor by other means joining that
-  monitor's layout.
-- A display unplugged and plugged back in getting its drawn zones' panes back
-  in place, as KWin itself does.
-- Panes and ordinary windows making room for the on-screen keys, as the Active
-  card does.
-- The on-screen keys coming up for the first text field of a session, and for a
-  tap just after a card is chosen.
-- Touch monitors beyond a tablet's own panel, tested on real hardware.
-- A placement request (`REQUESTS.md`) taking a pane out of its layout.
-- The identifiers still outside `co.goodinput.*`, Tettegouche's desktop entries
-  and Gooseberry's notes interface, and the `showCardLine` method and `cardLine`
-  value Tettegouche reads, renamed with a versioned migration.
-
-## Known limitations
+What Kadunce does not do yet, and what it will not do.
 
 - A display change is answered once KWin has moved windows for it. An
   ordinary window sent to another display some other way, such as KWin's own
@@ -34,7 +16,9 @@ What is planned for Kadunce, and what it does not do yet.
   update. A rebuilt plugin may need a logout and login before the compositor
   loads it.
 - Guided repair rebuilds the source kept at installation, runs its tests and
-  asks for authorization to replace one plugin file. It downloads nothing and
+  asks for authorization to replace one plugin file, through Shuffle's install
+  key or the system's own `/usr/bin/install`, never a script from the home
+  folder. It downloads nothing and
   needs the build dependencies. Its log is
   `$XDG_STATE_HOME/kadunce/repair.log`, normally
   `~/.local/state/kadunce/repair.log`. Its checksums catch accidental edits, not

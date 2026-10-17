@@ -116,7 +116,7 @@ printf '%s\n' "$stack_browse" | perl -0777 -ne 'exit(!/captureCardTransition\(fa
 rg -Fq 'm_stackBrowseOutgoing.clear();' "$card_cpp"
 rg -Fq 'if (m_stackBrowseDirection) return motion(StackBrowseDuration);' "$card_cpp"
 # A held card is drawn above the row, which keeps its own stacking order.
-rg -Fq 'if (selectedIsBentoProjection() || m_cardGrabActive) return;' "$card_cpp"
+rg -Fq 'if (m_cardGrabActive) return;' "$card_cpp"
 pickup=$(sed -n '/^void CardStageController::beginCardGrab(/,/^void CardStageController::updateCardGrab(/p' "$card_cpp")
 printf '%s\n' "$pickup" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?setElevatedWindow\(window, true\)/s)'
 router_cpp="${native_dir}/src/WorkspaceInputRouter.cpp"
@@ -582,7 +582,7 @@ rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${car
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior.
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
-    "618f54ba01bc41e1da8e1f091f85212a861feac0e9b84123080fe8b4f6e8181d"
+    "003f0966ad0d90db85b67b983be94f640763c553b613dc7e6b074c4b58cf25ea"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
@@ -625,18 +625,8 @@ rg -q 'event->deltaV120' "${router_cpp}"
 rg -q 'activateSelectedFromInput' "${router_cpp}" "${effect_cpp}" "${card_cpp}"
 rg -q 'm_ownedTouchIds' "${router_cpp}"
 rg -q 'makeCoverPaintRect' "${native_dir}/src/SpreadLayout.cpp"
-rg -q 'makeBentoCompositeGeometry' "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
-rg -q 'BentoWorkspaceTintOpacity = 0\.22F' "${effect_cpp}"
-rg -q 'bentoProjectionWorkspace' "${effect_cpp}" "${card_cpp}" "${card_header}"
-rg -q 'bentoProjectionRect' "${effect_cpp}" "${card_cpp}" "${card_header}"
-rg -q 'makeBentoProjectedPaneGeometry' \
-    "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}"
-rg -Fq 'mapBentoCompositeRect(composite, frame)' \
-    "${native_dir}/src/BentoCompositeGeometry.h"
-rg -q 'scaleBentoCompositeRadius' \
-    "${native_dir}/src/BentoCompositeGeometry.h" "${effect_cpp}" \
-    "${native_dir}/tests/BentoCompositeGeometryTest.cpp"
-rg -Fq '? projectionPaneClip : visualTarget' "${effect_cpp}"
+rg -q 'makeBentoStageArea' "${native_dir}/src/BentoCompositeGeometry.h"
+rg -q 'bentoProjectionRect' "${card_cpp}" "${card_header}"
 rg -Fq 'mapToDeviceCoordinatesAligned(apertureTarget)' "${effect_cpp}"
 rg -Fq 'roundedClip(deviceAperture, apertureRadius)' "${effect_cpp}"
 rg -Fq 'm_fanApertureSize = useFanAperture' "${effect_cpp}"
@@ -646,7 +636,7 @@ rg -q 'retireBentoProjectionForCardStage' \
 rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
 rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"
-rg -q 'usesBentoProjectionAperture' "${card_cpp}" "${effect_cpp}"
+rg -q 'inProjectedLayout' "${card_cpp}" "${effect_cpp}"
 rg -q 'workHeight \* 0\.54' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'workWidth \* 0\.056' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'restoreActiveSnapshot' "${effect_cpp}" "${card_cpp}"
@@ -664,7 +654,7 @@ rg -q 'EffectsHandler::windowActivated' "${effect_cpp}"
 rg -q 'handleWindowActivated' "${effect_cpp}" "${effect_header}" \
     "${card_cpp}" "${card_header}"
 rg -q 'promoted externally activated card' "${card_cpp}"
-rg -Fq 'std::clamp(requestedGutter, 6.0, 48.0)' \
+rg -Fq 'std::clamp(requestedGutter, 4.0, 48.0)' \
     "${native_dir}/src/SpreadLayout.cpp"
 if rg -q 'renderSyntheticLine|SYNTHETIC SPREAD|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Synthetic cards must never appear in the live effect" >&2
