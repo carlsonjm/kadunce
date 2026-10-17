@@ -7487,15 +7487,19 @@ void Effect::quietCardGap(const QPointF &position)
         // keep every touch from the window under it.
         if (m_pointerResting) held = HeldPointer::None;
         else {
-            for (const auto &rail : m_desktopStage->grabRails())
-                if (rail.hitArea.contains(position)) place.divider = rail.vertical ? 1 : 2;
+            // A panel, or a popup of one lying over a divider, keeps its
+            // own pointer, as its clicks are its own.
+            const bool panel = isPanelPoint(position);
+            if (!panel)
+                for (const auto &rail : m_desktopStage->grabRails())
+                    if (rail.hitArea.contains(position)) place.divider = rail.vertical ? 1 : 2;
             // The dock, the keys and Search beside the Active card keep their
             // own pointer.
-            if (!isPanelPoint(position) && !inputPanelContainsForInput(position)
+            if (!panel && !inputPanelContainsForInput(position)
                 && !(launcherGuestActiveForInput() && launcherGuestContainsForInput(position)))
                 place.activeSide = isTabletPoint(position) ? activeSideForPoint(position)
                                                            : stackSideForPoint(position);
-            place.cardGap = place.divider == 0 && inCardGap(position);
+            place.cardGap = !panel && place.divider == 0 && inCardGap(position);
             held = heldPointer(place);
         }
     }
