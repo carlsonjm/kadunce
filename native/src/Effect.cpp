@@ -4089,11 +4089,16 @@ void Effect::settleDisplayStages(const KWin::LogicalOutput *leaving)
             if (output && output != leaving && usesDisplayStage(output)) continue;
             CardStageController *stage = displayStageOn(name);
             if (!stage || !stage->isActive()) continue;
+            const QPointer<KWin::EffectWindow> shown = shownOnDisplayStage(name);
             const QList<QPointer<KWin::EffectWindow>> cards = stage->liveCards();
             for (const auto &card : cards)
                 if (card && !card->isDeleted()) (void)returnFromDisplayStage(card);
             // Where Spread could not take them, they are let go where they stand.
             if (stage->isActive()) stage->release();
+            // Spread come to this display shows the card it showed, Active.
+            if (shown && output && output != leaving && isTabletOutput(output)
+                && m_cardStage->liveCardIndex(shown) >= 0 && !shown->isMinimized())
+                (void)m_cardStage->promoteToActive(shown);
         }
     });
 }
@@ -8405,7 +8410,7 @@ void Effect::carryToward(KeyDirection direction)
             qInfo() << "Kadunce" << Revision << "could not give" << logNameOf(focused) << "to" << next->name();
             return;
         }
-        if (isTabletOutput(next)) rejoinStack(focused, behind);
+        if (isTabletOutput(next)) rejoinWhenOnTablet(focused, behind, 20);
         KWin::effects->activateWindow(focused);
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
@@ -9270,6 +9275,26 @@ void Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::Effe
     }
     qInfo() << "Kadunce" << Revision << (placed ? "gave" : "could not give") << logNameOf(front)
             << "back the" << (left.right ? "right" : "left") << "pane it left";
+}
+
+void Effect::rejoinWhenOnTablet(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind, int tries)
+{
+    // KWin puts a window on another display once its client has drawn itself
+    // there, so the place it left on Spread's display waits until it stands
+    // there, or for as long as a client may take.
+    if (!front || front->isDeleted() || m_releasing) return;
+    if (front->screen() == tabletOutput() || tries <= 0) {
+        rejoinStack(front, behind);
+        return;
+    }
+    QList<QPointer<KWin::EffectWindow>> members;
+    for (auto *member : behind) members.append(member);
+    QTimer::singleShot(50, this, [this, front = QPointer(front), members, tries] {
+        QList<KWin::EffectWindow *> alive;
+        for (const auto &member : members)
+            if (member && !member->isDeleted()) alive.append(member.data());
+        if (front) rejoinWhenOnTablet(front, alive, tries - 1);
+    });
 }
 
 void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)

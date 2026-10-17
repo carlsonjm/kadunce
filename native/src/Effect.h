@@ -715,6 +715,8 @@ private:
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
     void restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
+    // As rejoinStack, once the window stands on Spread's display.
+    void rejoinWhenOnTablet(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind, int tries);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
