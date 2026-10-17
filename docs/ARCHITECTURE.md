@@ -26,8 +26,10 @@ The native plugin has four principal owners:
 - `Effect` owns KWin registration and lifecycle, output discovery, controller
   coordination, context publication, shortcuts, and card rendering.
 
-There is one card stage and one layout stage per virtual desktop, each reaching
-the effect through that desktop's `SessionHost`. Table adds three owners beside
+Each virtual desktop has one layout stage, one card stage for Spread's display,
+and one more card stage for each other display sized Solo, which shows its card
+there (`Effect::DisplayStage`); each reaches the effect through that desktop's
+`SessionHost` or its display's `DisplayStageHost`. Table adds three owners beside
 them: `TableGesture` turns a stroke into an action, `TableLayout` places the rows
 so hit tests and drawing agree, and `TablePresenter` draws `table/Table.qml` in
 the compositor's frames through `OffscreenQuickScene`, taking no input. Table

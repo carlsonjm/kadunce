@@ -557,11 +557,11 @@ and one display holds Spread, so there is never a second ring of cards
 touchscreen drives, else the largest. Kadunce finds the touched display as KWin
 places the touchscreen, never by name; of two touchscreens, the built-in wins. When the Spread
 display goes away, its cards move to the next one, and back when it returns.
-Spread never takes what another display shows. A card picked in Spread opens on the display it lives on, and a Stack placed on
+Spread never takes what another display shows. A Solo display's card stands on
+its own card stage. A card picked in Spread opens on the display it lives on, and a Stack placed on
 a touchscreen display steps with its bottom swipe while another display holds
-Spread. Rejected: cards only on the Spread display, which left other displays
-plain; a Spread per display; cards only on a touched display; and a
-helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
+Spread. Rejected: cards only on the Spread display; a Spread per display; cards
+only on a touched display; a helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
 plain-window rule as the one-step way back.
 
 ### A big display plays cards into its layout
