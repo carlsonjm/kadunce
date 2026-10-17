@@ -7807,13 +7807,23 @@ bool Effect::spillCardToLayoutBeside(KWin::EffectWindow *card)
         || m_cardStage->liveCardIndex(card) < 0) return false;
     m_cardHomes.remove(card);
     card->window()->sendToOutput(spread);
+    joinSpilledCard(card, spread->name(), 20);
+    return true;
+}
+
+void Effect::joinSpilledCard(KWin::EffectWindow *card, const QString &name, int tries)
+{
     const QPointer<KWin::EffectWindow> spilled = card;
-    const QString name = spread->name();
-    // After the turn KWin reports the move in.
-    QTimer::singleShot(0, this, [this, spilled, name] {
+    // After the turns KWin takes to report the move in.
+    QTimer::singleShot(tries == 20 ? 0 : 100, this, [this, spilled, name, tries] {
         if (!spilled || spilled->isDeleted()) return;
-        const bool joined = spilled->screen() && spilled->screen()->name() == name
-            && m_cardStage->liveCardIndex(spilled) >= 0
+        const bool arrived = spilled->screen() && spilled->screen()->name() == name
+            && m_cardStage->liveCardIndex(spilled) >= 0;
+        if (!arrived && tries > 0) {
+            joinSpilledCard(spilled, name, tries - 1);
+            return;
+        }
+        const bool joined = arrived
             && m_desktopStage->admitCardToLiveBento(spilled, [this, spilled] {
                 // A layout Kadunce shows as Bento takes it as Bento's; one
                 // shown as the desktop, as a card that display gives up.
@@ -7822,12 +7832,13 @@ bool Effect::spillCardToLayoutBeside(KWin::EffectWindow *card)
                     : m_cardStage->releaseCardToDisplay(spilled);
             });
         qInfo() << "Kadunce" << Revision << (joined ? "gave" : "could not give") << logNameOf(spilled)
-                << "a pane of its own on" << name << "by the keys";
+                << "a pane of its own on" << name << "by the keys; it stands on"
+                << (spilled->screen() ? spilled->screen()->name() : QString())
+                << "as card" << m_cardStage->liveCardIndex(spilled) + 1;
         observeCardOwnership();
         if (joined) KWin::effects->activateWindow(spilled);
         KWin::effects->addRepaintFull();
     });
-    return true;
 }
 
 void Effect::stepKeyLadder(int delta)

@@ -930,6 +930,7 @@ private:
     // A card let go out of its Stack on a Solo display joins the layout on
     // Spread's display beside it.
     bool spillCardToLayoutBeside(KWin::EffectWindow *card);
+    void joinSpilledCard(KWin::EffectWindow *card, const QString &name, int tries);
     void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
                                 BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.
