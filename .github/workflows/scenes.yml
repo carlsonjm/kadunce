@@ -94,7 +94,7 @@ jobs:
               rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )|Kadunce .*(changed to|activated with|entered interactive|could not|holds the windows|declined|sends |handed|gave |placed|swapped|found nothing|leaves |takes |kept |behind it)' "$evidence/session.log" | tail -250 || true
               # The card book reports and never fails a scene: each place a
               # card's records disagreed, counted for every scene below.
-              rg -a 'Kadunce card book:' "$evidence/session.log" || true
+              rg -a -B4 'Kadunce card book:' "$evidence/session.log" || true
               books+=("$entry $(rg -ac 'Kadunce card book:' "$evidence/session.log" || echo 0)")
               echo "--- last lines of the session log"
               tail -40 "$evidence/session.log" || true

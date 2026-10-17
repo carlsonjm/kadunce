@@ -1008,6 +1008,10 @@ private:
     std::vector<OwnershipViolation> m_observedOwnershipViolations;
     QStringList m_ownershipViolationLog;
     std::vector<CardBookMismatch> m_observedCardBook;
+    // The book is read once a change has settled: a move publishes on its
+    // way, before KWin has put each window where it goes.
+    QTimer m_cardBookSettle;
+    void readCardBook();
     QStringList m_cardBookLog;
 
     QAction *m_showSpreadAction = nullptr;

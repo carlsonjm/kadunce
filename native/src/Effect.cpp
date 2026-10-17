@@ -983,6 +983,9 @@ Effect::Effect()
     connect(&m_paneStackDwell, &QTimer::timeout, this, [this] {
         if (m_carriedWindow) updateNativeCarryDestination(m_lastCarryContact);
     });
+    m_cardBookSettle.setSingleShot(true);
+    m_cardBookSettle.setInterval(250);
+    connect(&m_cardBookSettle, &QTimer::timeout, this, &Effect::readCardBook);
     m_carriedDialogsRelease.setSingleShot(true);
     m_carriedDialogsRelease.setInterval(1000);
     // A notice said only in the workspace context has no frame to end it.
@@ -3387,8 +3390,8 @@ QString Effect::waitingFor(const KWin::EffectWindow *card, int depth) const
     if (!card || depth > 2) return {};
     KWin::EffectWindow *holder = m_cardStage->paneHolding(card);
     if (holder && KWin::effects->stackingOrder().contains(holder) && !holder->isDeleted()) {
-        if (m_desktopStage->managesWindow(holder))
-            return isOtherCardDisplay(holder->screen()) ? holder->screen()->name() : QString();
+        if (const QString layout = m_desktopStage->outputHoldingPane(holder); !layout.isEmpty())
+            return isOtherCardDisplay(KWin::effects->findScreen(layout)) ? layout : QString();
         if (m_cardStage->liveCardIndex(holder) >= 0) return waitingFor(holder, depth + 1);
     }
     const auto stack = m_cardStage->stackFrontToBack(card);
@@ -8183,6 +8186,9 @@ void Effect::release()
         }
         hadCards = hadCards || m_cardStage->isActive();
         m_cardStage->release();
+        // Kept, a Stack would stand behind that window again when cards
+        // next start, though every window is its own now.
+        m_cardStage->forgetAllPaneStacks();
     });
     // Release read each card's display above; no card is left to wait for one.
     m_cardHomes.clear();
@@ -8626,6 +8632,7 @@ bool Effect::giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput 
     QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(card);
     behind.removeAll(card);
     if (!display || !m_cardStage->giveCardToDisplay(card, display)) return false;
+    m_cardHomes.remove(card);
     if (behind.isEmpty()) return true;
     m_cardStage->notePaneStack(card, behind);
     for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
@@ -9154,7 +9161,12 @@ void Effect::observeCardOwnership()
 
 void Effect::observeCardBook()
 {
-    if (!m_cardStage || !m_desktopStage) return;
+    m_cardBookSettle.start();
+}
+
+void Effect::readCardBook()
+{
+    if (!m_cardStage || !m_desktopStage || m_releasing) return;
     QList<CardBookDisplay> displays;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         const bool spread = isTabletOutput(output);
@@ -9210,7 +9222,8 @@ void Effect::observeCardBook()
         if (std::find(m_observedCardBook.cbegin(), m_observedCardBook.cend(), mismatch)
             != m_observedCardBook.cend()) continue;
         const auto named = windows.value(mismatch.window);
-        QString line = (named ? logNameOf(named) : QStringLiteral("a display")) + QStringLiteral(": ")
+        QString line = (named ? logNameOf(named)
+                          : mismatch.window ? QStringLiteral("a window no record holds") : QStringLiteral("a display")) + QStringLiteral(": ")
             + cardBookRuleName(mismatch.rule);
         if (!mismatch.detail.isEmpty()) line += QStringLiteral(" (") + mismatch.detail + QLatin1Char(')');
         qWarning().noquote() << "Kadunce card book:" << line;

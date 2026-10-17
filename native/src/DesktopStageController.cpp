@@ -1342,6 +1342,15 @@ bool DesktopStageController::managesWindow(KWin::EffectWindow *window) const
     return false;
 }
 
+QString DesktopStageController::outputHoldingPane(const KWin::EffectWindow *window) const
+{
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        for (const auto &pane : it.value().windows)
+            if (pane && pane.data() == window) return it.key();
+    }
+    return {};
+}
+
 bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
     KWin::LogicalOutput *destination)
 {

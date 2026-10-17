@@ -246,6 +246,8 @@ public:
     paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // Kadunce let every window go: no Stack waits behind any of them.
+    void forgetAllPaneStacks() { m_paneStacks.clear(); }
     // Drops a window from every Stack that waits behind a pane.
     void forgetFromPaneStacks(const KWin::EffectWindow *window);
     void settlePaneStacks();
