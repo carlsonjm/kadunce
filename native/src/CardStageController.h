@@ -205,6 +205,9 @@ public:
     // it: a pane of it, or a window sleeping with it, each a card of its own
     // in the row.
     [[nodiscard]] bool inProjectedLayout(const KWin::EffectWindow *window) const;
+    // §11, Connected: a pane leaves the layout from Spread and becomes a card
+    // of its own; the panes left keep the layout, laid out again.
+    bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     [[nodiscard]] bool isBentoProjectionPane(
         const KWin::EffectWindow *window) const;
     [[nodiscard]] bool selectedIsBentoGroup() const;
@@ -738,9 +741,6 @@ private:
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;
     // face in front of behind, in order, as one Stack of cards already here.
     bool restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
-    // §11, Connected: a pane leaves the layout from Spread and becomes a card
-    // of its own; the panes left keep the layout, laid out again.
-    bool takePaneOutOfLayout(KWin::EffectWindow *pane);
     // The same, for a held pane let go on another card, while it is held.
     bool detachProjectedPane(KWin::EffectWindow *pane);
     // §11, Connected: a pane's card leaves its Stack, and the Stack keeps the

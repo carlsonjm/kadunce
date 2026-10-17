@@ -233,8 +233,7 @@ was touched (`INPUT.md` § Active card and § Bento). Contact near the edge's mi
 keeps the previous choice.
 
 The carried window keeps the edge it was released into and takes the share its
-half asked for (§11, A side snap). This holds whether the carried window comes from the native
-desktop, from an individual card, or is itself the Active card.
+half asked for (§11, A side snap), wherever the carried window comes from.
 
 ### When a pane leaves Bento
 
@@ -413,7 +412,7 @@ An edge action is what a carried window's release at a screen edge means
 
 ### Top edge
 
-Make the carried window an Active card, or another display's lone card, never paired. Connected, panes it left wait in Spread until `Meta+B`, a Stack or edge.
+Make the carried window an Active card, or another display's lone card, never paired. Connected, panes it left wait in Spread; the dock or Spread calls it alone, and `Meta+B`, a Stack or edge lays it out.
 
 ### Left or right edge
 

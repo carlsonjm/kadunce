@@ -255,6 +255,39 @@ check 'rest: the pane it rested on waits behind it' \
     context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($m) != null'
 check 'rest: no window on the monitor stands over another' apart Virtual-1
 
+# With Spread on the monitor, as on the tablet with a monitor beside it, a
+# monitor pane rested on the card the small display shows alone joins it,
+# though the small display is sized Solo; carried back and rested on a pane
+# of Spread's layout, it joins that pane.
+probe pointer 640 360 >/dev/null
+client titledCompanion 'Tab D' 500 400
+sleep 1.4
+td=$(idOf 'Tab D')
+probe serverDecorate "$td" >/dev/null
+probe activateWindowId "$td" >/dev/null
+sleep 1
+kad setSpreadDisplay Virtual-1
+sleep 2.5
+report spread-on-monitor
+check 'monitor Spread: the small display shows its card alone' shown_on "$td" Virtual-0
+title_carry "$ma" "$td" 1.0
+report rested-on-small
+check 'small rest: the carry names the card it would join' \
+    jq -e --arg id "$td" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+check 'small rest: the pane carried stands on the small display' \
+    context --arg c "$ma" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
+check 'small rest: the card it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+title_carry "$ma" "$ta" 1.0
+report rested-on-spread
+check 'Spread rest: the carry names the pane it would join' \
+    jq -e --arg id "$ta" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+check 'Spread rest: the card carried is a monitor pane' monitor_pane "$ma"
+check 'Spread rest: the pane it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$ta" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 report released

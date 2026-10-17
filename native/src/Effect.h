@@ -643,6 +643,8 @@ private:
     // Spread have left it.
     void keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries = 0);
     QPointer<KWin::EffectWindow> m_keptOnLeft;
+    // Cards the top edge took out of a layout, called back alone (§10).
+    QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
@@ -911,6 +913,8 @@ private:
     // answered here; false leaves it to Card Stage, which by then is no longer
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    void markAloneOnPurpose(KWin::EffectWindow *card);
+    [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
     // The display's chosen sizing as kaduncerc keeps it; empty when none.
     [[nodiscard]] QString chosenSizingFor(const KWin::LogicalOutput *output) const;

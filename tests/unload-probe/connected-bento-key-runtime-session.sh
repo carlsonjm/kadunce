@@ -6,8 +6,8 @@
 # use Active; Meta+B again lays out every card open there; and Meta+S
 # opens Spread over the layout and closes it again. A pane then carried by
 # KWin's title bar to the top edge, out of the three, is the Active card
-# shown alone, the other two waiting in Spread, and one Meta+B lays all three
-# out again. A pane let
+# shown alone, the other two waiting in Spread; picked from Spread it is shown
+# alone again, and one Meta+B lays all three out again. A pane let
 # go to wait as a card, called up in front of the layout Spread holds, joins
 # it again by one Meta+B. Every check is reported, so a failure does not hide
 # the rest.
@@ -141,6 +141,14 @@ report top
 check 'top: the pane carried there is the Active card' \
     context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 check 'top: the two it left wait in Spread, none live behind it' panes_are 0
+# Picked from Spread, it comes back as it left, alone; only Meta+B or an
+# edge lays it out with the two.
+spread_key
+pick "$browser"
+report top-picked
+check 'top: picked from Spread, it is the Active card alone again' \
+    context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+check 'top: the two still wait in Spread' panes_are 0
 probe key 48 125 >/dev/null
 sleep 1.6
 report back-in
