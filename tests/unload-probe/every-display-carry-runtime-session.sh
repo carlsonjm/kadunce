@@ -92,8 +92,10 @@ stand_as() {
 # A window carried by KWin's own title bar, as a person's mouse does, rested
 # on another window past the time a pane needs to join a Stack there, and
 # let go.
+# Let go a moment after reaching the window, sooner than a rest that stacks;
+# a third argument rests that long first.
 title_carry() {
-    local id=$1 onto=$2 x y tx ty
+    local id=$1 onto=$2 rest=${3:-.2} x y tx ty
     read -r x y <<<"$(probe titleBarOf "$id" | jq -r '[.x, .y] | map(floor) | @tsv')"
     read -r tx ty <<<"$(probe windowGeometry "$onto" | jq -r '[.x + .width / 2, .y + .height / 2] | map(floor) | @tsv')"
     echo "carry from $x,$y onto $tx,$ty"
@@ -106,7 +108,7 @@ title_carry() {
     probe contactMotion "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
     sleep .1
     probe contactMotion "$tx" "$ty" >/dev/null
-    sleep .9
+    sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state resting $(jq -c '{destination, destinationRect, stackOnto}' "$XDG_RUNTIME_DIR/carry")"
     echo "state trace $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
@@ -156,7 +158,7 @@ check 'start: its other card waits in Spread' waits_for "$tb" ''
 client companionRows 'Mon B' 48
 title_carry "$ta" "$mb"
 report carried
-check 'carry: resting on a monitor window aims at no Stack' \
+check 'carry: let go at once on a monitor window, it aims at no Stack' \
     jq -e '(.stackOnto // "") == ""' "$XDG_RUNTIME_DIR/carry"
 check 'carry: the card carried is a monitor pane, held by no card' monitor_pane "$ta"
 check 'carry: the window it rested on is still a monitor pane' monitor_pane "$mb"
@@ -237,6 +239,21 @@ check 'back: the card carried to the monitor stays there' \
     context --arg b "$tb" 'first(.applications[] | select(.windowId == $b)) | .output == "Virtual-1"'
 check 'back: no window on the monitor stands over another' apart Virtual-1
 check 'back: no window holds another as a Stack' no_stack
+
+# Carried onto a monitor pane and rested there, the small display's card
+# joins that pane's Stack in front of it, as a pane rested on another does.
+probe serverDecorate "$tc" >/dev/null
+sleep .4
+title_carry "$tc" "$mb" 1.0
+report rested
+check 'rest: the carry names the pane it would join' \
+    jq -e --arg id "$mb" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+report stacked
+check 'rest: the card carried is a monitor pane' monitor_pane "$tc"
+check 'rest: the pane it rested on waits behind it' \
+    context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($m) != null'
+check 'rest: no window on the monitor stands over another' apart Virtual-1
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

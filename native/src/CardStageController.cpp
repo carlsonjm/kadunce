@@ -2697,6 +2697,17 @@ void CardStageController::forgetFromPaneStacks(const KWin::EffectWindow *window)
     }
 }
 
+bool CardStageController::stackCardOnto(KWin::EffectWindow *card, KWin::EffectWindow *onto)
+{
+    if (!card || !onto || card == onto || liveCardIndex(card) < 0 || liveCardIndex(onto) < 0) return false;
+    QList<KWin::EffectWindow *> behind = stackFrontToBack(onto);
+    if (behind.isEmpty()) behind.append(onto);
+    behind.removeAll(card);
+    if (!restack(card, behind)) return false;
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
 {
     if (!face || liveCardIndex(face) < 0 || m_cardGrabActive || m_launcherGuestActive) return false;

@@ -5161,12 +5161,30 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge
         && connectedOutputForDesktopStage(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+    // Carried in from another display and rested on a pane there, or on the
+    // tablet's Active card, it lands as it would and then joins that Stack.
+    if (!over && !local && !desktopWindow && !edge) {
+        if (!tablet && connectedOutputForDesktopStage(target)
+            && m_desktopStage->hasSessionOnOutput(target->name())) {
+            over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
+        } else if (tablet && m_cardStage->isActive()
+                   && m_cardStage->presentation() == CardPresentation::Active) {
+            KWin::EffectWindow *card = m_cardStage->selectedWindow();
+            if (card && card != m_carriedWindow && !card->isDeleted()
+                && QRectF(card->frameGeometry()).contains(contact)) over = card;
+        }
+    }
+    QPointer<KWin::EffectWindow> stackAfter;
     if (over) {
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();
         if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now)) {
             m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
+        } else if (!local) {
+            m_paneStackDwell.stop();
+            m_carryStackOnto = over;
+            stackAfter = over;
         } else {
             m_paneStackDwell.stop();
             m_carryStackOnto = over;
@@ -5214,16 +5232,49 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         : monitorDropIntent(target->name(), 0,
             existing ? std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}} : std::nullopt, edge);
     if (!destination) return;
+    if (stackAfter) m_carryPreview = KWin::RectF(stackAfter->frameGeometry());
     handoff.previewDrop(*destination,
-        [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
-        [this, reserved, bento, output, geometry, targetRect = m_carryPreview,
+        [this, reserved, stackAfter, aimed = bool(stackAfter)] {
+            return m_desktopStage->cardDropValid(*reserved) && (!aimed || (stackAfter && !stackAfter->isDeleted()));
+        },
+        [this, reserved, bento, output, geometry, stackAfter, targetRect = stackAfter ? std::optional<KWin::RectF>{} : m_carryPreview,
          arrival = m_carriedWindow](const PreparedCarrySource &source) {
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
                 : m_cardStage->transferNativeCarryToDesktop(source, output, geometry);
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
+            if (committed && stackAfter) {
+                QPointer<KWin::EffectWindow> carried = arrival;
+                QPointer<KWin::EffectWindow> onto = stackAfter;
+                QTimer::singleShot(0, this, [this, carried, onto] { stackWhenLanded(carried, onto); });
+            }
             return committed;
         });
+}
+
+void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto, int tries)
+{
+    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) return;
+    // CARD-LIFECYCLE.md §11: once it stands where it was carried, as a pane
+    // of that layout or as the tablet's card, it joins the Stack it rested on.
+    bool stacked = false;
+    if (m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto)) {
+        stacked = stackPaneOnto(carried, onto);
+    } else if (m_cardStage->liveCardIndex(carried) >= 0 && m_cardStage->liveCardIndex(onto) >= 0) {
+        stacked = m_cardStage->stackCardOnto(carried, onto);
+        if (stacked) {
+            qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto);
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+        }
+    }
+    if (stacked) return;
+    if (tries <= 0) {
+        qInfo() << "Kadunce" << Revision << "could not stack" << logNameOf(carried) << "on"
+                << logNameOf(onto) << "after it landed";
+        return;
+    }
+    QTimer::singleShot(100, this, [this, carried, onto, tries] { stackWhenLanded(carried, onto, tries - 1); });
 }
 
 void Effect::showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWindow *returned)

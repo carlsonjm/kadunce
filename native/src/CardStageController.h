@@ -488,6 +488,9 @@ public:
     }
     // §10: a carried window with nothing to pair with becomes the Active card.
     bool promoteToActive(KWin::EffectWindow *window);
+    // A card joins another's Stack in front of it, the Stack's other cards
+    // behind in their order.
+    bool stackCardOnto(KWin::EffectWindow *card, KWin::EffectWindow *onto);
     // A display was plugged in or out, and KWin moves windows between
     // displays when that happens, cards included: it evacuates a removed
     // display and puts windows back where they last stood on a layout it has

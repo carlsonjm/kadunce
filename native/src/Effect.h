@@ -264,6 +264,10 @@ private:
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     // The cards Spread shows behind a Stack's face, nearest first.
     [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
+    // A window carried to another display and rested on a pane or card there
+    // joins that Stack once it has landed; it retries while the landing settles.
+    void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
+                         int tries = 20);
     // A card's name in Spread: a Stack names the cards behind its face, a
     // pane alone the panes beside it.
     [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
