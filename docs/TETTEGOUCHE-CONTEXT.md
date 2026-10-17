@@ -58,8 +58,7 @@ must reject unknown major versions instead of guessing at fields.
   layout while Card Stage holds its cards hidden), `desktop` (the card display
   shows the Plasma desktop while Card Stage holds its cards hidden), or
   `active`. `cardLine` is a
-  frozen interface value that a later versioned migration renames
-  (`ROADMAP.md`).
+  frozen interface value that a later versioned migration renames.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `table`: whether Table is open (`open`). A change is signalled as Table
   opens and as it closes.
