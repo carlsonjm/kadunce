@@ -16,7 +16,7 @@ subject to its owner. When two documents disagree, the owner governs.
 | `CARD-LIFECYCLE.md` | who owns each window, how it is presented, and what every transition does |
 | `INPUT.md` | every input Kadunce answers and what it does |
 | `DECISIONS.md` | why each rule holds and what it rejected |
-| `ROADMAP.md` | what is planned, and what Kadunce does not do yet |
+| `LIMITATIONS.md` | what Kadunce does not do yet, and what it will not do |
 | `TESTING.md` | what each check proves, running the private harness, promotion, failure classification and confirming the running build |
 | `TERMINOLOGY.md` | the suite's approved language and naming rules |
 | `ITASCA-VISUAL-LANGUAGE.md` | the shared visual and motion grammar, and Kadunce's geometry |
