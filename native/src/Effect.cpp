@@ -5269,6 +5269,24 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
     bool stacked = false;
     if (m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto)) {
         stacked = stackPaneOnto(carried, onto);
+    } else if (KWin::LogicalOutput *there = carried->screen();
+               m_desktopStage->managesWindow(carried) && m_cardStage->liveCardIndex(onto) >= 0
+               && there && cardHome(onto) == there) {
+        // §11, Every display: the card a display showed alone gave its place
+        // to the arrival and waits for that display; it waits behind it, as
+        // a card given there with its Stack does.
+        QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(onto);
+        if (behind.isEmpty()) behind.append(onto);
+        behind.append(m_cardStage->paneStack(carried));
+        m_cardStage->notePaneStack(carried, behind);
+        for (auto *member : std::as_const(behind))
+            if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
+        m_cardStage->settlePaneStacks();
+        stacked = true;
+        qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto)
+                << "waiting for" << there->name();
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
     } else if (m_cardStage->liveCardIndex(carried) >= 0 && m_cardStage->liveCardIndex(onto) >= 0) {
         stacked = m_cardStage->stackCardOnto(carried, onto);
         if (stacked) {
