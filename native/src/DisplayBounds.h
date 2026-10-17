@@ -20,8 +20,10 @@ inline bool sendDisplayBounds(KWin::Window *client, KWin::LogicalOutput *output)
     const QPointer<KWin::XdgToplevelInterface> toplevel = nativeMoveProtocol(client->surface());
     if (!toplevel) return false;
     const KWin::RectF area = KWin::effects->clientArea(KWin::PlacementArea, output);
-    const double width = area.width() - client->borderLeft() - client->borderRight();
-    const double height = area.height() - client->borderTop() - client->borderBottom();
+    // The frame's decoration is not the window's to fill.
+    const QSizeF frame = client->size() - client->clientSize();
+    const double width = area.width() - frame.width();
+    const double height = area.height() - frame.height();
     toplevel->sendConfigureBounds(QSizeF(std::max(1.0, width), std::max(1.0, height)));
     return true;
 }
