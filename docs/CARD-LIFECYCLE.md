@@ -424,8 +424,8 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 Release the carried window to the ordinary Plasma desktop.
 
-On the display that owns cards, §2's Desktop is then shown with it; a last card
-ends the display's session, as §12's last closure does.
+On any display showing cards (§11), §2's Desktop is then shown with it; a last
+card ends the display's session, as §12's last closure does.
 
 ### Cancel
 

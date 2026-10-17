@@ -381,6 +381,31 @@ report stack-swiped
 check 'gap: a swipe in from the left steps it back' shown_on "$tc" Virtual-0
 check 'gap: no window on the small display stands over another' apart Virtual-0
 
+# Carried by its title bar to the small display's bottom edge and let go
+# there, the card that display shows goes to its ordinary desktop, as a card
+# does on the tablet (§10).
+read -r x y <<<"$(probe titleBarOf "$tc" | jq -r '[.x, .y] | map(floor) | @tsv')"
+read -r bx by <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .geometry | [.x + .width / 2, .y + .height - 4] | map(floor) | @tsv')"
+echo "bottom carry from $x,$y to $bx,$by"
+probe pointer "$x" "$y" >/dev/null
+sleep .1
+probe contactButton true >/dev/null
+sleep .15
+probe contactMotion "$((x + 20))" "$((y + 40))" >/dev/null
+sleep .1
+probe contactMotion "$bx" "$(((y + by) / 2))" >/dev/null
+sleep .1
+probe contactMotion "$bx" "$by" >/dev/null
+sleep .3
+echo "state at the bottom edge $(kad nativeCarryState | jq -c '{destination, destinationRect}')"
+probe contactButton false >/dev/null
+sleep 1.6
+report bottom-released
+check 'bottom: the card let go at the bottom edge is no card' \
+    context --arg id "$tc" 'first(.applications[] | select(.windowId == $id)) | (.hasCard | not) and (.pane | not)'
+check 'bottom: it stays on the small display, shown' \
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e --arg c 'Tab C' 'first(.[] | select(.caption == \$c)) | .output == \"Virtual-0\" and (.hidden | not) and (.minimized | not)'"
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 report released
@@ -391,4 +416,4 @@ if (( failures > 0 )); then
     echo "FAIL: every display carry: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, the dock opens a card on its own display, a display a card is carried off keeps one, and no display piles its windows into a Stack'
+echo 'PASS: a card carried to the monitor or left behind by Spread stands on its own there, the dock opens a card on its own display, a display a card is carried off keeps one, its bottom edge lets its card go, and no display piles its windows into a Stack'

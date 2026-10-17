@@ -5420,9 +5420,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool local = target->name() == handoff.source()->origin().output;
     const bool tablet = isTabletOutput(target);
     // §11, Every display: the card a display shows on its own stage, carried
-    // on that display, goes back to its place there when let go.
-    const bool displaySource = !bento && !desktopWindow && displayStageHolding(m_carriedWindow);
-    if (displaySource && local) return;
+    // on that display, goes back to its place there when let go, unless it is
+    // let go at the bottom edge (below).
+    CardStageController *const displayCards
+        = !bento && !desktopWindow ? displayStageHolding(m_carriedWindow) : nullptr;
+    const bool displaySource = displayCards != nullptr;
     const auto edge = carryEdgeAt(target, contact);
     // Every return below that leaves an edge without a drop names why, and a
     // drop that is previewed but then refused at release cannot go there.
@@ -5467,9 +5469,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         return box;
     };
     // §10: the bottom edge releases a card to the ordinary desktop, as it does
-    // a pane, and the desktop is shown with it.
-    if (local && tablet && !bento && !desktopWindow && atBottomEdge
-        && m_cardStage->nativeCarrySourceValid(*handoff.source())) {
+    // a pane, and the desktop is shown with it, on the tablet or on a display
+    // showing the card on its own stage.
+    CardStageController *const releasing = displaySource ? displayCards : tablet ? m_cardStage : nullptr;
+    if (local && releasing && !bento && !desktopWindow && atBottomEdge
+        && releasing->nativeCarrySourceValid(*handoff.source())) {
         const KWin::RectF box(exitBox());
         QPointer<KWin::EffectWindow> carried = m_carriedWindow;
         QPointer<KWin::LogicalOutput> output = target;
@@ -5481,10 +5485,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     && KWin::effects->screens().contains(output.data()) && carried->screen() == output;
             },
             [this, output, box](const PreparedCarrySource &source) {
-                return m_cardStage->releaseNativeCarryToDesktop(source, output, box);
+                CardStageController *cards = carrySourceStage(source);
+                return cards && cards->releaseNativeCarryToDesktop(source, output, box);
             });
         return;
     }
+    if (displaySource && local) return;
     if (local && bento && !desktopWindow && atBottomEdge) {
         const QRectF box = exitBox();
         const auto reserved = m_desktopStage->prepareCardDrop(m_carriedWindow, target,
