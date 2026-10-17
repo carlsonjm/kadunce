@@ -2816,6 +2816,13 @@ bool CardStageController::resumeSelectedBentoProjection()
     const auto departure = m_workspace.prepareGroupRemoval(projectionWindows,
         OwnershipTransition::CardToBento);
     if (!departure) return false;
+    // Each pane goes back to its own size in the layout; its picture is kept
+    // until its application has drawn itself there.
+    for (const auto &member : std::as_const(projection.panes)) {
+        KWin::EffectWindow *pane = member.window.data();
+        if (pane && !pane->isDeleted() && !pane->isMinimized())
+            (void)m_host->holdPictureBeforeResizeForCardStage(pane, [] {});
+    }
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
         [this, projectionWindows, paneStacks, &departure, &committed] {
@@ -2964,7 +2971,19 @@ void CardStageController::standPanesInCardPlace()
             client->maximize(KWin::MaximizeRestore);
         if (client->quickTileMode() != KWin::QuickTileMode{})
             client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
-        client->moveResize(KWin::RectF(activeTarget(tablet)));
+        const KWin::RectF target(activeTarget(tablet));
+        if (client->moveResizeGeometry() == target) continue;
+        // Spread is opening over it, so its picture is kept until its
+        // application has drawn itself at the card's size.
+        const QPointer<KWin::EffectWindow> held(window);
+        const auto resize = [this, held, target] {
+            // A pick in the moment before may already have put it back.
+            if (!held || held->isDeleted() || !held->window() || m_presentation != CardPresentation::Spread
+                || !m_bentoProjectionWindows.contains(held)) return;
+            QScopedValueRollback<bool> resizing(m_applyingWindowState, true);
+            held->window()->moveResize(target);
+        };
+        if (!m_host->holdPictureBeforeResizeForCardStage(window, resize)) client->moveResize(target);
     }
 }
 
