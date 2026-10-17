@@ -7814,8 +7814,13 @@ bool Effect::spillCardToLayoutBeside(KWin::EffectWindow *card)
         if (!spilled || spilled->isDeleted()) return;
         const bool joined = spilled->screen() && spilled->screen()->name() == name
             && m_cardStage->liveCardIndex(spilled) >= 0
-            && m_desktopStage->admitCardToLiveBento(spilled,
-                [this, spilled] { return m_cardStage->releaseCardToLiveBento(spilled); });
+            && m_desktopStage->admitCardToLiveBento(spilled, [this, spilled] {
+                // A layout Kadunce shows as Bento takes it as Bento's; one
+                // shown as the desktop, as a card that display gives up.
+                return m_cardStage->presentation() == CardPresentation::Bento
+                    ? m_cardStage->releaseCardToLiveBento(spilled)
+                    : m_cardStage->releaseCardToDisplay(spilled);
+            });
         qInfo() << "Kadunce" << Revision << (joined ? "gave" : "could not give") << logNameOf(spilled)
                 << "a pane of its own on" << name << "by the keys";
         observeCardOwnership();
