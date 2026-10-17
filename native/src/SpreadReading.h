@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "CardLabelPresentation.h"
+
 namespace Kadunce
 {
 
@@ -19,25 +21,24 @@ struct SpreadReadingEntry {
     // The applications of the panes sharing this card's layout, in the
     // layout's order; empty for a card in no layout.
     QStringList pairedWith;
+    // A Stack's cards waiting behind its face, nearest first, as many as
+    // Spread shows. Said in place of the panes beside it.
+    QStringList behind;
 };
 
 // What Spread says for an entry, as Table names its cards: the application
 // and the window's title, the panes it shares a layout with, then whether it
 // is a Stack and how many cards it holds, and whether the card is sleeping.
+// A Stack names the cards behind its face instead of the panes beside it.
 inline QString spreadEntryName(const SpreadReadingEntry &entry)
 {
     QStringList parts;
     if (!entry.application.isEmpty()) parts.append(entry.application);
     if (!entry.title.isEmpty() && entry.title != entry.application) parts.append(entry.title);
-    QStringList partners;
-    for (const QString &application : entry.pairedWith)
-        if (!application.isEmpty()) partners.append(application);
-    if (partners.size() == 1) {
-        parts.append(QObject::tr("with %1").arg(partners.first()));
-    } else if (!partners.isEmpty()) {
-        const QString last = partners.takeLast();
-        parts.append(QObject::tr("with %1 and %2").arg(partners.join(QStringLiteral(", ")), last));
-    }
+    const QString behind = namesInLine(entry.behind);
+    const QString partners = namesInLine(entry.pairedWith);
+    if (!behind.isEmpty()) parts.append(QObject::tr("then %1").arg(behind));
+    else if (!partners.isEmpty()) parts.append(QObject::tr("with %1").arg(partners));
     if (entry.stacked > 1) parts.append(QObject::tr("Stack of %1 cards").arg(entry.stacked));
     if (entry.sleeping) parts.append(QObject::tr("sleeping"));
     if (parts.isEmpty()) parts.append(QObject::tr("Card"));

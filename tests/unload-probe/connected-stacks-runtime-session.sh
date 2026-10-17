@@ -297,6 +297,9 @@ carry_onto "${w[3]}" "${w[2]}"
 report spread-pane-held
 check 'spread: a pane card held and let go on another joins its Stack' one_stack "[\"${w[3]}\",\"${w[2]}\"]"
 select_card "${w[3]}"
+# A Stack's card names the card behind it, not the panes beside it.
+check 'spread: the Stack names the card behind it' \
+    context '.cardStage.spreadEntry | .stackSize == 2 and (.name | test(" · then ")) and (.name | test(" · with ") | not)'
 open_selected
 report spread-open
 check 'spread open: the layout shows' layout_shown

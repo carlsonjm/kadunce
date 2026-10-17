@@ -233,8 +233,7 @@ was touched (`INPUT.md` § Active card and § Bento). Contact near the edge's mi
 keeps the previous choice.
 
 The carried window keeps the edge it was released into and takes the share its
-half asked for (§11, A side snap). This holds whether the carried window comes from the native
-desktop, from an individual card, or is itself the Active card.
+half asked for (§11, A side snap), wherever the carried window comes from.
 
 ### When a pane leaves Bento
 
@@ -413,7 +412,7 @@ An edge action is what a carried window's release at a screen edge means
 
 ### Top edge
 
-Make the carried window an independent Active card, or another display's lone card. It never pairs.
+Make the carried window an Active card, or another display's lone card, never paired. Connected, panes it left wait in Spread; the dock or Spread calls it alone, and `Meta+B`, a Stack or edge lays it out.
 
 ### Left or right edge
 
@@ -463,7 +462,7 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 | A picked card or new window | Becomes Active (§6, §8) | Joins the layout: paired with the card in use when none shows, else under §8, filling open room, else joining the shortest column or starting one, whichever keeps panes larger |
 | A side snap | Takes its half's share (§3) | Names a place: an edge's upper half beside, a full-height column; its lower half under, at that column's foot; alone, it keeps that place |
 | A dock launch | Opens Active | Names a place, as a side snap does |
-| A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A pane rested on another joins its Stack in front, leaving its slot to its own Stack |
+| A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |
 | A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |
 | A pane leaving | §5 | §5, its room opening |
 

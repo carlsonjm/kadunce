@@ -2645,6 +2645,18 @@ bool CardStageController::resumeBentoGroup()
     return false;
 }
 
+bool CardStageController::stepActiveBackToLayout()
+{
+    if (!hasBentoGroup() || m_presentation != CardPresentation::Active
+        || !activeCardIdentity() || m_cardGrabActive || m_launcherGuestActive) return false;
+    m_host->cancelInputForCardStage();
+    finishCardGrab(false);
+    parkActiveSnapshot();
+    m_presentation = CardPresentation::Spread;
+    syncSelectedElevation();
+    return true;
+}
+
 QList<KWin::EffectWindow *> CardStageController::paneStack(const KWin::EffectWindow *pane) const
 {
     QList<KWin::EffectWindow *> result;
@@ -2683,6 +2695,17 @@ void CardStageController::forgetFromPaneStacks(const KWin::EffectWindow *window)
         if (it.value().isEmpty()) it = m_paneStacks.erase(it);
         else ++it;
     }
+}
+
+bool CardStageController::stackCardOnto(KWin::EffectWindow *card, KWin::EffectWindow *onto)
+{
+    if (!card || !onto || card == onto || liveCardIndex(card) < 0 || liveCardIndex(onto) < 0) return false;
+    QList<KWin::EffectWindow *> behind = stackFrontToBack(onto);
+    if (behind.isEmpty()) behind.append(onto);
+    behind.removeAll(card);
+    if (!restack(card, behind)) return false;
+    KWin::effects->addRepaintFull();
+    return true;
 }
 
 bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind)
@@ -3138,6 +3161,13 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();
     clearCardTransition();
+    // A card held aside is hidden from KWin, and a hidden window draws nothing
+    // and so never takes the size its pane asks of it: it comes back first.
+    if (m_aside.removeAll(card) > 0) {
+        QObject::disconnect(m_asideListed.take(card));
+        card->setData(CardAsideRole, QVariant());
+        if (card->window()) card->window()->setHidden(false);
+    }
     KWin::effects->setElevatedWindow(card, false);
     m_host->unredirectForCardStage(card);
     syncSelectedElevation();

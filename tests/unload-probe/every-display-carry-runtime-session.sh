@@ -92,8 +92,10 @@ stand_as() {
 # A window carried by KWin's own title bar, as a person's mouse does, rested
 # on another window past the time a pane needs to join a Stack there, and
 # let go.
+# Let go a moment after reaching the window, sooner than a rest that stacks;
+# a third argument rests that long first.
 title_carry() {
-    local id=$1 onto=$2 x y tx ty
+    local id=$1 onto=$2 rest=${3:-.2} x y tx ty
     read -r x y <<<"$(probe titleBarOf "$id" | jq -r '[.x, .y] | map(floor) | @tsv')"
     read -r tx ty <<<"$(probe windowGeometry "$onto" | jq -r '[.x + .width / 2, .y + .height / 2] | map(floor) | @tsv')"
     echo "carry from $x,$y onto $tx,$ty"
@@ -106,7 +108,7 @@ title_carry() {
     probe contactMotion "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
     sleep .1
     probe contactMotion "$tx" "$ty" >/dev/null
-    sleep .9
+    sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
     echo "state resting $(jq -c '{destination, destinationRect, stackOnto}' "$XDG_RUNTIME_DIR/carry")"
     echo "state trace $(kad nativeMoveTrace | jq -Rsc 'split("\n") | map(select(length > 0)) | .[-6:]')"
@@ -156,7 +158,7 @@ check 'start: its other card waits in Spread' waits_for "$tb" ''
 client companionRows 'Mon B' 48
 title_carry "$ta" "$mb"
 report carried
-check 'carry: resting on a monitor window aims at no Stack' \
+check 'carry: let go at once on a monitor window, it aims at no Stack' \
     jq -e '(.stackOnto // "") == ""' "$XDG_RUNTIME_DIR/carry"
 check 'carry: the card carried is a monitor pane, held by no card' monitor_pane "$ta"
 check 'carry: the window it rested on is still a monitor pane' monitor_pane "$mb"
@@ -238,11 +240,59 @@ check 'back: the card carried to the monitor stays there' \
 check 'back: no window on the monitor stands over another' apart Virtual-1
 check 'back: no window holds another as a Stack' no_stack
 
+# Carried onto a monitor pane and rested there, the small display's card
+# joins that pane's Stack in front of it, as a pane rested on another does.
+probe serverDecorate "$tc" >/dev/null
+sleep .4
+title_carry "$tc" "$mb" 1.0
+report rested
+check 'rest: the carry names the pane it would join' \
+    jq -e --arg id "$mb" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+report stacked
+check 'rest: the card carried is a monitor pane' monitor_pane "$tc"
+check 'rest: the pane it rested on waits behind it' \
+    context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($m) != null'
+check 'rest: no window on the monitor stands over another' apart Virtual-1
+
+# With Spread on the monitor, as on the tablet with a monitor beside it, a
+# monitor pane rested on the card the small display shows alone joins it,
+# though the small display is sized Solo; carried back and rested on a pane
+# of Spread's layout, it joins that pane.
+probe pointer 640 360 >/dev/null
+client titledCompanion 'Tab D' 500 400
+sleep 1.4
+td=$(idOf 'Tab D')
+probe serverDecorate "$td" >/dev/null
+probe activateWindowId "$td" >/dev/null
+sleep 1
+kad setSpreadDisplay Virtual-1
+sleep 2.5
+report spread-on-monitor
+check 'monitor Spread: the small display shows its card alone' shown_on "$td" Virtual-0
+title_carry "$ma" "$td" 1.0
+report rested-on-small
+check 'small rest: the carry names the card it would join' \
+    jq -e --arg id "$td" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+check 'small rest: the pane carried stands on the small display' \
+    context --arg c "$ma" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
+check 'small rest: the card it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+title_carry "$ma" "$ta" 1.0
+report rested-on-spread
+check 'Spread rest: the carry names the pane it would join' \
+    jq -e --arg id "$ta" '.stackOnto == $id' "$XDG_RUNTIME_DIR/carry"
+sleep 1
+check 'Spread rest: the card carried is a monitor pane' monitor_pane "$ma"
+check 'Spread rest: the pane it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$ta" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 report released
 check 'switched off: every window is an ordinary window on a display that exists' \
-    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length == 5 and all(.onDisplay and (.hidden | not) and (.minimized | not))'"
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'map(select(.class == \"unload-client\" and .caption != \"unload-client\")) | length == 6 and all(.onDisplay and (.hidden | not) and (.minimized | not))'"
 kill "$client_pid" 2>/dev/null || true
 if (( failures > 0 )); then
     echo "FAIL: every display carry: $failures checks failed" >&2

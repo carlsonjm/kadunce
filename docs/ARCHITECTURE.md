@@ -40,7 +40,8 @@ and exists only while one listens. It keeps an undrawn
 switcher makes its own, and speaks each line as a focused filler, the way
 screen readers speak a switcher. Spread says its chosen entry in the words
 `SpreadReading.h` gives it (application and title, a Stack's card count, a
-sleeping card, the panes a pane's card is paired with) and its place in
+sleeping card, the panes a pane's card is paired with, or the cards behind a
+Stack's face) and its place in
 the row; Table says what is carried and where, the chosen card, or the tab
 under the finger. Each opens with its own name, and a change is said as it
 happens, so a card made into a Stack is heard. Where keys and touches go is
