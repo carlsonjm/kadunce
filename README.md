@@ -129,11 +129,10 @@ evenly and keeps your snapped card on its side; only when even that cannot fit
 does the window used longest ago step back into Spread. Drag a divider to
 fine-tune.
 
-### Your own layouts
+### Prefer your own layout?
 
-Draw zones for a display with `Meta+T`, KDE's tile editor, then switch to them
-with `Meta+Shift+B` or **Monitors use my zones** in the Cards menu. Each window
-keeps a zone it fits. Zones apply on displays kept as ordinary windows (below).
+Auto layout not your thing? Keep a display as ordinary windows (below), draw
+zones for it with `Meta+T`, and switch to them with `Meta+Shift+B`.
 
 <details>
 <summary>More about displays</summary>
