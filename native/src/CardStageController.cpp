@@ -4907,19 +4907,26 @@ KWin::RectF CardStageController::placeClearOfPanels(const ActiveRestoreSnapshot 
     if (snapshot.fullScreen || snapshot.maximizeMode != KWin::MaximizeRestore
         || snapshot.quickTileMode != KWin::QuickTileMode{}) return snapshot.geometry;
     const QRectF place(snapshot.geometry);
+    // A place that runs off its display, as a pane's size kept by a card a
+    // smaller display showed can, is fitted into the display holding most of it.
+    KWin::LogicalOutput *holding = nullptr;
+    double most = 0.0;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         const QRectF screen(output->geometry());
-        if (!screen.contains(place)) continue;
-        const QRectF area(KWin::effects->clientArea(KWin::MaximizeArea, output));
-        if (area.isEmpty() || area.contains(place)) return snapshot.geometry;
-        QRectF fitted = place;
-        fitted.setWidth(std::min(fitted.width(), area.width()));
-        fitted.setHeight(std::min(fitted.height(), area.height()));
-        fitted.moveLeft(std::clamp(fitted.left(), area.left(), area.right() - fitted.width()));
-        fitted.moveTop(std::clamp(fitted.top(), area.top(), area.bottom() - fitted.height()));
-        return KWin::RectF(fitted);
+        if (screen.contains(place)) { holding = output; break; }
+        const QRectF shared = screen.intersected(place);
+        const double held = shared.width() * shared.height();
+        if (held > most) { most = held; holding = output; }
     }
-    return snapshot.geometry;
+    if (!holding) return snapshot.geometry;
+    const QRectF area(KWin::effects->clientArea(KWin::MaximizeArea, holding));
+    if (area.isEmpty() || area.contains(place)) return snapshot.geometry;
+    QRectF fitted = place;
+    fitted.setWidth(std::min(fitted.width(), area.width()));
+    fitted.setHeight(std::min(fitted.height(), area.height()));
+    fitted.moveLeft(std::clamp(fitted.left(), area.left(), area.right() - fitted.width()));
+    fitted.moveTop(std::clamp(fitted.top(), area.top(), area.bottom() - fitted.height()));
+    return KWin::RectF(fitted);
 }
 
 void CardStageController::parkActiveSnapshot()
