@@ -1,8 +1,9 @@
 # Documentation index
 
-Each live document owns one subject and states what is true now. `../AGENTS.md`
-owns the startup set and the writing rules; this index routes every other
-subject to its owner. When two documents disagree, the owner governs.
+Each live document covers one subject and describes what is true now.
+`../AGENTS.md` holds the startup set and the writing rules; this index says
+where every other subject lives. When two documents disagree, the one listed
+for the subject wins.
 
 ## Routing
 
@@ -27,7 +28,7 @@ subject to its owner. When two documents disagree, the owner governs.
 
 ## Keeping documentation small
 
-`tests/verify-docs.py`, run by `../verify.sh`, enforces a word budget for the
+`tests/verify-docs.py`, run by `../verify.sh`, sets a word budget for the
 largest documents and for all live documents together. When a budget fails,
-trim: removed text lives in Git history. A budget is raised only with the
-maintainer's agreement.
+trim; removed text stays in Git history. Only the maintainer can agree to raise
+a budget.

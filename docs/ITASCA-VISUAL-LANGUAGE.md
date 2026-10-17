@@ -1,13 +1,13 @@
 # Itasca visual language
 
-**Status:** Accepted suite reference. This defines shared visual grammar without
-replacing component-specific interaction contracts.
+The suite's shared visual grammar. How each component behaves is still set by
+its own interaction documents.
 
 ## Intent
 
 Itasca should feel quiet, spatial, and touch-native. Shape, spacing, and contrast
 should explain what an object does before copy has to explain it. Preserve the
-character already visible in Tette's launcher, Temperance's rail and popups, and
+character already visible in Tettegouche's launcher, Temperance's rail and popups, and
 Kadunce's cards rather than adopting a generic desktop theme wholesale.
 
 ## Shape means function
@@ -21,7 +21,7 @@ A pill means the user can act, choose, switch, filter, or change state.
 - Icon-only controls may be circular when their hit area is square.
 - Selected controls may use a quiet fill. Hover may add a lighter fill. Focus may
   add an outline.
-- A passive label must not look like a pill merely because it is short.
+- Don't make a passive label a pill just because it is short.
 
 Examples: search, Do Not Disturb, power actions, sort choices, file actions,
 previous/play/next, Cancel, and popup action buttons.
@@ -38,8 +38,8 @@ A rounded rectangle means content, context, or a bounded region of information.
 - Nothing but a pill is rounder than the surface that holds it.
 - Keyboard keys are paper, since round keys read as dots; Table's cards keep
   their own corners.
-- Information boxes may contain pills. The outer box remains distinct from the
-  controls within it.
+- Information boxes may contain pills. The outer box stays distinct from the
+  controls inside it.
 - Do not make informational status button-shaped unless the whole object acts.
 
 Examples: notification cards, alert cards, file tiles, menus, transfer details,
@@ -53,11 +53,12 @@ and expanded system surfaces.
   are not one tight transport cluster.
 - A highlight follows the object's silhouette instead of introducing another
   unrelated corner radius.
-- Surplus width belongs after a complete activity or group, never between children.
+- Put surplus width after a complete activity or group, not between its children.
 
 ## Spacing hierarchy
 
-Use a 4 px base rhythm. These are semantic roles, not an immediate migration list.
+Use a 4 px base rhythm. These are semantic roles, not a list of values to change
+right away.
 
 | Role | Value | Use |
 |---|---:|---|
@@ -71,7 +72,7 @@ Use a 4 px base rhythm. These are semantic roles, not an immediate migration lis
 
 - Keep spacing within a group smaller than spacing between groups.
 - Preserve touch targets when glyphs are compact. Panel icon hit areas should
-  normally remain at least 40–44 px. Icons set closer so they read as one group,
+  normally stay at least 40–44 px. Icons set closer so they read as one group,
   as Temperance's status icons are 34 px apart, answer the panel's full height
   instead. Test a control by pointer as well as by touch.
 - Responsive layouts remove optional information before crushing useful spacing.
@@ -80,7 +81,7 @@ Use a 4 px base rhythm. These are semantic roles, not an immediate migration lis
 
 ## Color roles
 
-These semantic values apply to suite-owned presentation.
+These values apply to everything the suite draws itself.
 
 | Role | Current baseline | Purpose |
 |---|---|---|
@@ -100,10 +101,10 @@ These semantic values apply to suite-owned presentation.
 | Dark accent foreground | `#102729` | Content on a bright accent fill |
 | Error | `#FFB5A8` | Actionable failure copy |
 
-- Accent communicates state; it is not general decoration or the default hover.
+- Accent signals state. Don't use it as decoration or as the default hover.
 - Prefer opacity steps of soft white over unrelated grays on translucent surfaces.
 - Keep primary text and glyphs near-white; use opacity for supporting context.
-- Application artwork and source icons may retain native color. Suite chrome stays
+- Application artwork and source icons keep their own color. Suite chrome stays
   monochrome unless state requires accent or error color.
 - These are the dark values. Kadunce's own surfaces follow the color scheme:
   these exactly on a dark scheme, and on a light one its text laid over its
@@ -169,11 +170,10 @@ they preserve these relationships and respect the user's animation settings.
 
 - Use ease-out cubic for entrances and direct manipulation settling.
 - Use ease-in-out cubic for reversible geometry or state morphs.
-- Exits may be slightly faster than entrances; they must not feel abrupt.
-- Linear motion is reserved for continuous progress or a genuinely constant-rate
-  indicator.
-- Springs are reserved for physical or spatial continuity, such as an arriving
-  floating surface. Avoid springing routine hover, text, or status changes.
+- Exits may be slightly faster than entrances, but should not feel abrupt.
+- Use linear motion only for continuous progress or a constant-rate indicator.
+- Use springs only for physical or spatial continuity, such as an arriving
+  floating surface. Don't spring routine hover, text, or status changes.
 
 ### Choreography
 
@@ -186,7 +186,7 @@ they preserve these relationships and respect the user's animation settings.
   subtle and normally below 60 ms.
 - A source-authoritative completed activity may become a check for 700–900 ms,
   then leave. Filesystem quiet time alone cannot claim success.
-- Progress changes should remain legible and stable; do not bounce or overshoot a
+- Progress changes should stay legible and stable; don't bounce or overshoot a
   factual value.
 
 ### Interruption and ownership
@@ -194,8 +194,8 @@ they preserve these relationships and respect the user's animation settings.
 - Every transition must be safe to interrupt, reverse, or retarget from its current
   visible state.
 - User input wins immediately over decorative or settling animation.
-- The owner of the state owns completion. Presentation may interpolate known state
-  but must not invent progress, success, or failure.
+- Whatever owns the state decides when it is complete. Presentation may
+  interpolate known state but never invents progress, success, or failure.
 - Source loss removes stale activity without playing a false success animation.
 - Repeated events update an existing surface when identity is stable instead of
   replaying the full entrance.
@@ -279,9 +279,9 @@ Use the system UI family. Create hierarchy with size, weight, opacity, and spaci
 
 ## Icons
 
-**Lucide** is the canonical family for suite-owned action chrome. Repositories
-vendor a pinned subset of the SVGs they consume. The selected baseline is Lucide
-Static 1.46.0 under the ISC license, including its inherited Feather MIT notice.
+**Lucide** is the icon family for the suite's own action chrome. Each repository
+vendors a pinned subset of the SVGs it uses. The pinned version is Lucide Static
+1.46.0 under the ISC license, including its inherited Feather MIT notice.
 
 - Use rounded, optically balanced geometry on a consistent grid.
 - Use monochrome/current-color SVGs for suite chrome.
@@ -295,20 +295,20 @@ Static 1.46.0 under the ISC license, including its inherited Feather MIT notice.
 - Use identical semantic names across repositories even when each repository
   vendors only its required subset.
 
-Temperance's accepted bell uses Lucide Bell geometry, redrawn locally for its
-animated clapper and slash. It is the first documented suite-specific exception.
+Temperance's bell uses Lucide Bell geometry, redrawn locally for its animated
+clapper and slash. It is the first suite-specific exception on record.
 
 ### Protected custom icon work
 
-These established visuals are product identity or behavior, not migration targets:
+These visuals are product identity or behavior, and stay as they are:
 
-- Tette Dot / launcher identity.
+- Tette Dot, the launcher's identity.
 - Temperance's animated Bell and custom Weather glyph.
 - Kadunce's pearl-card tray mark: one card between its neighbours' edges,
   shared with Shuffle's dock Spread button (redesigned 14 Oct 2026).
 
-Lucide must not replace, redraw, simplify, or absorb these components. Preserve
-their geometry and behavior unless a focused product redesign changes the contract.
+Don't replace, redraw or simplify them with Lucide, or fold them into it. Keep
+their geometry and behavior unless a product redesign changes them.
 
 ## Responsive composition
 
@@ -342,13 +342,13 @@ Ambient media is the reference:
 
 ## Durable decisions
 
-- Lucide is the canonical suite action family.
-- `#F8F8FF` is named **Ghost White** and remains the primary foreground.
-- The animated Temperance bell remains a documented Lucide-derived exception.
-- Tette Dot, Bell, Weather, and Kadunce's pearl-card tray mark remain protected.
+- Lucide is the suite's action icon family.
+- `#F8F8FF` is named **Ghost White** and is the primary foreground.
+- The animated Temperance bell is a documented Lucide-derived exception.
+- Tette Dot, Bell, Weather, and Kadunce's pearl-card tray mark are protected.
 - Corners come in three tiers: 8 px paper, 12 px notes, pills for actions.
-- Each repository owns its pinned Lucide subset; there is no runtime cross-repo
-  asset dependency.
+- Each repository keeps its own pinned Lucide subset; no repository loads
+  another's assets at run time.
 
-Soft primary (`#F2FFFFFF`) remains a separate foreground level. App-specific outer
+Soft primary (`#F2FFFFFF`) is a separate foreground level. App-specific outer
 silhouettes may differ when they encode product identity or interaction.

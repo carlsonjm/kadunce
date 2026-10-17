@@ -1,9 +1,9 @@
 # What Shuffle could give back to KDE
 
-KDE problems the suite found or worked around. The touch drag correction is
-reported as KDE bug 526861; nothing else has been sent. The maintainer picks
-what goes, as a report or a patch under the project's name.
-Check each against current KDE code first. Evidence: **measured**, **source**
+KDE problems the suite found or worked around. Only the touch drag correction
+has been sent, as KDE bug 526861. The maintainer picks what goes next, as a
+report or a patch under the project's name. Check each against current KDE
+code first. Evidence: **measured**, **source**
 (read from KDE's code) or **inferred**.
 
 ## Ready or nearly ready

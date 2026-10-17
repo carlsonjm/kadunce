@@ -1,7 +1,7 @@
 # Input
 
-Every gesture, tap, click, wheel and key Kadunce answers, and what you see
-happen; anything else stays with the application. A gesture Kadunce refuses
+Every gesture, tap, click, wheel and key Kadunce handles, and what you see
+happen. Anything else goes to the application. A gesture Kadunce refuses
 springs back with a note saying why. `CARD-LIFECYCLE.md` says what each
 result does to a window.
 

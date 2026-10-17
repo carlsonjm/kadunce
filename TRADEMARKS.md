@@ -15,8 +15,8 @@ copyright holder, Jared Carlson:
 - The names **Kadunce**, **Tettegouche** and **Temperance**
 - The Kadunce logo
 
-This is the ordinary arrangement for free software: the code is free to
-redistribute, the identity is not free to reuse.
+This is the usual arrangement for free software: you can redistribute the
+code, but not reuse its identity.
 
 ## What this means in practice
 
