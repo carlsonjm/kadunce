@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11, Every display, with the monitor's layout full:
-# Virtual-0 at scale 2 is small, sized Solo and chosen for Spread, and
+# Virtual-0 at scale 2 is small, sized Solo and primary, and
 # Virtual-1 is large and sized Connected. Its three windows are too big for
 # more than two to stand side by side, so two make its layout and the third
-# waits in Spread for it. Picked there, the waiting card takes the place of
+# waits in its own Spread. Picked there, the waiting card takes the place of
 # the pane used longest ago, which waits in its turn; the pane used last
-# stays, and Spread's display keeps its own card. Done twice, with the other
+# stays, and the small display keeps its own card. Done twice, with the other
 # pane used longest ago the second time. Then a pane carried by its title bar
 # to the monitor's top edge is the card it shows alone. Every check is
 # reported, so a failure does not hide the rest.
@@ -23,7 +23,8 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, home, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, focused, minimized}],
+        stages: [.displayContext.displays[] | {name, shows, s: .cardStage.presentation, a: .cardStage.activeCardId}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden, minimized})')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
@@ -41,12 +42,14 @@ select_card() {
     selected "$id"
 }
 pick() { select_card "$1" || echo "could not select $1"; open_selected; }
-keeps_own() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
+keeps_own() { context --arg id "$1" 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage | .presentation == "active" and .activeCardId == $id'; }
+# The monitor's own Spread, opened as its dock does, without using a window.
+monitor_spread() { kad showCardLineOn Virtual-1 >/dev/null; sleep 1.2; }
 monitor_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
     | .pane and .output == "Virtual-1" and (.hasCard | not) and (.minimized | not)'; }
 monitor_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-1")] | length == $n'; }
 waits_for_monitor() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
-    | .hasCard and .home == "Virtual-1" and (.pane | not) and (.minimized | not)'; }
+    | .hasCard and .stage == "Virtual-1" and (.pane | not) and (.minimized | not)'; }
 panes_of_monitor() { kad workspaceContext | jq -r '[.applications[] | select(.pane and .output == "Virtual-1") | .windowId] | .[]'; }
 title_at() { probe titleBarOf "$1" | jq -r 'select(.x != null) | [.x, .y] | map(floor) | @tsv'; }
 # A person's mouse presses a window's title bar, KWin's own, and carries it
@@ -72,7 +75,18 @@ title_drag() {
     sleep 1.6
 }
 fills_monitor() { probe windowFacts | jq -e --arg id "$1" --argjson w "$2" 'first(.[] | select(.id == $id)) | .width >= $w * 0.9'; }
-waiting_for_monitor() { kad workspaceContext | jq -r 'first(.applications[] | select(.hasCard and .home == "Virtual-1" and (.minimized | not))) | .windowId'; }
+waiting_for_monitor() { kad workspaceContext | jq -r 'first(.applications[] | select(.hasCard and .stage == "Virtual-1" and (.pane | not) and (.minimized | not))) | .windowId'; }
+# The monitor shows its own Active card at first, as every display does;
+# Meta+B there lays its windows out, as a person does, and the small display
+# is in use again.
+lay_out_monitor() {
+    probe activateWindowId "$1" >/dev/null
+    sleep .6
+    probe key 48 125 >/dev/null
+    sleep 1.6
+    probe activateWindowId "$2" >/dev/null
+    sleep .8
+}
 for _ in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
     sleep .1
@@ -101,6 +115,7 @@ probe activateWindowId "$tab" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1.8
+lay_out_monitor "$(idOf 'Mon C')" "$tab"
 report start
 check 'start: the monitor shows a layout of two' monitor_panes 2
 mapfile -t panes < <(panes_of_monitor)
@@ -116,7 +131,7 @@ probe activateWindowId "$first" >/dev/null
 sleep .6
 probe activateWindowId "$tab" >/dev/null
 sleep .6
-spread_key
+monitor_spread
 pick "$waiting"
 report picked
 check 'pick: the card picked is a monitor pane' monitor_pane "$waiting"
@@ -132,7 +147,7 @@ probe activateWindowId "$waiting" >/dev/null
 sleep .6
 probe activateWindowId "$tab" >/dev/null
 sleep .6
-spread_key
+monitor_spread
 pick "$second"
 report picked-again
 check 'again: the card picked is a monitor pane' monitor_pane "$second"

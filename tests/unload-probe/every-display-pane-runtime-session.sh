@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11, Every display, as a tablet with a monitor is used:
 # Virtual-0 at scale 2 is small and sized Solo, Virtual-1 is large, sized
-# Connected, chosen for Spread, and has a status bar along its top edge. A
+# Connected, primary, and has a status bar along its top edge. A
 # card waiting for the small display, asked for from the dock, opens there,
-# its own, though Spread lives on the large one. The large display's own card
+# its own, from its own Spread. The large display's own card
 # and a window opened beside it make a layout, and choosing either pane in
 # Spread, by a pick or by Escape, opens that layout whole rather than sending
 # the pane away and leaving half a layout. Every move below is made on KWin's
@@ -28,7 +28,8 @@ idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
         displays: [.displayContext.displays[] | {name, role, sizing, holdsCards, bentoActive, geometry}],
-        apps: [.applications[] | {title, windowId, output, hasCard, pane, stage, home, focused, minimized}]}')"
+        apps: [.applications[] | {title, windowId, output, hasCard, pane, stage, focused, minimized}],
+        stages: [.displayContext.displays[] | {name, shows, s: .cardStage.presentation, a: .cardStage.activeCardId}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client" and .normal) | {caption, output, x, y, width, height, hidden})')"
     echo "stages $1 $(kad outputStageState | tr '\n' ' ')"
 }
@@ -49,20 +50,20 @@ select_card() {
     selected "$id"
 }
 # The large display shows this card, Active, and no layout.
-active_card() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
+active_card() { context --arg id "$1" 'first(.displayContext.displays[] | select(.name == "Virtual-1")) | .cardStage | .presentation == "active" and .activeCardId == $id'; }
 # The card the small display shows on its own card stage, there.
-shown_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == "Virtual-0" and .output == "Virtual-0" and (.pane | not)'; }
+shown_small() { context --arg id "$1" '(first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage | .activeCardId == $id) and (first(.applications[] | select(.windowId == $id)) | .stage == "Virtual-0" and .output == "Virtual-0")'; }
 # What the small display shows: its own card, or a pane it should not have.
-small_panes() { context --argjson n "$1" '[.applications[] | select(.stage == "Virtual-0" or (.pane and .output == "Virtual-0"))] | length == $n'; }
-small_shows() { kad workspaceContext | jq -r 'first(.applications[] | select(.stage == "Virtual-0")) | .windowId'; }
-# A card waiting in Spread for the small display.
-waits_for_small() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .home == "Virtual-0"'; }
-# A card or pane of the large display, waiting for no other display.
-waits_for_none() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .home == ""'; }
+small_panes() { context --argjson n "$1" 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | (.shows | length) == $n'; }
+small_shows() { kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage | .activeCardId'; }
+# A card of the small display waiting in its own Spread, not shown.
+waits_for_small() { context --arg id "$1" '(first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage | .activeCardId != $id) and (first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == "Virtual-0")'; }
+# A card or pane of the large display, none of the small display's.
+waits_for_none() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .stage != "Virtual-0" and .output == "Virtual-1"'; }
 monitor_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
-    | .pane and .output == "Virtual-1" and (.hasCard | not) and .home == ""'; }
+    | .pane and .output == "Virtual-1" and (.hasCard | not)'; }
 monitor_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-1")] | length == $n'; }
-monitor_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and (.pane | not) and .home == ""'; }
+monitor_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and (.pane | not) and .stage == "Virtual-1"'; }
 # The large display shows no layout, not even a pane of one.
 no_monitor_layout() { context '([.applications[] | select(.pane and .output == "Virtual-1")] | length == 0)
     and (first(.displayContext.displays[] | select(.name == "Virtual-1")) | .bentoActive | not)'; }
@@ -156,8 +157,8 @@ sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1.8
 report start
-check 'start: the large display holds Spread, sized Connected' \
-    context '[.displayContext.displays[] | select(.name == "Virtual-1" and .role == "tablet" and .sizing == "connected")] | length == 1'
+check 'start: the large display is primary, sized Connected' \
+    context '[.displayContext.displays[] | select(.name == "Virtual-1" and .primary and .sizing == "connected")] | length == 1'
 check 'start: the small display holds its own cards, sized Solo' \
     context '[.displayContext.displays[] | select(.name == "Virtual-0" and .holdsCards and .sizing == "solo")] | length == 1'
 check 'start: the small display shows one card' small_panes 1
@@ -255,7 +256,7 @@ check 'bento key: one press shows a layout of two' monitor_panes 2
 check 'bento key: the Active card is a pane of it' monitor_pane "$md"
 check 'bento key: the large display'"'"'s own card is the other' monitor_pane "$own"
 check 'bento key: the cards waiting for the small display stay out of it' \
-    bash -c "qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -e --arg a '$shown' --arg b '$waiting' '[.applications[] | select((.windowId == \$a or .windowId == \$b) and .hasCard and .home == \"Virtual-0\")] | length == 2'"
+    bash -c "qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -e --arg a '$shown' --arg b '$waiting' '[.applications[] | select((.windowId == \$a or .windowId == \$b) and .hasCard and .stage == \"Virtual-0\")] | length == 2'"
 check 'bento key: the small display keeps its card' shown_small "$mc"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce

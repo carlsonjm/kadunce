@@ -20,7 +20,7 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 | Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
 | Sleeping card | A minimized card, drawn dimmed in Spread | Current |
 | Card display | Every display; each holds its own cards | Current |
-| Spread display | The one display that holds Spread: the chosen one, else the touched one, else the largest | Current |
+| Primary display | The display that takes an unplugged display's cards and answers keys with no window in use: the chosen one, else the touched one, else the largest. Every display has its own Spread | Current |
 | Display sizing | How a display plays cards, Solo or Connected. Solo: one card at a time over the whole work area, a Bento pair at most. Connected: room for more than two panes; a picked card joins the layout and each pane is its own card | Internal |
 | Plasma desktop | The ordinary KDE desktop outside cards | Current |
 | Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces | Locked |

@@ -263,6 +263,27 @@ check 'sent: the large display Spread stays shut' bash -c "$(declare -f context 
 probe key 1 0 >/dev/null
 sleep 1.2
 
+# Unplugged, the small display's cards go where KWin moves their windows,
+# waiting in that display's Spread; plugged back, each card is the card of
+# the display it stands on.
+cards_before=$(kad workspaceContext | jq '[.applications[] | select(.hasCard)] | length')
+large_shows=$(active_of "$large")
+kscreen-doctor output.Virtual-0.disable >/dev/null 2>&1
+sleep 2.5
+report unplugged
+check 'unplugged: every card is now the large display own' \
+    context '[.applications[] | select(.hasCard and .stage != "Virtual-1")] | length == 0'
+check 'unplugged: no card was let go' context --argjson n "$cards_before" '[.applications[] | select(.hasCard)] | length == $n'
+check 'unplugged: the large display still shows a card' presents_on "$large" active
+kscreen-doctor output.Virtual-0.enable >/dev/null 2>&1
+sleep 2.5
+report replugged
+check 'replugged: every card is a card of the display it stands on' each_on_its_own
+check 'replugged: no card was let go' context --argjson n "$cards_before" '[.applications[] | select(.hasCard)] | length == $n'
+check 'replugged: the small display holds cards again' \
+    context '[.displayContext.displays[] | select(.name == "Virtual-0" and .holdsCards and .cardStage != null)] | length == 1'
+echo "state large-shown-before $large_shows"
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 report released

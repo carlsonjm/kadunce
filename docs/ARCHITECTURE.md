@@ -26,10 +26,15 @@ The native plugin has four principal owners:
 - `Effect` owns KWin registration and lifecycle, output discovery, controller
   coordination, context publication, shortcuts, and card rendering.
 
-Each virtual desktop has one layout stage, one card stage for Spread's display,
-and one more card stage for each other display sized Solo, which shows its card
-there (`Effect::DisplayStage`); each reaches the effect through that desktop's
-`SessionHost` or its display's `DisplayStageHost`. Table adds three owners beside
+Each virtual desktop has one layout stage and one card stage per display
+holding cards (`Effect::DisplayStage`, keyed by the display's name, or one key
+while `[Spread] OtherDisplays=windows` keeps one Spread). Each stage reaches the
+effect through its own `StageHost`, which opens a `SessionScope` naming that
+desktop and display for every call, so `m_cardStage` and `tabletOutput()` mean
+that display's stage and display. Input opens the scope of the display a stroke
+began on (`WorkspaceInputRouter` `enterInputScope`), paint the scope of the
+screen painted, and a window callback the scope of the stage holding it. At
+rest the scope is the display in use: the one last touched or focused. Table adds three owners beside
 them: `TableGesture` turns a stroke into an action, `TableLayout` places the rows
 so hit tests and drawing agree, and `TablePresenter` draws `table/Table.qml` in
 the compositor's frames through `OffscreenQuickScene`, taking no input. Table
@@ -121,6 +126,13 @@ All cross-owner transfers follow one order:
 
 After acceptance, an interruption belongs to the destination and cannot restore
 stale source state.
+
+Between displays the receiving stage is the destination and the sending stage
+the source: `admitCardFromOtherDisplay` commits `releaseCardToStage` on the
+sender, and the cards of the card's Stack follow, restacked in the same order
+(`Effect::moveCardToDisplay`). A pane's Stack held by another display's stage
+is pulled over one turn later (`Effect::rejoinStack`), so no Stack is ever kept
+by two stages.
 
 Existing Bento has priority for an incoming transfer. An invalid existing layout
 rejects instead of falling through to ordinary desktop placement. A same-output

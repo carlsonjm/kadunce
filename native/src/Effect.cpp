@@ -3701,8 +3701,13 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
             qInfo() << "Kadunce" << Revision << "could not stack" << carried.size() << "cards behind"
                     << logNameOf(card) << "on" << to->name();
         if (show && moving && !moving->isMinimized()) {
-            bool shown = false;
-            if (into.presentsBento() && m_desktopStage->hasSessionOnOutput(to->name())) {
+            // A pane the keys carried away takes back the side it left.
+            bool shown = restoreLeftLayout(moving, carried);
+            if (shown && !carried.isEmpty() && m_desktopStage->managesWindow(moving)) {
+                into.notePaneStack(moving, carried);
+                into.settlePaneStacks();
+            }
+            if (!shown && into.presentsBento() && m_desktopStage->hasSessionOnOutput(to->name())) {
                 const QList<KWin::EffectWindow *> stack = into.stackFrontToBack(moving).mid(1);
                 shown = m_desktopStage->admitCardToLiveBento(moving,
                     [&into, moving] { return moving && into.releaseCardToLiveBento(moving); });
@@ -7931,7 +7936,13 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
     context.table = true;
     context.cardsShown = m_cardsShownForKeys.value(m_scopedKey);
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
-    context.pane = focused && m_desktopStage->managesWindow(focused);
+    // The card a display sized Solo shows, other than the primary display's,
+    // answers the keys as a pane: Meta and the arrows reach the display beside.
+    context.pane = focused && (m_desktopStage->managesWindow(focused)
+        || (context.cardsShown && m_cardsOnEveryDisplay && !connectedForCardStage()
+            && tabletOutput() != primaryOutput()
+            && m_cardStage->presentation() == CardPresentation::Active
+            && m_cardStage->activeCardIdentity() == focused));
     context.lone = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
         && connectedForCardStage() && m_cardStage->activeCardIdentity();
     // Plain keys go to an effect holding the keyboard, as Table does while open.
@@ -8738,7 +8749,7 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     return true;
 }
 
-void Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
+bool Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
 {
     // §11, Connected: a pane carried away from Spread's display by the keys
     // and carried back takes the side it left, beside what it left beside.
@@ -8751,11 +8762,11 @@ void Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::Effe
         if (!found) found = record.value();
         m_leftLayouts.erase(record);
     }
-    if (!found) return;
+    if (!found) return false;
     const LeftLayout left = *found;
     KWin::LogicalOutput *tablet = tabletOutput();
     if (!tablet || front->screen() != tablet || !connectedForCardStage()
-        || m_desktopStage->managesWindow(front) || m_cardStage->liveCardIndex(front) < 0) return;
+        || m_desktopStage->managesWindow(front) || m_cardStage->liveCardIndex(front) < 0) return false;
     const BentoSidePlacement side{left.right, true, true};
     bool placed = false;
     if (m_desktopStage->hasSessionOnOutput(tablet->name())) {
@@ -8775,6 +8786,7 @@ void Effect::restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::Effe
     }
     qInfo() << "Kadunce" << Revision << (placed ? "gave" : "could not give") << logNameOf(front)
             << "back the" << (left.right ? "right" : "left") << "pane it left";
+    return placed;
 }
 
 void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind)
@@ -8802,7 +8814,7 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
         }
         for (const auto &display : m_scopedSession->displays)
             if (display.second->cards.get() != m_cardStage) display.second->cards->forgetPaneStack(front);
-        restoreLeftLayout(front, alive);
+        (void)restoreLeftLayout(front, alive);
         if (alive.isEmpty()) return;
         if (m_desktopStage->managesWindow(front)) {
             m_cardStage->notePaneStack(front, alive);
@@ -9799,8 +9811,9 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
     const QPointer<KWin::EffectWindow> inUse = focused && isApplicationWindow(focused)
         ? focused : m_lastActiveApplication.data();
-    const auto partnerHere = [this, picked, tablet](KWin::EffectWindow *card) {
-        return card && card != picked && !card->isDeleted() && !card->isMinimized()
+    // A card of the pick's own Stack is the pick's, never its partner.
+    const auto partnerHere = [this, picked, tablet, &stack](KWin::EffectWindow *card) {
+        return card && card != picked && !stack.contains(card) && !card->isDeleted() && !card->isMinimized()
             && card->screen() == tablet && m_cardStage->liveCardIndex(card) >= 0 ? card : nullptr;
     };
     KWin::EffectWindow *partner = partnerHere(inUse.data());

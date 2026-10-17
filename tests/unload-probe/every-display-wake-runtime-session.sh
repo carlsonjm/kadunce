@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # CARD-LIFECYCLE.md §11, Every display, as a tablet with a monitor is used:
-# Virtual-0 at scale 2 is small, sized Solo and chosen for Spread, and
+# Virtual-0 at scale 2 is small, sized Solo and primary, and
 # Virtual-1 is large, sized Connected and shows a layout of its own two
 # windows, which Spread leaves where they are. A monitor window minimized
-# from the dock waits in Spread asleep; brought back from the dock,
+# from the dock waits asleep in the monitor's own Spread; brought back from the dock,
 # or clicked there, it is in use on the monitor and rejoins its layout, and
-# Spread's display keeps its own card, never opening Spread. Picked asleep in
-# Spread, it wakes on the monitor too. Every check is reported, so a failure
+# the small display keeps its own card, never opening Spread. Picked asleep in
+# the monitor's Spread, it wakes in its layout there. Every check is reported, so a failure
 # does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -23,7 +23,8 @@ idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
         displays: [.displayContext.displays[] | {name, role, sizing, holdsCards, bentoActive}],
-        apps: [.applications[] | {title, output, hasCard, pane, home, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, focused, minimized}],
+        stages: [.displayContext.displays[] | {name, shows, s: .cardStage.presentation, a: .cardStage.activeCardId}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden, minimized})')"
     echo "stages $1 $(kad outputStageState | tr '\n' ' ')"
 }
@@ -43,15 +44,16 @@ select_card() {
 }
 pick() { select_card "$1" || echo "could not select $1"; open_selected; }
 presents() { context --arg p "$1" '.cardStage.presentation == $p'; }
-# Spread's display shows its own card, Active, and no Spread.
-keeps_own() { context --arg id "$1" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'; }
+# The small display shows its own card, Active, and no Spread.
+keeps_own() { context --arg id "$1" 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage | .presentation == "active" and .activeCardId == $id'; }
+presents_on() { context --arg d "$1" --arg p "$2" 'first(.displayContext.displays[] | select(.name == $d)) | .cardStage.presentation == $p'; }
 # A pane of the monitor's layout, shown there, held by no card.
 monitor_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
     | .pane and .output == "Virtual-1" and (.hasCard | not) and (.minimized | not)'; }
 monitor_panes() { context --argjson n "$1" '[.applications[] | select(.pane and .output == "Virtual-1")] | length == $n'; }
-# A card waiting in Spread, asleep, for the monitor.
+# A card of the monitor waiting asleep in the monitor's own Spread.
 sleeps_for_monitor() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id))
-    | .hasCard and .home == "Virtual-1" and .minimized'; }
+    | .hasCard and .stage == "Virtual-1" and .minimized'; }
 focused() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .focused'; }
 # A person's click in the middle of a window, with the pointer.
 click_on() {
@@ -74,6 +76,17 @@ click_title() {
     sleep .05
     probe button false >/dev/null
     sleep 1.2
+}
+# The monitor shows its own Active card at first, as every display does;
+# Meta+B there lays its windows out, as a person does, and the small display
+# is in use again.
+lay_out_monitor() {
+    probe activateWindowId "$1" >/dev/null
+    sleep .6
+    probe key 48 125 >/dev/null
+    sleep 1.6
+    probe activateWindowId "$2" >/dev/null
+    sleep .8
 }
 for _ in {1..40}; do
     if qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kadunce_unload_probe; then break; fi
@@ -101,9 +114,10 @@ probe activateWindowId "$tab" >/dev/null
 sleep .5
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunce
 sleep 1.8
+lay_out_monitor "$mb" "$tab"
 report start
-check 'start: the small display holds Spread' \
-    context '[.displayContext.displays[] | select(.name == "Virtual-0" and .role == "tablet")] | length == 1'
+check 'start: the small display is primary' \
+    context '[.displayContext.displays[] | select(.name == "Virtual-0" and .primary)] | length == 1'
 check 'start: the monitor holds its own cards, sized Connected' \
     context '[.displayContext.displays[] | select(.name == "Virtual-1" and .holdsCards and .sizing == "connected")] | length == 1'
 check 'start: the monitor shows its two windows as a layout' monitor_panes 2
@@ -149,14 +163,16 @@ check 'click again: the small display still keeps its own card' keeps_own "$tab"
 check 'click again: the woken window is still a monitor pane' monitor_pane "$ma"
 check 'click again: it has the focus' focused "$ma"
 
-# Picked asleep in Spread, it wakes on the monitor, not on the small display.
+# Picked asleep in the monitor's own Spread, it wakes in its layout there.
 probe minimizeWindow "$ma" true >/dev/null
 sleep 1.2
 report asleep
 check 'asleep: it waits asleep for the monitor again' sleeps_for_monitor "$ma"
-spread_key
+kad showCardLineOn Virtual-1 >/dev/null
+sleep 1.2
 report spread-asleep
-check 'asleep: Spread opens on the small display' presents cardLine
+check 'asleep: the monitor opens its own Spread' presents_on Virtual-1 cardLine
+check 'asleep: the small display keeps its card, no Spread' keeps_own "$tab"
 pick "$ma"
 report picked-asleep
 check 'asleep pick: it wakes in the monitor layout' monitor_pane "$ma"

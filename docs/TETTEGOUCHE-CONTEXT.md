@@ -53,12 +53,12 @@ must reject unknown major versions instead of guessing at fields.
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
   identity, title, output, focus/minimize state, and current card membership,
   with `stage`, the display whose card stage holds it as a card, empty when
-  none does. Spread's cards name Spread's display. A display sized Solo that
-  is not Spread's shows one card on a card stage of its own, which names that
-  display: that card has a `cardId` but no place in Spread, so it carries no
-  `cardIndex` or Stack fields, and the cards waiting behind it are its
-  `paneStack`.
-- `cardStage`: whether Card Stage is active, its presentation, the selected
+  none does. Every display holding cards has its own stage, so a card's
+  `stage` is the display its window stands on; its `cardIndex`, Stack fields,
+  `entry` and `spreadRect` are places in that display's Spread. A pane's
+  `paneStack` lists the cards waiting behind it.
+- `cardStage`: the stage of the display in use (the one last touched or
+  focused): whether Card Stage is active, its presentation, the selected
   card UUID, and ordered selected-stack member UUIDs. The presentation is one
   of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
   layout while Card Stage holds its cards hidden), `desktop` (the card display
@@ -84,11 +84,19 @@ must reject unknown major versions instead of guessing at fields.
   focused/selected/frontmost ordering.
 - `displayContext`: the selected edge backend (`z13-direct`, a frozen value
   meaning Kadunce's own router, whenever a touchscreen drives a display, or
-  `plasma-native`), every output's role (`tablet` for the one card display),
+  `plasma-native`), every output's role (`tablet` for the display in use),
   geometry, and Bento ownership, each display's `presentation` (`layout`, a
   card stage presentation as above, or `none`) and the windows it `shows` that
-  way, and `spreadDisplay`, the display the person
-  chose for Spread, empty while Kadunce chooses.
+  way, whether it is `primary`, the `touchscreen`, and `holdsCards`; a display
+  holding cards has its own `cardStage`, shaped as the top-level one, with
+  `spreadOpen`. A context line or dock reads its own display's `cardStage`,
+  falling back to the top-level one. `primaryDisplay` names the primary
+  display, and `spreadDisplay` the one the person chose, empty while Kadunce
+  chooses.
+
+The dock on a display opens and closes that display's own Spread with
+`showCardLineOn(output)` and `showActiveOn(output)`; `showCardLine` and
+`showActive` act on the display in use.
 
 `windowId` and `cardId` use KWin's internal UUID and are stable for the life of
 that window. `cardIndex`, stack position, and titles are presentation metadata;

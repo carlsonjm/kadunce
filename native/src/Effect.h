@@ -684,7 +684,7 @@ private:
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
-    void restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
+    bool restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
