@@ -154,7 +154,13 @@ public:
     // its window-to-screen shortcut, leaves its layout as a dragged one does.
     // False when `window` is no pane of another display's layout.
     bool handoffPaneToOutput(KWin::EffectWindow *window, KWin::LogicalOutput *destination);
+    // A pane drawn smaller than its place, as a window still kept within the
+    // bounds of the display it came from is, is asked for its place again.
+    bool replacePaneShortOfPlace(KWin::EffectWindow *window);
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
+    // A layout on the display whose panes have taken their places, as
+    // Spread needs before it can hold the layout.
+    [[nodiscard]] bool hasSettledSessionOnOutput(const QString &outputName) const;
     // Between a layout's panes, inside the box they fill together: the gutter a
     // press there must not reach whatever window lies behind the layout.
     [[nodiscard]] bool inPaneGutter(QPointF position) const;

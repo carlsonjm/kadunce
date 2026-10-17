@@ -449,11 +449,11 @@ adding a service solely to preserve membership across unload.
 
 ### Every pane is its own card in Spread
 
-On every display a layout in Spread is its panes' cards, side by side in the
-layout's order until you move one, and the context line names the panes each
-shares its layout with (`CARD-LIFECYCLE.md` §2, §6). Choosing one resumes the
-same session without a solve; a pane its own client moved meanwhile is placed
-back on its stored rect. Rejected: one group card for a Solo display's pair,
+On every display a layout in Spread is its panes' cards, side by side in
+layout order until moved. A card's name adds the panes beside it, a Stack's
+the cards behind it (`CARD-LIFECYCLE.md` §2, §6). Choosing one resumes the
+session without a solve; a pane its client moved meanwhile goes back to its
+stored rect. Rejected: one group card for a Solo display's pair,
 the one place a window was not its own card, with gestures of its own.
 
 ### Sessions are output-local

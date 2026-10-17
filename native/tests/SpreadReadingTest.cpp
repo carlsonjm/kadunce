@@ -27,6 +27,9 @@ int main()
     check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 1, false, {u"Kate"_s, u"Files"_s}})
               == u"Firefox, Docs, with Kate and Files"_s,
           "a pane's card names every pane beside it");
+    check(spreadEntryName({u"Firefox"_s, u"Docs"_s, 3, false, {u"Kate"_s}, {u"Files"_s, u"Notes"_s}})
+              == u"Firefox, Docs, then Files and Notes, Stack of 3 cards"_s,
+          "a Stack names the cards behind it, not the panes beside it");
     check(spreadEntryName({}) == u"Card"_s, "a card with nothing to say is still a card");
 
     const QList<SpreadReadingEntry> row{{u"Firefox"_s, u"Docs"_s}, {u"Kate"_s, u"notes.txt"_s, 2}};

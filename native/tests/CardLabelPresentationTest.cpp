@@ -33,6 +33,12 @@ int main()
             "A layout did not name every pane beside the card");
     require(pairedApplicationName(QStringLiteral("Firefox"), {}) == QStringLiteral("Firefox"),
             "A card in no layout named a partner");
+    require(stackedApplicationName(QStringLiteral("Firefox"),
+                {QStringLiteral("Files"), QStringLiteral("Notes"), QStringLiteral("Kate")})
+            == QString::fromUtf8("Firefox · then Files, Notes and Kate"),
+            "A Stack did not name the cards behind its face");
+    require(stackedApplicationName(QStringLiteral("Firefox"), {}) == QStringLiteral("Firefox"),
+            "A card with nothing behind it named one");
     require(stackPositionLabel(1, 3) == QStringLiteral("2 / 3"),
             "Stack position label is incorrect");
     require(stackPositionLabel(0, 1).isEmpty(),

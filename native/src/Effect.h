@@ -262,6 +262,15 @@ private:
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
+    // The cards Spread shows behind a Stack's face, nearest first.
+    [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
+    // A window carried to another display and rested on a pane or card there
+    // joins that Stack once it has landed; it retries while the landing settles.
+    void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
+                         int tries = 20);
+    // A card's name in Spread: a Stack names the cards behind its face, a
+    // pane alone the panes beside it.
+    [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
@@ -634,6 +643,8 @@ private:
     // Spread have left it.
     void keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries = 0);
     QPointer<KWin::EffectWindow> m_keptOnLeft;
+    // Cards the top edge took out of a layout, called back alone (§10).
+    QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
@@ -854,6 +865,8 @@ private:
     [[nodiscard]] bool notesShownInSpread() const;
     // Gooseberry's surface of notes over a window, live or closing.
     [[nodiscard]] bool isNotesSurface(const KWin::EffectWindow *window) const;
+    // Tettegouche's Search surface, which holds the keys while it is open.
+    [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
     // Spread's cards as notes see them, nearest the eye first, where they
@@ -900,6 +913,8 @@ private:
     // answered here; false leaves it to Card Stage, which by then is no longer
     // presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    void markAloneOnPurpose(KWin::EffectWindow *card);
+    [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
     // The display's chosen sizing as kaduncerc keeps it; empty when none.
     [[nodiscard]] QString chosenSizingFor(const KWin::LogicalOutput *output) const;
@@ -918,6 +933,12 @@ private:
     // the card the arrival becomes is not drawn over live panes. Both arrival
     // paths ask this before handing the window to Card Stage.
     [[nodiscard]] bool retireLayoutIntoSpreadGroup(KWin::LogicalOutput *output);
+    // §11, Connected: a pane taken to the top edge out of three or more is
+    // the card shown alone. The panes it left are held in Spread for it, as
+    // the cards of a Solo display wait there, rather than standing live
+    // behind it where any of them can rise over it. Spread can take them
+    // once they have settled, so this asks again a few times.
+    void holdLayoutLeftBehind(KWin::EffectWindow *card, KWin::LogicalOutput *output, int tries = 20);
     void handleActiveGeometryChanged(KWin::EffectWindow *window,
                                      const KWin::RectF &oldGeometry);
     void handleWindowMoveResizeStarted(KWin::EffectWindow *window);
@@ -1209,6 +1230,9 @@ private:
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
+    // The keys coming back from Search as it closes over Spread, told the
+    // same way, whether or not Spread took Search in as its guest.
+    NotesKeysReturn m_searchKeysReturn;
     QString m_cardOutputName;
     // The display a touchscreen drives, which alone takes Kadunce's own edges.
     QString m_touchOutputName;
