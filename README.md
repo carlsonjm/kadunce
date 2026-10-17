@@ -36,7 +36,7 @@ Kadunce off puts everything back.
   <tr>
     <td width="33%" valign="top"><b>Bento</b><br>Several cards side by side in one layout. In Spread each pane is its own card, and choosing one brings back the same layout.</td>
     <td width="33%" valign="top"><b>Table</b><br>Your workspaces as tabs along the top, each with its cards hanging below. Go to one, or carry a card to another.</td>
-    <td width="33%" valign="top"><b>Every display</b><br>Each display holds its own cards: a small one shows one card at a time, a big one lays them side by side.</td>
+    <td width="33%" valign="top"><b>Auto layout</b><br>On a big display, cards lay themselves out side by side. Snap one to an edge to place it, and the rest fill in around it.</td>
   </tr>
 </table>
 
@@ -118,6 +118,23 @@ touchscreen, never from the display's name. Spread lists the cards of every
 display, but never pulls another display's windows across: a card you pick in
 Spread or the dock opens on its own display.
 
+### Auto layout on a big display
+
+Drag a window to the upper half of a side edge and it takes a full-height
+column on that side. The lower half puts it under whatever is already on that
+side. With one card open, the next window you open pairs with it. New windows
+fill the open room, or join the shortest column, or start a new one, whichever
+keeps every window larger. Once the screen is full, Kadunce lays everything out
+evenly and keeps your snapped card on its side; only when even that cannot fit
+does the window used longest ago step back into Spread. Drag a divider to
+fine-tune.
+
+### Your own layouts
+
+Draw zones for a display with `Meta+T`, KDE's tile editor, then switch to them
+with `Meta+Shift+B` or **Monitors use my zones** in the Cards menu. Each window
+keeps a zone it fits. Zones apply on displays kept as ordinary windows (below).
+
 <details>
 <summary>More about displays</summary>
 
@@ -130,8 +147,7 @@ Spread or the dock opens on its own display.
   touchscreen.
 - You can keep other displays as ordinary windows instead, with
   `kaduncerc` `[Spread] OtherDisplays=windows`. There an edge snap organizes
-  every window into one Bento layout, and **Monitors use my zones (Meta+T)**
-  switches between filling the display and the zones you drew.
+  every window into one Bento layout, or into your zones.
 
 </details>
 
