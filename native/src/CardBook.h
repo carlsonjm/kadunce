@@ -71,7 +71,8 @@ struct CardBookMismatch {
         StackSplitAcrossDisplays,
         // The cards of one Stack in Spread's row wait for different displays.
         RowStackSplitAcrossDisplays,
-        // A Solo display shows more than one card.
+        // A Solo display holding its own cards shows more than one. One
+        // keeping ordinary windows composes a layout of any size.
         SoloShowsTwo,
     };
     quintptr window = 0;
@@ -152,7 +153,8 @@ struct CardBookMismatch {
                  QString::number(it.value().size()) + QStringLiteral(" displays"));
     for (auto it = shownPanes.cbegin(); it != shownPanes.cend(); ++it) {
         const auto display = byName.constFind(it.key());
-        if (display != byName.cend() && display->solo && !display->spread && it.value() > 1)
+        if (display != byName.cend() && display->solo && display->holdsCards && !display->spread
+            && it.value() > 1)
             note(0, CardBookMismatch::Rule::SoloShowsTwo,
                  it.key() + QStringLiteral(" shows ") + QString::number(it.value()));
     }

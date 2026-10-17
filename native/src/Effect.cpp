@@ -1568,6 +1568,10 @@ void Effect::refreshCardOutput()
             m_cardStage->release();
         } else {
             m_cardDisplayMoved = true;
+            // A card waiting for the display Spread now holds waits for none:
+            // it is already on Spread's display.
+            for (auto home = m_cardHomes.begin(); home != m_cardHomes.end();)
+                home = home.value() == name ? m_cardHomes.erase(home) : std::next(home);
             // §11, Every display: the display Spread left keeps its cards,
             // shown there again once Spread has moved.
             KWin::LogicalOutput *left = KWin::effects->findScreen(previous);
@@ -3607,6 +3611,7 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
         const QString home = from->name();
         if (!m_cardStage->admitCardFromOtherDisplay(window, commitSource, restore)) return false;
         m_cardHomes.insert(window, home);
+        settleStacksOfArrival();
         return true;
     }
     KWin::LogicalOutput *tablet = tabletOutput();
@@ -3616,6 +3621,18 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window,
         return true;
     if (behindLayout) m_cardStage->stopBehindLayoutIfEmpty();
     return admitTransferredWindowToTablet(window, commitSource, restore);
+}
+
+void Effect::settleStacksOfArrival()
+{
+    // A pane that is a card again stands in front of its Stack in Spread's
+    // row. The transfer that made it one is still under way, so the Stack is
+    // settled the turn after, once the card is in the row.
+    QTimer::singleShot(0, this, [this] {
+        if (m_releasing || !m_cardStage) return;
+        m_cardStage->settlePaneStacks();
+        observeCardOwnership();
+    });
 }
 
 bool Effect::admitSleepingPaneToTablet(KWin::EffectWindow *window,
@@ -3632,6 +3649,7 @@ bool Effect::admitSleepingPaneToTablet(KWin::EffectWindow *window,
         const QString home = from->name();
         if (!m_cardStage->admitCardFromOtherDisplay(window, commitSource, restore)) return false;
         m_cardHomes.insert(window, home);
+        settleStacksOfArrival();
         return true;
     }
     // §7: a minimized pane is a sleeping individual card, not an arrival. Both

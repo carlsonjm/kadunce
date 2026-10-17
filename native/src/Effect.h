@@ -629,6 +629,7 @@ private:
     [[nodiscard]] QString waitingFor(const KWin::EffectWindow *card, int depth = 0) const;
     // A card waiting behind a pane, or behind another card in Spread's row.
     [[nodiscard]] bool waitsWithItsStack(const KWin::EffectWindow *card) const;
+    void settleStacksOfArrival();
     // Every display holding its own cards and showing none of them begins
     // its layout with the windows on it, or shows the card it used last.
     bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
