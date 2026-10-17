@@ -825,9 +825,15 @@ public:
     }
     bool admitCardToDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
         const KWin::RectF &, const std::function<bool()> &commitSource,
-        const std::function<void()> &) override
+        const std::function<void()> &releaseSource) override
     {
         SessionScope scope(m_effect, m_session);
+        // Carried by its title bar into a layout, it takes the place reserved
+        // for it there; anywhere else the effect places it.
+        if (m_effect->m_carryDestination && window == m_effect->m_carriedWindow && output
+            && m_effect->m_desktopStage->hasSessionOnOutput(output->name()))
+            return m_effect->m_desktopStage->transferPreparedCard(*m_effect->m_carryDestination,
+                commitSource, releaseSource);
         return m_effect->admitCardFromDisplayStage(window, output, commitSource);
     }
     bool resumeBentoProjectionForCardStage(const BentoProjectionSession &,
@@ -3889,6 +3895,20 @@ KWin::EffectWindow *Effect::shownOnDisplayStage(const QString &outputName) const
     return shown && !shown->isDeleted() && stage->liveCardIndex(shown) >= 0 ? shown : nullptr;
 }
 
+CardStageController *Effect::carrySourceStage(const PreparedCarrySource &source) const
+{
+    if (m_cardStage && m_cardStage->nativeCarrySourceValid(source)) return m_cardStage;
+    if (!m_scopedSession) return nullptr;
+    for (const auto &display : m_scopedSession->displays)
+        if (display.second->cards->nativeCarrySourceValid(source)) return display.second->cards.get();
+    return nullptr;
+}
+
+bool Effect::cardCarrySourceValid(const PreparedCarrySource &source) const
+{
+    return carrySourceStage(source) != nullptr;
+}
+
 bool Effect::admitCardToDisplayStage(KWin::EffectWindow *card, KWin::LogicalOutput *display,
     const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore, bool focus)
 {
@@ -5140,7 +5160,11 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
     if (m_carryRuntime && m_carryRuntime->route.busy()) m_carryRuntime->cancel();
     if (m_carryRuntime && window->window() && window->isUserMove()
         && !m_carryRuntime->route.busy()) {
-        auto source = m_cardStage->prepareNativeCarrySource(window);
+        // The card a display shows on its own stage is carried as Spread's
+        // Active card is, from that stage.
+        CardStageController *cards = displayStageHolding(window);
+        if (!cards) cards = m_cardStage;
+        auto source = cards->prepareNativeCarrySource(window);
         const bool fromBento = !source;
         if (!source) source = m_desktopStage->prepareNativeCarrySource(window);
         if (source) {
@@ -5149,7 +5173,7 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
             if (m_carryRuntime->handoff.stage(window->window(), *source,
                 [this, saved = *source, fromBento] {
                     return fromBento ? m_desktopStage->nativeCarrySourceValid(saved)
-                                     : m_cardStage->nativeCarrySourceValid(saved);
+                                     : cardCarrySourceValid(saved);
                 }, [this, guarded] { if (guarded) beginLegacyNativeMove(guarded); })) {
                 traceNativeMove(window, source->isDesktopWindow() ? "staged-ordinary" : "staged-card");
                 qInfo() << "Kadunce" << Revision << "carries" << applicationIdentity(window)
@@ -5166,7 +5190,7 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
             // A drag Kadunce does not carry is KWin's own move, and edges do
             // nothing Kadunce's. Say why, so a drag that did nothing is legible.
             qInfo() << "Kadunce" << Revision << "leaves the drag of" << applicationIdentity(window)
-                    << "to KWin: as a card," << m_cardStage->nativeCarryRefusal(window)
+                    << "to KWin: as a card," << cards->nativeCarryRefusal(window)
                     << "; as a pane," << m_desktopStage->nativeCarryRefusal(window);
         }
     }
@@ -5383,6 +5407,10 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool desktopWindow = handoff.source()->isDesktopWindow();
     const bool local = target->name() == handoff.source()->origin().output;
     const bool tablet = isTabletOutput(target);
+    // §11, Every display: the card a display shows on its own stage, carried
+    // on that display, goes back to its place there when let go.
+    const bool displaySource = !bento && !desktopWindow && displayStageHolding(m_carriedWindow);
+    if (displaySource && local) return;
     const auto edge = carryEdgeAt(target, contact);
     // Every return below that leaves an edge without a drop names why, and a
     // drop that is previewed but then refused at release cannot go there.
@@ -5623,7 +5651,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     // Read before commit, which can retire the carry's pose.
                     const QRectF drawn = carriedPose();
                     const bool committed = (bento ? m_desktopStage->nativeCarrySourceValid(source)
-                                  : m_cardStage->nativeCarrySourceValid(source))
+                                  : cardCarrySourceValid(source))
                         && m_desktopStage->activatePreparedTabletDrop(*reserved,
                             &source.restoreSnapshot(),
                             [this, carried, named] {
@@ -5661,7 +5689,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
                     [this, carried, output, bento, place](const PreparedCarrySource &source) {
                         if (!carried || !output || !(bento ? m_desktopStage->nativeCarrySourceValid(source)
-                                                           : m_cardStage->nativeCarrySourceValid(source)))
+                                                           : cardCarrySourceValid(source)))
                             return false;
                         const QRectF drawn = carriedPose();
                         // After the carry has let the card go, as Meta+B would.
@@ -5678,7 +5706,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     // Read before commit, which can retire the carry's pose.
                     const QRectF drawn = carriedPose();
                     const bool committed = (bento ? m_desktopStage->nativeCarrySourceValid(source)
-                                  : m_cardStage->nativeCarrySourceValid(source))
+                                  : cardCarrySourceValid(source))
                         && m_desktopStage->activatePreparedTabletDrop(*reserved,
                             &source.restoreSnapshot(),
                             [this, carried] {
@@ -5727,7 +5755,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 [this, carried, output, adopt, bento, extractingPane](const PreparedCarrySource &source) {
                     const auto sourceValid = [this, &source, bento] {
                         return bento ? m_desktopStage->nativeCarrySourceValid(source)
-                                     : m_cardStage->nativeCarrySourceValid(source);
+                                     : cardCarrySourceValid(source);
                     };
                     // Read before commit, which can retire the carry's pose.
                     const QRectF drawn = carriedPose();
@@ -5765,7 +5793,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
     if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
-    if (tablet && !bento) return;
+    if (tablet && !bento && !displaySource) return;
     // §11, Connected: a pane carried over another pane and rested there joins
     // that pane's Stack in front; let go sooner, the two swap below.
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge
@@ -5852,7 +5880,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
          arrival = m_carriedWindow](const PreparedCarrySource &source) {
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
-                : m_cardStage->transferNativeCarryToDesktop(source, output, geometry);
+                : carrySourceStage(source) && carrySourceStage(source)->transferNativeCarryToDesktop(source, output, geometry);
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
             if (committed && stackAfter) {
                 QPointer<KWin::EffectWindow> carried = arrival;
@@ -8238,7 +8266,8 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
     context.table = true;
     context.cardsShown = m_cardsShownForKeys;
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
-    context.pane = focused && m_desktopStage->managesWindow(focused);
+    // The card a display shows on its own stage answers the keys as a pane.
+    context.pane = focused && (m_desktopStage->managesWindow(focused) || displayStageHolding(focused));
     context.lone = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
         && connectedForCardStage() && m_cardStage->activeCardIdentity();
     // Plain keys go to an effect holding the keyboard, as Table does while open.
@@ -8307,6 +8336,11 @@ QList<KWin::EffectWindow *> Effect::keyTargets() const
     if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active)
         if (KWin::EffectWindow *card = m_cardStage->activeCardIdentity(); card && !targets.contains(card))
             targets.append(card);
+    // The card each display shows on its own stage.
+    for (auto *output : KWin::effects->screens())
+        if (KWin::EffectWindow *own = output ? shownOnDisplayStage(output->name()) : nullptr;
+            own && !own->isMinimized() && !targets.contains(own))
+            targets.append(own);
     return targets;
 }
 
@@ -8359,6 +8393,24 @@ void Effect::carryToward(KeyDirection direction)
 {
     const bool right = direction == KeyDirection::Right;
     KWin::EffectWindow *focused = KWin::effects->activeWindow();
+    // §11, Every display: the card a display shows on its own stage has no
+    // pane beside it, so it goes on to the display beside, with its Stack.
+    // Back on Spread's display it takes the place it left there.
+    if (CardStageController *own = focused ? displayStageHolding(focused) : nullptr) {
+        KWin::LogicalOutput *next = focused->screen() ? outputToward(focused->screen(), direction) : nullptr;
+        if (!next) return;
+        const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(focused);
+        qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
+        if (!(isTabletOutput(next) || isOtherCardDisplay(next)) || !own->giveCardToDisplay(focused, next)) {
+            qInfo() << "Kadunce" << Revision << "could not give" << logNameOf(focused) << "to" << next->name();
+            return;
+        }
+        if (isTabletOutput(next)) rejoinStack(focused, behind);
+        KWin::effects->activateWindow(focused);
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
+        return;
+    }
     if (focused && m_desktopStage->managesWindow(focused) && focused->window() && focused->screen()) {
         KWin::LogicalOutput *output = focused->screen();
         // A pane beside it on its display trades places with it.

@@ -25,7 +25,7 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, paneStack, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, paneStack, focused, minimized}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden})')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1; }
@@ -48,6 +48,8 @@ focused_id() { kad workspaceContext | jq -r 'first(.applications[] | select(.foc
 focused() { [[ $(focused_id) == "$1" ]]; }
 output_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .output'; }
 on_output() { [[ $(output_of "$1") == "$2" ]]; }
+# A card the display it stands on holds on its own card stage.
+shown_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == .output and (.pane | not) and (.minimized | not)'; }
 is_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not) and (.minimized | not)'; }
 is_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard'; }
 large_panes() { kad workspaceContext | jq -r '[.applications[] | select(.pane and (.hasCard | not) and .output == "Virtual-1") | .windowId] | .[]'; }
@@ -102,7 +104,7 @@ spread_key
 pick "$three"
 report start
 check 'start: the large display shows three panes' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq '[.applications[] | select(.pane and (.hasCard | not) and .output == \"Virtual-1\")] | length') == 3 ]]"
-check 'start: the small display shows its card' is_pane "$small"
+check 'start: the small display shows its card' shown_card "$small"
 
 # Focus: along the layout, then off its left edge to the small display.
 left=$(leftmost)
@@ -227,7 +229,7 @@ done
 report stack-carried
 check 'carry: a pane holding a Stack reaches the small display' on_output "$second" Virtual-0
 check 'carry: its Stack came with it, in order' together "$second" "$first"
-check 'carry: there it is the card that display shows' is_pane "$second"
+check 'carry: there it is the card that display shows' shown_card "$second"
 meta 15
 report stack-carried-step
 check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $first 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"

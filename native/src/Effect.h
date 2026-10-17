@@ -648,6 +648,10 @@ private:
     [[nodiscard]] KWin::EffectWindow *shownOnDisplayStage(const QString &outputName) const;
     // Runs f with each of the scoped desktop's display stages.
     template<typename F> void forEachDisplayStage(F &&f);
+    // The card stage a title-bar carry was prepared by, Spread's or a display
+    // stage; none once that carry no longer holds.
+    [[nodiscard]] CardStageController *carrySourceStage(const PreparedCarrySource &source) const;
+    [[nodiscard]] bool cardCarrySourceValid(const PreparedCarrySource &source) const;
     // The card becomes the one the display shows, taken from wherever
     // `commitSource` releases it; the card it showed before waits in Spread
     // for that display.
