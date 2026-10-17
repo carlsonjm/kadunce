@@ -275,8 +275,11 @@ What each check proves, and the rules for private compositors, are
 ## Invariants
 
 1. A client has one physical KWin output and one owning native restore record.
-2. Spread never mutates real client geometry, and never takes what another
-   display shows (`CARD-LIFECYCLE.md` §11, Every display).
+2. Spread never takes what another display shows, and never changes the
+   geometry of a window on any display but its own (`CARD-LIFECYCLE.md` §11,
+   Every display). A window it resizes on its own display, a pane standing in
+   a card's place or going back to its layout, keeps its picture until its
+   application has drawn at the new size.
 3. Destination acceptance precedes source removal.
 4. Rendering reads state and never edits controller models.
 5. Input routing emits semantic commands and never edits models directly.
