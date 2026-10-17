@@ -14,7 +14,8 @@
 # opens on the small display, its own, and stays there though it stops short
 # of its place, as a terminal keeping whole rows does. Carried off from there
 # onto the monitor, it leaves the small display the card it showed before,
-# never nothing. Every check is reported, so a failure does not hide the rest.
+# never nothing. A card let out of a Stack on the small display, with Spread
+# on the monitor, joins the monitor's layout. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -257,8 +258,8 @@ check 'rest: no window on the monitor stands over another' apart Virtual-1
 
 # With Spread on the monitor, as on the tablet with a monitor beside it, a
 # monitor pane rested on the card the small display shows alone joins it,
-# though the small display is sized Solo; carried back and rested on a pane
-# of Spread's layout, it joins that pane.
+# though the small display is sized Solo; let out of that Stack by the keys
+# it joins Spread's layout, and rested on a pane there, it joins that pane.
 probe pointer 640 360 >/dev/null
 client titledCompanion 'Tab D' 500 400
 sleep 1.4
@@ -279,6 +280,17 @@ check 'small rest: the pane carried stands on the small display' \
     context --arg c "$ma" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
 check 'small rest: the card it rested on waits behind it' \
     context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+# Let out of that Stack by the keys, it has no room for a pane beside the
+# card on the small display, so it joins Spread's layout as a pane of its
+# own, and the card behind it is shown alone again.
+probe activateWindowId "$ma" >/dev/null
+sleep .6
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.8
+report unstacked
+check 'unstack: the card let out is a pane of the layout Spread shows' monitor_pane "$ma"
+check 'unstack: the small display shows the card behind it alone' shown_on "$td" Virtual-0
+check 'unstack: no window on the monitor stands over another' apart Virtual-1
 title_carry "$ma" "$ta" 1.0
 report rested-on-spread
 check 'Spread rest: the carry names the pane it would join' \

@@ -94,8 +94,8 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Left`, `Right` on a pane or lone card | It swaps with the pane there, or takes the room, or goes to that display. |
 | `Meta+[`, `Meta+]` | The divider beside the pane moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
-| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed when `Meta` is let go; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane; else it waits in Spread. |
+| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
+| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane, from Solo on Spread's display; else it waits. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table

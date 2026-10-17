@@ -7770,6 +7770,37 @@ void Effect::carryToward(KeyDirection direction)
     }
 }
 
+bool Effect::spillCardToLayoutBeside(KWin::EffectWindow *card)
+{
+    // §11, Connected: a display sized Solo has no room for a pane beside its
+    // card, so a card let go out of its Stack there joins the layout Spread's
+    // display shows, as a pane of its own.
+    KWin::LogicalOutput *spread = tabletOutput();
+    KWin::LogicalOutput *from = card ? card->screen() : nullptr;
+    if (!card || card->isDeleted() || !card->window() || !spread || !from || from == spread
+        || sizingFor(from) != DisplaySizing::Solo || !connectedForCardStage()
+        || !m_desktopStage->hasSessionOnOutput(spread->name())
+        || m_cardStage->liveCardIndex(card) < 0) return false;
+    m_cardHomes.remove(card);
+    card->window()->sendToOutput(spread);
+    const QPointer<KWin::EffectWindow> spilled = card;
+    const QString name = spread->name();
+    // After the turn KWin reports the move in.
+    QTimer::singleShot(0, this, [this, spilled, name] {
+        if (!spilled || spilled->isDeleted()) return;
+        const bool joined = spilled->screen() && spilled->screen()->name() == name
+            && m_cardStage->liveCardIndex(spilled) >= 0
+            && m_desktopStage->admitCardToLiveBento(spilled,
+                [this, spilled] { return m_cardStage->releaseCardToLiveBento(spilled); });
+        qInfo() << "Kadunce" << Revision << (joined ? "gave" : "could not give") << logNameOf(spilled)
+                << "a pane of its own on" << name << "by the keys";
+        observeCardOwnership();
+        if (joined) KWin::effects->activateWindow(spilled);
+        KWin::effects->addRepaintFull();
+    });
+    return true;
+}
+
 void Effect::stepKeyLadder(int delta)
 {
     // A ladder a hand is holding is the hand's.
@@ -7840,7 +7871,8 @@ void Effect::letPaneGo()
         qInfo() << "Kadunce" << Revision << "took" << logNameOf(pane) << "out of its Stack by the keys";
         // The card let go joins the layout as a pane of its own beside the
         // Stack it left, as a card called while the layout shows does. On
-        // another display it waits in Spread, as one pulled down there does.
+        // another display sized Solo it joins the layout on Spread's display;
+        // with none there it waits in Spread, as one pulled down there does.
         const QPointer<KWin::EffectWindow> released = pane;
         const QPointer<KWin::EffectWindow> stayed = next;
         QTimer::singleShot(0, this, [this, released, stayed, there] {
@@ -7853,6 +7885,8 @@ void Effect::letPaneGo()
                         << "a pane of its own by the keys";
                 observeCardOwnership();
                 KWin::effects->activateWindow(released);
+            } else if (there && spillCardToLayoutBeside(released)) {
+                // It joins the layout beside, and has the keys there.
             } else if (stayed && !stayed->isDeleted()) {
                 KWin::effects->activateWindow(stayed);
             }

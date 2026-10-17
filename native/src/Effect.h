@@ -926,6 +926,9 @@ private:
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
     // A side snap of the Active card brings back the layout Spread holds,
     // with the card in the place the snap named.
+    // A card let go out of its Stack on a Solo display joins the layout on
+    // Spread's display beside it.
+    bool spillCardToLayoutBeside(KWin::EffectWindow *card);
     void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
                                 BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.

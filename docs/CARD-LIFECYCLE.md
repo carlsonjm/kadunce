@@ -468,10 +468,10 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 ### Every display
 
-Each other display holds its own cards and keeps what it shows while Spread
-is open; one picked, woken or called from the dock opens there. Sized Solo, it
+Each other display holds its own cards, kept while Spread is open; one picked, woken or called from the dock opens there. Sized Solo, it
 shows one card: one carried there is that card, closing or carrying it off
-brings back the one before, and a placed Stack steps there. That card stays
+brings back the one before, a placed Stack steps there, and a card let out of
+its Stack joins Spread's layout. That card stays
 though its application stops short of its place (§5). Sized Connected,
 it plays cards into its layout. A window opens on Spread's display; a card
 carried or paired there is its own, its pane in Spread opening the layout; one
