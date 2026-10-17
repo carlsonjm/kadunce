@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace Kadunce
 {
@@ -76,7 +77,55 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     });
 }
 
+namespace
+{
+// Names the display an event is answered for, for the length of its routing.
+class InputScope
+{
+public:
+    InputScope(WorkspaceInputTarget *target, const QPointF &position, InputReach reach, qint64 contact)
+        : m_target(target), m_reach(reach), m_contact(contact)
+    {
+        m_target->enterInputScope(position, reach, contact);
+    }
+    ~InputScope() { m_target->leaveInputScope(m_reach, m_contact); }
+    InputScope(const InputScope &) = delete;
+    InputScope &operator=(const InputScope &) = delete;
+
+private:
+    WorkspaceInputTarget *m_target;
+    InputReach m_reach;
+    qint64 m_contact;
+};
+
+// Pointer buttons are told apart from touch contacts, which KWin numbers from 0.
+qint64 buttonContact(quint32 button)
+{
+    return -1 - qint64(button);
+}
+}
+
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
+{
+    const InputScope scope(m_target, event->position, InputReach::Within, 0);
+    return routePointerMotion(event);
+}
+
+bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
+{
+    const InputScope scope(m_target, event->position,
+        event->state == KWin::PointerButtonState::Pressed ? InputReach::Press : InputReach::Release,
+        buttonContact(event->nativeButton));
+    return routePointerButton(event);
+}
+
+bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
+{
+    const InputScope scope(m_target, event->position, InputReach::Within, 0);
+    return routePointerAxis(event);
+}
+
+bool WorkspaceInputRouter::routePointerMotion(KWin::PointerMotionEvent *event)
 {
     m_target->pointerMovedForInput(event->position);
     // An open Table has the pointer: over its rows it previews, and a held
@@ -152,7 +201,7 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
     return m_target->activeSideForPoint(event->position) != 0;
 }
 
-bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
+bool WorkspaceInputRouter::routePointerButton(KWin::PointerButtonEvent *event)
 {
     if (event->state == KWin::PointerButtonState::Pressed) m_target->settleChosenCardForInput();
     if (m_target->tableOpenForInput() || m_tablePointer) {
@@ -296,6 +345,19 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_notesHoldTimer.start();
         return true;
     }
+    // §11, Every display: a press in the gap beside a card another display
+    // shows alone steps its Stack, as one beside the Active card pages.
+    if (event->button == Qt::LeftButton && m_pointerStackSide != 0
+        && event->state == KWin::PointerButtonState::Released) {
+        m_target->stepStackBesideFromInput(m_pointerStackStart, std::exchange(m_pointerStackSide, 0));
+        return true;
+    }
+    if (event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Pressed
+        && !m_pointerPressed && !m_target->isTabletPoint(event->position)) {
+        m_pointerStackSide = m_target->stackSideForPoint(event->position);
+        m_pointerStackStart = event->position;
+        if (m_pointerStackSide != 0) return true;
+    }
     const bool finishingCrossOutputGrab = m_pointerPressed
         && m_holdSource == HoldSource::Pointer
         && m_target->cardGrabActiveForInput()
@@ -367,7 +429,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
     return true;
 }
 
-bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
+bool WorkspaceInputRouter::routePointerAxis(KWin::PointerAxisEvent *event)
 {
     if (m_target->tableOpenForInput()) {
         m_tableWheel += event->deltaV120 != 0 ? event->deltaV120 / 120.0 * TableWheelStep : event->delta;
@@ -465,6 +527,7 @@ bool WorkspaceInputRouter::keepTouch(bool kept)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
+    const InputScope scope(m_target, event->pos, InputReach::Press, event->id);
     const bool kept = keepTouch(routeTouchDown(event));
     m_target->touchRoutedForInput(event->id, kept);
     return kept;
@@ -547,8 +610,10 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     const bool topStrip = m_ownsSystemEdges && edges.isValid()
         && atTouchTopEdge(event->pos, edgeDisplay, TopBezelWidth);
     const bool offSpread = !m_target->isTabletPoint(event->pos);
+    const TouchMode offSpreadMode = touchModeAt(event->pos);
     if (offSpread && (m_target->launcherGuestActiveForInput()
-            || (!topStrip && touchModeAt(event->pos) != TouchMode::BottomEdge))) {
+            || (!topStrip && offSpreadMode != TouchMode::BottomEdge
+                && offSpreadMode != TouchMode::StackBefore && offSpreadMode != TouchMode::StackAfter))) {
         return false;
     }
     if (!m_target->launcherGuestContainsForInput(event->pos)
@@ -673,6 +738,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    const InputScope scope(m_target, event->pos, InputReach::Within, event->id);
     return keepTouch(routeTouchMotion(event));
 }
 
@@ -817,6 +883,7 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
     if (event->id == StaleTouchRelease::Id) return false;
+    const InputScope scope(m_target, QPointF(), InputReach::Release, event->id);
     return keepTouch(routeTouchUp(event));
 }
 
@@ -886,6 +953,12 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
 }
 
 bool WorkspaceInputRouter::touchCancel()
+{
+    const InputScope scope(m_target, QPointF(), InputReach::Cancel, 0);
+    return routeTouchCancel();
+}
+
+bool WorkspaceInputRouter::routeTouchCancel()
 {
     if (m_railTouch >= 0) {
         m_railHoldTimer.stop(); m_railReady = false;
@@ -1137,10 +1210,12 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
         return m_ownsSystemEdges
             ? TouchMode::BottomEdge : TouchMode::None;
     }
-    // Off the Spread display only an edge is Kadunce's; the rest of a
-    // touchscreen there is its windows'.
+    // Off the Spread display only an edge is Kadunce's, and the gap beside a
+    // card shown alone with a Stack; the rest of a touchscreen there is its
+    // windows'.
     if (!m_target->isTabletPoint(position)) {
-        return TouchMode::None;
+        const int side = m_target->stackSideForPoint(position);
+        return side < 0 ? TouchMode::StackBefore : side > 0 ? TouchMode::StackAfter : TouchMode::None;
     }
     if (presentation == WorkspacePresentation::Spread && atTop) {
         return m_ownsSystemEdges
@@ -1188,6 +1263,14 @@ void WorkspaceInputRouter::updateTouchGesture()
     } else if (m_touchMode == TouchMode::ActiveRight
                && delta.x() < -30.0 && horizontal) {
         m_target->pageRightFromInput();
+        m_touchCommitted = true;
+    } else if (m_touchMode == TouchMode::StackBefore
+               && delta.x() > 30.0 && horizontal) {
+        m_target->stepStackBesideFromInput(m_touchStart, -1);
+        m_touchCommitted = true;
+    } else if (m_touchMode == TouchMode::StackAfter
+               && delta.x() < -30.0 && horizontal) {
+        m_target->stepStackBesideFromInput(m_touchStart, 1);
         m_touchCommitted = true;
     } else if (m_touchMode == TouchMode::BottomEdge
                && delta.y() < -40.0 && vertical) {
@@ -1248,6 +1331,10 @@ void WorkspaceInputRouter::finishTouchGesture()
         m_target->pageLeftFromInput();
     } else if (m_touchMode == TouchMode::ActiveRight) {
         m_target->pageRightFromInput();
+    } else if (m_touchMode == TouchMode::StackBefore) {
+        m_target->stepStackBesideFromInput(m_touchStart, -1);
+    } else if (m_touchMode == TouchMode::StackAfter) {
+        m_target->stepStackBesideFromInput(m_touchStart, 1);
     }
 }
 

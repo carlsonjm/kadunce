@@ -237,8 +237,14 @@ public:
     // card again, as in Spread, stands in front of its Stack, and a Stack
     // whose pane is gone keeps its cards together.
     [[nodiscard]] QList<KWin::EffectWindow *> paneStack(const KWin::EffectWindow *pane) const;
+    // Every recorded Stack behind a pane as noted, members not cards yet
+    // included, for the card book to read.
+    [[nodiscard]] const QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> &
+    paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // Kadunce let every window go: no Stack waits behind any of them.
+    void forgetAllPaneStacks() { m_paneStacks.clear(); }
     // Drops a window from every Stack that waits behind a pane.
     void forgetFromPaneStacks(const KWin::EffectWindow *window);
     void settlePaneStacks();
@@ -478,6 +484,18 @@ public:
     // that display's layout. Moved from Active, this display presents the card
     // used before it again.
     bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // Puts a window too big for the Active place back inside its top and left.
+    void keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target);
+    // The card this display presents Active is about to leave it: the card
+    // used before it is presented again, or the desktop is shown. A card not
+    // in front leaves nothing to step aside from.
+    bool stepAsideFrom(KWin::EffectWindow *card);
+    // §11, Every display: this card leaves for another display's card stage,
+    // in one step, Active or not. Its record goes with it, read before.
+    bool releaseCardToStage(KWin::EffectWindow *card);
+    // A card of this stage is presented Active at once, with no growth. With
+    // `focus` false the window the person is using keeps the keys.
+    bool presentCardActive(KWin::EffectWindow *card, bool focus);
     // The next entry into Active keeps the focus on this window, a card just
     // shown on another display, instead of taking it for the Active card.
     void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }
@@ -736,6 +754,8 @@ private:
     bool m_cardsElevated = false;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
+    // How often a window too big for the Active place was put back inside it.
+    QHash<const KWin::EffectWindow *, int> m_liftedInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;

@@ -23,7 +23,7 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, paneStack, stackId, focused, minimized}]}')"
+        apps: [.applications[] | {title, output, hasCard, pane, stage, paneStack, stackId, focused, minimized}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden})')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
@@ -47,6 +47,8 @@ focused_id() { kad workspaceContext | jq -r 'first(.applications[] | select(.foc
 focused() { [[ $(focused_id) == "$1" ]]; }
 output_of() { kad workspaceContext | jq -r --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .output'; }
 on_output() { [[ $(output_of "$1") == "$2" ]]; }
+# A card the display it stands on holds on its own card stage.
+shown_card() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .hasCard and .stage == .output and (.pane | not) and (.minimized | not)'; }
 is_pane() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not) and (.minimized | not)'; }
 is_kept() { context --arg id "$1" 'first(.applications[] | select(.windowId == $id)) | .pane or .hasCard'; }
 shown_on() { probe windowFacts | jq -e --arg id "$1" --arg o "$2" 'first(.[] | select(.id == $id)) | .output == $o and (.hidden | not)'; }
@@ -128,7 +130,7 @@ carry_left "$moved"
 report carried
 check 'carry: Meta+Shift+Left takes the pane to the small display' on_output "$moved" Virtual-0
 check 'carry: it shows there' shown_on "$moved" Virtual-0
-check 'carry: there it is the card that display shows, not a loose window' is_pane "$moved"
+check 'carry: there it is the card that display shows, not a loose window' shown_card "$moved"
 check 'carry: and it fills that display' fills "$moved"
 meta_shift 106
 report back
@@ -204,7 +206,7 @@ meta 15
 carry_left "$front"
 report stack-carried
 check 'stack: the Stack reaches the small display' on_output "$front" Virtual-0
-check 'stack: there it is the card that display shows' is_pane "$front"
+check 'stack: there it is the card that display shows' shown_card "$front"
 check 'stack: and it fills that display' fills "$front"
 check 'stack: its Stack came with it' together "$front" "$rest"
 meta 15

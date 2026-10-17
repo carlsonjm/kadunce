@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "CardBook.h"
 #include "CardStageController.h"
 #include "DesktopStageController.h"
 #include "DisplaySizing.h"
@@ -115,14 +116,16 @@ public:
 
     [[nodiscard]] bool blocksDirectScanout() const override
     {
-        return (m_cardStage && m_cardStage->isActive())
+        return anyCardStageActive()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
+    // Painting while any display's cards are on, and while windows are given
+    // rounded corners, which every window keeps, card or not.
     [[nodiscard]] bool isActive() const override
     {
-        return (m_cardStage && m_cardStage->isActive())
+        return anyCardStageActive() || roundsCorners()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
@@ -162,6 +165,9 @@ private Q_SLOTS:
 public Q_SLOTS:
     Q_SCRIPTABLE void showCardLine();
     Q_SCRIPTABLE void showActive();
+    // CARD-LIFECYCLE.md §11: the same, for the Spread of the display named.
+    Q_SCRIPTABLE void showCardLineOn(const QString &outputName);
+    Q_SCRIPTABLE void showActiveOn(const QString &outputName);
     Q_SCRIPTABLE QStringList outputStageState() const;
     // Which plugin image this compositor actually has open. An installer runs
     // outside KWin and, under a restricted-ptrace kernel, cannot read its maps;
@@ -240,6 +246,9 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
+    // Every card book mismatch observed since load, in words: each place the
+    // records of a card's status disagree.
+    Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
@@ -417,9 +426,18 @@ private:
     void closeLauncherGuest();
     void dropLauncherGuestLaunch();
     void handleLaunchWindowChanged();
-    // The display holding cards: the one a touchscreen drives (TouchDisplay.h).
+    // The display of the card stage named now (SessionScope).
     [[nodiscard]] bool isTabletOutput(const KWin::LogicalOutput *output) const;
+    // Any attached display holding cards: every display, unless kaduncerc
+    // [Spread] OtherDisplays keeps cards to the primary display alone.
+    [[nodiscard]] bool isCardDisplay(const KWin::LogicalOutput *output) const;
+    // The primary display (TouchDisplay.h cardOutputName): the one holding
+    // cards when only one does, and where nothing else says where.
+    [[nodiscard]] KWin::LogicalOutput *primaryOutput() const;
     void refreshCardOutput();
+    // CARD-LIFECYCLE.md §3 on every display holding cards: one holding none
+    // holds its windows as cards, the one in use (or `arrival`) Active.
+    bool holdDisplaysInCards(KWin::EffectWindow *arrival);
     // Both answer for the desktop of the session being worked on.
     [[nodiscard]] bool isCardWindow(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool isApplicationWindow(const KWin::EffectWindow *window) const;
@@ -433,15 +451,47 @@ private:
     struct DesktopSession;
     class SessionHost;
     class SessionScope;
+    // CARD-LIFECYCLE.md §11: every display holding cards has a card stage of
+    // its own on each desktop, with its own Spread, Active card and Stacks.
+    // Its host names it, and its display, for each call it makes.
+    struct DisplayStage;
+    class StageHost;
     DesktopSession *sessionFor(KWin::VirtualDesktop *desktop);
+    // The session's stage on the display `key` names, made the first time.
+    CardStageController &stageOn(DesktopSession *session, const QString &key);
     // The session whose cards or layouts hold the window, if any does.
     [[nodiscard]] DesktopSession *sessionHolding(const KWin::EffectWindow *window) const;
-    void scopeTo(DesktopSession *session);
+    // The scoped desktop's stage holding the window as a card, if any does.
+    [[nodiscard]] CardStageController *stageHolding(const KWin::EffectWindow *window) const;
+    // The stage holding it as a card, else the one keeping its pane's Stack.
+    [[nodiscard]] CardStageController *stageKeepingStackOf(const KWin::EffectWindow *window) const;
+    // Whether any display of the scoped desktop shows its Spread.
+    [[nodiscard]] bool anySpreadShown() const;
+    // Whether any display's cards are on, on the desktop shown.
+    [[nodiscard]] bool anyCardStageActive() const;
+    // Whether Kadunce gives windows their rounded corners, as it does unless
+    // another effect does or its shader could not be made.
+    [[nodiscard]] bool roundsCorners() const;
+    // The key a display's stage is kept under: its name while every display
+    // holds its own cards, and one key for all while one display does.
+    [[nodiscard]] QString stageKeyFor(const KWin::LogicalOutput *output) const;
+    // The key of the stage holding the window, else of its display's.
+    [[nodiscard]] QString stageKeyOf(const KWin::EffectWindow *window) const;
+    void scopeTo(DesktopSession *session) { scopeTo(session, m_scopedKey); }
+    void scopeTo(DesktopSession *session, const QString &key);
     // Runs f once with each session's stages named by m_cardStage and
     // m_desktopStage, for what reaches every desktop: a window closing,
-    // a display going away, release.
+    // a display going away, release. m_cardStage keeps the display named.
     template<typename F> void forEachSession(F &&f);
+    // Runs f once with every desktop's stage on every display named.
+    template<typename F> void forEachStage(F &&f);
+    // Runs f once with the scoped desktop's stage on every display named.
+    template<typename F> void forEachDisplayStage(F &&f);
     [[nodiscard]] bool scopedToCurrent() const { return m_scopedSession == m_currentSession; }
+    // The display in use names the stage that keys, timers and anything else
+    // naming no display act on, from the next turn.
+    void noteDisplayInUse(const KWin::LogicalOutput *output);
+    void restInUse();
     void handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualDesktop *current);
     void handleDesktopRemoved(KWin::VirtualDesktop *desktop);
     // A window KWin moved to another desktop leaves the session it was owned
@@ -618,45 +668,30 @@ private:
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(
         const KWin::LogicalOutput *output) const override;
-    // CARD-LIFECYCLE.md §11, Every display: a display other than Spread's
-    // that holds its own cards, which every attached display does unless
-    // kaduncerc [Spread] OtherDisplays keeps them to ordinary windows.
+    // CARD-LIFECYCLE.md §11: a display holding cards other than the one the
+    // stage named now is kept for.
     [[nodiscard]] bool isOtherCardDisplay(const KWin::LogicalOutput *output) const;
-    // The display a card waiting in Spread shows on when chosen: the one it
-    // last showed on, while that display is attached and is not Spread's.
-    [[nodiscard]] KWin::LogicalOutput *cardHome(const KWin::EffectWindow *card) const;
-    // Every display holding its own cards and showing none of them begins
-    // its layout with the windows on it, or shows the card it used last.
-    bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
-    // A card waiting in Spread shows on its own display, its Stack waiting
-    // behind it there. With `leaveSpread`, Spread then goes back to what it
-    // was opened from.
-    bool showCardOnItsDisplay(KWin::EffectWindow *card, bool leaveSpread);
-    // A card waiting in Spread for its display, asked for by the dock or a
-    // task switcher, goes home once this turn is over. Spread's own picks do
-    // not come here.
-    bool returnCardInUseOnItsDisplay(KWin::EffectWindow *card);
-    // A display holding its own cards that shows none brings back the one it
-    // used last.
-    void refillOtherDisplay(const QString &outputName);
-    // The same, for the display a carry took the card it showed from.
-    void refillDisplayCarriedFrom(KWin::EffectWindow *carried, const QString &origin);
+    void settleStacksOfArrival();
+    // The card stage a title-bar carry was prepared by; none once that carry
+    // no longer holds.
+    [[nodiscard]] CardStageController *carrySourceStage(const PreparedCarrySource &source) const;
+    [[nodiscard]] bool cardCarrySourceValid(const PreparedCarrySource &source) const;
+    // §11: the card goes, with its Stack, to the stage of another display
+    // holding cards, shown there when `show`, else waiting in its Spread.
+    bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show);
+    // Runs f after `ms` with the stage named now named again, while its
+    // desktop's session is still kept.
+    void onThisStageLater(int ms, const std::function<void()> &f);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
-    bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
-    // Spread moved off the display that presented this card Active: it stays
-    // there as the card that display shows, once the cards that went with
-    // Spread have left it.
-    void keepShownCardOnDisplayLeft(KWin::EffectWindow *card, int tries = 0);
-    QPointer<KWin::EffectWindow> m_keptOnLeft;
     // Cards the top edge took out of a layout, called back alone (§10).
     QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
-    void restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
+    bool restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
@@ -665,7 +700,6 @@ private:
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
     // §11, Every display: the other panes of that display wait in Spread for
     // it, and this one is the card it shows alone.
-    void showPaneAloneOnItsDisplay(KWin::EffectWindow *pane, KWin::LogicalOutput *output);
     // §11, Connected: a pane's face held by its title bar and drawn up passes
     // the cards behind it, shown as a ladder of title bars, and goes in where
     // it is let go.
@@ -704,12 +738,10 @@ private:
     void drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
                             KWin::LogicalOutput *screen);
-    // The display a bottom swipe steps a Stack on: the touchscreen's, when it
-    // holds its own cards and shows a Stack.
-    [[nodiscard]] KWin::LogicalOutput *stackSwipeDisplay() const;
-    // A window let go loose on a display holding its own cards becomes a card
-    // there, as one opened there does.
-    void claimWindowForItsDisplay(KWin::EffectWindow *window);
+    // A window that left another display loose on one holding cards becomes
+    // a card there, as one opened there does. From names the display it
+    // left, when known: a window still standing on it stays as it is.
+    void claimWindowForItsDisplay(KWin::EffectWindow *window, const QString &from = {});
     // Whether another display holds its own cards, so where a carried Active
     // card lands decides what it becomes.
     [[nodiscard]] bool carriesToAnotherCardDisplay() const;
@@ -718,9 +750,7 @@ private:
     // edge is reached over it; a panel anywhere else keeps its place.
     [[nodiscard]] std::optional<CarryEdge> carryEdgeAt(const KWin::LogicalOutput *output,
                                                        QPointF contact) const;
-    QHash<KWin::EffectWindow *, QString> m_cardHomes;
     bool m_cardsOnEveryDisplay = true;
-    bool m_bezelStepsStack = false;
     [[nodiscard]] long long lastUsedForDesktopStage(
         const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool outputCanOwnCards(
@@ -732,12 +762,14 @@ private:
         KWin::LogicalOutput *output) override;
     [[nodiscard]] std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *window) const override;
+    // The doors a layout's windows take into cards; `output` names the
+    // display whose stage takes them, and none the stage named now.
     bool admitDisplacedPaneToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
-        const NativeMoveSnapshot *restore = nullptr) override;
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore = nullptr) override;
     bool admitSleepingPaneToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
-        const NativeMoveSnapshot *restore = nullptr) override;
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore = nullptr) override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
     [[nodiscard]] bool isTabletOutputForCardStage(
@@ -775,14 +807,21 @@ private:
         enum class Mode { Idle, Refused, Follow, Commit, Opened };
         Mode mode = Mode::Idle;
         double progress = 0.0;
+        // The stage of the display the fingers opened it on, once they have.
+        std::optional<QString> key;
     };
     void setPagingShortcutsActive(bool active);
+    // The stage key the keys act on (CARD-LIFECYCLE.md §11).
+    [[nodiscard]] QString keyStageKey() const;
     bool answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat);
     void runKeyAction(KeyAction action);
     // KWin's gesture recogniser calls these; they are invokable, never on the
     // bus, so a private compositor's probe can drive them where its virtual
     // displays report no physical size for KWin to measure fingers by.
     Q_INVOKABLE void followSpreadGesture(qreal progress);
+    // The same, on the display the fingers are on: the touchscreen's for
+    // three fingers, the pointer's for four on a touchpad.
+    void followSpreadGestureOn(qreal progress, KWin::LogicalOutput *output);
     [[nodiscard]] SpreadGesture::Mode beginSpreadGesture();
     Q_INVOKABLE void finishSpreadGesture();
     void holdOverviewOff();
@@ -811,6 +850,8 @@ private:
     void touchRoutedForInput(qint32 id, bool kept) override {
         if (m_touchWitness) m_touchWitness->routed(id, kept);
     }
+    void enterInputScope(const QPointF &position, InputReach reach, qint64 contact) override;
+    void leaveInputScope(InputReach reach, qint64 contact) override;
     [[nodiscard]] QString describeTitleTouch(const QPointF &position) const;
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
@@ -931,6 +972,12 @@ private:
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
     // §11, Connected: the Active card takes the place `side` names, alone.
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
+    // A side snap of the Active card brings back the layout Spread holds,
+    // with the card in the place the snap named.
+    // A card let go out of its Stack on a Solo display joins the layout on
+    // Spread's display beside it.
+    void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+                                BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.
     bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
         KWin::EffectWindow *partner, BentoSidePlacement side);
@@ -962,6 +1009,18 @@ private:
     // holds them and windows it moved onto that display become cards.
     void scheduleCardDisplaySettle();
     void settleCardsOnDisplays();
+    // The scoped display's own settle; true when a card was sent back to it.
+    bool settleCardsOnThisDisplay();
+    // §11: the cards of a stage no display holds any more go to the displays
+    // their windows stand on, and empty stages of that kind are let go.
+    void handOverGoneStages();
+    void forgetGoneStages();
+    // KWin rearranged windows for a display that came, went or moved, so a
+    // window it moved between displays just now was not sent by the person.
+    [[nodiscard]] bool displaysJustChanged() const
+    {
+        return m_displaysChanged.isValid() && m_displaysChanged.elapsed() < 1500;
+    }
     void handleSessionStateChanged();
     [[nodiscard]] int liveCardIndex(const KWin::EffectWindow *window) const;
     [[nodiscard]] int visibleSlot(const KWin::EffectWindow *window) const;
@@ -972,23 +1031,32 @@ private:
     void connectManagedWindow(KWin::EffectWindow *window);
     void handleManagedWindowMinimizedChanged();
     bool admitTransferredWindowToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource = [] { return true; },
+        KWin::EffectWindow *window, KWin::LogicalOutput *output = nullptr,
+        const std::function<bool()> &commitSource = [] { return true; },
         const NativeMoveSnapshot *restore = nullptr) override;
 
     std::unique_ptr<KeyRoute> m_keyRoute;
     // Cards are on the tablet, so Meta's arrows move through them.
-    bool m_cardsShownForKeys = false;
+    QHash<QString, bool> m_cardsShownForKeys;
     SpreadGesture m_spreadGesture;
     QAction *m_spreadGestureAction = nullptr;
     // KDE's Overview was set aside here and is loaded again when Kadunce stops.
     bool m_overviewHeld = false;
     void observeCardOwnership();
+    // Reads the card book and reports each new mismatch once; never repairs.
+    void observeCardBook();
     bool startTabletInCards(KWin::EffectWindow *arrival);
     // The authority for who owns a window. Both stages' containers are checked
     // against it; it is never repaired from them.
     CardOwnershipLedger m_ownership;
     std::vector<OwnershipViolation> m_observedOwnershipViolations;
     QStringList m_ownershipViolationLog;
+    std::vector<CardBookMismatch> m_observedCardBook;
+    // The book is read once a change has settled: a move publishes on its
+    // way, before KWin has put each window where it goes.
+    QTimer m_cardBookSettle;
+    void readCardBook();
+    QStringList m_cardBookLog;
 
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;
@@ -1056,6 +1124,11 @@ private:
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_sleepingShown;
     static constexpr qreal SleepingCardOpacity = 0.45;
     void showSleepingCardsInSpread();
+    // Unredirects the neighbours the scoped Spread no longer prepares.
+    void prepareNeighbors(KWin::LogicalOutput *screen);
+    // The stage key of the display in use, and whether a display is it.
+    [[nodiscard]] QString inUseKey() const;
+    [[nodiscard]] bool isInUseDisplay(const KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_carriedWindow;
     QRectF m_carryPickup;
     // Where the carried window is drawn under the hand, and whether its
@@ -1087,6 +1160,17 @@ private:
     std::map<QString, std::unique_ptr<DesktopSession>> m_sessions;
     DesktopSession *m_currentSession = nullptr;
     DesktopSession *m_scopedSession = nullptr;
+    // The display whose stage m_cardStage is, by stage key, and how many
+    // SessionScopes are open.
+    QString m_scopedKey;
+    // Each routed event's display (WorkspaceInputTarget::enterInputScope),
+    // and the contacts and buttons of the stroke under way with the display
+    // its first one named.
+    std::vector<std::unique_ptr<SessionScope>> m_inputScopes;
+    QSet<qint64> m_strokeContacts;
+    QString m_strokeKey;
+    int m_scopeDepth = 0;
+    QString m_inUseKey;
     DesktopStageController *m_desktopStage = nullptr;
     CardStageController *m_cardStage = nullptr;
     KWin::LogicalOutput *m_paintingOutput = nullptr;
@@ -1101,7 +1185,7 @@ private:
     bool m_framingTablet = false;
     // The presentation the workspace context last reported, -1 with cards
     // off, so a frame that changes it announces the context once.
-    int m_reportedPresentation = -1;
+    QString m_reportedPresentation;
     int m_framePreviewsMade = 0;
     void noteTabletFrameStart();
     void noteTabletFrameEnd(bool wanted);
@@ -1118,6 +1202,9 @@ private:
     // cards go; travel does.
     QPointer<KWin::EffectWindow> m_heldActiveMove;
     QPointF m_heldActiveMoveOrigin;
+    // A display's own card let go at its bottom edge is an ordinary window
+    // there until it is carried again, never taken back as a card (§10).
+    QPointer<KWin::EffectWindow> m_letGoOnDisplay;
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
@@ -1210,6 +1297,10 @@ private:
     // desktop. Spread's chosen entry is read from Card Stage as it is.
     [[nodiscard]] QJsonValue contextNotice() const;
     [[nodiscard]] QJsonValue spreadEntryContext() const;
+    // The scoped display's own stage as the workspace context reports it.
+    [[nodiscard]] QJsonObject cardStageContext() const;
+    // Calls f for each display holding cards, its stage named meanwhile.
+    void eachCardDisplay(const std::function<void(KWin::LogicalOutput *)> &f) const;
     // What those say, cheaply, so a frame that changes them announces it once.
     [[nodiscard]] QString contextLineSignature() const;
     QString m_reportedContextLine;
@@ -1255,6 +1346,7 @@ private:
     bool m_dependentSyncQueued = false;
     bool m_cardDisplaySettleQueued = false;
     bool m_cardDisplayMoved = false;
+    QElapsedTimer m_displaysChanged;
     int m_cardDisplaySettleRounds = 0;
     bool m_holdingDependents = false;
     // Waiting dialogs drawn on their cards in Spread. KWin keeps them hidden,

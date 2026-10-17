@@ -112,11 +112,11 @@ Every window is a card, on every display. A small display shows one card at a
 time, or a Bento pair. A big display lays its cards side by side, and a card you
 pick joins what is already open.
 
-One display holds Spread: the one you choose, else the one your touchscreen
-drives, else the largest. Kadunce finds the touched display from the
-touchscreen, never from the display's name. Spread lists the cards of every
-display, but never pulls another display's windows across: a card you pick in
-Spread or the dock opens on its own display.
+Each display has its own Spread, with its own cards: a card belongs to the
+display it stands on, and its display's context line names it. Carry or send a
+card to another display and it goes with its Stack, to be shown there. The
+primary display, the one you choose, else your touchscreen, else the largest,
+takes the cards of a display you unplug.
 
 ### Auto layout on a big display
 
