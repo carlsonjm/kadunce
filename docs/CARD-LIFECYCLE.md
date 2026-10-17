@@ -1,7 +1,7 @@
 # Card lifecycle
 
 Who owns each window, how it is presented, and what every transition does to
-it. Which input causes each transition is `INPUT.md`.
+it. `INPUT.md` lists the input behind each transition.
 
 ## 1. Core model
 
@@ -9,7 +9,7 @@ Each display is sized Solo, one card at a time over the work area and a Bento
 pair at most, or Connected, a picked card joining its layout (§11).
 §3–§10 describe Solo; §11 lists every difference on Connected.
 
-Every eligible application window has exactly one owner:
+Each eligible application window has one of three owners:
 
 1. **Native**
 
@@ -35,7 +35,7 @@ Ownership and presentation are separate.
 
 ### Active
 
-One individual card is shown; other cards remain owned and hidden.
+One individual card is shown; other cards stay owned and hidden.
 
 ### Bento
 
@@ -52,7 +52,7 @@ Spread shows:
 
 ### Sleeping
 
-A minimized individual card remains owned but is not presented. Spread draws
+A minimized individual card stays owned but is not shown. Spread draws
 it dimmed in its place, or at full strength while a context line says it sleeps
 (`TETTEGOUCHE-CONTEXT.md` § Context-line claims). Selecting it wakes it and
 presents it as Active.
@@ -67,7 +67,7 @@ presents one again, and asking for a returned window shows the desktop again.
 
 ### Native desktop
 
-Released from Kadunce, the window is neither owned nor hidden by it.
+The window is released, and Kadunce neither owns nor hides it.
 
 ## 3. Display admission
 
@@ -124,16 +124,16 @@ Placement comes from the gesture:
 - The carried window takes the side it was released into.
 - The partner takes the opposite side.
 - Both become Bento panes.
-- No other window joins. Kadunce never fills an unrequested pane.
+- No other window joins.
 
-The partner is named when the edge is contacted, and a presentation change
-during the carry never substitutes another window.
+The partner is named when the edge is contacted and stays the partner, whatever
+the presentation does during the carry.
 
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
 
 An entry commits completely or not at all. If adoption cannot be prepared safely,
-every window remains Native. If a pair cannot be prepared safely, the carried
+every window stays Native. If a pair cannot be prepared safely, the carried
 window and the partner keep the ownership and presentation they had.
 
 ### The Bento action
@@ -177,9 +177,9 @@ forward shows the dialog on top. In Spread a waiting dialog is drawn on its
 application's card, where it stands over the application. A card carried away
 takes its dialogs along, each landing in the same place on its application, or
 on its middle when wider than it, and wholly on the display.
-Switching Kadunce off gives every waiting dialog back. A dialog that names its application only once it is shown, as
-Electron's message boxes do, follows it from then on, even if it was first
-taken for a card.
+Switching Kadunce off gives every waiting dialog back. A dialog that names its
+application only once it is shown, as Electron's message boxes do, follows it
+from then on, even if Kadunce first took it for a card.
 
 ### Eligible as a Bento partner
 
@@ -199,8 +199,8 @@ stack and leaves the rest of the stack unchanged, whether that member is the
 partner or the carried window.
 
 A partner search passes over every Spread entry that fails this test, and over
-every ordinary stack. A card leaves a stack for Bento only when the user named
-it by using it, never because a search walked past it.
+every ordinary stack. A card leaves a stack for Bento only when you named it
+by using it, not because a search walked past it.
 
 ## 5. Bento rules
 
@@ -216,7 +216,7 @@ Each display has one maximum visible pane count, read by every admission path.
 The tablet's maximum is two; a larger display, what minimum sizes allow, or its
 zones (§11).
 
-Layout orientation follows the work area's own proportions, never the display's
+Layout orientation follows the work area's own proportions, not the display's
 hardware identity.
 
 ### Shape, not size
@@ -224,7 +224,7 @@ hardware identity.
 A preset fixes how panes are arranged, not their proportions. A preferred
 proportion is a starting point, clamped by each window's minimum size, and the
 user then moves any shared boundary with its rail. A shape the minimums cannot
-satisfy is not used.
+satisfy is skipped.
 
 ### Choosing a shape by side contact
 
@@ -252,8 +252,8 @@ A window leaves for the display that can hold it as a card, keeping its
 restore record so release still returns it where it began. You find it in
 Spread there and may carry it back into the layout.
 
-Where no display can hold a card, nothing leaves. The layout keeps the
-combination it has rather than shedding a window with no owner to become.
+Where no display can hold a card, nothing leaves. The layout keeps its
+combination rather than drop a window that would have no owner.
 
 A pane whose application stops short of its place, as a terminal keeping whole
 rows does or one slow to wake answering late, stays: it covers nothing beside
@@ -279,7 +279,8 @@ the side the card was released into. You see which pane will yield while draggin
 history decides it.
 
 A card called forward releases into no side, so §8 decides which pane yields.
-Every display answers a call forward; not every display offers the side gesture.
+Every display accepts a call forward, but not every display offers the side
+gesture.
 
 ## 6. Spread selection
 
@@ -287,13 +288,13 @@ Every display answers a call forward; not every display offers the side gesture.
 
 The Spread has one order. Its entries are individual cards, ordinary stacks and
 the cards of the display's Bento panes, which stand side by side in the
-layout's order, left to right, until you move one. The row that shows it has two ends, and moving along
-it stops at them. When the card used before the Active card cannot pair, that
+layout's order, left to right, until you move one. The row that shows it has
+two ends, and moving along it stops at them. When the card used before the Active card cannot pair, that
 order names a Bento partner, the search wrapping and stepping over entries until
 back where it started.
 
 Which entry is selected, and which side a two-entry Spread draws its neighbour
-on, are presentation, deciding neither the partner nor a pane's side.
+on, are presentation only. They decide neither the partner nor a pane's side.
 
 ### Selecting an individual card
 
@@ -310,16 +311,16 @@ hidden and out of it.
 
 The same peer entries return:
 
-- Independent cards remain independent.
-- Ordinary stacks preserve their membership.
+- Independent cards stay independent.
+- Ordinary stacks keep their membership.
 - Bento returns as its panes' cards, side by side.
-- Selection remains on the most recently presented entry.
+- Selection stays on the most recently presented entry.
 
 ## 7. Minimize behavior
 
 ### Minimizing an individual card
 
-- It remains an individual card.
+- It stays an individual card.
 - It becomes sleeping and nonselected.
 - Its user-minimized intent is preserved.
 
@@ -334,9 +335,9 @@ A minimized card never silently returns to Bento.
 
 ## 8. Arrivals at a live Bento
 
-A display presenting its Bento layout answers every arrival with that layout. An
-arrival is a new window, or an individual card the user calls forward. Nothing is
-ever shown on top of live panes.
+On a display showing its Bento layout, every arrival goes into that layout. An
+arrival is a new window, or an individual card you call forward. Nothing is
+shown on top of live panes.
 
 ### Admitting an arrival
 
@@ -346,7 +347,7 @@ ever shown on top of live panes.
   arrival takes its place.
 - If no pane the layout can offer satisfies the arrival's minimum size, the
   arrival becomes an individual Active card and the layout becomes a separate
-  Spread group. It does not remain on screen behind the card.
+  Spread group. It does not stay on screen behind the card.
 
 An arrival is never parked.
 
@@ -362,14 +363,14 @@ takes the narrower and leaves the wide pane alone (§11, A full layout).
 The layout does not reshape to make room. Where no slot can hold the arrival,
 the rule above for one that fits nothing applies.
 
-A stated intent outranks this. Where the user releases a card into a side edge,
-§5 gives the yielding pane to that side.
+A stated intent comes first: when you release a card into a side edge, §5
+gives the yielding pane to that side.
 
 ### While an individual card is Active
 
 The new window becomes a new individual Active card.
 
-The previous Active card remains an individual Spread neighbor.
+The previous Active card stays an individual Spread neighbor.
 
 ### While Spread is open
 
@@ -382,7 +383,7 @@ Individual cards may be organized into ordinary Spread stacks.
 A stack:
 
 - Has one selected member
-- Remains separate from Bento
+- Stays separate from Bento
 - Brings its members forward in turn, a ring side steps never leave
 - Keeps its fan's room wherever it stands; landing on it moves nothing
 - Can release a member back into the Spread
@@ -416,7 +417,7 @@ Make the carried window an Active card, or another display's lone card, never pa
 
 ### Left or right edge
 
-§3 governs a side snap (§11, A side snap), and §5 one into a live
+§3 covers a side snap (§11, A side snap), and §5 one into a live
 Bento layout.
 Spread's side edges on the display that owns cards are not edge actions.
 
@@ -482,9 +483,9 @@ waiting elsewhere never pairs. Unplugged, its cards stay in Spread. Let go
 windows or one Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
-Switched to zones (Meta+Shift+B or the tray), zones drawn with Meta+T,
-not KWin's default, are the layout: each
-window keeps a zone it fits, and KWin owns the edges until release.
+On a display switched to zones (Meta+Shift+B or the tray), the zones drawn
+with Meta+T are the layout, in place of KWin's default. Each window keeps a
+zone it fits, and KWin owns the edges until release.
 
 Moving a card between displays is a transfer (`ARCHITECTURE.md` § Transfer
 transaction); a failed one changes neither.
@@ -520,11 +521,12 @@ Full Kadunce release or disable:
 - Restores quick-tile, maximize, fullscreen, and minimized state; a window
   minimized while held stays minimized
 - Clears individual cards, stacks, Bento, and presentation state
-- Returns complete authority to Plasma
+- Hands full control back to Plasma
 
 KWin moving the Active card releases everything only once it travels. KWin
 placing it on another display, or its application filling the screen, lets
-only that card go, where KWin put it. With cards on every display, windows go back on their own.
+only that card go, where KWin put it. With cards on every display, windows go
+back on their own.
 
 Kadunce does not persist card or Bento membership across unload or restart.
 
@@ -542,7 +544,7 @@ Kadunce does not persist card or Bento membership across unload or restart.
 - Presentation changes never consume or overwrite restoration records.
 - Cross-owner transfers follow `ARCHITECTURE.md` § Transfer transaction.
 - Failed or cancelled transitions preserve the exact prior state.
-- Other displays and desktops remain untouched, except where Table moves a
+- Other displays and desktops stay untouched, except where Table moves a
   window.
 - Only explicit release or disable returns a managed window to the native desktop.
 

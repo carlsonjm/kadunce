@@ -1,15 +1,15 @@
 # Kadunce → Tettegouche context contract
 
-Kadunce owns KWin discovery, card identity, stack relationships, workspace
-presentation, output sessions, and which router owns the system edges. Tettegouche owns invocation,
-querying, ranking, and the choice to focus an existing application or launch a
-new one.
+Kadunce handles KWin discovery, card identity, stack relationships, workspace
+presentation, output sessions, and which router takes the system edges.
+Tettegouche handles invocation, querying, ranking, and the choice to focus an
+existing application or launch a new one.
 
-The workspace snapshot is deliberately read-only. Tettegouche requests it when
-its launcher opens, on workspaceContextChanged signals, and before selection;
-it does not poll raw KWin state or mutate Kadunce's models.
-An independent, explicitly versioned guest-session protocol lets a compatible
-launcher temporarily occupy Spread's center without becoming a real card.
+The workspace snapshot is read-only. Tettegouche asks for it when its launcher
+opens, on workspaceContextChanged signals, and before selection; it does not
+poll raw KWin state or change Kadunce's models. A separate, versioned
+guest-session protocol lets a compatible launcher hold Spread's center for a
+while without becoming a real card.
 
 ## Endpoint
 
@@ -35,9 +35,9 @@ result:    true only when that live application window was activated
 ```
 
 The command accepts only a current application `windowId` from the snapshot.
-Kadunce restores minimized windows and routes card-backed windows through its
-existing activation handling, so selection, stack membership, and presentation
-remain under Kadunce's authority.
+Kadunce restores minimized windows and sends card-backed windows through its
+own activation handling, so Kadunce stays in charge of selection, stack
+membership and presentation.
 
 The payload identifies itself with schema
 `co.goodinput.kadunce.workspace-context` and integer `version: 1`. Consumers
@@ -57,8 +57,8 @@ must reject unknown major versions instead of guessing at fields.
   of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
   layout while Card Stage holds its cards hidden), `desktop` (the card display
   shows the Plasma desktop while Card Stage holds its cards hidden), or
-  `active`. `cardLine` is a
-  frozen interface value that a later versioned migration renames.
+  `active`. `cardLine` is a frozen interface value that a later versioned
+  migration renames.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `table`: whether Table is open (`open`). A change is signalled as Table
   opens and as it closes.
@@ -66,8 +66,9 @@ must reject unknown major versions instead of guessing at fields.
   middle; otherwise `null`. It has the card's `cardId`, the `name` Spread
   writes under it (for a pane's card, its application then `with` the
   panes beside it), `bento` (whether it is a pane's card), its Stack's
-  `stackPosition` and `stackSize` (1-based, `1` of `1` for a lone card; while a card is held in its own Stack, the
-  place it will land in), and whether it is `sleeping`.
+  `stackPosition` and `stackSize` (1-based, `1` of `1` for a lone card; while
+  a card is held in its own Stack, the place it will land in), and whether it
+  is `sleeping`.
 - `notice`: what Kadunce is saying for a moment, or `null`: `kind` is
   `refused` for a gesture that sprang back, `zones` for the monitors' zones
   switched with Meta+Shift+B, or `returnToDesktop` while a card held over the
@@ -117,20 +118,21 @@ endLauncherGuest()
 An accepted begin reply contains `protocol: 3`, `accepted: true`, the target
 `output`, and `card` and `active` geometries. Kadunce reserves a centered guest
 footprint that is six percent of the work area narrower than a normal card, and
-moves both real neighbors inward by the matching three-percent inset. It does
-not insert the launcher into `SpreadModel`; real cards remain its sole mutable
-model state. Tettegouche owns and renders the interactive center card, while
-Kadunce mirrors its horizontal drag onto the adjacent real cards.
+moves both real neighbors inward by the matching three-percent inset. The
+launcher stays out of `SpreadModel`, whose only mutable state is real cards.
+Tettegouche owns and renders the interactive center card, and Kadunce mirrors
+its horizontal drag onto the adjacent real cards.
 
 `uniqueOwner` is the caller's own unique connection name: a begin naming any
 other is refused, and every later call above is answered only from the guest's
 own connection, so no program can steer or end another's guest, or have
 Kadunce call a third party. Kadunce watches the launcher's unique session-bus
-owner and restores Spread if that process disappears. A committed handoff selects the incoming real card.
-A press outside the launcher and the keys is Kadunce's (`INPUT.md` § Spread):
-it never reaches the application under it, so it cannot promote that
-application to Active. Kadunce accepts the launcher only while Spread is presented,
-and never opens Spread for it (`CARD-LIFECYCLE.md` §11). Any rejected begin
+owner and restores Spread if that process disappears. A committed handoff
+selects the incoming real card. A press outside the launcher and the keys is
+Kadunce's (`INPUT.md` § Spread): it never reaches the application under it, so
+it cannot promote that application to Active. Kadunce accepts the launcher only
+while Spread is shown, and does not open Spread for it (`CARD-LIFECYCLE.md`
+§11). Any rejected begin
 request leaves both applications in their existing standalone behavior; a
 rejection may name the `output` the launcher floats on, where the person is
 working. Until the launcher then signals `shown(false)` on `/Launcher`, Spread
@@ -139,19 +141,20 @@ joins as one opened in Spread.
 
 Before launching an application that does not yet have a live window,
 Tettegouche calls `prepareLauncherGuestLaunch`. Kadunce then holds the guest
-while the application creates a window. A shown, ready-for-painting window matching an exact
-normalized desktop identity or declared StartupWMClass completes the
-handoff: Kadunce asks Tettegouche to animate out, then promotes the arriving
+while the application creates a window. A shown, ready-for-painting window
+matching an exact normalized desktop identity or declared StartupWMClass
+completes the handoff: Kadunce asks Tettegouche to animate out, then promotes the arriving
 window to Active. Tettegouche cancels the pending state after its bounded
 timeout if no application window appears.
 
 New-card admission preserves the guest and previous card selection instead of
 promoting a window immediately. Window addition, painting readiness, identity
-changes, and activation all feed the same one-shot completion gate. Web content
-or full application loading is not a readiness requirement.
+changes, and activation all feed the same one-shot completion gate. Readiness
+does not wait for web content or for the application to finish loading.
 
-Kadunce completes that transition by calling `completeGuestLaunch(requestToken)` on the
-unique `/Launcher` owner supplied at begin time. The well-known Tettegouche
+Kadunce completes that transition by calling
+`completeGuestLaunch(requestToken)` on the unique `/Launcher` owner supplied at
+begin time. The well-known Tettegouche
 service is not used for lease ownership or completion.
 
 Tokens identify individual requests. Generation guards prevent delayed settles
@@ -159,15 +162,16 @@ from ending newer leases. Both sides bound launch waiting to ten seconds. Unknow
 application identities time out rather than accept unrelated activations.
 
 `workspaceContextChanged` signals added, closed, and activated windows, and
-the first frame drawn after the reported presentation changes. Tette
+the first frame drawn after the reported presentation changes. Tettegouche
 ignores out-of-order snapshot replies. `bridgeUnavailable` is emitted before
 effect unload; service-owner loss is watched separately. Either clears guest
-input masking and pending launch/exit motion, returning Tette to standalone search.
+input masking and pending launch/exit motion, returning Tettegouche to
+standalone search.
 Neither side restarts the compositor or automatically renegotiates a lost lease.
 
 `completeGuestNavigation(slot)` on the same owner, slot `-1` for the visible
-left neighbor and `1` for the right, remains in protocol 3, but Kadunce does not
-currently call it: a tap on a neighbor closes the launcher. The guest's motion
+left neighbor and `1` for the right, is still part of protocol 3, but Kadunce
+does not call it: a tap on a neighbor closes the launcher. The guest's motion
 is `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
 
 
@@ -197,8 +201,8 @@ included, is the launcher guest's. Two rules apply:
   follows the same rule.
 
 A guest's surface gives up the keyboard as it closes, and KWin hands focus back
-to the card that had it before. In Spread that restoration, within a second of
-any guest closing, is not a request to open the card: Spread stays, so a
+to the card that had it before. In Spread, Kadunce does not open the card for
+that focus change within a second of any guest closing. Spread stays, so a
 companion opened as Search closes can still take the center.
 
 A companion is a layer-shell surface, as the launcher is. An ordinary window
@@ -215,8 +219,8 @@ claimTopEdge(key, outputName, x, y, width, height) -> bool
 clearTopEdgeClaim(key)
 ```
 
-The strip is in that display's own logical coordinates. A contact starting in
-it is the surface's however it moves, and never Table's. A caller holds its
+The strip is in that display's own logical coordinates. A contact that starts
+in it goes to the surface however it moves, and never to Table. A caller holds its
 strips under keys of its own; a new claim under the same key replaces the old,
 and every strip a caller holds goes when it leaves the bus. Kadunce refuses a
 claim with no key, display or area.
@@ -246,14 +250,14 @@ long as the note it replaces would have, about two and a half seconds.
 Claims are kept as top-edge claims are: under the caller's own keys, a new
 claim under the same key replacing the old, all of a caller's going when it
 leaves the bus. Kadunce refuses a claim with no key or display. With no claim,
-Kadunce draws as it always has, and the context carries the same fields.
+Kadunce draws the words itself, and the context carries the same fields.
 
 ## Stuck notes from Gooseberry
 
-Kadunce also reads from Gooseberry, the optional notes application, which may
-stick notes to a window. Gooseberry is found at run time and never required or
-started: while its name is absent from the session bus, Spread draws no notes
-and every other behaviour is unchanged.
+Kadunce also reads from Gooseberry, the optional notes application, which can
+stick notes to a window. Kadunce finds Gooseberry at run time and never starts
+it. While Gooseberry is not on the session bus, Spread draws no notes and
+nothing else changes.
 
 ```text
 service:   io.github.carlsonjm.gooseberry
@@ -268,15 +272,15 @@ interface: io.github.carlsonjm.Gooseberry.StuckNotes
 | `Write(noteId, windowId, caption, app)` | A note drawn on a card is tapped: the card opens with the window's notes up and that note ready to type on the window. A build without it answers with an error, and Kadunce then asks `Show` |
 | `Show(windowId, caption, app)` | A card's stack is tapped: the card opens with the window's notes up |
 | `StickTo(noteId, windowId, caption, app)` | A carried note is let go on another card |
-| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away, and as a window is picked up to be carried, so they do not stay behind under the hand; `false` as Spread closes or the carried window lands. A build without it answers with an error, which is ignored. Kadunce does not wait for it: from the frame Spread opens until it closes, it leaves undrawn the notes over a window: Gooseberry's layer surface, named by KWin after its program `gooseberry` since a layer surface carries no app id, that takes no keys or covers less than its display, since its quick-note card covers the whole display and takes them. KWin's open and close animations are held off that surface while Spread is shown, so it never shrinks or fades over a card |
+| `Pause(paused)` | `true` as Spread opens, so notes out over a window do not float over the cards without being put away, and as a window is picked up to be carried, so they do not stay behind under the hand; `false` as Spread closes or the carried window lands. A build without it answers with an error, which Kadunce ignores. Kadunce does not wait for it. From the frame Spread opens until it closes, Kadunce leaves undrawn the notes over a window: any Gooseberry layer surface that takes no keys or covers less than its display. The quick-note card covers the whole display and takes keys, so it is not one of them. KWin names a layer surface after its program, `gooseberry`, because a layer surface carries no app id. KWin's open and close animations are held off that surface while Spread is shown, so it never shrinks or fades over a card |
 
 Every call is asynchronous, asks the bus not to start Gooseberry, and is never
 waited for while drawing. An entry belongs to a card when one of its
 `windowIds` is the card's window UUID, compared as a UUID with or without
 braces; `Write`, `Show` and `StickTo` name the window by that UUID with braces, its
 title, and its desktop file name. Kadunce reads each entry's count, whether its
-notes are `shown` and, if so, `folded` into a dot, and its notes' ids, titles and colours, top note first, with
-each note's place, `x` and `y` as shares of the window, and size, `width` and
+notes are `shown` and, if so, `folded` into a dot, and its notes' ids, titles
+and colours, top note first, with each note's place, `x` and `y` as shares of the window, and size, `width` and
 `height` in the window's pixels, where Gooseberry gives them. A place that is
 absent, negative or unreadable leaves the note unplaced, as with a Gooseberry
 that sends none.
@@ -294,10 +298,11 @@ corner when there are several.
 A shown entry `folded` shows only its dot, as Gooseberry draws it on the
 window: a disc in the top note's colour, the count on it, hung from the top
 note's top-right corner, its place scaled with the card, its size the same
-on every card. A tap on it asks `Write` for the top note; holding it carries that note.
+on every card. A tap on it asks `Write` for the top note; holding it carries
+that note.
 Notes in place show in full while Gooseberry says they are shown over the
-window, and faint while they are put away. A stuck note is typed on its window,
-never in Spread: a tap on a note opens its card, as a tap anywhere on the card
+window, and faint while they are put away. You type a stuck note on its window,
+not in Spread: a tap on a note opens its card, as a tap anywhere on the card
 does, and asks `Write`, so the note is out on the window with the others,
 ready to type; a tap on the stack opens the card and asks `Show`. Gooseberry
 stays paused until the card is Active, and then draws the notes over it.

@@ -1,8 +1,8 @@
 # Shuffle terminology
 
-The suite's language contract: the terms every component uses and the rules for
-applying them. It covers Kadunce, Tettegouche, Temperance, Gooseberry,
-Shuffle, the Shuffle Keyboard and Split Rock.
+The terms the whole suite uses, and how to apply them. The suite is Kadunce,
+Tettegouche, Temperance, Gooseberry, Shuffle, the Shuffle Keyboard and Split
+Rock.
 
 ## Approved language
 
@@ -48,28 +48,27 @@ Shuffle, the Shuffle Keyboard and Split Rock.
 
 - **What people read** (READMEs, on-screen words, application entries, the
   site) uses the approved terms above exactly.
-- **Component and code names** may stay. Kadunce, Tettegouche, Temperance,
-  Gooseberry, the Shuffle Keyboard and Split Rock remain the repository names,
-  and outside Shuffle the open-source components keep their own names. Code
-  names that never reach a person, such as `DesktopStageController`, may stay.
+- **Component and code names** can stay. Kadunce, Tettegouche, Temperance,
+  Gooseberry, the Shuffle Keyboard and Split Rock are the repository names, and
+  outside Shuffle the open-source components keep their own names. Code names
+  nobody sees, such as `DesktopStageController`, can stay too.
 - **Installed identifiers** (reverse-DNS ids, D-Bus names, plugin and desktop
   entry ids, scriptable method names) change only in a coordinated, versioned
   release, because changing one breaks installed copies. `co.goodinput.*` names
   Kadunce, Temperance and the Tettegouche plugin; `io.github.carlsonjm.*` still
   names Tettegouche's desktop entries and Gooseberry.
-- **Internal terms** never reach a person. Solo, Connected and "display sizing"
+- **Internal terms** are for engineers. Solo, Connected and "display sizing"
   stay out of on-screen words, the tour and the site; there a display simply
   shows one card or a layout.
 
 ## Enforcement
 
-A terminology regression breaks a check rather than waiting for a reader to
-notice. Kadunce's `tests/verify-source.sh` and `tests/verify-docs.py` hold the
+Checks catch a retired word when it comes back. Kadunce's `tests/verify-source.sh` and `tests/verify-docs.py` hold the
 list of retired words and fail when one returns, `docs/archive/` exempt, and
 Tettegouche's `tests/verify-source.sh` fails on retired identity in its source.
 Temperance has no guard yet.
 
-Kadunce's guard permits two installed spellings and nothing else: the
+Kadunce's guard allows only two installed spellings: the
 `showCardLine` scriptable method and the `cardLine` workspace-context value,
 both consumed by Tettegouche. The `co.goodinput` rename left them in place; a
 later versioned migration retires them together.

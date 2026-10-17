@@ -18,8 +18,8 @@
 
 <p align="center">
 Kadunce turns your windows into cards you can flip through, pair and arrange by
-touch, mouse or keyboard. Your apps stay ordinary Plasma windows, and switching
-Kadunce off puts everything back.
+touch, mouse or keyboard. Switch it off and everything goes back to the Plasma
+desktop.
 </p>
 
 <p align="center"><img src="assets/readme/showcase.webp" alt="Spread: the cards of every display in one row, the Active card in the middle" width="100%"></p>
@@ -29,12 +29,12 @@ Kadunce off puts everything back.
 
 <table>
   <tr>
-    <td width="33%" valign="top"><b>Cards</b><br>Every application window is a card. Opening an application adds one; the cards you already have stay as they are.</td>
-    <td width="33%" valign="top"><b>Spread</b><br>Your cards in one ordered row. Choose one to make it the Active card, the card you are using.</td>
-    <td width="33%" valign="top"><b>Stacks</b><br>Related cards kept together, which you move through one at a time, round and round from the card you opened.</td>
+    <td width="33%" valign="top"><b>Cards</b><br>Every application window is a card, and opening an application adds one.</td>
+    <td width="33%" valign="top"><b>Spread</b><br>Your cards in one ordered row. The one you choose becomes the Active card, the card you are using.</td>
+    <td width="33%" valign="top"><b>Stacks</b><br>Related cards kept together. You step through them one at a time, round and round from the card you opened.</td>
   </tr>
   <tr>
-    <td width="33%" valign="top"><b>Bento</b><br>Several cards side by side in one layout. In Spread each pane is its own card, and choosing one brings back the same layout.</td>
+    <td width="33%" valign="top"><b>Bento</b><br>Several cards side by side in one layout. In Spread each pane is its own card, and choosing one brings the layout back.</td>
     <td width="33%" valign="top"><b>Table</b><br>Your workspaces as tabs along the top, each with its cards hanging below. Go to one, or carry a card to another.</td>
     <td width="33%" valign="top"><b>Auto layout</b><br>On a big display, cards lay themselves out side by side. Snap one to an edge to place it, and the rest fill in around it.</td>
   </tr>
@@ -53,9 +53,8 @@ Kadunce off puts everything back.
 Kadunce's keys work only while it runs. Every other gesture, tap and key is in
 [docs/INPUT.md](docs/INPUT.md).
 
-If anything goes wrong, `Meta+Esc` puts every window back on the ordinary Plasma
-desktop, and the **Cards** switch in the system tray turns Kadunce off
-entirely.
+If anything goes wrong, `Meta+Esc` puts every window back on the Plasma
+desktop, and the **Cards** switch in the system tray turns Kadunce off.
 
 ## Install
 
@@ -83,9 +82,7 @@ your distribution's own KWin.
 <summary>After a KWin update</summary>
 
 Run `./install.sh` again after every KWin update, or choose **Repair for
-current KWin…** in the Cards menu. Cards you switched off stay off through it.
-When Kadunce takes a touch drag from KWin, it leaves KWin nothing that loses
-the next one.
+current KWin…** in the Cards menu. If you had Cards switched off, they stay off.
 
 </details>
 
@@ -98,11 +95,10 @@ the next one.
 ```
 
 `disable.sh` returns every window to Plasma and turns Kadunce off until you turn
-it on again. The **Cards** switch stays in the system tray, so you can always
-turn Kadunce off completely. `uninstall.sh` removes what was installed, the repair
-kit and Kadunce's state among it, keeps your settings in `kaduncerc` for a later
-install, and leaves this folder as it is; log out and back in if the plugin is
-still loaded in the current session.
+it on again with the **Cards** switch in the system tray. `uninstall.sh` removes
+what was installed, including the repair kit and Kadunce's state. It keeps your
+settings in `kaduncerc` for a later install and leaves this folder alone. If the
+plugin is still loaded afterwards, log out and back in.
 
 </details>
 
@@ -113,10 +109,8 @@ time, or a Bento pair. A big display lays its cards side by side, and a card you
 pick joins what is already open.
 
 One display holds Spread: the one you choose, else the one your touchscreen
-drives, else the largest. Kadunce finds the touched display from the
-touchscreen, never from the display's name. Spread lists the cards of every
-display, but never pulls another display's windows across: a card you pick in
-Spread or the dock opens on its own display.
+drives, else the largest. Spread lists the cards of every display, and a card
+you pick there or in the dock opens on its own display.
 
 ### Auto layout on a big display
 
@@ -125,14 +119,13 @@ column on that side. The lower half puts it under whatever is already on that
 side. With one card open, the next window you open pairs with it. New windows
 fill the open room, or join the shortest column, or start a new one, whichever
 keeps every window larger. Once the screen is full, Kadunce lays everything out
-evenly and keeps your snapped card on its side; only when even that cannot fit
-does the window used longest ago step back into Spread. Drag a divider to
-fine-tune.
+evenly and keeps your snapped card on its side. If even that cannot fit, the
+window you used longest ago steps back into Spread. Drag a divider to fine-tune.
 
 ### Prefer your own layout?
 
-Auto layout not your thing? Keep a display as ordinary windows (below), draw
-zones for it with `Meta+T`, and switch to them with `Meta+Shift+B`.
+If auto layout isn't your thing, keep a display as ordinary windows (below),
+draw zones for it with `Meta+T` and switch to them with `Meta+Shift+B`.
 
 <details>
 <summary>More about displays</summary>
@@ -141,11 +134,10 @@ zones for it with `Meta+T`, and switch to them with `Meta+Shift+B`.
 - Unplug the display holding Spread and its cards move to the next one; plug it
   back in and they return. Unplug another display and its cards stay in Spread.
 - Search floats on any display, and joins Spread once Spread is open.
-- Wherever a touchscreen drives a display, Kadunce answers its top and bottom
-  edges itself, so the swipe up to Spread and the pull down to Table work on any
-  touchscreen.
+- The swipe up to Spread and the pull down to Table work on any display a
+  touchscreen drives.
 - You can keep other displays as ordinary windows instead, with
-  `kaduncerc` `[Spread] OtherDisplays=windows`. There an edge snap organizes
+  `kaduncerc` `[Spread] OtherDisplays=windows`. There an edge snap arranges
   every window into one Bento layout, or into your zones.
 
 </details>
@@ -156,15 +148,14 @@ zones for it with `Meta+T`, and switch to them with `Meta+Shift+B`.
 - A Bento pane's card in Spread sits beside its partners in the layout's order
   until you move it. A window that leaves a layout becomes its own card. Each
   display has one Bento layout at a time.
-- Each workspace in Table keeps its own cards and Bento layouts, and one left
-  empty goes away unless you named it.
+- Each workspace in Table keeps its own cards and Bento layouts. An empty one
+  goes away unless you named it.
 
 </details>
 
 ## The Cards menu
 
-The **Cards** icon in the system tray is Kadunce's switch; clicking it turns
-Kadunce on or off.
+Click the **Cards** icon in the system tray to turn Kadunce on or off.
 
 <details>
 <summary>What the menu holds</summary>
@@ -173,9 +164,9 @@ Kadunce on or off.
 - Which KWin Kadunce was built for, and **Repair for current KWin…**, which
   rebuilds it after a KWin update.
 - **Monitors use my zones (Meta+T)**, which switches a display kept as ordinary
-  windows between filling itself and the zones you drew, as `Meta+Shift+B` does.
+  windows between filling itself and your zones, like `Meta+Shift+B`.
 - **Settings…**, where you set the gutter around the Active card, 4 to 48 px,
-  10 px by default. Once set, Bento's panes stand that far apart too.
+  10 px by default. Once you set it, Bento's panes stand that far apart too.
 
 Every word the menu shows can be translated.
 
@@ -204,14 +195,14 @@ Run the repository checks before proposing a change:
 ./verify.sh
 ```
 
-It runs the documentation, source, package and control checks; `install.sh` runs
-the source, package and control checks itself before it builds.
-`bash tests/verify-headless.sh` runs the native domain tests that do not link
-KWin, needing only a C++20 compiler and Qt6Core, as a fast pre-check where the
-Plasma development stack is unavailable.
+It runs the documentation, source, package and control checks. `install.sh`
+runs the source, package and control checks itself before it builds. Where the
+Plasma development stack is missing, `bash tests/verify-headless.sh` is a fast
+pre-check: it runs the native domain tests that don't link KWin and needs only
+a C++20 compiler and Qt6Core.
 
 Changes to the compositor also need the private route matrix, a fresh login
-session and physical testing. `docs/TESTING.md` describes every check and what it
+session and physical testing. `docs/TESTING.md` describes each check and what it
 proves.
 
 </details>

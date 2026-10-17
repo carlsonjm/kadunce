@@ -1,8 +1,8 @@
 # Testing
 
 How Kadunce is checked, from the fastest pre-check to a hands-on review on the
-tablet, and what each result is allowed to prove. `AGENTS.md` owns the
-safety-control rule and who installs; this document owns the procedure.
+tablet, and what each result can prove. `AGENTS.md` sets the safety-control
+rule and who installs; this document gives the procedure.
 
 ## What each check proves
 
@@ -28,10 +28,10 @@ so in words; a request to test source or private runtime behavior does not.
 Keep build pass, private runtime pass or fail, live safety state, installed
 provenance and physical acceptance as separate results. Source guards are weaker
 than runtime tests, private compositor tests are not physical acceptance, and a
-skipped live or infrastructure check stays unverified; it is never a pass.
+skipped live or infrastructure check is unverified, not a pass.
 
 `./verify.sh` piped into `grep` or `tail` reports the pipe's status, not its own.
-Redirect it to a log and check its exit status by itself
+Redirect it to a log and check its exit status on its own
 (`./verify.sh >LOG 2>&1; echo "EXIT=$?"`), and never chain a commit after a piped
 run.
 
@@ -126,8 +126,8 @@ turns them off; `table-preview-runtime` runs without Kadunce, through the
 test-only effect `table-proof.cpp`. `table-runtime` needs Kadunce's own
 edges on the tablet fixture, `keyboard-table-runtime` a real input method, and
 `table-pointer-runtime` and `spread-fingers-runtime` run with global shortcuts,
-which the corner and `Meta+W` need. `table-multidisplay-runtime` reads its result from one
-photograph through `capture-shares.py`.
+which the corner and `Meta+W` need. `table-multidisplay-runtime` reads its
+result from one photograph through `capture-shares.py`.
 
 ## Promotion checks
 
@@ -152,8 +152,8 @@ to compensate for an unclassified sandbox, display, D-Bus or dependency failure.
 A regression blocks a refactor, and a new product idea enters the plan only
 after the maintainer approves its scope. Structural extraction keeps one mutable
 state owner, typed controller boundaries, value-first admission, and rendering
-as a reader of state, never an owner of it. A refactor may rename and
-restructure freely while it preserves the authority boundaries in
+that only reads state. A refactor may rename and restructure freely while it
+keeps the authority boundaries in
 `docs/ARCHITECTURE.md` and these accepted behaviors:
 
 | Accepted behavior | Automated evidence | Still needs the tablet |
@@ -214,9 +214,9 @@ scene re-run) and run the same scene against `main` to attribute it.
 
 ## Failure classification
 
-Transport failure is not evidence of a Kadunce defect or of a missing safety
-control. A sandbox, D-Bus or display-socket denial is a test-environment result,
-never evidence about the tray control.
+A transport failure, such as a sandbox, D-Bus or display-socket denial, is a
+test-environment result. It is not evidence of a Kadunce defect or of a
+missing safety control.
 
 ### Preflight
 

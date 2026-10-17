@@ -2,8 +2,8 @@
 
 Another program can carry an application to a point and ask Kadunce to open it
 there. The Shuffle dock uses this when an app is carried up out of its band.
-Kadunce decides where the point leads and owns every window it places; the
-requester only names the application and the point.
+The requester names the application and the point. Kadunce decides where the
+point leads and owns every window it places.
 
 ## Endpoint
 
@@ -40,14 +40,14 @@ the application is not running.
 
 ## Placing
 
-A request is placed only where it was last aimed; a point that aims anywhere
-else, or a request with no aim, is refused with `false`.
+Kadunce places a request only where it was last aimed. It returns `false` for
+a point that aims anywhere else, and for a request with no aim.
 
 A running application's window is placed at once and `placementSettled`
 reports it. With an empty `windowId`, Kadunce waits up to 10 seconds for the
 application's first window and returns `true`; the requester launches it.
-That window is admitted as every arrival is, then placed, and
-`placementSettled` reports it. A wait that ends unanswered, is cancelled or is
+Kadunce admits that window like any other arrival and places it, and
+`placementSettled` reports it. A wait that times out, is cancelled or is
 replaced by a newer launch settles with `placed` false.
 
 A card asked onto another display goes there as the Active card carried there

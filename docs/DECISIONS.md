@@ -11,7 +11,7 @@ Git history.
 ### A dialog waits with its application
 
 A dialog is part of the application that opened it,
-never a card or a Bento pane; when that application is not in front, the dialog
+not a card or a Bento pane; when that application is not in front, the dialog
 waits hidden and unfocused and the application is marked as wanting attention
 (`CARD-LIFECYCLE.md` §4). Rejected: bringing the application forward on its own,
 which lets any application interrupt whatever you are doing. The cost is a
@@ -121,8 +121,8 @@ source differs. Rejected: separate rules per edge.
 
 ### Two cases the contract does not answer
 
-First entry on a display that cannot own cards is answered by § A display
-without cards organizes everything it shows. An evicted window reaches the Spread
+§ A display without cards organizes everything it shows covers first entry
+on a display that cannot own cards. An evicted window reaches the Spread
 display through the adoption a carried card uses, so an idle card stage begins
 presenting Spread, while a refused launch becomes the Active card. A different
 answer would change which entry point an eviction uses, not the ownership it

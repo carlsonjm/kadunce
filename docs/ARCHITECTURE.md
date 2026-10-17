@@ -4,13 +4,13 @@
 
 KWin owns real windows: lifecycle, focus, native move/resize, output assignment,
 virtual desktops, and recovery. Kadunce owns the spatial interaction model and the
-presentation derived from it. Kadunce must not create a competing window identity,
+presentation derived from it. Kadunce creates no competing window identity,
 desktop backend, or persistent geometry authority.
 
 Spread is compositor space. It presents live windows as cards without storing or
-applying off-screen client coordinates. Bento is an output-local desktop layout and
-therefore uses real, reversible client geometry. The order a physical ownership
-change follows is `Transfer transaction` below.
+applying off-screen client coordinates. Bento is an output-local desktop layout,
+so it uses real, reversible client geometry. A physical ownership change follows
+the order in `Transfer transaction` below.
 
 ## Runtime owners
 
@@ -34,49 +34,48 @@ the compositor's frames through `OffscreenQuickScene`, taking no input. Table
 creates, renames and removes desktops through KWin; Kadunce keeps only which
 names are yours (`TABLE.md`).
 
-Spread and Table are painted, so `SpokenLine` says them to a screen reader,
-and exists only while one listens. It keeps an undrawn
-`spoken/SpokenLine.qml` scene made Qt's focused window, as KWin's task
-switcher makes its own, and speaks each line as a focused filler, the way
-screen readers speak a switcher. Spread says its chosen entry in the words
+Spread and Table are painted, so `SpokenLine` reads them to a screen reader.
+It exists only while a screen reader listens. It keeps an undrawn
+`spoken/SpokenLine.qml` scene as Qt's focused window, as KWin's task switcher
+does with its own, and speaks each line as a focused filler, the way screen
+readers speak a switcher. Spread says its chosen entry in the words
 `SpreadReading.h` gives it (application and title, a Stack's card count, a
 sleeping card, the panes a pane's card is paired with, or the cards behind a
-Stack's face) and its place in
-the row; Table says what is carried and where, the chosen card, or the tab
-under the finger. Each opens with its own name, and a change is said as it
-happens, so a card made into a Stack is heard. Where keys and touches go is
-unchanged. A workspace name being typed, and Search over Spread's centre,
-speak for themselves.
+Stack's face) and its place in the row. Table says what is carried and where,
+the chosen card, or the tab under the finger. Each opens with its own name, and
+a change is said as it happens, so a card made into a Stack is heard. Keys and
+touches go where they would anyway. A workspace name being typed, and Search
+over Spread's centre, speak for themselves.
 
 `CardWorkspaceState<Handle>` is the mutable authority for Spread membership and
 its `SpreadModel`. `SpreadModel`, `SpreadLayout`, `BentoLayout`, and the value
 transfer planners are headlessly testable domain primitives. Rendering consumes
 controller views and never mutates a controller.
 
-The remaining renderer inside `Effect` may be extracted behind a typed boundary,
-but extraction must not create a second model, event bus, or persistence service.
+The renderer still inside `Effect` may move behind a typed boundary, as long as
+the move adds no second model, event bus, or persistence service.
 
 ## Presentation model
 
 Active presents one interactive card. Spread presents an ordered center and
 neighbors, including visibly ordered stacks. Both are output-local views of logical
-membership. Bento presents simultaneously interactive real windows. Which windows
-a Bento session owns, and what becomes of the rest, is `CARD-LIFECYCLE.md`; it is
-the canonical state and transition contract and this document does not restate it.
+membership. Bento presents real windows you can use at the same time.
+`CARD-LIFECYCLE.md` says which windows a Bento session owns and what becomes of
+the rest.
 
 Live card content uses KWin's `OffscreenEffect` texture path with contain scaling,
 the established fan rotation/aperture, and a backing where aspect ratios differ:
 near black, or the window colours' ground under a light colour scheme.
-Proportional margins are accepted product behavior. There is no retained snapshot
-cache or capture-readiness state machine. Motion may retain a departing face only as
+Proportional margins are intended. Kadunce keeps no snapshot cache or
+capture-readiness state machine. Motion may retain a departing face only as
 ephemeral paint state; it cannot change membership or input visibility. A card
 Spread shows while its window is resized keeps one picture of that window
 (`KeptPicture.h`), taken just before the resize and drawn fitted in the card
 until the application has drawn twice at its new size, or for at most 300 ms,
 since an application's first frames at a new size can be empty.
 
-Spread motion captures the currently presented pose, so interruption and
-retargeting continue from what the user sees. Model and input updates do not wait for
+Spread motion starts from the pose on screen, so an interrupted or retargeted
+motion continues from what you see. Model and input updates do not wait for
 animation. Paint scheduling requests only the frames needed to reach an endpoint.
 
 ## Restore and ownership records
@@ -84,7 +83,7 @@ animation. Paint scheduling requests only the frames needed to reach an endpoint
 Every native geometry mutation has one authoritative restore record owned by the
 controller that owns the physical layout. Explicit release, unload, or an accepted
 transfer consumes the record. A presentation change never consumes it and never
-returns a window to the native desktop; `CARD-LIFECYCLE.md` §14 owns both rules.
+returns a window to the native desktop (`CARD-LIFECYCLE.md` §14).
 
 Card Stage release clears its live registry. Identity is stable by window handle or
 UUID while the effect is loaded; array indices are compatibility data, not durable
@@ -123,7 +122,7 @@ A deliberate edge destination that means a pair prepares only the two windows
 solve, the preview, or the revalidation, and a plan with any other pane set is
 rejected. A display the pairing rules do not reach prepares its eligible
 resident batch plus the arrival. Open space without an existing Bento remains
-ordinary native desktop space on a display that cannot own cards; on a display
+ordinary native desktop space on a display that cannot own cards. On a display
 that can, an arrival there is admitted to the card stage, publishing membership
 before presentation cleanup, and may seed Spread's center-and-expand motion from
 its released pose. A stack takes no arrival from the native desktop
@@ -163,10 +162,10 @@ paint route.
 
 ## Input ownership
 
-Each input stream has one owner until release or explicit cancellation. Panel input,
-application input, Search's guest input, Kadunce card input, and native KWin move/resize
-must not steal one another's releases. Routing never infers ownership from paint
-state.
+Each input stream has one owner until release or explicit cancellation. Panel
+input, application input, Search's guest input, Kadunce card input, and native
+KWin move/resize never take one another's releases. Routing never infers
+ownership from paint state.
 
 | Sequence | Owner until termination |
 | --- | --- |
@@ -192,10 +191,10 @@ and bottom touch edges, taking them over when the touchscreen appears after
 KWin; elsewhere Plasma's touch edges reach Kadunce through its border actions
 (`INPUT.md` § Spread).
 
-Ordinary client contact remains native until a deliberate reserved edge or
+Ordinary client contact stays native until a deliberate reserved edge or
 crossing proves Kadunce intent and KWin's native interaction is canceled once.
-A touch move is cancelled so that KWin's move filter keeps no contact from it,
-which would otherwise swallow the next touch move (`StaleTouchRelease.h`).
+Kadunce cancels a touch move so that KWin's move filter keeps no contact from
+it; a kept contact would swallow the next touch move (`StaleTouchRelease.h`).
 Kadunce takes over a native move only while all of these still match:
 
 - the exact weak window identity;
@@ -213,8 +212,8 @@ native.
 Automatic electric-border tiling and maximize behavior, KDE's per-display desktop
 switching, its desktop-change pop-up, and Overview's top-left corner unless you
 gave it elsewhere are held in memory while Kadunce is active and given back on
-unload. Explicit Shift custom tiling and
-keyboard/manual window operations remain KWin-owned. On a display without cards
+unload. Explicit Shift custom tiling and keyboard/manual window operations stay
+with KWin. On a display without cards
 whose zones are drawn, Kadunce places each pane in KWin's own zone through the
 tile objects KWin publishes to scripting, reads each pane's rectangle from its
 zone, and takes every pane out of its zone before restoring it.
@@ -224,16 +223,16 @@ unload, or competing input cancels the affected actions and timers.
 
 ## Output and dock rules
 
-Spread and Bento are presentations, not display-type restrictions. Bento may run
-on the tablet and monitor. A deliberate edge destination takes its meaning from
-the state and capability of the display it is released into, never from that
-display's hardware identity. Sessions are per output and per desktop; changing or releasing one
-output must not release another output's session.
+Spread and Bento are presentations, and either can run on any kind of display,
+tablet or monitor. A deliberate edge destination takes its meaning from the
+state and capability of the display it is released into, not from that
+display's hardware identity. Sessions are per output and per desktop; changing
+or releasing one output leaves every other output's session alone.
 
 Dock safety uses the actual work area plus visible bottom dock frames. The top
-and bottom edges remain intentional destination strips for a carried window even
-where a panel or dock occupies them; that grants Kadunce no ordinary dock hit
-testing, and panel input stays with the panel.
+and bottom edges stay destination strips for a carried window even where a
+panel or dock covers them. Kadunce still does no ordinary hit testing on the
+dock, and panel input stays with the panel.
 Native releases get one bounded position correction with 10 px clearance;
 oversized windows retain a reachable title bar instead of being resized.
 
@@ -257,8 +256,8 @@ gains a second window or input backend.
 
 ## Safety and teardown
 
-The out-of-process tray controller is the persistent recovery surface, never a
-second workspace authority. Its single checked switch loads the installed native
+The out-of-process tray controller is the persistent recovery surface. It does
+not manage the workspace. Its single checked switch loads the installed native
 effect when enabled. Disabling first requires KWin to confirm a safe effect
 unload and persists the disabled state; if KWin cannot confirm the release, the
 control restores the enabled configuration rather than risk a half-disabled
@@ -269,8 +268,8 @@ routes are canceled and destroyed while controllers remain alive, then every
 managed client is restored, as `CARD-LIFECYCLE.md` §13 lists, before the effect
 disappears. No timer, native observer, or callback survives its owner.
 
-What each check proves, and the rules for private compositors, are
-`TESTING.md`.
+`TESTING.md` says what each check proves and gives the rules for private
+compositors.
 
 ## Invariants
 
