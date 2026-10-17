@@ -2886,6 +2886,7 @@ void CardStageController::release()
 {
     forgetCloseAsk(nullptr);
     m_heldInPlace.clear();
+    m_liftedInPlace.clear();
     bringCardsBack();
     m_returnToDesktop = false;
     m_returnedToDesktop.clear();
@@ -4801,6 +4802,27 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
 }
 
+void CardStageController::keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target)
+{
+    // A window that cannot be made as small as the Active place keeps its top
+    // and left where the place begins, so its title bar stays clear of the
+    // Context Panel and only its far edge runs over. KWin pushes a window too
+    // big for the work area up and across; it is put back a few times at
+    // most, so neither is fought in a loop.
+    KWin::Window *client = window && window->window() ? window->window() : nullptr;
+    if (!client) return;
+    const KWin::RectF placed = client->moveResizeGeometry();
+    if (placed.top() >= target.top() - 1 && placed.left() >= target.left() - 1) return;
+    int &lifts = m_liftedInPlace[window];
+    if (lifts >= 3) return;
+    ++lifts;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    client->moveResize(KWin::RectF(std::max(placed.left(), target.left()), std::max(placed.top(), target.top()),
+                                   placed.width(), placed.height()));
+    qInfo() << "Kadunce" << Revision << logNameOf(window) << "is bigger than the Active place; its top and left"
+            << "are kept inside it at" << target.topLeft();
+}
+
 void CardStageController::holdCardInActivePlace(KWin::EffectWindow *window)
 {
     // §3: an application that restores its saved state maximizes its window a
@@ -4824,9 +4846,12 @@ void CardStageController::holdCardInActivePlace(KWin::EffectWindow *window)
     const KWin::RectF placed = client->moveResizeGeometry();
     const bool reaches = placed.bottom() > target.bottom() + 1
         || placed.right() > target.right() + 1;
-    if (!asked && !reaches) return;
     const QSizeF minimum = client->minSize();
-    if (minimum.width() > target.width() || minimum.height() > target.height()) return;
+    if (minimum.width() > target.width() || minimum.height() > target.height()) {
+        if (!asked) keepTooBigInPlace(window, target);
+        return;
+    }
+    if (!asked && !reaches) return;
     auto &since = m_heldInPlace[window];
     if (since.isValid() && since.elapsed() < 500) return;
     since.start();
@@ -5305,6 +5330,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     m_paneStacks.remove(window);
     m_openedAt.remove(window);
     m_heldInPlace.remove(window);
+    m_liftedInPlace.remove(window);
     for (const auto &ask : m_closeAsks) {
         if (ask.window != window) continue;
         qInfo() << "Kadunce" << Revision << "flicked card's app closed" << ask.asked.elapsed()
@@ -5544,7 +5570,15 @@ void CardStageController::handleActiveGeometryChanged(
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
         if (!keepOpeningStateInActivePlace(window)) letFillingCardGo(window);
-    } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
+        return;
+    }
+    if (tablet) {
+        const KWin::RectF place(activePlacement(tablet));
+        const QSizeF minimum = client->minSize();
+        if (minimum.width() > place.width() || minimum.height() > place.height())
+            keepTooBigInPlace(window, place);
+    }
+    if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
     }
 }

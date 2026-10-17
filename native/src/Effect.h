@@ -116,14 +116,16 @@ public:
 
     [[nodiscard]] bool blocksDirectScanout() const override
     {
-        return (m_cardStage && m_cardStage->isActive())
+        return anyCardStageActive()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
+    // Painting while any display's cards are on, and while windows are given
+    // rounded corners, which every window keeps, card or not.
     [[nodiscard]] bool isActive() const override
     {
-        return (m_cardStage && m_cardStage->isActive())
+        return anyCardStageActive() || roundsCorners()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
@@ -458,6 +460,11 @@ private:
     [[nodiscard]] CardStageController *stageKeepingStackOf(const KWin::EffectWindow *window) const;
     // Whether any display of the scoped desktop shows its Spread.
     [[nodiscard]] bool anySpreadShown() const;
+    // Whether any display's cards are on, on the desktop shown.
+    [[nodiscard]] bool anyCardStageActive() const;
+    // Whether Kadunce gives windows their rounded corners, as it does unless
+    // another effect does or its shader could not be made.
+    [[nodiscard]] bool roundsCorners() const;
     // The key a display's stage is kept under: its name while every display
     // holds its own cards, and one key for all while one display does.
     [[nodiscard]] QString stageKeyFor(const KWin::LogicalOutput *output) const;

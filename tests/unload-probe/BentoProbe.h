@@ -29,8 +29,8 @@ struct BentoProbeHost final : Kadunce::DesktopStageHost {
     std::optional<Kadunce::NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *w) const override {
         return restore ? restore(w) : std::nullopt;
     }
-    bool admitTransferredWindowToTablet(KWin::EffectWindow *w, const std::function<bool()> &commit,
-        const Kadunce::NativeMoveSnapshot *restore = nullptr) override {
+    bool admitTransferredWindowToTablet(KWin::EffectWindow *w, KWin::LogicalOutput *,
+        const std::function<bool()> &commit, const Kadunce::NativeMoveSnapshot *restore = nullptr) override {
         return admission && admission(w, commit, restore);
     }
 };

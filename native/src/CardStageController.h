@@ -484,6 +484,8 @@ public:
     // that display's layout. Moved from Active, this display presents the card
     // used before it again.
     bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // Puts a window too big for the Active place back inside its top and left.
+    void keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target);
     // The card this display presents Active is about to leave it: the card
     // used before it is presented again, or the desktop is shown. A card not
     // in front leaves nothing to step aside from.
@@ -752,6 +754,8 @@ private:
     bool m_cardsElevated = false;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
+    // How often a window too big for the Active place was put back inside it.
+    QHash<const KWin::EffectWindow *, int> m_liftedInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;

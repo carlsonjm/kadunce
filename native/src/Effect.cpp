@@ -912,6 +912,22 @@ bool Effect::anySpreadShown() const
     return false;
 }
 
+bool Effect::anyCardStageActive() const
+{
+    if (m_cardStage && m_cardStage->isActive()) return true;
+    if (!m_currentSession) return false;
+    for (const auto &display : m_currentSession->displays)
+        if (display.second->cards->isActive()) return true;
+    return false;
+}
+
+bool Effect::roundsCorners() const
+{
+    return m_fanApertureShader && m_fanPaintSizeLocation >= 0 && m_fanApertureOriginLocation >= 0
+        && m_fanApertureSizeLocation >= 0 && m_fanApertureRadiusLocation >= 0
+        && !KWin::effects->isEffectLoaded(RoundedCornersEffect);
+}
+
 QString Effect::stageKeyFor(const KWin::LogicalOutput *output) const
 {
     // One display holding cards keeps one stage, which moves with it. A
@@ -9922,9 +9938,7 @@ KWin::Rect Effect::activeTarget(KWin::LogicalOutput *output) const
 
 bool Effect::trimsCorners(KWin::EffectWindow *window) const
 {
-    if (!m_fanApertureShader || m_fanPaintSizeLocation < 0
-        || m_fanApertureOriginLocation < 0 || m_fanApertureSizeLocation < 0
-        || m_fanApertureRadiusLocation < 0) return false;
+    if (!roundsCorners()) return false;
     // Application windows and their dialogs, with or without a title bar;
     // panels, pop-ups and the keys keep their own shapes.
     if (!(window->isNormalWindow() || window->isDialog()) || window->isFullScreen()) return false;
@@ -9933,9 +9947,7 @@ bool Effect::trimsCorners(KWin::EffectWindow *window) const
     if (window->expandedGeometry() != window->frameGeometry()) return false;
     // A maximized window meets the display's edges, which stay square.
     const KWin::Window *client = window->window();
-    if (client && client->maximizeMode() == KWin::MaximizeFull) return false;
-    // Two effects trimming the same window would cost twice for one cut.
-    return !KWin::effects->isEffectLoaded(RoundedCornersEffect);
+    return !(client && client->maximizeMode() == KWin::MaximizeFull);
 }
 
 bool Effect::redirectSource(KWin::EffectWindow *window, bool reportChange)
