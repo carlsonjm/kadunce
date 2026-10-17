@@ -25,6 +25,7 @@
 #include "StuckNotesWatcher.h"
 #include "SurfaceTone.h"
 #include "KWinMatch.h"
+#include "DisplayBounds.h"
 #include <QCoreApplication>
 #include <cursor.h>
 #include <cursorsource.h>
@@ -3017,6 +3018,12 @@ void Effect::handleWindowOutputChanged()
     auto *client = qobject_cast<KWin::Window *>(sender());
     const QPointer<KWin::EffectWindow> window = client ? client->effectWindow() : nullptr;
     if (!window) return;
+    // The window learns how large it may grow on the display it is on now, and
+    // a pane it fell short of there is asked for again within those bounds.
+    if (sendDisplayBounds(client, client->moveResizeOutput()) && m_desktopStage->managesWindow(window))
+        QTimer::singleShot(0, this, [this, window] {
+            if (window && !window->isDeleted()) (void)m_desktopStage->replacePaneShortOfPlace(window);
+        });
     // A window KWin sends to another display some other way than a display
     // change, such as its window-to-screen shortcut, is answered as one that
     // opened there. KWin reports the change inside the move that makes it, so

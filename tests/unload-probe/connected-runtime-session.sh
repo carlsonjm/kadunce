@@ -334,6 +334,10 @@ sleep 1.5
 report closed-front
 check 'close: the next card of the Stack takes the pane' is_pane "$other"
 check 'close: in the same place' same_rect "$other" "$slot_c"
+# A card waiting behind a pane is held aside, and one left hidden draws
+# nothing, so it never takes the size its pane asks of it.
+check 'close: shown, not left hidden' \
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e --arg id '$other' 'first(.[] | select(.id == \$id)) | .hidden | not'"
 check 'close: still two panes' panes 2
 end_pass full
 # Pass three: a side snap names a place, never a size. The upper half of an

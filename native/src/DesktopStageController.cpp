@@ -2520,6 +2520,29 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
     }
 }
 
+bool DesktopStageController::replacePaneShortOfPlace(KWin::EffectWindow *window)
+{
+    if (!window || window->isDeleted() || window->isMinimized() || m_interactionWindow || m_railDrag
+        || window->isUserMove() || window->isUserResize()) return false;
+    for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it) {
+        const int index = it->windows.indexOf(window);
+        if (index < 0) continue;
+        auto *output = outputForKey(it.key());
+        if (it->applying || !output || window->screen() != output
+            || it->windows.size() != static_cast<int>(it->rects.size())) return false;
+        const auto pixels = sessionPixels(*it, stageArea(output));
+        const auto &pixel = pixels.at(std::size_t(index));
+        if (onPixel(window->frameGeometry(), pixel) || !withinPixel(window->frameGeometry(), pixel))
+            return false;
+        qInfo() << "Kadunce" << Revision << "asks" << logNameOf(window) << "for its pane on" << it.key()
+                << "again, at" << window->frameGeometry() << "short of"
+                << KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height);
+        if (applySession(it.value(), false)) scheduleSettle();
+        return true;
+    }
+    return false;
+}
+
 bool DesktopStageController::sessionGeometryMatches(const Session &session, bool shortOfPlace) const
 {
     auto *output = outputForKey(session.outputName);

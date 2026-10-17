@@ -3150,6 +3150,13 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();
     clearCardTransition();
+    // A card held aside is hidden from KWin, and a hidden window draws nothing
+    // and so never takes the size its pane asks of it: it comes back first.
+    if (m_aside.removeAll(card) > 0) {
+        QObject::disconnect(m_asideListed.take(card));
+        card->setData(CardAsideRole, QVariant());
+        if (card->window()) card->window()->setHidden(false);
+    }
     KWin::effects->setElevatedWindow(card, false);
     m_host->unredirectForCardStage(card);
     syncSelectedElevation();
