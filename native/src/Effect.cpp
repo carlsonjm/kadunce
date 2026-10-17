@@ -4061,6 +4061,8 @@ bool Effect::takePaneToDisplayStage(KWin::EffectWindow *pane, KWin::LogicalOutpu
     if (!pane || pane->isDeleted() || !display || !usesDisplayStage(display)
         || !m_desktopStage->managesWindow(pane)) return false;
     const QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    const QString from = m_desktopStage->outputHoldingPane(pane);
+    const bool spreadShown = m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread;
     // The pane leaves its layout through the door any pane leaves by; that
     // door hands this one to the display stage instead of to Spread.
     m_boundForDisplay = pane;
@@ -4071,6 +4073,11 @@ bool Effect::takePaneToDisplayStage(KWin::EffectWindow *pane, KWin::LogicalOutpu
     if (!taken || displayHolding(pane) != display->name()) return false;
     for (auto *member : behind) m_cardHomes.remove(member);
     m_cardStage->settlePaneStacks();
+    // The last pane of Spread's display gone, the layout ends, but it went to
+    // another display rather than into Spread: that display shows the desktop.
+    if (!spreadShown && isTabletOutput(screenNamed(from)) && !m_desktopStage->hasSessionOnOutput(from)
+        && m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+        m_cardStage->showDesktop();
     qInfo() << "Kadunce" << Revision << "took pane" << logNameOf(pane) << "to" << display->name()
             << "as its own card with" << behind.size() << "behind it";
     observeCardOwnership();
