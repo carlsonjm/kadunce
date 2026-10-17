@@ -1195,6 +1195,9 @@ private:
     // cards go; travel does.
     QPointer<KWin::EffectWindow> m_heldActiveMove;
     QPointF m_heldActiveMoveOrigin;
+    // A display's own card let go at its bottom edge is an ordinary window
+    // there until it is carried again, never taken back as a card (§10).
+    QPointer<KWin::EffectWindow> m_letGoOnDisplay;
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;

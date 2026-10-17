@@ -3583,7 +3583,8 @@ bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
             return window && !window->isDeleted() && isCardWindow(window)
                 && !isDependentWindow(window) && window->screen() == output && window->window()
                 && window->window()->readyForPainting() && !window->isUserMove()
-                && !window->isUserResize() && window != m_nativeCarry && !sessionHolding(window);
+                && !window->isUserResize() && window != m_nativeCarry && window != m_letGoOnDisplay
+                && !sessionHolding(window);
         };
         const auto stack = KWin::effects->stackingOrder();
         const bool any = std::any_of(stack.cbegin(), stack.cend(), waiting);
@@ -5146,6 +5147,7 @@ QString Effect::applicationDisplayName(KWin::EffectWindow *window) const
 
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
+    if (window && window == m_letGoOnDisplay) m_letGoOnDisplay.clear();
     if (window && window->window()) {
         qInfo() << "Kadunce sees KWin begin a" << (window->isUserResize() ? "resize" : "move")
                 << "of" << window->window()->resourceClass()
@@ -5484,9 +5486,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 return carried && !carried->isDeleted() && output
                     && KWin::effects->screens().contains(output.data()) && carried->screen() == output;
             },
-            [this, output, box](const PreparedCarrySource &source) {
+            [this, output, box, carried, onDisplay = displaySource](const PreparedCarrySource &source) {
                 CardStageController *cards = carrySourceStage(source);
-                return cards && cards->releaseNativeCarryToDesktop(source, output, box);
+                const bool released = cards && cards->releaseNativeCarryToDesktop(source, output, box);
+                if (released && onDisplay) m_letGoOnDisplay = carried;
+                return released;
             });
         return;
     }
@@ -6402,6 +6406,11 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window)
     KWin::LogicalOutput *output = window->screen();
     if (!isOtherCardDisplay(output) || sessionHolding(window)
         || m_desktopStage->managesWindow(window)) return;
+    if (window == m_letGoOnDisplay) {
+        qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(window) << "on" << output->name()
+                << "where it was let go at the bottom edge";
+        return;
+    }
     if (m_cardStage->liveCardIndex(window) >= 0) {
         if (cardHome(window))
             qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(window)
@@ -8885,6 +8894,7 @@ void Effect::release()
     const bool wasReleasing = std::exchange(m_releasing, true);
     const auto settled = qScopeGuard([this, wasReleasing] { m_releasing = wasReleasing; });
     m_letGo = true;
+    m_letGoOnDisplay.clear();
     qInfo() << "Kadunce" << Revision << "lets every window go";
     if (m_carryRuntime) m_carryRuntime->cancel();
     // §13 returns every managed window, whichever desktop holds it.
