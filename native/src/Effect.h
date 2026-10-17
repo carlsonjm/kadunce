@@ -639,6 +639,8 @@ private:
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
     bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
+    void takeStackToItsDisplay(KWin::EffectWindow *pane);
+    [[nodiscard]] KWin::EffectWindow *stackedPaneAloneAt(const QPointF &position) const;
     // Spread moved off the display that presented this card Active: it stays
     // there as the card that display shows, once the cards that went with
     // Spread have left it.
@@ -830,6 +832,8 @@ private:
     void switchZoneMode();
     [[nodiscard]] int activeSideForPoint(
         const QPointF &position) const override;
+    [[nodiscard]] int stackSideForPoint(const QPointF &position) const override;
+    void stepStackBesideFromInput(const QPointF &position, int delta) override;
     [[nodiscard]] bool selectedStackContains(
         const QPointF &position) const override;
     void toggleFromInput() override;

@@ -1153,6 +1153,10 @@ Effect::Effect()
         const bool landed = std::exchange(m_carryLanded, false);
         const QString origin = std::exchange(m_carryOrigin, QString());
         if (landed) refillDisplayCarriedFrom(carried, origin);
+        // §11, Every display: a pane carried to another display takes its
+        // Stack with it, as one the keys send there does, and back again.
+        if (landed && carried && carried->screen() && carried->screen()->name() != origin)
+            QTimer::singleShot(0, this, [this, carried] { if (carried) takeStackToItsDisplay(carried); });
         // A Stack scrubbed goes in where it was let go, and nowhere when the
         // scrub was cancelled. The pane never left its place.
         const QPointer<KWin::EffectWindow> scrubbed = m_stackScrub.active() ? m_stackScrubPane : nullptr;
@@ -6831,7 +6835,8 @@ void Effect::quietCardGap(const QPointF &position)
             // own pointer.
             if (!isPanelPoint(position) && !inputPanelContainsForInput(position)
                 && !(launcherGuestActiveForInput() && launcherGuestContainsForInput(position)))
-                place.activeSide = activeSideForPoint(position);
+                place.activeSide = isTabletPoint(position) ? activeSideForPoint(position)
+                                                           : stackSideForPoint(position);
             place.cardGap = place.divider == 0 && inCardGap(position);
             held = heldPointer(place);
         }
@@ -6911,6 +6916,42 @@ bool Effect::inCardGap(const QPointF &position) const
 int Effect::activeSideForPoint(const QPointF &position) const
 {
     return m_cardStage->activeSideForPoint(position);
+}
+
+KWin::EffectWindow *Effect::stackedPaneAloneAt(const QPointF &position) const
+{
+    // §11, Every display: the card another display shows alone, holding a
+    // Stack, where the position is on that display.
+    KWin::LogicalOutput *display = nullptr;
+    for (auto *output : KWin::effects->screens())
+        if (QRectF(output->geometry()).contains(position)) { display = output; break; }
+    if (!isOtherCardDisplay(display) || isPanelPoint(position)) return nullptr;
+    KWin::EffectWindow *alone = nullptr;
+    for (const auto &pane : m_desktopStage->panesOn(display->name())) {
+        if (!pane || pane->isDeleted() || pane->isMinimized()) continue;
+        if (alone) return nullptr;
+        alone = pane.data();
+    }
+    return alone && !m_cardStage->paneStack(alone).isEmpty() ? alone : nullptr;
+}
+
+int Effect::stackSideForPoint(const QPointF &position) const
+{
+    // The gap beside it pages its Stack, as the gap beside the Active card
+    // pages the row: before on the left, after on the right.
+    KWin::EffectWindow *pane = stackedPaneAloneAt(position);
+    if (!pane) return 0;
+    const QRectF frame(pane->frameGeometry());
+    if (position.y() < frame.top() || position.y() >= frame.bottom()) return 0;
+    return position.x() < frame.left() ? -1 : position.x() >= frame.right() ? 1 : 0;
+}
+
+void Effect::stepStackBesideFromInput(const QPointF &position, int delta)
+{
+    KWin::EffectWindow *pane = stackedPaneAloneAt(position);
+    const bool stepped = pane && stepPane(pane, delta);
+    qInfo() << "Kadunce" << Revision << "the gap beside" << (pane ? logNameOf(pane) : QStringLiteral("no Stack"))
+            << (stepped ? "steps its Stack" : "could not step its Stack") << (delta < 0 ? "back" : "on");
 }
 
 bool Effect::selectedStackContains(const QPointF &position) const
@@ -8528,6 +8569,31 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     });
+}
+
+void Effect::takeStackToItsDisplay(KWin::EffectWindow *pane)
+{
+    if (!pane || pane->isDeleted() || m_releasing) return;
+    KWin::LogicalOutput *there = pane->screen();
+    QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(pane);
+    for (auto *member : m_cardStage->stackFrontToBack(pane))
+        if (member != pane && !behind.contains(member)) behind.append(member);
+    if (behind.isEmpty() || !there) return;
+    // On a display holding its own cards, the cards behind wait for it, so
+    // its swipe, the gap beside it and Meta+Tab step them; on Spread's
+    // display they wait for none.
+    if (isOtherCardDisplay(there)) {
+        for (auto *member : std::as_const(behind))
+            if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
+    } else if (isTabletOutput(there)) {
+        for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
+    } else {
+        return;
+    }
+    qInfo() << "Kadunce" << Revision << "took the Stack of" << logNameOf(pane) << "to" << there->name()
+            << "with" << behind.size() << "behind it";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
 }
 
 bool Effect::giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display)

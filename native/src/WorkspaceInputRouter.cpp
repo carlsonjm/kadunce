@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace Kadunce
 {
@@ -296,6 +297,19 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
         m_notesHoldTimer.start();
         return true;
     }
+    // §11, Every display: a press in the gap beside a card another display
+    // shows alone steps its Stack, as one beside the Active card pages.
+    if (event->button == Qt::LeftButton && m_pointerStackSide != 0
+        && event->state == KWin::PointerButtonState::Released) {
+        m_target->stepStackBesideFromInput(m_pointerStackStart, std::exchange(m_pointerStackSide, 0));
+        return true;
+    }
+    if (event->button == Qt::LeftButton && event->state == KWin::PointerButtonState::Pressed
+        && !m_pointerPressed && !m_target->isTabletPoint(event->position)) {
+        m_pointerStackSide = m_target->stackSideForPoint(event->position);
+        m_pointerStackStart = event->position;
+        if (m_pointerStackSide != 0) return true;
+    }
     const bool finishingCrossOutputGrab = m_pointerPressed
         && m_holdSource == HoldSource::Pointer
         && m_target->cardGrabActiveForInput()
@@ -547,8 +561,10 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
     const bool topStrip = m_ownsSystemEdges && edges.isValid()
         && atTouchTopEdge(event->pos, edgeDisplay, TopBezelWidth);
     const bool offSpread = !m_target->isTabletPoint(event->pos);
+    const TouchMode offSpreadMode = touchModeAt(event->pos);
     if (offSpread && (m_target->launcherGuestActiveForInput()
-            || (!topStrip && touchModeAt(event->pos) != TouchMode::BottomEdge))) {
+            || (!topStrip && offSpreadMode != TouchMode::BottomEdge
+                && offSpreadMode != TouchMode::StackBefore && offSpreadMode != TouchMode::StackAfter))) {
         return false;
     }
     if (!m_target->launcherGuestContainsForInput(event->pos)
@@ -1137,10 +1153,12 @@ WorkspaceInputRouter::touchModeAt(const QPointF &position) const
         return m_ownsSystemEdges
             ? TouchMode::BottomEdge : TouchMode::None;
     }
-    // Off the Spread display only an edge is Kadunce's; the rest of a
-    // touchscreen there is its windows'.
+    // Off the Spread display only an edge is Kadunce's, and the gap beside a
+    // card shown alone with a Stack; the rest of a touchscreen there is its
+    // windows'.
     if (!m_target->isTabletPoint(position)) {
-        return TouchMode::None;
+        const int side = m_target->stackSideForPoint(position);
+        return side < 0 ? TouchMode::StackBefore : side > 0 ? TouchMode::StackAfter : TouchMode::None;
     }
     if (presentation == WorkspacePresentation::Spread && atTop) {
         return m_ownsSystemEdges
@@ -1188,6 +1206,14 @@ void WorkspaceInputRouter::updateTouchGesture()
     } else if (m_touchMode == TouchMode::ActiveRight
                && delta.x() < -30.0 && horizontal) {
         m_target->pageRightFromInput();
+        m_touchCommitted = true;
+    } else if (m_touchMode == TouchMode::StackBefore
+               && delta.x() > 30.0 && horizontal) {
+        m_target->stepStackBesideFromInput(m_touchStart, -1);
+        m_touchCommitted = true;
+    } else if (m_touchMode == TouchMode::StackAfter
+               && delta.x() < -30.0 && horizontal) {
+        m_target->stepStackBesideFromInput(m_touchStart, 1);
         m_touchCommitted = true;
     } else if (m_touchMode == TouchMode::BottomEdge
                && delta.y() < -40.0 && vertical) {
@@ -1248,6 +1274,10 @@ void WorkspaceInputRouter::finishTouchGesture()
         m_target->pageLeftFromInput();
     } else if (m_touchMode == TouchMode::ActiveRight) {
         m_target->pageRightFromInput();
+    } else if (m_touchMode == TouchMode::StackBefore) {
+        m_target->stepStackBesideFromInput(m_touchStart, -1);
+    } else if (m_touchMode == TouchMode::StackAfter) {
+        m_target->stepStackBesideFromInput(m_touchStart, 1);
     }
 }
 
