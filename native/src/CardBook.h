@@ -24,7 +24,8 @@ namespace Kadunce
 
 struct CardBookDisplay {
     QString name;
-    // Spread's display: its waiting cards wait for no other display.
+    // A display with a Spread of its own: its waiting cards wait for no other
+    // display. Every display holding cards has one (§11).
     bool spread = false;
     // It holds its own cards, so a card may wait for it.
     bool holdsCards = false;
@@ -36,8 +37,11 @@ struct CardBookEntry {
     quintptr window = 0;
     // The display the window stands on.
     QString screen;
-    // Held by the card stage, in Spread's row.
+    // Held by a card stage, in that display's Spread row.
     bool card = false;
+    // The display whose stage holds it as a card, and how many stages do.
+    QString cardStage;
+    int cardStages = 0;
     // The display whose layout holds it as a pane; empty when none does.
     QString paneOf;
     // The display whose own card stage shows it; empty when none does.
@@ -79,6 +83,10 @@ struct CardBookMismatch {
         // A Solo display holding its own cards shows more than one. One
         // keeping ordinary windows composes a layout of any size.
         SoloShowsTwo,
+        // A card is held by the stages of two displays at once.
+        CardOnTwoStages,
+        // A card stands on another display than the one whose stage holds it.
+        CardOffItsDisplay,
     };
     quintptr window = 0;
     Rule rule = Rule::CardAndPane;
@@ -100,6 +108,8 @@ struct CardBookMismatch {
     case CardBookMismatch::Rule::StackSplitAcrossDisplays: return QStringLiteral("waits apart from its Stack's pane");
     case CardBookMismatch::Rule::RowStackSplitAcrossDisplays: return QStringLiteral("waits apart from its Stack");
     case CardBookMismatch::Rule::SoloShowsTwo: return QStringLiteral("a Solo display showing two cards");
+    case CardBookMismatch::Rule::CardOnTwoStages: return QStringLiteral("a card of two displays");
+    case CardBookMismatch::Rule::CardOffItsDisplay: return QStringLiteral("a card off its display");
     }
     return {};
 }
@@ -127,6 +137,12 @@ struct CardBookMismatch {
         const bool pane = !shows.isEmpty();
         const int holders = int(entry.card) + int(!entry.paneOf.isEmpty()) + int(!entry.stage.isEmpty());
         if (holders > 1) note(entry.window, CardBookMismatch::Rule::CardAndPane, shows);
+        if (entry.cardStages > 1)
+            note(entry.window, CardBookMismatch::Rule::CardOnTwoStages,
+                 QString::number(entry.cardStages) + QStringLiteral(" displays"));
+        if (!entry.cardStage.isEmpty() && entry.screen != entry.cardStage)
+            note(entry.window, CardBookMismatch::Rule::CardOffItsDisplay,
+                 entry.cardStage + QStringLiteral(" holds it on ") + entry.screen);
         if (pane && entry.screen != shows)
             note(entry.window, CardBookMismatch::Rule::PaneOffItsDisplay,
                  shows + QStringLiteral(" holds it on ") + entry.screen);

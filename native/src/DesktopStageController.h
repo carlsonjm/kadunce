@@ -110,11 +110,12 @@ public:
     // card. While the display presents its layout that card is owned and
     // hidden, so it must not arrive through the path that makes a transferred
     // window the Active card. A host that cannot tell the difference may
-    // forward this to `admitTransferredWindowToTablet`.
+    // forward this to `admitTransferredWindowToTablet`. Each of these doors
+    // names the display whose cards take the window.
     virtual bool admitDisplacedPaneToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
-        const NativeMoveSnapshot *restore = nullptr) {
-        return admitTransferredWindowToTablet(window, commitSource, restore);
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore = nullptr) {
+        return admitTransferredWindowToTablet(window, output, commitSource, restore);
     }
     // CARD-LIFECYCLE.md §7: the user minimized a pane, so it leaves Bento at
     // once and becomes a sleeping individual card. It is neither presented nor
@@ -123,7 +124,7 @@ public:
     // and §5 then keeps the window where it is rather than shedding it to
     // nobody.
     virtual bool admitSleepingPaneToTablet(
-        KWin::EffectWindow *, const std::function<bool()> &,
+        KWin::EffectWindow *, KWin::LogicalOutput *, const std::function<bool()> &,
         const NativeMoveSnapshot * = nullptr) {
         return false;
     }
@@ -132,8 +133,8 @@ public:
     // window where it began, and after the session has published its shortened
     // plan the host can no longer find it for itself.
     virtual bool admitTransferredWindowToTablet(
-        KWin::EffectWindow *window, const std::function<bool()> &commitSource,
-        const NativeMoveSnapshot *restore = nullptr) = 0;
+        KWin::EffectWindow *window, KWin::LogicalOutput *output,
+        const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore = nullptr) = 0;
 };
 
 class DesktopStageController final

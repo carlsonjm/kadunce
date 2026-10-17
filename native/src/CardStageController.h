@@ -111,9 +111,6 @@ public:
     // far apart: every layout the host shows is laid out again. A host
     // without layouts has nothing to move.
     virtual void cardGutterChangedForCardStage() {}
-    // A card pulled out of the Stack a pane holds, with that pane. A host
-    // without panes has nothing to do.
-    virtual void cardPulledOutForCardStage(KWin::EffectWindow *, KWin::EffectWindow *) {}
     // Whether this display is sized Connected (DisplaySizing.h). A host that
     // draws no distinction answers Solo.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }

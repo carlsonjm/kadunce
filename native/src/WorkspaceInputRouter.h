@@ -52,12 +52,22 @@ struct WorkspaceInputGeometry {
     }
 };
 
+// What an event does to the strokes under way: a contact or button going
+// down or up, or neither.
+enum class InputReach { Within, Press, Release, Cancel };
+
 // The router owns physical gesture transactions. Its target exposes semantic
 // workspace operations, so input policy does not depend on Effect internals.
 class WorkspaceInputTarget
 {
 public:
     virtual ~WorkspaceInputTarget() = default;
+    // CARD-LIFECYCLE.md §11, Every display: each event is answered for the
+    // cards of one display, the one it begins on; a stroke keeps the display
+    // its first contact named until its last lifts. The router names every
+    // event before routing it and lets it go after.
+    virtual void enterInputScope(const QPointF &, InputReach, qint64) {}
+    virtual void leaveInputScope(InputReach, qint64) {}
     virtual bool beginRailFromInput(QPointF) { return false; }
     virtual void updateRailFromInput(QPointF) {}
     virtual void finishRailFromInput(bool) {}
@@ -267,6 +277,10 @@ private:
         QPointF tapStart;
         QElapsedTimer tapTime;
     };
+    bool routePointerMotion(KWin::PointerMotionEvent *event);
+    bool routePointerButton(KWin::PointerButtonEvent *event);
+    bool routePointerAxis(KWin::PointerAxisEvent *event);
+    bool routeTouchCancel();
     bool routeTouchDown(KWin::TouchDownEvent *event);
     bool routeTouchMotion(KWin::TouchMotionEvent *event);
     bool routeTouchUp(KWin::TouchUpEvent *event);
