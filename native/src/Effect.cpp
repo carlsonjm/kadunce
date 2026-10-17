@@ -1570,7 +1570,8 @@ void Effect::refreshCardOutput()
             KWin::LogicalOutput *left = KWin::effects->findScreen(previous);
             if (isOtherCardDisplay(left)) {
                 for (const auto &card : m_cardStage->liveCards())
-                    if (card && !m_cardHomes.contains(card.data())) m_cardHomes.insert(card.data(), previous);
+                    if (card && !m_cardHomes.contains(card.data()) && !waitsWithItsStack(card))
+                        m_cardHomes.insert(card.data(), previous);
             }
         }
     } else if (!name.isEmpty()) {
@@ -3071,12 +3072,10 @@ void Effect::handleWindowOutputChanged()
             qInfo() << "Kadunce" << Revision << "handed" << logNameOf(window) << "to"
                     << (there ? there->name() : QString()) << "with" << behind.size()
                     << "behind it; a pane there" << m_desktopStage->managesWindow(window);
+            for (auto *member : behind) m_cardHomes.remove(member);
             if (isOtherCardDisplay(there)) {
                 if (!m_desktopStage->managesWindow(window)) claimWindowForItsDisplay(window);
-                for (auto *member : behind)
-                    if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
             } else if (isTabletOutput(there)) {
-                for (auto *member : behind) m_cardHomes.remove(member);
                 rejoinStack(window, behind);
             }
             KWin::effects->activateWindow(window);
@@ -3367,15 +3366,42 @@ bool Effect::isOtherCardDisplay(const KWin::LogicalOutput *output) const
 
 KWin::LogicalOutput *Effect::cardHome(const KWin::EffectWindow *card) const
 {
-    const auto home = m_cardHomes.constFind(const_cast<KWin::EffectWindow *>(card));
-    if (home == m_cardHomes.cend()) return nullptr;
+    const QString home = waitingFor(card);
+    if (home.isEmpty()) return nullptr;
     // A pane, or a card of the layout Spread shows, waits for no display: it
     // is its layout's. Choosing it opens that layout, and nothing that sends
     // a waiting card home takes it from a layout and leaves its place open.
     if (m_desktopStage->managesWindow(const_cast<KWin::EffectWindow *>(card))
         || m_cardStage->inProjectedLayout(card)) return nullptr;
-    KWin::LogicalOutput *output = KWin::effects->findScreen(home.value());
+    KWin::LogicalOutput *output = KWin::effects->findScreen(home);
     return isOtherCardDisplay(output) ? output : nullptr;
+}
+
+QString Effect::waitingFor(const KWin::EffectWindow *card, int depth) const
+{
+    // §11, Every display: a Stack waits as one, so where a card behind
+    // another waits is read from its Stack, never kept for it. Behind a pane
+    // it waits for the pane's display, or for none on Spread's; behind a card
+    // in Spread's row, where that card does. Only a card standing alone, or in
+    // front of its Stack, keeps a display of its own.
+    if (!card || depth > 2) return {};
+    KWin::EffectWindow *holder = m_cardStage->paneHolding(card);
+    if (holder && KWin::effects->stackingOrder().contains(holder) && !holder->isDeleted()) {
+        if (m_desktopStage->managesWindow(holder))
+            return isOtherCardDisplay(holder->screen()) ? holder->screen()->name() : QString();
+        if (m_cardStage->liveCardIndex(holder) >= 0) return waitingFor(holder, depth + 1);
+    }
+    const auto stack = m_cardStage->stackFrontToBack(card);
+    if (stack.size() > 1 && stack.first() != card) return waitingFor(stack.first(), depth + 1);
+    return m_cardHomes.value(const_cast<KWin::EffectWindow *>(card));
+}
+
+bool Effect::waitsWithItsStack(const KWin::EffectWindow *card) const
+{
+    KWin::EffectWindow *holder = card ? m_cardStage->paneHolding(card) : nullptr;
+    if (holder && KWin::effects->stackingOrder().contains(holder) && !holder->isDeleted()) return true;
+    const auto stack = m_cardStage->stackFrontToBack(card);
+    return stack.size() > 1 && stack.first() != card;
 }
 
 bool Effect::holdOtherDisplaysInCards(KWin::EffectWindow *arrival)
@@ -3422,7 +3448,9 @@ void Effect::refillOtherDisplay(const QString &outputName)
     KWin::EffectWindow *latest = nullptr;
     quint64 used = 0;
     for (const auto &card : m_cardStage->liveCards()) {
-        if (!card || card->isDeleted() || card->isMinimized() || cardHome(card) != output) continue;
+        // The front of a Stack is shown, its cards behind it.
+        if (!card || card->isDeleted() || card->isMinimized() || cardHome(card) != output
+            || waitsWithItsStack(card)) continue;
         const quint64 at = m_activationOrder.value(windowIdentity(card));
         if (!latest || at >= used) {
             latest = card;
@@ -5333,8 +5361,7 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
         if (behind.isEmpty()) behind.append(onto);
         behind.append(m_cardStage->paneStack(carried));
         m_cardStage->notePaneStack(carried, behind);
-        for (auto *member : std::as_const(behind))
-            if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
+        for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
         m_cardStage->settlePaneStacks();
         stacked = true;
         qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto)
@@ -8581,15 +8608,10 @@ void Effect::takeStackToItsDisplay(KWin::EffectWindow *pane)
     if (behind.isEmpty() || !there) return;
     // On a display holding its own cards, the cards behind wait for it, so
     // its swipe, the gap beside it and Meta+Tab step them; on Spread's
-    // display they wait for none.
-    if (isOtherCardDisplay(there)) {
-        for (auto *member : std::as_const(behind))
-            if (member && !member->isDeleted()) m_cardHomes.insert(member, there->name());
-    } else if (isTabletOutput(there)) {
-        for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
-    } else {
-        return;
-    }
+    // display they wait for none. Both are read from the pane (waitingFor),
+    // so none keeps a display of its own.
+    if (!isOtherCardDisplay(there) && !isTabletOutput(there)) return;
+    for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
     qInfo() << "Kadunce" << Revision << "took the Stack of" << logNameOf(pane) << "to" << there->name()
             << "with" << behind.size() << "behind it";
     observeCardOwnership();
@@ -8606,8 +8628,7 @@ bool Effect::giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput 
     if (!display || !m_cardStage->giveCardToDisplay(card, display)) return false;
     if (behind.isEmpty()) return true;
     m_cardStage->notePaneStack(card, behind);
-    for (auto *member : std::as_const(behind))
-        if (member && !member->isDeleted()) m_cardHomes.insert(member, display->name());
+    for (auto *member : std::as_const(behind)) m_cardHomes.remove(member);
     m_cardStage->settlePaneStacks();
     qInfo() << "Kadunce" << Revision << "gave" << logNameOf(card) << "to" << display->name()
             << "with" << behind.size() << "behind it";
@@ -9172,7 +9193,7 @@ void Effect::observeCardBook()
         entry.screen = window->screen() ? window->screen()->name() : QString();
         entry.card = m_cardStage->liveCardIndex(window) >= 0;
         entry.paneOf = paneOf.value(it.key());
-        entry.home = m_cardHomes.value(window);
+        entry.home = waitingFor(window);
         entry.behindPanes = behind.value(it.key());
         if (entry.card) {
             const auto stack = m_cardStage->stackFrontToBack(window);

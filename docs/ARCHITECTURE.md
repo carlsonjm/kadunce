@@ -97,7 +97,9 @@ A card's status is kept in several records: Card Stage's row and the Stacks behi
 panes, each display's layout, and the display a waiting card waits for. The card
 book (`CardBook.h`) reads them all after every published change and logs each
 place they disagree as `Kadunce card book:`, once. Like the ownership ledger, it
-reports and never repairs.
+reports and never repairs. A Stack waits as one: where a card behind another waits
+is read from its Stack's pane or front card, never kept for it, so no move can part
+a Stack from its display by forgetting one of its cards.
 
 ## Transfer transaction
 

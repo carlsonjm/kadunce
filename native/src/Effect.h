@@ -623,6 +623,12 @@ private:
     // The display a card waiting in Spread shows on when chosen: the one it
     // last showed on, while that display is attached and is not Spread's.
     [[nodiscard]] KWin::LogicalOutput *cardHome(const KWin::EffectWindow *card) const;
+    // The name of the display a card waits for, its Stack's when it waits
+    // behind another card; empty for Spread's display. A display that is gone
+    // keeps its name, so its cards wait for it to return.
+    [[nodiscard]] QString waitingFor(const KWin::EffectWindow *card, int depth = 0) const;
+    // A card waiting behind a pane, or behind another card in Spread's row.
+    [[nodiscard]] bool waitsWithItsStack(const KWin::EffectWindow *card) const;
     // Every display holding its own cards and showing none of them begins
     // its layout with the windows on it, or shows the card it used last.
     bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
