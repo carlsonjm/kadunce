@@ -93,6 +93,12 @@ identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §13).
 Constrained new windows use the Bento admission solver or prepared individual-card
 ownership.
 
+A card's status is kept in several records: Card Stage's row and the Stacks behind
+panes, each display's layout, and the display a waiting card waits for. The card
+book (`CardBook.h`) reads them all after every published change and logs each
+place they disagree as `Kadunce card book:`, once. Like the ownership ledger, it
+reports and never repairs.
+
 ## Transfer transaction
 
 All cross-owner transfers follow one order:

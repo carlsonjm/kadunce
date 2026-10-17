@@ -240,6 +240,10 @@ public:
     // card again, as in Spread, stands in front of its Stack, and a Stack
     // whose pane is gone keeps its cards together.
     [[nodiscard]] QList<KWin::EffectWindow *> paneStack(const KWin::EffectWindow *pane) const;
+    // Every recorded Stack behind a pane as noted, members not cards yet
+    // included, for the card book to read.
+    [[nodiscard]] const QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> &
+    paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
     // Drops a window from every Stack that waits behind a pane.

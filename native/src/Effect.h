@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "CardBook.h"
 #include "CardStageController.h"
 #include "DesktopStageController.h"
 #include "DisplaySizing.h"
@@ -240,6 +241,9 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
+    // Every card book mismatch observed since load, in words: each place the
+    // records of a card's status disagree.
+    Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
@@ -989,12 +993,16 @@ private:
     // KDE's Overview was set aside here and is loaded again when Kadunce stops.
     bool m_overviewHeld = false;
     void observeCardOwnership();
+    // Reads the card book and reports each new mismatch once; never repairs.
+    void observeCardBook();
     bool startTabletInCards(KWin::EffectWindow *arrival);
     // The authority for who owns a window. Both stages' containers are checked
     // against it; it is never repaired from them.
     CardOwnershipLedger m_ownership;
     std::vector<OwnershipViolation> m_observedOwnershipViolations;
     QStringList m_ownershipViolationLog;
+    std::vector<CardBookMismatch> m_observedCardBook;
+    QStringList m_cardBookLog;
 
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;

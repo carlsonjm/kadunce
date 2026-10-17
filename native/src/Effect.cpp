@@ -9059,6 +9059,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
 
 void Effect::observeCardOwnership()
 {
+    observeCardBook();
     // One ledger over every desktop: a window has one owner across all of
     // them. A display has at most one layout per desktop, so another desktop's
     // layout is named with its desktop.
@@ -9128,6 +9129,73 @@ void Effect::observeCardOwnership()
             m_ownershipViolationLog.append(describeOwnershipViolation(violation));
     }
     m_observedOwnershipViolations = std::move(violations);
+}
+
+void Effect::observeCardBook()
+{
+    if (!m_cardStage || !m_desktopStage) return;
+    QList<CardBookDisplay> displays;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        const bool spread = isTabletOutput(output);
+        displays.append({output->name(), spread, spread || isOtherCardDisplay(output),
+                         sizingFor(output) == DisplaySizing::Solo});
+    }
+
+    // This desktop's windows, read from every record that names one.
+    QHash<quintptr, KWin::EffectWindow *> windows;
+    const auto add = [&](KWin::EffectWindow *window) {
+        if (window && !window->isDeleted()) windows.insert(reinterpret_cast<quintptr>(window), window);
+    };
+    QHash<quintptr, QString> paneOf;
+    for (const auto &view : m_desktopStage->ownershipView())
+        for (const auto pane : view.panes) paneOf.insert(pane, view.output);
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+        if (paneOf.contains(reinterpret_cast<quintptr>(window))) add(window);
+    for (const auto &card : m_cardStage->liveCards()) add(card.data());
+    QHash<quintptr, std::vector<quintptr>> behind;
+    const auto &stacks = m_cardStage->paneStackRecords();
+    for (auto it = stacks.cbegin(); it != stacks.cend(); ++it) {
+        const auto holder = reinterpret_cast<quintptr>(it.key());
+        for (const auto &member : it.value()) {
+            if (!member || member->isDeleted()) continue;
+            add(member.data());
+            behind[reinterpret_cast<quintptr>(member.data())].push_back(holder);
+        }
+    }
+
+    std::vector<CardBookEntry> entries;
+    entries.reserve(windows.size());
+    for (auto it = windows.cbegin(); it != windows.cend(); ++it) {
+        KWin::EffectWindow *window = it.value();
+        CardBookEntry entry;
+        entry.window = it.key();
+        entry.screen = window->screen() ? window->screen()->name() : QString();
+        entry.card = m_cardStage->liveCardIndex(window) >= 0;
+        entry.paneOf = paneOf.value(it.key());
+        entry.home = m_cardHomes.value(window);
+        entry.behindPanes = behind.value(it.key());
+        if (entry.card) {
+            const auto stack = m_cardStage->stackFrontToBack(window);
+            if (stack.size() > 1) entry.stackFace = reinterpret_cast<quintptr>(stack.first());
+        }
+        entry.minimized = window->isMinimized();
+        entries.push_back(std::move(entry));
+    }
+
+    auto mismatches = checkCardBook(displays, entries);
+    // Reported once, as ownership is: the book is read on every change.
+    if (mismatches == m_observedCardBook) return;
+    for (const auto &mismatch : mismatches) {
+        if (std::find(m_observedCardBook.cbegin(), m_observedCardBook.cend(), mismatch)
+            != m_observedCardBook.cend()) continue;
+        const auto named = windows.value(mismatch.window);
+        QString line = (named ? logNameOf(named) : QStringLiteral("a display")) + QStringLiteral(": ")
+            + cardBookRuleName(mismatch.rule);
+        if (!mismatch.detail.isEmpty()) line += QStringLiteral(" (") + mismatch.detail + QLatin1Char(')');
+        qWarning().noquote() << "Kadunce card book:" << line;
+        if (m_cardBookLog.size() < 64) m_cardBookLog.append(line);
+    }
+    m_observedCardBook = std::move(mismatches);
 }
 
 KWin::EffectWindow *Effect::selectedWindow() const
