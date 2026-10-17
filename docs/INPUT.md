@@ -75,7 +75,7 @@ are up, the bottom edge is theirs.
 | Input | What happens |
 | --- | --- |
 | Drag a window by its title bar to the left or right edge of a display | It pairs into Bento on your side with the Active card, or for the Active card the card used before it, the upper half larger. With none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
-| `Meta+B` | Starts or ends Bento on Spread's display. Connected, every card takes a pane, and a layout behind the Active card takes it in. |
+| `Meta+B` | Starts or ends Bento on Spread's display. Connected, every card takes a pane, an Active card before a layout too. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display kept as windows (`CARD-LIFECYCLE.md` §11) | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or press it with the mouse, then drag | Both panes resize; letting go keeps the new split. |
