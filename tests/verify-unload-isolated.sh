@@ -15,7 +15,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh|x11-fill-return-runtime-session.sh) ;;
     card-exit-runtime-session.sh|bento-exit-partner-runtime-session.sh|spread-bento-top-runtime-session.sh|bento-key-sleeper-runtime-session.sh|first-carry-runtime-session.sh|dialog-runtime-session.sh|dialog-late-runtime-session.sh|dialog-electron-runtime-session.sh|dialog-card-runtime-session.sh|dialog-waiting-runtime-session.sh|desktop-switch-runtime-session.sh|desktop-switch-bento-runtime-session.sh) ;;
-    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|spread-signal-runtime-session.sh|context-line-runtime-session.sh|desktop-settings-runtime-session.sh) ;;
+    table-preview-runtime-session.sh|table-multidisplay-runtime-session.sh|table-runtime-session.sh|table-pointer-runtime-session.sh|table-stack-runtime-session.sh|table-stack-layout-runtime-session.sh|table-spread-runtime-session.sh|spread-signal-runtime-session.sh|context-line-runtime-session.sh|desktop-settings-runtime-session.sh|caller-fence-runtime-session.sh) ;;
     x11-client-runtime-session.sh|x11-baseline-runtime-session.sh|x11-action-runtime-session.sh|x11-exit-runtime-session.sh) ;;
     session.sh|bento-session.sh|snap-session.sh|contact-session.sh|runtime-session.sh|tablet-runtime-session.sh|line-runtime-session.sh|local-runtime-session.sh|desktop-runtime-session.sh|x11-runtime-session.sh|exit-runtime-session.sh|trace-runtime-session.sh) ;;
     *) echo 'Unknown isolated probe session' >&2; exit 1 ;;
@@ -191,9 +191,16 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-offscreen-runtime-session
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == spread-fingers-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == connected-sizes-runtime-session.sh ]]; then session_timeout=180s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == guest-beside-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == table-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-bento-top-runtime-session.sh ]]; then session_timeout=90s; fi
+# Scenes drive Kadunce with bus tools, which it refuses outside a private
+# compositor. The scene that proves the refusal keeps it, in a home of its own.
+caller_env=(KADUNCE_NO_CALLER_CHECKS=1)
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == caller-fence-runtime-session.sh ]]; then
+    mkdir -p "$unload_root/home"
+    caller_env=(HOME="$unload_root/home")
+fi
 # Every log line, Kadunce's included, goes to this session's log, not the
 # journal of the person whose machine runs the test.
-timeout "$session_timeout" env "${session_env[@]}" "${scaled_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \
+timeout "$session_timeout" env "${caller_env[@]}" "${session_env[@]}" "${scaled_env[@]}" QT_FORCE_STDERR_LOGGING=1 XDG_RUNTIME_DIR="$unload_root/runtime" \
     XDG_CONFIG_HOME="$unload_root/config" XDG_DATA_HOME="$unload_root/data" \
     XDG_STATE_HOME="$unload_root/state" QT_PLUGIN_PATH="$unload_root/build/bin:${KADUNCE_RUNTIME_BUILD:-/nonexistent}/bin" \
     KADUNCE_UNLOAD_PROBE_BUILD="$unload_root/build" KWIN_COMPOSE=O2 \
