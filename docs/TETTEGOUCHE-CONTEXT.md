@@ -39,6 +39,20 @@ Kadunce restores minimized windows and routes card-backed windows through its
 existing activation handling, so selection, stack membership, and presentation
 remain under Kadunce's authority.
 
+### Who may call
+
+Anything on the session bus may ask what Kadunce shows, claim a top edge or
+the context line for itself, and change the settings. Only the programs the
+suite's surfaces live in may bring anything forward: `activateApplicationWindow`,
+`raiseKeyboard`, `keyboardHeading`, `showCardLine`, `showActive`, `toggleTable`,
+`previewDesktop`, `commitDesktopPreview`, the placement calls,
+`toggleBentoOnOutput` and `handoffBentoLeadToOutput`. Those are `plasmashell`,
+`kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard` and `plasma-keyboard`,
+installed under `/usr` or in the person's `~/.local/bin`, as the caller's
+process names its program. Any other caller is answered
+`org.freedesktop.DBus.Error.AccessDenied` and nothing changes. The guest calls
+have their own rule (§ Launcher guest protocol 3).
+
 The payload identifies itself with schema
 `co.goodinput.kadunce.workspace-context` and integer `version: 1`. Consumers
 must reject unknown major versions instead of guessing at fields.
