@@ -25,9 +25,10 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, stage, focused, minimized}],
+        apps: [.applications[] | {title, output, hasCard, pane, stage, paneStack, stackId, stackSize, focused, minimized}],
         stages: [.displayContext.displays[] | {name, shows, s: .cardStage.presentation, a: .cardStage.activeCardId}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden, minimized})')"
+    echo "state stages-$1 $(kad outputStageState | tr '\n' ' ')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
 open_selected() { probe key 28 0 >/dev/null; sleep 1.4; }

@@ -3837,7 +3837,8 @@ void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWi
     if (stack.size() > 1) m_cardStage->notePaneStack(card, stack.mid(1));
     m_cardStage->settlePaneStacks();
     qInfo() << "Kadunce" << Revision << "brought" << logNameOf(card) << "back to the layout on"
-            << output->name() << "as the pane that took its place left";
+            << output->name() << "with" << qMax<qsizetype>(stack.size() - 1, 0)
+            << "cards behind it, as the pane that took its place leaves";
     Q_EMIT workspaceContextChanged();
 }
 
