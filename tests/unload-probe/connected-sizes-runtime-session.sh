@@ -183,7 +183,7 @@ load_effect
 s=$(idOf 'Snapped') e=$(idOf 'Earlier') l=$(idOf 'Later')
 probe activateWindowId "$s" >/dev/null
 sleep .8
-snap "$s" 'Snapped' 5 250
+snap "$s" 'Snapped' 5 540
 report snapped
 check 'snap: beside on the left, alone, the card takes the left half' at "$s" '[10, 34, 943, 980]'
 check 'snap: it stands as the layout' layout_shown
@@ -212,7 +212,7 @@ load_effect
 s=$(idOf 'Snapped') e=$(idOf 'Earlier') g=$(idOf 'Large')
 probe activateWindowId "$s" >/dev/null
 sleep .8
-snap "$s" 'Snapped' 5 250
+snap "$s" 'Snapped' 5 540
 pick "$e"
 report side-filled
 check 'side: the snapped card holds the left half' at "$s" '[10, 34, 943, 980]'

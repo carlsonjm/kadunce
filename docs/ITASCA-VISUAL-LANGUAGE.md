@@ -225,6 +225,13 @@ they preserve these relationships and respect the user's animation settings.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
   screen it filled into its place in the row, a layout's panes as their own
   cards side by side, while the cards beside it slide in.
+- Where a carried window or a placed application would land shows as a
+  filled box at the hover fill, 13% of the text colour, with the paper
+  corner and no ring, so it reads as a place over any window under it.
+- A Stack a carried window would join shows no box: rested there, the window
+  shrinks to 80% about the pointer and tilts 1.5 degrees over 150 ms, as a
+  card joining a deck, and straightens off it. A card held in its own Stack in
+  Spread marks its place with the filled box.
 - A carried window never jumps. Cancelled, refused or interrupted, it glides
   home from where it was under the hand; let go at the top edge it glides into
   the Active card's place, and at a side it grows into its pane from where it

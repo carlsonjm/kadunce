@@ -601,6 +601,39 @@ int main()
         require(placeOf(alone, 1) && same(*placeOf(alone, 1), {0.0, 0.5, 0.5, 0.5}),
             "A card placed under on the left did not take the lower left corner");
 
+        // Over takes that half's upper corner alone; the next card fills the
+        // room below it. With a column on that side, over goes on top of it,
+        // taking room open there first.
+        BentoSidePlacement leftOver{false, false, true};
+        leftOver.over = true;
+        Columns overAlone;
+        bentoColumnsPlace(overAlone, 1, leftOver);
+        require(placeOf(overAlone, 1) && same(*placeOf(overAlone, 1), {0.0, 0.0, 0.5, 0.5}),
+            "A card placed over on the left did not take the upper left corner");
+        require(bentoColumnsFill(overAlone, 2) && shape(overAlone) == std::vector<std::vector<int>>{{1, 2}},
+            "An arrival did not fill the room below a card placed over");
+        Columns overTop;
+        bentoColumnsPlace(overTop, 1, leftBeside);
+        bentoColumnsPlace(overTop, 2, leftOver);
+        require(shape(overTop) == std::vector<std::vector<int>>{{2, 1}},
+            "Over on the left did not go on top of the left column");
+        Columns overRoom;
+        bentoColumnsPlace(overRoom, 1, leftUnder);
+        bentoColumnsPlace(overRoom, 2, leftOver);
+        require(shape(overRoom) == std::vector<std::vector<int>>{{2, 1}},
+            "Over on the left did not take the room open above a card placed under");
+
+        // The edge reads as a quarter, a half and a quarter of the display.
+        const auto edgeAt = [](double y, std::optional<BentoSidePlacement> before = {}) {
+            return bentoConnectedSideChoice(false, y, 0.0, 1440.0, before);
+        };
+        require(edgeAt(100).over && !edgeAt(100).large, "The top quarter of an edge did not read as over");
+        require(edgeAt(720).large && !edgeAt(720).over, "The middle of an edge did not read as beside");
+        require(!edgeAt(1300).large && !edgeAt(1300).over, "The bottom quarter of an edge did not read as under");
+        require(edgeAt(370, edgeAt(350)).over, "A contact resting on the upper boundary did not keep over");
+        require(edgeAt(1070, edgeAt(1100)).connected && !edgeAt(1070, edgeAt(1100)).large,
+            "A contact resting on the lower boundary did not keep under");
+
         // The product owner's sequence: a terminal under on the right, a
         // second under on the right, then a browser beside on the right.
         Columns layout;

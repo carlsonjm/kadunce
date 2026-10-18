@@ -247,11 +247,11 @@ The window becomes an independent Spread card when it is:
 - Moved to another workspace
 
 It keeps no Bento position or group, and stands in the Active card's place (§3).
-One displaced by a window carried or opened in comes back to its place when
+One displaced by a window carried or opened in comes back when
 that window leaves, if it still waits there unused.
 
 A window leaves for the display that can hold it as a card, keeping its
-restore record so release still returns it where it began. You find it in
+restore record so release still returns it where it began. It waits in
 Spread there.
 
 Where no display can hold a card, nothing leaves: the layout keeps its
@@ -460,7 +460,7 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 | Behavior | Solo | Connected |
 | --- | --- | --- |
 | A picked card or new window | Becomes Active (§6, §8) | Joins the layout: paired with the card in use when none shows, else under §8, filling open room, else joining the shortest column or starting one, whichever keeps panes larger |
-| A side snap | Takes its half's share (§3) | Names a place: an edge's upper half beside, a full-height column; its lower half under, at that column's foot; alone, it keeps that place |
+| A side snap | Takes its half's share (§3) | Names a place: an edge's middle half beside, a full-height column; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |
 | A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |

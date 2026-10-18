@@ -3635,6 +3635,15 @@ bool Effect::connectedOutputForDesktopStage(
     return isCardDisplay(output) && sizingFor(output) == DisplaySizing::Connected;
 }
 
+BentoSidePlacement Effect::sideChoiceOn(const KWin::LogicalOutput *output, bool right,
+    double y, std::optional<BentoSidePlacement> previous) const
+{
+    const QRectF geometry(output->geometry());
+    if (connectedOutputForDesktopStage(output))
+        return bentoConnectedSideChoice(right, y, geometry.top(), geometry.height(), previous);
+    return bentoSideChoice(right, y, geometry.center().y(), previous);
+}
+
 bool Effect::holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *output) const
 {
     // Asked for its own display, no display is another's: each holds its
@@ -5056,6 +5065,7 @@ void Effect::endNativeCarryPresentation()
     }
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
     syncNotesPause();
+    m_stackLeanTo = false; m_stackLeanFrom = 0.0; m_stackLeanClock.invalidate();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     endStackScrub();
@@ -5151,6 +5161,8 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("carrying"), bool(m_carriedWindow)},
         // §11, Connected: the pane a carried pane would join in a Stack.
         {QStringLiteral("stackOnto"), m_carryStackOnto ? windowIdentity(m_carryStackOnto) : QString()},
+        // How far the carried window leans into that Stack, 0 to 1.
+        {QStringLiteral("stackLean"), m_carryStackOnto ? stackLeanNow() : 0.0},
         // §11, Connected: the place a scrubbed face would go in at, and the
         // cards its ladder shows, front first.
         {QStringLiteral("scrubPlace"), m_stackScrub.active() ? m_stackScrub.place : -1},
@@ -5257,11 +5269,10 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     });
     std::optional<BentoSidePlacement> side;
     if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
-        side = bentoSideChoice(*edge == CarryEdge::Right, contact.y(),
-            QRectF(target->geometry()).center().y(), previousDestination
+        side = sideChoiceOn(target, *edge == CarryEdge::Right, contact.y(), previousDestination
                 && previousDestination->destinationOutput() == target
                 ? previousDestination->sidePlacement() : std::nullopt);
-    // §11, Connected: the contact names a place, beside or under.
+    // §11, Connected: the contact names a place, over, beside or under.
     if (side) side->connected = connectedOutputForDesktopStage(target);
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
@@ -5379,7 +5390,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 : outcome == EdgeEntryOutcome::ComposeDisplayBento ? "a layout across the display"
                 : outcome == EdgeEntryOutcome::PairIntoBento ? "a Bento pair"
                 : outcome == EdgeEntryOutcome::PlaceAlone
-                    ? (side && side->large ? "the card alone, beside" : "the card alone, under")
+                    ? (side && side->large ? "the card alone, beside"
+                       : side && side->over ? "the card alone, over" : "the card alone, under")
                 : outcome == EdgeEntryOutcome::AdoptDisplay ? "cards, starting with this window"
                 : "the Active card";
             const QString line = QStringLiteral("%1 at the %2 edge would make %3%4")
@@ -5732,7 +5744,9 @@ void Effect::clearDropSettle()
 QRectF Effect::carriedPose() const
 {
     if (!m_carriedWindow || !m_carryRuntime) return {};
-    return QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size());
+    // Where it is drawn, leaning into a Stack included, so a drop grows from there.
+    return leanedIntoStack(QRectF(m_carryRuntime->handoff.carry().position(), m_carryPickup.size()),
+                           m_carryStackOnto ? stackLeanNow() : 0.0);
 }
 
 bool Effect::cardDisplayPresents(KWin::EffectWindow *window) const
@@ -7028,14 +7042,15 @@ std::optional<KWin::RectF> Effect::placementPreview(const PlacementAim &aim, QPo
     case PlacementAimKind::Left:
     case PlacementAimKind::Right: {
         const bool right = aim.kind == PlacementAimKind::Right;
-        const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
-        // §11, Connected: the outline is the place, beside a column at that
-        // edge and under the bottom of that side.
+        const auto side = sideChoiceOn(output, right, point.y());
+        // §11, Connected: the box is the place, beside a column at that edge,
+        // over the top of that side and under its bottom.
         if (connectedOutputForDesktopStage(output)) {
             const double width = area.width() / 2.0;
-            const double top = side.large ? area.top() : area.center().y();
+            const double top = side.large || side.over ? area.top() : area.center().y();
+            const double bottom = side.over ? area.center().y() : area.bottom();
             return KWin::RectF(right ? area.right() - width : area.left(), top, width,
-                               area.bottom() - top);
+                               bottom - top);
         }
         const double width = area.width() * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
         return KWin::RectF(right ? area.right() - width : area.left(), area.top(), width, area.height());
@@ -7164,7 +7179,7 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
         if (aim.kind == PlacementAimKind::Card) return true;
         // CARD-LIFECYCLE.md §3, as the Active card carried to that edge.
         const bool right = aim.kind == PlacementAimKind::Right;
-        auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        auto side = sideChoiceOn(output, right, point.y());
         side.connected = connectedOutputForDesktopStage(output);
         QPointer<KWin::LogicalOutput> destination = output;
         QPointer<KWin::EffectWindow> placed = window;
@@ -8879,6 +8894,39 @@ bool Effect::reorderPaneStack(KWin::EffectWindow *pane, int place)
     return true;
 }
 
+double Effect::stackLeanNow() const
+{
+    const int duration = motion(150);
+    if (!m_stackLeanClock.isValid() || duration <= 1) return m_stackLeanTo ? 1.0 : 0.0;
+    const double t = std::min(1.0, double(m_stackLeanClock.elapsed()) / duration);
+    const double eased = 1.0 - (1.0 - t) * (1.0 - t);
+    return m_stackLeanFrom + ((m_stackLeanTo ? 1.0 : 0.0) - m_stackLeanFrom) * eased;
+}
+
+double Effect::stackLean()
+{
+    // §11: a window rested where it would join a Stack shrinks a little and
+    // tilts, as a card does joining a deck, and straightens off it again.
+    const bool to = m_carriedWindow && m_carryStackOnto;
+    if (to != m_stackLeanTo) {
+        m_stackLeanFrom = stackLeanNow();
+        m_stackLeanTo = to;
+        m_stackLeanClock.start();
+    }
+    const double lean = stackLeanNow();
+    if (lean != (m_stackLeanTo ? 1.0 : 0.0)) KWin::effects->addRepaintFull();
+    return lean;
+}
+
+QRectF Effect::leanedIntoStack(const QRectF &rect, double lean) const
+{
+    // Shrunk to 80% about the pointer, so what is under the hand stays there.
+    if (lean <= 0.0) return rect;
+    const double scale = 1.0 - 0.2 * lean;
+    const QPointF hand = m_lastCarryContact;
+    return QRectF(hand + (rect.topLeft() - hand) * scale, rect.size() * scale);
+}
+
 void Effect::drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
     KWin::LogicalOutput *screen)
@@ -9356,8 +9404,10 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
         m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
         const QVector3D ink = SurfaceTone::current().lineInk();
-        m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.035f));
-        m_destinationShader->setUniform("outlineOpacity", 0.65f);
+        // A destination is a filled box at the Visual sheet's hover step,
+        // with no ring, so it reads as a place over any window under it.
+        m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.13f));
+        m_destinationShader->setUniform("outlineOpacity", 0.f);
         m_destinationShader->setUniform("outlineInk", ink);
         m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
             renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
@@ -9455,7 +9505,8 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     bool detachShown = false;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
-    if (m_destinationShader && screen && preview
+    // A window leaning into a Stack is its own preview; no box is drawn.
+    if (m_destinationShader && screen && preview && !(m_carriedWindow && m_carryStackOnto)
         && (m_carriedWindow || m_cardStage->cardGrabActive())
         && (cardEntry == screen || (cardExit && cardExit == screen)
             || (reservation && !cardEntry && reservation->showsPlacementOutline()
@@ -9477,18 +9528,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     }
     if (screen && detachShown != (m_detachShownOn == screen))
         m_detachShownOn = detachShown ? screen : nullptr;
-    // §11, Connected: a pane rested over another shows the Stack it would
-    // join: the pane it covers drawn as a card standing behind a second.
-    if (m_destinationShader && screen && m_carriedWindow && m_carryStackOnto && m_carryPreview
-        && m_carryStackOnto->screen() == screen) {
-        const QRectF box(*m_carryPreview);
-        const double step = std::min(14.0, std::min(box.width(), box.height()) * .04);
-        const QRectF front = box.adjusted(step * 2, step * 2, -step * 2, -step * 2);
-        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen,
-            front.translated(step, -step), front);
-        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, front);
-        overlaid.append(box);
-    }
     drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
@@ -10467,8 +10506,19 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                              QRectF(m_paintingOutput->geometry()));
         if (!plan || plan->clip.isEmpty()) return paintResult(true);
         KWin::Rect logicalRegion = window->expandedGeometry().toRect();
-        const KWin::Rect target = KWin::RectF(plan->target).toRect();
+        // Leaning into a Stack it would join, it shrinks to 80% about the
+        // pointer and tilts 1.5 degrees about its centre.
+        const double lean = window == m_carriedWindow && !drawnAt ? stackLean() : 0.0;
+        const QRectF leaned = leanedIntoStack(plan->target, lean);
+        const KWin::Rect target = KWin::RectF(leaned).toRect();
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
+        if (lean > 0.0 && data.xScale() > 0 && data.yScale() > 0) {
+            data.setRotationAngle(1.5 * lean);
+            data.setRotationOrigin(QVector3D((target.x() + target.width() / 2.0 - logicalRegion.x()) / data.xScale(),
+                (target.y() + target.height() / 2.0 - logicalRegion.y()) / data.yScale(), 0.0));
+        }
+        const int tiltReach = lean > 0.0
+            ? int(std::ceil(std::sin(1.5 * lean * M_PI / 180.0) * std::max(target.width(), target.height()))) + 2 : 0;
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
         const bool rounded = m_fanApertureShader && data.xScale() > 0 && data.yScale() > 0;
         m_fanApertureWindow = rounded ? window : nullptr;
@@ -10479,7 +10529,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         m_fanApertureRadius = CardCornerRadius * viewport.scale();
         const auto clip = deviceRegion
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan->clip)))
-            & (rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
+            & (tiltReach > 0 ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(
+                                   KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
+               : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
@@ -10542,14 +10594,15 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
 
     // A card held in its own Stack is lifted out of it; the place it would
-    // take is an outline at the Stack's seam, just below the held card. Let
-    // go, the outline fades under the card then in front.
+    // take is a filled box at the Stack's seam, just below the held card. Let
+    // go, it fades under the card then in front.
     if (window == m_cardStage->selectedWindow() && m_paintingOutput == tablet && m_destinationShader) {
         const auto outline = m_cardStage->stackOutline();
         if (!outline.rect.isEmpty() && outline.opacity > 0.0) {
             paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
                 deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(tablet->geometry())),
-                QRectF(outline.rect), 0.6, 0.0f, float(outline.opacity));
+                QRectF(outline.rect), 0.6, float(0.2 * outline.opacity), 0.0f,
+                SurfaceTone::current().lineInk());
         }
     }
     KWin::Rect logicalRegion = window->expandedGeometry().toRect();

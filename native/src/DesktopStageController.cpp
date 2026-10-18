@@ -1904,11 +1904,15 @@ bool DesktopStageController::planSession(Session &session,
             splitCandidates.push_back({minimum.width(),minimum.height(),1,1,false});
         }
         const auto splitArea = stageArea(output);
-        // §11, Connected: the upper half of an edge puts the card beside, in a
-        // column of its own, so only the lower half splits a column.
+        // §11, Connected: the middle of an edge puts the card beside, in a
+        // column of its own, so only its top and bottom quarters split one.
         const bool beside = side->connected && side->large;
+        // Over splits the column with the card in its upper part, as the
+        // larger placement does on a display that is not Connected.
+        BentoSidePlacement splitSide = *side;
+        if (splitSide.over) splitSide.large = true;
         const auto split = validSplitInputs && !beside && !kept ? splitBentoColumn(session.rects,
-            splitCandidates, existingIndex < 0 ? session.windows.size() : existingIndex, *side,
+            splitCandidates, existingIndex < 0 ? session.windows.size() : existingIndex, splitSide,
             splitArea.width(), splitArea.height(), cap)
             : std::nullopt;
         if (split && (!requirePreferred || splitWindows.contains(preferred))) {
