@@ -783,6 +783,12 @@ public:
         SessionScope scope(m_effect, m_session, on(output));
         layouts().layoutLeftForOtherDisplayForDesktopStage(output);
     }
+    void displacedCardMayReturnForDesktopStage(KWin::EffectWindow *window,
+                                               KWin::LogicalOutput *output) override
+    {
+        SessionScope scope(m_effect, m_session, on(output));
+        layouts().displacedCardMayReturnForDesktopStage(window, output);
+    }
     // The record is the one the stage holding the window keeps.
     std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *window) const override
     {
@@ -3806,6 +3812,33 @@ void Effect::layoutLeftForOtherDisplayForDesktopStage(KWin::LogicalOutput *outpu
     if (!m_cardsOnEveryDisplay || !output || !isTabletOutput(output)
         || m_cardStage->presentation() != CardPresentation::Bento) return;
     m_cardStage->showDesktop();
+}
+
+void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWin::LogicalOutput *output)
+{
+    // §5: the card a pane became when an arrival took its slot comes back to
+    // the layout once that arrival leaves, as long as it still waits behind
+    // the layout as it was left there: not called forward, not asleep, not
+    // sent to another display and not behind another card. The window in use
+    // stays in use, as the arrival may have gone elsewhere with the person.
+    if (!card || card->isDeleted() || card->isMinimized() || !output || m_releasing
+        || card->screen() != output || !m_cardStage->presentsBento()
+        || m_cardStage->liveCardIndex(card) < 0 || m_cardStage->paneHolding(card)
+        || !m_desktopStage->hasSessionOnOutput(output->name())) return;
+    const QList<KWin::EffectWindow *> stack = m_cardStage->stackFrontToBack(card);
+    if (!stack.isEmpty() && stack.first() != card) return;
+    const QPointer<KWin::EffectWindow> back = card;
+    if (!m_desktopStage->admitCardToLiveBento(card,
+            [this, back] { return back && m_cardStage->releaseCardToLiveBento(back); }, true, false)) {
+        qInfo() << "Kadunce" << Revision << "kept" << logNameOf(card) << "waiting behind the layout on"
+                << output->name() << "with no room for it there";
+        return;
+    }
+    if (stack.size() > 1) m_cardStage->notePaneStack(card, stack.mid(1));
+    m_cardStage->settlePaneStacks();
+    qInfo() << "Kadunce" << Revision << "brought" << logNameOf(card) << "back to the layout on"
+            << output->name() << "as the pane that took its place left";
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)

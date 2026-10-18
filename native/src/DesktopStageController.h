@@ -106,6 +106,9 @@ public:
                                                    const QRectF &) {}
     // The layout's last pane left `output` for another display.
     virtual void layoutLeftForOtherDisplayForDesktopStage(KWin::LogicalOutput *) {}
+    // §5: an arrival that made a pane yield has left the layout on `output`,
+    // and the card that pane became may take its place again.
+    virtual void displacedCardMayReturnForDesktopStage(KWin::EffectWindow *, KWin::LogicalOutput *) {}
     [[nodiscard]] virtual std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(
         KWin::EffectWindow *) const { return std::nullopt; }
     // CARD-LIFECYCLE.md §5: a displaced pane becomes a nonselected individual
@@ -256,9 +259,10 @@ public:
     // presenting its layout joins that layout. `commitSource` is card
     // ownership giving the card up, and it is asked only after this session has
     // proved on a value copy that it can show the card. With `growOnly` a full
-    // layout refuses the card rather than give it another pane's slot.
+    // layout refuses the card rather than give it another pane's slot; without
+    // `takesFocus` the window in use stays in use.
     [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
-        const std::function<bool()> &commitSource, bool growOnly = false);
+        const std::function<bool()> &commitSource, bool growOnly = false, bool takesFocus = true);
     // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
     // it puts the next card in that pane's slot. Nothing else moves; the pane
     // leaving becomes a card through the same path as any yielded pane; a
@@ -450,10 +454,23 @@ private:
         NativeMoveSnapshot record;
         QString sourceKey;
         RestoreSnapshot snapshot;
+        // The window the plan admitted in its place, when one did.
+        QPointer<KWin::EffectWindow> arrival;
     };
     [[nodiscard]] QList<PendingEviction> captureEvictions(
-        const Session &live, const Session &published) const;
+        const Session &live, const Session &published,
+        KWin::EffectWindow *arrival = nullptr) const;
     void publishEvictions(const QList<PendingEviction> &pending);
+    // §5: a pane an arrival made yield waits behind the layout as a card, and
+    // comes back to the layout when that arrival leaves it, if it still waits
+    // there and the layout has room for it.
+    struct Displacement {
+        QString outputName;
+        QPointer<KWin::EffectWindow> arrival;
+        QPointer<KWin::EffectWindow> yielded;
+    };
+    QList<Displacement> m_displaced;
+    void returnDisplacedCards(const QString &key);
     // §5: a window leaves for the display that can hold it as a card. Where
     // none can, nothing leaves and the layout keeps the combination it has.
     [[nodiscard]] bool canPlaceEvictedCard() const;

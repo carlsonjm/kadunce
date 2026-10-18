@@ -247,13 +247,15 @@ The window becomes an independent Spread card when it is:
 - Moved to another workspace
 
 It keeps no Bento position or group, and stands in the Active card's place (§3).
+One displaced by a window carried or opened in comes back to its place when
+that window leaves, if it still waits there unused.
 
 A window leaves for the display that can hold it as a card, keeping its
 restore record so release still returns it where it began. You find it in
-Spread there and may carry it back into the layout.
+Spread there.
 
-Where no display can hold a card, nothing leaves. The layout keeps its
-combination rather than drop a window that would have no owner.
+Where no display can hold a card, nothing leaves: the layout keeps its
+combination.
 
 A pane whose application stops short of its place, as a terminal keeping whole
 rows does or one slow to wake answering late, stays: it covers nothing beside

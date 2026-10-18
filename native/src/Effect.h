@@ -361,6 +361,9 @@ private:
                                            const QRectF &drawn) override;
     // §11: a display its layout's last pane left for another shows its desktop.
     void layoutLeftForOtherDisplayForDesktopStage(KWin::LogicalOutput *output) override;
+    // §5: a card a pane became for an arrival takes its place again once the
+    // arrival has left the layout.
+    void displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWin::LogicalOutput *output) override;
     // On the card display a divider is Bento's only while Bento is what the
     // display presents; the cards it hides behind the layout do not take it.
     bool beginRailFromInput(QPointF p) override {
