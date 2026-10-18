@@ -747,6 +747,9 @@ private:
     // The pane of the same display used most recently before `pane`.
     [[nodiscard]] KWin::EffectWindow *paneUsedBefore(const KWin::EffectWindow *pane) const;
     // The held card's place on the ladder of a Stack being scrubbed.
+    [[nodiscard]] double stackLean();
+    [[nodiscard]] double stackLeanNow() const;
+    [[nodiscard]] QRectF leanedIntoStack(const QRectF &rect, double lean) const;
     void drawStackLadderOutline(const KWin::RenderTarget &renderTarget,
                             const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
                             KWin::LogicalOutput *screen);
@@ -1228,6 +1231,11 @@ private:
     // carry be resting still.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
     QPointer<KWin::EffectWindow> m_carryStackOnto;
+    // How far the carried window leans into the Stack it would join, 0 to 1,
+    // easing from where it stood when it last turned toward or away.
+    QElapsedTimer m_stackLeanClock;
+    double m_stackLeanFrom = 0.0;
+    bool m_stackLeanTo = false;
     // The carried pane holds a Stack and its hold is not yet told from a drag.
     bool m_stackScrubArmed = false;
     // Held long enough to show the ladder, but not yet drawn up or aside.

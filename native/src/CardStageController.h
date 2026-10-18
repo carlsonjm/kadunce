@@ -302,7 +302,7 @@ public:
     // the gap's place or the entry under it, counted along the row without
     // the held card, or its place in its Stack; and how far the row has
     // stepped back.
-    // The outline of a held Stack card's place, and how strongly it shows:
+    // The box of a held Stack card's place, and how strongly it shows:
     // while held, and fading for a moment after it is let go.
     struct StackOutline {
         KWin::Rect rect;
