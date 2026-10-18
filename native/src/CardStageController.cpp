@@ -1038,7 +1038,7 @@ KWin::Rect CardStageController::restingPreviewTarget(
                                  : work.right() - target.x() + 32, 0);
     }
     if (m_arrivalExpanding) {
-        if (window == m_arrivalWindow) target = activeTarget(output);
+        if (window == m_arrivalWindow) target = activeTargetFor(output, window);
         else target.translate(slot * output->geometry().width() / 2, 0);
     }
     if (m_openProgress && m_presentation == CardPresentation::Spread && !m_arrivalExpanding) {
@@ -1047,7 +1047,7 @@ KWin::Rect CardStageController::restingPreviewTarget(
         const double p = spreadOpenProgress();
         const bool fromActive = window == selectedWindow();
         const QRectF to(target.x(), target.y(), target.width(), target.height());
-        QRectF from = fromActive ? QRectF(activeTarget(output)) : to;
+        QRectF from = fromActive ? QRectF(activeTargetFor(output, window)) : to;
         if (!fromActive) from.translate(slot * output->geometry().width() / 2.0, 0);
         const auto blend = [p](double a, double b) { return qRound(a + (b - a) * p); };
         return KWin::Rect(blend(from.x(), to.x()), blend(from.y(), to.y()),
@@ -1293,12 +1293,36 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
                       qRound(target.width), qRound(target.height));
 }
 
+KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,
+    const KWin::EffectWindow *window) const
+{
+    const KWin::Rect whole = activeTarget(output);
+    const auto share = m_activeWidths.constFind(window);
+    if (share == m_activeWidths.cend() || !window || !window->window()) return whole;
+    return narrowedActive(whole, *share, window->window()->minSize().width());
+}
+
+KWin::Rect CardStageController::narrowedActive(const KWin::Rect &whole, double share,
+                                               double minimumWidth)
+{
+    // Never narrower than the app allows.
+    const int width = std::min(whole.width(), std::max(qRound(whole.width() * share),
+                                                       int(std::ceil(minimumWidth))));
+    return KWin::Rect(whole.x() + (whole.width() - width) / 2, whole.y(), width, whole.height());
+}
+
+void CardStageController::setActiveWidth(const KWin::EffectWindow *window, double share)
+{
+    if (share >= 1.0 || share <= 0.0) m_activeWidths.remove(window);
+    else m_activeWidths.insert(window, share);
+}
+
 KWin::Rect CardStageController::activePlacement(
     KWin::LogicalOutput *output) const
 {
     if (!m_keyboardRoom || !m_keyboardRoom->window
         || m_keyboardRoom->window != m_activeRestore.window) {
-        return activeTarget(output);
+        return activeTargetFor(output, m_activeRestore.window);
     }
     KWin::RectF placement = m_keyboardRoom->base;
     if (m_host->inputPanelTopForCardStage(output).has_value()
@@ -3530,7 +3554,7 @@ int CardStageController::applyGutter()
         m_presentation == CardPresentation::Active ? selectedWindow() : nullptr;
     // Keys up over the Active card: the room is made from the new target.
     if (m_keyboardRoom && m_keyboardRoom->window && m_keyboardRoom->window == presented) {
-        m_keyboardRoom->base = KWin::RectF(activeTarget(tablet));
+        m_keyboardRoom->base = KWin::RectF(activeTargetFor(tablet, presented));
         refreshKeyboardRoom();
     }
     int moved = 0;
@@ -4788,7 +4812,7 @@ bool CardStageController::enterActive()
     }
 
     restoreOriginalStackingOrder();
-    const KWin::Rect target = activeTarget(tablet);
+    const KWin::Rect target = activeTargetFor(tablet, effectWindow);
     client->moveResize(KWin::RectF(target));
     // Publish Active before asking KWin to activate the client. The resulting
     // windowActivated signal is synchronous on some Plasma versions and must
@@ -5420,6 +5444,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     // may be reused by the next window, so it names no Stack from here on.
     m_paneStacks.remove(window);
     m_openedAt.remove(window);
+    m_activeWidths.remove(window);
     m_heldInPlace.remove(window);
     m_liftedInPlace.remove(window);
     for (const auto &ask : m_closeAsks) {

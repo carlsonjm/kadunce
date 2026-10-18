@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace Kadunce
@@ -32,6 +33,9 @@ struct BentoColumns {
     // leave no room open: down to one column the layout is laid out whole
     // again, and down to one pane it ends (§5).
     bool paired = false;
+    // A share of the width a wheel gave the column a card holds, oldest
+    // first. The columns with none share what is left evenly.
+    std::vector<std::pair<Handle, double>> shares;
     bool operator==(const BentoColumns &) const = default;
 };
 
@@ -65,6 +69,9 @@ void bentoColumnsKeep(BentoColumns<Handle> &layout, Keep keep)
         }
     }
     if (before > 1 && layout.columns.size() == 1) layout.alignRight = firstGone == 0;
+    std::erase_if(layout.shares, [&layout](const auto &share) {
+        return !bentoColumnsHold(layout, share.first);
+    });
 }
 
 template<class Handle>
@@ -94,6 +101,7 @@ void bentoColumnsPlace(BentoColumns<Handle> &layout, const Handle &window,
                        BentoSidePlacement choice)
 {
     bentoColumnsRemove(layout, window);
+    if (choice.connected && choice.share > 0.0) layout.shares.push_back({window, choice.share});
     const BentoColumnSlot<Handle> card{window, false};
     const int edge = bentoEdgeColumn(layout, choice.right);
     if (choice.over && edge >= 0) {
@@ -162,8 +170,45 @@ template<class Handle>
     return layout;
 }
 
-// Each card's place, in the order `handles` lists them. Columns share the width
-// evenly and a column's slots its height; a lone column takes half.
+// Each column's share of the width, left to right. A column a wheel gave a
+// share keeps it, the newest given first; the rest share what is left evenly,
+// and while that leaves a free column under a tenth, or none at all, the
+// oldest share gives way. A lone column takes its share, or half.
+template<class Handle>
+[[nodiscard]] std::vector<double> bentoColumnsWidths(const BentoColumns<Handle> &layout)
+{
+    const std::size_t count = layout.columns.size();
+    std::vector<double> given(count, 0.0);
+    std::vector<std::size_t> order; // Columns holding a share, oldest first.
+    for (const auto &[window, share] : layout.shares) {
+        for (std::size_t c = 0; c < count; ++c) {
+            const auto &column = layout.columns[c];
+            if (std::none_of(column.begin(), column.end(), [&window](const auto &slot) {
+                    return !slot.open && slot.window == window;
+                })) continue;
+            std::erase(order, c);
+            order.push_back(c);
+            given[c] = std::clamp(share, .05, .95);
+        }
+    }
+    if (count == 1) return {given[0] > 0.0 ? given[0] : 0.5};
+    for (std::size_t dropped = 0;; ++dropped) {
+        double fixed = 0.0;
+        std::size_t free = 0;
+        for (std::size_t c = 0; c < count; ++c) given[c] > 0.0 ? void(fixed += given[c]) : void(++free);
+        if (free > 0 && (1.0 - fixed) / double(free) >= .1) {
+            std::vector<double> widths(count);
+            for (std::size_t c = 0; c < count; ++c)
+                widths[c] = given[c] > 0.0 ? given[c] : (1.0 - fixed) / double(free);
+            return widths;
+        }
+        if (dropped >= order.size()) return std::vector<double>(count, 1.0 / double(count));
+        given[order[dropped]] = 0.0;
+    }
+}
+
+// Each card's place, in the order `handles` lists them. Columns share the
+// width as bentoColumnsWidths gives it, and a column's slots its height.
 template<class Handle>
 void bentoColumnsLayout(const BentoColumns<Handle> &layout, std::vector<Handle> &handles,
                         std::vector<BentoRect> &rects)
@@ -172,16 +217,17 @@ void bentoColumnsLayout(const BentoColumns<Handle> &layout, std::vector<Handle> 
     rects.clear();
     const std::size_t count = layout.columns.size();
     if (count == 0) return;
-    const double width = count == 1 ? 0.5 : 1.0 / double(count);
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    double x = count == 1 && layout.alignRight ? 1.0 - widths[0] : 0.0;
     for (std::size_t c = 0; c < count; ++c) {
         const auto &column = layout.columns[c];
-        const double x = count == 1 ? (layout.alignRight ? 0.5 : 0.0) : double(c) * width;
         const double height = 1.0 / double(std::max<std::size_t>(1, column.size()));
         for (std::size_t s = 0; s < column.size(); ++s) {
             if (column[s].open) continue;
             handles.push_back(column[s].window);
-            rects.push_back({x, double(s) * height, width, height});
+            rects.push_back({x, double(s) * height, widths[c], height});
         }
+        x += widths[c];
     }
 }
 

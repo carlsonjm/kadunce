@@ -14,6 +14,7 @@
 #include "NativeCarryRuntime.h"
 #include "PaneStackAim.h"
 #include "StackScrub.h"
+#include "WheelWidth.h"
 #include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
@@ -1255,6 +1256,15 @@ private:
     QElapsedTimer m_paneStackClock;
     QTimer m_paneStackDwell;
     QPointF m_lastCarryContact;
+    // §11, Connected: the width a wheel turned while holding the carried
+    // window at the top or a side edge sets, a share of the display; none
+    // until it turns, and forgotten when the edge changes.
+    enum class CarryWidthEdge { None, Top, Side };
+    CarryWidthEdge m_carryWidthEdge = CarryWidthEdge::None;
+    double m_carryWidth = 0.0;
+    WheelWidthKnob m_carryKnob;
+    QElapsedTimer m_carryWidthClock;
+    bool turnCarryWidth(int notches);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown

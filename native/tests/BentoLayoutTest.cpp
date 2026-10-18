@@ -6,6 +6,7 @@
 #include "BentoLayout.h"
 #include "BentoColumns.h"
 #include "BentoSidePlacement.h"
+#include "WheelWidth.h"
 #include <algorithm>
 
 #include <cmath>
@@ -686,6 +687,73 @@ int main()
             "The column left did not keep the left half");
         bentoColumnsRemove(alone, 1);
         require(alone.columns.empty(), "A column of open room outlived its last card");
+
+        // A wheel turned while holding a card at a side edge gives its column
+        // a share; the other side takes the rest, and arrivals keep it.
+        {
+            BentoSidePlacement narrow = leftBeside;
+            narrow.share = 0.25;
+            Columns linked;
+            bentoColumnsPlace(linked, 2, rightBeside);
+            bentoColumnsPlace(linked, 1, narrow);
+            require(same(*placeOf(linked, 1), {0.0, 0.0, 0.25, 1.0})
+                    && same(*placeOf(linked, 2), {0.25, 0.0, 0.75, 1.0}),
+                "A terminal narrowed to a quarter did not widen the browser beside it");
+            Columns lone;
+            bentoColumnsPlace(lone, 1, narrow);
+            require(same(*placeOf(lone, 1), {0.0, 0.0, 0.25, 1.0}),
+                "A lone card narrowed to a quarter did not stand in that quarter");
+            require(bentoColumnsFill(lone, 2) && same(*placeOf(lone, 2), {0.25, 0.0, 0.75, 1.0}),
+                "An arrival beside a narrowed card did not take the rest");
+            bentoColumnsPlace(lone, 3, leftUnder);
+            require(same(*placeOf(lone, 3), {0.0, 0.5, 0.25, 0.5}),
+                "A card under a narrowed column did not keep its width");
+            bentoColumnsPlace(lone, 1, rightBeside);
+            require(lone.shares.empty(), "A card snapped again with no wheel kept its share");
+            Columns crowded;
+            BentoSidePlacement wide = rightBeside;
+            wide.share = 0.8;
+            bentoColumnsPlace(crowded, 1, leftBeside);
+            bentoColumnsPlace(crowded, 3, wide);
+            bentoColumnsPlace(crowded, 2, narrow);
+            require(same(*placeOf(crowded, 2), {0.0, 0.0, 0.25, 1.0})
+                    && same(*placeOf(crowded, 1), {0.25, 0.0, 0.375, 1.0}),
+                "The newest share did not win over an older one that left no room");
+            bentoColumnsRemove(linked, 2);
+            require(linked.shares.size() == 1 && same(*placeOf(linked, 1), {0.0, 0.0, 0.25, 1.0}),
+                "A narrowed card left alone did not keep its width");
+            bentoColumnsRemove(linked, 1);
+            require(linked.shares.empty(), "A share outlived its card");
+        }
+
+        // Like a volume knob: turned slowly it catches at each stop and rests
+        // there a notch; cranked it passes through.
+        {
+            const auto turn = [](double from, int notches, bool crank, int times = 1) {
+                WheelWidthKnob knob{from};
+                for (int i = 0; i < times; ++i)
+                    knob.turn(notches, crank, WheelWidthLeast, WheelWidthSideMost, WheelWidthSideStops);
+                return knob.width;
+            };
+            const auto near = [](double a, double b) { return std::abs(a - b) < 1e-9; };
+            require(near(turn(0.5, -1, false), 0.5 - WheelWidthStep),
+                "A slow notch off a stop did not move one step");
+            require(near(turn(0.5, -4, false), 1.0 / 3.0), "A slow turn did not catch at a third");
+            require(near(turn(0.5, -1, false, 4), 1.0 / 3.0)
+                    && near(turn(0.5, -1, false, 5), 1.0 / 3.0)
+                    && near(turn(0.5, -1, false, 6), 1.0 / 3.0 - WheelWidthStep),
+                "Slow notches did not rest a notch at a third, then move on");
+            require(near(turn(0.5, -1, true, 4), 0.5 - 4 * WheelWidthStep), "A crank was caught at a stop");
+            require(near(turn(0.5, -1, true, 20), WheelWidthLeast), "A crank went past the narrowest width");
+            require(near(turn(0.5, 1, false, 30), WheelWidthSideMost),
+                "Turning away did not stop at the widest share");
+            WheelWidthKnob top;
+            for (int i = 0; i < 7; ++i) top.turn(-1, false, 0.4, 1.0, WheelWidthTopStops);
+            require(near(top.width, 0.75), "Seven slow notches at the top edge did not rest at three quarters");
+            WheelWidthKnob least{0.5};
+            least.turn(-1, true, 0.5, 1.0, WheelWidthTopStops);
+            require(near(least.width, 0.5), "The app's own minimum did not hold the width");
+        }
 
         // Any other shape is dealt into as many columns as rows.
         require(shape(bentoColumnsDealt<int>({1, 2, 3, 4, 5}))

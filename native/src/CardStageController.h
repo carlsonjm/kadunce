@@ -334,6 +334,16 @@ public:
     [[nodiscard]] KWin::Rect launcherGuestTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;
+    // §11, Connected: the Active card's place narrowed to the share of its
+    // width a wheel gave `window` at the top edge, kept centred.
+    [[nodiscard]] KWin::Rect activeTargetFor(KWin::LogicalOutput *output,
+                                             const KWin::EffectWindow *window) const;
+    // `whole` narrowed to `share` of its width, never below `minimumWidth`,
+    // kept centred: what activeTargetFor gives, and what a carry previews.
+    [[nodiscard]] static KWin::Rect narrowedActive(const KWin::Rect &whole, double share,
+                                                   double minimumWidth);
+    // The share a card stands at when it is Active; the whole width forgets it.
+    void setActiveWidth(const KWin::EffectWindow *window, double share);
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 
@@ -753,6 +763,7 @@ private:
     // sign-in several open at once, and any of them can be the Active card
     // when its own state arrives.
     QHash<const KWin::EffectWindow *, qint64> m_openedAt;
+    QHash<const KWin::EffectWindow *, double> m_activeWidths;
     QElapsedTimer m_openingClock;
     static constexpr qint64 OpeningStateGrace = 2000;
     QPointer<KWin::EffectWindow> m_arrivalWindow;

@@ -425,7 +425,7 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 ### Bottom edge
 
-Release the carried window to the ordinary Plasma desktop.
+Release the carried window to the Plasma desktop.
 
 On any display showing cards (§11), §2's Desktop is then shown with it; a last
 card ends the display's session, as §12's last closure does.
@@ -435,7 +435,7 @@ card ends the display's session, as §12's last closure does.
 A cancelled carry returns the window to its ownership and presentation before
 it.
 
-An edge action commits only when released in its edge zone.
+An edge action commits only when released in its zone.
 
 ## 11. Multiple displays
 
@@ -460,7 +460,7 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 | Behavior | Solo | Connected |
 | --- | --- | --- |
 | A picked card or new window | Becomes Active (§6, §8) | Joins the layout: paired with the card in use when none shows, else under §8, filling open room, else joining the shortest column or starting one, whichever keeps panes larger |
-| A side snap | Takes its half's share (§3) | Names a place: an edge's middle half beside, a full-height column; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place |
+| A side snap | Takes its half's share (§3) | Names a place: an edge's middle half beside, full height; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place, the wheel its width |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |
 | A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |

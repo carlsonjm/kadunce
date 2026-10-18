@@ -11,7 +11,8 @@ struct BentoSidePlacement {
     bool large = true;
     // CARD-LIFECYCLE.md §11, Connected: the contact names a place and never a
     // share. The upper half puts the card beside, in a column of its own; the
-    // lower half puts it under what that side holds. Shares are even.
+    // lower half puts it under what that side holds. Shares are even unless a
+    // wheel turned while holding it sets one (share, below).
     bool connected = false;
     // Whether a contact chose this side, which makes it a side snap. A pick,
     // or a window opened beside the card in use, is paired on a side Kadunce
@@ -20,6 +21,9 @@ struct BentoSidePlacement {
     // Connected only: the top quarter of a side edge puts the card on top of
     // that side, over what the side holds or over the room left open.
     bool over = false;
+    // Connected only: the share of the display's width a wheel turned while
+    // holding the card at the edge gave its column; nothing turned, none.
+    double share = 0.0;
 };
 
 // Contact chooses intent; geometry is solved separately with native minimums.
@@ -173,7 +177,8 @@ inline std::optional<std::vector<BentoRect>> bentoProportionalSideLayout(
     // Connected, a column of its own shares the width evenly with the columns
     // beside it.
     const double desired = choice.connected
-        ? 1.0 / double(std::min<std::size_t>(companions.size() + 1, 3))
+        ? (choice.share > 0.0 ? choice.share
+                              : 1.0 / double(std::min<std::size_t>(companions.size() + 1, 3)))
         : choice.large ? 2.0/3.0 : 1.0/3.0;
     std::optional<std::vector<BentoRect>> best;
     double bestDistance = 2.0;
