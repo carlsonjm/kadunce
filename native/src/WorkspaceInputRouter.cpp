@@ -77,7 +77,55 @@ WorkspaceInputRouter::WorkspaceInputRouter(WorkspaceInputTarget *target,
     });
 }
 
+namespace
+{
+// Names the display an event is answered for, for the length of its routing.
+class InputScope
+{
+public:
+    InputScope(WorkspaceInputTarget *target, const QPointF &position, InputReach reach, qint64 contact)
+        : m_target(target), m_reach(reach), m_contact(contact)
+    {
+        m_target->enterInputScope(position, reach, contact);
+    }
+    ~InputScope() { m_target->leaveInputScope(m_reach, m_contact); }
+    InputScope(const InputScope &) = delete;
+    InputScope &operator=(const InputScope &) = delete;
+
+private:
+    WorkspaceInputTarget *m_target;
+    InputReach m_reach;
+    qint64 m_contact;
+};
+
+// Pointer buttons are told apart from touch contacts, which KWin numbers from 0.
+qint64 buttonContact(quint32 button)
+{
+    return -1 - qint64(button);
+}
+}
+
 bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
+{
+    const InputScope scope(m_target, event->position, InputReach::Within, 0);
+    return routePointerMotion(event);
+}
+
+bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
+{
+    const InputScope scope(m_target, event->position,
+        event->state == KWin::PointerButtonState::Pressed ? InputReach::Press : InputReach::Release,
+        buttonContact(event->nativeButton));
+    return routePointerButton(event);
+}
+
+bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
+{
+    const InputScope scope(m_target, event->position, InputReach::Within, 0);
+    return routePointerAxis(event);
+}
+
+bool WorkspaceInputRouter::routePointerMotion(KWin::PointerMotionEvent *event)
 {
     m_target->pointerMovedForInput(event->position);
     // An open Table has the pointer: over its rows it previews, and a held
@@ -153,7 +201,7 @@ bool WorkspaceInputRouter::pointerMotion(KWin::PointerMotionEvent *event)
     return m_target->activeSideForPoint(event->position) != 0;
 }
 
-bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
+bool WorkspaceInputRouter::routePointerButton(KWin::PointerButtonEvent *event)
 {
     if (event->state == KWin::PointerButtonState::Pressed) m_target->settleChosenCardForInput();
     if (m_target->tableOpenForInput() || m_tablePointer) {
@@ -381,7 +429,7 @@ bool WorkspaceInputRouter::pointerButton(KWin::PointerButtonEvent *event)
     return true;
 }
 
-bool WorkspaceInputRouter::pointerAxis(KWin::PointerAxisEvent *event)
+bool WorkspaceInputRouter::routePointerAxis(KWin::PointerAxisEvent *event)
 {
     if (m_target->tableOpenForInput()) {
         m_tableWheel += event->deltaV120 != 0 ? event->deltaV120 / 120.0 * TableWheelStep : event->delta;
@@ -479,6 +527,7 @@ bool WorkspaceInputRouter::keepTouch(bool kept)
 
 bool WorkspaceInputRouter::touchDown(KWin::TouchDownEvent *event)
 {
+    const InputScope scope(m_target, event->pos, InputReach::Press, event->id);
     const bool kept = keepTouch(routeTouchDown(event));
     m_target->touchRoutedForInput(event->id, kept);
     return kept;
@@ -689,6 +738,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
 
 bool WorkspaceInputRouter::touchMotion(KWin::TouchMotionEvent *event)
 {
+    const InputScope scope(m_target, event->pos, InputReach::Within, event->id);
     return keepTouch(routeTouchMotion(event));
 }
 
@@ -833,6 +883,7 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
 {
     if (event->id == StaleTouchRelease::Id) return false;
+    const InputScope scope(m_target, QPointF(), InputReach::Release, event->id);
     return keepTouch(routeTouchUp(event));
 }
 
@@ -902,6 +953,12 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
 }
 
 bool WorkspaceInputRouter::touchCancel()
+{
+    const InputScope scope(m_target, QPointF(), InputReach::Cancel, 0);
+    return routeTouchCancel();
+}
+
+bool WorkspaceInputRouter::routeTouchCancel()
 {
     if (m_railTouch >= 0) {
         m_railHoldTimer.stop(); m_railReady = false;

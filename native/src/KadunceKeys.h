@@ -52,7 +52,8 @@ struct KeyContext {
     // The focused window is a pane of a display's layout, outside Spread.
     bool pane = false;
     // The Active card stands alone on a display sized Connected, where it
-    // moves as a pane does.
+    // moves as a pane does, or is a Solo display's with cards on every
+    // display, where it goes on to the display beside.
     bool lone = false;
 };
 

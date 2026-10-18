@@ -24,7 +24,8 @@ namespace Kadunce
 
 struct CardBookDisplay {
     QString name;
-    // Spread's display: its waiting cards wait for no other display.
+    // A display with a Spread of its own: its waiting cards wait for no other
+    // display. Every display holding cards has one (§11).
     bool spread = false;
     // It holds its own cards, so a card may wait for it.
     bool holdsCards = false;
@@ -36,10 +37,15 @@ struct CardBookEntry {
     quintptr window = 0;
     // The display the window stands on.
     QString screen;
-    // Held by the card stage, in Spread's row.
+    // Held by a card stage, in that display's Spread row.
     bool card = false;
+    // The display whose stage holds it as a card, and how many stages do.
+    QString cardStage;
+    int cardStages = 0;
     // The display whose layout holds it as a pane; empty when none does.
     QString paneOf;
+    // The display whose own card stage shows it; empty when none does.
+    QString stage;
     // The display a waiting card waits for; empty for Spread's display.
     QString home;
     // Every pane whose Stack lists it behind that pane.
@@ -51,29 +57,36 @@ struct CardBookEntry {
 
 struct CardBookMismatch {
     enum class Rule {
-        // A card is held by the card stage and by a layout at once.
+        // A card is held twice: by Spread's stage, a layout or a display's
+        // own stage, any two at once.
         CardAndPane,
-        // A layout holds a pane that stands on another display.
+        // A layout, or a display's own stage, shows a window that stands on
+        // another display.
         PaneOffItsDisplay,
         // A card waits for Spread's display, or one that keeps no cards. A
         // display that is gone is not one: its cards wait for it to return.
         WaitsForNoCardDisplay,
-        // A pane is also said to wait for a display.
+        // A window a display shows is also said to wait for a display.
         PaneWaits,
-        // A Stack lists a pane behind another pane. A window that is not a
-        // card yet may be listed, as one arriving is.
+        // A Stack lists a window a display shows behind another. A window
+        // that is not a card yet may be listed, as one arriving is.
         StackMemberIsPane,
-        // A Stack is kept behind a window that is no pane.
+        // A Stack is kept behind a window no display shows.
         StackBehindNoPane,
         // A card is listed behind two panes.
         InTwoStacks,
-        // A card behind a pane waits for another display than the pane's.
+        // A card behind a shown window waits for another display than the
+        // one showing it.
         StackSplitAcrossDisplays,
         // The cards of one Stack in Spread's row wait for different displays.
         RowStackSplitAcrossDisplays,
         // A Solo display holding its own cards shows more than one. One
         // keeping ordinary windows composes a layout of any size.
         SoloShowsTwo,
+        // A card is held by the stages of two displays at once.
+        CardOnTwoStages,
+        // A card stands on another display than the one whose stage holds it.
+        CardOffItsDisplay,
     };
     quintptr window = 0;
     Rule rule = Rule::CardAndPane;
@@ -85,16 +98,18 @@ struct CardBookMismatch {
 [[nodiscard]] inline QString cardBookRuleName(CardBookMismatch::Rule rule)
 {
     switch (rule) {
-    case CardBookMismatch::Rule::CardAndPane: return QStringLiteral("a card and a pane at once");
-    case CardBookMismatch::Rule::PaneOffItsDisplay: return QStringLiteral("a pane off its layout's display");
+    case CardBookMismatch::Rule::CardAndPane: return QStringLiteral("held twice at once");
+    case CardBookMismatch::Rule::PaneOffItsDisplay: return QStringLiteral("shown off the display showing it");
     case CardBookMismatch::Rule::WaitsForNoCardDisplay: return QStringLiteral("waits for a display that holds no cards");
-    case CardBookMismatch::Rule::PaneWaits: return QStringLiteral("a pane that also waits");
-    case CardBookMismatch::Rule::StackMemberIsPane: return QStringLiteral("a pane in another pane's Stack");
-    case CardBookMismatch::Rule::StackBehindNoPane: return QStringLiteral("a Stack behind a window that is no pane");
+    case CardBookMismatch::Rule::PaneWaits: return QStringLiteral("shown and also waiting");
+    case CardBookMismatch::Rule::StackMemberIsPane: return QStringLiteral("shown, in another shown window's Stack");
+    case CardBookMismatch::Rule::StackBehindNoPane: return QStringLiteral("a Stack behind a window no display shows");
     case CardBookMismatch::Rule::InTwoStacks: return QStringLiteral("in two Stacks");
     case CardBookMismatch::Rule::StackSplitAcrossDisplays: return QStringLiteral("waits apart from its Stack's pane");
     case CardBookMismatch::Rule::RowStackSplitAcrossDisplays: return QStringLiteral("waits apart from its Stack");
     case CardBookMismatch::Rule::SoloShowsTwo: return QStringLiteral("a Solo display showing two cards");
+    case CardBookMismatch::Rule::CardOnTwoStages: return QStringLiteral("a card of two displays");
+    case CardBookMismatch::Rule::CardOffItsDisplay: return QStringLiteral("a card off its display");
     }
     return {};
 }
@@ -111,15 +126,27 @@ struct CardBookMismatch {
     QHash<quintptr, const CardBookEntry *> byWindow;
     for (const auto &entry : entries) byWindow.insert(entry.window, &entry);
 
+    // The display showing a window: its layout's, or its own stage's.
+    const auto shownOn = [](const CardBookEntry &entry) {
+        return entry.paneOf.isEmpty() ? entry.stage : entry.paneOf;
+    };
     QHash<QString, int> shownPanes;
     QHash<quintptr, QSet<QString>> rowStackHomes;
     for (const auto &entry : entries) {
-        const bool pane = !entry.paneOf.isEmpty();
-        if (entry.card && pane) note(entry.window, CardBookMismatch::Rule::CardAndPane, entry.paneOf);
-        if (pane && entry.screen != entry.paneOf)
+        const QString shows = shownOn(entry);
+        const bool pane = !shows.isEmpty();
+        const int holders = int(entry.card) + int(!entry.paneOf.isEmpty()) + int(!entry.stage.isEmpty());
+        if (holders > 1) note(entry.window, CardBookMismatch::Rule::CardAndPane, shows);
+        if (entry.cardStages > 1)
+            note(entry.window, CardBookMismatch::Rule::CardOnTwoStages,
+                 QString::number(entry.cardStages) + QStringLiteral(" displays"));
+        if (!entry.cardStage.isEmpty() && entry.screen != entry.cardStage)
+            note(entry.window, CardBookMismatch::Rule::CardOffItsDisplay,
+                 entry.cardStage + QStringLiteral(" holds it on ") + entry.screen);
+        if (pane && entry.screen != shows)
             note(entry.window, CardBookMismatch::Rule::PaneOffItsDisplay,
-                 entry.paneOf + QStringLiteral(" holds it on ") + entry.screen);
-        if (pane && !entry.minimized) ++shownPanes[entry.paneOf];
+                 shows + QStringLiteral(" holds it on ") + entry.screen);
+        if (pane && !entry.minimized) ++shownPanes[shows];
         if (!entry.home.isEmpty()) {
             const auto display = byName.constFind(entry.home);
             if (display != byName.cend() && (display->spread || !display->holdsCards))
@@ -132,18 +159,19 @@ struct CardBookMismatch {
         for (const auto holder : entry.behindPanes) {
             if (pane) note(entry.window, CardBookMismatch::Rule::StackMemberIsPane, QString());
             const auto front = byWindow.constFind(holder);
-            if (front == byWindow.cend() || (*front)->paneOf.isEmpty()) {
+            const QString frontShows = front == byWindow.cend() ? QString() : shownOn(**front);
+            if (frontShows.isEmpty()) {
                 note(holder, CardBookMismatch::Rule::StackBehindNoPane, QString());
                 continue;
             }
             // Behind a pane on Spread's display a card waits for none; behind
             // one on another display, for that display.
-            const auto display = byName.constFind((*front)->paneOf);
+            const auto display = byName.constFind(frontShows);
             const QString expected = display == byName.cend() || display->spread
-                ? QString() : (*front)->paneOf;
+                ? QString() : frontShows;
             if (entry.home != expected)
                 note(entry.window, CardBookMismatch::Rule::StackSplitAcrossDisplays,
-                     QStringLiteral("waits for '%1', its pane is on %2").arg(entry.home, (*front)->paneOf));
+                     QStringLiteral("waits for '%1', its pane is on %2").arg(entry.home, frontShows));
         }
         if (entry.card && entry.stackFace) rowStackHomes[entry.stackFace].insert(entry.home);
     }

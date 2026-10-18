@@ -139,7 +139,7 @@ window and the partner keep the ownership and presentation they had.
 ### The Bento action
 
 A Bento action is a request without a carried window or a contacted edge
-(`INPUT.md` § Bento, `Meta+B`). It belongs to Spread's display with cards on
+(`INPUT.md` § Bento, `Meta+B`). It belongs to the display in use with cards on
 every display (§11), else to the largest display that cannot own cards, else
 the one that can.
 
@@ -425,8 +425,8 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 Release the carried window to the ordinary Plasma desktop.
 
-On the display that owns cards, §2's Desktop is then shown with it; a last card
-ends the display's session, as §12's last closure does.
+On any display showing cards (§11), §2's Desktop is then shown with it; a last
+card ends the display's session, as §12's last closure does.
 
 ### Cancel
 
@@ -437,21 +437,18 @@ An edge action commits only when released in its edge zone.
 
 ## 11. Multiple displays
 
-Each display, per desktop, has its own ownership session. An edge action
-reads that display's state: its Active card, Bento layout and pane cap.
+Each display, per desktop, has its own card stage: Spread, Active card,
+Stacks and at most one Bento layout. A card belongs to the display its
+window stands on. An edge action, a key or a gesture reads the display it
+happens on; a key reads an open Spread, else the focused window's display,
+else the primary (`DECISIONS.md` § A Spread on every display).
 
-Every display shows its windows as cards, and one holds Spread: your choice
-while attached, else the touchscreen's, else the largest
-(`DECISIONS.md` § One display holds Spread). It may contain:
+The primary display is your choice while attached, else the touchscreen,
+else the largest (`kaduncerc` `[Spread] Display`, kept by identity through
+renaming). Unplugged, a display's cards wait in the Spread of the display
+KWin moves them to, else the primary's, whose own cards stay.
 
-- Individual cards
-- Ordinary stacks
-- At most one Bento layout
-
-Unplugged, its cards move to the next (§3), returning with the chosen one
-(`kaduncerc` `[Spread] Display`, kept by identity through renaming).
-
-Search floats on any display; Spread takes it in once open.
+Search floats on any display; an open Spread takes it in.
 
 ### Connected
 
@@ -469,26 +466,26 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 
 ### Every display
 
-Each other display holds its own cards, kept while Spread is open; one picked, woken or called from the dock opens there. Sized Solo, it
-shows one card: one carried there is that card, Stack and all; closing or
-carrying it off brings back the one before; the gap beside it steps a Stack; a
-card let out of its Stack joins Spread's layout. It stays though its
-application stops short (§5). Sized Connected,
-it plays cards into its layout. A window opens on Spread's display; a card
-carried or paired there is its own, its pane in Spread opening the layout; one
-waiting elsewhere never pairs. Unplugged, its cards stay in Spread. Let go
-(§13), windows stay windows until one opens.
+Sized Solo, a display shows one card: one carried or sent there is that card,
+Stack and all; closing or carrying it off brings back the one before. It stays
+though its application stops short (§5). Sized Connected, it plays cards into
+its layout. A window opens as a card where KWin places it. A card moved to
+another display goes there with its Stack in one transfer, joining a live
+layout, else Active. Spreads open
+together each show their own cards. Let go (§13), windows
+stay windows until one opens.
 
-`kaduncerc` `[Spread] OtherDisplays=windows` keeps other displays as ordinary
-windows or one Bento layout, an edge snap organizing every window there
+`kaduncerc` `[Spread] OtherDisplays=windows` keeps one Spread, on the primary
+display, moving whole with it, and other displays as ordinary windows or one
+Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 On a display switched to zones (Meta+Shift+B or the tray), the zones drawn
 with Meta+T are the layout, in place of KWin's default. Each window keeps a
 zone it fits, and KWin owns the edges until release.
 
-Moving a card between displays is a transfer (`ARCHITECTURE.md` § Transfer
-transaction); a failed one changes neither.
+A transfer (`ARCHITECTURE.md` § Transfer transaction) that fails changes
+neither display.
 
 ## 12. Window closure
 

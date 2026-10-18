@@ -111,9 +111,6 @@ public:
     // far apart: every layout the host shows is laid out again. A host
     // without layouts has nothing to move.
     virtual void cardGutterChangedForCardStage() {}
-    // A card pulled out of the Stack a pane holds, with that pane. A host
-    // without panes has nothing to do.
-    virtual void cardPulledOutForCardStage(KWin::EffectWindow *, KWin::EffectWindow *) {}
     // Whether this display is sized Connected (DisplaySizing.h). A host that
     // draws no distinction answers Solo.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
@@ -122,6 +119,9 @@ public:
     [[nodiscard]] virtual bool layoutLeavesRoomForCardStage() const { return false; }
     // Whether this display holds its own cards, beside the one holding Spread.
     [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
+    // Moves a card to another display holding its own cards with its Stack,
+    // and shows it there (CARD-LIFECYCLE.md §11).
+    virtual bool moveCardToDisplayForCardStage(KWin::EffectWindow *, KWin::LogicalOutput *) { return false; }
     // The display a card is given back on when every card is let go: the one
     // it belongs to, or none to keep the display its record names.
     [[nodiscard]] virtual KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *) const { return nullptr; }
@@ -487,6 +487,18 @@ public:
     // that display's layout. Moved from Active, this display presents the card
     // used before it again.
     bool giveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *destination);
+    // Puts a window too big for the Active place back inside its top and left.
+    void keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target);
+    // The card this display presents Active is about to leave it: the card
+    // used before it is presented again, or the desktop is shown. A card not
+    // in front leaves nothing to step aside from.
+    bool stepAsideFrom(KWin::EffectWindow *card);
+    // §11, Every display: this card leaves for another display's card stage,
+    // in one step, Active or not. Its record goes with it, read before.
+    bool releaseCardToStage(KWin::EffectWindow *card);
+    // A card of this stage is presented Active at once, with no growth. With
+    // `focus` false the window the person is using keeps the keys.
+    bool presentCardActive(KWin::EffectWindow *card, bool focus);
     // The next entry into Active keeps the focus on this window, a card just
     // shown on another display, instead of taking it for the Active card.
     void focusAfterActive(KWin::EffectWindow *window) { m_focusAfterActive = window; }
@@ -542,6 +554,8 @@ public:
     // Without restore it stays where KWin has just put it.
     bool releaseCard(KWin::EffectWindow *window, bool restore = true);
     void handleActiveGeometryChanged(KWin::EffectWindow *window);
+    // Asks the Active card for its place again once its least size changes.
+    void refitAfterMinimumChanged(KWin::EffectWindow *window);
     void handleManualWindowChange(KWin::EffectWindow *window);
     // The Active card asked to fill the screen: it alone goes, returned to the
     // desktop as at the bottom edge, and the rest wait aside.
@@ -660,7 +674,7 @@ private:
     void updateKeyboardRoom(bool resting = false);
     [[nodiscard]] KWin::Window *keyboardRoomClient() const;
     [[nodiscard]] double keyboardRoomFor(const KWin::Window *client, double keyboardTop) const;
-    void askKeyboardRoom(KWin::Window *client, double height, double keyboardTop);
+    void askKeyboardRoom(KWin::Window *client, double height);
     void putBackKeyboardRoom();
     void forgetManagedRestore(KWin::EffectWindow *window);
     void retireActiveIdentity(const KWin::EffectWindow *window);
@@ -745,6 +759,8 @@ private:
     bool m_cardsElevated = false;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionWindows;
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
+    // How often a window too big for the Active place was put back inside it.
+    QHash<const KWin::EffectWindow *, int> m_liftedInPlace;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;
