@@ -16,7 +16,8 @@
 # there by Meta+Tab; one made on the small display goes whole to the monitor
 # by the keys, and there and back by KWin. Meta+B ends the monitor's layout
 # and lays it out again with that Stack whole, and Meta+Tab steps it round
-# there. Let go at the small display's bottom edge,
+# there; its front let out by Meta+Shift+Down and carried to the small display
+# is that display's Active card, rounded. Let go at the small display's bottom edge,
 # its card is an ordinary window. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -59,6 +60,7 @@ one_stack() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.wind
 together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two
     | ($two | length) == 2 and ((($two | map(.stackId) | unique) as $ids | ($ids | length) == 1 and $ids[0] != null)
         or any($two[]; (.paneStack // []) | (index($a) != null or index($b) != null)))'; }
+not_together() { ! together "$1" "$2"; }
 both_on() { context --arg a "$1" --arg b "$2" --arg d "$3" '[.applications[] | select(.windowId == $a or .windowId == $b)
     | .output == $d and (.stage == $d or .pane)] | length == 2 and all'; }
 meta_shift() { probe keyHeld "$1" 1 125 42 >/dev/null; sleep 1.6; }
@@ -361,6 +363,32 @@ for step in 1 2 3 4; do
         check "pane step $step: Meta+Tab brings the first card forward again" pane_front "$tc" "$mb"
     fi
 done
+
+# Let out of that Stack by Meta+Shift+Down, the front card is a pane of its
+# own; carried by its title bar to the small display, it is that display's
+# Active card there, in the Active place and with its corners rounded.
+probe activateWindowId "$tc" >/dev/null
+sleep .6
+meta_shift 108
+report let-out
+check 'let out: the card behind takes the pane' monitor_pane "$mb"
+check 'let out: the card let out is a pane of its own' monitor_pane "$tc"
+check 'let out: it is out of the Stack' not_together "$tc" "$mb"
+small_card=$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .cardStage.activeCardId')
+title_carry "$tc" "$small_card"
+sleep 1
+report let-out-carried
+check 'let out carry: it is the card the small display shows' keeps_own "$tc"
+check 'let out carry: it stands in the Active place' \
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e --arg c 'Tab C' 'first(.[] | select(.caption == \$c)) | .output == \"Virtual-0\" and .x == 10 and .y == 10 and .width == 1260 and .height == 700'"
+check 'let out carry: its corners are rounded' \
+    context --arg id "$tc" 'first(.applications[] | select(.windowId == $id)) | .corners | .rounded or (.available | not)'
+check 'let out carry: no window on the small display stands over another' apart Virtual-0
+# Rested on the pane it left, it joins that Stack in front again.
+title_carry "$tc" "$mb" 1.0
+sleep 1
+report let-out-back
+check 'let out back: rested on its old pane, it is that Stack front again' pane_front "$tc" "$mb"
 
 # A Stack made on the monitor, carried by its front pane's title bar to the
 # small display and let go there at once, goes there whole, and Meta+Tab

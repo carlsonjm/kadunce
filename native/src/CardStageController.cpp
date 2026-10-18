@@ -267,6 +267,11 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
     // this one's layout.
     if (KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(window); own && own != output)
         return false;
+    // A card waiting behind another, behind a pane or deeper in a Stack, is
+    // laid out only with its Stack's face, never pulled out of it as a partner.
+    if (paneHolding(window)) return false;
+    if (const auto stack = stackFrontToBack(window); !stack.isEmpty() && stack.first() != window)
+        return false;
     // A card of the layout is never a partner, and neither is a live pane.
     return !inProjectedLayout(window) && !isBentoProjectionPane(window);
 }

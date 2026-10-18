@@ -218,6 +218,9 @@ public:
     bool toggleOnOutput(const QString &outputName);
     struct GrabRail { QString output; int index; bool vertical; QRectF pill; QRectF hitArea; };
     QList<GrabRail> grabRails() const;
+    // Why the layout on `output` draws no dividers, for the workspace
+    // context; empty when nothing withholds them.
+    [[nodiscard]] QString dividersWithheld(KWin::LogicalOutput *output) const;
     bool beginRail(QPointF position);
     void updateRail(QPointF position);
     void finishRail(bool commit);

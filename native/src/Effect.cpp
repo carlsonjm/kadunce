@@ -4703,9 +4703,12 @@ void Effect::toggleBento()
     // cards, the one in use Active, so the key pairs them again. With cards
     // already held behind the layout, its panes join them.
     if (!m_cardsOnEveryDisplay || !m_cardStage->canOwnCards(target)) return;
-    QTimer::singleShot(0, this, [this, former, inUse, inFront, target = QPointer(target)] {
+    // Each pane's Stack is a Stack in the row again, whole, so the key lays
+    // out only its face.
+    onThisStageLater(0, [this, former, inUse, inFront, target = QPointer(target)] {
         if (!m_cardStage->isActive()) {
             (void)startTabletInCards(inUse);
+            m_cardStage->settlePaneStacks();
             return;
         }
         if (!target || m_desktopStage->hasSessionOnOutput(target->name())) return;
@@ -4713,6 +4716,7 @@ void Effect::toggleBento()
             if (window && !window->isDeleted() && window->screen() == target
                 && m_cardStage->liveCardIndex(window) < 0)
                 (void)m_cardStage->admitArrivalAsCard(window);
+        m_cardStage->settlePaneStacks();
         KWin::EffectWindow *front = inFront && !inFront->isDeleted()
             && m_cardStage->liveCardIndex(inFront) >= 0 ? inFront.data() : nullptr;
         KWin::EffectWindow *active = front ? front : inUse.data();
@@ -6727,6 +6731,13 @@ QString Effect::workspaceContext() const
             {QStringLiteral("pane"), m_desktopStage->managesWindow(window)},
             // The display whose card stage holds it as a card; empty when none does.
             {QStringLiteral("stage"), card ? view->display : QString()},
+            // Whether Kadunce rounds its corners, and what would keep it from it.
+            {QStringLiteral("corners"), QJsonObject{
+                {QStringLiteral("rounded"), trimsCorners(window)},
+                {QStringLiteral("available"), roundsCorners()},
+                {QStringLiteral("shadow"), window->expandedGeometry() != window->frameGeometry()},
+                {QStringLiteral("maximized"), window->window()
+                    && window->window()->maximizeMode() == KWin::MaximizeFull}}},
             // §11, Connected: the cards waiting behind a pane, front to back.
             {QStringLiteral("paneStack"), [&] {
                 QJsonArray behind;
@@ -6829,6 +6840,9 @@ QString Effect::workspaceContext() const
             {QStringLiteral("touchscreen"), output->name() == m_touchOutputName},
             {QStringLiteral("presentation"), presents},
             {QStringLiteral("shows"), shows},
+            // Why its layout draws no dividers, when it has one and draws none.
+            {QStringLiteral("dividersWithheld"), m_desktopStage->hasSessionOnOutput(output->name())
+                ? m_desktopStage->dividersWithheld(output) : QString()},
         };
         if (holdsCards) display.insert(QStringLiteral("cardStage"), own);
         displays.append(display);
@@ -9267,7 +9281,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // Where anything below is painted over the scene, and so over the
     // pointer when KWin composites it.
     QList<QRectF> overlaid;
-    if (m_destinationShader && screen && (screen != tabletOutput() || !m_cardStage->isActive())
+    // A display's dividers are drawn while it shows its layout, its cards
+    // waiting behind it, as they are taken (beginRailFromInput).
+    if (m_destinationShader && screen
+        && (screen != tabletOutput() || !m_cardStage->isActive() || m_cardStage->presentsBento())
         && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
         QList<QRectF> pills;
         for (const auto &rail : m_desktopStage->grabRails())

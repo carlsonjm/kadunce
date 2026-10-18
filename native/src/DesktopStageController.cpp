@@ -3469,6 +3469,32 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
     return rails;
 }
 
+QString DesktopStageController::dividersWithheld(KWin::LogicalOutput *output) const
+{
+    const Session *session = output ? sessionForOutput(output) : nullptr;
+    if (!session) return QStringLiteral("no layout");
+    if (m_restoring) return QStringLiteral("windows are being given back");
+    if (m_interactionWindow)
+        return QStringLiteral("%1 is being moved or resized").arg(logNameOf(m_interactionWindow));
+    if (session->applying) return QStringLiteral("the layout is being placed");
+    if (!session->zones.isEmpty()) return QStringLiteral("KWin's zones own the edges");
+    if (sessionGeometryMatches(*session, true)) return {};
+    const auto pixels = sessionPixels(*session, stageArea(output));
+    for (int index = 0; index < session->windows.size() && index < int(pixels.size()); ++index) {
+        const auto &pane = session->windows.at(index);
+        const auto &place = pixels.at(std::size_t(index));
+        if (!pane || pane->isDeleted()) return QStringLiteral("a pane closed");
+        if (pane->screen() != output || pane->isMinimized()
+            || !withinPixel(pane->frameGeometry(), place)) {
+            const QRectF frame(pane->frameGeometry());
+            return QStringLiteral("%1 stands at %2,%3 %4x%5, outside its place %6,%7 %8x%9")
+                .arg(logNameOf(pane)).arg(frame.x()).arg(frame.y()).arg(frame.width()).arg(frame.height())
+                .arg(place.x).arg(place.y).arg(place.width).arg(place.height);
+        }
+    }
+    return QStringLiteral("its panes and places differ in number");
+}
+
 bool DesktopStageController::railValid() const
 {
     if (!m_railDrag || m_restoring || m_interactionWindow
