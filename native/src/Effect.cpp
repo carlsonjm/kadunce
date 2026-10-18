@@ -10458,8 +10458,13 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                                       (target.y() - logicalRegion.y()) * viewport.scale());
         m_fanApertureSize = QSizeF(deviceTarget.size());
         m_fanApertureRadius = CardCornerRadius * viewport.scale();
+        // Tilted, its corners reach past the box it was carried in: the
+        // display, not that box, bounds them.
+        const QRectF bounds = tiltReach > 0
+            ? leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach).intersected(QRectF(m_paintingOutput->geometry()))
+            : plan->clip;
         const auto clip = deviceRegion
-            & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan->clip)))
+            & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(bounds)))
             & (tiltReach > 0 ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
                : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
