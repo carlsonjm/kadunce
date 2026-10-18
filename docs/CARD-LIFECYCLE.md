@@ -425,7 +425,7 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 ### Bottom edge
 
-Release the carried window to the ordinary Plasma desktop.
+Release the carried window to the Plasma desktop.
 
 On any display showing cards (§11), §2's Desktop is then shown with it; a last
 card ends the display's session, as §12's last closure does.
@@ -435,7 +435,7 @@ card ends the display's session, as §12's last closure does.
 A cancelled carry returns the window to its ownership and presentation before
 it.
 
-An edge action commits only when released in its edge zone.
+An edge action commits only when released in its zone.
 
 ## 11. Multiple displays
 
