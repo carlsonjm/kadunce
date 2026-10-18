@@ -4626,9 +4626,22 @@ bool Effect::pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow 
     if (!reserved) return false;
     QPointer<KWin::EffectWindow> carried = active;
     QPointer<KWin::EffectWindow> named = reserved->namedPartner();
+    // Each card's Stack waits behind the pane it becomes, as a card placed
+    // alone keeps its own (placeActiveCardAlone), so no card of it is laid
+    // out as a pane of its own after.
+    const auto behindOf = [this](KWin::EffectWindow *card) {
+        QList<KWin::EffectWindow *> behind = card ? m_cardStage->stackFrontToBack(card) : QList<KWin::EffectWindow *>{};
+        behind.removeAll(card);
+        return behind;
+    };
+    const QList<KWin::EffectWindow *> activeBehind = behindOf(active);
+    const QList<KWin::EffectWindow *> partnerBehind = behindOf(named);
     if (!m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
             [this, carried, named] { return m_cardStage->releasePairToBento(carried, named); }))
         return false;
+    if (carried && !activeBehind.isEmpty()) m_cardStage->notePaneStack(carried, activeBehind);
+    if (named && !partnerBehind.isEmpty()) m_cardStage->notePaneStack(named, partnerBehind);
+    if (!activeBehind.isEmpty() || !partnerBehind.isEmpty()) m_cardStage->settlePaneStacks();
     return true;
 }
 

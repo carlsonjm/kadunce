@@ -267,11 +267,6 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
     // this one's layout.
     if (KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(window); own && own != output)
         return false;
-    // A card waiting behind another, behind a pane or deeper in a Stack, is
-    // laid out only with its Stack's face, never pulled out of it as a partner.
-    if (paneHolding(window)) return false;
-    if (const auto stack = stackFrontToBack(window); !stack.isEmpty() && stack.first() != window)
-        return false;
     // A card of the layout is never a partner, and neither is a live pane.
     return !inProjectedLayout(window) && !isBentoProjectionPane(window);
 }
@@ -306,8 +301,11 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
     }
     // §3: the Active card was carried, so the partner is the card used just
     // before it, whichever edge was contacted.
+    // §4: a stacked card, or one waiting behind a pane, reaches Bento only
+    // with its Stack, never pulled out of it as a partner.
     if (m_usedActive == carried && m_usedBefore && m_usedBefore != carried
-        && isEligiblePartner(m_usedBefore)) {
+        && isEligiblePartner(m_usedBefore) && !paneHolding(m_usedBefore)
+        && stackFrontToBack(m_usedBefore).isEmpty()) {
         say(QStringLiteral("%1, the card used before the Active card").arg(app(m_usedBefore)));
         return m_usedBefore;
     }
@@ -331,7 +329,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
             passed.append(QStringLiteral("a Stack fronted by %1").arg(app(candidate)));
             continue;
         }
-        if (candidate && candidate != carried && isEligiblePartner(candidate)) {
+        if (candidate && candidate != carried && isEligiblePartner(candidate) && !paneHolding(candidate)) {
             say(before + QStringLiteral("%1, the nearest card to the %2 of the Active card in Spread order%3")
                 .arg(app(candidate), side,
                      passed.isEmpty() ? QString()
