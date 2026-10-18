@@ -3827,6 +3827,8 @@ void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWi
         || !m_desktopStage->hasSessionOnOutput(output->name())) return;
     const QList<KWin::EffectWindow *> stack = m_cardStage->stackFrontToBack(card);
     if (!stack.isEmpty() && stack.first() != card) return;
+    qInfo() << "Kadunce" << Revision << "takes" << logNameOf(card) << "back from stage" << m_scopedKey
+            << "holding" << m_cardStage->liveCards().size() << "cards";
     const QPointer<KWin::EffectWindow> back = card;
     if (!m_desktopStage->admitCardToLiveBento(card,
             [this, back] { return back && m_cardStage->releaseCardToLiveBento(back); }, true, false)) {
@@ -3865,6 +3867,9 @@ bool Effect::admitDisplacedPaneToTablet(KWin::EffectWindow *window, KWin::Logica
     // ownership behind it, as any arrival behind a layout does.
     std::optional<SessionScope> scope;
     if (output) scope.emplace(this, m_scopedSession, stageKeyFor(output));
+    qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "behind the layout on"
+            << (output ? output->name() : QString()) << "into stage" << m_scopedKey << "holding"
+            << m_cardStage->liveCards().size() << "cards, active" << m_cardStage->isActive();
     KWin::LogicalOutput *tablet = tabletOutput();
     const bool behindLayout = !m_cardStage->isActive() && tablet
         && m_desktopStage->hasSessionOnOutput(tablet->name()) && m_cardStage->startBehindLayout();
