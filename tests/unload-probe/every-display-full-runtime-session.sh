@@ -209,10 +209,12 @@ check 'carried back: the card waiting before still waits in Spread for the monit
 
 # Carried by its title bar to the monitor's top edge, a pane is the Active
 # card the monitor shows alone, and the pane beside it waits in Spread for it.
+journal_mark=$(wc -l <"$XDG_RUNTIME_DIR/../session.log" 2>/dev/null || echo 0)
 read -r gy gw <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-1")) | .geometry | [.y, .width] | map(floor) | @tsv')"
 read -r tx _ <<<"$(title_at "$second")"
 title_drag "$second" "$((tx + 30))" "$((gy + 200))" "$tx" "$((gy + 100))" "$tx" "$((gy + 40))" "$tx" "$((gy + 12))" "$tx" "$((gy + 2))"
 report top
+tail -n +"$((journal_mark + 1))" "$XDG_RUNTIME_DIR/../session.log" 2>/dev/null | grep -a 'Kadunce' | grep -av 'OpenGL' | sed 's/^/state journal /' | head -120
 check 'top: the pane carried there is the Active card the monitor shows' shows_on_monitor "$second"
 check 'top: it is alone there, with no layout' monitor_panes 0
 check 'top: it fills the monitor' fills_monitor "$second" "${gw:-0}"
