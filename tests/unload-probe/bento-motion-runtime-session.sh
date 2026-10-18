@@ -2,8 +2,9 @@
 # CARD-LIFECYCLE.md §5, §8 and §12 on the display that can own cards, in
 # motion. A pair's panes keep gliding to their places when a hidden card
 # closes as they go; a pane that yields to an arrival fades where it stood
-# rather than vanishing; and when the layout falls to one pane, that pane grows
-# from where it stood into the Active place rather than jumping there.
+# rather than vanishing, and comes back to its place when the arrival closes;
+# and when the layout falls to one pane, that pane grows from where it stood
+# into the Active place rather than jumping there.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -112,9 +113,18 @@ check "the yielded pane is under both panes" \
     jq -e --arg y "$yielded" --arg a "$arrival" --arg s "$survivor" \
         'map(.id) | index($y) < index($a) and index($y) < index($s)' < <(probe windowFacts)
 
-# The arrival closes and the layout falls to one pane, which becomes the
-# Active card: it grows from where it stood into the Active place.
+# The arrival closes, and the pane it pushed out comes back to its place.
 client closeCompanion "Arrival"
+sleep 1
+report returned
+check "the pane the arrival pushed out is a pane again" context --arg id "$yielded" \
+    'first(.applications[] | select(.windowId == $id)) | .hasCard | not'
+check "the layout shows the pair again" context '.desktopStage.active'
+
+# The neighbour closes and the layout falls to one pane, which becomes the
+# Active card: it grows from where it stood into the Active place.
+survivor=$main
+client closeCompanion "Neighbour"
 growth=()
 for sample in {1..30}; do
     growth+=("$(kad nativeCarryState | jq -c 'select(.dropSettling) | {dropWindow, dropStarted, dropRect, dropTarget}')")
@@ -138,4 +148,4 @@ probe contactDrop
 kill "$client_pid"; wait "$client_pid" 2>/dev/null
 
 if ((failures)); then echo "FAIL: bento motion: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: a pair glides on as a hidden card closes, a yielding pane fades, and the last pane grows into the Active place'
+echo 'PASS: a pair glides on as a hidden card closes, a yielding pane fades and comes back, and the last pane grows into the Active place'

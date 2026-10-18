@@ -783,6 +783,12 @@ public:
         SessionScope scope(m_effect, m_session, on(output));
         layouts().layoutLeftForOtherDisplayForDesktopStage(output);
     }
+    void displacedCardMayReturnForDesktopStage(KWin::EffectWindow *window,
+                                               KWin::LogicalOutput *output) override
+    {
+        SessionScope scope(m_effect, m_session, on(output));
+        layouts().displacedCardMayReturnForDesktopStage(window, output);
+    }
     // The record is the one the stage holding the window keeps.
     std::optional<NativeMoveSnapshot> activeRestoreForDesktopStage(KWin::EffectWindow *window) const override
     {
@@ -1030,6 +1036,7 @@ Effect::Effect()
         [this](KWin::EffectWindow *window) {
             m_previewSourceBounds.remove(window);
             m_previewRefs.remove(window);
+            m_drawnAs.remove(window);
             releaseHeldPicture(window);
             if (m_capturingHeld == window) m_capturingHeld = nullptr;
         });
@@ -3850,6 +3857,37 @@ void Effect::layoutLeftForOtherDisplayForDesktopStage(KWin::LogicalOutput *outpu
     m_cardStage->showDesktop();
 }
 
+void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWin::LogicalOutput *output)
+{
+    // §5: the card a pane became when an arrival took its slot comes back to
+    // the layout once that arrival leaves, as long as it still waits behind
+    // the layout as it was left there: not called forward, not asleep, not
+    // sent to another display and not behind another card. The window in use
+    // stays in use, as the arrival may have gone elsewhere with the person.
+    if (!card || card->isDeleted() || card->isMinimized() || !output || m_releasing
+        || card->screen() != output || !m_cardStage->presentsBento()
+        || m_cardStage->liveCardIndex(card) < 0 || m_cardStage->paneHolding(card)
+        || !m_desktopStage->hasSessionOnOutput(output->name())) return;
+    const QList<KWin::EffectWindow *> stack = m_cardStage->stackFrontToBack(card);
+    if (!stack.isEmpty() && stack.first() != card) return;
+    const QPointer<KWin::EffectWindow> back = card;
+    if (!m_desktopStage->admitCardToLiveBento(card,
+            [this, back] { return back && m_cardStage->releaseCardToLiveBento(back); }, true, false)) {
+        qInfo() << "Kadunce" << Revision << "kept" << logNameOf(card) << "waiting behind the layout on"
+                << output->name() << "with no room for it there";
+        return;
+    }
+    // It was lowered under the panes as a hidden card. A pane again, it stands
+    // above the cards still hidden there, or a press on it would reach one.
+    if (back && back->window()) KWin::workspace()->raiseWindow(back->window());
+    if (stack.size() > 1) m_cardStage->notePaneStack(card, stack.mid(1));
+    m_cardStage->settlePaneStacks();
+    qInfo() << "Kadunce" << Revision << "brought" << logNameOf(card) << "back to the layout on"
+            << output->name() << "with" << qMax<qsizetype>(stack.size() - 1, 0)
+            << "cards behind it, as the pane that took its place leaves";
+    Q_EMIT workspaceContextChanged();
+}
+
 void Effect::prepareOutputForDesktopStage(KWin::LogicalOutput *output)
 {
     if (output && isTabletOutput(output) && m_cardStage->isActive()) {
@@ -4266,6 +4304,14 @@ namespace {
 // The longest a resized card keeps its earlier picture, should its app be
 // slow to draw at the new size.
 constexpr int HeldPictureLimitMs = 300;
+}
+
+namespace {
+// A rectangle as the journal and workspace context write it.
+QString rectText(const QRectF &rect)
+{
+    return QStringLiteral("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
+}
 }
 
 bool Effect::holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
@@ -6825,7 +6871,12 @@ QString Effect::workspaceContext() const
             {QStringLiteral("corners"), QJsonObject{
                 {QStringLiteral("rounded"), trimsCorners(window)},
                 {QStringLiteral("available"), roundsCorners()},
-                {QStringLiteral("shadow"), window->expandedGeometry() != window->frameGeometry()},
+                {QStringLiteral("shadow"), drawsOutsideFrame(window)},
+                // How its last frame was drawn, and the sizes that decide it.
+                {QStringLiteral("drawnAs"), m_drawnAs.value(window)},
+                {QStringLiteral("frame"), rectText(window->frameGeometry())},
+                {QStringLiteral("expanded"), rectText(window->expandedGeometry())},
+                {QStringLiteral("buffer"), rectText(window->bufferGeometry())},
                 {QStringLiteral("maximized"), window->window()
                     && window->window()->maximizeMode() == KWin::MaximizeFull}}},
             // §11, Connected: the cards waiting behind a pane, front to back.
@@ -10250,6 +10301,17 @@ KWin::Rect Effect::activeTarget(KWin::LogicalOutput *output) const
     return m_cardStage->activeTarget(output);
 }
 
+bool Effect::drawsOutsideFrame(const KWin::EffectWindow *window) const
+{
+    // A fractional scale can leave what KWin draws of a window a hair past
+    // its frame with nothing there; a shadow lies a whole pixel or more out.
+    constexpr double Slack = 0.5;
+    const QRectF frame(window->frameGeometry());
+    const QRectF drawn(window->expandedGeometry());
+    return drawn.left() < frame.left() - Slack || drawn.top() < frame.top() - Slack
+        || drawn.right() > frame.right() + Slack || drawn.bottom() > frame.bottom() + Slack;
+}
+
 bool Effect::trimsCorners(KWin::EffectWindow *window) const
 {
     if (!roundsCorners()) return false;
@@ -10258,7 +10320,7 @@ bool Effect::trimsCorners(KWin::EffectWindow *window) const
     if (!(window->isNormalWindow() || window->isDialog()) || window->isFullScreen()) return false;
     // A shadow lies outside the frame, and the trim would cut it away. A
     // window that draws its own shadow draws its own corners too.
-    if (window->expandedGeometry() != window->frameGeometry()) return false;
+    if (drawsOutsideFrame(window)) return false;
     // A maximized window meets the display's edges, which stay square.
     const KWin::Window *client = window->window();
     return !(client && client->maximizeMode() == KWin::MaximizeFull);
@@ -10332,12 +10394,15 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
 {
     // The picture kept of a card is the window as it stands, drawn plainly.
     if (window == m_capturingHeld)
-        return paintResult(painted([&] { return KWin::Effect::drawWindow(
+        return paintResult(painted([&] { m_drawnAs.insert(window, QStringLiteral("kept picture taken")); return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
     if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
         // Let go once the app has drawn twice at its new size.
         if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
-        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) return paintResult(true);
+        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) {
+            m_drawnAs.insert(window, QStringLiteral("kept picture"));
+            return paintResult(true);
+        }
     }
     const bool useFanAperture = window == m_fanApertureWindow
         && m_fanApertureShader
@@ -10349,8 +10414,11 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         && m_fanApertureRadiusLocation >= 0;
 
     if (!useFanAperture) {
-        if (trimsCorners(window))
+        if (trimsCorners(window)) {
+            m_drawnAs.insert(window, QStringLiteral("trimmed"));
             return drawTrimmedWindow(renderTarget, viewport, window, mask, deviceRegion, data);
+        }
+        m_drawnAs.insert(window, QStringLiteral("plain"));
         // Redirection is otherwise ephemeral. A window Kadunce does not trim,
         // hidden deck members, and shader failure all return
         // to KWin's exact r20 direct path.
@@ -10361,6 +10429,7 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
 
+    m_drawnAs.insert(window, QStringLiteral("aperture"));
     redirectPreviewSource(window);
     setShader(window, m_fanApertureShader.get());
     KWin::ShaderManager::instance()->pushShader(
