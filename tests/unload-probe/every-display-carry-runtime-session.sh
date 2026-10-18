@@ -14,7 +14,9 @@
 # joins that pane's Stack; a monitor pane rested on the small display's card
 # joins its Stack there; a Stack carried from the monitor goes whole and steps
 # there by Meta+Tab; one made on the small display goes whole to the monitor
-# by the keys, and there and back by KWin. Let go at the small display's bottom edge,
+# by the keys, and there and back by KWin. Meta+B ends the monitor's layout
+# and lays it out again with that Stack whole, and Meta+Tab steps it round
+# there. Let go at the small display's bottom edge,
 # its card is an ordinary window. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -326,6 +328,39 @@ sleep 1.6
 report small-stack-sent-back
 check 'small stack: sent back, it comes back whole' both_on "$small_front" "$small_back" Virtual-0
 check 'small stack: one Stack again' together "$small_front" "$small_back"
+
+# Meta+B ends the monitor's layout into cards with the Stack whole in its
+# Spread, and again lays them out with the card behind still behind its pane,
+# which Meta+Tab then steps round and round.
+pane_front() { context --arg f "$1" --arg b "$2" 'first(.applications[] | select(.windowId == $f))
+    | .pane and .output == "Virtual-1" and ((.paneStack // []) | index($b) != null)'; }
+probe activateWindowId "$tc" >/dev/null
+sleep .6
+probe key 48 125 >/dev/null
+sleep 1.6
+report bento-ended
+check 'meta+b: it ends the monitor layout into cards' monitor_panes 0
+check 'meta+b: the Stack is one Stack in its Spread' one_stack "$tc" "$mb"
+probe key 48 125 >/dev/null
+sleep 1.6
+report bento-again
+check 'meta+b again: it lays the monitor out' \
+    context '[.applications[] | select(.pane and .output == "Virtual-1")] | length >= 2'
+check 'meta+b again: the card behind is no pane' \
+    context --arg m "$mb" 'first(.applications[] | select(.windowId == $m)) | .pane | not'
+check 'meta+b again: it waits behind its front pane' pane_front "$tc" "$mb"
+probe activateWindowId "$tc" >/dev/null
+sleep .6
+for step in 1 2 3 4; do
+    probe key 15 125 >/dev/null
+    sleep 1.2
+    report "pane-step-$step"
+    if (( step % 2 )); then
+        check "pane step $step: Meta+Tab brings the card behind forward" pane_front "$mb" "$tc"
+    else
+        check "pane step $step: Meta+Tab brings the first card forward again" pane_front "$tc" "$mb"
+    fi
+done
 
 # A Stack made on the monitor, carried by its front pane's title bar to the
 # small display and let go there at once, goes there whole, and Meta+Tab
