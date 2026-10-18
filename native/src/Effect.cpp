@@ -1030,6 +1030,7 @@ Effect::Effect()
         [this](KWin::EffectWindow *window) {
             m_previewSourceBounds.remove(window);
             m_previewRefs.remove(window);
+            m_drawnAs.remove(window);
             releaseHeldPicture(window);
             if (m_capturingHeld == window) m_capturingHeld = nullptr;
         });
@@ -4225,6 +4226,14 @@ namespace {
 constexpr int HeldPictureLimitMs = 300;
 }
 
+namespace {
+// A rectangle as the journal and workspace context write it.
+QString rectText(const QRectF &rect)
+{
+    return QStringLiteral("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
+}
+}
+
 bool Effect::holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
                                                  const std::function<void()> &resize)
 {
@@ -6755,7 +6764,12 @@ QString Effect::workspaceContext() const
             {QStringLiteral("corners"), QJsonObject{
                 {QStringLiteral("rounded"), trimsCorners(window)},
                 {QStringLiteral("available"), roundsCorners()},
-                {QStringLiteral("shadow"), window->expandedGeometry() != window->frameGeometry()},
+                {QStringLiteral("shadow"), drawsOutsideFrame(window)},
+                // How its last frame was drawn, and the sizes that decide it.
+                {QStringLiteral("drawnAs"), m_drawnAs.value(window)},
+                {QStringLiteral("frame"), rectText(window->frameGeometry())},
+                {QStringLiteral("expanded"), rectText(window->expandedGeometry())},
+                {QStringLiteral("buffer"), rectText(window->bufferGeometry())},
                 {QStringLiteral("maximized"), window->window()
                     && window->window()->maximizeMode() == KWin::MaximizeFull}}},
             // §11, Connected: the cards waiting behind a pane, front to back.
@@ -10155,6 +10169,17 @@ KWin::Rect Effect::activeTarget(KWin::LogicalOutput *output) const
     return m_cardStage->activeTarget(output);
 }
 
+bool Effect::drawsOutsideFrame(const KWin::EffectWindow *window) const
+{
+    // A fractional scale can leave what KWin draws of a window a hair past
+    // its frame with nothing there; a shadow lies a whole pixel or more out.
+    constexpr double Slack = 0.5;
+    const QRectF frame(window->frameGeometry());
+    const QRectF drawn(window->expandedGeometry());
+    return drawn.left() < frame.left() - Slack || drawn.top() < frame.top() - Slack
+        || drawn.right() > frame.right() + Slack || drawn.bottom() > frame.bottom() + Slack;
+}
+
 bool Effect::trimsCorners(KWin::EffectWindow *window) const
 {
     if (!roundsCorners()) return false;
@@ -10163,7 +10188,7 @@ bool Effect::trimsCorners(KWin::EffectWindow *window) const
     if (!(window->isNormalWindow() || window->isDialog()) || window->isFullScreen()) return false;
     // A shadow lies outside the frame, and the trim would cut it away. A
     // window that draws its own shadow draws its own corners too.
-    if (window->expandedGeometry() != window->frameGeometry()) return false;
+    if (drawsOutsideFrame(window)) return false;
     // A maximized window meets the display's edges, which stay square.
     const KWin::Window *client = window->window();
     return !(client && client->maximizeMode() == KWin::MaximizeFull);
@@ -10237,12 +10262,15 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
 {
     // The picture kept of a card is the window as it stands, drawn plainly.
     if (window == m_capturingHeld)
-        return paintResult(painted([&] { return KWin::Effect::drawWindow(
+        return paintResult(painted([&] { m_drawnAs.insert(window, QStringLiteral("kept picture taken")); return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
     if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
         // Let go once the app has drawn twice at its new size.
         if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
-        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) return paintResult(true);
+        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) {
+            m_drawnAs.insert(window, QStringLiteral("kept picture"));
+            return paintResult(true);
+        }
     }
     const bool useFanAperture = window == m_fanApertureWindow
         && m_fanApertureShader
@@ -10254,8 +10282,11 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         && m_fanApertureRadiusLocation >= 0;
 
     if (!useFanAperture) {
-        if (trimsCorners(window))
+        if (trimsCorners(window)) {
+            m_drawnAs.insert(window, QStringLiteral("trimmed"));
             return drawTrimmedWindow(renderTarget, viewport, window, mask, deviceRegion, data);
+        }
+        m_drawnAs.insert(window, QStringLiteral("plain"));
         // Redirection is otherwise ephemeral. A window Kadunce does not trim,
         // hidden deck members, and shader failure all return
         // to KWin's exact r20 direct path.
@@ -10266,6 +10297,7 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
 
+    m_drawnAs.insert(window, QStringLiteral("aperture"));
     redirectPreviewSource(window);
     setShader(window, m_fanApertureShader.get());
     KWin::ShaderManager::instance()->pushShader(

@@ -263,6 +263,8 @@ private:
     void adoptDirectSystemEdges();
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
+    // How each window was last drawn, for the workspace context's corners.
+    QHash<const KWin::EffectWindow *, QString> m_drawnAs;
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
     // Where each card's window is drawn this frame, inside its card: what
     // KWin is told to draw it at, kept as it is told. Notes placed on the
@@ -302,6 +304,7 @@ private:
     // Whether Kadunce cuts this window's corners to the paper tier itself
     // (ITASCA-VISUAL-LANGUAGE.md § Rounded boxes are information).
     [[nodiscard]] bool trimsCorners(KWin::EffectWindow *window) const;
+    [[nodiscard]] bool drawsOutsideFrame(const KWin::EffectWindow *window) const;
     PaintResult drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
                                   const KWin::RenderViewport &viewport,
                                   KWin::EffectWindow *window,
