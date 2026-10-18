@@ -3628,6 +3628,15 @@ bool Effect::connectedOutputForDesktopStage(
     return isCardDisplay(output) && sizingFor(output) == DisplaySizing::Connected;
 }
 
+BentoSidePlacement Effect::sideChoiceOn(const KWin::LogicalOutput *output, bool right,
+    double y, std::optional<BentoSidePlacement> previous) const
+{
+    const QRectF geometry(output->geometry());
+    if (connectedOutputForDesktopStage(output))
+        return bentoConnectedSideChoice(right, y, geometry.top(), geometry.height(), previous);
+    return bentoSideChoice(right, y, geometry.center().y(), previous);
+}
+
 bool Effect::holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *output) const
 {
     // Asked for its own display, no display is another's: each holds its
@@ -5211,11 +5220,10 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     });
     std::optional<BentoSidePlacement> side;
     if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
-        side = bentoSideChoice(*edge == CarryEdge::Right, contact.y(),
-            QRectF(target->geometry()).center().y(), previousDestination
+        side = sideChoiceOn(target, *edge == CarryEdge::Right, contact.y(), previousDestination
                 && previousDestination->destinationOutput() == target
                 ? previousDestination->sidePlacement() : std::nullopt);
-    // §11, Connected: the contact names a place, beside or under.
+    // §11, Connected: the contact names a place, over, beside or under.
     if (side) side->connected = connectedOutputForDesktopStage(target);
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
@@ -5333,7 +5341,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 : outcome == EdgeEntryOutcome::ComposeDisplayBento ? "a layout across the display"
                 : outcome == EdgeEntryOutcome::PairIntoBento ? "a Bento pair"
                 : outcome == EdgeEntryOutcome::PlaceAlone
-                    ? (side && side->large ? "the card alone, beside" : "the card alone, under")
+                    ? (side && side->large ? "the card alone, beside"
+                       : side && side->over ? "the card alone, over" : "the card alone, under")
                 : outcome == EdgeEntryOutcome::AdoptDisplay ? "cards, starting with this window"
                 : "the Active card";
             const QString line = QStringLiteral("%1 at the %2 edge would make %3%4")
@@ -6977,14 +6986,15 @@ std::optional<KWin::RectF> Effect::placementPreview(const PlacementAim &aim, QPo
     case PlacementAimKind::Left:
     case PlacementAimKind::Right: {
         const bool right = aim.kind == PlacementAimKind::Right;
-        const auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
-        // §11, Connected: the outline is the place, beside a column at that
-        // edge and under the bottom of that side.
+        const auto side = sideChoiceOn(output, right, point.y());
+        // §11, Connected: the box is the place, beside a column at that edge,
+        // over the top of that side and under its bottom.
         if (connectedOutputForDesktopStage(output)) {
             const double width = area.width() / 2.0;
-            const double top = side.large ? area.top() : area.center().y();
+            const double top = side.large || side.over ? area.top() : area.center().y();
+            const double bottom = side.over ? area.center().y() : area.bottom();
             return KWin::RectF(right ? area.right() - width : area.left(), top, width,
-                               area.bottom() - top);
+                               bottom - top);
         }
         const double width = area.width() * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
         return KWin::RectF(right ? area.right() - width : area.left(), area.top(), width, area.height());
@@ -7113,7 +7123,7 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
         if (aim.kind == PlacementAimKind::Card) return true;
         // CARD-LIFECYCLE.md §3, as the Active card carried to that edge.
         const bool right = aim.kind == PlacementAimKind::Right;
-        auto side = bentoSideChoice(right, point.y(), QRectF(output->geometry()).center().y());
+        auto side = sideChoiceOn(output, right, point.y());
         side.connected = connectedOutputForDesktopStage(output);
         QPointer<KWin::LogicalOutput> destination = output;
         QPointer<KWin::EffectWindow> placed = window;
@@ -9305,8 +9315,10 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
         m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
         const QVector3D ink = SurfaceTone::current().lineInk();
-        m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.035f));
-        m_destinationShader->setUniform("outlineOpacity", 0.65f);
+        // A destination is a filled box at the Visual sheet's hover step,
+        // with no ring, so it reads as a place over any window under it.
+        m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.13f));
+        m_destinationShader->setUniform("outlineOpacity", 0.f);
         m_destinationShader->setUniform("outlineInk", ink);
         m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
             renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);

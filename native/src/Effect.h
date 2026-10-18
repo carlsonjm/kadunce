@@ -1396,6 +1396,11 @@ private:
     [[nodiscard]] bool drawnWithCarriedCard(const KWin::EffectWindow *window) const;
     [[nodiscard]] QList<PlacementOutput> placementOutputs() const;
     [[nodiscard]] PlacementAim placementAimAt(QPointF point) const;
+    // The place a side-edge contact names on `output`: on Connected a
+    // quarter, a half and a quarter of the edge (BentoSidePlacement.h),
+    // elsewhere its upper or lower half.
+    [[nodiscard]] BentoSidePlacement sideChoiceOn(const KWin::LogicalOutput *output, bool right,
+        double y, std::optional<BentoSidePlacement> previous = std::nullopt) const;
     [[nodiscard]] std::optional<KWin::RectF> placementPreview(const PlacementAim &aim, QPointF point) const;
     bool placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QPointF point);
     bool placeCardOnDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *output,

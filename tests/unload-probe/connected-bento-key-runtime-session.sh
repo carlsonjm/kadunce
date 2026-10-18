@@ -153,7 +153,7 @@ check 'top: the two still wait in Spread' panes_are 0
 # Carried by its title bar to the left edge, it is snapped on purpose: the
 # two waiting in Spread come back, and it takes the left beside them.
 read -r lx ly <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-1")) | .geometry | [.x, .y] | map(floor) | @tsv')"
-title_drag "$browser" "$((lx + 300))" "$((ly + 300))" "$((lx + 60))" "$((ly + 300))" "$((lx + 3))" "$((ly + 300))"
+title_drag "$browser" "$((lx + 300))" "$((ly + 720))" "$((lx + 60))" "$((ly + 720))" "$((lx + 3))" "$((ly + 720))"
 report edge
 check 'edge: the two waiting in Spread come back beside it' panes_are 3
 on_left() { probe windowGeometry "$browser" | jq -e --argjson m "$(probe windowGeometry "$mail")" \

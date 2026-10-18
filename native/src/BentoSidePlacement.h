@@ -17,6 +17,9 @@ struct BentoSidePlacement {
     // or a window opened beside the card in use, is paired on a side Kadunce
     // names, and that places the card without snapping it.
     bool snaps = true;
+    // Connected only: the top quarter of a side edge puts the card on top of
+    // that side, over what the side holds or over the room left open.
+    bool over = false;
 };
 
 // Contact chooses intent; geometry is solved separately with native minimums.
@@ -25,6 +28,26 @@ inline BentoSidePlacement bentoSideChoice(bool right, double y, double midpoint,
 {
     const bool retain = previous && previous->right == right && std::abs(y - midpoint) <= 18.0;
     return {right, retain ? previous->large : y < midpoint};
+}
+
+// CARD-LIFECYCLE.md §11, Connected: a side edge reads top to bottom as a
+// quarter, a half and a quarter of the display's height: over, beside and
+// under. The half, the place asked for most, is the largest target. A
+// contact within 18 px of a boundary keeps the place it named before, so a
+// hand resting there does not flicker between two.
+inline BentoSidePlacement bentoConnectedSideChoice(bool right, double y, double top,
+    double height, std::optional<BentoSidePlacement> previous = {})
+{
+    const double upper = top + height / 4.0;
+    const double lower = top + height * 3.0 / 4.0;
+    BentoSidePlacement choice{right, y >= upper && y < lower, true};
+    choice.over = y < upper;
+    if (previous && previous->connected && previous->right == right
+        && (std::abs(y - upper) <= 18.0 || std::abs(y - lower) <= 18.0)) {
+        choice.large = previous->large;
+        choice.over = previous->over;
+    }
+    return choice;
 }
 
 // The arrangements a side snap can ask for. Proportional is the curated

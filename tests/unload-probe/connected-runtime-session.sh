@@ -340,12 +340,13 @@ check 'close: shown, not left hidden' \
     bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e --arg id '$other' 'first(.[] | select(.id == \$id)) | .hidden | not'"
 check 'close: still two panes' panes 2
 end_pass full
-# Pass three: a side snap names a place, never a size. The upper half of an
-# edge puts a card beside, a full-height column at that edge; the lower half
-# puts it under, at the bottom of the column there. Alone it leaves the rest
-# open, and the next card fills the room left. This is the product owner's
-# sequence: a terminal under on the right, a second under on the right, then
-# a browser beside on the right.
+# Pass three: a side snap names a place, never a size. The middle half of an
+# edge puts a card beside, a full-height column at that edge; its bottom
+# quarter puts it under, at the bottom of the column there, and its top
+# quarter over, at the top of it. Alone it leaves the rest open, and the next
+# card fills the room left. This is the product owner's sequence: a terminal
+# under on the right, a second under on the right, then a browser beside on
+# the right.
 "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" &
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
@@ -401,7 +402,7 @@ spread_key
 pick "$c"
 report browser-filled
 check 'fill: the browser takes the half left open' geometry "$c" '.x < 30 and .height > 1300'
-snap "$c" 'Browser' 2555 300
+snap "$c" 'Browser' 2555 720
 report beside
 check 'beside: the preview is the right column, full height' previewed '.x > 1250 and .height > 1300'
 check 'beside: it lands where the preview showed' placed_at "$c"
@@ -425,7 +426,7 @@ report fourth
 check 'fourth: the first pick tops the right column' geometry "$n" '.x > 1250 and .y < 200 and .height < 760'
 check 'fourth: a card past the open room joins that column' geometry "$m" '.x > 1250 and .y > 650 and .height < 760'
 check 'fourth: the terminals stay stacked on the left' geometry "$a" '.x < 30 and .y < 200 and .height < 760'
-snap "$m" 'Mail' 5 300
+snap "$m" 'Mail' 5 720
 report fourth-beside
 check 'fourth beside: the preview is a full-height column at the left edge' previewed '.x < 30 and .height > 1300 and .width < 900'
 check 'fourth beside: it lands where the preview showed' placed_at "$m"
@@ -435,6 +436,11 @@ report fourth-under
 check 'fourth under: the preview is the bottom of the right column' previewed '.x > 1650 and .y > 650'
 check 'fourth under: it lands where the preview showed' placed_at "$a"
 check 'fourth under: the card above it moved up' geometry "$n" '.x > 1650 and .y < 200 and .height < 760'
+snap "$n" 'Notes' 5 150
+report fourth-over
+check 'fourth over: the preview is the top of the left column' previewed '.x < 30 and .y < 200 and .height < 760'
+check 'fourth over: it lands where the preview showed' placed_at "$n"
+check 'fourth over: the card in that column moved down' geometry "$m" '.x < 30 and .y > 650 and .height < 760'
 # The card a side snap placed leaves for the top edge; Meta+S still opens
 # Spread over the layout it left.
 snap "$a" 'Term A' 1280 3
@@ -448,4 +454,4 @@ if (( failures > 0 )); then
     echo "FAIL: connected: $failures checks failed" >&2
     exit 1
 fi
-echo 'PASS: Connected plays picked cards into the layout, every pane a card of its own in Spread, a Stack fills one pane, a side snap places a card beside or under'
+echo 'PASS: Connected plays picked cards into the layout, every pane a card of its own in Spread, a Stack fills one pane, a side snap places a card over, beside or under'
