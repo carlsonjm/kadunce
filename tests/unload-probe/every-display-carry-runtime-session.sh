@@ -17,8 +17,10 @@
 # by the keys, and there and back by KWin. Meta+B ends the monitor's layout
 # and lays it out again with that Stack whole, and Meta+Tab steps it round
 # there; its front let out by Meta+Shift+Down and carried to the small display
-# is that display's Active card, rounded. Let go at the small display's bottom edge,
-# its card is an ordinary window. Every check is reported, so a failure does not hide the rest.
+# is that display's Active card, rounded. Shown full as an Active card, a Stack's
+# front let out by Meta+Shift+Down is laid out beside it on the monitor, and
+# stays the card shown on the small display. Let go at the small display's
+# bottom edge, its card is an ordinary window. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -389,6 +391,26 @@ title_carry "$tc" "$mb" 1.0
 sleep 1
 report let-out-back
 check 'let out back: rested on its old pane, it is that Stack front again' pane_front "$tc" "$mb"
+# Ended into cards by Meta+B, the monitor shows that Stack's front full, as
+# its Active card; Meta+Shift+Down lets it out of its Stack there and lays the
+# monitor out, the two side by side. Rested on the pane it left, it joins that
+# Stack in front again.
+probe activateWindowId "$tc" >/dev/null
+sleep .6
+probe key 48 125 >/dev/null
+sleep 1.6
+report active-stack
+check 'active stack: the monitor shows the Stack front full' shown_on "$tc" Virtual-1
+check 'active stack: its Stack is whole' one_stack "$tc" "$mb"
+meta_shift 108
+report active-let-out
+check 'active let out: the card let out is a pane' monitor_pane "$tc"
+check 'active let out: the card it left is a pane beside it' monitor_pane "$mb"
+check 'active let out: it is out of the Stack' not_together "$tc" "$mb"
+title_carry "$tc" "$mb" 1.0
+sleep 1
+report active-let-out-back
+check 'active let out back: rested on its old pane, it is that Stack front again' pane_front "$tc" "$mb"
 
 # A Stack made on the monitor, carried by its front pane's title bar to the
 # small display and let go there at once, goes there whole, and Meta+Tab
@@ -416,6 +438,16 @@ sleep 1.4
 report stack-stepped-back
 check 'step: again, it comes round to the front' keeps_own "$tc"
 check 'step: no window on the small display stands over another' apart Virtual-0
+# Meta+Shift+Down on the small display's Active card lets it out of its Stack
+# there: it stays the card shown, and the card behind waits in that display's
+# Spread.
+probe activateWindowId "$tc" >/dev/null
+sleep .5
+meta_shift 108
+report small-let-out
+check 'small let out: it is still the card the small display shows' keeps_own "$tc"
+check 'small let out: it is out of the Stack' not_together "$tc" "$mb"
+check 'small let out: the card it left waits in that display Spread' waits_on "$mb" Virtual-0
 
 # Carried by its title bar to the small display's bottom edge and let go
 # there, the card that display shows goes to its ordinary desktop (§10).

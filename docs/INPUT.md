@@ -48,10 +48,10 @@ are up, the bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick stroke moves the row instead. |
+| A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick one moves the row. |
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
-| Pull a Stack's card down, or `Meta+Shift+Down` on the centred one | It leaves the Stack as a card just after it; the Stack keeps its place and order. |
+| Pull a Stack's card down, or `Meta+Shift+Down` on the centred or Active one | It leaves the Stack as a card after it; the Stack keeps its place and order. |
 | Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go, it goes there, the front card showing; where it began, nothing changes. |
 
 ## Active card
@@ -95,7 +95,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+[`, `Meta+]` | The divider beside the pane moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane | Its card leaves its Stack for its own pane; else it waits in Spread. |
+| `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table

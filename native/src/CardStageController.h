@@ -372,6 +372,9 @@ public:
     // Meta+Shift+Down in Spread: the centred card leaves its Stack, or on
     // Connected a pane with none leaves the layout, as one pulled down does.
     bool pullOutSelected();
+    // The Active card leaves the Stack it fronts and stays the card shown; the
+    // Stack waits in Spread just before it.
+    bool letActiveCardOutOfStack();
     void updateLift(double travel);
     void finishLift(double velocity);
     // Input was taken away mid-stroke: the row and any lifted card go home.

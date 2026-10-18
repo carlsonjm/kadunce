@@ -736,6 +736,7 @@ private:
     void stepKeyLadder(int delta);
     void commitKeyLadder();
     void letPaneGo();
+    void letActiveCardGo();
     void moveDividerByKey(int delta);
     void keyReleased(int key);
     // The windows the arrows reach: every display's panes, and the Active card.

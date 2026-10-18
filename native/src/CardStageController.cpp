@@ -4151,6 +4151,24 @@ bool CardStageController::pullOutSelected()
     return pullOut(window, group);
 }
 
+bool CardStageController::letActiveCardOutOfStack()
+{
+    auto *window = activeCardIdentity();
+    if (!window || m_presentation != CardPresentation::Active || m_cardGrabActive
+        || m_launcherGuestActive || m_lift.phase != Lift::Phase::None) return false;
+    const int cardId = liveCardIndex(window) + 1;
+    if (m_workspace.stackSizeForId(cardId) <= 1 || !m_workspace.releaseMember(cardId)) return false;
+    // Selection stayed with the Stack, which now shows its next card.
+    (void)selectCardEntry(window);
+    syncSelectedStackingOrder();
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "let the Active card" << cardId
+            << "out of its Stack; it now stands alone at entry"
+            << m_workspace.model().entryIndexForId(cardId) + 1;
+    return true;
+}
+
 bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
 {
     const int cardId = liveCardIndex(window) + 1;

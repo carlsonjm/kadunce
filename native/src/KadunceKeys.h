@@ -35,7 +35,8 @@ enum class KeyAction {
     // the Stack of the pane used just before it.
     Deeper,
     // A pane's card leaves its Stack, or, in none, leaves the layout; in
-    // Spread, the centred card leaves its Stack as one pulled down does.
+    // Spread, the centred card leaves its Stack as one pulled down does; the
+    // Active card leaves the Stack it fronts.
     LetGo,
     DividerLeft,
     DividerRight,
@@ -55,6 +56,8 @@ struct KeyContext {
     // moves as a pane does, or is a Solo display's with cards on every
     // display, where it goes on to the display beside.
     bool lone = false;
+    // The Active card a display shows fronts a Stack.
+    bool stacked = false;
 };
 
 inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const KeyContext &context)
@@ -97,7 +100,8 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Left: return carry ? KeyAction::CarryLeft : KeyAction::None;
         case Qt::Key_Right: return carry ? KeyAction::CarryRight : KeyAction::None;
         case Qt::Key_Up: return pane ? KeyAction::Deeper : KeyAction::None;
-        case Qt::Key_Down: return pane || context.spreadShown ? KeyAction::LetGo : KeyAction::None;
+        case Qt::Key_Down: return pane || context.spreadShown || context.stacked
+            ? KeyAction::LetGo : KeyAction::None;
         default: return KeyAction::None;
         }
     }

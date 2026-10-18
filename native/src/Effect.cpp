@@ -8056,6 +8056,8 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
         && m_cardStage->activeCardIdentity()
         && (connectedForCardStage()
             || (m_cardsOnEveryDisplay && m_cardStage->activeCardIdentity() == focused));
+    context.stacked = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
+        && m_cardStage->stackFrontToBack(m_cardStage->activeCardIdentity()).size() > 1;
     // Plain keys go to an effect holding the keyboard, as Table does while open.
     context.spreadShown = context.cardsShown && !KWin::effects->hasKeyboardGrab()
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -8102,7 +8104,10 @@ void Effect::runKeyAction(KeyAction action)
         if (m_stackScrubByKeys) stepKeyLadder(-1);
         else if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
             (void)m_cardStage->pullOutSelected();
-        else letPaneGo();
+        else if (KWin::EffectWindow *focused = KWin::effects->activeWindow();
+                 focused && m_desktopStage->managesWindow(focused))
+            letPaneGo();
+        else letActiveCardGo();
         break;
     case KeyAction::DividerLeft: moveDividerByKey(-1); break;
     case KeyAction::DividerRight: moveDividerByKey(1); break;
@@ -8377,6 +8382,38 @@ void Effect::letPaneGo()
             latest = standing.data();
     }
     if (latest && KWin::effects->activeWindow() == released) KWin::effects->activateWindow(latest);
+}
+
+void Effect::letActiveCardGo()
+{
+    KWin::EffectWindow *card = m_cardStage->activeCardIdentity();
+    QList<KWin::EffectWindow *> stack = m_cardStage->stackFrontToBack(card);
+    if (!card || stack.size() < 2 || !m_cardStage->letActiveCardOutOfStack()) return;
+    stack.removeAll(card);
+    const QPointer<KWin::EffectWindow> released = card;
+    const QPointer<KWin::EffectWindow> next = stack.first();
+    qInfo() << "Kadunce" << Revision << "took the Active card" << logNameOf(card)
+            << "out of its Stack by the keys";
+    observeCardOwnership();
+    Q_EMIT workspaceContextChanged();
+    // Solo, it stays the card shown, and the Stack it left waits in Spread.
+    KWin::LogicalOutput *output = card->screen();
+    if (!output || !connectedOutputForDesktopStage(output)) return;
+    // §11, Connected: the two are laid out side by side, the rest of the
+    // Stack behind the card it left, and the layout fills as Meta+B fills it.
+    if (m_desktopStage->hasSessionOnOutput(output->name())) {
+        toggleBento();
+        return;
+    }
+    if (!next || !pairCardsIntoBento(output, released, next, BentoSidePlacement{false, true})) {
+        qInfo() << "Kadunce" << Revision << "could not lay" << logNameOf(released)
+                << "out beside the Stack it left on" << output->name();
+        return;
+    }
+    qInfo() << "Kadunce" << Revision << "laid" << logNameOf(released) << "out beside"
+            << logNameOf(next) << "on" << output->name();
+    observeCardOwnership();
+    onThisStageLater(0, [this, output = QPointer(output)] { fillLayoutWithCards(output); });
 }
 
 void Effect::moveDividerByKey(int delta)
