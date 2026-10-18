@@ -51,15 +51,22 @@ look() {
     # The pointer, out of the way of every area looked at.
     probe pointer "$((x + w / 2 + 150))" "$((y + h / 2))" >/dev/null
     sleep .5
-    python3 "$(dirname "$0")/capture-shares.py" \
-        topLeft="$x,$y,2,2" topRight="$((x + w - 2)),$y,2,2" \
-        bottomLeft="$x,$((y + h - 2)),2,2" bottomRight="$((x + w - 2)),$((y + h - 2)),2,2" \
-        middle="$((x + w / 2 - 10)),$((y + h / 2 - 10)),20,20" -- 334455 c03a3a 2980b9 30a050
+    echo "state frame of $1: $x,$y ${w}x$h" >&2
+    # A photograph KWin cancels, as it can one asked for mid-frame, is asked
+    # for again.
+    for _ in 1 2 3; do
+        python3 "$(dirname "$0")/capture-shares.py" \
+            topLeft="$x,$y,2,2" topRight="$((x + w - 2)),$y,2,2" \
+            bottomLeft="$x,$((y + h - 2)),2,2" bottomRight="$((x + w - 2)),$((y + h - 2)),2,2" \
+            middle="$((x + w / 2 - 10)),$((y + h / 2 - 10)),20,20" -- 334455 c03a3a 2980b9 30a050 && return 0
+        sleep .4
+    done
+    return 1
 }
 rounded() {
     local view
     view=$(look "$1")
-    echo "corners of $2: $view"
+    echo "state corners of $2: $view"
     jq -e --arg c "$3" '.middle[$c] > 0.9
         and ([.topLeft, .topRight, .bottomLeft, .bottomRight] | all(.["334455"] > 0.7))' <<<"$view" >/dev/null
 }
