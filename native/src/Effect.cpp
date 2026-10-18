@@ -1384,6 +1384,8 @@ Effect::Effect()
     m_carryRuntime->wheeled = [this](int notches) {
         if (!m_stackScrub.active() && m_carryWidthEdge != CarryWidthEdge::None)
             return turnCarryWidth(notches);
+        if (!m_stackScrub.active() && !m_stackScrubArmed && holdCarryWidth())
+            return turnCarryWidth(notches);
         if (!m_stackScrub.active()) {
             if (!m_stackScrubArmed || !m_stackScrubPane) return false;
             beginStackScrub(stackScrubHand(KWin::effects->cursorPos().y()));
@@ -1402,6 +1404,14 @@ Effect::Effect()
         m_nativeCarryFromBento = false;
         takeCarriedDialogs(m_nativeCarry);
         KWin::effects->setElevatedWindow(m_nativeCarry, true);
+    };
+    // §11, Connected: held anywhere on a monitor, a turned wheel carries the
+    // window, as the top edge would.
+    m_carryRuntime->wheelEntryRequested = [this](const PreparedCarrySource &, QPointF p) {
+        for (auto *output : KWin::effects->screens())
+            if (QRectF(output->geometry()).contains(p))
+                return connectedOutputForDesktopStage(output) && !carryEdgeAt(output, p) && !isPanelPoint(p);
+        return false;
     };
     m_carryRuntime->entryRequested = [this](const PreparedCarrySource &source, QPointF p) {
         for (auto *output : KWin::effects->screens()) {
@@ -3675,7 +3685,11 @@ bool Effect::turnCarryWidth(int notches)
     // The first notch starts from the width the box shows, taken to the
     // stop it stands at.
     if (m_carryWidth <= 0.0) {
-        double width = top ? 1.0 : m_carryPreview ? m_carryPreview->width() / span : 0.5;
+        // Held away from the edges, or with no box shown, it starts from the
+        // width the window was picked up at.
+        const bool fromPickup = !m_carryPreview || (top && m_carryWidthHeld);
+        double width = std::clamp((fromPickup ? m_carryPickup.width() : m_carryPreview->width()) / span, 0.0, 1.0);
+        if (!top && !m_carryPreview) width = 0.5;
         for (const double stop : stops)
             if (std::abs(stop - width) < .03) width = stop;
         m_carryKnob = WheelWidthKnob{width};
@@ -3689,6 +3703,42 @@ bool Effect::turnCarryWidth(int notches)
     updateNativeCarryDestination(m_lastCarryContact);
     KWin::effects->addRepaintFull();
     return true;
+}
+
+bool Effect::holdCarryWidth()
+{
+    // Pointer carries only: a touchscreen has no wheel.
+    if (!m_carriedWindow) return false;
+    const QPointF contact = KWin::effects->cursorPos();
+    for (auto *o : KWin::effects->screens()) {
+        if (!QRectF(o->geometry()).contains(contact)) continue;
+        if (!connectedOutputForDesktopStage(o) || carryEdgeAt(o, contact) || isPanelPoint(contact)) return false;
+        m_carryWidthHeld = true;
+        m_carryWidthEdge = CarryWidthEdge::Top;
+        m_carryWidth = 0.0;
+        m_carryWidthClock.invalidate();
+        m_lastCarryContact = contact;
+        return true;
+    }
+    return false;
+}
+
+void Effect::fitArrivalWidth(QPointer<KWin::EffectWindow> window, QString output, double width, int tries)
+{
+    if (!window || window->isDeleted() || m_releasing) return;
+    KWin::LogicalOutput *there = screenNamed(output);
+    if (!there) return;
+    {
+        SessionScope scope(this, m_scopedSession, stageKeyFor(there));
+        if (m_cardStage->activeCardIdentity() == window) {
+            m_cardStage->setActiveWidth(window, width);
+            if (m_cardStage->refitActive(window)) return;
+        }
+    }
+    if (tries > 0)
+        QTimer::singleShot(100, this, [this, window, output, width, tries] {
+            fitArrivalWidth(window, output, width, tries - 1);
+        });
 }
 
 BentoSidePlacement Effect::sideChoiceOn(const KWin::LogicalOutput *output, bool right,
@@ -5123,6 +5173,7 @@ void Effect::endNativeCarryPresentation()
     syncNotesPause();
     m_stackLeanTo = false; m_stackLeanFrom = 0.0; m_stackLeanClock.invalidate();
     m_carryWidthEdge = CarryWidthEdge::None; m_carryWidth = 0.0; m_carryWidthClock.invalidate();
+    m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     endStackScrub();
@@ -5330,7 +5381,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     const bool desktopWindow = handoff.source()->isDesktopWindow();
     const bool local = target->name() == handoff.source()->origin().output;
     const bool tablet = isTabletOutput(target);
-    const auto edge = carryEdgeAt(target, contact);
+    auto edge = carryEdgeAt(target, contact);
+    // §11, Connected: a wheel turned while held away from the edges asks what
+    // the top edge would, until the hand reaches a side or leaves the
+    // monitors; on another display it is asked of the arrival below.
+    if (m_carryWidthHeld && (!connectedOutputForDesktopStage(target) || (edge && *edge != CarryEdge::Top)))
+        m_carryWidthHeld = false;
+    if (m_carryWidthHeld && !edge && local) edge = CarryEdge::Top;
     // Every return below that leaves an edge without a drop names why, and a
     // drop that is previewed but then refused at release cannot go there.
     std::optional<GestureRefusal> refusal;
@@ -5348,8 +5405,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     if (side) side->connected = connectedOutputForDesktopStage(target);
     // A wheel turned at the edge names its width too, until the hand moves to
     // another edge. Only a monitor's top and side edges take it.
-    const CarryWidthEdge widthEdge = !edge || !connectedOutputForDesktopStage(target)
-        ? CarryWidthEdge::None
+    const CarryWidthEdge widthEdge = !connectedOutputForDesktopStage(target) ? CarryWidthEdge::None
+        : m_carryWidthHeld ? CarryWidthEdge::Top
+        : !edge ? CarryWidthEdge::None
         : *edge == CarryEdge::Top ? CarryWidthEdge::Top
         : side ? CarryWidthEdge::Side : CarryWidthEdge::None;
     if (widthEdge != m_carryWidthEdge) {
@@ -5590,7 +5648,34 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             refusal = GestureRefusal::Unplaced;
             if (!destination) return;
             const bool adopt = outcome == EdgeEntryOutcome::AdoptDisplay;
-            if (!adopt && m_cardStage->liveCardIndex(carried) >= 0) return;
+            if (!adopt && m_cardStage->liveCardIndex(carried) >= 0) {
+                // §11, Connected: the Active card itself, with the wheel
+                // turned, stays the Active card at its new width.
+                const double width = m_carryWidthEdge == CarryWidthEdge::Top ? m_carryWidth : 0.0;
+                if (width <= 0.0 || m_cardStage->activeCardIdentity() != carried
+                    || !m_carriedWindow->window()) return;
+                refusal.reset();
+                const KWin::Rect whole = m_cardStage->activeTarget(target);
+                m_carryPreview = KWin::RectF(width < 1.0
+                    ? CardStageController::narrowedActive(whole, width, m_carriedWindow->window()->minSize().width())
+                    : whole);
+                previewDrop(*destination,
+                    [this, carried, output] {
+                        return carried && !carried->isDeleted() && output && carried->screen() == output
+                            && m_cardStage->activeCardIdentity() == carried;
+                    },
+                    [this, carried, output, bento, width](const PreparedCarrySource &source) {
+                        if (!(bento ? m_desktopStage->nativeCarrySourceValid(source) : cardCarrySourceValid(source)))
+                            return false;
+                        // Read before the card moves, which retires the carry's pose.
+                        const QRectF drawn = carriedPose();
+                        m_cardStage->setActiveWidth(carried, width);
+                        if (!m_cardStage->refitActive(carried)) return false;
+                        glideIntoActive(carried, output, drawn);
+                        return true;
+                    });
+                return;
+            }
             // The destination is Card Stage: the carried window lands as the
             // Active card, and adoption makes every other eligible window a
             // nonselected individual card.
@@ -5741,16 +5826,28 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             existing ? std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}} : std::nullopt, edge);
     if (!destination) return;
     if (stackAfter) m_carryPreview = KWin::RectF(stackAfter->frameGeometry());
+    // §11, Connected: carried in from another display with the wheel turned,
+    // it stands as this display's Active card at that width, kept centred.
+    const double arrivalWidth = !local && !existing && !stackAfter && !stayNative && isCardDisplay(target)
+        && m_carryWidthHeld && m_carryWidth > 0.0 && m_carriedWindow->window() ? m_carryWidth : 0.0;
+    if (arrivalWidth > 0.0) {
+        const KWin::Rect whole = m_cardStage->activeTarget(target);
+        m_carryPreview = KWin::RectF(arrivalWidth < 1.0
+            ? CardStageController::narrowedActive(whole, arrivalWidth, m_carriedWindow->window()->minSize().width())
+            : whole);
+    }
     previewDrop(*destination,
         [this, reserved, stackAfter, aimed = bool(stackAfter)] {
             return m_desktopStage->cardDropValid(*reserved) && (!aimed || (stackAfter && !stackAfter->isDeleted()));
         },
         [this, reserved, bento, output, geometry, stackAfter, targetRect = stackAfter ? std::optional<KWin::RectF>{} : m_carryPreview,
-         arrival = m_carriedWindow](const PreparedCarrySource &source) {
+         arrival = m_carriedWindow, arrivalWidth](const PreparedCarrySource &source) {
+            if (arrivalWidth > 0.0 && arrival) m_cardStage->setActiveWidth(arrival, arrivalWidth);
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
                 : carrySourceStage(source) && carrySourceStage(source)->transferNativeCarryToDesktop(source, output, geometry);
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
+            if (committed && arrivalWidth > 0.0 && output) fitArrivalWidth(arrival, output->name(), arrivalWidth, 10);
             if (committed && stackAfter) {
                 QPointer<KWin::EffectWindow> carried = arrival;
                 QPointer<KWin::EffectWindow> onto = stackAfter;

@@ -439,8 +439,8 @@ An edge action commits only when released in its zone.
 ## 11. Multiple displays
 
 Each display, per desktop, has its own card stage: Spread, Active card,
-Stacks and at most one Bento layout. A card belongs to the display its
-window stands on. An edge action, a key or a gesture reads the display it
+Stacks and at most one Bento layout. A card belongs to its window's
+display. An edge action, a key or a gesture reads the display it
 happens on; a key reads an open Spread, else the focused window's display,
 else the primary (`DECISIONS.md` § A Spread on every display).
 

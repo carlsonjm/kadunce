@@ -12,7 +12,7 @@ result does to a window.
 | Table | Pull down from the top edge | `Meta+W` |
 | Plasma desktop | Switch Cards off in the tray | `Meta+Esc` |
 
-Kadunce's keys sit on `Meta` and work only while it runs. `Ctrl` stays with
+Kadunce's keys sit on `Meta`. `Ctrl` stays with
 applications, `Alt+Tab` with KDE; `Meta+G` and `Meta+E` open Tettegouche's
 Apps and Files.
 
@@ -96,7 +96,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
 | `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
-| Wheel while dragging at the top or side edge | The box narrows or widens, pausing at common widths when slow; the other side takes the rest. |
+| Wheel while dragging on a monitor | At a side its column narrows or widens; elsewhere it becomes the Active card that wide, centred. Slow turns pause at common widths. |
 | Click a picture in room a side snap left | It fills that room; `Escape` declines. |
 
 ## Table

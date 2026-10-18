@@ -483,6 +483,16 @@ snap "$a" 'Term A' 1280 3 7
 report snapped-left
 check 'knob top: the preview is three quarters wide, centred' previewed '.width > 1800 and .width < 1960 and (.x + .width / 2 - 1280 | fabs) < 4'
 check 'knob top: the Active card stands where the preview showed' placed_at "$a"
+# Held anywhere on the monitor, away from its edges, the wheel narrows the
+# Active card in place from the width it stands at: two slow notches toward
+# you from three quarters catch at two thirds. The hand barely moves, so the
+# cards are kept as for a title bar held still.
+read -r hx hy <<<"$(probe windowGeometry "$a" | jq -r '[.x+.width/2+6,.y+.height/2+6] | map(floor) | @tsv')"
+snap "$a" 'Term A' "$hx" "$hy" 2
+report knob-held
+check 'knob held: the preview is two thirds wide, centred' previewed '.width > 1660 and .width < 1750 and (.x + .width / 2 - 1280 | fabs) < 4'
+check 'knob held: the Active card stands where the preview showed' placed_at "$a"
+check 'knob held: it is still the Active card' context --arg id "$a" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 spread_key
 report snapped-left-spread
 check 'side gone: Meta+S opens Spread over the layout the snapped card left' presents cardLine

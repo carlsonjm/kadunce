@@ -228,7 +228,7 @@ they preserve these relationships and respect the user's animation settings.
 - Where a carried window or a placed application would land shows as a
   filled box at the hover fill, 13% of the text colour, with the paper
   corner and no ring, so it reads as a place over any window under it.
-- A wheel turned while a window is held at the top or a side edge changes
+- A wheel turned while a window is held on a monitor changes
   that filled box's width notch by notch, with no motion of its own, so the
   box always shows exactly where the window will land.
 - Room a side snap leaves open takes a 7% fill and offers the display's other

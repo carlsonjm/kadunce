@@ -34,6 +34,9 @@ public:
     // A wheel turned while a carry is held, in notches away from the person;
     // true takes the turn.
     std::function<bool(int)> wheeled;
+    // Whether a wheel turned during an ordinary move, not yet carried, takes
+    // it into a carry where it is.
+    std::function<bool(const PreparedCarrySource &, QPointF)> wheelEntryRequested;
     // Whether a touch is still down, as seen ahead of this filter.
     std::function<bool(qint64)> touchStillDown;
     NativeCarryRuntime() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
@@ -115,7 +118,13 @@ public:
         return dispatch(route.motion(owner), owner, e->position);
     }
     bool pointerAxis(KWin::PointerAxisEvent *e) override {
-        if (!route.active() || !wheeled || e->orientation != Qt::Vertical) return false;
+        if (!wheeled || e->orientation != Qt::Vertical) return false;
+        // CARD-LIFECYCLE.md §11, Connected: a window held anywhere on a
+        // monitor takes the wheel as the top edge does.
+        if (!route.active() && m_deferred && m_deferred->ticket.owner().kind == CarryDevice::Pointer
+            && wheelEntryRequested)
+            (void)tryEntry(m_deferred->lastPosition, wheelEntryRequested);
+        if (!route.active()) return false;
         // A wheel turned away from the person scrolls up, which KWin gives
         // as less than nothing.
         m_wheel -= e->deltaV120 != 0 ? e->deltaV120 / 120.0 : e->delta / 15.0;
@@ -171,7 +180,8 @@ private:
     std::optional<Deferred> m_deferred;
     bool m_escapeTaken = false;
     double m_wheel = 0.0;
-    bool tryEntry(QPointF position) {
+    bool tryEntry(QPointF position) { return tryEntry(position, entryRequested); }
+    bool tryEntry(QPointF position, const std::function<bool(const PreparedCarrySource &, QPointF)> &requested) {
         if (!m_deferred) return false;
         const auto waiting = *m_deferred;
         const auto *source = handoff.pendingSource();
@@ -179,7 +189,7 @@ private:
             || !observer.contacts().resolve(waiting.ticket) || !source) {
             clearDeferred(); return false;
         }
-        if (!entryRequested || !entryRequested(*source, position)) {
+        if (!requested || !requested(*source, position)) {
             m_deferred->lastPosition = position;
             return false;
         }

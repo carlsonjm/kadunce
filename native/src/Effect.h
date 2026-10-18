@@ -1266,7 +1266,14 @@ private:
     double m_carryWidth = 0.0;
     WheelWidthKnob m_carryKnob;
     QElapsedTimer m_carryWidthClock;
+    // The wheel was turned while held away from a monitor's edges, which
+    // then asks what the top edge would until the hand reaches a side.
+    bool m_carryWidthHeld = false;
     bool turnCarryWidth(int notches);
+    bool holdCarryWidth();
+    // A card carried in from another display with the wheel turned, given
+    // its width once it stands as that display's Active card.
+    void fitArrivalWidth(QPointer<KWin::EffectWindow> window, QString output, double width, int tries);
     // §11, Connected: the room a side snap left open offers the display's
     // other cards (RoomOffer.h), until one is picked or the offer is left.
     struct RoomOfferShown {

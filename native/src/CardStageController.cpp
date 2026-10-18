@@ -1317,6 +1317,21 @@ void CardStageController::setActiveWidth(const KWin::EffectWindow *window, doubl
     else m_activeWidths.insert(window, share);
 }
 
+bool CardStageController::refitActive(KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_presentation != CardPresentation::Active || !m_activeRestore.valid
+        || !window || window->isDeleted() || m_activeRestore.window != window || !window->window()
+        || !tablet) return false;
+    {
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        window->window()->moveResize(KWin::RectF(activePlacement(tablet)));
+    }
+    m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 KWin::Rect CardStageController::activePlacement(
     KWin::LogicalOutput *output) const
 {
