@@ -6,9 +6,11 @@
 # waits in its own Spread. Picked there, the waiting card takes the place of
 # the pane used longest ago, which waits in its turn; the pane used last
 # stays, and the small display keeps its own card. Done twice, with the other
-# pane used longest ago the second time. Then a pane carried by its title bar
-# to the monitor's top edge is the card it shows alone. Every check is
-# reported, so a failure does not hide the rest.
+# pane used longest ago the second time. The small display's card carried by
+# its title bar onto the full layout takes the place of the pane used longest
+# ago, and carried back it leaves that pane its place again. Then a pane
+# carried by its title bar to the monitor's top edge is the card it shows
+# alone. Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -23,9 +25,10 @@ context() { kad workspaceContext | jq -e "$@"; }
 idOf() { probe windowIdByCaption "$1"; }
 report() {
     echo "state $1 $(kad workspaceContext | jq -c '{p: .cardStage.presentation, sel: .cardStage.selectedCardId,
-        apps: [.applications[] | {title, output, hasCard, pane, stage, focused, minimized}],
+        apps: [.applications[] | {title, output, hasCard, pane, stage, paneStack, stackId, stackSize, focused, minimized}],
         stages: [.displayContext.displays[] | {name, shows, s: .cardStage.presentation, a: .cardStage.activeCardId}]}')"
     echo "facts $1 $(probe windowFacts | jq -c 'map(select(.class == "unload-client") | {caption, output, x, y, width, height, hidden, minimized})')"
+    echo "state stages-$1 $(kad outputStageState | tr '\n' ' ')"
 }
 spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
 open_selected() { probe key 28 0 >/dev/null; sleep 1.4; }
@@ -75,6 +78,27 @@ title_drag() {
     probe contactButton false >/dev/null
     sleep 1.6
 }
+# Carried by its title bar and let go at once at a point, sooner than a rest
+# on a window that stacks.
+carry_to() {
+    local id=$1 tx=$2 ty=$3 x y
+    read -r x y <<<"$(title_at "$id")"
+    [[ -n ${y:-} ]] || { echo "no title bar on $id"; return 0; }
+    probe pointer "$x" "$y" >/dev/null
+    sleep .1
+    probe contactButton true >/dev/null
+    sleep .15
+    probe contactMotion "$((x + 40))" "$((y + 20))" >/dev/null
+    sleep .1
+    probe contactMotion "$(((x + tx) / 2))" "$(((y + ty) / 2))" >/dev/null
+    sleep .1
+    probe contactMotion "$tx" "$ty" >/dev/null
+    sleep .2
+    echo "state carry-$id $(kad nativeCarryState | jq -c '{carrying, destination, destinationRect, stackOnto}')"
+    probe contactButton false >/dev/null
+    sleep 1.6
+}
+middle_of() { probe windowGeometry "$1" | jq -r '[.x + .width / 2, .y + .height / 2] | map(floor) | @tsv'; }
 fills_monitor() { probe windowFacts | jq -e --arg id "$1" --argjson w "$2" 'first(.[] | select(.id == $id)) | .width >= $w * 0.9'; }
 waiting_for_monitor() { kad workspaceContext | jq -r 'first(.applications[] | select(.hasCard and .stage == "Virtual-1" and (.pane | not) and (.minimized | not))) | .windowId'; }
 # The monitor shows its own Active card at first, as every display does;
@@ -156,6 +180,34 @@ check 'again: the pane used last stays' monitor_pane "$waiting"
 check 'again: the pane used longest ago waits in Spread for the monitor' waits_for_monitor "$first"
 check 'again: the monitor shows two' monitor_panes 2
 check 'again: the small display went back to its own card' keeps_own "$tab"
+
+# The small display's card, carried by its title bar onto the full layout,
+# takes the place of the pane used longest ago, which waits behind the layout.
+probe activateWindowId "$second" >/dev/null
+sleep .6
+probe activateWindowId "$waiting" >/dev/null
+sleep .6
+probe activateWindowId "$tab" >/dev/null
+sleep .6
+read -r mx my <<<"$(middle_of "$waiting")"
+carry_to "$tab" "${mx:-0}" "${my:-0}"
+report carried-in
+check 'carried in: the card carried is a monitor pane' monitor_pane "$tab"
+check 'carried in: the pane used last stays' monitor_pane "$waiting"
+check 'carried in: the pane used longest ago waits in Spread for the monitor' waits_for_monitor "$second"
+check 'carried in: the monitor shows two' monitor_panes 2
+
+# Carried back, it leaves the pane it pushed out its place again.
+read -r sx sy <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .geometry | [.x + .width / 2, .y + .height / 2] | map(floor) | @tsv')"
+carry_to "$tab" "${sx:-0}" "${sy:-0}"
+report carried-back
+check 'carried back: the small display shows it as its own card' keeps_own "$tab"
+check 'carried back: the pane it pushed out is a monitor pane again' monitor_pane "$second"
+check 'carried back: the other pane stays' monitor_pane "$waiting"
+check 'carried back: the monitor shows two' monitor_panes 2
+check 'carried back: the card waiting before still waits in Spread for the monitor' waits_for_monitor "$first"
+check 'carried back: the pane that came back stands above the cards hidden behind the layout' \
+    jq -e --arg back "$second" --arg hidden "$first" 'map(.id) | index($back) > index($hidden)' < <(probe windowFacts)
 
 # Carried by its title bar to the monitor's top edge, a pane is the Active
 # card the monitor shows alone, and the pane beside it waits in Spread for it.

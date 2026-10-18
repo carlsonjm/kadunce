@@ -344,7 +344,7 @@ bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *
         }
     }
     m_applicationGuard.invalidate();
-    const auto pending = captureEvictions(live, candidate);
+    const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
@@ -459,7 +459,7 @@ bool DesktopStageController::admitCardWindow(
     QList<QPointer<KWin::EffectWindow>> unshowable;
     if (!reflowSession(candidate, window, true, true, &unshowable)
         || !unshowable.isEmpty()) return false;
-    const auto pending = captureEvictions(live, candidate);
+    const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
@@ -576,7 +576,7 @@ std::optional<int> DesktopStageController::paneCap(const KWin::LogicalOutput *ou
 }
 
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
-    const std::function<bool()> &commitSource, bool growOnly)
+    const std::function<bool()> &commitSource, bool growOnly, bool takesFocus)
 {
     // Why a card was refused a pane, for the journal.
     const auto refuse = [window](const char *why) {
@@ -626,9 +626,9 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     // plan above is the acceptance; card ownership gives the window up here,
     // and only a published plan follows, so no window is ever named by both.
     if (!commitSource()) return refuse("its card was kept");
-    const auto pending = captureEvictions(live, candidate);
+    const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    if (applySession(*session, takesFocus)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
@@ -1259,7 +1259,7 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         candidate = prepareCardAdmission(window, output, geometry, restore, side,
                                          nullptr, &unadopted);
         if (!candidate) return false;
-        if (existing) pending = captureEvictions(live, *candidate);
+        if (existing) pending = captureEvictions(live, *candidate, window);
     }
     // Existing Bento takes priority. Its rejection must never become a native
     // desktop fallback. Neither source nor destination is mutated during solve.
@@ -2126,7 +2126,7 @@ void DesktopStageController::minimizeParked(const QString &key)
 }
 
 QList<DesktopStageController::PendingEviction> DesktopStageController::captureEvictions(
-    const Session &live, const Session &published) const
+    const Session &live, const Session &published, KWin::EffectWindow *arrival) const
 {
     QList<PendingEviction> pending;
     for (const auto &saved : live.snapshots) {
@@ -2137,7 +2137,7 @@ QList<DesktopStageController::PendingEviction> DesktopStageController::captureEv
             {saved.window->window(), outputForKey(saved.outputName), saved.geometry,
              saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
              saved.quickTileMode, saved.fullScreen, saved.minimized},
-            live.outputName, saved});
+            live.outputName, saved, arrival});
     }
     return pending;
 }
@@ -2165,7 +2165,41 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
                        << logNameOf(window);
         } else if (auto *output = outputForKey(eviction.sourceKey)) {
             m_host->paneYieldedForDesktopStage(window, output, drawn);
+            // A pane pushed out in its turn no longer stands where it was
+            // taken in, so what it pushed out waits for nothing it does.
+            m_displaced.removeIf([&window](const auto &held) {
+                return held.yielded == window || held.arrival == window;
+            });
+            if (eviction.arrival && eviction.arrival != window)
+                m_displaced.append({eviction.sourceKey, eviction.arrival, window});
         }
+    }
+}
+
+void DesktopStageController::returnDisplacedCards(const QString &key)
+{
+    if (m_restoring || m_interactionWindow || m_railDrag || m_displaced.isEmpty()) return;
+    const auto session = m_sessions.constFind(key);
+    if (session != m_sessions.cend() && session->applying) return;
+    // A record outlives neither its layout nor its card, nor a card that is a
+    // pane again; one whose arrival still stands in the layout waits.
+    QList<Displacement> due;
+    m_displaced.removeIf([&](const Displacement &held) {
+        if (held.outputName != key) return false;
+        if (session == m_sessions.cend() || !held.yielded || held.yielded->isDeleted()
+            || session->windows.contains(held.yielded)) return true;
+        if (held.arrival && !held.arrival->isDeleted() && session->windows.contains(held.arrival))
+            return false;
+        due.append(held);
+        return true;
+    });
+    for (const auto &held : std::as_const(due)) {
+        // Taking a card in reenters this controller, so the layout is found
+        // again each time.
+        KWin::LogicalOutput *output = outputForKey(key);
+        if (!output || !m_sessions.contains(key)) return;
+        if (held.yielded && !held.yielded->isDeleted())
+            m_host->displacedCardMayReturnForDesktopStage(held.yielded, output);
     }
 }
 
@@ -2267,6 +2301,10 @@ bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
 void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
 {
     if (m_restoring || m_interactionWindow || m_railDrag) return;
+    // Every departure from a layout asks here whether it ends, so it is also
+    // where a card the departing pane pushed out comes back, before a layout
+    // that would fall to one pane without it is ended.
+    returnDisplacedCards(key);
     const auto session = m_sessions.constFind(key);
     if (session == m_sessions.cend() || session->applying
         || !layoutEndsIntoCards(session.value())) return;
@@ -2337,6 +2375,7 @@ bool DesktopStageController::yieldPaneToSpread(KWin::EffectWindow *window)
     KWin::LogicalOutput *output = outputForKey(sourceKey);
     if (sourceKey.isEmpty() || !output || !m_host->holdsOwnCardsForDesktopStage(output)
         || !evictToTablet(sourceKey, window, {}, EvictedAs::HomedCard)) return false;
+    returnDisplacedCards(sourceKey);
     auto shortened = m_sessions.find(sourceKey);
     if (shortened != m_sessions.end() && applySession(shortened.value(), false))
         scheduleSettle();
@@ -2623,6 +2662,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
     });
     QScopedValueRollback<bool> restoring(m_restoring, true);
     m_applicationGuard.invalidate();
+    m_displaced.removeIf([&key](const auto &held) { return held.outputName == key; });
     const auto it = m_sessions.find(key);
     if (it == m_sessions.end()) {
         return;
@@ -3069,7 +3109,7 @@ bool DesktopStageController::handoffWindowToOutput(
             if (!shortenToShowable(shortened, snapshot, side, window)) return false;
             transfer = prepareBentoSessionTransfer(m_sessions.value(sourceKey),
                 shortened, QPointer<KWin::EffectWindow>(window), snapshot, planner);
-            if (transfer) pending = captureEvictions(live, transfer->destination);
+            if (transfer) pending = captureEvictions(live, transfer->destination, window);
         } else {
             Session empty;
             empty.outputName = destinationKey;
