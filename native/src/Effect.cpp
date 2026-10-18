@@ -1365,6 +1365,8 @@ Effect::Effect()
     };
     m_carryRuntime->letGo = [this] { m_stackScrubLetGo = m_stackScrub.active(); };
     m_carryRuntime->wheeled = [this](int notches) {
+        if (!m_stackScrub.active() && m_carryWidthEdge != CarryWidthEdge::None)
+            return turnCarryWidth(notches);
         if (!m_stackScrub.active()) {
             if (!m_stackScrubArmed || !m_stackScrubPane) return false;
             beginStackScrub(stackScrubHand(KWin::effects->cursorPos().y()));
@@ -3628,6 +3630,38 @@ bool Effect::connectedOutputForDesktopStage(
     return isCardDisplay(output) && sizingFor(output) == DisplaySizing::Connected;
 }
 
+bool Effect::turnCarryWidth(int notches)
+{
+    // A part of a notch still belongs to the carry.
+    if (notches == 0 || !m_carriedWindow || !m_carriedWindow->window()) return true;
+    KWin::LogicalOutput *target = nullptr;
+    for (auto *o : KWin::effects->screens())
+        if (QRectF(o->geometry()).contains(m_lastCarryContact)) { target = o; break; }
+    if (!target) return true;
+    const bool top = m_carryWidthEdge == CarryWidthEdge::Top;
+    const double span = workAreaForCardStage(target).width();
+    if (span <= 0.0) return true;
+    const std::span<const double> stops = top ? std::span<const double>(WheelWidthTopStops)
+                                              : std::span<const double>(WheelWidthSideStops);
+    // The first notch starts from the width the box shows, taken to the
+    // stop it stands at.
+    if (m_carryWidth <= 0.0) {
+        double width = top ? 1.0 : m_carryPreview ? m_carryPreview->width() / span : 0.5;
+        for (const double stop : stops)
+            if (std::abs(stop - width) < .03) width = stop;
+        m_carryKnob = WheelWidthKnob{width};
+    }
+    const double least = std::max(WheelWidthLeast,
+        m_carriedWindow->window()->minSize().width() / span);
+    const bool crank = m_carryWidthClock.isValid() && m_carryWidthClock.elapsed() < WheelWidthCrankMs;
+    m_carryWidthClock.restart();
+    m_carryKnob.turn(notches, crank, least, top ? 1.0 : WheelWidthSideMost, stops);
+    m_carryWidth = m_carryKnob.width;
+    updateNativeCarryDestination(m_lastCarryContact);
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 BentoSidePlacement Effect::sideChoiceOn(const KWin::LogicalOutput *output, bool right,
     double y, std::optional<BentoSidePlacement> previous) const
 {
@@ -5020,6 +5054,7 @@ void Effect::endNativeCarryPresentation()
     m_carriedWindow.clear(); m_carryDestination.reset(); m_carryPreview.reset();
     syncNotesPause();
     m_stackLeanTo = false; m_stackLeanFrom = 0.0; m_stackLeanClock.invalidate();
+    m_carryWidthEdge = CarryWidthEdge::None; m_carryWidth = 0.0; m_carryWidthClock.invalidate();
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
     endStackScrub();
@@ -5117,6 +5152,7 @@ QString Effect::nativeCarryState() const
         {QStringLiteral("stackOnto"), m_carryStackOnto ? windowIdentity(m_carryStackOnto) : QString()},
         // How far the carried window leans into that Stack, 0 to 1.
         {QStringLiteral("stackLean"), m_carryStackOnto ? stackLeanNow() : 0.0},
+        {QStringLiteral("carryWidth"), m_carryWidth},
         // §11, Connected: the place a scrubbed face would go in at, and the
         // cards its ladder shows, front first.
         {QStringLiteral("scrubPlace"), m_stackScrub.active() ? m_stackScrub.place : -1},
@@ -5228,6 +5264,18 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 ? previousDestination->sidePlacement() : std::nullopt);
     // §11, Connected: the contact names a place, over, beside or under.
     if (side) side->connected = connectedOutputForDesktopStage(target);
+    // A wheel turned at the edge names its width too, until the hand moves to
+    // another edge. Only a monitor's top and side edges take it.
+    const CarryWidthEdge widthEdge = !edge || !connectedOutputForDesktopStage(target)
+        ? CarryWidthEdge::None
+        : *edge == CarryEdge::Top ? CarryWidthEdge::Top
+        : side ? CarryWidthEdge::Side : CarryWidthEdge::None;
+    if (widthEdge != m_carryWidthEdge) {
+        m_carryWidthEdge = widthEdge;
+        m_carryWidth = 0.0;
+        m_carryWidthClock.invalidate();
+    }
+    if (side && widthEdge == CarryWidthEdge::Side && m_carryWidth > 0.0) side->share = m_carryWidth;
     // Only an already-owned Bento carry may traverse the dock to the physical
     // bottom edge. This does not change panel hit testing for ordinary input.
     const QRectF area = nativeLandingAreaForOutput(target);
@@ -5465,7 +5513,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             // Active card, and adoption makes every other eligible window a
             // nonselected individual card.
             m_carryCardEntryOutput = target;
-            m_carryPreview = KWin::RectF(m_cardStage->activeTarget(target));
+            // §11, Connected: narrowed by the wheel, kept centred.
+            const double width = m_carryWidthEdge == CarryWidthEdge::Top ? m_carryWidth : 0.0;
+            const KWin::Rect whole = m_cardStage->activeTarget(target);
+            m_carryPreview = KWin::RectF(width > 0.0 && width < 1.0 && m_carriedWindow->window()
+                ? CardStageController::narrowedActive(whole, width,
+                      m_carriedWindow->window()->minSize().width())
+                : whole);
             previewDrop(*destination,
                 [this, carried, output, adopt] {
                     const bool valid = carried && !carried->isDeleted() && output
@@ -5484,13 +5538,15 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     }
                     return valid;
                 },
-                [this, carried, output, adopt, bento, extractingPane](const PreparedCarrySource &source) {
+                [this, carried, output, adopt, bento, extractingPane, width](const PreparedCarrySource &source) {
                     const auto sourceValid = [this, &source, bento] {
                         return bento ? m_desktopStage->nativeCarrySourceValid(source)
                                      : cardCarrySourceValid(source);
                     };
                     // Read before commit, which can retire the carry's pose.
                     const QRectF drawn = carriedPose();
+                    // Let go with no wheel turned, it stands at the whole width.
+                    m_cardStage->setActiveWidth(carried, width > 0.0 ? width : 1.0);
                     if (adopt) {
                         if (!m_cardStage->adoptDisplayWithActive(carried, sourceValid)) return false;
                         glideIntoActive(carried, output, drawn);

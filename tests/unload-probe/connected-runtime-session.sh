@@ -360,9 +360,10 @@ sleep 1.2
 probe activateWindowId "$a" >/dev/null
 sleep .8
 # Carries a window by a press inside it and lets it go at x y, keeping the
-# place the carry previewed.
+# place the carry previewed; held there, the wheel turned `notches` one at a
+# time, slowly: toward the person for more than nothing, away for less.
 snap() {
-    local id=$1 title=$2 x y
+    local id=$1 title=$2 notches=${5:-0} x y i
     read -r x y <<<"$(probe windowGeometry "$id" | jq -r '[.x+.width/2,.y+.height/2] | map(floor) | @tsv')"
     # Focus goes to the window carried, not the client's own.
     probe activateWindowId "$id" >/dev/null
@@ -373,6 +374,7 @@ snap() {
     sleep .12
     probe contactMotion "$3" "$4" >/dev/null
     sleep .3
+    for (( i = 0; i < ${notches#-}; ++i )); do probe wheel $(( notches < 0 ? -1 : 1 )) >/dev/null; sleep .2; done
     kad nativeCarryState | jq -c '.destinationRect // empty' >"$XDG_RUNTIME_DIR/snap-preview"
     probe contactButton false >/dev/null
     sleep 1
@@ -441,10 +443,21 @@ report fourth-over
 check 'fourth over: the preview is the top of the left column' previewed '.x < 30 and .y < 200 and .height < 760'
 check 'fourth over: it lands where the preview showed' placed_at "$n"
 check 'fourth over: the card in that column moved down' geometry "$m" '.x < 30 and .y > 650 and .height < 760'
-# The card a side snap placed leaves for the top edge; Meta+S still opens
-# Spread over the layout it left.
-snap "$a" 'Term A' 1280 3
+# Held at a side edge, the wheel sets the column's width like a knob: from
+# its even quarter, three slow notches away from you pass a third's worth and
+# catch at it, and the three columns beside it share the rest.
+snap "$m" 'Mail' 5 720 -3
+report knob-side
+check 'knob side: the preview is a third of the display at the left edge' previewed '.x < 30 and .width > 790 and .width < 870'
+check 'knob side: it lands where the preview showed' placed_at "$m"
+check 'knob side: the columns beside it narrow to share the rest' geometry "$n" '.x > 820 and .x < 900 and .width > 520 and .width < 600'
+# The card a side snap placed leaves for the top edge, seven slow notches
+# narrowing it to three quarters, centred; Meta+S still opens Spread over the
+# layout it left.
+snap "$a" 'Term A' 1280 3 7
 report snapped-left
+check 'knob top: the preview is three quarters wide, centred' previewed '.width > 1800 and .width < 1960 and (.x + .width / 2 - 1280 | fabs) < 4'
+check 'knob top: the Active card stands where the preview showed' placed_at "$a"
 spread_key
 report snapped-left-spread
 check 'side gone: Meta+S opens Spread over the layout the snapped card left' presents cardLine
