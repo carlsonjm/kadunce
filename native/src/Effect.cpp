@@ -9250,6 +9250,13 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     // Its trimmed corners show what is under them, so that must be drawn.
     if (trimsCorners(window)) data.setTranslucent();
+    // A card a display holds but does not show, such as one waiting behind
+    // the Active card or a layout in its place, is left undrawn, so it must
+    // not hide what is under it either: that is what those corners show.
+    if (m_cardStage->isActive() && window != m_nativeCarry && isCardWindow(window)
+        && !m_desktopStage->managesWindow(window)
+        && m_cardStage->presentation() != CardPresentation::Desktop
+        && m_cardStage->paintSlot(window) == 99) data.setTranslucent();
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::Spread

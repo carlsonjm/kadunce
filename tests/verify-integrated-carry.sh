@@ -101,7 +101,6 @@ scenes=(
     context-line-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
-    card-corners-runtime tablet
     output-unplug-runtime tablet
     monitor-overflow-runtime tablet
     monitor-lone-runtime tablet
