@@ -4,6 +4,7 @@
 // (docs/TETTEGOUCHE-CONTEXT.md). The guest's place in the row is the card
 // stage's; this file holds who the guest is, what it may ask, and when it goes.
 #include "Effect.h"
+#include "CallerTrust.h"
 #include "EffectShared.h"
 #include "GuestCaller.h"
 #include "LaunchIdentity.h"
@@ -14,14 +15,21 @@
 #include <effect/effectwindow.h>
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusError>
+#include <QDBusReply>
 #include <QDBusMessage>
 #include <QDBusServiceWatcher>
 #include <QDebug>
+#include <QDir>
 #include <QEasingCurve>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QTimer>
+
+#include <limits.h>
+#include <unistd.h>
 
 namespace Kadunce
 {
@@ -193,6 +201,40 @@ bool Effect::callerIsGuest() const
 {
     const bool fromBus = calledFromDBus();
     return guestMayAct(fromBus, fromBus ? message().service() : QString(), m_launcherGuestOwner);
+}
+
+bool Effect::callerMayDrive() const
+{
+    if (!calledFromDBus()) return true;
+    // A private compositor's scenes drive Kadunce with bus tools; KWin's own
+    // screenshot interface is opened to them the same way.
+    static const bool unchecked = qEnvironmentVariableIntValue("KADUNCE_NO_CALLER_CHECKS") == 1;
+    if (unchecked) return true;
+    const QString caller = message().service();
+    auto verdict = m_callerVerdicts.constFind(caller);
+    if (verdict == m_callerVerdicts.cend()) {
+        QString program;
+        const QDBusReply<uint> pid = connection().interface()->servicePid(caller);
+        if (pid.isValid()) {
+            char target[PATH_MAX];
+            const QByteArray link = QByteArrayLiteral("/proc/") + QByteArray::number(pid.value())
+                + QByteArrayLiteral("/exe");
+            const ssize_t length = ::readlink(link.constData(), target, sizeof(target) - 1);
+            if (length > 0) program = QString::fromLocal8Bit(target, length);
+        }
+        const bool may = programMayDrive(program, QDir::homePath());
+        if (!may) {
+            qInfo() << "Kadunce refuses to be driven by"
+                    << (program.isEmpty() ? QStringLiteral("an unknown program") : program);
+        }
+        if (m_callerVerdicts.size() > 256) m_callerVerdicts.clear();
+        verdict = m_callerVerdicts.insert(caller, may);
+    }
+    if (!verdict.value()) {
+        sendErrorReply(QDBusError::AccessDenied,
+            QStringLiteral("Only the suite's own programs may drive Kadunce"));
+    }
+    return verdict.value();
 }
 
 void Effect::updateLauncherGuest(double horizontalDelta)

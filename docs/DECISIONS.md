@@ -514,6 +514,11 @@ effect test can stand in for it. It must be reachable on every build that is
 tested or shipped, though not on screen at every moment: it
 leaves with the dock while the dock steps aside for the keys.
 
+### Only suite programs drive Kadunce
+
+Rejected (`TETTEGOUCHE-CONTEXT.md` § Who may call): any caller, letting
+anything steal focus; a token anything reads.
+
 ### A frozen identity needs a guard that watches both directions
 
 `tests/verify-source.sh` rejects retired vocabulary and names the two layer-3
@@ -531,14 +536,13 @@ persists and the desktop keeps working. Decided: the plugin ships as a package
 from a project pacman repository, built per KWin release in CI, so a corrected
 plugin arrives through ordinary system updates. Rejected: the guided repair as
 the consumer path, which needs a full C++, Qt, KDE Frameworks and KWin toolchain
-on every installation. It is built with the consumer bundle (Block 10); on
-development machines the guided repair is adequate.
+on every installation.
 
 ## Across the suite
 
 ### Table is required and uses virtual desktops
 
-Table ships in 1.0, and every virtual desktop keeps
+Every virtual desktop keeps
 its own cards and layouts (`TABLE.md`). Rejected: KDE's per-display desktop
 switching, under which a window moved between displays changes desktop.
 
@@ -549,20 +553,22 @@ picks which, so any window is one stroke away (`INPUT.md` § Table). Rejected:
 surfaces of small Spreads, a reskinned Overview, a list with submenus, and a
 diagonal hand-off from the edge.
 
-### One display holds Spread
+### A Spread on every display
 
-Every window is a card on every display, each display sized by its own size,
-and one display holds Spread, so there is never a second ring of cards
-(`CARD-LIFECYCLE.md` §11): the one you choose while attached, else the one a
-touchscreen drives, else the largest. Kadunce finds the touched display as KWin
-places the touchscreen, never by name; of two touchscreens, the built-in wins. When the Spread
-display goes away, its cards move to the next one, and back when it returns.
-Spread never takes what another display shows. A card picked in Spread opens on the display it lives on, and a Stack placed on
-a touchscreen display steps with its bottom swipe while another display holds
-Spread. Rejected: cards only on the Spread display, which left other displays
-plain; a Spread per display; cards only on a touched display; and a
-helper for one device deciding it. `[Spread] OtherDisplays=windows` keeps the
-plain-window rule as the one-step way back.
+Every window is a card on every display, and each display has its own Spread, Active card and Stacks
+(`CARD-LIFECYCLE.md` §11, decided 17 October 2026). A card belongs to the
+display its window stands on, so no card waits on a display it is not shown
+on, and each context line reads its own display. A card moved across takes
+its Stack in one step. The
+primary display is the one you choose while attached, else the one a
+touchscreen drives, else the largest; Kadunce finds the touched display as KWin
+places the touchscreen, never by name; of two, the built-in. It takes
+the cards of a display that goes away and answers the keys when no window is
+in use. Rejected: one Spread holding every display's cards, which re-homed
+cards as it moved and blurred whose line said what; cards only on a
+touched display; one device's helper deciding it. `[Spread]
+OtherDisplays=windows` keeps one Spread and the plain-window rule as the
+one-step way back.
 
 ### A big display plays cards into its layout
 

@@ -81,6 +81,12 @@ int main() {
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier, lone) == KeyAction::Previous
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None,
           "The lone card did not move by the keys");
+    // The Active card in front of a Stack lets go of it by Shift+Down.
+    const KeyContext stacked{true, false, false, false, false, true};
+    check(keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::LetGo
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::None,
+          "Meta+Shift+Down did not let the Active card go from its Stack");
     // Off a pane, Meta+Shift's arrows and the brackets stay KDE's, but for
     // Shift+Down in Spread, which lets the centred card go from its Stack.
     for (const auto &context : {desktop, active, spread}) {

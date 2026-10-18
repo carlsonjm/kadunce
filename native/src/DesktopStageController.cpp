@@ -206,12 +206,16 @@ std::vector<BentoOwnershipView> DesktopStageController::ownershipView() const
 QStringList DesktopStageController::outputStageState() const
 {
     QStringList state;
+    // "tablet" names the display in use, as the workspace context does. Each
+    // display holding its own cards is the tablet to its own layout, so
+    // asking each in turn would name every one of them.
+    const KWin::LogicalOutput *inUse = m_host->tabletOutputForDesktopStage();
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         const Session *session = sessionForOutput(output);
         const KWin::Rect geometry = output->geometry();
         state.append(QStringLiteral("%1|%2|%3,%4 %5x%6|%7")
             .arg(output->name(),
-                 m_host->isTabletOutputForDesktopStage(output)
+                 inUse && output == inUse
                      ? QStringLiteral("tablet")
                      : QStringLiteral("external"))
             .arg(geometry.x()).arg(geometry.y())
@@ -574,19 +578,26 @@ std::optional<int> DesktopStageController::paneCap(const KWin::LogicalOutput *ou
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     const std::function<bool()> &commitSource, bool growOnly)
 {
+    // Why a card was refused a pane, for the journal.
+    const auto refuse = [window](const char *why) {
+        qInfo() << "Kadunce" << Revision << "refused"
+                << (window ? window->caption() : QString()) << "a pane:" << why;
+        return false;
+    };
     if (m_restoring || !commitSource || !window || window->isDeleted()
         || !window->window() || window->isUserMove() || window->isUserResize()
-        || m_interactionWindow || m_railDrag) return false;
+        || m_interactionWindow || m_railDrag) return refuse("busy");
     Session *session = sessionForOutput(window->screen());
-    if (!session || session->applying) return false;
+    if (!session || session->applying) return refuse(session ? "applying" : "no layout there");
     for (const auto &existing : std::as_const(session->snapshots))
-        if (existing.window == window) return session->windows.contains(window);
+        if (existing.window == window)
+            return session->windows.contains(window) || refuse("a stale record of it");
     // makeSnapshot reads the record card ownership is still holding, so the
     // card keeps the geometry it had before any of this and release returns it
     // there. §5 decides which pane yields on a value copy; nothing leaves and
     // no ownership moves until the whole plan is proved.
     const RestoreSnapshot snapshot = makeSnapshot(window);
-    if (!snapshot.valid) return false;
+    if (!snapshot.valid) return refuse("no record");
     const Session live = *session;
     // §8: grow first. A layout with room takes the arrival beside everything it
     // already shows, and an empty remainder is what says so.
@@ -606,15 +617,15 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
         const auto slot = slotForArrival(live, window);
         candidate = live;
         if (slot) {
-            if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
+            if (!takeSlotAtCap(candidate, *slot, snapshot)) return refuse("no slot at the cap");
         } else if (!autoFillYielding(candidate, snapshot)) {
-            return false;
+            return refuse("no room");
         }
     }
     // OwnershipHandoff: destination acceptance precedes source removal. The
     // plan above is the acceptance; card ownership gives the window up here,
     // and only a published plan follows, so no window is ever named by both.
-    if (!commitSource()) return false;
+    if (!commitSource()) return refuse("its card was kept");
     const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
@@ -954,7 +965,7 @@ bool DesktopStageController::transferNativeCarryToDesktop(
             && drop.intent == CardDropIntent::OpenSpace
             && source.origin().output != outputKey(drop.output)) {
             bool committed = false;
-            m_host->admitTransferredWindowToTablet(drop.window, [&] {
+            m_host->admitTransferredWindowToTablet(drop.window, drop.output, [&] {
                 if (committed || !nativeCarrySourceValid(source) || !cardDropValid(validation)) return false;
                 committed = true;
                 return true;
@@ -1302,7 +1313,7 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
                 parkWindow(key, resident);
                 continue;
             }
-            m_host->admitTransferredWindowToTablet(resident, [] { return true; });
+            m_host->admitTransferredWindowToTablet(resident, outputForKey(key), [] { return true; });
         }
     } else {
         if (!applyNativePlacement(client.data(), target.data(), geometry, valid)) return true;
@@ -1333,6 +1344,15 @@ bool DesktopStageController::managesWindow(KWin::EffectWindow *window) const
         if (session.windows.contains(window)) return true;
     }
     return false;
+}
+
+QString DesktopStageController::outputHoldingPane(const KWin::EffectWindow *window) const
+{
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        for (const auto &pane : it.value().windows)
+            if (pane && pane.data() == window) return it.key();
+    }
+    return {};
 }
 
 bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,
@@ -1621,7 +1641,8 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
         // ownership the size Kadunce gave it rather than the one it began on.
         const auto saved = cardRestores.constFind(window.data());
         bool adopted = false;
-        m_host->admitTransferredWindowToTablet(window, [&] { adopted = true; return true; },
+        m_host->admitTransferredWindowToTablet(window, outputForKey(session.outputName),
+            [&] { adopted = true; return true; },
             saved == cardRestores.cend() ? nullptr : &saved.value());
         if (!adopted) {
             qInfo() << "Kadunce" << Revision
@@ -2021,11 +2042,12 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
             saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
     }
     const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
+        KWin::LogicalOutput *from = outputForKey(sourceKey);
         if (destination == EvictedAs::HomedCard)
-            return m_host->admitDisplacedPaneToTablet(departing, commit, &*sleepingRecord);
+            return m_host->admitDisplacedPaneToTablet(departing, from, commit, &*sleepingRecord);
         return destination == EvictedAs::SleepingCard
-            ? m_host->admitSleepingPaneToTablet(departing, commit, &*sleepingRecord)
-            : m_host->admitTransferredWindowToTablet(departing, commit);
+            ? m_host->admitSleepingPaneToTablet(departing, from, commit, &*sleepingRecord)
+            : m_host->admitTransferredWindowToTablet(departing, from, commit);
     };
     const bool accepted = carrySourceHeld && admit(window, [&] {
         if (committed || !m_applicationGuard.accepts(token) || m_restoring
@@ -2132,8 +2154,8 @@ void DesktopStageController::publishEvictions(const QList<PendingEviction> &pend
         // §5 makes this a nonselected card, never the Active one: the display
         // is still presenting the panes this window just left.
         const QRectF drawn = m_host->bentoPresentationRect(window);
-        if (!m_host->admitDisplacedPaneToTablet(window, [] { return true; },
-                &eviction.record)) {
+        if (!m_host->admitDisplacedPaneToTablet(window, outputForKey(eviction.sourceKey),
+                [] { return true; }, &eviction.record)) {
             qWarning() << "Kadunce" << Revision
                        << "could not give a window the layout cannot show to card ownership:"
                        << logNameOf(window);
@@ -3002,6 +3024,8 @@ bool DesktopStageController::handoffWindowToOutput(
         || (detach && outputKey(destination) != sourceKey)) {
         return false;
     }
+    // A display that keeps no layout takes no pane; its host places the window.
+    if (!detach && !m_host->allowsDesktopStageOnOutput(destination)) return false;
 
     KWin::RectF destinationGeometry = requestedGeometry;
     if (!destination->geometry().intersects(destinationGeometry.toRect())) {
@@ -3076,7 +3100,8 @@ bool DesktopStageController::handoffWindowToOutput(
         bool publishedPlan = false;
         const auto handOver = qScopeGuard([&] { if (publishedPlan) publishEvictions(pending); });
         m_sessions[destinationKey] = transfer->destination;
-        if (transfer->source.snapshots.isEmpty()) m_sessions.remove(sourceKey);
+        const bool emptied = transfer->source.snapshots.isEmpty();
+        if (emptied) m_sessions.remove(sourceKey);
         else m_sessions[sourceKey] = transfer->source;
         publishedPlan = true;
         // Re-fetch after every native application; it can emit lifecycle signals.
@@ -3093,9 +3118,11 @@ bool DesktopStageController::handoffWindowToOutput(
                 parkWindow(destinationKey, resident);
                 continue;
             }
-            m_host->admitTransferredWindowToTablet(resident, [] { return true; });
+            m_host->admitTransferredWindowToTablet(resident, outputForKey(destinationKey),
+                [] { return true; });
         }
         // §5: the display the pane left may now hold one, which ends its Bento.
+        if (emptied) retireEmptiedLayout(sourceKey);
         endLayoutIntoCardOwnership(sourceKey);
         return true;
     }
@@ -3113,7 +3140,8 @@ bool DesktopStageController::handoffWindowToOutput(
         if (!departure) return false;
         // Ordinary desktop has no layout admission. Validate its output first,
         // prepare source departure by value, then publish before native calls.
-        if (departure->snapshots.isEmpty()) m_sessions.remove(sourceKey);
+        const bool emptied = departure->snapshots.isEmpty();
+        if (emptied) m_sessions.remove(sourceKey);
         else m_sessions[sourceKey] = *departure;
         const auto token = m_applicationGuard.issue();
         const auto valid = [&] {
@@ -3133,6 +3161,7 @@ bool DesktopStageController::handoffWindowToOutput(
         scheduleSettle();
         // §13 released only the carried window. §5 then ends a layout the
         // departure left with one pane.
+        if (emptied) retireEmptiedLayout(sourceKey);
         endLayoutIntoCardOwnership(sourceKey);
         return true;
     }
@@ -3146,7 +3175,7 @@ bool DesktopStageController::handoffWindowToOutput(
     QPointer<KWin::LogicalOutput> target = destination;
     const auto token = m_applicationGuard.issue();
     bool committed = false;
-    const bool accepted = m_host->admitTransferredWindowToTablet(window, [&] {
+    const bool accepted = m_host->admitTransferredWindowToTablet(window, destination, [&] {
         if (committed || !m_applicationGuard.accepts(token) || m_restoring
             || !arrival || arrival->isDeleted() || !arrival->window()
             || arrival->isUserMove() || arrival->isUserResize()
@@ -3164,7 +3193,20 @@ bool DesktopStageController::handoffWindowToOutput(
     auto source = m_sessions.find(sourceKey);
     if (source != m_sessions.end() && !applySession(source.value(), false)) return true;
     scheduleSettle();
+    // §5: a layout the pane left with one pane ends, as above; the display
+    // taking it shows it as a card.
+    if (departure->snapshots.isEmpty()) retireEmptiedLayout(sourceKey);
+    endLayoutIntoCardOwnership(sourceKey);
     return true;
+}
+
+void DesktopStageController::retireEmptiedLayout(const QString &key)
+{
+    // §11: a layout its last pane left for another display presents nothing
+    // there, so that display's cards can be shown again, the pane among them
+    // when it comes back.
+    if (m_sessions.contains(key)) return;
+    if (KWin::LogicalOutput *output = outputForKey(key)) m_host->layoutLeftForOtherDisplayForDesktopStage(output);
 }
 
 void DesktopStageController::removeWindow(KWin::EffectWindow *window,
@@ -3425,6 +3467,32 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
         rail.pill.moveCenter(center);
     }
     return rails;
+}
+
+QString DesktopStageController::dividersWithheld(KWin::LogicalOutput *output) const
+{
+    const Session *session = output ? sessionForOutput(output) : nullptr;
+    if (!session) return QStringLiteral("no layout");
+    if (m_restoring) return QStringLiteral("windows are being given back");
+    if (m_interactionWindow)
+        return QStringLiteral("%1 is being moved or resized").arg(logNameOf(m_interactionWindow));
+    if (session->applying) return QStringLiteral("the layout is being placed");
+    if (!session->zones.isEmpty()) return QStringLiteral("KWin's zones own the edges");
+    if (sessionGeometryMatches(*session, true)) return {};
+    const auto pixels = sessionPixels(*session, stageArea(output));
+    for (int index = 0; index < session->windows.size() && index < int(pixels.size()); ++index) {
+        const auto &pane = session->windows.at(index);
+        const auto &place = pixels.at(std::size_t(index));
+        if (!pane || pane->isDeleted()) return QStringLiteral("a pane closed");
+        if (pane->screen() != output || pane->isMinimized()
+            || !withinPixel(pane->frameGeometry(), place)) {
+            const QRectF frame(pane->frameGeometry());
+            return QStringLiteral("%1 stands at %2,%3 %4x%5, outside its place %6,%7 %8x%9")
+                .arg(logNameOf(pane)).arg(frame.x()).arg(frame.y()).arg(frame.width()).arg(frame.height())
+                .arg(place.x).arg(place.y).arg(place.width).arg(place.height);
+        }
+    }
+    return QStringLiteral("its panes and places differ in number");
 }
 
 bool DesktopStageController::railValid() const

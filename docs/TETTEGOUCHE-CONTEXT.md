@@ -39,6 +39,20 @@ Kadunce restores minimized windows and sends card-backed windows through its
 own activation handling, so Kadunce stays in charge of selection, stack
 membership and presentation.
 
+### Who may call
+
+Anything on the session bus may ask what Kadunce shows, claim a top edge or
+the context line for itself, and change the settings. Only the programs the
+suite's surfaces live in may bring anything forward: `activateApplicationWindow`,
+`raiseKeyboard`, `keyboardHeading`, `showCardLine`, `showActive`, `toggleTable`,
+`previewDesktop`, `commitDesktopPreview`, the placement calls,
+`toggleBentoOnOutput` and `handoffBentoLeadToOutput`. Those are `plasmashell`,
+`kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard` and `plasma-keyboard`,
+installed under `/usr` or in the person's `~/.local/bin`, as the caller's
+process names its program. Any other caller is answered
+`org.freedesktop.DBus.Error.AccessDenied` and nothing changes. The guest calls
+have their own rule (§ Launcher guest protocol 3).
+
 The payload identifies itself with schema
 `co.goodinput.kadunce.workspace-context` and integer `version: 1`. Consumers
 must reject unknown major versions instead of guessing at fields.
@@ -51,8 +65,14 @@ must reject unknown major versions instead of guessing at fields.
   `true`: it stays the window in use.
 - `applications`: current-desktop application windows, including minimized
   windows. Each entry exposes KWin's window-lifetime UUID, desktop application
-  identity, title, output, focus/minimize state, and current card membership.
-- `cardStage`: whether Card Stage is active, its presentation, the selected
+  identity, title, output, focus/minimize state, and current card membership,
+  with `stage`, the display whose card stage holds it as a card, empty when
+  none does. Every display holding cards has its own stage, so a card's
+  `stage` is the display its window stands on; its `cardIndex`, Stack fields,
+  `entry` and `spreadRect` are places in that display's Spread. A pane's
+  `paneStack` lists the cards waiting behind it.
+- `cardStage`: the stage of the display in use (the one last touched or
+  focused): whether Card Stage is active, its presentation, the selected
   card UUID, and ordered selected-stack member UUIDs. The presentation is one
   of `inactive`, `cardLine` (Spread), `bento` (the display shows its Bento
   layout while Card Stage holds its cards hidden), `desktop` (the card display
@@ -79,9 +99,19 @@ must reject unknown major versions instead of guessing at fields.
   focused/selected/frontmost ordering.
 - `displayContext`: the selected edge backend (`z13-direct`, a frozen value
   meaning Kadunce's own router, whenever a touchscreen drives a display, or
-  `plasma-native`), every output's role (`tablet` for the one card display),
-  geometry, and Bento ownership, and `spreadDisplay`, the display the person
-  chose for Spread, empty while Kadunce chooses.
+  `plasma-native`), every output's role (`tablet` for the display in use),
+  geometry, and Bento ownership, each display's `presentation` (`layout`, a
+  card stage presentation as above, or `none`) and the windows it `shows` that
+  way, whether it is `primary`, the `touchscreen`, and `holdsCards`; a display
+  holding cards has its own `cardStage`, shaped as the top-level one, with
+  `spreadOpen`. A context line or dock reads its own display's `cardStage`,
+  falling back to the top-level one. `primaryDisplay` names the primary
+  display, and `spreadDisplay` the one the person chose, empty while Kadunce
+  chooses.
+
+The dock on a display opens and closes that display's own Spread with
+`showCardLineOn(output)` and `showActiveOn(output)`; `showCardLine` and
+`showActive` act on the display in use.
 
 `windowId` and `cardId` use KWin's internal UUID and are stable for the life of
 that window. `cardIndex`, stack position, and titles are presentation metadata;

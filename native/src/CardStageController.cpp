@@ -163,7 +163,7 @@ CardStageController::CardStageController(CardStageHost *host)
         auto *client = keyboardRoomClient();
         if (!client || !m_keyboardHeadingTop) return;
         const double heading = keyboardRoomFor(client, *m_keyboardHeadingTop);
-        if (heading < m_keyboardRoom->height) askKeyboardRoom(client, heading, *m_keyboardHeadingTop);
+        if (heading < m_keyboardRoom->height) askKeyboardRoom(client, heading);
     });
     // A flicked card's app either closes, asks a question with a dialog of its
     // own, or keeps running; the card is looked at until one of those is true.
@@ -301,8 +301,11 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
     }
     // §3: the Active card was carried, so the partner is the card used just
     // before it, whichever edge was contacted.
+    // §4: a stacked card, or one waiting behind a pane, reaches Bento only
+    // with its Stack, never pulled out of it as a partner.
     if (m_usedActive == carried && m_usedBefore && m_usedBefore != carried
-        && isEligiblePartner(m_usedBefore)) {
+        && isEligiblePartner(m_usedBefore) && !paneHolding(m_usedBefore)
+        && stackFrontToBack(m_usedBefore).isEmpty()) {
         say(QStringLiteral("%1, the card used before the Active card").arg(app(m_usedBefore)));
         return m_usedBefore;
     }
@@ -326,7 +329,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
             passed.append(QStringLiteral("a Stack fronted by %1").arg(app(candidate)));
             continue;
         }
-        if (candidate && candidate != carried && isEligiblePartner(candidate)) {
+        if (candidate && candidate != carried && isEligiblePartner(candidate) && !paneHolding(candidate)) {
             say(before + QStringLiteral("%1, the nearest card to the %2 of the Active card in Spread order%3")
                 .arg(app(candidate), side,
                      passed.isEmpty() ? QString()
@@ -1362,12 +1365,13 @@ double CardStageController::keyboardRoomFor(const KWin::Window *client,
         client->constrainFrameSize(QSizeF(base.width(), room)).height());
 }
 
-void CardStageController::askKeyboardRoom(KWin::Window *client, double height,
-                                          double keyboardTop)
+void CardStageController::askKeyboardRoom(KWin::Window *client, double height)
 {
     m_keyboardRoom->height = height;
     const KWin::RectF base = m_keyboardRoom->base;
-    m_keyboardRoom->top = keyboardRoomTop(base.y(), height, keyboardTop, m_settings.gutter());
+    // Its top stays below the Context Panel. A client that cannot be as
+    // short as the room keeps its least height, its foot under the keys.
+    m_keyboardRoom->top = base.y();
     const KWin::Rect target = KWin::RectF(base.x(), m_keyboardRoom->top, base.width(), height).toRect();
     // Measured against what was asked for, not the frame: a client still
     // drawing its last size, or one that trims itself to whole rows as a
@@ -1422,7 +1426,7 @@ void CardStageController::keyboardHeading(double top, int durationMs)
     // word, which reaches here before they start: a client that answers
     // before the keys are there stands clear of them.
     const double heading = keyboardRoomFor(client, top);
-    if (heading > m_keyboardRoom->height) askKeyboardRoom(client, heading, top);
+    if (heading > m_keyboardRoom->height) askKeyboardRoom(client, heading);
     else if (heading < m_keyboardRoom->height) m_keyboardHeadingPending = true;
 }
 
@@ -1603,8 +1607,7 @@ void CardStageController::updateKeyboardRoom(bool resting)
     }
     if (const auto ask = keyboardRoomAsk(m_keyboardRoom->height, now, heading,
             m_keyboardRoom->base.height(), resting)) {
-        askKeyboardRoom(client, *ask,
-                        !resting && m_keyboardHeadingTop ? *m_keyboardHeadingTop : *keyboardTop);
+        askKeyboardRoom(client, *ask);
     }
 }
 
@@ -1747,6 +1750,19 @@ bool CardStageController::transferNativeCarryToDesktop(const PreparedCarrySource
                 m_host->unredirectForCardStage(arrival);
             }
             m_host->setPagingShortcutsForCardStage(m_active);
+            // §11, Every display: the display it left shows the card used
+            // before it, as when its Active card is let go, not its Spread.
+            KWin::LogicalOutput *own = m_host->tabletOutputForCardStage();
+            const auto shows = [&](KWin::EffectWindow *card) {
+                return card && card != arrival && !card->isDeleted() && card->window()
+                    && !card->isMinimized() && card->screen() == own && liveCardIndex(card) >= 0;
+            };
+            KWin::EffectWindow *back = shows(m_usedBefore) ? m_usedBefore.data()
+                : shows(selectedWindow()) ? selectedWindow() : nullptr;
+            for (const auto &card : m_workspace.windows())
+                if (!back && shows(card)) back = card;
+            if (m_active && own && m_host->releaseDisplayForCardStage(nullptr) && back && selectCardEntry(back))
+                (void)enterActive();
             syncSelectedElevation();
             KWin::effects->addRepaintFull();
         });
@@ -2816,6 +2832,13 @@ bool CardStageController::resumeSelectedBentoProjection()
     const auto departure = m_workspace.prepareGroupRemoval(projectionWindows,
         OwnershipTransition::CardToBento);
     if (!departure) return false;
+    // Each pane goes back to its own size in the layout; its picture is kept
+    // until its application has drawn itself there.
+    for (const auto &member : std::as_const(projection.panes)) {
+        KWin::EffectWindow *pane = member.window.data();
+        if (pane && !pane->isDeleted() && !pane->isMinimized())
+            (void)m_host->holdPictureBeforeResizeForCardStage(pane, [] {});
+    }
     bool committed = false;
     return m_host->resumeBentoProjectionForCardStage(projection,
         [this, projectionWindows, paneStacks, &departure, &committed] {
@@ -2886,6 +2909,7 @@ void CardStageController::release()
 {
     forgetCloseAsk(nullptr);
     m_heldInPlace.clear();
+    m_liftedInPlace.clear();
     bringCardsBack();
     m_returnToDesktop = false;
     m_returnedToDesktop.clear();
@@ -2964,7 +2988,19 @@ void CardStageController::standPanesInCardPlace()
             client->maximize(KWin::MaximizeRestore);
         if (client->quickTileMode() != KWin::QuickTileMode{})
             client->setQuickTileMode(KWin::QuickTileMode{}, window->frameGeometry().center());
-        client->moveResize(KWin::RectF(activeTarget(tablet)));
+        const KWin::RectF target(activeTarget(tablet));
+        if (client->moveResizeGeometry() == target) continue;
+        // Spread is opening over it, so its picture is kept until its
+        // application has drawn itself at the card's size.
+        const QPointer<KWin::EffectWindow> held(window);
+        const auto resize = [this, held, target] {
+            // A pick in the moment before may already have put it back.
+            if (!held || held->isDeleted() || !held->window() || m_presentation != CardPresentation::Spread
+                || !m_bentoProjectionWindows.contains(held)) return;
+            QScopedValueRollback<bool> resizing(m_applyingWindowState, true);
+            held->window()->moveResize(target);
+        };
+        if (!m_host->holdPictureBeforeResizeForCardStage(window, resize)) client->moveResize(target);
     }
 }
 
@@ -3259,29 +3295,62 @@ bool CardStageController::admitCardFromOtherDisplay(
 bool CardStageController::giveCardToDisplay(KWin::EffectWindow *card,
     KWin::LogicalOutput *destination)
 {
-    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || !destination
-        || !tablet || liveCardIndex(card) < 0) return false;
-    if (m_presentation == CardPresentation::Active && selectedWindow() == card) {
-        // Only a card of this display's own comes back in front of it; one
-        // waiting for another display is never shown here.
-        const auto shown = [&](KWin::EffectWindow *other) {
-            KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
-            return other && other != card && !other->isDeleted() && other->window()
-                && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
-                && (!own || own == tablet);
-        };
-        KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
-        if (back) {
-            if (!selectCardEntry(back)) return false;
-            m_presentation = CardPresentation::Spread;
-            if (!enterActive()) return false;
-        } else {
-            parkActiveSnapshot();
-            showDesktop();
-        }
-    }
+        || !m_host->tabletOutputForCardStage() || liveCardIndex(card) < 0) return false;
+    if (!stepAsideFrom(card)) return false;
     return sendCardToDisplay(card, destination);
+}
+
+bool CardStageController::stepAsideFrom(KWin::EffectWindow *card)
+{
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!m_active || m_presentation != CardPresentation::Active || selectedWindow() != card)
+        return true;
+    // A display that is gone shows nothing, so nothing comes back in front.
+    if (!tablet) {
+        parkActiveSnapshot();
+        showDesktop();
+        return true;
+    }
+    // Only a card of this display's own comes back in front of it; one
+    // waiting for another display is never shown here.
+    const auto shown = [&](KWin::EffectWindow *other) {
+        KWin::LogicalOutput *own = other ? m_host->releaseDisplayForCardStage(other) : nullptr;
+        return other && other != card && !other->isDeleted() && other->window()
+            && !other->isMinimized() && other->screen() == tablet && liveCardIndex(other) >= 0
+            && (!own || own == tablet);
+    };
+    KWin::EffectWindow *back = shown(m_usedBefore) ? m_usedBefore.data() : nullptr;
+    if (back) {
+        if (!selectCardEntry(back)) return false;
+        m_presentation = CardPresentation::Spread;
+        return enterActive();
+    }
+    parkActiveSnapshot();
+    showDesktop();
+    return true;
+}
+
+bool CardStageController::releaseCardToStage(KWin::EffectWindow *card)
+{
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || liveCardIndex(card) < 0)
+        return false;
+    return stepAsideFrom(card) && releaseCardToDisplay(card);
+}
+
+bool CardStageController::presentCardActive(KWin::EffectWindow *card, bool focus)
+{
+    if (!m_active || m_launcherGuestActive || m_cardGrabActive || !card || card->isDeleted()
+        || card->isMinimized() || liveCardIndex(card) < 0) return false;
+    if (m_presentation == CardPresentation::Active && selectedWindow() == card) return true;
+    if (!selectCardEntry(card)) return false;
+    if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
+    m_presentation = CardPresentation::Spread;
+    if (!focus) m_focusAfterActive = KWin::effects->activeWindow();
+    if (enterActive()) return true;
+    m_focusAfterActive.clear();
+    showDesktop();
+    return false;
 }
 
 bool CardStageController::releaseCardToDisplay(KWin::EffectWindow *card)
@@ -4082,6 +4151,24 @@ bool CardStageController::pullOutSelected()
     return pullOut(window, group);
 }
 
+bool CardStageController::letActiveCardOutOfStack()
+{
+    auto *window = activeCardIdentity();
+    if (!window || m_presentation != CardPresentation::Active || m_cardGrabActive
+        || m_launcherGuestActive || m_lift.phase != Lift::Phase::None) return false;
+    const int cardId = liveCardIndex(window) + 1;
+    if (m_workspace.stackSizeForId(cardId) <= 1 || !m_workspace.releaseMember(cardId)) return false;
+    // Selection stayed with the Stack, which now shows its next card.
+    (void)selectCardEntry(window);
+    syncSelectedStackingOrder();
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "let the Active card" << cardId
+            << "out of its Stack; it now stands alone at entry"
+            << m_workspace.model().entryIndexForId(cardId) + 1;
+    return true;
+}
+
 bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
 {
     const int cardId = liveCardIndex(window) + 1;
@@ -4091,6 +4178,7 @@ bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
     if (group && cardId > 0 && m_workspace.stackSizeForId(cardId) > 1)
         for (auto *member : stackFrontToBack(window))
             if (member != window) { next = member; break; }
+    KWin::EffectWindow *holder = group ? nullptr : paneHolding(window);
     const bool pulled = cardId > 0
         && (next ? handProjectedPaneTo(window, next) && m_workspace.releaseMember(cardId)
             : group ? takePaneOutOfLayout(window)
@@ -4651,8 +4739,10 @@ bool CardStageController::enterActive()
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     KWin::EffectWindow *effectWindow = selectedWindow();
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
-    if (!m_host->isManagedWindowForCardStage(effectWindow) || !tablet
-        || effectWindow->screen() != tablet || !effectWindow->window()) {
+    // A card just taken in from another display was asked to move here, and
+    // KWin may not have put it here yet.
+    if (!m_host->isManagedWindowForCardStage(effectWindow) || !tablet || !effectWindow->window()
+        || (effectWindow->screen() != tablet && effectWindow->window()->moveResizeOutput() != tablet)) {
         qWarning() << "Kadunce" << Revision
                    << "cannot admit the selected card to Active";
         return false;
@@ -4667,6 +4757,7 @@ bool CardStageController::enterActive()
     }
     parkActiveSnapshot();
     retainManagedOwnership(effectWindow);
+    m_liftedInPlace.remove(effectWindow);
     const auto retained = std::find_if(m_parkedRestores.begin(), m_parkedRestores.end(),
         [effectWindow](const auto &saved) { return saved.window == effectWindow; });
     if (retained != m_parkedRestores.end()) {
@@ -4771,6 +4862,58 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
 }
 
+void CardStageController::keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target)
+{
+    // A window that cannot be made as small as the Active place keeps its top
+    // and left where the place begins, so its title bar stays clear of the
+    // Context Panel, and is as small as it can be, so only its far edge runs
+    // over, by no more than it must. KWin pushes a window too big for the
+    // work area up and across; it is put back a few times at most each time
+    // it is shown, so neither is fought in a loop.
+    KWin::Window *client = window && window->window() ? window->window() : nullptr;
+    if (!client) return;
+    const KWin::RectF placed = client->moveResizeGeometry();
+    const QSizeF least = client->minSize();
+    const KWin::RectF kept(target.left(), target.top(), std::max(target.width(), least.width()),
+                           std::max(target.height(), least.height()));
+    if (std::abs(placed.top() - kept.top()) <= 1 && std::abs(placed.left() - kept.left()) <= 1
+        && std::abs(placed.width() - kept.width()) <= 1 && std::abs(placed.height() - kept.height()) <= 1) return;
+    int &lifts = m_liftedInPlace[window];
+    if (lifts >= 3) return;
+    ++lifts;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    client->moveResize(kept);
+    qInfo() << "Kadunce" << Revision << logNameOf(window) << "is bigger than the Active place; its top and left"
+            << "are kept inside it at" << target.topLeft();
+}
+
+void CardStageController::refitAfterMinimumChanged(KWin::EffectWindow *window)
+{
+    // A card its application could not make as small as the Active place,
+    // as one carried from a display at another scale cannot be until it has
+    // drawn itself there, is asked for the place again once its least size
+    // changes, so docking or undocking leaves no card too tall.
+    if (!m_active || m_presentation != CardPresentation::Active || m_applyingWindowState
+        || m_cardGrabActive || !window || window->isDeleted() || m_activeRestore.window != window
+        || !window->window()) return;
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    KWin::Window *client = window->window();
+    if (!tablet || window->screen() != tablet || client->isInteractiveMove()
+        || client->isInteractiveResize()) return;
+    const KWin::RectF place(activePlacement(tablet));
+    m_liftedInPlace.remove(window);
+    const QSizeF least = client->minSize();
+    if (least.width() > place.width() || least.height() > place.height()) {
+        keepTooBigInPlace(window, place);
+        return;
+    }
+    if (client->moveResizeGeometry().toRect() == place.toRect()) return;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    client->moveResize(place);
+    qInfo() << "Kadunce" << Revision << logNameOf(window) << "can be as small as the Active place again;"
+            << "it takes" << place;
+}
+
 void CardStageController::holdCardInActivePlace(KWin::EffectWindow *window)
 {
     // §3: an application that restores its saved state maximizes its window a
@@ -4794,9 +4937,12 @@ void CardStageController::holdCardInActivePlace(KWin::EffectWindow *window)
     const KWin::RectF placed = client->moveResizeGeometry();
     const bool reaches = placed.bottom() > target.bottom() + 1
         || placed.right() > target.right() + 1;
-    if (!asked && !reaches) return;
     const QSizeF minimum = client->minSize();
-    if (minimum.width() > target.width() || minimum.height() > target.height()) return;
+    if (minimum.width() > target.width() || minimum.height() > target.height()) {
+        if (!asked) keepTooBigInPlace(window, target);
+        return;
+    }
+    if (!asked && !reaches) return;
     auto &since = m_heldInPlace[window];
     if (since.isValid() && since.elapsed() < 500) return;
     since.start();
@@ -4905,19 +5051,26 @@ KWin::RectF CardStageController::placeClearOfPanels(const ActiveRestoreSnapshot 
     if (snapshot.fullScreen || snapshot.maximizeMode != KWin::MaximizeRestore
         || snapshot.quickTileMode != KWin::QuickTileMode{}) return snapshot.geometry;
     const QRectF place(snapshot.geometry);
+    // A place that runs off its display, as a pane's size kept by a card a
+    // smaller display showed can, is fitted into the display holding most of it.
+    KWin::LogicalOutput *holding = nullptr;
+    double most = 0.0;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         const QRectF screen(output->geometry());
-        if (!screen.contains(place)) continue;
-        const QRectF area(KWin::effects->clientArea(KWin::MaximizeArea, output));
-        if (area.isEmpty() || area.contains(place)) return snapshot.geometry;
-        QRectF fitted = place;
-        fitted.setWidth(std::min(fitted.width(), area.width()));
-        fitted.setHeight(std::min(fitted.height(), area.height()));
-        fitted.moveLeft(std::clamp(fitted.left(), area.left(), area.right() - fitted.width()));
-        fitted.moveTop(std::clamp(fitted.top(), area.top(), area.bottom() - fitted.height()));
-        return KWin::RectF(fitted);
+        if (screen.contains(place)) { holding = output; break; }
+        const QRectF shared = screen.intersected(place);
+        const double held = shared.width() * shared.height();
+        if (held > most) { most = held; holding = output; }
     }
-    return snapshot.geometry;
+    if (!holding) return snapshot.geometry;
+    const QRectF area(KWin::effects->clientArea(KWin::MaximizeArea, holding));
+    if (area.isEmpty() || area.contains(place)) return snapshot.geometry;
+    QRectF fitted = place;
+    fitted.setWidth(std::min(fitted.width(), area.width()));
+    fitted.setHeight(std::min(fitted.height(), area.height()));
+    fitted.moveLeft(std::clamp(fitted.left(), area.left(), area.right() - fitted.width()));
+    fitted.moveTop(std::clamp(fitted.top(), area.top(), area.bottom() - fitted.height()));
+    return KWin::RectF(fitted);
 }
 
 void CardStageController::parkActiveSnapshot()
@@ -5268,6 +5421,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     m_paneStacks.remove(window);
     m_openedAt.remove(window);
     m_heldInPlace.remove(window);
+    m_liftedInPlace.remove(window);
     for (const auto &ask : m_closeAsks) {
         if (ask.window != window) continue;
         qInfo() << "Kadunce" << Revision << "flicked card's app closed" << ask.asked.elapsed()
@@ -5481,15 +5635,16 @@ void CardStageController::handleActiveGeometryChanged(
     KWin::LogicalOutput *placed = client->moveResizeOutput();
     if (tablet && placed && placed != tablet && !m_cardGrabActive
         && m_host->holdsOwnCardsForCardStage(placed)) {
-        // §11, Every display: there it is the card that display shows, once
-        // this notification has returned.
+        // §11, Every display: there it is the card that display shows, its
+        // Stack with it, once this notification has returned.
         const QPointer<KWin::EffectWindow> moved = window;
         const QString there = placed->name();
         QTimer::singleShot(0, &m_arrivalTimer, [this, moved, there] {
             if (!moved || moved->isDeleted() || liveCardIndex(moved) < 0) return;
             KWin::LogicalOutput *display = KWin::effects->findScreen(there);
             if (display && m_host->holdsOwnCardsForCardStage(display)
-                && giveCardToDisplay(moved, display)) {
+                && (m_host->moveCardToDisplayForCardStage(moved, display)
+                    || giveCardToDisplay(moved, display))) {
                 KWin::effects->activateWindow(moved);
                 return;
             }
@@ -5507,7 +5662,15 @@ void CardStageController::handleActiveGeometryChanged(
         || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) {
         if (!keepOpeningStateInActivePlace(window)) letFillingCardGo(window);
-    } else if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
+        return;
+    }
+    if (tablet) {
+        const KWin::RectF place(activePlacement(tablet));
+        const QSizeF minimum = client->minSize();
+        if (minimum.width() > place.width() || minimum.height() > place.height())
+            keepTooBigInPlace(window, place);
+    }
+    if (m_activeSettleRemaining > 0 && !m_activeSettleTimer.isActive()) {
         m_activeSettleTimer.start();
     }
 }
