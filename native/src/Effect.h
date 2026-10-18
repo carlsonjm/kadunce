@@ -420,6 +420,13 @@ private:
     // makes itself, or one over D-Bus from the guest's own connection
     // (GuestCaller.h).
     [[nodiscard]] bool callerIsGuest() const;
+    // Whether the call being answered may bring anything forward: one Kadunce
+    // makes itself, or one over D-Bus from a program of the suite's
+    // (CallerTrust.h). A stranger is answered with an access error.
+    [[nodiscard]] bool callerMayDrive() const;
+    // Each connection's answer, kept for as long as the bus runs: a
+    // connection's unique name is never given to another.
+    mutable QHash<QString, bool> m_callerVerdicts;
     // What endLauncherGuest and cancelLauncherGuestLaunch do once the caller
     // may ask it, and what Kadunce itself calls.
     void closeLauncherGuest();

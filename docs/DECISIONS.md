@@ -514,6 +514,11 @@ effect test can stand in for it. It must be reachable on every build that is
 tested or shipped, though not on screen at every moment: it
 leaves with the dock while the dock steps aside for the keys.
 
+### Only suite programs drive Kadunce
+
+Rejected (`TETTEGOUCHE-CONTEXT.md` § Who may call): any caller, letting
+anything steal focus; a token anything reads.
+
 ### A frozen identity needs a guard that watches both directions
 
 `tests/verify-source.sh` rejects retired vocabulary and names the two layer-3
@@ -531,14 +536,13 @@ persists and the desktop keeps working. Decided: the plugin ships as a package
 from a project pacman repository, built per KWin release in CI, so a corrected
 plugin arrives through ordinary system updates. Rejected: the guided repair as
 the consumer path, which needs a full C++, Qt, KDE Frameworks and KWin toolchain
-on every installation. It is built with the consumer bundle (Block 10); on
-development machines the guided repair is adequate.
+on every installation.
 
 ## Across the suite
 
 ### Table is required and uses virtual desktops
 
-Table ships in 1.0, and every virtual desktop keeps
+Every virtual desktop keeps
 its own cards and layouts (`TABLE.md`). Rejected: KDE's per-display desktop
 switching, under which a window moved between displays changes desktop.
 

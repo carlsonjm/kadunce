@@ -1714,6 +1714,7 @@ void Effect::giveTableCornerBack()
 
 void Effect::showCardLine()
 {
+    if (!callerMayDrive()) return;
     if (presentationForInput() != WorkspacePresentation::Spread) {
         toggle();
     }
@@ -1721,6 +1722,7 @@ void Effect::showCardLine()
 
 void Effect::showActive()
 {
+    if (!callerMayDrive()) return;
     if (presentationForInput() == WorkspacePresentation::Spread) {
         toggle();
     }
@@ -2196,6 +2198,7 @@ void Effect::endDesktopPreview()
 
 bool Effect::previewDesktop(const QString &desktopId)
 {
+    if (!callerMayDrive()) return false;
     KWin::VirtualDesktop *desktop = desktopId.isEmpty()
         ? nullptr : KWin::VirtualDesktopManager::self()->desktopForId(desktopId);
     if (!desktop || desktop == KWin::effects->currentDesktop()) {
@@ -2229,6 +2232,7 @@ void Effect::showDesktopPreview(KWin::VirtualDesktop *desktop, KWin::EffectWindo
 
 bool Effect::commitDesktopPreview()
 {
+    if (!callerMayDrive()) return false;
     if (!m_previewDesktop) return false;
     KWin::effects->setCurrentDesktop(m_previewDesktop);
     endDesktopPreview();
@@ -2833,6 +2837,7 @@ void Effect::followTableGesture(qreal progress, KWin::LogicalOutput *output)
 
 void Effect::toggleTable()
 {
+    if (!callerMayDrive()) return;
     if (m_table.isOpen()) {
         if (!m_table.down()) closeTable();
         return;
@@ -3980,6 +3985,7 @@ bool Effect::keyboardTypesIntoForCardStage(
 
 void Effect::keyboardHeading(double height, int durationMs)
 {
+    if (!callerMayDrive()) return;
     KWin::EffectWindow *panel = KWin::effects->inputPanel();
     if (!m_keysForPerson || !panel || panel->isDeleted()
         || !(panel->isVisible() || panel == m_leavingPanel)
@@ -3997,6 +4003,7 @@ void Effect::keyboardHeading(double height, int durationMs)
 
 void Effect::raiseKeyboard()
 {
+    if (!callerMayDrive()) return;
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method) return;
     m_keyboardAskedSince.start();
@@ -6891,6 +6898,7 @@ QString Effect::workspaceContext() const
 
 bool Effect::activateApplicationWindow(const QString &windowId)
 {
+    if (!callerMayDrive()) return false;
     const QString requested = windowId.trimmed();
     if (requested.isEmpty()) {
         return false;
@@ -6991,6 +6999,7 @@ std::optional<KWin::RectF> Effect::placementPreview(const PlacementAim &aim, QPo
 
 QString Effect::aimPlacement(double x, double y)
 {
+    if (!callerMayDrive()) return {};
     const QPointF point(x, y);
     const auto aim = placementAimAt(point);
     const auto preview = aim.kind == PlacementAimKind::None ? std::nullopt : placementPreview(aim, point);
@@ -7006,6 +7015,7 @@ QString Effect::aimPlacement(double x, double y)
 
 void Effect::clearPlacementAim()
 {
+    if (!callerMayDrive()) return;
     if (!m_placementAim && !m_placementPreview) return;
     m_placementAim.reset();
     m_placementPreview.reset();
@@ -7016,6 +7026,7 @@ void Effect::clearPlacementAim()
 bool Effect::placeApplication(const QStringList &applicationIds, const QString &windowId,
                               double x, double y, const QString &requestToken)
 {
+    if (!callerMayDrive()) return false;
     const QPointF point(x, y);
     const auto aim = placementAimAt(point);
     const auto aimed = m_placementAim;
@@ -7053,6 +7064,7 @@ bool Effect::placeApplication(const QStringList &applicationIds, const QString &
 
 void Effect::cancelPlacement(const QString &requestToken)
 {
+    if (!callerMayDrive()) return;
     if (!m_placementLaunch || m_placementLaunch->token != requestToken) return;
     ++m_placementGeneration;
     const auto token = m_placementLaunch->token;
@@ -7200,6 +7212,7 @@ bool Effect::placeCardOnDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *o
 
 bool Effect::toggleBentoOnOutput(const QString &outputName)
 {
+    if (!callerMayDrive()) return false;
     const bool toggled = m_desktopStage->toggleOnOutput(outputName);
     observeCardOwnership();
     return toggled;
@@ -7208,6 +7221,7 @@ bool Effect::toggleBentoOnOutput(const QString &outputName)
 bool Effect::handoffBentoLeadToOutput(
     const QString &sourceName, const QString &destinationName)
 {
+    if (!callerMayDrive()) return false;
     return m_desktopStage->handoffLeadToOutput(
         sourceName, destinationName);
 }
