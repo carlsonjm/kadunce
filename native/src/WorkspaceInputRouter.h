@@ -102,6 +102,10 @@ public:
     [[nodiscard]] virtual bool inputPanelContainsForInput(const QPointF &) const { return false; }
     [[nodiscard]] virtual bool cancelForwardedTouchForInput() = 0;
     [[nodiscard]] virtual int activeSideForPoint(const QPointF &position) const = 0;
+    // Off Spread's display, the gap beside a card shown alone that holds a
+    // Stack: before (-1) or after (1), and 0 elsewhere.
+    [[nodiscard]] virtual int stackSideForPoint(const QPointF &) const { return 0; }
+    virtual void stepStackBesideFromInput(const QPointF &, int) {}
     [[nodiscard]] virtual bool selectedStackContains(
         const QPointF &position) const = 0;
     // Spread's row and the card under one finger. Travel is the finger's
@@ -279,6 +283,8 @@ private:
         Spread,
         ActiveLeft,
         ActiveRight,
+        StackBefore,
+        StackAfter,
         BottomEdge,
         TopEdge,
     };
@@ -377,6 +383,8 @@ private:
     bool m_guestOutsidePointerMoved = false;
     bool m_touchCommitted = false;
     int m_pointerActiveSide = 0;
+    int m_pointerStackSide = 0;
+    QPointF m_pointerStackStart;
     TouchMode m_touchMode = TouchMode::None;
     HoldSource m_holdSource = HoldSource::None;
     struct StrokeState {

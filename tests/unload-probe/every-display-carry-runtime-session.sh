@@ -14,7 +14,11 @@
 # opens on the small display, its own, and stays there though it stops short
 # of its place, as a terminal keeping whole rows does. Carried off from there
 # onto the monitor, it leaves the small display the card it showed before,
-# never nothing. Every check is reported, so a failure does not hide the rest.
+# never nothing. A card let out of a Stack on the small display, with Spread
+# on the monitor, joins the monitor's layout; one pulled out of that Stack in
+# Spread joins it once picked. A Stack carried from the monitor to the small
+# display goes whole, and the gap beside it there steps it. Every check is
+# reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
 probe() { qdbus6 org.kde.KWin /UnloadProbe "$@"; }
@@ -94,6 +98,19 @@ stand_as() {
 # let go.
 # Let go a moment after reaching the window, sooner than a rest that stacks;
 # a third argument rests that long first.
+spread_key() { probe key 31 125 >/dev/null; sleep 1.2; }
+selected() { [[ $(kad workspaceContext | jq -r '.cardStage.selectedCardId') == "$1" ]]; }
+select_card() {
+    local id=$1 key
+    for key in 105 106; do
+        for _ in {1..8}; do
+            selected "$id" && return 0
+            probe key "$key" 0 >/dev/null
+            sleep .35
+        done
+    done
+    selected "$id"
+}
 title_carry() {
     local id=$1 onto=$2 rest=${3:-.2} x y tx ty
     read -r x y <<<"$(probe titleBarOf "$id" | jq -r '[.x, .y] | map(floor) | @tsv')"
@@ -257,8 +274,8 @@ check 'rest: no window on the monitor stands over another' apart Virtual-1
 
 # With Spread on the monitor, as on the tablet with a monitor beside it, a
 # monitor pane rested on the card the small display shows alone joins it,
-# though the small display is sized Solo; carried back and rested on a pane
-# of Spread's layout, it joins that pane.
+# though the small display is sized Solo; let out of that Stack by the keys
+# it joins Spread's layout, and rested on a pane there, it joins that pane.
 probe pointer 640 360 >/dev/null
 client titledCompanion 'Tab D' 500 400
 sleep 1.4
@@ -279,6 +296,17 @@ check 'small rest: the pane carried stands on the small display' \
     context --arg c "$ma" 'first(.applications[] | select(.windowId == $c)) | .output == "Virtual-0"'
 check 'small rest: the card it rested on waits behind it' \
     context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+# Let out of that Stack by the keys, it has no room for a pane beside the
+# card on the small display, so it joins Spread's layout as a pane of its
+# own, and the card behind it is shown alone again.
+probe activateWindowId "$ma" >/dev/null
+sleep .6
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.8
+report unstacked
+check 'unstack: the card let out is a pane of the layout Spread shows' monitor_pane "$ma"
+check 'unstack: the small display shows the card behind it alone' shown_on "$td" Virtual-0
+check 'unstack: no window on the monitor stands over another' apart Virtual-1
 title_carry "$ma" "$ta" 1.0
 report rested-on-spread
 check 'Spread rest: the carry names the pane it would join' \
@@ -287,6 +315,75 @@ sleep 1
 check 'Spread rest: the card carried is a monitor pane' monitor_pane "$ma"
 check 'Spread rest: the pane it rested on waits behind it' \
     context --arg c "$ma" --arg t "$ta" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+
+# Rested on the small display's card again, it brings the Stack it holds.
+# Pulled out of that Stack in Spread on the monitor, a card waits for
+# Spread's display rather than the small one, and picked it joins the layout
+# there as a pane of its own.
+title_carry "$ma" "$td" 1.0
+sleep 1
+report rested-again
+check 'again: the card it rested on waits behind it' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) != null'
+spread_key
+select_card "$td" || echo "could not select $td"
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.4
+report pulled
+check 'pull: the card pulled out waits for Spread' waits_for "$td" ''
+check 'pull: it is no longer in the Stack' \
+    context --arg c "$ma" --arg t "$td" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($t) == null'
+select_card "$td" || echo "could not select $td"
+probe key 28 0 >/dev/null
+sleep 1.6
+report pulled-picked
+check 'pull: picked, it is a pane of the layout Spread shows' monitor_pane "$td"
+check 'pull: no window on the monitor stands over another' apart Virtual-1
+
+# A Stack made on the monitor, carried by its front pane's title bar to the
+# small display and let go there at once, goes there whole: the cards behind
+# wait for the small display. The gap beside the card that display then
+# shows alone steps its Stack, clicked on the right and swiped inward from
+# the left, as the gap beside the Active card pages.
+report stack-before
+check 'stack: a monitor pane holds a Stack' \
+    context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | .pane and .output == "Virtual-1" and ((.paneStack // []) | index($m) != null)'
+title_carry "$tc" "$ma"
+sleep 1
+report stack-carried
+check 'stack carry: the pane carried stands on the small display' \
+    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .pane and .output == "Virtual-0"'
+check 'stack carry: its Stack came with it' \
+    context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $c)) | (.paneStack // []) | index($m) != null'
+check 'stack carry: the card behind waits for the small display' waits_for "$mb" Virtual-0
+read -r gx gy gw <<<"$(probe windowGeometry "$tc" | jq -r '[.x, .y + .height / 2, .x + .width] | map(floor) | @tsv')"
+read -r dx dw <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-0")) | .geometry | [.x, .width] | map(floor) | @tsv')"
+echo "gap: pane $gx..$gw at $gy, display $dx+$dw"
+probe pointer "$(((gw + dx + dw) / 2))" "$gy" >/dev/null
+sleep .3
+probe button true >/dev/null
+sleep .1
+probe button false >/dev/null
+sleep 1.4
+report stack-clicked
+check 'gap: a click beside it shows the card behind' \
+    context --arg m "$mb" 'first(.applications[] | select(.windowId == $m)) | .pane and .output == "Virtual-0"'
+check 'gap: the card it showed waits behind it' \
+    context --arg c "$tc" --arg m "$mb" 'first(.applications[] | select(.windowId == $m)) | (.paneStack // []) | index($c) != null'
+probe pointer 900 360 >/dev/null
+sleep .2
+probe down 7 "$(((dx + gx) / 2))" "$gy" >/dev/null
+sleep .05
+probe motion 7 "$(((dx + gx) / 2 + 30))" "$gy" >/dev/null
+sleep .05
+probe motion 7 "$(((dx + gx) / 2 + 70))" "$gy" >/dev/null
+sleep .05
+probe up 7 >/dev/null
+sleep 1.4
+report stack-swiped
+check 'gap: a swipe in from the left steps it back' \
+    context --arg c "$tc" 'first(.applications[] | select(.windowId == $c)) | .pane and .output == "Virtual-0"'
+check 'gap: no window on the small display stands over another' apart Virtual-0
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

@@ -150,6 +150,10 @@ public:
     // everything it owns awake. The two differ only where §5 could not shed a
     // §7 sleeping window, which is a display with no card owner to shed it to.
     [[nodiscard]] bool managesWindow(KWin::EffectWindow *window) const;
+    // The display whose layout holds `window` as a pane; empty when none does.
+    // It is the layout's record, so it is right while KWin still moves the
+    // window there.
+    [[nodiscard]] QString outputHoldingPane(const KWin::EffectWindow *window) const;
     // A pane KWin sent to another display some other way than a drag, such as
     // its window-to-screen shortcut, leaves its layout as a dragged one does.
     // False when `window` is no pane of another display's layout.

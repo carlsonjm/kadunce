@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "CardBook.h"
 #include "CardStageController.h"
 #include "DesktopStageController.h"
 #include "DisplaySizing.h"
@@ -240,6 +241,9 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
+    // Every card book mismatch observed since load, in words: each place the
+    // records of a card's status disagree.
+    Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
@@ -377,6 +381,7 @@ private:
     void cancelStrokeFromInput() override { m_cardStage->cancelStroke(); }
     void presentSelectedForCardStage() override { activateSelectedFromInput(); }
     void cardGutterChangedForCardStage() override;
+    void cardPulledOutForCardStage(KWin::EffectWindow *card, KWin::EffectWindow *pane) override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
@@ -618,6 +623,13 @@ private:
     // The display a card waiting in Spread shows on when chosen: the one it
     // last showed on, while that display is attached and is not Spread's.
     [[nodiscard]] KWin::LogicalOutput *cardHome(const KWin::EffectWindow *card) const;
+    // The name of the display a card waits for, its Stack's when it waits
+    // behind another card; empty for Spread's display. A display that is gone
+    // keeps its name, so its cards wait for it to return.
+    [[nodiscard]] QString waitingFor(const KWin::EffectWindow *card, int depth = 0) const;
+    // A card waiting behind a pane, or behind another card in Spread's row.
+    [[nodiscard]] bool waitsWithItsStack(const KWin::EffectWindow *card) const;
+    void settleStacksOfArrival();
     // Every display holding its own cards and showing none of them begins
     // its layout with the windows on it, or shows the card it used last.
     bool holdOtherDisplaysInCards(KWin::EffectWindow *arrival = nullptr);
@@ -638,6 +650,8 @@ private:
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
     bool giveCardWithItsStack(KWin::EffectWindow *card, KWin::LogicalOutput *display);
+    void takeStackToItsDisplay(KWin::EffectWindow *pane);
+    [[nodiscard]] KWin::EffectWindow *stackedPaneAloneAt(const QPointF &position) const;
     // Spread moved off the display that presented this card Active: it stays
     // there as the card that display shows, once the cards that went with
     // Spread have left it.
@@ -829,6 +843,8 @@ private:
     void switchZoneMode();
     [[nodiscard]] int activeSideForPoint(
         const QPointF &position) const override;
+    [[nodiscard]] int stackSideForPoint(const QPointF &position) const override;
+    void stepStackBesideFromInput(const QPointF &position, int delta) override;
     [[nodiscard]] bool selectedStackContains(
         const QPointF &position) const override;
     void toggleFromInput() override;
@@ -924,6 +940,14 @@ private:
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
     // §11, Connected: the Active card takes the place `side` names, alone.
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
+    // A side snap of the Active card brings back the layout Spread holds,
+    // with the card in the place the snap named.
+    // A card let go out of its Stack on a Solo display joins the layout on
+    // Spread's display beside it.
+    bool spillCardToLayoutBeside(KWin::EffectWindow *card);
+    void joinSpilledCard(KWin::EffectWindow *card, const QString &name, int tries);
+    void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
+                                BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.
     bool pairCardsIntoBento(KWin::LogicalOutput *output, KWin::EffectWindow *active,
         KWin::EffectWindow *partner, BentoSidePlacement side);
@@ -976,12 +1000,20 @@ private:
     // KDE's Overview was set aside here and is loaded again when Kadunce stops.
     bool m_overviewHeld = false;
     void observeCardOwnership();
+    // Reads the card book and reports each new mismatch once; never repairs.
+    void observeCardBook();
     bool startTabletInCards(KWin::EffectWindow *arrival);
     // The authority for who owns a window. Both stages' containers are checked
     // against it; it is never repaired from them.
     CardOwnershipLedger m_ownership;
     std::vector<OwnershipViolation> m_observedOwnershipViolations;
     QStringList m_ownershipViolationLog;
+    std::vector<CardBookMismatch> m_observedCardBook;
+    // The book is read once a change has settled: a move publishes on its
+    // way, before KWin has put each window where it goes.
+    QTimer m_cardBookSettle;
+    void readCardBook();
+    QStringList m_cardBookLog;
 
     QAction *m_showSpreadAction = nullptr;
     QAction *m_showActiveAction = nullptr;

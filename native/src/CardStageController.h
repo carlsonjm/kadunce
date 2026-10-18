@@ -111,6 +111,9 @@ public:
     // far apart: every layout the host shows is laid out again. A host
     // without layouts has nothing to move.
     virtual void cardGutterChangedForCardStage() {}
+    // A card pulled out of the Stack a pane holds, with that pane. A host
+    // without panes has nothing to do.
+    virtual void cardPulledOutForCardStage(KWin::EffectWindow *, KWin::EffectWindow *) {}
     // Whether this display is sized Connected (DisplaySizing.h). A host that
     // draws no distinction answers Solo.
     [[nodiscard]] virtual bool connectedForCardStage() const { return false; }
@@ -237,8 +240,14 @@ public:
     // card again, as in Spread, stands in front of its Stack, and a Stack
     // whose pane is gone keeps its cards together.
     [[nodiscard]] QList<KWin::EffectWindow *> paneStack(const KWin::EffectWindow *pane) const;
+    // Every recorded Stack behind a pane as noted, members not cards yet
+    // included, for the card book to read.
+    [[nodiscard]] const QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> &
+    paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // Kadunce let every window go: no Stack waits behind any of them.
+    void forgetAllPaneStacks() { m_paneStacks.clear(); }
     // Drops a window from every Stack that waits behind a pane.
     void forgetFromPaneStacks(const KWin::EffectWindow *window);
     void settlePaneStacks();

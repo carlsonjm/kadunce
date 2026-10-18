@@ -574,19 +574,26 @@ std::optional<int> DesktopStageController::paneCap(const KWin::LogicalOutput *ou
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     const std::function<bool()> &commitSource, bool growOnly)
 {
+    // Why a card was refused a pane, for the journal.
+    const auto refuse = [window](const char *why) {
+        qInfo() << "Kadunce" << Revision << "refused"
+                << (window ? window->caption() : QString()) << "a pane:" << why;
+        return false;
+    };
     if (m_restoring || !commitSource || !window || window->isDeleted()
         || !window->window() || window->isUserMove() || window->isUserResize()
-        || m_interactionWindow || m_railDrag) return false;
+        || m_interactionWindow || m_railDrag) return refuse("busy");
     Session *session = sessionForOutput(window->screen());
-    if (!session || session->applying) return false;
+    if (!session || session->applying) return refuse(session ? "applying" : "no layout there");
     for (const auto &existing : std::as_const(session->snapshots))
-        if (existing.window == window) return session->windows.contains(window);
+        if (existing.window == window)
+            return session->windows.contains(window) || refuse("a stale record of it");
     // makeSnapshot reads the record card ownership is still holding, so the
     // card keeps the geometry it had before any of this and release returns it
     // there. §5 decides which pane yields on a value copy; nothing leaves and
     // no ownership moves until the whole plan is proved.
     const RestoreSnapshot snapshot = makeSnapshot(window);
-    if (!snapshot.valid) return false;
+    if (!snapshot.valid) return refuse("no record");
     const Session live = *session;
     // §8: grow first. A layout with room takes the arrival beside everything it
     // already shows, and an empty remainder is what says so.
@@ -606,15 +613,15 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
         const auto slot = slotForArrival(live, window);
         candidate = live;
         if (slot) {
-            if (!takeSlotAtCap(candidate, *slot, snapshot)) return false;
+            if (!takeSlotAtCap(candidate, *slot, snapshot)) return refuse("no slot at the cap");
         } else if (!autoFillYielding(candidate, snapshot)) {
-            return false;
+            return refuse("no room");
         }
     }
     // OwnershipHandoff: destination acceptance precedes source removal. The
     // plan above is the acceptance; card ownership gives the window up here,
     // and only a published plan follows, so no window is ever named by both.
-    if (!commitSource()) return false;
+    if (!commitSource()) return refuse("its card was kept");
     const auto pending = captureEvictions(live, candidate);
     *session = std::move(candidate);
     if (applySession(*session, true)) scheduleSettle();
@@ -1333,6 +1340,15 @@ bool DesktopStageController::managesWindow(KWin::EffectWindow *window) const
         if (session.windows.contains(window)) return true;
     }
     return false;
+}
+
+QString DesktopStageController::outputHoldingPane(const KWin::EffectWindow *window) const
+{
+    for (auto it = m_sessions.cbegin(); it != m_sessions.cend(); ++it) {
+        for (const auto &pane : it.value().windows)
+            if (pane && pane.data() == window) return it.key();
+    }
+    return {};
 }
 
 bool DesktopStageController::handoffPaneToOutput(KWin::EffectWindow *window,

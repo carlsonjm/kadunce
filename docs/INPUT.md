@@ -34,7 +34,7 @@ Apps and Files.
 | Hold a card | It rises to be carried; Spread stays three across. Held off the middle, the row slides under it. |
 | Pull a held card down | The row zooms out to one set view until pushed back up. |
 | Let a held card go in a gap | It lands there as the row grows back to three across. |
-| Let a held card go on another card, once that card has risen | The two become a Stack; on a pane's card, the Stack fills that pane. |
+| Let a held card go on another card, once that card has risen | They become a Stack; on a pane's card, it fills that pane. |
 | Let a held card go on another display | It becomes that display's card, or joins its layout. |
 | Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type on the window; hold a note, or the stack, and let go on another card to stick it. |
 | Right-click | Nothing: Spread has no window menu. |
@@ -51,8 +51,8 @@ are up, the bottom edge is theirs.
 | A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick stroke moves the row instead. |
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
-| Pull a Stack's card down, or `Meta+Shift+Down` on the centred one | It leaves the Stack and becomes a card just after it; the Stack keeps its place and order. |
-| Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go and the card goes there, the front card showing; where it began, nothing changes. |
+| Pull a Stack's card down, or `Meta+Shift+Down` on the centred one | It leaves the Stack as a card just after it; the Stack keeps its place and order. |
+| Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go, it goes there, the front card showing; where it began, nothing changes. |
 
 ## Active card
 
@@ -63,7 +63,7 @@ are up, the bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a Bento pane leaving its layout. The first time, every other window on that display becomes a card too. |
 | Drag a window onto the Spread display | It becomes a card. |
-| Tap, click or swipe inward in the gap beside the Active card | The card before (left) or after (right) becomes Active, round a Stack's ring. The pointer: a page tab. |
+| Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) becomes Active, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. `Meta+Up` and `Meta+Down` do nothing here. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
@@ -94,8 +94,8 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Left`, `Right` on a pane or lone card | It swaps with the pane there, or takes the room, or goes to that display. |
 | `Meta+[`, `Meta+]` | The divider beside the pane moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
-| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed when `Meta` is let go; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane; else it waits in Spread. |
+| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
+| `Meta+Shift+Down` on a pane | Its card leaves its Stack for a pane, from Solo on Spread's display; else it waits. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 
 ## Table
