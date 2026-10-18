@@ -116,9 +116,10 @@ takes the cards of a display you unplug.
 
 ### Auto layout on a big display
 
-Drag a window to the upper half of a side edge and it takes a full-height
-column on that side. The lower half puts it under whatever is already on that
-side. With one card open, the next window you open pairs with it. New windows
+Drag a window to the middle of a side edge and it takes a full-height column
+on that side. The bottom quarter of the edge puts it under whatever is already
+on that side, and the top quarter puts it on top. A filled box shows where it
+will land. With one card open, the next window you open pairs with it. New windows
 fill the open room, or join the shortest column, or start a new one, whichever
 keeps every window larger. Once the screen is full, Kadunce lays everything out
 evenly and keeps your snapped card on its side. If even that cannot fit, the

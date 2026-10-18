@@ -13,9 +13,9 @@ namespace Kadunce
 {
 // CARD-LIFECYCLE.md §11, Connected: a layout a side snap placed, or a pair
 // began, is a row of columns, left to right, each holding its cards top to
-// bottom. A column's top slot may be open room, where the desktop shows; a
-// lone column stands in the half of the display it was placed on, and the
-// other half is open too.
+// bottom. A column's top or bottom slot may be open room, where the desktop
+// shows; a lone column stands in the half of the display it was placed on,
+// and the other half is open too.
 template<class Handle>
 struct BentoColumnSlot {
     Handle window{};
@@ -85,8 +85,10 @@ template<class Handle>
 
 // A side snap puts `window` at a place: beside, a new full-height column at
 // that edge, the others moving inward; under, the bottom of that edge's
-// column, what it holds moving up into any room open above. With no column on
-// that side, under stands in its lower half with the room above it open.
+// column, what it holds moving up into any room open above; over, the top of
+// that column, taking the room open there or moving what it holds down. With
+// no column on that side, under stands in its lower half and over in its
+// upper half, the rest of that half open.
 template<class Handle>
 void bentoColumnsPlace(BentoColumns<Handle> &layout, const Handle &window,
                        BentoSidePlacement choice)
@@ -94,15 +96,22 @@ void bentoColumnsPlace(BentoColumns<Handle> &layout, const Handle &window,
     bentoColumnsRemove(layout, window);
     const BentoColumnSlot<Handle> card{window, false};
     const int edge = bentoEdgeColumn(layout, choice.right);
-    if (!choice.large && edge >= 0) {
+    if (choice.over && edge >= 0) {
+        auto &column = layout.columns[edge];
+        if (!column.empty() && column.front().open) column.front() = card;
+        else column.insert(column.begin(), card);
+        return;
+    }
+    if (!choice.large && !choice.over && edge >= 0) {
         auto &column = layout.columns[edge];
         if (!column.empty() && column.front().open) column.erase(column.begin());
         column.push_back(card);
         return;
     }
     std::vector<BentoColumnSlot<Handle>> fresh;
-    if (!choice.large) fresh.push_back({Handle{}, true});
+    if (!choice.large && !choice.over) fresh.push_back({Handle{}, true});
     fresh.push_back(card);
+    if (choice.over) fresh.push_back({Handle{}, true});
     if (layout.columns.empty()) layout.alignRight = choice.right;
     if (choice.right) layout.columns.push_back(std::move(fresh));
     else layout.columns.insert(layout.columns.begin(), std::move(fresh));

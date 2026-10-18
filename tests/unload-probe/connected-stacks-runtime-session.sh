@@ -158,7 +158,7 @@ drag_onto() {
     probe contactMotion "$tx" "$ty" >/dev/null
     sleep "$rest"
     kad nativeCarryState >"$XDG_RUNTIME_DIR/carry"
-    echo "state drag-$id $(jq -c '{stackOnto, destinationRect}' "$XDG_RUNTIME_DIR/carry")"
+    echo "state drag-$id $(jq -c '{stackOnto, stackLean, destinationRect}' "$XDG_RUNTIME_DIR/carry")"
     probe contactButton false >/dev/null
     sleep 1.2
 }
@@ -315,6 +315,7 @@ check 'sixth: a window opened joins the layout' panes 3
 drag_onto "${w[6]}" S6 "${w[3]}" .9
 report rested
 check 'rest: the carry names the pane it would join' aimed "${w[3]}"
+check 'rest: the carried window leans into that Stack, shrunk and tilted' jq -e '.stackLean > .9' "$XDG_RUNTIME_DIR/carry"
 check 'rest: the carried pane is a pane' is_pane "${w[6]}"
 check 'rest: the pane it joined waits behind it as a card' is_card "${w[3]}"
 check 'rest: the Stack waits behind it, front to back' behind_is "${w[6]}" "[\"${w[3]}\",\"${w[2]}\"]"
