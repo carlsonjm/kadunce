@@ -5655,6 +5655,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 if (width <= 0.0 || m_cardStage->activeCardIdentity() != carried
                     || !m_carriedWindow->window()) return;
                 refusal.reset();
+                m_carryCardEntryOutput = target;
                 const KWin::Rect whole = m_cardStage->activeTarget(target);
                 m_carryPreview = KWin::RectF(width < 1.0
                     ? CardStageController::narrowedActive(whole, width, m_carriedWindow->window()->minSize().width())
@@ -9566,15 +9567,22 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
 }
 
-void Effect::offerOpenRoom(KWin::LogicalOutput *output)
+void Effect::offerOpenRoom(KWin::LogicalOutput *output, int tries)
 {
     leaveRoomOffer();
-    if (!output || m_releasing || !KWin::effects->screens().contains(output)
+    if (!output || m_releasing || m_carriedWindow || !KWin::effects->screens().contains(output)
         || !connectedOutputForDesktopStage(output)) return;
     SessionScope scope(this, m_currentSession, stageKeyFor(output));
-    if (!m_cardStage->presentsBento()) return;
-    const auto room = m_desktopStage->openRoomOn(output);
-    if (!room) return;
+    const auto room = m_cardStage->presentsBento() ? m_desktopStage->openRoomOn(output) : std::nullopt;
+    if (!room) {
+        // A layout the snap began shows once its card has grown into place.
+        const QPointer<KWin::LogicalOutput> later = output;
+        if (tries > 0)
+            QTimer::singleShot(120, this, [this, later, tries] {
+                if (later) offerOpenRoom(later, tries - 1);
+            });
+        return;
+    }
     // The fronts of the display's other cards, in Spread's order; a card
     // waiting behind a pane stays there.
     RoomOfferShown offer{output, *room, {}, {}, -1};
