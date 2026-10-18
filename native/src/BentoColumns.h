@@ -231,6 +231,29 @@ void bentoColumnsLayout(const BentoColumns<Handle> &layout, std::vector<Handle> 
     }
 }
 
+// The room a layout leaves open, where the desktop shows, in the order
+// bentoColumnsFill fills it: each open slot, then beside a lone column the
+// rest of the display.
+template<class Handle>
+[[nodiscard]] std::vector<BentoRect> bentoColumnsOpenRooms(const BentoColumns<Handle> &layout)
+{
+    std::vector<BentoRect> rooms;
+    const std::size_t count = layout.columns.size();
+    if (count == 0 || layout.paired) return rooms;
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    double x = count == 1 && layout.alignRight ? 1.0 - widths[0] : 0.0;
+    for (std::size_t c = 0; c < count; ++c) {
+        const auto &column = layout.columns[c];
+        const double height = 1.0 / double(std::max<std::size_t>(1, column.size()));
+        for (std::size_t s = 0; s < column.size(); ++s)
+            if (column[s].open) rooms.push_back({x, double(s) * height, widths[c], height});
+        x += widths[c];
+    }
+    if (count == 1)
+        rooms.push_back({layout.alignRight ? 0.0 : widths[0], 0.0, 1.0 - widths[0], 1.0});
+    return rooms;
+}
+
 // Reads a layout already on screen as columns, when it is one: panes sharing a
 // column's left and right edges, stacked without gaps from top to bottom and
 // filling the display between them. Nothing else is a row of columns.

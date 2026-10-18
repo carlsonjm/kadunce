@@ -178,6 +178,9 @@ public:
     // side snap, so it keeps its places and can leave room open. Columns a
     // pair began (BentoColumns.h) leave none.
     [[nodiscard]] bool presentsPlacedLayoutOn(const QString &outputName) const;
+    // The room a card arriving would fill in that layout on `output`, in
+    // pixels, where the desktop shows; none when it leaves none.
+    [[nodiscard]] std::optional<QRectF> openRoomOn(KWin::LogicalOutput *output) const;
     void restoreAllSessions();
     // Every layout placed again where it stands, as after the space between
     // panes changes. A layout being placed, or a pane in a person's hands,

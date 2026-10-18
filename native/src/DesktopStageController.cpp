@@ -1409,6 +1409,18 @@ bool DesktopStageController::presentsPlacedLayoutOn(const QString &outputName) c
     return session != m_sessions.cend() && session->placed && !session->placed->paired;
 }
 
+std::optional<QRectF> DesktopStageController::openRoomOn(KWin::LogicalOutput *output) const
+{
+    const Session *session = output ? sessionForOutput(output) : nullptr;
+    if (!session || !session->placed) return std::nullopt;
+    const auto rooms = bentoColumnsOpenRooms(*session->placed);
+    if (rooms.empty()) return std::nullopt;
+    const KWin::Rect area = stageArea(output);
+    const auto pixels = makePixelBentoLayout(rooms, area.x(), area.y(), area.width(), area.height());
+    if (pixels.empty()) return std::nullopt;
+    return QRectF(pixels.front().x, pixels.front().y, pixels.front().width, pixels.front().height);
+}
+
 QString DesktopStageController::outputKey(const KWin::LogicalOutput *output) const
 {
     return output ? output->name() : QString();
