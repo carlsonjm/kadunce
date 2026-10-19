@@ -2017,6 +2017,36 @@ bool Effect::isCardWindow(const KWin::EffectWindow *window) const
         && (!window->isHidden() || window->data(CardAsideRole).toBool());
 }
 
+bool Effect::floatsAtItsOwnSize(const KWin::EffectWindow *window) const
+{
+    if (!window || window->isDeleted() || !window->window() || !window->isNormalWindow()) return false;
+    // Shuffle's own surfaces, Settings and Welcome, are drawn frameless at
+    // one size on every display, as Search is.
+    const QString identity = applicationIdentity(window);
+    if (identity.startsWith(QStringLiteral("co.goodinput.Shuffle."), Qt::CaseInsensitive)
+        && !window->hasDecoration()) return true;
+    // A window that cannot be resized fills no pane and no Active card.
+    const QSizeF least = window->window()->minSize();
+    const QSizeF most = window->window()->maxSize();
+    return least.width() > 0.0 && least.height() > 0.0 && least == most;
+}
+
+void Effect::centreFloatingWindow(KWin::EffectWindow *window)
+{
+    if (!floatsAtItsOwnSize(window) || window->isFullScreen() || window->isUserMove()) return;
+    KWin::LogicalOutput *output = screenNamed(inUseKey());
+    if (!output) output = tabletOutput();
+    if (!output) output = window->screen();
+    if (!output) return;
+    const QRectF area = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    const QSizeF size = QRectF(window->frameGeometry()).size();
+    const QPointF at(area.x() + std::max(0.0, (area.width() - size.width()) / 2.0),
+                     area.y() + std::max(0.0, (area.height() - size.height()) / 2.0));
+    window->window()->move(at);
+    qInfo() << "Kadunce" << Revision << "floats" << logNameOf(window) << "centred on" << output->name()
+            << "at its own size" << size;
+}
+
 bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
 {
     if (!window) {
@@ -2055,6 +2085,7 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
         && (window->isFullScreen() || window->keepAbove() || !window->hasDecoration())) {
         return false;
     }
+    if (floatsAtItsOwnSize(window)) return false;
     // A dialog that names its application follows that application's card
     // (§4), including one that names it only after it is shown
     // (handleTransientChanged). One that names none is a window of its own.
@@ -7607,6 +7638,10 @@ bool Effect::inCardGap(const QPointF &position) const
 
 int Effect::activeSideForPoint(const QPointF &position) const
 {
+    // A window floating at its own size takes what lands on it.
+    for (auto *window : KWin::effects->stackingOrder())
+        if (floatsAtItsOwnSize(window) && !window->isMinimized() && window->isOnCurrentDesktop()
+            && QRectF(window->frameGeometry()).contains(position)) return 0;
     return m_cardStage->activeSideForPoint(position);
 }
 
@@ -10131,6 +10166,10 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         m_freshDependents.append(fresh);
         QTimer::singleShot(0, this, [this, fresh] { m_freshDependents.removeAll(fresh); });
         scheduleDependentSync();
+        return;
+    }
+    if (floatsAtItsOwnSize(window)) {
+        centreFloatingWindow(window);
         return;
     }
     connectManagedWindow(window);

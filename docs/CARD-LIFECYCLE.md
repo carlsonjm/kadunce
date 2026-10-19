@@ -168,13 +168,14 @@ Kadunce does not create independent cards for:
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
 - The screenshot tool's capture, floating over cards
+- Windows that keep their own size, like Shuffle Settings, floating centred
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
-is not in front, the dialog waits with it, hidden and unable to take focus, and
+is not in front, the dialog waits with it, hidden, and
 the application is marked as wanting attention; bringing the application
 forward shows the dialog on top. In Spread a waiting dialog is drawn on its
-application's card, where it stands over the application. A card carried away
+application's card. A card carried away
 takes its dialogs along, each landing in the same place on its application, or
 on its middle when wider than it, and wholly on the display.
 Switching Kadunce off gives every waiting dialog back. A dialog that names its
