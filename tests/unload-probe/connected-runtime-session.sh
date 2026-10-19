@@ -382,6 +382,20 @@ snap() {
 previewed() { jq -e "$1" "$XDG_RUNTIME_DIR/snap-preview"; }
 placed_at() { probe windowGeometry "$1" | jq -e --slurpfile p "$XDG_RUNTIME_DIR/snap-preview" '. == $p[0]'; }
 geometry() { probe windowGeometry "$1" | jq -e "$2"; }
+# The room a side snap left open offers the display's other cards.
+offer() { kad nativeCarryState | jq -e "$@"; }
+offers() { offer --arg id "$1" '(.roomOffer.cards // []) | index($id) != null'; }
+# Presses the picture of a card the open room offers.
+pick_offered() {
+    local x y
+    read -r x y < <(kad nativeCarryState | jq -r --arg id "$1" '.roomOffer as $o | ($o.cards | index($id)) as $i
+        | $o.tiles[$i] | [.x + .width / 2, .y + .height / 2] | map(floor) | @tsv')
+    probe pointer "$x" "$y" >/dev/null
+    probe button true >/dev/null
+    sleep .15
+    probe button false >/dev/null
+    sleep 1.2
+}
 check 'place: the first terminal is the Active card' context --arg id "$a" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 snap "$a" 'Term A' 2555 1200
 report under
@@ -390,6 +404,17 @@ check 'under: it lands where the preview showed' placed_at "$a"
 check 'under: the card stands alone as the layout' layout_shown
 held_aside() { probe windowFacts | jq -e --arg b "$b" --arg c "$c" '[.[] | select(.id == $b or .id == $c) | .hidden] | length == 2 and all'; }
 check 'under: the other cards are held aside, out of reach' held_aside
+# The room above offers the display's other cards once the new layout
+# shows; Escape leaves it open.
+for (( i = 0; i < 30; ++i )); do offer '.roomOffer.cards' >/dev/null && break; sleep .1; done
+check 'offer: the room above offers the other cards' offer --arg b "$b" --arg c "$c" '.roomOffer
+    | .room.x > 1250 and .room.y < 200 and .room.height < 760
+    and (.cards | index($b) != null and index($c) != null) and (.tiles | length) == (.cards | length)'
+probe key 1 0 >/dev/null
+sleep .6
+check 'offer: Escape leaves the room open as it was' offer '.roomOffer.cards == null'
+check 'offer: the snapped card stays where it was placed' placed_at "$a"
+check 'offer: the other cards are still held aside' held_aside
 spread_key
 pick "$b"
 report under-filled
@@ -400,10 +425,12 @@ report under-again
 check 'under again: the preview is the lower right corner' previewed '.x > 1250 and .y > 650 and .height < 760'
 check 'under again: it lands where the preview showed' placed_at "$b"
 check 'under again: the first terminal moved up in the same strip' geometry "$a" '.x > 1250 and .y < 200 and .height < 760'
-spread_key
-pick "$c"
+check 'offer: the half left open offers the browser' offers "$c"
+pick_offered "$c"
 report browser-filled
-check 'fill: the browser takes the half left open' geometry "$c" '.x < 30 and .height > 1300'
+check 'offer: a picture picked leaves the offer' offer '.roomOffer.cards == null'
+check 'fill: the browser picked there takes the half left open' geometry "$c" '.x < 30 and .height > 1300'
+check 'fill: the browser is in use' focused "$c"
 snap "$c" 'Browser' 2555 720
 report beside
 check 'beside: the preview is the right column, full height' previewed '.x > 1250 and .height > 1300'
@@ -458,6 +485,16 @@ snap "$a" 'Term A' 1280 3 7
 report snapped-left
 check 'knob top: the preview is three quarters wide, centred' previewed '.width > 1800 and .width < 1960 and (.x + .width / 2 - 1280 | fabs) < 4'
 check 'knob top: the Active card stands where the preview showed' placed_at "$a"
+# Held anywhere on the monitor, away from its edges, the wheel narrows the
+# Active card in place from the width it stands at: two slow notches toward
+# you from three quarters catch at two thirds. The hand barely moves, so the
+# cards are kept as for a title bar held still.
+read -r hx hy <<<"$(probe windowGeometry "$a" | jq -r '[.x+.width/2+6,.y+.height/2+6] | map(floor) | @tsv')"
+snap "$a" 'Term A' "$hx" "$hy" 2
+report knob-held
+check 'knob held: the preview is two thirds wide, centred' previewed '.width > 1660 and .width < 1750 and (.x + .width / 2 - 1280 | fabs) < 4'
+check 'knob held: the Active card stands where the preview showed' placed_at "$a"
+check 'knob held: it is still the Active card' context --arg id "$a" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 spread_key
 report snapped-left-spread
 check 'side gone: Meta+S opens Spread over the layout the snapped card left' presents cardLine

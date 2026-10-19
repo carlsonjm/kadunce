@@ -453,6 +453,8 @@ public Q_SLOTS:
    if (w->objectName() == "dock")
     if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) { layer->setExclusiveZone(zone); w->update(); }
  }
+ // A window that keeps its own size, as a fixed dialog-like app does.
+ void fixedCompanion(const QString &title, const QString &hex, int width, int height) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->setFixedSize(width, height); w->show(); }
  void ordinaryCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Ordinary neighbor probe"); tint(w, QColor(0xc8, 0x8a, 0x1e)); w->resize(560,420); w->show(); }
  void oversizedCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Oversized ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A client that changes its own frame, the way a terminal does on a font or

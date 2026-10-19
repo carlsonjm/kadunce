@@ -168,13 +168,14 @@ Kadunce does not create independent cards for:
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
 - The screenshot tool's capture, floating over cards
+- Windows that keep their own size, like Shuffle Settings, floating centred
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card
-is not in front, the dialog waits with it, hidden and unable to take focus, and
+is not in front, the dialog waits with it, hidden, and
 the application is marked as wanting attention; bringing the application
 forward shows the dialog on top. In Spread a waiting dialog is drawn on its
-application's card, where it stands over the application. A card carried away
+application's card. A card carried away
 takes its dialogs along, each landing in the same place on its application, or
 on its middle when wider than it, and wholly on the display.
 Switching Kadunce off gives every waiting dialog back. A dialog that names its
@@ -432,16 +433,15 @@ card ends the display's session, as §12's last closure does.
 
 ### Cancel
 
-A cancelled carry returns the window to its ownership and presentation before
-it.
+A cancelled carry returns the window as it was.
 
 An edge action commits only when released in its zone.
 
 ## 11. Multiple displays
 
 Each display, per desktop, has its own card stage: Spread, Active card,
-Stacks and at most one Bento layout. A card belongs to the display its
-window stands on. An edge action, a key or a gesture reads the display it
+Stacks and at most one Bento layout. A card belongs to its window's
+display. An edge action, a key or a gesture reads the display it
 happens on; a key reads an open Spread, else the focused window's display,
 else the primary (`DECISIONS.md` § A Spread on every display).
 
@@ -460,7 +460,7 @@ unless chosen for it (`kaduncerc` `[Sizing]`, likewise).
 | Behavior | Solo | Connected |
 | --- | --- | --- |
 | A picked card or new window | Becomes Active (§6, §8) | Joins the layout: paired with the card in use when none shows, else under §8, filling open room, else joining the shortest column or starting one, whichever keeps panes larger |
-| A side snap | Takes its half's share (§3) | Names a place: an edge's middle half beside, full height; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place, the wheel its width |
+| A side snap | Takes its half's share (§3) | Names a place: an edge's middle half beside, full height; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place, the wheel its width, its open room offering other cards |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9) | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |
 | A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |

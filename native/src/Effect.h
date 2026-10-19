@@ -15,6 +15,8 @@
 #include "PaneStackAim.h"
 #include "StackScrub.h"
 #include "WheelWidth.h"
+#include "RoomOffer.h"
+#include "RoomOfferInput.h"
 #include "TouchDisplay.h"
 #include "TouchWitness.h"
 #include "NativeEdgePolicy.h"
@@ -454,6 +456,10 @@ private:
     // Both answer for the desktop of the session being worked on.
     [[nodiscard]] bool isCardWindow(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool isApplicationWindow(const KWin::EffectWindow *window) const;
+    // CARD-LIFECYCLE.md §4: a window that keeps its own size floats, centred,
+    // over cards and layouts, and is never a card or a pane.
+    [[nodiscard]] bool floatsAtItsOwnSize(const KWin::EffectWindow *window) const;
+    void centreFloatingWindow(KWin::EffectWindow *window);
     // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
     // it belongs to, follows the application window at the root of that chain
     // and is never a card or a pane. Null for a window that belongs to none.
@@ -1264,7 +1270,39 @@ private:
     double m_carryWidth = 0.0;
     WheelWidthKnob m_carryKnob;
     QElapsedTimer m_carryWidthClock;
+    // The wheel was turned while held away from a monitor's edges, which
+    // then asks what the top edge would until the hand reaches a side.
+    bool m_carryWidthHeld = false;
+    // Each release asks anew; a wait left from an earlier one gives up.
+    int m_roomOfferAsk = 0;
     bool turnCarryWidth(int notches);
+    bool holdCarryWidth();
+    // A card carried in from another display with the wheel turned, given
+    // its width once it stands as that display's Active card.
+    void fitArrivalWidth(QPointer<KWin::EffectWindow> window, QString output, double width, int tries);
+    // §11, Connected: the room a side snap left open offers the display's
+    // other cards (RoomOffer.h), until one is picked or the offer is left.
+    struct RoomOfferShown {
+        QPointer<KWin::LogicalOutput> output;
+        QRectF room;
+        QList<QPointer<KWin::EffectWindow>> cards;
+        QList<QRectF> tiles;
+        int hovered = -1;
+    };
+    std::optional<RoomOfferShown> m_roomOffer;
+    QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
+    std::unique_ptr<RoomOfferInput> m_roomOfferInput;
+    // Asks the room a side snap left open on `output` to offer the other
+    // cards; null, or any later ask, withdraws a wait still running.
+    void askRoomOffer(KWin::LogicalOutput *output);
+    void offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries = 40);
+    void pickFromRoomOffer(int index);
+    void leaveRoomOffer();
+    [[nodiscard]] int roomOfferPictureAt(QPointF position) const;
+    void drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                       const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
+    void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                              const QList<QRectF> &parts, const QRectF &box, float fill, float ring);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown

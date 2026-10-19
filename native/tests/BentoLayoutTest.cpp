@@ -726,6 +726,27 @@ int main()
             require(linked.shares.empty(), "A share outlived its card");
         }
 
+        // The room a layout leaves open, in the order a card arriving fills
+        // it: any open slot, then beside a lone column the rest of the display.
+        {
+            Columns lone;
+            BentoSidePlacement narrow = rightBeside;
+            narrow.share = 0.25;
+            bentoColumnsPlace(lone, 1, narrow);
+            const auto rooms = bentoColumnsOpenRooms(lone);
+            require(rooms.size() == 1 && same(rooms[0], {0.0, 0.0, 0.75, 1.0}),
+                "A lone column on the right did not leave the rest of the display open");
+            Columns under;
+            bentoColumnsPlace(under, 1, leftUnder);
+            const auto both = bentoColumnsOpenRooms(under);
+            require(both.size() == 2 && same(both[0], {0.0, 0.0, 0.5, 0.5}) && same(both[1], {0.5, 0.0, 0.5, 1.0}),
+                "A card under on the left did not leave the room above, then the other half, open");
+            require(bentoColumnsFill(under, 2) && same(bentoColumnsOpenRooms(under)[0], {0.5, 0.0, 0.5, 1.0}),
+                "A card filled other than the first room open");
+            require(bentoColumnsFill(under, 3) && bentoColumnsOpenRooms(under).empty(),
+                "A layout with every room filled still left some open");
+        }
+
         // Like a volume knob: turned slowly it catches at each stop and rests
         // there a notch; cranked it passes through.
         {

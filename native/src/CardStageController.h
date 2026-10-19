@@ -344,6 +344,9 @@ public:
                                                    double minimumWidth);
     // The share a card stands at when it is Active; the whole width forgets it.
     void setActiveWidth(const KWin::EffectWindow *window, double share);
+    // The Active card `window` moved to its place again, as its width now
+    // gives it. False when it is not this stage's Active card.
+    bool refitActive(KWin::EffectWindow *window);
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 

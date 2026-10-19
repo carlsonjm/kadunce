@@ -228,9 +228,13 @@ they preserve these relationships and respect the user's animation settings.
 - Where a carried window or a placed application would land shows as a
   filled box at the hover fill, 13% of the text colour, with the paper
   corner and no ring, so it reads as a place over any window under it.
-- A wheel turned while a window is held at the top or a side edge changes
+- A wheel turned while a window is held on a monitor changes
   that filled box's width notch by notch, with no motion of its own, so the
   box always shows exactly where the window will land.
+- Room a side snap leaves open takes a 7% fill and offers the display's other
+  cards as pictures 240 px wide, at most 150 px tall, 24 px apart, each named
+  beneath as in Spread, in Spread's order; the one under the pointer takes a
+  24% ring. A line under them says how to choose and how not to.
 - A Stack a carried window would join shows no box: rested there, the window
   shrinks to 80% about the pointer and tilts 1.5 degrees over 150 ms, as a
   card joining a deck, and straightens off it. A card held in its own Stack in
