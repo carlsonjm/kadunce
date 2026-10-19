@@ -11299,9 +11299,9 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
             // How far the picture reaches past the frame, for its shadow, and
             // how far an application's own corner reaches in from it.
             const QRectF frame(window->frameGeometry());
-            const QRectF drawn(window->expandedGeometry());
-            const double margin = std::max({frame.left() - drawn.left(), frame.top() - drawn.top(),
-                drawn.right() - frame.right(), drawn.bottom() - frame.bottom(), 0.0});
+            const QRectF picture(window->expandedGeometry());
+            const double margin = std::max({frame.left() - picture.left(), frame.top() - picture.top(),
+                picture.right() - frame.right(), picture.bottom() - frame.bottom(), 0.0});
             m_keyboardEdgeShader->setUniform("frameMargin", float(margin * viewport.scale()));
             m_keyboardEdgeShader->setUniform("cornerReach", float(24.0 * viewport.scale()));
             glActiveTexture(GL_TEXTURE0);
