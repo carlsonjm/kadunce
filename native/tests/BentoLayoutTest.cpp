@@ -814,16 +814,16 @@ int main()
             return got.x == want.x && got.y == want.y && got.width == want.width
                 && got.height == want.height;
         };
-        require(at(pair, 1, {10, 34, 943, 980}) && at(pair, 2, {967, 34, 943, 980}),
+        require(at(pair, 1, {10, 34, 945, 980}) && at(pair, 2, {965, 34, 945, 980}),
             "A Connected pair did not share the width evenly");
         pair.columns.push_back({{3, false}});
-        require(at(pair, 1, {10, 34, 626, 980}) && at(pair, 2, {650, 34, 619, 980})
-                && at(pair, 3, {1284, 34, 626, 980}),
+        require(at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 623, 980})
+                && at(pair, 3, {1282, 34, 628, 980}),
             "A third column did not share the width in thirds");
         bentoColumnsJoin(pair, 4);
         require(shape(pair) == std::vector<std::vector<int>>{{1}, {2}, {3, 4}}
-                && at(pair, 1, {10, 34, 626, 980}) && at(pair, 2, {650, 34, 619, 980})
-                && at(pair, 3, {1284, 34, 626, 483}) && at(pair, 4, {1284, 531, 626, 483}),
+                && at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 623, 980})
+                && at(pair, 3, {1282, 34, 628, 485}) && at(pair, 4, {1282, 529, 628, 485}),
             "A fourth card moved the first two, or did not join the rightmost column");
         // Columns a pair began stay so through arrivals and leavings.
         bentoColumnsRemove(pair, 2);
