@@ -9413,8 +9413,14 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         m_tablePresenter->prePaint(data.frame);
     // The offer lasts while the room it fills stays open as it was.
     if (m_roomOffer && m_roomOffer->output == data.screen) {
-        const auto room = m_desktopStage->openRoomOn(data.screen);
-        bool stands = room && *room == m_roomOffer->room && m_cardStage->presentsBento();
+        // §11, Solo: beside the Active card, while it stays Active.
+        const auto room = m_roomOffer->pairSide ? std::optional<QRectF>(pairOfferRoom(data.screen, *m_roomOffer->pairSide))
+                                                : m_desktopStage->openRoomOn(data.screen);
+        bool stands = room && *room == m_roomOffer->room
+            && (m_roomOffer->pairSide
+                ? m_roomOffer->pairWith && m_cardStage->activeCardIdentity() == m_roomOffer->pairWith
+                    && m_cardStage->presentation() == CardPresentation::Active
+                : m_cardStage->presentsBento());
         for (const auto &card : std::as_const(m_roomOffer->cards))
             stands = stands && card && !card->isDeleted();
         if (!stands) QTimer::singleShot(0, this, [this] { leaveRoomOffer(); });
