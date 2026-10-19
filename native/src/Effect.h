@@ -459,7 +459,7 @@ private:
     // CARD-LIFECYCLE.md §4: a window that keeps its own size floats, centred,
     // over cards and layouts, and is never a card or a pane.
     [[nodiscard]] bool floatsAtItsOwnSize(const KWin::EffectWindow *window) const;
-    void centreFloatingWindow(KWin::EffectWindow *window);
+    void centreFloatingWindow(KWin::EffectWindow *window, KWin::LogicalOutput *on = nullptr);
     // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
     // it belongs to, follows the application window at the root of that chain
     // and is never a card or a pane. Null for a window that belongs to none.

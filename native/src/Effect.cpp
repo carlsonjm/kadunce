@@ -2038,10 +2038,10 @@ bool Effect::floatsAtItsOwnSize(const KWin::EffectWindow *window) const
     return least.width() > 0.0 && least.height() > 0.0 && least == most;
 }
 
-void Effect::centreFloatingWindow(KWin::EffectWindow *window)
+void Effect::centreFloatingWindow(KWin::EffectWindow *window, KWin::LogicalOutput *on)
 {
     if (!floatsAtItsOwnSize(window) || window->isFullScreen() || window->isUserMove()) return;
-    KWin::LogicalOutput *output = screenNamed(inUseKey());
+    KWin::LogicalOutput *output = on ? on : screenNamed(inUseKey());
     if (!output) output = tabletOutput();
     if (!output) output = window->screen();
     if (!output) return;
@@ -2050,7 +2050,9 @@ void Effect::centreFloatingWindow(KWin::EffectWindow *window)
     // Shuffle Settings opens at the tablet's Active card size on every
     // display, so it reads as the same card wherever it opens; with no tablet,
     // at this display's own.
-    if (applicationIdentity(window).compare(QStringLiteral("co.goodinput.Shuffle.Settings"), Qt::CaseInsensitive) == 0) {
+    const bool settings = applicationIdentity(window)
+        .compare(QStringLiteral("co.goodinput.Shuffle.Settings"), Qt::CaseInsensitive) == 0;
+    if (settings) {
         KWin::LogicalOutput *tablet = tabletOutput();
         if (!tablet) tablet = output;
         const QSizeF card = QRectF(m_cardStage->activeTarget(tablet)).size();
@@ -2065,6 +2067,30 @@ void Effect::centreFloatingWindow(KWin::EffectWindow *window)
     window->window()->moveResize(KWin::RectF(QRectF(at, size)));
     qInfo() << "Kadunce" << Revision << "floats" << logNameOf(window) << "centred on" << output->name()
             << "at" << size;
+    if (!settings) return;
+    window->setProperty("kaduncePlacedSize", size);
+    // Keys raised as Settings opens by touch make KWin keep the size it had
+    // before it was centred, and put that back once they go: it is centred
+    // at its card size again then, on its own display.
+    if (window->property("kaduncePutsBack").toBool()) return;
+    window->setProperty("kaduncePutsBack", true);
+    const QPointer<KWin::EffectWindow> watched = window;
+    const auto puts = std::make_shared<int>(0);
+    connect(window, &KWin::EffectWindow::windowFrameGeometryChanged, this, [this, watched, puts] {
+        QTimer::singleShot(0, this, [this, watched, puts] {
+            if (!watched || watched->isDeleted() || !watched->window() || watched->isUserMove()
+                || watched->isUserResize() || *puts >= 20) return;
+            const QSizeF wanted = watched->property("kaduncePlacedSize").toSizeF();
+            const QSizeF asked = QRectF(watched->window()->moveResizeGeometry()).size();
+            if (!wanted.isValid() || (std::abs(asked.width() - wanted.width()) < 1.0
+                                      && std::abs(asked.height() - wanted.height()) < 1.0)) return;
+            // While the keys are up, the room KWin makes for them stands.
+            if (inputPanelTopForCardStage(watched->screen())) return;
+            ++*puts;
+            qInfo() << "Kadunce" << Revision << "puts" << logNameOf(watched) << "back at its card size from" << asked;
+            centreFloatingWindow(watched, watched->screen());
+        });
+    });
 }
 
 bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
