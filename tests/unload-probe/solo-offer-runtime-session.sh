@@ -61,6 +61,13 @@ test "$(probe windowMinimized "$sleeper")" = false
 kad nativeCarryState | jq -e '.roomOffer.cards == null'
 kad workspaceContext | jq -e --arg a "$main" --arg b "$sleeper" \
     '[.applications[] | select((.windowId == $a or .windowId == $b) and .pane)] | length == 2'
+# The panes glide into place; each stands in its half once they settle.
+for attempt in {1..30}; do
+    probe windowGeometry "$sleeper" | jq -e '.x < 100 and .width < 700' >/dev/null \
+        && probe windowGeometry "$main" | jq -e '.x > 600' >/dev/null && break
+    sleep .1
+done
+echo "panes: $(probe windowGeometry "$sleeper" | jq -c .) $(probe windowGeometry "$main" | jq -c .)"
 probe windowGeometry "$sleeper" | jq -e '.x < 100 and .width < 700'
 probe windowGeometry "$main" | jq -e '.x > 600'
 echo 'PASS: a side snap with no awake partner offers the sleeping card beside it, and the pick pairs them'
