@@ -4478,7 +4478,10 @@ void Effect::captureOfferPictures()
                     PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), data); });
             }, true);
         m_capturingHeld = nullptr;
-        if (taken) m_offerPictures.emplace(window, std::move(picture));
+        if (!taken) continue;
+        m_offerPictures.emplace(window, std::move(picture));
+        // The next frame draws it.
+        KWin::effects->addRepaintFull();
     }
 }
 
@@ -9985,7 +9988,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     SessionScope scope(this, m_currentSession, isCardDisplay(screen) ? stageKeyFor(screen) : m_scopedKey);
     m_paintingOutput = screen;
     if (!m_heldPictures.empty()) captureHeldPictures();
-    if (m_roomOffer && screen == m_roomOffer->output) captureOfferPictures();
     if (screen && screen == tabletOutput()) {
         // Only this display's: another's are read until it paints again.
         for (auto it = m_cardLabelTargets.begin(); it != m_cardLabelTargets.end();) {
@@ -10000,6 +10002,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
+    // §11: an offered card's picture is kept once the scene has drawn it this
+    // frame, so a sleeping window's newest content is what is kept; taken
+    // before, a window just woken for the offer can still have none.
+    if (m_roomOffer && screen == m_roomOffer->output) captureOfferPictures();
     // Labels, rails and outlines belong to the current desktop's presentation.
     if (m_previewDesktop) return paintResult(true);
     // Where anything below is painted over the scene, and so over the

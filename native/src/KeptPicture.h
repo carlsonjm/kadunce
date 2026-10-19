@@ -63,7 +63,13 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
         draw(target, viewport);
         KWin::GLFramebuffer::popFramebuffer();
-        if (shrunk) texture->generateMipmaps();
+        // KWin makes the smaller copies of whichever texture is bound, so
+        // this one is bound for it; unbound, it has none and draws black.
+        if (shrunk) {
+            texture->bind();
+            texture->generateMipmaps();
+            texture->unbind();
+        }
         m_texture = std::move(texture);
         m_size = logical.size();
         return true;
