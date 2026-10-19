@@ -40,7 +40,7 @@ probe contactMotion "$((x + 200))" "$y" >/dev/null
 sleep .1
 probe contactMotion 1279 300 >/dev/null
 sleep .4
-kad nativeCarryState | jq -e '.destinationPreview and .destinationRect.x > 600'
+kad nativeCarryState | jq -e '.destinationPreview and .destinationRect.x > 300'
 probe contactButton false >/dev/null
 offered=
 for attempt in {1..30}; do
@@ -49,7 +49,7 @@ for attempt in {1..30}; do
     sleep .1
 done
 echo "offered: $offered"
-jq -e --arg id "$sleeper" '(.cards | index($id)) != null and .room.x < 100' <<<"$offered"
+jq -e --arg id "$sleeper" '(.cards | index($id)) != null and .room.x < 100 and .room.width < 640' <<<"$offered"
 kad workspaceContext | jq -e --arg id "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
 read -r px py <<<"$(jq -r --arg id "$sleeper" '(.cards | index($id)) as $i | .tiles[$i] | [.x + .width / 2, .y + .height / 2] | map(floor) | @tsv' <<<"$offered")"
 probe pointer "$px" "$py" >/dev/null
@@ -64,10 +64,11 @@ kad workspaceContext | jq -e --arg a "$main" --arg b "$sleeper" \
 # The panes glide into place; each stands in its half once they settle.
 for attempt in {1..30}; do
     probe windowGeometry "$sleeper" | jq -e '.x < 100 and .width < 700' >/dev/null \
-        && probe windowGeometry "$main" | jq -e '.x > 600' >/dev/null && break
+        && probe windowGeometry "$main" | jq -e '.x > 400' >/dev/null && break
     sleep .1
 done
 echo "panes: $(probe windowGeometry "$sleeper" | jq -c .) $(probe windowGeometry "$main" | jq -c .)"
 probe windowGeometry "$sleeper" | jq -e '.x < 100 and .width < 700'
-probe windowGeometry "$main" | jq -e '.x > 600'
+# Beside it on the right, at the larger share its snap named.
+probe windowGeometry "$main" | jq -e '.x > 400 and .width > 640'
 echo 'PASS: a side snap with no awake partner offers the sleeping card beside it, and the pick pairs them'

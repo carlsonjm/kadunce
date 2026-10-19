@@ -5621,11 +5621,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             refusal.reset();
             m_carryCardEntryOutput = target;
             const BentoSidePlacement place = *side;
-            // The half it names: the room's mirror across the display.
+            // The place it names: what the room leaves, across the gutter.
             const QRectF beside = pairOfferRoom(target, place);
             const QRectF whole(m_cardStage->activeTarget(target));
-            m_carryPreview = KWin::RectF(beside.translated(
-                place.right ? whole.right() - beside.right() : whole.left() - beside.left(), 0));
+            const double gap = 10.0;
+            m_carryPreview = KWin::RectF(place.right
+                ? QRectF(QPointF(beside.right() + gap, whole.top()), whole.bottomRight())
+                : QRectF(whole.topLeft(), QPointF(beside.left() - gap, whole.bottom())));
             previewDrop(*destination,
                 [this, carried, output] {
                     return carried && !carried->isDeleted() && output && carried->screen() == output
@@ -9707,12 +9709,15 @@ QList<KWin::EffectWindow *> Effect::sleepingCardsOn(const KWin::LogicalOutput *o
 
 QRectF Effect::pairOfferRoom(KWin::LogicalOutput *output, const BentoSidePlacement &side) const
 {
-    // The half the snapped card leaves, beside the half it names.
+    // The share the snapped card leaves, beside the share it names: two
+    // thirds from the upper half of the edge, one third from the lower, as a
+    // pair on Solo stands (bentoProportionalSideLayout).
     const QRectF whole(m_cardStage->activeTarget(output));
     // The Visual sheet's gutter between two panes.
     const double gap = 10.0;
-    const double half = (whole.width() - gap) / 2.0;
-    return QRectF(side.right ? whole.x() : whole.x() + half + gap, whole.y(), half, whole.height());
+    const double named = (whole.width() - gap) * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
+    const double room = whole.width() - gap - named;
+    return QRectF(side.right ? whole.x() : whole.x() + named + gap, whole.y(), room, whole.height());
 }
 
 void Effect::askRoomOffer(KWin::LogicalOutput *output)
