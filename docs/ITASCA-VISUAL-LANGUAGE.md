@@ -231,7 +231,8 @@ they preserve these relationships and respect the user's animation settings.
 - A wheel turned while a window is held on a monitor changes
   that filled box's width notch by notch, with no motion of its own, so the
   box always shows exactly where the window will land.
-- Room a side snap leaves open takes a 7% fill and offers the display's other
+- Room a side snap leaves open has no box behind it; once the snapped card
+  stands in its place, across the gutter, the room offers the display's other
   cards as pictures 240 px wide, at most 150 px tall, 24 px apart, each named
   beneath as in Spread, in Spread's order; the one under the pointer takes a
   24% ring. A line under them says how to choose and how not to.

@@ -14,6 +14,9 @@
 #include <QCache>
 #include <QImage>
 #include <QPainter>
+#include <QtMath>
+#include <algorithm>
+#include <cmath>
 
 namespace Kadunce
 {
@@ -38,12 +41,16 @@ public:
             + presentation.applicationName
             + QChar(0x1f) + presentation.stackPosition
             + QChar(0x1f) + QString::number(width);
-        auto *texture = m_textures.object(key);
+        // Drawn at the display's own pixels, so the words land on them
+        // exactly, at any scale.
+        const double ratio = std::max(1.0, viewport.scale());
+        const QString scaled = key + QChar(0x1f) + QString::number(ratio);
+        auto *texture = m_textures.object(scaled);
         if (!texture) {
-            QImage image(width * 2, RowHeight * 2,
+            QImage image(qCeil(width * ratio), qCeil(RowHeight * ratio),
                          QImage::Format_ARGB32_Premultiplied);
             image.fill(Qt::transparent);
-            image.setDevicePixelRatio(2.0);
+            image.setDevicePixelRatio(ratio);
             QPainter painter(&image);
             painter.setRenderHint(QPainter::TextAntialiasing);
             QFont font;
@@ -71,15 +78,19 @@ public:
             }
             painter.end();
             auto uploaded = KWin::GLTexture::upload(image);
+            if (uploaded) uploaded->setFilter(GL_LINEAR);
             texture = uploaded.release();
-            m_textures.insert(key, texture);
+            m_textures.insert(scaled, texture);
         }
         if (!texture) return;
         KWin::ShaderBinder binder(KWin::ShaderTrait::MapTexture);
         auto *shader = KWin::ShaderManager::instance()->getBoundShader();
         auto matrix = viewport.projectionMatrix();
         matrix.scale(viewport.scale(), viewport.scale());
-        matrix.translate(card.x(), card.bottom() + LabelGap);
+        // On whole display pixels, so the words stay sharp.
+        const double scale = viewport.scale();
+        matrix.translate(std::round(card.x() * scale) / scale,
+                         std::round((card.bottom() + LabelGap) * scale) / scale);
         shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix,
                            matrix);
         shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,

@@ -390,6 +390,7 @@ bool CardStageController::stackBehind(KWin::EffectWindow *face, const QList<KWin
     for (auto *window : behind) members.append(window);
     if (!m_workspace.stackBehind(face, members)) return false;
     syncSelectedStackingOrder();
+    standStackWhole(face);
     KWin::effects->addRepaintFull();
     return true;
 }
@@ -1299,6 +1300,9 @@ KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,
     const KWin::Rect whole = activeTarget(output);
     const auto share = m_activeWidths.constFind(window);
     if (share == m_activeWidths.cend() || !window || !window->window()) return whole;
+    // A card in a Stack stands at the Stack's size, the whole Active width,
+    // whatever width the wheel gave it alone.
+    if (stackFrontToBack(window).size() > 1) return whole;
     return narrowedActive(whole, *share, window->window()->minSize().width());
 }
 
@@ -1332,9 +1336,24 @@ bool CardStageController::refitActive(KWin::EffectWindow *window)
     return true;
 }
 
+bool CardStageController::holdActivePlace(KWin::EffectWindow *window, std::optional<KWin::Rect> place)
+{
+    if (!place) {
+        if (!m_heldActivePlace || m_heldActiveWindow != window) return false;
+        m_heldActiveWindow.clear();
+        m_heldActivePlace.reset();
+        return true;
+    }
+    m_heldActiveWindow = window;
+    m_heldActivePlace = place;
+    return true;
+}
+
 KWin::Rect CardStageController::activePlacement(
     KWin::LogicalOutput *output) const
 {
+    if (m_heldActivePlace && m_heldActiveWindow && m_heldActiveWindow.data() == m_activeRestore.window.data())
+        return *m_heldActivePlace;
     if (!m_keyboardRoom || !m_keyboardRoom->window
         || m_keyboardRoom->window != m_activeRestore.window) {
         return activeTargetFor(output, m_activeRestore.window);
@@ -2349,6 +2368,7 @@ void CardStageController::finishCardGrab(bool commit)
         outcome = movement != 0 ? "moved" : "stayed";
     }
     resetCardGrabState(grabbed, stacked);
+    if (stacked) standStackWhole(selectedWindow());
     qInfo() << "Kadunce" << Revision << "released Spread card"
             << m_workspace.selectedId() << outcome << "at entry" << m_workspace.selectedIndex() + 1;
 }
@@ -2790,6 +2810,7 @@ bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::Ef
     for (int i = 1; i < members.size(); ++i) rest.append(members.at(i));
     if (!m_workspace.stackBehind(face, rest)) return false;
     syncSelectedStackingOrder();
+    standStackWhole(face);
     return true;
 }
 
@@ -4866,14 +4887,34 @@ bool CardStageController::enterActive()
     return true;
 }
 
-void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards)
+void CardStageController::standStackWhole(const KWin::EffectWindow *member)
+{
+    const QList<KWin::EffectWindow *> stack = stackFrontToBack(member);
+    if (stack.size() < 2) return;
+    // Every card of it, on whichever display holds it, stands at that
+    // display's whole Active place: one size, the Stack's.
+    QHash<KWin::LogicalOutput *, QList<QPointer<KWin::EffectWindow>>> byDisplay;
+    int narrowed = 0;
+    for (auto *card : stack) {
+        if (m_activeWidths.remove(card)) ++narrowed;
+        if (card && card->screen() && canOwnCards(card->screen())) byDisplay[card->screen()].append(card);
+    }
+    qInfo() << "Kadunce" << Revision << "stands a Stack of" << stack.size() << "at the whole width;"
+            << narrowed << "narrowed by the wheel";
+    if (m_presentation == CardPresentation::Active && m_activeRestore.window
+        && stack.contains(m_activeRestore.window.data())) (void)refitActive(m_activeRestore.window);
+    for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
+}
+
+void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
+    KWin::LogicalOutput *output)
 {
     // §3: a card behind the one presented stands where it would as Active. A
     // window taken maximized would otherwise still reach the bottom of the
     // work area, where a panel that watches for windows reaching it stays
     // opaque until each card has been brought forward once. Its own place is
     // already in its restore record, so release gives it back.
-    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    KWin::LogicalOutput *tablet = output ? output : m_host->tabletOutputForCardStage();
     if (!tablet) return;
     const KWin::RectF target(activeTarget(tablet));
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);

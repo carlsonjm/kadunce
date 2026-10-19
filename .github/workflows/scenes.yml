@@ -29,7 +29,7 @@ jobs:
       image: ghcr.io/archlinux/archlinux:latest
     timeout-minutes: 45
     env:
-      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime connected-sizes-runtime connected-stacks-runtime every-display-runtime every-display-wake-runtime every-display-carry-runtime every-display-pane-runtime every-display-full-runtime connected-keys-runtime connected-bento-key-runtime connected-desk-keys-runtime stack-runtime late-maximize-active-runtime late-maximize-signin-runtime fill-return-runtime x11-fill-return-runtime guest-float-runtime spread-signal-runtime caller-fence-runtime context-line-runtime bento-gap-runtime gap-runtime' }}
+      SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime solo-offer-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime connected-sizes-runtime connected-stacks-runtime every-display-runtime every-display-wake-runtime every-display-carry-runtime every-display-pane-runtime every-display-full-runtime connected-keys-runtime connected-bento-key-runtime connected-desk-keys-runtime stack-runtime late-maximize-active-runtime late-maximize-signin-runtime fill-return-runtime x11-fill-return-runtime guest-float-runtime spread-signal-runtime caller-fence-runtime context-line-runtime bento-gap-runtime gap-runtime' }}
     steps:
       - name: Install build and session dependencies
         run: |
@@ -91,7 +91,7 @@ jobs:
             tail -60 "$log"
             evidence=$(sed -n 's/^Isolated unload evidence: //p' "$log" | head -1)
             if [[ -n $evidence && -f $evidence/session.log ]]; then
-              rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )|Kadunce .*(changed to|activated with|entered interactive|could not|holds the windows|declined|sends |handed|gave |placed|swapped|found nothing|found no room|offers |floats |stepped |kept the Stack|leaves |takes |kept |behind it)' "$evidence/session.log" | tail -250 || true
+              rg -a '(^| )(ok:|FAIL|PASS|state |facts |frames )|Kadunce .*(changed to|activated with|entered interactive|could not|holds the windows|declined|sends |handed|gave |placed|swapped|found nothing|found no room|offers |paired |floats |stepped |kept the Stack|leaves |takes |kept |behind it)' "$evidence/session.log" | tail -250 || true
               # The card book reports and never fails a scene: each place a
               # card's records disagreed, counted for every scene below.
               rg -a -B4 'Kadunce card book:' "$evidence/session.log" || true

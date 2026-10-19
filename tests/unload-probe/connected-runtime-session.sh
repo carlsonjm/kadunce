@@ -420,6 +420,9 @@ pick "$b"
 report under-filled
 check 'fill: the second terminal takes the room above' geometry "$b" '.x > 1250 and .y < 200 and .height < 760'
 check 'fill: the first did not move' placed_at "$a"
+# The browser sleeps; the room still offers it, and picked, it wakes there.
+probe minimizeWindow "$c" true >/dev/null
+sleep .5
 snap "$b" 'Term B' 2555 1200
 report under-again
 check 'under again: the preview is the lower right corner' previewed '.x > 1250 and .y > 650 and .height < 760'
@@ -430,6 +433,8 @@ pick_offered "$c"
 report browser-filled
 check 'offer: a picture picked leaves the offer' offer '.roomOffer.cards == null'
 check 'fill: the browser picked there takes the half left open' geometry "$c" '.x < 30 and .height > 1300'
+awake() { probe windowFacts | jq -e --arg id "$1" '.[] | select(.id == $id) | .minimized | not'; }
+check 'fill: the browser woke to take it' awake "$c"
 check 'fill: the browser is in use' focused "$c"
 snap "$c" 'Browser' 2555 720
 report beside

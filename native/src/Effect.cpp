@@ -1038,6 +1038,7 @@ Effect::Effect()
             m_previewRefs.remove(window);
             m_drawnAs.remove(window);
             releaseHeldPicture(window);
+            m_offerPictures.erase(window);
             if (m_capturingHeld == window) m_capturingHeld = nullptr;
         });
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed, this,
@@ -1328,8 +1329,14 @@ Effect::Effect()
         m_roomOffer->hovered = at;
         KWin::effects->addRepaintFull();
     };
-    m_roomOfferInput->picked = [this](int at) { pickFromRoomOffer(at); };
-    m_roomOfferInput->dismissed = [this] { leaveRoomOffer(); };
+    m_roomOfferInput->picked = [this](int at) {
+        qInfo() << "Kadunce" << Revision << "picked offered card" << at;
+        pickFromRoomOffer(at);
+    };
+    m_roomOfferInput->dismissed = [this] {
+        qInfo() << "Kadunce" << Revision << "leaves the offer: Escape or a press away from its pictures";
+        leaveRoomOffer();
+    };
     m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
         traceNativeMove(w ? w->effectWindow() : m_carriedWindow.data(), event);
     };
@@ -2031,20 +2038,59 @@ bool Effect::floatsAtItsOwnSize(const KWin::EffectWindow *window) const
     return least.width() > 0.0 && least.height() > 0.0 && least == most;
 }
 
-void Effect::centreFloatingWindow(KWin::EffectWindow *window)
+void Effect::centreFloatingWindow(KWin::EffectWindow *window, KWin::LogicalOutput *on)
 {
     if (!floatsAtItsOwnSize(window) || window->isFullScreen() || window->isUserMove()) return;
-    KWin::LogicalOutput *output = screenNamed(inUseKey());
+    KWin::LogicalOutput *output = on ? on : screenNamed(inUseKey());
     if (!output) output = tabletOutput();
     if (!output) output = window->screen();
     if (!output) return;
     const QRectF area = KWin::effects->clientArea(KWin::MaximizeArea, output);
-    const QSizeF size = QRectF(window->frameGeometry()).size();
+    QSizeF size = QRectF(window->frameGeometry()).size();
+    // Shuffle Settings opens at the tablet's Active card size on every
+    // display, so it reads as the same card wherever it opens; with no tablet,
+    // at this display's own.
+    const bool settings = applicationIdentity(window)
+        .compare(QStringLiteral("co.goodinput.Shuffle.Settings"), Qt::CaseInsensitive) == 0;
+    if (settings) {
+        KWin::LogicalOutput *tablet = tabletOutput();
+        if (!tablet) tablet = output;
+        const QSizeF card = QRectF(m_cardStage->activeTarget(tablet)).size();
+        const QSizeF least = window->window()->minSize();
+        if (!card.isEmpty()) {
+            size = QSizeF(std::clamp(card.width(), least.width(), std::max(least.width(), area.width())),
+                          std::clamp(card.height(), least.height(), std::max(least.height(), area.height())));
+        }
+    }
     const QPointF at(area.x() + std::max(0.0, (area.width() - size.width()) / 2.0),
                      area.y() + std::max(0.0, (area.height() - size.height()) / 2.0));
-    window->window()->move(at);
+    window->window()->moveResize(KWin::RectF(QRectF(at, size)));
     qInfo() << "Kadunce" << Revision << "floats" << logNameOf(window) << "centred on" << output->name()
-            << "at its own size" << size;
+            << "at" << size;
+    if (!settings) return;
+    window->setProperty("kaduncePlacedSize", size);
+    // Keys raised as Settings opens by touch make KWin keep the size it had
+    // before it was centred, and put that back once they go: it is centred
+    // at its card size again then, on its own display.
+    if (window->property("kaduncePutsBack").toBool()) return;
+    window->setProperty("kaduncePutsBack", true);
+    const QPointer<KWin::EffectWindow> watched = window;
+    const auto puts = std::make_shared<int>(0);
+    connect(window, &KWin::EffectWindow::windowFrameGeometryChanged, this, [this, watched, puts] {
+        QTimer::singleShot(0, this, [this, watched, puts] {
+            if (!watched || watched->isDeleted() || !watched->window() || watched->isUserMove()
+                || watched->isUserResize() || *puts >= 20) return;
+            const QSizeF wanted = watched->property("kaduncePlacedSize").toSizeF();
+            const QSizeF asked = QRectF(watched->window()->moveResizeGeometry()).size();
+            if (!wanted.isValid() || (std::abs(asked.width() - wanted.width()) < 1.0
+                                      && std::abs(asked.height() - wanted.height()) < 1.0)) return;
+            // While the keys are up, the room KWin makes for them stands.
+            if (inputPanelTopForCardStage(watched->screen())) return;
+            ++*puts;
+            qInfo() << "Kadunce" << Revision << "puts" << logNameOf(watched) << "back at its card size from" << asked;
+            centreFloatingWindow(watched, watched->screen());
+        });
+    });
 }
 
 bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
@@ -4412,6 +4458,14 @@ QString rectText(const QRectF &rect)
 {
     return QStringLiteral("%1,%2 %3x%4").arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
 }
+
+// Where an offered card's picture stands in its tile: in its own shape, as
+// large as the tile allows, centred.
+QRectF offerPicture(const QRectF &tile, const QSizeF &card)
+{
+    const QSizeF fitted = card.scaled(tile.size(), Qt::KeepAspectRatio);
+    return QRectF(tile.center() - QPointF(fitted.width() / 2, fitted.height() / 2), fitted);
+}
 }
 
 bool Effect::holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
@@ -4447,6 +4501,28 @@ void Effect::releaseHeldPicture(KWin::EffectWindow *window)
     if (it == m_heldPictures.end()) return;
     disconnect(it->second.damaged);
     m_heldPictures.erase(it);
+}
+
+void Effect::captureOfferPictures()
+{
+    for (const auto &card : std::as_const(m_roomOffer->cards)) {
+        if (!card || card->isDeleted() || m_offerPictures.contains(card.data())) continue;
+        KWin::EffectWindow *window = card.data();
+        m_capturingHeld = window;
+        KeptPicture picture;
+        const bool taken = picture.take(window,
+            [&](const KWin::RenderTarget &target, const KWin::RenderViewport &viewport) {
+                KWin::WindowPaintData data;
+                data.setOpacity(1.0);
+                (void)painted([&] { return KWin::effects->drawWindow(target, viewport, window,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), data); });
+            }, true);
+        m_capturingHeld = nullptr;
+        if (!taken) continue;
+        m_offerPictures.emplace(window, std::move(picture));
+        // The next frame draws it.
+        KWin::effects->addRepaintFull();
+    }
 }
 
 void Effect::captureHeldPictures()
@@ -5578,8 +5654,46 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         }
         switch (outcome) {
         case EdgeEntryOutcome::Refuse:
-        case EdgeEntryOutcome::Unchanged:
             return;
+        case EdgeEntryOutcome::Unchanged: {
+            // §11, Solo: no awake card to pair, but sleeping ones: the card
+            // stays Active and the half beside its side offers them.
+            if (!sideEdge || !side || !destination || !tablet || liveLayout
+                || m_cardStage->activeCardIdentity() != m_carriedWindow
+                || sleepingCardsOn(target).isEmpty()) return;
+            refusal.reset();
+            m_carryCardEntryOutput = target;
+            const BentoSidePlacement place = *side;
+            // The place it names: what the room leaves, across the gutter.
+            const QRectF beside = pairOfferRoom(target, place);
+            const QRectF whole(m_cardStage->activeTarget(target));
+            const double gap = 10.0;
+            const QRectF named = place.right
+                ? QRectF(QPointF(beside.right() + gap, whole.top()), whole.bottomRight())
+                : QRectF(whole.topLeft(), QPointF(beside.left() - gap, whole.bottom()));
+            m_carryPreview = KWin::RectF(named);
+            previewDrop(*destination,
+                [this, carried, output] {
+                    return carried && !carried->isDeleted() && output && carried->screen() == output
+                        && m_cardStage->activeCardIdentity() == carried;
+                },
+                [this, carried, output, bento, place, named](const PreparedCarrySource &source) {
+                    if (!(bento ? m_desktopStage->nativeCarrySourceValid(source) : cardCarrySourceValid(source)))
+                        return false;
+                    const QRectF drawn = carriedPose();
+                    // It glides into the place its snap named first, and the
+                    // offer opens in the rest.
+                    m_cardStage->holdActivePlace(carried, KWin::RectF(named).toRect());
+                    if (!m_cardStage->refitActive(carried)) {
+                        m_cardStage->holdActivePlace(carried, std::nullopt);
+                        return false;
+                    }
+                    glideIntoActive(carried, output, drawn);
+                    askPairOffer(output, carried, place);
+                    return true;
+                });
+            return;
+        }
         case EdgeEntryOutcome::ComposeDisplayBento:
             break; // A display that cannot own cards reserves below as before.
         case EdgeEntryOutcome::PairIntoBento: {
@@ -6747,6 +6861,9 @@ QJsonValue Effect::contextNotice() const
         return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
     if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
         return notice(QStringLiteral("zones"), m_zoneNotice->text, nullptr);
+    // The open room's offer says how to choose on its display's own line.
+    if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
+        return notice(QStringLiteral("offer"), roomOfferHint(), m_roomOffer->output);
     return QJsonValue(QJsonValue::Null);
 }
 
@@ -6839,6 +6956,8 @@ QString Effect::contextLineSignature() const
         signature += QStringLiteral("r ") + m_gestureNote->text;
     else if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
         signature += QStringLiteral("z ") + m_zoneNotice->text;
+    else if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
+        signature += QStringLiteral("o ") + m_roomOffer->output->name();
     return signature;
 }
 
@@ -9359,11 +9478,21 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         m_tablePresenter->prePaint(data.frame);
     // The offer lasts while the room it fills stays open as it was.
     if (m_roomOffer && m_roomOffer->output == data.screen) {
-        const auto room = m_desktopStage->openRoomOn(data.screen);
-        bool stands = room && *room == m_roomOffer->room && m_cardStage->presentsBento();
+        // §11, Solo: beside the Active card, while it stays Active.
+        const auto room = m_roomOffer->pairSide ? std::optional<QRectF>(pairOfferRoom(data.screen, *m_roomOffer->pairSide))
+                                                : m_desktopStage->openRoomOn(data.screen);
+        bool stands = room && *room == m_roomOffer->room
+            && (m_roomOffer->pairSide
+                ? m_roomOffer->pairWith && m_cardStage->activeCardIdentity() == m_roomOffer->pairWith
+                    && m_cardStage->presentation() == CardPresentation::Active
+                : m_cardStage->presentsBento());
         for (const auto &card : std::as_const(m_roomOffer->cards))
             stands = stands && card && !card->isDeleted();
-        if (!stands) QTimer::singleShot(0, this, [this] { leaveRoomOffer(); });
+        if (!stands) QTimer::singleShot(0, this, [this] {
+            if (!m_roomOffer) return;
+            qInfo() << "Kadunce" << Revision << "leaves the offer: the room it filled changed";
+            leaveRoomOffer();
+        });
     }
     m_framingTablet = isTabletOutput(data.screen);
     if (m_framingTablet) noteTabletFrameStart();
@@ -9609,9 +9738,62 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
 }
 
+void Effect::askPairOffer(KWin::LogicalOutput *output, KWin::EffectWindow *card, BentoSidePlacement side)
+{
+    const int ask = ++m_roomOfferAsk;
+    if (m_pairOfferAsked && m_pairOfferAsked->card != card) releasePairOfferPlace(m_pairOfferAsked->card);
+    m_pairOfferAsked = PairOfferAsked{card, side};
+    const QPointer<KWin::LogicalOutput> landed = output;
+    QTimer::singleShot(motion(320), this, [this, landed, ask] {
+        if (landed) offerOpenRoom(landed, ask);
+    });
+}
+
+QList<KWin::EffectWindow *> Effect::sleepingCardsOn(const KWin::LogicalOutput *output) const
+{
+    QList<KWin::EffectWindow *> sleeping;
+    for (const auto &card : m_cardStage->liveCards()) {
+        if (!card || card->isDeleted() || !card->isMinimized() || card->screen() != output
+            || m_desktopStage->managesWindow(card) || m_cardStage->paneHolding(card)) continue;
+        const auto stack = m_cardStage->stackFrontToBack(card);
+        if (!stack.isEmpty() && stack.first() != card) continue;
+        sleeping.append(card.data());
+    }
+    return sleeping;
+}
+
+QRectF Effect::pairOfferRoom(KWin::LogicalOutput *output, const BentoSidePlacement &side) const
+{
+    // The share the snapped card leaves, beside the share it names: two
+    // thirds from the upper half of the edge, one third from the lower, as a
+    // pair on Solo stands (bentoProportionalSideLayout).
+    const QRectF whole(m_cardStage->activeTarget(output));
+    // The Visual sheet's gutter between two panes.
+    const double gap = 10.0;
+    const double named = (whole.width() - gap) * (side.large ? 2.0 / 3.0 : 1.0 / 3.0);
+    const double room = whole.width() - gap - named;
+    return QRectF(side.right ? whole.x() : whole.x() + named + gap, whole.y(), room, whole.height());
+}
+
+void Effect::releasePairOfferPlace(KWin::EffectWindow *card, bool refit)
+{
+    if (!card || card->isDeleted()) return;
+    SessionScope scope(this, m_currentSession, stageKeyFor(card->screen()));
+    if (!m_cardStage->holdActivePlace(card, std::nullopt) || !refit) return;
+    // Moved after the frame that let the offer go, never during its paint.
+    const QPointer<KWin::EffectWindow> held = card;
+    QTimer::singleShot(0, this, [this, held] {
+        if (!held || held->isDeleted()) return;
+        SessionScope scope(this, m_currentSession, stageKeyFor(held->screen()));
+        (void)m_cardStage->refitActive(held);
+    });
+}
+
 void Effect::askRoomOffer(KWin::LogicalOutput *output)
 {
     const int ask = ++m_roomOfferAsk;
+    if (m_pairOfferAsked) releasePairOfferPlace(m_pairOfferAsked->card);
+    m_pairOfferAsked.reset();
     if (!output || !connectedOutputForDesktopStage(output)) return;
     const QPointer<KWin::LogicalOutput> landed = output;
     QTimer::singleShot(motion(320), this, [this, landed, ask] {
@@ -9622,12 +9804,25 @@ void Effect::askRoomOffer(KWin::LogicalOutput *output)
 void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
 {
     if (ask != m_roomOfferAsk) return;
+    const auto pair = m_pairOfferAsked;
+    // The card a new pair offer stands beside keeps the place it now holds.
+    if (pair && m_roomOffer && m_roomOffer->pairWith == pair->card) m_roomOffer->pairSide.reset();
     leaveRoomOffer();
-    if (!output || m_releasing || !KWin::effects->screens().contains(output)) return;
+    // A pair offer that does not open gives the card its own place back.
+    const auto giveUp = [this, pair] {
+        if (pair) releasePairOfferPlace(pair->card);
+    };
+    if (!output || m_releasing || !KWin::effects->screens().contains(output)) {
+        giveUp();
+        return;
+    }
     SessionScope scope(this, m_currentSession, stageKeyFor(output));
-    const bool settled = !m_carriedWindow && connectedOutputForDesktopStage(output)
-        && m_cardStage->presentsBento();
-    const auto room = settled ? m_desktopStage->openRoomOn(output) : std::nullopt;
+    const bool settled = !m_carriedWindow && (pair
+        ? pair->card && m_cardStage->activeCardIdentity() == pair->card
+            && m_cardStage->presentation() == CardPresentation::Active
+        : connectedOutputForDesktopStage(output) && m_cardStage->presentsBento());
+    const auto room = !settled ? std::nullopt
+        : pair ? std::optional<QRectF>(pairOfferRoom(output, pair->side)) : m_desktopStage->openRoomOn(output);
     if (!room) {
         // A layout the snap began shows once its card has glided and grown
         // into place.
@@ -9636,19 +9831,28 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
             QTimer::singleShot(60, this, [this, later, ask, tries] {
                 if (later) offerOpenRoom(later, ask, tries - 1);
             });
-        else
+        else {
             qInfo() << "Kadunce" << Revision << "found no room open on" << output->name() << "to offer;"
                     << "carrying" << bool(m_carriedWindow) << "connected" << connectedOutputForDesktopStage(output)
                     << "Bento" << m_cardStage->presentsBento();
+            giveUp();
+        }
         return;
     }
-    // The fronts of the display's other cards, in Spread's order; a card
-    // waiting behind a pane stays there.
-    RoomOfferShown offer{output, *room, {}, {}, -1};
+    // The fronts of the display's other cards, in Spread's order, asleep ones
+    // too; a card waiting behind a pane stays there.
+    RoomOfferShown offer{output, *room, {}, {}, -1, {}, {}};
+    if (pair) {
+        offer.pairWith = pair->card;
+        offer.pairSide = pair->side;
+    }
     QList<QSizeF> sizes;
     for (const auto &card : m_cardStage->liveCards()) {
-        if (!card || card->isDeleted() || card->isMinimized() || card->screen() != output
+        if (!card || card->isDeleted() || card->screen() != output || card == offer.pairWith
             || m_desktopStage->managesWindow(card) || m_cardStage->paneHolding(card)) continue;
+        // Beside the Active card on Solo, only sleeping cards: an awake one
+        // would have been its partner.
+        if (pair && !card->isMinimized()) continue;
         const auto stack = m_cardStage->stackFrontToBack(card);
         if (!stack.isEmpty() && stack.first() != card) continue;
         offer.cards.append(card);
@@ -9656,7 +9860,10 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
     }
     offer.tiles = roomOfferTiles(*room, sizes);
     offer.cards = offer.cards.mid(0, offer.tiles.size());
-    if (offer.tiles.isEmpty()) return;
+    if (offer.tiles.isEmpty()) {
+        giveUp();
+        return;
+    }
     for (const auto &card : std::as_const(offer.cards))
         m_roomOfferShown.insert(card.data(), KWin::EffectWindowVisibleRef(card.data(),
             KWin::EffectWindow::PAINT_DISABLED | KWin::EffectWindow::PAINT_DISABLED_BY_MINIMIZE
@@ -9669,12 +9876,21 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
     Q_EMIT workspaceContextChanged();
 }
 
-void Effect::leaveRoomOffer()
+QString Effect::roomOfferHint() const
+{
+    return tr("Pick one for this side \u00b7 Esc leaves it open");
+}
+
+void Effect::leaveRoomOffer(bool restore)
 {
     if (m_roomOfferInput) m_roomOfferInput->active = false;
     if (!m_roomOffer) return;
+    QPointer<KWin::EffectWindow> beside;
+    if (m_roomOffer->pairSide) beside = m_roomOffer->pairWith;
     m_roomOffer.reset();
+    if (beside) releasePairOfferPlace(beside, restore);
     m_roomOfferShown.clear();
+    m_offerPictures.clear();
     KWin::effects->addRepaintFull();
     Q_EMIT workspaceContextChanged();
 }
@@ -9692,7 +9908,35 @@ void Effect::pickFromRoomOffer(int index)
     if (!m_roomOffer || index < 0 || index >= m_roomOffer->cards.size()) return;
     const QPointer<KWin::EffectWindow> card = m_roomOffer->cards.at(index);
     const QPointer<KWin::LogicalOutput> output = m_roomOffer->output;
-    leaveRoomOffer();
+    const QPointer<KWin::EffectWindow> pairWith = m_roomOffer->pairWith;
+    const auto pairSide = m_roomOffer->pairSide;
+    leaveRoomOffer(!pairSide);
+    if (pairSide) {
+        // §11, Solo: the card picked wakes and pairs with the Active card,
+        // which keeps the side it was snapped to.
+        QTimer::singleShot(0, this, [this, card, output, pairWith, pairSide] {
+            if (!card || card->isDeleted() || !output || !pairWith || pairWith->isDeleted()) return;
+            SessionScope scope(this, m_currentSession, stageKeyFor(output));
+            if (m_cardStage->activeCardIdentity() != pairWith || m_cardStage->liveCardIndex(card) < 0) {
+                qInfo() << "Kadunce" << Revision << "could not pair" << logNameOf(pairWith) << "with" << logNameOf(card)
+                        << "picked beside it: it is no longer Active, or the pick is no card";
+                (void)m_cardStage->refitActive(pairWith);
+                return;
+            }
+            if (card->isMinimized()) card->unminimize();
+            if (!card || card->isMinimized() || !pairCardsIntoBento(output, pairWith, card, *pairSide)) {
+                qInfo() << "Kadunce" << Revision << "could not pair" << logNameOf(pairWith) << "with"
+                        << (card ? logNameOf(card) : QStringLiteral("a closed card"));
+                (void)m_cardStage->refitActive(pairWith);
+                return;
+            }
+            qInfo() << "Kadunce" << Revision << "paired" << logNameOf(pairWith) << "with" << logNameOf(card)
+                    << "picked beside it";
+            observeCardOwnership();
+            Q_EMIT workspaceContextChanged();
+        });
+        return;
+    }
     // After the press that picked it, as a pick in Spread is: the card fills
     // the room, its Stack waiting behind it.
     QTimer::singleShot(0, this, [this, card, output] {
@@ -9700,6 +9944,9 @@ void Effect::pickFromRoomOffer(int index)
         SessionScope scope(this, m_currentSession, stageKeyFor(output));
         if (!m_cardStage->presentsBento() || m_cardStage->liveCardIndex(card) < 0
             || !m_desktopStage->hasSessionOnOutput(output->name())) return;
+        // A card picked asleep wakes into the room.
+        if (card->isMinimized()) card->unminimize();
+        if (!card) return;
         const QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(card).mid(1);
         if (!m_desktopStage->admitCardToLiveBento(card,
                 [this, card] { return card && m_cardStage->releaseCardToLiveBento(card); }, true)) return;
@@ -9717,23 +9964,19 @@ void Effect::drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::R
 {
     if (!m_roomOffer || !screen || m_roomOffer->output != screen) return;
     const QRectF room = m_roomOffer->room;
-    // The room takes the Visual sheet's subtle fill around the pictures, so it
-    // reads as a place.
-    QRegion around(room.toAlignedRect());
-    for (const auto &tile : std::as_const(m_roomOffer->tiles)) around -= tile.toAlignedRect();
-    QList<QRectF> parts;
+    // The pictures stand on the desktop itself, with no box behind them.
     QRegion dirtied;
     for (const auto &dirty : deviceRegion.rects())
         dirtied += QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).toAlignedRect();
-    for (const QRect &part : around.intersected(dirtied)) parts.append(QRectF(part));
-    fillDestinationParts(renderTarget, viewport, parts, room, 0.07f, 0.f);
     // The picture under the pointer takes the selected edge.
     const int hovered = m_roomOffer->hovered;
-    if (hovered >= 0 && hovered < m_roomOffer->tiles.size()) {
-        const QRectF tile = m_roomOffer->tiles.at(hovered);
+    if (hovered >= 0 && hovered < m_roomOffer->tiles.size() && hovered < m_roomOffer->cards.size()
+        && m_roomOffer->cards.at(hovered)) {
+        const QRectF picture = offerPicture(m_roomOffer->tiles.at(hovered),
+            QRectF(m_roomOffer->cards.at(hovered)->frameGeometry()).size());
         QList<QRectF> edge;
-        for (const QRect &part : dirtied.intersected(tile.toAlignedRect())) edge.append(QRectF(part));
-        fillDestinationParts(renderTarget, viewport, edge, tile, 0.f, 0.24f);
+        for (const QRect &part : dirtied.intersected(picture.toAlignedRect())) edge.append(QRectF(part));
+        fillDestinationParts(renderTarget, viewport, edge, picture, 0.f, 0.24f);
     }
     double bottom = room.top();
     for (int i = 0; i < m_roomOffer->tiles.size() && i < m_roomOffer->cards.size(); ++i) {
@@ -9748,10 +9991,11 @@ void Effect::drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::R
     // How to choose, and how not to, under the pictures.
     // A label stands under the rect it names, so the rect is one pixel tall
     // and ends where the pictures' names do.
+    // A display whose Context Panel speaks for it says it there instead.
+    if (contextLineClaimed(screen)) return;
     const QRectF line(room.x() + RoomOfferGap, bottom - 1.0, room.width() - 2 * RoomOfferGap, 1.0);
     if (CardLabelRenderer::labelRect(line).bottom() <= room.bottom())
-        m_cardLabelRenderer.render(renderTarget, viewport, line,
-            {QStringLiteral("Pick one for this side \u00b7 Esc leaves it open"), QString()});
+        m_cardLabelRenderer.render(renderTarget, viewport, line, {roomOfferHint(), QString()});
 }
 
 void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
@@ -9844,6 +10088,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
+    // §11: an offered card's picture is kept once the scene has drawn it this
+    // frame, so a sleeping window's newest content is what is kept; taken
+    // before, a window just woken for the offer can still have none.
+    if (m_roomOffer && screen == m_roomOffer->output) captureOfferPictures();
     // Labels, rails and outlines belong to the current desktop's presentation.
     if (m_previewDesktop) return paintResult(true);
     // Where anything below is painted over the scene, and so over the
@@ -10306,7 +10554,15 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     // §11: the stage holding the window answers, else its display's, and
     // its display is the one in use.
     SessionScope scope(this, m_scopedSession, stageKeyOf(window));
-    if (isApplicationWindow(window)) noteDisplayInUse(window->screen());
+    if (isApplicationWindow(window)) {
+        m_desktopInUse = nullptr;
+        noteDisplayInUse(window->screen());
+    } else if (window && window->isDesktop() && window->screen()) {
+        // A click on a display's desktop makes that display the one in use.
+        m_desktopInUse = window->screen();
+        noteDisplayInUse(window->screen());
+        qInfo() << "Kadunce" << Revision << "the desktop of" << window->screen()->name() << "is in use";
+    }
     // Read before anything returns early, so every activation is counted.
     const bool spreadShown = m_cardStage->isActive()
         && m_cardStage->presentation() == CardPresentation::Spread;
@@ -10741,6 +10997,12 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
     if (window == m_capturingHeld)
         return paintResult(painted([&] { m_drawnAs.insert(window, QStringLiteral("kept picture taken")); return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
+    if (const auto offered = m_offerPictures.find(window);
+        offered != m_offerPictures.end() && m_roomOfferShown.contains(window)
+        && offered->second.draw(viewport, renderTarget, window, deviceRegion, data)) {
+        m_drawnAs.insert(window, QStringLiteral("offered picture"));
+        return paintResult(true);
+    }
     if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
         // Let go once the app has drawn twice at its new size.
         if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
@@ -10888,10 +11150,18 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const QRectF tile = m_roomOffer->tiles.at(index);
         const KWin::Rect target = KWin::RectF(tile).toRect();
         KWin::Rect logicalRegion = window->expandedGeometry().toRect();
+        // On the card's backing, as in Spread, so a see-through app still
+        // reads as a card.
+        // Rounded at its own corners, a narrow picture as a wide one.
+        const QRectF picture = offerPicture(tile, QRectF(window->frameGeometry()).size());
+        if (logicalRegion.width() > 0 && logicalRegion.height() > 0)
+            paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(picture))),
+                picture, 0.0, float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatio);
-        const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
+        const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(KWin::RectF(picture));
         const auto clip = deviceRegion
-            & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(tile)))
+            & KWin::Region(deviceTarget)
             & roundedClip(deviceTarget, CardCornerRadius * viewport.scale());
         if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
             mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);

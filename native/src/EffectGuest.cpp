@@ -145,9 +145,9 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
         // A guest joins only a Spread already shown and never calls it up:
         // Search floats the same on every display (CARD-LIFECYCLE.md §11).
         // It floats where the person is: over the card in hand, or else
-        // under the pointer.
-        KWin::LogicalOutput *here = m_lastActiveApplication
-            ? m_lastActiveApplication->screen() : nullptr;
+        // under the pointer. A desktop clicked since names its display.
+        KWin::LogicalOutput *here = m_desktopInUse ? m_desktopInUse.data()
+            : m_lastActiveApplication ? m_lastActiveApplication->screen() : nullptr;
         if (!here) here = KWin::effects->screenAt(KWin::effects->cursorPos().toPoint());
         if (here) reply.insert(QStringLiteral("output"), here->name());
         return QString::fromUtf8(
