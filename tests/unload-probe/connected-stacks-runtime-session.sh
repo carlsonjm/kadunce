@@ -427,6 +427,52 @@ check 'called: the card called fills its pane' is_pane "${w[10]}"
 check 'called: the rest of its Stack waits behind it, in turn' behind_is "${w[10]}" "[\"${w[9]}\",\"${w[11]}\"]"
 check 'called: still four panes' panes 4
 check 'called: no window is left ordinary' all_held
+book_clean() { [[ -z $(kad cardBookMismatches | tr -d '[:space:][]') ]]; }
+check 'called: the card book holds every card' book_clean
+# Meta+Tab steps the focused pane's Stack in place, and only that one: each
+# pane of a monitor's layout keeps a Stack of its own.
+step_key() { probe activateWindowId "$1" >/dev/null; sleep .4; probe key 15 125 >/dev/null; sleep 1.2; }
+step_key "${w[10]}"
+report stepped
+check 'step: the next card of the Stack fills the pane' is_pane "${w[9]}"
+check 'step: the card it covered goes round to the back' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
+step_key "${w[2]}"
+report stepped-other
+check 'step other: the other Stack steps on its own' is_pane "${w[6]}"
+check 'step other: in turn' behind_is "${w[6]}" "[\"${w[3]}\",\"${w[2]}\"]"
+check 'step other: the first Stack kept its front' is_pane "${w[9]}"
+check 'step other: and its order' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
+check 'step: still four panes' panes 4
+check 'step: the card book holds every card' book_clean
+# A window that keeps its own size, as Shuffle Settings does, floats centred
+# over the layout; it takes no pane and is no card.
+client fixedCompanion 'Fixed probe' 3a7bd5 900 600
+sleep 1.2
+fixed=$(idOf 'Fixed probe')
+report fixed
+check 'fixed: it is no card' context --arg id "$fixed" 'first(.applications[] | select(.windowId == $id)) // {} | (.hasCard // false) | not'
+check 'fixed: it takes no pane' panes 4
+check 'fixed: it floats centred, at its own size' bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry $fixed | jq -e '.width == 900 and .height == 600 and ((.x + 450) - 1280 | fabs) < 8'"
+client closeCompanion 'Fixed probe'
+sleep .8
+# A pane holding a Stack let go at the bottom edge goes to the desktop; the
+# cards that waited behind it stay together, as one Stack in Spread.
+read -r x y <<<"$(title_of "${w[9]}")"
+probe activateWindowId "${w[9]}" >/dev/null
+sleep .3
+probe pointer "$x" "$y" >/dev/null
+probe contactButton true >/dev/null
+sleep .9
+probe contactMotion "$x" "$((y + 300))" >/dev/null
+sleep .1
+probe contactMotion "$x" 1439 >/dev/null
+sleep .4
+probe contactButton false >/dev/null
+sleep 1.5
+report bottom
+check 'bottom: the pane went to the desktop' context --arg id "${w[9]}" 'first(.applications[] | select(.windowId == $id)) | (.hasCard | not) and (.pane | not)'
+check 'bottom: the cards behind it stay one Stack' one_stack "[\"${w[11]}\",\"${w[10]}\"]"
+check 'bottom: the card book holds every card' book_clean
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8

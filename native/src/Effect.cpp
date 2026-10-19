@@ -9222,6 +9222,8 @@ bool Effect::stepPane(KWin::EffectWindow *pane, int delta)
     }
     m_cardStage->settlePaneStacks();
     observeCardOwnership();
+    qInfo() << "Kadunce" << Revision << "stepped the Stack of" << logNameOf(pane)
+            << (delta > 0 ? "forward;" : "back;") << logNameOf(next) << "is in front";
     activateShownPane(next);
     return true;
 }

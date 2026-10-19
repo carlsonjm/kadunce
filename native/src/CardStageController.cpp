@@ -1847,6 +1847,14 @@ void CardStageController::returnWindowToDesktop(KWin::EffectWindow *window)
     if (!m_active || !window || window->isDeleted() || liveCardIndex(window) >= 0) return;
     finishCardGrab(false);
     clearCardTransition();
+    // §11, Connected: a pane going to the desktop leaves its Stack behind, and
+    // the cards that waited there stay together in Spread, as when it closes.
+    if (const auto behind = paneStack(window); !behind.isEmpty()) {
+        m_paneStacks.remove(window);
+        if (behind.size() > 1) (void)restack(behind.first(), behind.mid(1));
+        qInfo() << "Kadunce" << Revision << "kept the Stack" << logNameOf(window)
+                << "left for the desktop:" << behind.size() << "cards together";
+    }
     if (m_presentation == CardPresentation::Active) parkActiveSnapshot();
     m_returnedToDesktop.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
     m_returnedToDesktop.append(window);
