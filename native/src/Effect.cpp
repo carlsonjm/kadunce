@@ -1425,14 +1425,15 @@ Effect::Effect()
     };
     m_carryRuntime->released = [this](bool committed) {
         m_carryLanded = committed;
+        const int ask = ++m_roomOfferAsk;
         // §11, Connected: a side snap that leaves room open offers the other
         // cards there, once the snapped card has grown into its place.
         if (committed && m_carryWidthEdge == CarryWidthEdge::Side) {
             QPointer<KWin::LogicalOutput> output;
             for (auto *o : KWin::effects->screens())
                 if (QRectF(o->geometry()).contains(m_lastCarryContact)) output = o;
-            QTimer::singleShot(motion(320), this, [this, output] {
-                if (output) offerOpenRoom(output);
+            QTimer::singleShot(motion(320), this, [this, output, ask] {
+                if (output) offerOpenRoom(output, ask);
             });
         }
         const auto refused = std::exchange(m_carryRefusal, std::nullopt);
@@ -9567,22 +9568,27 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
 }
 
-void Effect::offerOpenRoom(KWin::LogicalOutput *output, int tries)
+void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
 {
+    if (ask != m_roomOfferAsk) return;
     leaveRoomOffer();
-    if (!output || m_releasing || m_carriedWindow || !KWin::effects->screens().contains(output)
-        || !connectedOutputForDesktopStage(output)) return;
+    if (!output || m_releasing || !KWin::effects->screens().contains(output)) return;
     SessionScope scope(this, m_currentSession, stageKeyFor(output));
-    const auto room = m_cardStage->presentsBento() ? m_desktopStage->openRoomOn(output) : std::nullopt;
+    const bool settled = !m_carriedWindow && connectedOutputForDesktopStage(output)
+        && m_cardStage->presentsBento();
+    const auto room = settled ? m_desktopStage->openRoomOn(output) : std::nullopt;
     if (!room) {
-        // A layout the snap began shows once its card has grown into place.
+        // A layout the snap began shows once its card has glided and grown
+        // into place.
         const QPointer<KWin::LogicalOutput> later = output;
         if (tries > 0)
-            QTimer::singleShot(60, this, [this, later, tries] {
-                if (later) offerOpenRoom(later, tries - 1);
+            QTimer::singleShot(60, this, [this, later, ask, tries] {
+                if (later) offerOpenRoom(later, ask, tries - 1);
             });
         else
-            qInfo() << "Kadunce" << Revision << "found no room open on" << output->name() << "to offer";
+            qInfo() << "Kadunce" << Revision << "found no room open on" << output->name() << "to offer;"
+                    << "carrying" << bool(m_carriedWindow) << "connected" << connectedOutputForDesktopStage(output)
+                    << "Bento" << m_cardStage->presentsBento();
         return;
     }
     // The fronts of the display's other cards, in Spread's order; a card

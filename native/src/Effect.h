@@ -1269,6 +1269,8 @@ private:
     // The wheel was turned while held away from a monitor's edges, which
     // then asks what the top edge would until the hand reaches a side.
     bool m_carryWidthHeld = false;
+    // Each release asks anew; a wait left from an earlier one gives up.
+    int m_roomOfferAsk = 0;
     bool turnCarryWidth(int notches);
     bool holdCarryWidth();
     // A card carried in from another display with the wheel turned, given
@@ -1286,7 +1288,7 @@ private:
     std::optional<RoomOfferShown> m_roomOffer;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
     std::unique_ptr<RoomOfferInput> m_roomOfferInput;
-    void offerOpenRoom(KWin::LogicalOutput *output, int tries = 40);
+    void offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries = 40);
     void pickFromRoomOffer(int index);
     void leaveRoomOffer();
     [[nodiscard]] int roomOfferPictureAt(QPointF position) const;
