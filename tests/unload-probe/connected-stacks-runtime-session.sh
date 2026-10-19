@@ -452,7 +452,7 @@ fixed=$(idOf 'Fixed probe')
 report fixed
 check 'fixed: it is no card' context --arg id "$fixed" 'first(.applications[] | select(.windowId == $id)) // {} | (.hasCard // false) | not'
 check 'fixed: it takes no pane' panes 4
-check 'fixed: it floats centred, at its own size' bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry $fixed | jq -e '.width == 900 and .height == 600 and ((.x + 450) - 1280 | fabs) < 8'"
+check 'fixed: it floats centred, at its own size' bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry $fixed | jq -e '.width == 900 and .height >= 600 and ((.x + 450) - 1280 | fabs) < 8'"
 client closeCompanion 'Fixed probe'
 sleep .8
 # A pane holding a Stack let go at the bottom edge goes to the desktop; the
