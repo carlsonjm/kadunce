@@ -111,7 +111,7 @@ done
 probe pointer 960 540
 
 # The stage is the work area the panels leave, 1920x1000 from y 24, less the
-# layout's 10 px margin: 1900x980 from (10, 34), with 14 px between panes.
+# layout's 10 px margin: 1900x980 from (10, 34), with 10 px between panes.
 # Pass one: windows small enough that the layout grows with every pick.
 start_client
 for title in 'Card A' 'Card B' 'Card C' 'Card D'; do open_window "$title" 500 400; done
@@ -127,22 +127,22 @@ pick "$b"
 report paired
 check 'pair: the layout shows' layout_shown
 check 'pair: two panes' panes 2
-check 'pair: the card in use takes the left half, top to bottom of the stage' at "$a" '[10, 34, 943, 980]'
-check 'pair: the pick takes the right half, the same size' at "$b" '[967, 34, 943, 980]'
+check 'pair: the card in use takes the left half, top to bottom of the stage' at "$a" '[10, 34, 945, 980]'
+check 'pair: the pick takes the right half, the same size' at "$b" '[965, 34, 945, 980]'
 pick "$c"
 report thirds
 check 'third: three panes, where the stage alone would cap at two' panes 3
-check 'third: the first card stays at the left, a third wide' at "$a" '[10, 34, 626, 980]'
-check 'third: the second stays beside it, a third wide' at "$b" '[650, 34, 619, 980]'
-check 'third: the pick takes the third column at the right' at "$c" '[1284, 34, 626, 980]'
+check 'third: the first card stays at the left, a third wide' at "$a" '[10, 34, 628, 980]'
+check 'third: the second stays beside it, a third wide' at "$b" '[648, 34, 623, 980]'
+check 'third: the pick takes the third column at the right' at "$c" '[1282, 34, 628, 980]'
 slot_a=$(rect "$a") slot_b=$(rect "$b")
 pick "$d"
 report fourth
 check 'fourth: four panes' panes 4
 check 'fourth: the first card did not move' same_rect "$a" "$slot_a"
 check 'fourth: the second card did not move' same_rect "$b" "$slot_b"
-check 'fourth: the third keeps the top of its column' at "$c" '[1284, 34, 626, 483]'
-check 'fourth: the pick joins that column, under it' at "$d" '[1284, 531, 626, 483]'
+check 'fourth: the third keeps the top of its column' at "$c" '[1282, 34, 628, 485]'
+check 'fourth: the pick joins that column, under it' at "$d" '[1282, 529, 628, 485]'
 end_pass even
 
 # Pass two: a card too wide for half the stage. The pair cannot hold it in
@@ -159,16 +159,16 @@ sleep .8
 pick "$na"
 report wide-pair
 check 'wide pair: two panes' panes 2
-check 'wide pair: the wide card takes the larger share, at the left' at "$w" '[10, 34, 1171, 980]'
-check 'wide pair: the pick takes the rest' at "$na" '[1195, 34, 715, 980]'
+check 'wide pair: the wide card takes the larger share, at the left' at "$w" '[10, 34, 1173, 980]'
+check 'wide pair: the pick takes the rest' at "$na" '[1193, 34, 717, 980]'
 pick "$nb"
 report wide-three
 check 'wide three: three panes' panes 3
-check 'wide three: the wide card keeps a share it fits' at "$w" '[10, 34, 1133, 980]'
+check 'wide three: the wide card keeps a share it fits' at "$w" '[10, 34, 1135, 980]'
 check 'wide three: the narrow cards share the column beside it' \
     bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e --arg a '$na' --arg b '$nb' '[.[] | select(.id == \$a or .id == \$b)]
-        | length == 2 and all(((.x - 1157) | fabs) <= 1 and ((.width - 753) | fabs) <= 1 and ((.height - 483) | fabs) <= 1)
-        and ([.[].y] | sort | ((.[0] - 34) | fabs) <= 1 and ((.[1] - 531) | fabs) <= 1)'"
+        | length == 2 and all(((.x - 1155) | fabs) <= 1 and ((.width - 755) | fabs) <= 1 and ((.height - 485) | fabs) <= 1)
+        and ([.[].y] | sort | ((.[0] - 34) | fabs) <= 1 and ((.[1] - 529) | fabs) <= 1)'"
 end_pass wide
 
 # Pass three: cards so large that two fill the stage. One is snapped beside
@@ -185,17 +185,17 @@ probe activateWindowId "$s" >/dev/null
 sleep .8
 snap "$s" 'Snapped' 5 540
 report snapped
-check 'snap: beside on the left, alone, the card takes the left half' at "$s" '[10, 34, 943, 980]'
+check 'snap: beside on the left, alone, the card takes the left half' at "$s" '[10, 34, 945, 980]'
 check 'snap: it stands as the layout' layout_shown
 pick "$e"
 report filled
-check 'fill: the pick takes the half left open' at "$e" '[967, 34, 943, 980]'
-check 'fill: the snapped card did not move' at "$s" '[10, 34, 943, 980]'
+check 'fill: the pick takes the half left open' at "$e" '[965, 34, 945, 980]'
+check 'fill: the snapped card did not move' at "$s" '[10, 34, 945, 980]'
 pick "$l"
 report kept
 check 'kept: two panes, no third holding these minimums' panes 2
-check 'kept: the snapped card stays, at its side and its size' at "$s" '[10, 34, 943, 980]'
-check 'kept: the pick takes the other pane, its place and its size' at "$l" '[967, 34, 943, 980]'
+check 'kept: the snapped card stays, at its side and its size' at "$s" '[10, 34, 945, 980]'
+check 'kept: the pick takes the other pane, its place and its size' at "$l" '[965, 34, 945, 980]'
 check 'kept: that card waits in Spread' is_card "$e"
 end_pass kept
 
@@ -215,13 +215,13 @@ sleep .8
 snap "$s" 'Snapped' 5 540
 pick "$e"
 report side-filled
-check 'side: the snapped card holds the left half' at "$s" '[10, 34, 943, 980]'
-check 'side: the pick holds the right half' at "$e" '[967, 34, 943, 980]'
+check 'side: the snapped card holds the left half' at "$s" '[10, 34, 945, 980]'
+check 'side: the pick holds the right half' at "$e" '[965, 34, 945, 980]'
 pick "$g"
 report side-auto-fill
 check 'auto-fill: three panes, none left for Spread' panes 3
-check 'auto-fill: the snapped card keeps the left edge, full height' at "$s" '[10, 34, 559, 980]'
-check 'auto-fill: the large card holds its minimum beside it' at "$g" '[583, 34, 813, 980]'
+check 'auto-fill: the snapped card keeps the left edge, full height' at "$s" '[10, 34, 566, 980]'
+check 'auto-fill: the large card holds its minimum beside it' at "$g" '[586, 34, 814, 980]'
 check 'auto-fill: the other card holds its minimum at the right' at "$e" '[1410, 34, 500, 980]'
 end_pass side
 

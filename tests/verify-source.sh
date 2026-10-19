@@ -355,7 +355,7 @@ rg -q 'mapToDeviceCoordinatesAligned\(target\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'roundedClip(deviceTarget, CardCornerRadius' -F "${effect_cpp}"
 rg -q 'const bool useFanAperture = m_fanApertureShader' -F "${effect_cpp}"
 rg -q 'useFanAperture ? KWin::Region(deviceAperture)' -F "${effect_cpp}"
-rg -q 'constexpr double CardCornerRadius = 8\.0' "${effect_cpp}" "${card_cpp}"
+rg -q 'constexpr double CardCornerRadius = 10\.0' "${effect_cpp}" "${card_cpp}"
 rg -q 'path\.addRoundedRect' "${effect_cpp}" "${card_cpp}"
 rg -q 'CardCornerRadius \* viewport\.scale\(\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'class WorkspaceInputRouter final : public KWin::InputEventFilter' \

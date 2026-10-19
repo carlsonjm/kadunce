@@ -113,7 +113,7 @@ constexpr auto Revision = KADUNCE_REVISION;
 // Off unless asked for (TESTING.md § Confirming the running build): what the
 // pointer is over near a display's top edge, read on every motion there.
 Q_LOGGING_CATEGORY(KaduncePointer, "kadunce.pointer", QtWarningMsg)
-constexpr double CardCornerRadius = 8.0;
+constexpr double CardCornerRadius = 10.0;
 constexpr qint64 FrameStallMs = 50;
 // How far the Active card must travel under a KWin move before the cards let go.
 constexpr double ActiveMoveTravel = 12.0;

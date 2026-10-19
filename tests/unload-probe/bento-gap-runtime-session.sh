@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The space between Bento's panes is the card gutter once one is set, and 14
-# until then; a change to it moves the standing panes at once, never closer
-# than 4, and the layout stands through every change.
+# The space between Bento's panes is the card gutter, 10 by default; a change
+# to it moves the standing panes at once, never closer than 4, and the layout
+# stands through every change.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 # Every check is reported, so a failure does not hide the ones after it.
@@ -50,7 +50,7 @@ test "$(kad toggleBentoOnOutput Virtual-0)" = true || { echo "FAIL: bento gap: n
 sleep 1.2
 check "a layout of two panes" twoPanes
 echo "panes before: $(frames)"
-check "with no gutter set the panes stand 14 apart" spacing "" 14
+check "with no gutter set the panes stand 10 apart" spacing "" 10
 check "a gutter of 4 brings them 4 apart at once" spacing 4 4
 check "a gutter under 4 keeps them 4 apart" spacing 2 4
 check "a gutter of 24 moves them 24 apart" spacing 24 24
@@ -59,4 +59,4 @@ echo "panes after: $(frames)"
 check "the layout stands through every change" twoPanes
 
 if ((failures)); then echo "FAIL: bento gap: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: Bento panes stand the card gutter apart once one is set, at once, never under 4'
+echo 'PASS: Bento panes stand the card gutter apart, 10 by default, at once, never under 4'

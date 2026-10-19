@@ -30,7 +30,7 @@ previous/play/next, Cancel, and popup action buttons.
 
 A rounded rectangle means content, context, or a bounded region of information.
 
-- Corners come in three tiers. Paper takes 8 px: windows and cards, the sheets
+- Corners come in three tiers. Paper takes 10 px: windows and cards, the sheets
   that take a card's place, and everything laid in any surface, such as rows,
   tiles, highlights and cards in a list. Notes that float above everything and
   close take 12 px: pop-ups, menus, alerts and the dock sheet. Anything whose
@@ -212,14 +212,14 @@ they preserve these relationships and respect the user's animation settings.
 
 ## Kadunce geometry
 
-- Kadunce cuts every application window and dialog to the 8 px paper tier,
+- Kadunce cuts every application window and dialog to the 10 px paper tier,
   with no outline, whether it is a card, a pane or loose on the desktop, and
   whether it has a title bar or draws its own. A window that casts its own
   shadow, or is maximized or full screen, keeps its corners, and Kadunce trims
   nothing while the separately installed Rounded Corners effect runs.
 - The Active card's gutter is output-relative, 10 px by default and bounded to
-  4–48 px, the same on every edge. Once it is set, Bento's panes stand that far
-  apart too, on every display; until then they stand 14 px apart.
+  4–48 px, the same on every edge. Bento's panes stand that far apart too, on
+  every display, so they stand 10 px apart by default.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
@@ -361,7 +361,7 @@ Ambient media is the reference:
 - `#F8F8FF` is named **Ghost White** and is the primary foreground.
 - The animated Temperance bell is a documented Lucide-derived exception.
 - Tette Dot, Bell, Weather, and Kadunce's pearl-card tray mark are protected.
-- Corners come in three tiers: 8 px paper, 12 px notes, pills for actions.
+- Corners come in three tiers: 10 px paper, 12 px notes, pills for actions.
 - Each repository keeps its own pinned Lucide subset; no repository loads
   another's assets at run time.
 
