@@ -39,6 +39,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/StuckNotesWatcher.h
         src/NoteStackRenderer.h
         src/KeptPicture.h
+        src/FrostedBox.h
         src/CardStageController.cpp
         src/CardStageController.h
         src/ReleasePlace.h

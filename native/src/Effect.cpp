@@ -156,6 +156,33 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
+// The keyboard's window outlined: 2 px of the accent just inside a 1 px edge
+// of the opposite tone, both inside the window's own edge so its contents
+// stay where they are and nothing is left behind as it moves.
+constexpr auto KeyboardOutlineFragment = R"GLSL(#version 140
+in vec2 point;
+out vec4 fragColor;
+uniform vec4 destinationBox;
+uniform float outlineRadius;
+uniform vec3 outlineInk;
+uniform vec4 edgeInk;
+uniform float outlineOpacity;
+#include "colormanagement.glsl"
+void main() {
+    vec2 halfSize = destinationBox.zw * 0.5;
+    float radius = min(outlineRadius, min(halfSize.x, halfSize.y));
+    vec2 q = abs(point - destinationBox.xy - halfSize) - (halfSize - vec2(radius));
+    float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    float feather = max(fwidth(d), 0.5);
+    float inside = 1.0 - smoothstep(-feather, 0.0, d);
+    float edge = smoothstep(-1.0 - feather, -1.0, d) * inside;
+    float accent = smoothstep(-3.0 - feather, -3.0, d) * (1.0 - smoothstep(-1.0 - feather, -1.0, d));
+    vec4 color = (vec4(outlineInk, 1.0) * accent + vec4(edgeInk.rgb * edgeInk.a, edgeInk.a) * edge) * outlineOpacity;
+    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
+}
+)GLSL";
+// The keyboard outline fades in over the Visual sheet's micro transition.
+constexpr int KeyboardOutlineFadeMs = 140;
 // The shape a window's border asks the pointer for. KWin 6.8 no longer
 // exposes it, and there it reads as none.
 template<typename Window>
@@ -1073,6 +1100,12 @@ Effect::Effect()
     }
     m_usesDrawnZones = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Bento"))
         .readEntry(QStringLiteral("UseDrawnZones"), false);
+    m_showsKeyboardOutline = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Windows"))
+        .readEntry(QStringLiteral("KeyboardOutline"), true);
+    // A window coming to the keyboard repaints, so its outline moves with it.
+    connect(KWin::effects, &KWin::EffectsHandler::windowActivated, this, [this] {
+        if (m_showsKeyboardOutline) KWin::effects->addRepaintFull();
+    });
     // A menu bar's tab held still becomes a rename.
     m_tableHold.setSingleShot(true);
     m_tableHold.setTimerType(Qt::PreciseTimer);
@@ -1095,6 +1128,9 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
+        m_keyboardOutlineShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(KeyboardOutlineFragment));
+        m_frostedBox.create();
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -3250,6 +3286,16 @@ void Effect::setUsesDrawnZones(bool uses)
     group.writeEntry(QStringLiteral("UseDrawnZones"), uses);
     group.sync();
     forEachSession([this] { m_desktopStage->zoneModeChanged(); });
+}
+
+void Effect::setShowsKeyboardOutline(bool shows)
+{
+    if (shows == m_showsKeyboardOutline) return;
+    m_showsKeyboardOutline = shows;
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Windows"));
+    group.writeEntry(QStringLiteral("KeyboardOutline"), shows);
+    group.sync();
+    KWin::effects->addRepaintFull();
 }
 
 // Meta+Shift+B says which arrangement the monitors now take, as Plasma's own
@@ -9471,6 +9517,30 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_continueRepaint = true;
         }
     }
+    if (data.screen) {
+        const auto whole = [](const QRectF &rect) { return KWin::Rect(rect.toAlignedRect()); };
+        // Glass drawn last frame, and any about to be, is drawn afresh whole,
+        // so the blur only ever reads what lies under it.
+        for (const QRectF &rect : m_frostDrawn.value(data.screen->name())) data.paint |= whole(rect);
+        if (const auto box = heldDestinationOn(data.screen)) data.paint |= whole(*box);
+        if (m_placementPreview && m_placementPreviewOutput == data.screen)
+            data.paint |= whole(QRectF(*m_placementPreview));
+        // The keyboard's window, outlined: where the outline leaves and
+        // arrives repaints, and it fades in over the next frames.
+        KWin::EffectWindow *outlined = keyboardOutlineWindow(data.screen);
+        auto &outline = m_keyboardOutlines[data.screen->name()];
+        if (outline.window != outlined) {
+            if (outline.window && !outline.window->isDeleted())
+                data.paint |= whole(QRectF(outline.window->frameGeometry()));
+            outline.window = outlined;
+            outline.since.start();
+        }
+        if (outlined && outline.since.elapsed()
+                < motionDuration(KeyboardOutlineFadeMs, KWin::effects->animationTimeFactor())) {
+            data.paint |= whole(QRectF(outlined->frameGeometry()));
+            m_keyboardOutlineFading.append(QRectF(outlined->frameGeometry()).toAlignedRect());
+        }
+    }
     KWin::effects->prePaintScreen(data);
 }
 
@@ -9495,6 +9565,7 @@ void Effect::postPaintScreen()
     // expiring during this frame still gets one exact final-state frame.
     const bool continueRepaint = m_continueRepaint;
     m_continueRepaint = false;
+    for (const QRect &rect : std::exchange(m_keyboardOutlineFading, {})) KWin::effects->addRepaint(KWin::Rect(rect));
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
@@ -9754,6 +9825,128 @@ void Effect::drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::R
             {QStringLiteral("Pick one for this side \u00b7 Esc leaves it open"), QString()});
 }
 
+std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
+{
+    const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
+    const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
+    const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
+    const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
+    // A window leaning into a Stack is its own preview; no box is drawn.
+    if (!m_destinationShader || !screen || !preview || (m_carriedWindow && m_carryStackOnto)
+        || !(m_carriedWindow || m_cardStage->cardGrabActive())) return std::nullopt;
+    if (cardEntry == screen || (cardExit && cardExit == screen)
+        || (reservation && !cardEntry && reservation->showsPlacementOutline()
+            && reservation->destinationOutput() == screen
+            && m_desktopStage->cardDropValid(*reservation)))
+        return QRectF(*preview);
+    return std::nullopt;
+}
+
+void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
+{
+    // The box sits under the window in hand, so the glass frosts the windows
+    // and wallpaper beneath it and never the window itself.
+    KWin::LogicalOutput *screen = m_paintingOutput;
+    if (!screen || m_heldBoxDrawnOn == screen) return;
+    if (const auto box = heldDestinationOn(screen)) {
+        drawDestinationOutline(renderTarget, viewport, m_paintingRegion, screen, *box);
+        m_heldBoxDrawnOn = screen;
+    }
+}
+
+// The paint path's own test: a window Card Stage does not draw as a card.
+bool Effect::paintedAsItStands(KWin::EffectWindow *window)
+{
+    return !m_cardStage->isActive() || !(isCardWindow(window) || m_sleepingShown.contains(window))
+        || m_desktopStage->managesWindow(window)
+        || (m_cardStage->presentation() == CardPresentation::Desktop
+            && m_cardStage->liveCardIndex(window) < 0);
+}
+
+KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
+{
+    if (!m_showsKeyboardOutline || !m_keyboardOutlineShader || !screen || m_previewDesktop) return nullptr;
+    // Nothing is outlined while a window is in hand, or while Spread, Table or
+    // an open room's offer stands on the display.
+    if (m_carriedWindow || m_cardStage->cardGrabActive()) return nullptr;
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) return nullptr;
+    if (m_tablePresenter && m_tablePresenter->visible() && m_tablePresenterOutput == screen) return nullptr;
+    if (m_roomOffer && m_roomOffer->output == screen) return nullptr;
+    KWin::EffectWindow *active = KWin::effects->activeWindow();
+    if (!active || active->isDeleted() || active->isMinimized() || active->isFullScreen()
+        || !(active->isNormalWindow() || active->isDialog()) || active->screen() != screen
+        || !active->isOnCurrentDesktop() || !paintedAsItStands(active)) return nullptr;
+    // A lone window needs no marker: it is outlined only while another shows
+    // beside it on the display.
+    const QRectF frame(active->frameGeometry());
+    const auto order = KWin::effects->stackingOrder();
+    for (KWin::EffectWindow *other : order) {
+        if (!other || other == active || other->isDeleted() || other->isMinimized()
+            || !(other->isNormalWindow() || other->isDialog()) || other->screen() != screen
+            || !other->isOnCurrentDesktop() || !paintedAsItStands(other)) continue;
+        // A dialog and the window it belongs to are one thing.
+        if (other->mainWindows().contains(active) || active->mainWindows().contains(other)) continue;
+        if (frame.contains(QRectF(other->frameGeometry()))) continue;
+        return active;
+    }
+    return nullptr;
+}
+
+void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+    KWin::EffectWindow *window, const KWin::Region &deviceRegion, const KWin::WindowPaintData &data)
+{
+    if (!m_keyboardOutlineShader || !m_paintingOutput || window->screen() != m_paintingOutput) return;
+    const auto found = m_keyboardOutlines.constFind(m_paintingOutput->name());
+    if (found == m_keyboardOutlines.cend() || found->window != window) return;
+    const int duration = motionDuration(KeyboardOutlineFadeMs, KWin::effects->animationTimeFactor());
+    const double progress = std::clamp(double(found->since.elapsed()) / duration, 0.0, 1.0);
+    const float opacity = float((1.0 - std::pow(1.0 - progress, 3.0)) * data.opacity());
+    if (opacity <= 0.0F) return;
+    const QRectF frame(window->frameGeometry());
+    const QRectF box(frame.x() + data.xTranslation(), frame.y() + data.yTranslation(),
+                     frame.width() * data.xScale(), frame.height() * data.yScale());
+    if (box.isEmpty()) return;
+    QList<QVector2D> vertices;
+    for (const auto &dirty : deviceRegion.rects()) {
+        const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(box);
+        if (part.isEmpty()) continue;
+        vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                 << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+    }
+    if (vertices.isEmpty()) return;
+    // A maximized window meets the display's edges, so its outline is square.
+    const KWin::Window *client = window->window();
+    const double radius = client && client->maximizeMode() == KWin::MaximizeFull ? 0.0 : CardCornerRadius;
+    // The accent, or the scheme's text where the accent would vanish into its
+    // ground; the edge is whichever of Ghost White and the dark surface
+    // stands apart from it, so the outline shows on any window.
+    const SurfaceTone &tone = SurfaceTone::current();
+    const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
+    const QColor ink = std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
+    const QColor edge = SurfaceTone::isDark(ink) ? QColor(248, 248, 255) : QColor(20, 20, 20);
+    KWin::ShaderBinder binder(m_keyboardOutlineShader.get());
+    auto matrix = viewport.projectionMatrix();
+    matrix.scale(viewport.scale(), viewport.scale());
+    m_keyboardOutlineShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+    m_keyboardOutlineShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
+    m_keyboardOutlineShader->setUniform("outlineRadius", float(radius));
+    m_keyboardOutlineShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
+    m_keyboardOutlineShader->setUniform("edgeInk", QVector4D(edge.redF(), edge.greenF(), edge.blueF(), 0.55F));
+    m_keyboardOutlineShader->setUniform("outlineOpacity", opacity);
+    m_keyboardOutlineShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+        renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+    const bool blended = glIsEnabled(GL_BLEND);
+    GLint srcRgb, dstRgb, srcAlpha, dstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &srcRgb); glGetIntegerv(GL_BLEND_DST_RGB, &dstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &srcAlpha); glGetIntegerv(GL_BLEND_DST_ALPHA, &dstAlpha);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+    buffer->reset(); buffer->setVertices(vertices); buffer->render(GL_TRIANGLES);
+    glBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+    if (!blended) glDisable(GL_BLEND);
+}
+
 void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const KWin::Region &deviceRegion,
     KWin::LogicalOutput *screen, const QRectF &box, const QRectF &hole)
@@ -9778,8 +9971,13 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
               << QRectF(whole.left(), cut.top(), cut.left() - whole.left(), cut.height())
               << QRectF(cut.right(), cut.top(), whole.right() - cut.right(), cut.height());
     }
-    // A destination is a filled box at the Visual sheet's hover step, with no
-    // ring, so it reads as a place over any window under it.
+    // A destination is a box of frosted glass, so it reads as a place over
+    // any window or wallpaper under it, light or dark. Without the blur it
+    // is a filled box at the Visual sheet's hover step.
+    if (m_frostedBox.paint(renderTarget, viewport, parts, box, CardCornerRadius, clip)) {
+        m_frostDrawn[screen->name()].append(box.intersected(clip));
+        return;
+    }
     fillDestinationParts(renderTarget, viewport, parts, box, 0.13f, 0.f);
 }
 
@@ -9829,6 +10027,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // §11, Every display: each display paints its own cards.
     SessionScope scope(this, m_currentSession, isCardDisplay(screen) ? stageKeyFor(screen) : m_scopedKey);
     m_paintingOutput = screen;
+    m_paintingRegion = deviceRegion;
+    m_heldBoxDrawnOn = nullptr;
+    if (screen) m_frostDrawn.remove(screen->name());
     if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) {
         // Only this display's: another's are read until it paints again.
@@ -9897,19 +10098,13 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // Draw only from a still-owned reservation. No layout solve, timers, native
     // outline window, or input grab belongs in the paint pass.
     const auto &reservation = m_carriedWindow ? m_carryDestination : m_lineDestination;
-    const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
     bool detachShown = false;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
-    // A window leaning into a Stack is its own preview; no box is drawn.
-    if (m_destinationShader && screen && preview && !(m_carriedWindow && m_carryStackOnto)
-        && (m_carriedWindow || m_cardStage->cardGrabActive())
-        && (cardEntry == screen || (cardExit && cardExit == screen)
-            || (reservation && !cardEntry && reservation->showsPlacementOutline()
-                && reservation->destinationOutput() == screen
-                && m_desktopStage->cardDropValid(*reservation)))) {
-        const QRectF box(*preview);
-        drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, box);
+    if (const auto held = heldDestinationOn(screen)) {
+        const QRectF box = *held;
+        // Drawn under the window in hand when it painted; otherwise here.
+        if (m_heldBoxDrawnOn != screen) drawDestinationOutline(renderTarget, viewport, deviceRegion, screen, box);
         overlaid.append(box);
         // The outline above is drawn for a Bento reservation, a Card Stage
         // entry or a card leaving at the bottom edge. §10 gives the bottom edge
@@ -10919,6 +11114,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
     if (((window == m_carriedWindow && m_carryRuntime) || settle || yieldingRect) && m_paintingOutput) {
         const auto drawnAt = settle ? settle : yieldingRect;
+        if (window == m_carriedWindow && !drawnAt) drawHeldBoxUnder(renderTarget, viewport);
         const auto plan = drawnAt
             ? carryPaintPlan(*drawnAt, drawnAt->topLeft(), QRectF(m_paintingOutput->geometry()))
             : carryPaintPlan(m_carryPickup, m_carryRuntime->handoff.carry().position(),
@@ -10975,6 +11171,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             && m_cardStage->liveCardIndex(window) < 0)) {
         if (!painted([&] { return KWin::effects->paintWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
+        paintKeyboardOutline(renderTarget, viewport, window, deviceRegion, data);
         return paintResult(true);
     }
 

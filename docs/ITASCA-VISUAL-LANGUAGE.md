@@ -226,10 +226,18 @@ they preserve these relationships and respect the user's animation settings.
   screen it filled into its place in the row, a layout's panes as their own
   cards side by side, while the cards beside it slide in.
 - Where a carried window or a placed application would land shows as a
-  filled box at the hover fill, 13% of the text colour, with the paper
-  corner and no ring, so it reads as a place over any window under it.
+  box of frosted glass with the paper corner and no ring: what lies under it
+  blurred about as far as 24 px, under a mid grey veil at 24%, so it reads by
+  texture on a light wallpaper and a dark one alike. It lies under the window
+  in hand. Without the blur it is a filled box at the hover fill.
+- While another window shows beside it on its display, the window the
+  keyboard types into is outlined: 2 px of the accent inside a 1 px edge of
+  Ghost White or the dark surface, whichever stands apart from the accent,
+  following the window's corner, and fading in over 140 ms. The scheme's text
+  stands in for an accent too close to its ground. A lone window, Spread and
+  a window in hand show none, and Settings can switch it off.
 - A wheel turned while a window is held on a monitor changes
-  that filled box's width notch by notch, with no motion of its own, so the
+  that box's width notch by notch, with no motion of its own, so the
   box always shows exactly where the window will land.
 - Room a side snap leaves open takes a 7% fill and offers the display's other
   cards as pictures 240 px wide, at most 150 px tall, 24 px apart, each named

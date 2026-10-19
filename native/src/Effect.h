@@ -42,6 +42,7 @@
 #include "CardLabelRenderer.h"
 #include "NoteStackRenderer.h"
 #include "KeptPicture.h"
+#include "FrostedBox.h"
 #include "StuckNotes.h"
 
 #include <QJsonValue>
@@ -221,6 +222,11 @@ public Q_SLOTS:
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
+    // The window the keyboard types into is outlined in the accent while
+    // another window shows beside it on its display; kept in kaduncerc's
+    // [Windows] group, on unless switched off.
+    Q_SCRIPTABLE bool showsKeyboardOutline() const { return m_showsKeyboardOutline; }
+    Q_SCRIPTABLE void setShowsKeyboardOutline(bool shows);
     // The display Spread lives on, by name; empty while Kadunce chooses
     // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
@@ -903,6 +909,21 @@ private:
     // kaduncerc's choice, so a monitor keeps it across sessions.
     bool m_usesDrawnZones = false;
     void switchZoneMode();
+    bool m_showsKeyboardOutline = true;
+    // The window outlined on each display, by name, and since when, so a new
+    // one fades in.
+    struct KeyboardOutline {
+        QPointer<KWin::EffectWindow> window;
+        QElapsedTimer since;
+    };
+    QHash<QString, KeyboardOutline> m_keyboardOutlines;
+    // Windows that need repainting while their outline fades in.
+    QList<QRect> m_keyboardOutlineFading;
+    [[nodiscard]] bool paintedAsItStands(KWin::EffectWindow *window);
+    [[nodiscard]] KWin::EffectWindow *keyboardOutlineWindow(KWin::LogicalOutput *screen);
+    void paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                              KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                              const KWin::WindowPaintData &data);
     [[nodiscard]] int activeSideForPoint(
         const QPointF &position) const override;
     [[nodiscard]] bool selectedStackContains(
@@ -1237,6 +1258,7 @@ private:
     bool m_nativeCarryFromBento = false;
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
+    std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
     std::optional<KWin::RectF> m_carryPreview;
     // §11, Connected: the pane a carried pane rests over, which it joins in
     // a Stack once it has rested there; the pane it would join, once it
@@ -1303,6 +1325,18 @@ private:
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               const QList<QRectF> &parts, const QRectF &box, float fill, float ring);
+    // Where a window will land is frosted glass (FrostedBox.h). What each
+    // display frosted in its last frame, by name, is drawn afresh in its
+    // next, so the glass never blurs itself.
+    FrostedBox m_frostedBox;
+    QHash<QString, QList<QRectF>> m_frostDrawn;
+    // The region of the display being painted, for a box drawn while one of
+    // its windows paints, and the display whose held window has its box
+    // drawn under it this frame.
+    KWin::Region m_paintingRegion;
+    QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
+    [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
+    void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown
