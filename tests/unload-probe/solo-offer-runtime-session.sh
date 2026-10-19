@@ -18,7 +18,7 @@ done
 client_pid=$!
 trap 'kill "$client_pid" 2>/dev/null || true' EXIT
 sleep 1
-client titledCompanion "Sleeper" 900 600
+client titledCompanion "Sleeper" 500 400
 sleep .8
 sleeper=$(probe windowIdByCaption "Sleeper")
 [[ -n $sleeper ]]
