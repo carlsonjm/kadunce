@@ -1286,7 +1286,7 @@ private:
     std::optional<RoomOfferShown> m_roomOffer;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
     std::unique_ptr<RoomOfferInput> m_roomOfferInput;
-    void offerOpenRoom(KWin::LogicalOutput *output, int tries = 8);
+    void offerOpenRoom(KWin::LogicalOutput *output, int tries = 40);
     void pickFromRoomOffer(int index);
     void leaveRoomOffer();
     [[nodiscard]] int roomOfferPictureAt(QPointF position) const;

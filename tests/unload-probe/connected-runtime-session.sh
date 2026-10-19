@@ -404,7 +404,9 @@ check 'under: it lands where the preview showed' placed_at "$a"
 check 'under: the card stands alone as the layout' layout_shown
 held_aside() { probe windowFacts | jq -e --arg b "$b" --arg c "$c" '[.[] | select(.id == $b or .id == $c) | .hidden] | length == 2 and all'; }
 check 'under: the other cards are held aside, out of reach' held_aside
-# The room above offers the display's other cards; Escape leaves it open.
+# The room above offers the display's other cards once the new layout
+# shows; Escape leaves it open.
+for (( i = 0; i < 30; ++i )); do offer '.roomOffer.cards' >/dev/null && break; sleep .1; done
 check 'offer: the room above offers the other cards' offer --arg b "$b" --arg c "$c" '.roomOffer
     | .room.x > 1250 and .room.y < 200 and .room.height < 760
     and (.cards | index($b) != null and index($c) != null) and (.tiles | length) == (.cards | length)'

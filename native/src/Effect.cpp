@@ -9578,9 +9578,11 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int tries)
         // A layout the snap began shows once its card has grown into place.
         const QPointer<KWin::LogicalOutput> later = output;
         if (tries > 0)
-            QTimer::singleShot(120, this, [this, later, tries] {
+            QTimer::singleShot(60, this, [this, later, tries] {
                 if (later) offerOpenRoom(later, tries - 1);
             });
+        else
+            qInfo() << "Kadunce" << Revision << "found no room open on" << output->name() << "to offer";
         return;
     }
     // The fronts of the display's other cards, in Spread's order; a card
