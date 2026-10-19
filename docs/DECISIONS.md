@@ -606,10 +606,10 @@ rule is `../shuffle/docs/APPEARANCE.md`.
 
 ### Corners come in three tiers
 
-8 px paper, 12 px floating notes, pills for actions.
-The 8 px cut reads modern and cuts less content by accident; notes stay a step
-softer so they read as temporary. Rejected: 8 px for every surface, and the
-earlier 14 to 18 px boxes. The rule is `ITASCA-VISUAL-LANGUAGE.md` § Rounded
+10 px paper, 12 px floating notes, pills for actions.
+The 10 px cut reads modern and cuts little content by accident; notes stay a
+step softer so they read as temporary. Rejected: one corner everywhere, 8 px
+paper, and the earlier 14 to 18 px boxes. The rule is `ITASCA-VISUAL-LANGUAGE.md` § Rounded
 boxes.
 
 ### Kadunce trims window corners itself

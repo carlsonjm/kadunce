@@ -274,8 +274,8 @@ int main(int argc, char **argv)
     const QString path = QStringLiteral("kadunce-test-settings");
     Kadunce::ActiveSettings settings(KSharedConfig::openConfig(path, KConfig::SimpleConfig));
     require(settings.gutter() == 10);
-    // No gutter set: Bento's panes keep their own spacing.
-    require(Kadunce::bentoPaneGap() == Kadunce::DefaultBentoPaneGap);
+    // No gutter set: Bento's panes stand the default gutter apart.
+    require(Kadunce::bentoPaneGap() == 10 && Kadunce::DefaultBentoPaneGap == 10);
     int changes = 0;
     settings.onGutterChanged([&changes] { ++changes; });
     QTest::qWait(50);
@@ -286,8 +286,7 @@ int main(int argc, char **argv)
         for (int attempt = 0; attempt < 100 && settings.gutter() != std::clamp(value, 4, 48); ++attempt)
             QTest::qWait(10);
         require(settings.gutter() == std::clamp(value, 4, 48));
-        // Set, it is the space between Bento's panes too, and announced, even
-        // where the gutter itself stays 10.
+        // Set, it is the space between Bento's panes too, and announced.
         require(Kadunce::bentoPaneGap() == std::clamp(value, 4, 48));
         for (int attempt = 0; attempt < 100 && changes == before; ++attempt) QTest::qWait(10);
         require(changes > before);
