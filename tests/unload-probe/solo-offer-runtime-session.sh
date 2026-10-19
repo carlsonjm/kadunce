@@ -51,6 +51,15 @@ done
 echo "offered: $offered"
 jq -e --arg id "$sleeper" '(.cards | index($id)) != null and .room.x < 100 and .room.width < 640' <<<"$offered"
 kad workspaceContext | jq -e --arg id "$main" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+# While the offer stands, the card stands in the place its snap named,
+# across the gutter from the room, not under it.
+room=$(jq -c .room <<<"$offered")
+for attempt in {1..30}; do
+    probe windowGeometry "$main" | jq -e --argjson r "$room" '.x >= $r.x + $r.width' >/dev/null && break
+    sleep .1
+done
+echo "held: $(probe windowGeometry "$main" | jq -c .)"
+probe windowGeometry "$main" | jq -e --argjson r "$room" '.x >= $r.x + $r.width'
 read -r px py <<<"$(jq -r --arg id "$sleeper" '(.cards | index($id)) as $i | .tiles[$i] | [.x + .width / 2, .y + .height / 2] | map(floor) | @tsv' <<<"$offered")"
 probe pointer "$px" "$py" >/dev/null
 probe button true >/dev/null

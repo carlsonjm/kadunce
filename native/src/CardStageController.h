@@ -347,6 +347,10 @@ public:
     // The Active card `window` moved to its place again, as its width now
     // gives it. False when it is not this stage's Active card.
     bool refitActive(KWin::EffectWindow *window);
+    // §11, Solo: the place the Active card `window` holds while the half
+    // beside it offers sleeping cards; none gives it its own place back.
+    // Whether that changed what it holds.
+    bool holdActivePlace(KWin::EffectWindow *window, std::optional<KWin::Rect> place);
     [[nodiscard]] bool selectedStackContains(const QPointF &position) const;
     [[nodiscard]] int activeSideForPoint(const QPointF &position) const;
 
@@ -772,6 +776,8 @@ private:
     // when its own state arrives.
     QHash<const KWin::EffectWindow *, qint64> m_openedAt;
     QHash<const KWin::EffectWindow *, double> m_activeWidths;
+    QPointer<KWin::EffectWindow> m_heldActiveWindow;
+    std::optional<KWin::Rect> m_heldActivePlace;
     QElapsedTimer m_openingClock;
     static constexpr qint64 OpeningStateGrace = 2000;
     QPointer<KWin::EffectWindow> m_arrivalWindow;

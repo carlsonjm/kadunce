@@ -1336,9 +1336,24 @@ bool CardStageController::refitActive(KWin::EffectWindow *window)
     return true;
 }
 
+bool CardStageController::holdActivePlace(KWin::EffectWindow *window, std::optional<KWin::Rect> place)
+{
+    if (!place) {
+        if (!m_heldActivePlace || m_heldActiveWindow != window) return false;
+        m_heldActiveWindow.clear();
+        m_heldActivePlace.reset();
+        return true;
+    }
+    m_heldActiveWindow = window;
+    m_heldActivePlace = place;
+    return true;
+}
+
 KWin::Rect CardStageController::activePlacement(
     KWin::LogicalOutput *output) const
 {
+    if (m_heldActivePlace && m_heldActiveWindow && m_heldActiveWindow.data() == m_activeRestore.window.data())
+        return *m_heldActivePlace;
     if (!m_keyboardRoom || !m_keyboardRoom->window
         || m_keyboardRoom->window != m_activeRestore.window) {
         return activeTargetFor(output, m_activeRestore.window);
