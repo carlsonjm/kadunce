@@ -167,8 +167,8 @@ Kadunce does not create independent cards for:
 - Child dialogs that must follow a parent
 - Windows explicitly excluded from normal task switching
 - Windows set to appear on every virtual desktop
-- The screenshot tool's capture, floating over cards
-- Windows that keep their own size, like Shuffle Settings, floating centred
+- The screenshot tool's capture, over cards
+- Windows that keep their own size, floating centred; Shuffle Settings at the tablet's card size
 
 A dependent dialog follows its owning application card. Over that card, or
 over the pane its application holds, it floats at its own size. When that card

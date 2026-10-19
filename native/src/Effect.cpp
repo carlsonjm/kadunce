@@ -2040,12 +2040,25 @@ void Effect::centreFloatingWindow(KWin::EffectWindow *window)
     if (!output) output = window->screen();
     if (!output) return;
     const QRectF area = KWin::effects->clientArea(KWin::MaximizeArea, output);
-    const QSizeF size = QRectF(window->frameGeometry()).size();
+    QSizeF size = QRectF(window->frameGeometry()).size();
+    // Shuffle Settings opens at the tablet's Active card size on every
+    // display, so it reads as the same card wherever it opens; with no tablet,
+    // at this display's own.
+    if (applicationIdentity(window).compare(QStringLiteral("co.goodinput.Shuffle.Settings"), Qt::CaseInsensitive) == 0) {
+        KWin::LogicalOutput *tablet = tabletOutput();
+        if (!tablet) tablet = output;
+        const QSizeF card = QRectF(m_cardStage->activeTarget(tablet)).size();
+        const QSizeF least = window->window()->minSize();
+        if (!card.isEmpty()) {
+            size = QSizeF(std::clamp(card.width(), least.width(), std::max(least.width(), area.width())),
+                          std::clamp(card.height(), least.height(), std::max(least.height(), area.height())));
+        }
+    }
     const QPointF at(area.x() + std::max(0.0, (area.width() - size.width()) / 2.0),
                      area.y() + std::max(0.0, (area.height() - size.height()) / 2.0));
-    window->window()->move(at);
+    window->window()->moveResize(KWin::RectF(QRectF(at, size)));
     qInfo() << "Kadunce" << Revision << "floats" << logNameOf(window) << "centred on" << output->name()
-            << "at its own size" << size;
+            << "at" << size;
 }
 
 bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
