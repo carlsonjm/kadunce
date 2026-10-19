@@ -1291,6 +1291,10 @@ private:
     };
     std::optional<RoomOfferShown> m_roomOffer;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
+    // Each offered card's picture, kept with its smaller copies so it reads
+    // smoothly at the offer's size; taken once, on the offer's first paint.
+    std::map<KWin::EffectWindow *, KeptPicture> m_offerPictures;
+    void captureOfferPictures();
     std::unique_ptr<RoomOfferInput> m_roomOfferInput;
     // Asks the room a side snap left open on `output` to offer the other
     // cards; null, or any later ask, withdraws a wait still running.
@@ -1298,6 +1302,7 @@ private:
     void offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries = 40);
     void pickFromRoomOffer(int index);
     void leaveRoomOffer();
+    [[nodiscard]] QString roomOfferHint() const;
     [[nodiscard]] int roomOfferPictureAt(QPointF position) const;
     void drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);

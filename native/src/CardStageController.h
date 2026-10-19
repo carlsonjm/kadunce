@@ -604,6 +604,9 @@ private:
     void rebuildLiveCards();
     // Every awake card stands in the Active card's place; each keeps its own
     // in its restore record.
+    // A Stack stands at the whole Active width: its cards forget any width
+    // the wheel gave one alone and stand in the Active place.
+    void standStackWhole(const KWin::EffectWindow *member);
     void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards);
     // A card behind the Active one that its application maximized, or that
     // otherwise reaches past the Active place, goes back to that place.

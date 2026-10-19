@@ -1038,6 +1038,7 @@ Effect::Effect()
             m_previewRefs.remove(window);
             m_drawnAs.remove(window);
             releaseHeldPicture(window);
+            m_offerPictures.erase(window);
             if (m_capturingHeld == window) m_capturingHeld = nullptr;
         });
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed, this,
@@ -4449,6 +4450,25 @@ void Effect::releaseHeldPicture(KWin::EffectWindow *window)
     m_heldPictures.erase(it);
 }
 
+void Effect::captureOfferPictures()
+{
+    for (const auto &card : std::as_const(m_roomOffer->cards)) {
+        if (!card || card->isDeleted() || m_offerPictures.contains(card.data())) continue;
+        KWin::EffectWindow *window = card.data();
+        m_capturingHeld = window;
+        KeptPicture picture;
+        const bool taken = picture.take(window,
+            [&](const KWin::RenderTarget &target, const KWin::RenderViewport &viewport) {
+                KWin::WindowPaintData data;
+                data.setOpacity(1.0);
+                (void)painted([&] { return KWin::effects->drawWindow(target, viewport, window,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), data); });
+            }, true);
+        m_capturingHeld = nullptr;
+        if (taken) m_offerPictures.emplace(window, std::move(picture));
+    }
+}
+
 void Effect::captureHeldPictures()
 {
     for (auto &[window, held] : m_heldPictures) {
@@ -6747,6 +6767,9 @@ QJsonValue Effect::contextNotice() const
         return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
     if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
         return notice(QStringLiteral("zones"), m_zoneNotice->text, nullptr);
+    // The open room's offer says how to choose on its display's own line.
+    if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
+        return notice(QStringLiteral("offer"), roomOfferHint(), m_roomOffer->output);
     return QJsonValue(QJsonValue::Null);
 }
 
@@ -6839,6 +6862,8 @@ QString Effect::contextLineSignature() const
         signature += QStringLiteral("r ") + m_gestureNote->text;
     else if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
         signature += QStringLiteral("z ") + m_zoneNotice->text;
+    else if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
+        signature += QStringLiteral("o ") + m_roomOffer->output->name();
     return signature;
 }
 
@@ -9669,12 +9694,18 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
     Q_EMIT workspaceContextChanged();
 }
 
+QString Effect::roomOfferHint() const
+{
+    return tr("Pick one for this side \u00b7 Esc leaves it open");
+}
+
 void Effect::leaveRoomOffer()
 {
     if (m_roomOfferInput) m_roomOfferInput->active = false;
     if (!m_roomOffer) return;
     m_roomOffer.reset();
     m_roomOfferShown.clear();
+    m_offerPictures.clear();
     KWin::effects->addRepaintFull();
     Q_EMIT workspaceContextChanged();
 }
@@ -9751,10 +9782,11 @@ void Effect::drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::R
     // How to choose, and how not to, under the pictures.
     // A label stands under the rect it names, so the rect is one pixel tall
     // and ends where the pictures' names do.
+    // A display whose Context Panel speaks for it says it there instead.
+    if (contextLineClaimed(screen)) return;
     const QRectF line(room.x() + RoomOfferGap, bottom - 1.0, room.width() - 2 * RoomOfferGap, 1.0);
     if (CardLabelRenderer::labelRect(line).bottom() <= room.bottom())
-        m_cardLabelRenderer.render(renderTarget, viewport, line,
-            {QStringLiteral("Pick one for this side \u00b7 Esc leaves it open"), QString()});
+        m_cardLabelRenderer.render(renderTarget, viewport, line, {roomOfferHint(), QString()});
 }
 
 void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
@@ -9833,6 +9865,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     SessionScope scope(this, m_currentSession, isCardDisplay(screen) ? stageKeyFor(screen) : m_scopedKey);
     m_paintingOutput = screen;
     if (!m_heldPictures.empty()) captureHeldPictures();
+    if (m_roomOffer && screen == m_roomOffer->output) captureOfferPictures();
     if (screen && screen == tabletOutput()) {
         // Only this display's: another's are read until it paints again.
         for (auto it = m_cardLabelTargets.begin(); it != m_cardLabelTargets.end();) {
@@ -10752,6 +10785,12 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
     if (window == m_capturingHeld)
         return paintResult(painted([&] { m_drawnAs.insert(window, QStringLiteral("kept picture taken")); return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
+    if (const auto offered = m_offerPictures.find(window);
+        offered != m_offerPictures.end() && m_roomOfferShown.contains(window)
+        && offered->second.draw(viewport, renderTarget, window, deviceRegion, data)) {
+        m_drawnAs.insert(window, QStringLiteral("offered picture"));
+        return paintResult(true);
+    }
     if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
         // Let go once the app has drawn twice at its new size.
         if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
@@ -10899,6 +10938,16 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const QRectF tile = m_roomOffer->tiles.at(index);
         const KWin::Rect target = KWin::RectF(tile).toRect();
         KWin::Rect logicalRegion = window->expandedGeometry().toRect();
+        // On the card's backing, as in Spread, so a see-through app still
+        // reads as a card.
+        if (logicalRegion.width() > 0 && logicalRegion.height() > 0) {
+            const QSizeF fitted = QRectF(window->frameGeometry()).size()
+                .scaled(tile.size(), Qt::KeepAspectRatio);
+            const QRectF backing(tile.center() - QPointF(fitted.width() / 2, fitted.height() / 2), fitted);
+            paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(tile))),
+                backing, 0.0, float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
+        }
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatio);
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
         const auto clip = deviceRegion

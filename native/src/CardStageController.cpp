@@ -390,6 +390,7 @@ bool CardStageController::stackBehind(KWin::EffectWindow *face, const QList<KWin
     for (auto *window : behind) members.append(window);
     if (!m_workspace.stackBehind(face, members)) return false;
     syncSelectedStackingOrder();
+    standStackWhole(face);
     KWin::effects->addRepaintFull();
     return true;
 }
@@ -2352,6 +2353,7 @@ void CardStageController::finishCardGrab(bool commit)
         outcome = movement != 0 ? "moved" : "stayed";
     }
     resetCardGrabState(grabbed, stacked);
+    if (stacked) standStackWhole(selectedWindow());
     qInfo() << "Kadunce" << Revision << "released Spread card"
             << m_workspace.selectedId() << outcome << "at entry" << m_workspace.selectedIndex() + 1;
 }
@@ -2793,6 +2795,7 @@ bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::Ef
     for (int i = 1; i < members.size(); ++i) rest.append(members.at(i));
     if (!m_workspace.stackBehind(face, rest)) return false;
     syncSelectedStackingOrder();
+    standStackWhole(face);
     return true;
 }
 
@@ -4867,6 +4870,22 @@ bool CardStageController::enterActive()
     qInfo() << "Kadunce" << Revision
             << "entered interactive Active with" << logNameOf(effectWindow);
     return true;
+}
+
+void CardStageController::standStackWhole(const KWin::EffectWindow *member)
+{
+    const QList<KWin::EffectWindow *> stack = stackFrontToBack(member);
+    if (stack.size() < 2) return;
+    QList<QPointer<KWin::EffectWindow>> cards;
+    for (auto *card : stack) {
+        if (m_activeWidths.remove(card)) cards.append(card);
+    }
+    if (cards.isEmpty()) return;
+    qInfo() << "Kadunce" << Revision << "stands a Stack of" << stack.size() << "at the whole width;"
+            << cards.size() << "narrowed by the wheel";
+    if (m_presentation == CardPresentation::Active && m_activeRestore.window
+        && cards.contains(m_activeRestore.window)) (void)refitActive(m_activeRestore.window);
+    settleCardsInActivePlace(cards);
 }
 
 void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards)

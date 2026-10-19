@@ -37,17 +37,23 @@ class KeptPicture
 public:
     // Draws the window as it stands into the kept picture; `draw` paints it
     // into the target and viewport given.
+    // A picture kept to be drawn much smaller than the window, as a room's
+    // offer draws it, is `shrunk`: it keeps smaller copies of itself, so its
+    // words and edges stay smooth at any size.
     bool take(KWin::EffectWindow *window,
-              const std::function<void(const KWin::RenderTarget &, const KWin::RenderViewport &)> &draw)
+              const std::function<void(const KWin::RenderTarget &, const KWin::RenderViewport &)> &draw,
+              bool shrunk = false)
     {
         if (!window || !window->screen()) return false;
         const double scale = window->screen()->scale();
         const KWin::RectF logical = window->expandedGeometry();
         const QSize textureSize = (logical.size() * scale).toSize();
         if (textureSize.isEmpty()) return false;
-        auto texture = KWin::GLTexture::allocate(GL_RGBA8, textureSize);
+        const int levels = shrunk
+            ? 1 + int(std::floor(std::log2(double(std::max(textureSize.width(), textureSize.height()))))) : 1;
+        auto texture = KWin::GLTexture::allocate(GL_RGBA8, textureSize, levels);
         if (!texture) return false;
-        texture->setFilter(GL_LINEAR);
+        texture->setFilter(shrunk ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
         texture->setWrapMode(GL_CLAMP_TO_EDGE);
         KWin::GLFramebuffer framebuffer(texture.get());
         KWin::RenderTarget target(&framebuffer);
@@ -57,6 +63,7 @@ public:
         glClear(GL_COLOR_BUFFER_BIT);
         draw(target, viewport);
         KWin::GLFramebuffer::popFramebuffer();
+        if (shrunk) texture->generateMipmaps();
         m_texture = std::move(texture);
         m_size = logical.size();
         return true;
