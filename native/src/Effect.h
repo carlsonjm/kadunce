@@ -1288,8 +1288,23 @@ private:
         QList<QPointer<KWin::EffectWindow>> cards;
         QList<QRectF> tiles;
         int hovered = -1;
+        // §11, Solo: the half a side snap left beside the Active card, with
+        // no awake card to pair; a card picked there pairs with it.
+        QPointer<KWin::EffectWindow> pairWith;
+        std::optional<BentoSidePlacement> pairSide;
     };
     std::optional<RoomOfferShown> m_roomOffer;
+    struct PairOfferAsked {
+        QPointer<KWin::EffectWindow> card;
+        BentoSidePlacement side;
+    };
+    std::optional<PairOfferAsked> m_pairOfferAsked;
+    bool m_clippingPairCard = false;
+    // §11, Solo: the Active card snapped to a side with no awake card to pair
+    // stays Active, and the half beside it offers the display's sleeping cards.
+    void askPairOffer(KWin::LogicalOutput *output, KWin::EffectWindow *card, BentoSidePlacement side);
+    [[nodiscard]] QList<KWin::EffectWindow *> sleepingCardsOn(const KWin::LogicalOutput *output) const;
+    [[nodiscard]] QRectF pairOfferRoom(KWin::LogicalOutput *output, const BentoSidePlacement &side) const;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
     // Each offered card's picture, kept with its smaller copies so it reads
     // smoothly at the offer's size; taken once, on the offer's first paint.
