@@ -1288,6 +1288,9 @@ private:
     std::optional<RoomOfferShown> m_roomOffer;
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
     std::unique_ptr<RoomOfferInput> m_roomOfferInput;
+    // Asks the room a side snap left open on `output` to offer the other
+    // cards; null, or any later ask, withdraws a wait still running.
+    void askRoomOffer(KWin::LogicalOutput *output);
     void offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries = 40);
     void pickFromRoomOffer(int index);
     void leaveRoomOffer();

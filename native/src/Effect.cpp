@@ -1425,17 +1425,13 @@ Effect::Effect()
     };
     m_carryRuntime->released = [this](bool committed) {
         m_carryLanded = committed;
-        const int ask = ++m_roomOfferAsk;
         // §11, Connected: a side snap that leaves room open offers the other
         // cards there, once the snapped card has grown into its place.
-        if (committed && m_carryWidthEdge == CarryWidthEdge::Side) {
-            QPointer<KWin::LogicalOutput> output;
+        KWin::LogicalOutput *landed = nullptr;
+        if (committed && m_carryWidthEdge == CarryWidthEdge::Side)
             for (auto *o : KWin::effects->screens())
-                if (QRectF(o->geometry()).contains(m_lastCarryContact)) output = o;
-            QTimer::singleShot(motion(320), this, [this, output, ask] {
-                if (output) offerOpenRoom(output, ask);
-            });
-        }
+                if (QRectF(o->geometry()).contains(m_lastCarryContact)) landed = o;
+        askRoomOffer(landed);
         const auto refused = std::exchange(m_carryRefusal, std::nullopt);
         if (!committed && refused && refused->output)
             showGestureNote(refused->output, refused->contact, refused->reason);
@@ -7740,6 +7736,9 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
                 })) {
             m_cardStage->finishCardGrab(false);
         } else {
+            // §11, Connected: a card carried from Active to a side snaps
+            // there too, so the room it leaves offers the other cards.
+            if (reserved.placesAlone()) askRoomOffer(reserved.destinationOutput());
         }
         m_lineDestination.reset(); m_lineDestinationWindow.clear();
         return true;
@@ -9566,6 +9565,16 @@ void Effect::prePaintWindow(KWin::RenderView *view,
         data.setTranslucent();
     }
     KWin::OffscreenEffect::prePaintWindow(view, window, data);
+}
+
+void Effect::askRoomOffer(KWin::LogicalOutput *output)
+{
+    const int ask = ++m_roomOfferAsk;
+    if (!output || !connectedOutputForDesktopStage(output)) return;
+    const QPointer<KWin::LogicalOutput> landed = output;
+    QTimer::singleShot(motion(320), this, [this, landed, ask] {
+        if (landed) offerOpenRoom(landed, ask);
+    });
 }
 
 void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
