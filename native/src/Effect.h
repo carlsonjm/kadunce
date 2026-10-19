@@ -921,6 +921,8 @@ private:
     QList<QRect> m_keyboardOutlineFading;
     [[nodiscard]] bool paintedAsItStands(KWin::EffectWindow *window);
     [[nodiscard]] KWin::EffectWindow *keyboardOutlineWindow(KWin::LogicalOutput *screen);
+    [[nodiscard]] float keyboardOutlineOpacity(KWin::EffectWindow *window, const KWin::WindowPaintData &data) const;
+    [[nodiscard]] static QColor keyboardOutlineInk();
     void paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               KWin::EffectWindow *window, const KWin::Region &deviceRegion,
                               const KWin::WindowPaintData &data);
@@ -1259,6 +1261,7 @@ private:
     std::unique_ptr<KWin::GLShader> m_fanApertureShader;
     std::unique_ptr<KWin::GLShader> m_destinationShader;
     std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
+    std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
     // §11, Connected: the pane a carried pane rests over, which it joins in
     // a Stack once it has rested there; the pane it would join, once it
