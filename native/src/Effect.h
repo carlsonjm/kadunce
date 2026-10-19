@@ -465,7 +465,7 @@ private:
     // CARD-LIFECYCLE.md §4: a window that keeps its own size floats, centred,
     // over cards and layouts, and is never a card or a pane.
     [[nodiscard]] bool floatsAtItsOwnSize(const KWin::EffectWindow *window) const;
-    void centreFloatingWindow(KWin::EffectWindow *window);
+    void centreFloatingWindow(KWin::EffectWindow *window, KWin::LogicalOutput *on = nullptr);
     // CARD-LIFECYCLE.md §4: a dialog, or any other window that names a window
     // it belongs to, follows the application window at the root of that chain
     // and is never a card or a pane. Null for a window that belongs to none.
@@ -1310,16 +1310,40 @@ private:
         QList<QPointer<KWin::EffectWindow>> cards;
         QList<QRectF> tiles;
         int hovered = -1;
+        // §11, Solo: the half a side snap left beside the Active card, with
+        // no awake card to pair; a card picked there pairs with it.
+        QPointer<KWin::EffectWindow> pairWith;
+        std::optional<BentoSidePlacement> pairSide;
     };
     std::optional<RoomOfferShown> m_roomOffer;
+    struct PairOfferAsked {
+        QPointer<KWin::EffectWindow> card;
+        BentoSidePlacement side;
+    };
+    std::optional<PairOfferAsked> m_pairOfferAsked;
+    // §11, Solo: the Active card snapped to a side with no awake card to pair
+    // stays Active, and the half beside it offers the display's sleeping cards.
+    void askPairOffer(KWin::LogicalOutput *output, KWin::EffectWindow *card, BentoSidePlacement side);
+    [[nodiscard]] QList<KWin::EffectWindow *> sleepingCardsOn(const KWin::LogicalOutput *output) const;
+    [[nodiscard]] QRectF pairOfferRoom(KWin::LogicalOutput *output, const BentoSidePlacement &side) const;
+    // The card the pair offer is beside gives back the place it held there,
+    // and stands in its own again unless `refit` is false.
+    void releasePairOfferPlace(KWin::EffectWindow *card, bool refit = true);
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
+    // Each offered card's picture, kept with its smaller copies so it reads
+    // smoothly at the offer's size; taken once, on the offer's first paint.
+    std::map<KWin::EffectWindow *, KeptPicture> m_offerPictures;
+    void captureOfferPictures();
     std::unique_ptr<RoomOfferInput> m_roomOfferInput;
     // Asks the room a side snap left open on `output` to offer the other
     // cards; null, or any later ask, withdraws a wait still running.
     void askRoomOffer(KWin::LogicalOutput *output);
     void offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries = 40);
     void pickFromRoomOffer(int index);
-    void leaveRoomOffer();
+    // `restore` false keeps the card beside a pair offer where it stands,
+    // for the pick that pairs it.
+    void leaveRoomOffer(bool restore = true);
+    [[nodiscard]] QString roomOfferHint() const;
     [[nodiscard]] int roomOfferPictureAt(QPointF position) const;
     void drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
@@ -1435,6 +1459,9 @@ private:
     QPointer<KWin::EffectWindow> m_guestFocusReturn;
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
+    // A display's desktop clicked since an application last held focus, where
+    // Search floats next.
+    QPointer<KWin::LogicalOutput> m_desktopInUse;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
     // The keys coming back from Search as it closes over Spread, told the
