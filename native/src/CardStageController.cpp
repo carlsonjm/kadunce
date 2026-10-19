@@ -4876,26 +4876,30 @@ void CardStageController::standStackWhole(const KWin::EffectWindow *member)
 {
     const QList<KWin::EffectWindow *> stack = stackFrontToBack(member);
     if (stack.size() < 2) return;
-    QList<QPointer<KWin::EffectWindow>> cards;
+    // Every card of it, on whichever display holds it, stands at that
+    // display's whole Active place: one size, the Stack's.
+    QHash<KWin::LogicalOutput *, QList<QPointer<KWin::EffectWindow>>> byDisplay;
+    int narrowed = 0;
     for (auto *card : stack) {
-        if (m_activeWidths.remove(card)) cards.append(card);
+        if (m_activeWidths.remove(card)) ++narrowed;
+        if (card && card->screen() && canOwnCards(card->screen())) byDisplay[card->screen()].append(card);
     }
-    if (cards.isEmpty()) return;
     qInfo() << "Kadunce" << Revision << "stands a Stack of" << stack.size() << "at the whole width;"
-            << cards.size() << "narrowed by the wheel";
+            << narrowed << "narrowed by the wheel";
     if (m_presentation == CardPresentation::Active && m_activeRestore.window
-        && cards.contains(m_activeRestore.window)) (void)refitActive(m_activeRestore.window);
-    settleCardsInActivePlace(cards);
+        && stack.contains(m_activeRestore.window.data())) (void)refitActive(m_activeRestore.window);
+    for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
 }
 
-void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards)
+void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
+    KWin::LogicalOutput *output)
 {
     // §3: a card behind the one presented stands where it would as Active. A
     // window taken maximized would otherwise still reach the bottom of the
     // work area, where a panel that watches for windows reaching it stays
     // opaque until each card has been brought forward once. Its own place is
     // already in its restore record, so release gives it back.
-    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    KWin::LogicalOutput *tablet = output ? output : m_host->tabletOutputForCardStage();
     if (!tablet) return;
     const KWin::RectF target(activeTarget(tablet));
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);

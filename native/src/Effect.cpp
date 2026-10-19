@@ -1329,8 +1329,14 @@ Effect::Effect()
         m_roomOffer->hovered = at;
         KWin::effects->addRepaintFull();
     };
-    m_roomOfferInput->picked = [this](int at) { pickFromRoomOffer(at); };
-    m_roomOfferInput->dismissed = [this] { leaveRoomOffer(); };
+    m_roomOfferInput->picked = [this](int at) {
+        qInfo() << "Kadunce" << Revision << "picked offered card" << at;
+        pickFromRoomOffer(at);
+    };
+    m_roomOfferInput->dismissed = [this] {
+        qInfo() << "Kadunce" << Revision << "leaves the offer: Escape or a press away from its pictures";
+        leaveRoomOffer();
+    };
     m_carryRuntime->observed = [this](KWin::Window *w, const char *event) {
         traceNativeMove(w ? w->effectWindow() : m_carriedWindow.data(), event);
     };
@@ -9441,7 +9447,11 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
                 : m_cardStage->presentsBento());
         for (const auto &card : std::as_const(m_roomOffer->cards))
             stands = stands && card && !card->isDeleted();
-        if (!stands) QTimer::singleShot(0, this, [this] { leaveRoomOffer(); });
+        if (!stands) QTimer::singleShot(0, this, [this] {
+            if (!m_roomOffer) return;
+            qInfo() << "Kadunce" << Revision << "leaves the offer: the room it filled changed";
+            leaveRoomOffer();
+        });
     }
     m_framingTablet = isTabletOutput(data.screen);
     if (m_framingTablet) noteTabletFrameStart();
@@ -9833,7 +9843,11 @@ void Effect::pickFromRoomOffer(int index)
         QTimer::singleShot(0, this, [this, card, output, pairWith, pairSide] {
             if (!card || card->isDeleted() || !output || !pairWith || pairWith->isDeleted()) return;
             SessionScope scope(this, m_currentSession, stageKeyFor(output));
-            if (m_cardStage->activeCardIdentity() != pairWith || m_cardStage->liveCardIndex(card) < 0) return;
+            if (m_cardStage->activeCardIdentity() != pairWith || m_cardStage->liveCardIndex(card) < 0) {
+                qInfo() << "Kadunce" << Revision << "could not pair" << logNameOf(pairWith) << "with" << logNameOf(card)
+                        << "picked beside it: it is no longer Active, or the pick is no card";
+                return;
+            }
             if (card->isMinimized()) card->unminimize();
             if (!card || card->isMinimized() || !pairCardsIntoBento(output, pairWith, card, *pairSide)) {
                 qInfo() << "Kadunce" << Revision << "could not pair" << logNameOf(pairWith) << "with"

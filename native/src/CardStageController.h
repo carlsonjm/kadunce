@@ -607,7 +607,9 @@ private:
     // A Stack stands at the whole Active width: its cards forget any width
     // the wheel gave one alone and stand in the Active place.
     void standStackWhole(const KWin::EffectWindow *member);
-    void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards);
+    // On `output`'s Active place, the tablet's when none is named.
+    void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
+                                  KWin::LogicalOutput *output = nullptr);
     // A card behind the Active one that its application maximized, or that
     // otherwise reaches past the Active place, goes back to that place.
     void holdCardInActivePlace(KWin::EffectWindow *window);
