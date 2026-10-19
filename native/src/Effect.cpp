@@ -1431,7 +1431,7 @@ Effect::Effect()
         if (committed && m_carryWidthEdge == CarryWidthEdge::Side)
             for (auto *o : KWin::effects->screens())
                 if (QRectF(o->geometry()).contains(m_lastCarryContact)) landed = o;
-        askRoomOffer(landed);
+        if (landed) askRoomOffer(landed);
         const auto refused = std::exchange(m_carryRefusal, std::nullopt);
         if (!committed && refused && refused->output)
             showGestureNote(refused->output, refused->contact, refused->reason);
@@ -5611,7 +5611,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         const QRectF drawn = carriedPose();
                         // After the carry has let the card go, as Meta+B would.
                         QTimer::singleShot(0, this, [this, carried, output, place, drawn] {
-                            if (carried && output) layOutHeldLayoutBeside(carried, output, place, drawn);
+                            if (!carried || !output) return;
+                            layOutHeldLayoutBeside(carried, output, place, drawn);
+                            askRoomOffer(output);
                         });
                         return true;
                     });
@@ -5633,6 +5635,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         startPaneArrival(carried, output, drawn);
                         // The room left open shows the desktop, not the cards.
                         m_cardStage->syncSelectedElevation();
+                        // Asked here: leaving Active can end the carry's
+                        // presentation before the release is reported.
+                        askRoomOffer(output);
                     }
                     return committed;
                 });
