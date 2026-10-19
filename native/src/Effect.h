@@ -1401,6 +1401,9 @@ private:
     QPointer<KWin::EffectWindow> m_guestFocusReturn;
     quint64 m_guestFocusReturnGeneration = 0;
     QPointer<KWin::EffectWindow> m_lastActiveApplication;
+    // A display's desktop clicked since an application last held focus, where
+    // Search floats next.
+    QPointer<KWin::LogicalOutput> m_desktopInUse;
     // The keys coming back from Gooseberry's notes as Spread covers them.
     NotesKeysReturn m_notesKeysReturn;
     // The keys coming back from Search as it closes over Spread, told the

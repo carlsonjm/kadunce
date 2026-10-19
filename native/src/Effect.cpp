@@ -9642,12 +9642,12 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
                     << "Bento" << m_cardStage->presentsBento();
         return;
     }
-    // The fronts of the display's other cards, in Spread's order; a card
-    // waiting behind a pane stays there.
+    // The fronts of the display's other cards, in Spread's order, asleep ones
+    // too; a card waiting behind a pane stays there.
     RoomOfferShown offer{output, *room, {}, {}, -1};
     QList<QSizeF> sizes;
     for (const auto &card : m_cardStage->liveCards()) {
-        if (!card || card->isDeleted() || card->isMinimized() || card->screen() != output
+        if (!card || card->isDeleted() || card->screen() != output
             || m_desktopStage->managesWindow(card) || m_cardStage->paneHolding(card)) continue;
         const auto stack = m_cardStage->stackFrontToBack(card);
         if (!stack.isEmpty() && stack.first() != card) continue;
@@ -9700,6 +9700,9 @@ void Effect::pickFromRoomOffer(int index)
         SessionScope scope(this, m_currentSession, stageKeyFor(output));
         if (!m_cardStage->presentsBento() || m_cardStage->liveCardIndex(card) < 0
             || !m_desktopStage->hasSessionOnOutput(output->name())) return;
+        // A card picked asleep wakes into the room.
+        if (card->isMinimized()) card->unminimize();
+        if (!card) return;
         const QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(card).mid(1);
         if (!m_desktopStage->admitCardToLiveBento(card,
                 [this, card] { return card && m_cardStage->releaseCardToLiveBento(card); }, true)) return;
@@ -10306,7 +10309,15 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
     // §11: the stage holding the window answers, else its display's, and
     // its display is the one in use.
     SessionScope scope(this, m_scopedSession, stageKeyOf(window));
-    if (isApplicationWindow(window)) noteDisplayInUse(window->screen());
+    if (isApplicationWindow(window)) {
+        m_desktopInUse = nullptr;
+        noteDisplayInUse(window->screen());
+    } else if (window && window->isDesktop() && window->screen()) {
+        // A click on a display's desktop makes that display the one in use.
+        m_desktopInUse = window->screen();
+        noteDisplayInUse(window->screen());
+        qInfo() << "Kadunce" << Revision << "the desktop of" << window->screen()->name() << "is in use";
+    }
     // Read before anything returns early, so every activation is counted.
     const bool spreadShown = m_cardStage->isActive()
         && m_cardStage->presentation() == CardPresentation::Spread;

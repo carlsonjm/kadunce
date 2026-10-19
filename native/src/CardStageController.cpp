@@ -1299,6 +1299,9 @@ KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,
     const KWin::Rect whole = activeTarget(output);
     const auto share = m_activeWidths.constFind(window);
     if (share == m_activeWidths.cend() || !window || !window->window()) return whole;
+    // A card in a Stack stands at the Stack's size, the whole Active width,
+    // whatever width the wheel gave it alone.
+    if (stackFrontToBack(window).size() > 1) return whole;
     return narrowedActive(whole, *share, window->window()->minSize().width());
 }
 
