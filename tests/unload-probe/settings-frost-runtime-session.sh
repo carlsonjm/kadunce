@@ -87,6 +87,8 @@ if [[ -n $pixels ]]; then
     check "the dock stands over the frost as it was" python3 -c "import sys; sys.exit(float('$dock') < 0.95)"
 fi
 gone
+check "with Settings gone the frost dissolves rather than cutting out" \
+    rg -q '^Kadunce .* dissolves the frost on "Virtual-0" over [1-9][0-9]* ms' "$log"
 if [[ -n $pixels ]]; then
     after=$(contrast)
     echo "contrast after Settings: $after"

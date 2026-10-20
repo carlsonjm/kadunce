@@ -9757,15 +9757,28 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         if (const auto box = heldDestinationOn(data.screen)) data.paint |= whole(*box);
         // Settings' frost reads the whole display, so the whole display is
         // drawn afresh from the frame it first stands there.
+        // Once Settings has gone, the glass dissolves over the same time.
+        const int frostFade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
         if (settingsSurfaceOn(data.screen)) {
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
+            m_settingsFrostLeaving.remove(data.screen->name());
             data.paint |= whole(QRectF(data.screen->geometry()));
-            if (since.elapsed() < motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor()))
-                m_settingsFrostFading.append(data.screen->geometry());
+            if (since.elapsed() < frostFade) m_settingsFrostFading.append(data.screen->geometry());
         } else {
-            m_settingsFrostSince.remove(data.screen->name());
-            m_settingsFrostSaid.remove(data.screen->name());
+            if (m_settingsFrostSince.remove(data.screen->name()) > 0) {
+                m_settingsFrostLeaving[data.screen->name()].start();
+                qInfo() << "Kadunce" << Revision << "dissolves the frost on" << data.screen->name()
+                        << "over" << frostFade << "ms";
+            }
+            const auto leaving = m_settingsFrostLeaving.constFind(data.screen->name());
+            if (leaving != m_settingsFrostLeaving.constEnd() && leaving->elapsed() < frostFade) {
+                data.paint |= whole(QRectF(data.screen->geometry()));
+                m_settingsFrostFading.append(data.screen->geometry());
+            } else {
+                m_settingsFrostLeaving.remove(data.screen->name());
+                m_settingsFrostSaid.remove(data.screen->name());
+            }
         }
         if (m_placementPreview && m_placementPreviewOutput == data.screen)
             data.paint |= whole(QRectF(*m_placementPreview));
@@ -10371,7 +10384,8 @@ bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
     return window && !window->isDeleted() && window->window() && window->isVisible() && m_paintingOutput
         && window->screen() == m_paintingOutput && window->isOnScreenDisplay()
         && window->window()->inherits("KWin::LayerShellV1Window")
-        && window->window()->layer() == KWin::BelowLayer && settingsSurfaceOn(m_paintingOutput);
+        && window->window()->layer() == KWin::BelowLayer
+        && (settingsSurfaceOn(m_paintingOutput) || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
 }
 
 void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -10381,7 +10395,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!window || !screen || m_settingsFrostDrawnOn == screen || !window->window()
         || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
     KWin::EffectWindow *settings = settingsSurfaceOn(screen);
-    if (!settings) return;
+    const bool leaving = !settings && m_settingsFrostLeaving.contains(screen->name());
+    if (!settings && !leaving) return;
     // The glass is laid under the first of this display's panels to be
     // drawn, or under Settings itself where there are none, so the panels
     // and their fades stand over it as they are, and nothing ends at an edge.
@@ -10393,10 +10408,15 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
         const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
         if (!part.isEmpty()) parts.append(part);
     }
-    const auto since = m_settingsFrostSince.constFind(screen->name());
     const int fade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
-    const float strength = since == m_settingsFrostSince.constEnd() || fade <= 0 ? 1.0F
-        : float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
+    float strength = 1.0F;
+    if (leaving) {
+        strength = fade <= 0 ? 0.0F
+            : float(1.0 - std::clamp(double(m_settingsFrostLeaving.value(screen->name()).elapsed()) / fade, 0.0, 1.0));
+    } else if (const auto since = m_settingsFrostSince.constFind(screen->name());
+               since != m_settingsFrostSince.constEnd() && fade > 0) {
+        strength = float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
+    }
     const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
     if (drawn) m_frostDrawn[screen->name()].append(whole);
     // The fades a panel lays under the windows, the Context Panel's tail

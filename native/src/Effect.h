@@ -1377,6 +1377,7 @@ private:
     FrostedBox m_settingsFrost;
     QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
     QHash<QString, QElapsedTimer> m_settingsFrostSince;
+    QHash<QString, QElapsedTimer> m_settingsFrostLeaving;
     QList<QRect> m_settingsFrostFading;
     // The displays whose frost has been said in the log since Settings came.
     QSet<QString> m_settingsFrostSaid;
