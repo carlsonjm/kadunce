@@ -1143,14 +1143,6 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     drawSettingsFrostUnder(renderTarget, viewport, window);
     // A panel's fade laid under the windows is drawn over the frost instead.
     if (fadeOverSettingsFrost(window)) return paintResult(true);
-    // The power question asks KDE's blur for its whole display, which would
-    // haze the glass and the panels alike: it is drawn as moved, which the
-    // blur leaves alone, so the glass under it shows as it is.
-    if (isPowerQuestion(window) && m_paintingOutput && settingsSurfaceOn(m_paintingOutput) == window) {
-        if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
-                mask | PAINT_WINDOW_TRANSFORMED, deviceRegion, data); })) return paintResult(false);
-        return paintResult(true);
-    }
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);
