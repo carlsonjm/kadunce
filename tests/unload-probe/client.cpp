@@ -15,8 +15,6 @@
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QPalette>
-#include <QPainter>
-#include <QPixmap>
 #include <QtGui/qguiapplication_platform.h>
 #include <xcb/xcb.h>
 #include <QScreen>
@@ -225,15 +223,6 @@ public Q_SLOTS:
  void widerCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Large admission probe"); w->setMinimumSize(1250,700); w->resize(1250,700); w->show(); }
  void immediateCompanion() { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle("Immediate ownership probe"); w->setMinimumSize(1500,900); w->resize(1500,900); w->show(); }
  // A window in a named colour, so a photograph says which one is drawn.
- // A window of 2 px black and white stripes, so a photograph says whether
- // what is drawn over it blurs it.
- void stripedCompanion(const QString &title, int width, int height) {
-  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title);
-  QPixmap stripes(4, 4); stripes.fill(Qt::white);
-  { QPainter painter(&stripes); painter.fillRect(0, 0, 2, 4, Qt::black); }
-  QPalette p = w->palette(); p.setBrush(QPalette::Window, QBrush(stripes)); w->setPalette(p); w->setAutoFillBackground(true);
-  w->resize(width, height); w->show();
- }
  void colouredCompanion(const QString &title, const QString &hex, int width, int height) { auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setWindowTitle(title); tint(w, QColor(QLatin1Char('#') + hex)); w->resize(width, height); w->show(); }
  // A window that maximizes itself a moment after it is shown, as an
  // application restoring its saved state does at sign-in.
@@ -491,23 +480,5 @@ private: BandStandIn *band_ = nullptr;
  bool moveArmed = false, resizeArmed = false; int downs=0,ups=0,cancels=0,presses=0,releases=0;
  int targetPresses=0,targetReleases=0,targetClicks=0;
 };
-// With --surface TITLE, a clear layer surface over the tablet's work area
-// and nothing else, as Shuffle Settings and the keyboard sheet are.
-static int surfaceOnly(const QString &title) {
- auto *w = new QWidget; w->setWindowTitle(title); w->setAttribute(Qt::WA_TranslucentBackground);
- w->winId();
- for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
- if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
-  layer->setScope(QStringLiteral("shuffle-settings"));
-  layer->setLayer(LayerShellQt::Window::LayerTop);
-  layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop | LayerShellQt::Window::AnchorBottom
-   | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
-  layer->setExclusiveZone(0);
-  layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
-  layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
- }
- w->show();
- return qApp->exec();
-}
-int main(int argc,char**argv) { QApplication a(argc,argv); if (argc > 2 && QByteArray(argv[1]) == "--surface") return surfaceOnly(QString::fromUtf8(argv[2])); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
+int main(int argc,char**argv) { QApplication a(argc,argv); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
 #include "client.moc"
