@@ -1087,6 +1087,27 @@ void Effect::enterInputScope(const QPointF &position, InputReach reach, qint64 c
     m_inputScopes.push_back(std::make_unique<SessionScope>(this, m_currentSession, key));
 }
 
+void Effect::noteEdgeContact(const QPointF &position) const
+{
+    // A contact that lands at a display's top or bottom says how the edges
+    // read it, before anything takes it, so a swipe there that did nothing
+    // can be read back.
+    const KWin::LogicalOutput *at = KWin::effects->screenAt(position.toPoint());
+    if (!at || !m_inputRouter) return;
+    const QRectF area(at->geometry());
+    const bool nearBottom = position.y() >= area.bottom() - 24.0;
+    if (!nearBottom && position.y() >= area.top() + 24.0) return;
+    const WorkspaceInputGeometry edges = geometryForInput();
+    qInfo() << "Kadunce edge contact" << position << "on" << at->name() << area
+            << (nearBottom ? "at the bottom;" : "at the top;")
+            << "edges owned" << m_inputRouter->ownsSystemEdges()
+            << "backend" << (m_usesDirectSystemEdges ? "z13-direct" : "plasma-native")
+            << "stage display" << (edges.isValid() ? edges.tablet : QRectF())
+            << "touchscreen" << m_touchOutputName << edges.touchscreen.area
+            << "keys here" << inputPanelContainsForInput(position)
+            << "bottom band" << m_inputRouter->inBottomBezel(position);
+}
+
 void Effect::leaveInputScope(InputReach reach, qint64 contact)
 {
     if (!m_inputScopes.empty()) m_inputScopes.pop_back();
@@ -1633,6 +1654,7 @@ Effect::Effect()
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
             return m_inputRouter && m_inputRouter->inBottomBezel(position);
         };
+        m_touchWitness->touchedAt = [this](const QPointF &position) { noteEdgeContact(position); };
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
         };

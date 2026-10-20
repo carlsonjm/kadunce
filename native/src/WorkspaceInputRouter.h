@@ -231,6 +231,7 @@ public:
     [[nodiscard]] bool inBottomBezel(const QPointF &position) const {
         return touchModeAt(position) == TouchMode::BottomEdge;
     }
+    [[nodiscard]] bool ownsSystemEdges() const { return m_ownsSystemEdges; }
     void setOwnsSystemEdges(bool owns) {
         if (m_ownsSystemEdges == owns) return;
         m_ownsSystemEdges = owns;

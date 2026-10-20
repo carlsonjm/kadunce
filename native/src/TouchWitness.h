@@ -28,6 +28,8 @@ public:
     std::function<QString()> describeTouchState;
     // Runs first for every contact, before KWin's own handling sees it.
     std::function<void(qint32)> beforeTouchDown;
+    // Where each contact came down, before anything takes it.
+    std::function<void(const QPointF &)> touchedAt;
     // Runs as each contact lifts, before KWin's own handling sees the lift.
     std::function<void(qint32)> onTouchUp;
     // Installed after the other filters of its order, so KWin runs it first.
@@ -36,6 +38,7 @@ public:
     }
     bool touchDown(KWin::TouchDownEvent *event) override {
         if (beforeTouchDown) beforeTouchDown(event->id);
+        if (touchedAt) touchedAt(event->pos);
         m_down.insert(event->id);
         if (inBottomBezel && inBottomBezel(event->pos)) m_unseenBottom.insert(event->id, event->pos);
         else m_unseenBottom.remove(event->id);

@@ -886,6 +886,7 @@ private:
     }
     void enterInputScope(const QPointF &position, InputReach reach, qint64 contact) override;
     void leaveInputScope(InputReach reach, qint64 contact) override;
+    void noteEdgeContact(const QPointF &position) const;
     [[nodiscard]] QString describeTitleTouch(const QPointF &position) const;
     [[nodiscard]] bool inputPanelContainsForInput(const QPointF &position) const override;
     [[nodiscard]] QRectF nativeLandingAreaForOutput(KWin::LogicalOutput *output) const;
