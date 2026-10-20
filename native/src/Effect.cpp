@@ -1105,7 +1105,10 @@ void Effect::noteEdgeContact(const QPointF &position) const
             << "stage display" << (edges.isValid() ? edges.tablet : QRectF())
             << "touchscreen" << m_touchOutputName << edges.touchscreen.area
             << "keys here" << inputPanelContainsForInput(position)
-            << "bottom band" << m_inputRouter->inBottomBezel(position);
+            << "bottom band" << m_inputRouter->inBottomBezel(position)
+            << "table open" << tableOpenForInput()
+            << "strokes held" << m_strokeContacts.size() << "on" << m_strokeKey
+            << "router holds" << m_inputRouter->heldForLog();
 }
 
 void Effect::leaveInputScope(InputReach reach, qint64 contact)

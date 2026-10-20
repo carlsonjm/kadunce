@@ -17,6 +17,7 @@
 #include <QElapsedTimer>
 #include <QRectF>
 #include <QSet>
+#include <QString>
 #include <QTimer>
 
 #include <chrono>
@@ -232,6 +233,13 @@ public:
         return touchModeAt(position) == TouchMode::BottomEdge;
     }
     [[nodiscard]] bool ownsSystemEdges() const { return m_ownsSystemEdges; }
+    // What the router still holds, for the log: a contact it never saw lift
+    // would keep every later one from starting a swipe.
+    [[nodiscard]] QString heldForLog() const {
+        return QStringLiteral("touch %1, %2 down, %3 kept, rail %4, notes %5, table %6")
+            .arg(m_touchId).arg(m_observedTouchIds.size()).arg(m_ownedTouchIds.size())
+            .arg(m_railTouch).arg(m_notesTouch).arg(m_tableTouch);
+    }
     void setOwnsSystemEdges(bool owns) {
         if (m_ownsSystemEdges == owns) return;
         m_ownsSystemEdges = owns;

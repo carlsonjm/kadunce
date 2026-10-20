@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
+#include <chrono>
 #include <utility>
 #include "NativeCarryHandoff.h"
 #include "NativeMoveObserver.h"
@@ -39,6 +40,8 @@ public:
     std::function<bool(const PreparedCarrySource &, QPointF)> wheelEntryRequested;
     // Whether a touch is still down, as seen ahead of this filter.
     std::function<bool(qint64)> touchStillDown;
+    // How long a touch is held still before it may move a window.
+    static constexpr std::chrono::milliseconds TouchHoldBeforeMove{300};
     NativeCarryRuntime() : InputEventFilter(KWin::InputFilterOrder::ScreenEdge) {
         KWin::input()->installInputEventFilter(this);
         observer.identified = [this](KWin::Window *w, auto ticket, QPointF pos, auto proof) {
@@ -48,6 +51,18 @@ public:
                     ? (ticket.owner().kind == CarryDevice::Touch ? "proof-xwayland-touch" : "proof-xwayland-pointer")
                     : (ticket.owner().kind == CarryDevice::Touch ? "proof-decoration-touch" : "proof-decoration-pointer"));
             if (route.busy()) return;
+            // A finger that moves at once is a swipe, not a grab: a window
+            // goes into the hand only once the touch has been held still for
+            // a moment, as a card in Spread is, or a quick stroke across a
+            // title bar would carry the window off. The pointer moves at once.
+            if (ticket.owner().kind == CarryDevice::Touch) {
+                const auto contact = observer.contacts().resolve(ticket);
+                if (contact && std::chrono::steady_clock::now() - contact->pressedAt < TouchHoldBeforeMove) {
+                    if (observed) observed(w, "touch-moved-before-hold");
+                    StaleTouchRelease::cancel(w, true);
+                    return;
+                }
+            }
             if (handoff.deferOrdinary(w)) {
                 m_deferred = Deferred{w, ticket, pos};
                 if (observed) observed(w, "awaiting-entry");
