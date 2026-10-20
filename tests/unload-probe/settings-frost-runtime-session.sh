@@ -46,7 +46,7 @@ echo "facts $(probe windowFacts | jq -c 'map(select(.caption == "Stripes" or .ca
 read -r sx sy < <(probe windowFacts | jq -r 'first(.[] | select(.caption == "Stripes")) | "\(.x + .width / 2 - 80 | floor) \(.y + .height / 2 - 40 | floor)"')
 contrast() { python3 "$here/capture-contrast.py" "$sx" "$sy" 160 80 2>/dev/null; }
 log="$(dirname "$XDG_RUNTIME_DIR")/session.log"
-frost_lines() { rg -c 'frosts "Virtual-0" under Shuffle Settings' "$log" || echo 0; }
+frost_lines() { rg -c '^Kadunce .* frosts "Virtual-0" under Shuffle Settings' "$log" || echo 0; }
 band() { python3 "$here/capture-band.py" 100 764 400 28 101010; }
 # The program name is what KWin knows a Wayland client's windows by.
 surface() {
@@ -69,9 +69,9 @@ surface 'Shuffle Settings' --frost
 echo "facts $(probe windowFacts | jq -c 'map(select(.class == "shuffle-settings") | {caption, class, layer, x, y, width, height})')"
 check "Settings is a layer surface of its own program" \
     bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'any(.[]; .class == \"shuffle-settings\")'"
-echo "said: $(rg -o 'frosts "Virtual-0" under Shuffle Settings.*' "$log" | tail -1)"
+echo "said: $(rg -o '^Kadunce .* frosts "Virtual-0" under Shuffle Settings.*' "$log" | tail -1)"
 check "Kadunce lays the frost under the panel" \
-    rg -q 'frosts "Virtual-0" under Shuffle Settings, laid under a panel' "$log"
+    rg -q '^Kadunce .* frosts "Virtual-0" under Shuffle Settings, laid under a panel' "$log"
 check "the frost is said once for Settings" test "$(frost_lines)" -eq $((said + 1))
 if [[ -n $pixels ]]; then
     frosted=$(contrast); dock=$(band)
