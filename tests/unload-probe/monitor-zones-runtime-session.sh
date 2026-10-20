@@ -5,8 +5,8 @@
 # each takes one zone, a window too wide for a quarter takes the half, KWin
 # holds each in its zone, a moved edge carries both panes with it and
 # Kadunce leaves them there, switching to filling and back moves them out of
-# their zones and in again, and switching off gives every window back out of
-# its zone as it was. Needs the tablet fixture, so that a card display exists
+# their zones and in again, a window closing leaves every other in its zone,
+# and switching off gives every window back out of its zone as it was. Needs the tablet fixture, so that a card display exists
 # beside the monitor. Every check is reported.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -160,6 +160,26 @@ check "zones again: three windows are shown" test "$(grep -c . <<<"$shown")" -eq
 while IFS= read -r caption; do
     [[ -n $caption ]] && check "zones again: $caption sits in a zone" on_zone "$caption" 6
 done <<<"$shown"
+
+# A window closes: every other shown window keeps the zone it holds
+# (CARD-LIFECYCLE.md §11), and the one the dock held may come back into the
+# zone left free.
+closing=$(grep -E '^Zone (Two|Three|Four)$' <<<"$shown" | head -1)
+check "closing: a zone window is shown to close" test -n "$closing"
+staying=$(grep -vxF -- "$closing" <<<"$shown")
+declare -A held=()
+while IFS= read -r caption; do
+    [[ -n $caption ]] && held[$caption]=$(tile_of 6 "${caption// /_}")
+done <<<"$staying"
+client closeCompanion "$closing"
+sleep 1.5
+report closed
+read_zones 7
+while IFS= read -r caption; do
+    [[ -n $caption ]] || continue
+    check "closed: $caption keeps its zone" test "$(tile_of 7 "${caption// /_}")" = "${held[$caption]}"
+    check "closed: $caption sits in a zone" on_zone "$caption" 7
+done <<<"$staying"
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep 1

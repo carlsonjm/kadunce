@@ -288,10 +288,6 @@ private:
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     // The cards Spread shows behind a Stack's face, nearest first.
     [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
-    // A window carried to another display and rested on a pane or card there
-    // joins that Stack once it has landed; it retries while the landing settles.
-    void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
-                         int tries = 20);
     // A card's name in Spread: a Stack names the cards behind its face, a
     // pane alone the panes beside it.
     [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
@@ -480,6 +476,11 @@ private:
     struct DesktopSession;
     class SessionHost;
     class SessionScope;
+    // A window carried to another display and rested on a pane or card there
+    // joins that Stack once it has landed; it retries while the landing settles.
+    // It gives up once anything is carried again or another desktop is shown.
+    void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
+                         const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
     // CARD-LIFECYCLE.md §11: every display holding cards has a card stage of
     // its own on each desktop, with its own Spread, Active card and Stacks.
     // Its host names it, and its display, for each call it makes.
@@ -824,6 +825,9 @@ private:
         const KWin::LogicalOutput *output) const override;
     void setPagingShortcutsForCardStage(bool active) override;
     void cancelInputForCardStage() override;
+    // A display's own stage asking: only what is under way on that display.
+    void cancelInputOnStageDisplay();
+    void cancelCarryForCardStage();
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
@@ -1192,6 +1196,9 @@ private:
     [[nodiscard]] QString inUseKey() const;
     [[nodiscard]] bool isInUseDisplay(const KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_carriedWindow;
+    // Counts carries as they begin, so work a drop left waiting knows whether
+    // anything has been carried since.
+    quint64 m_carriesBegun = 0;
     QRectF m_carryPickup;
     // Where the carried window is drawn under the hand, and whether its
     // release landed; one that did not glides back from there (§10 Cancel).

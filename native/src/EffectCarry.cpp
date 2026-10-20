@@ -782,6 +782,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             [this, reserved] { return m_desktopStage->cardDropValid(*reserved); },
             [this, reserved, output, released](const PreparedCarrySource &source) {
                 const bool committed = m_desktopStage->transferNativeCarryToDesktop(source, *reserved);
+                // Given back to the desktop, the pane is no longer the face of
+                // the cards that waited behind it.
+                if (committed && released && m_currentSession)
+                    for (const auto &display : m_currentSession->displays)
+                        display.second->cards->paneLeftWithoutCard(released);
                 // §10 and §2 on the card display: the desktop is shown with
                 // the pane, and what Kadunce still holds there goes aside into
                 // Spread. It waits for the carry to finish, as a layout
@@ -1200,17 +1205,27 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             if (committed && stackAfter) {
                 QPointer<KWin::EffectWindow> carried = arrival;
                 QPointer<KWin::EffectWindow> onto = stackAfter;
-                QTimer::singleShot(0, this, [this, carried, onto] { stackWhenLanded(carried, onto); });
+                const DesktopSession *landedIn = m_currentSession;
+                const quint64 begun = m_carriesBegun;
+                QTimer::singleShot(0, this, [this, carried, onto, landedIn, begun] {
+                    stackWhenLanded(carried, onto, landedIn, begun);
+                });
             }
             return committed;
         });
 }
 
-void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto, int tries)
+void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
+                             const DesktopSession *landedIn, quint64 carriesBegun, int tries)
 {
     if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) return;
+    // A carry since, or another desktop shown, leaves where it rested behind.
+    if (m_carriesBegun != carriesBegun || m_currentSession != landedIn || !m_currentSession) {
+        qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(carried) << "unstacked; it moved on";
+        return;
+    }
     // Asked of the stage of the card it rested on.
-    SessionScope scope(this, m_scopedSession, stageKeyOf(onto));
+    SessionScope scope(this, m_currentSession, stageKeyOf(onto));
     // CARD-LIFECYCLE.md §11: once it stands where it was carried, as a pane
     // of that layout or as the display's card, it joins the Stack it rested on.
     bool stacked = false;
@@ -1245,7 +1260,9 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
                 << logNameOf(onto) << "after it landed";
         return;
     }
-    QTimer::singleShot(100, this, [this, carried, onto, tries] { stackWhenLanded(carried, onto, tries - 1); });
+    QTimer::singleShot(100, this, [this, carried, onto, landedIn, carriesBegun, tries] {
+        stackWhenLanded(carried, onto, landedIn, carriesBegun, tries - 1);
+    });
 }
 
 void Effect::showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWindow *returned)

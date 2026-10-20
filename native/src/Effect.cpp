@@ -576,6 +576,7 @@ Effect::Effect()
             m_nativeCarry = nullptr; m_nativeCarrySource.clear(); m_nativeCarryFromBento = false;
         }
         m_carriedWindow = w->effectWindow();
+        ++m_carriesBegun;
         // Carried again, it goes where this carry puts it; the top edge marks it
         // alone again when it lets go there.
         m_aloneOnPurpose.removeAll(m_carriedWindow);
@@ -725,7 +726,14 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::screenAboutToLock, this,
             [this] {
                 if (m_carryRuntime) m_carryRuntime->cancel();
-                // The lock screen takes the releases from here on.
+                // The lock screen takes the releases from here on. A card held
+                // in Spread is put back by the stage that holds it.
+                if (m_inputRouter && m_currentSession) {
+                    SessionScope stroke(this, m_currentSession,
+                        m_strokeContacts.isEmpty() ? m_scopedKey : m_strokeKey);
+                    m_inputRouter->cancelForLock();
+                }
+                m_strokeContacts.clear();
                 if (m_touchWitness) (void)m_touchWitness->touchCancel();
             });
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {

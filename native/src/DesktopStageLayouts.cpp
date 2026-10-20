@@ -607,6 +607,7 @@ void DesktopStageController::parkWindow(const QString &key, KWin::EffectWindow *
     if (index >= 0) {
         if (index < static_cast<int>(session->rects.size()))
             session->rects.erase(session->rects.begin() + index);
+        if (index < session->zones.size()) session->zones.removeAt(index);
         session->windows.removeAt(index);
     }
     minimizeParked(key);
@@ -786,6 +787,30 @@ void DesktopStageController::settleParticipation(const QString &key)
     endLayoutIntoCardOwnership(key);
 }
 
+bool DesktopStageController::settleAfterInteraction(const QString &key)
+{
+    const auto session = m_sessions.constFind(key);
+    if (session != m_sessions.cend() && session->participationDirty) {
+        QList<QPointer<KWin::EffectWindow>> sleeping;
+        for (const auto &saved : std::as_const(session->snapshots))
+            if (saved.userMinimized && saved.window && saved.window->isMinimized()) sleeping.append(saved.window);
+        settleParticipation(key);
+        // As handleWindowMinimizedChanged gives a minimized pane up, except
+        // where the display keeps it waiting in the dock.
+        for (const auto &window : std::as_const(sleeping)) {
+            const auto held = m_sessions.constFind(key);
+            if (!window || held == m_sessions.cend() || parksOverflow(key)) break;
+            if (std::none_of(held->snapshots.cbegin(), held->snapshots.cend(),
+                    [&window](const auto &saved) { return saved.window == window; })) continue;
+            (void)evictToTablet(key, window, {}, EvictedAs::SleepingCard);
+        }
+    }
+    // A departure held on any display is asked about again, this one too.
+    const QSet<QString> held = std::exchange(m_heldDepartures, {});
+    for (const QString &departed : held) endLayoutIntoCardOwnership(departed);
+    return !m_sessions.contains(key);
+}
+
 bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
 {
     if (!bentoEndsAtOnePane(session)) return false;
@@ -805,7 +830,11 @@ bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
 
 void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
 {
-    if (m_restoring || m_interactionWindow || m_railDrag) return;
+    if (m_restoring) return;
+    if (m_interactionWindow || m_railDrag) {
+        m_heldDepartures.insert(key);
+        return;
+    }
     // Every departure from a layout asks here whether it ends, so it is also
     // where a card the departing pane pushed out comes back, before a layout
     // that would fall to one pane without it is ended.
@@ -1078,6 +1107,23 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
                 << (window->isUserMove() ? "while KWin holds a move of it" : "");
         unsettled.append(window);
     }
+    // DECISIONS.md § A display without cards organizes everything it shows:
+    // there a window the layout cannot show waits in the dock, and the panes
+    // left are laid out again without it.
+    if (parksOverflow(key)) {
+        // The last window shown stays, short of its place or over it, so the
+        // display never shows nothing for a window too large for it.
+        for (const auto &window : std::as_const(unsettled)) {
+            const auto held = m_sessions.constFind(key);
+            if (held == m_sessions.cend() || held->windows.size() < 2) break;
+            if (window && !window->isDeleted()) parkWindow(key, window);
+        }
+        auto parked = m_sessions.find(key);
+        if (parked != m_sessions.end() && !unsettled.isEmpty() && reflowSession(parked.value())
+            && applySession(parked.value(), false))
+            scheduleSettle();
+        return;
+    }
     for (const auto &window : std::as_const(unsettled)) {
         // Re-found by key on every pass: a departure reenters this controller
         // and can end the layout, or empty it, under this loop.
@@ -1248,9 +1294,14 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         client->sendToOutput(targetOutput);
         // A window Kadunce parked in the dock was awake before it was parked.
         if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
+        // One the person put away in the layout stays put away: its place is
+        // given back without bringing it up, so nothing has to minimize it
+        // again, which a release that unloads Kadunce would not wait for.
+        const bool keptAsleep = client->isMinimized() && !snapshot.parked
+            && (snapshot.userMinimized || snapshot.minimized);
         if (valid() && restoreWindowStateChecked(client.data(), snapshot, restoreGeometry,
-                           preserveGeometry, true, false, valid)) {
-            if (reminimizeRestored(client.data(), snapshot))
+                           preserveGeometry, !keptAsleep, false, valid)) {
+            if (!keptAsleep && reminimizeRestored(client.data(), snapshot))
                 return valid() ? RestoreResult::Completed
                     : (clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted);
             return RestoreResult::Completed;

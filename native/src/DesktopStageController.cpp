@@ -625,6 +625,12 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         removedSnapshot = *snapshot;
         wasShown = session.windows.contains(window);
         session.snapshots.erase(snapshot);
+        // A pane's zone and rectangle stand at its index: they leave with it,
+        // or every later pane reads its neighbour's zone.
+        const int index = session.windows.indexOf(window);
+        if (index >= 0 && index < static_cast<int>(session.rects.size()))
+            session.rects.erase(session.rects.begin() + index);
+        if (index >= 0 && index < session.zones.size()) session.zones.removeAt(index);
         session.windows.removeAll(window);
         break;
     }

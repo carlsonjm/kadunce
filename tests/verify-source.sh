@@ -75,7 +75,7 @@ assert entry.index('publishOwnershipThenRecord(') < entry.index('settleCardsInAc
     'Cards are placed only after every origin is recorded'
 transfer = section('bool CardStageController::admitTransferredWindowToTablet(',
                    'void CardStageController::startArrivalTimer(')
-assert 'if (sameOutput && m_active && !managedRestore(arrival))' in transfer
+assert 'if ((sameOutput || restore) && m_active && !managedRestore(arrival))' in transfer
 PY
 # A2 projection transfers retained ownership before native visibility changes.
 python3 - "$card_cpp" "$effect_cpp" <<'PY_A2'

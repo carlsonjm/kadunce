@@ -109,6 +109,7 @@ void DesktopStageController::handleWindowMoveResizeFinished(KWin::EffectWindow *
 
     auto source = m_sessions.find(sourceKey);
     if (source == m_sessions.end()) {
+        (void)settleAfterInteraction(sourceKey);
         return;
     }
     // KWin has finalized (or canceled) the move before this signal. A cursor
@@ -123,11 +124,13 @@ void DesktopStageController::handleWindowMoveResizeFinished(KWin::EffectWindow *
             source = m_sessions.find(sourceKey);
             if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
         }
+        (void)settleAfterInteraction(sourceKey);
         return;
     }
 
     source = m_sessions.find(sourceKey);
     if (source == m_sessions.end()) {
+        (void)settleAfterInteraction(sourceKey);
         return;
     }
     if (!source->zones.isEmpty()) {
@@ -138,7 +141,9 @@ void DesktopStageController::handleWindowMoveResizeFinished(KWin::EffectWindow *
         adjustRail(source.value(), window, start,
                         window->frameGeometry());
     }
-    if (applySession(source.value(), false)) scheduleSettle();
+    if (settleAfterInteraction(sourceKey)) return;
+    source = m_sessions.find(sourceKey);
+    if (source != m_sessions.end() && applySession(source.value(), false)) scheduleSettle();
 }
 
 QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() const
@@ -304,7 +309,10 @@ void DesktopStageController::finishRail(bool commit)
     if (valid) {
         m_applicationGuard.invalidate();
         m_sessions[drag.rail.output].rects = std::move(drag.preview.rects);
-        if (applySession(m_sessions[drag.rail.output], false)) scheduleSettle();
+    }
+    if (!settleAfterInteraction(drag.rail.output) && valid) {
+        auto session = m_sessions.find(drag.rail.output);
+        if (session != m_sessions.end() && applySession(session.value(), false)) scheduleSettle();
     }
     KWin::effects->addRepaintFull();
 }

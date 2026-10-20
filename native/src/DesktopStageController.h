@@ -18,6 +18,7 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <QSet>
 #include <QStringList>
 #include <QTimer>
 
@@ -434,6 +435,9 @@ private:
         QPointF contact;
     };
     std::optional<RailDrag> m_railDrag;
+    // Displays whose layout a departure asked to end while a pane was moved
+    // or a divider held; settleAfterInteraction asks again.
+    QSet<QString> m_heldDepartures;
     bool m_railRevealed = false;
     bool railValid() const;
 
@@ -523,6 +527,11 @@ private:
     // before publishing. Settled by whoever observed it, because it can owe an
     // eviction and applySession is already committed to placing panes.
     void settleParticipation(const QString &key);
+    // §5 and §7 wait while a pane is moved or a divider held. Once that ends,
+    // what happened meanwhile is settled: a pane minimized then leaves as a
+    // sleeping card, and a layout left with one pane ends. True when the
+    // layout on that display ended, so nothing is left to publish.
+    [[nodiscard]] bool settleAfterInteraction(const QString &key);
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;

@@ -132,7 +132,11 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
         && (!window->isOnDesktop(holder->desktop) || window->isOnAllDesktops())) {
         SessionScope scope(this, holder);
         if (CardStageController *own = stageHolding(window)) (void)own->releaseCard(window);
-        else m_desktopStage->releaseWindow(window);
+        else {
+            m_desktopStage->releaseWindow(window);
+            // A pane sent to another desktop leaves the cards behind it here.
+            for (const auto &display : holder->displays) display.second->cards->paneLeftWithoutCard(window);
+        }
     }
     if (window->isOnCurrentDesktop()) scheduleCardDisplaySettle();
     syncDesktopPreview();

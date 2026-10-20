@@ -225,6 +225,13 @@ public:
     bool touchCancel() override;
     // Invalidate actions, but retain consumed contacts until their release.
     void cancelWorkspaceInteraction();
+    // The lock screen takes the releases from here on, so a button held now
+    // is never seen to lift: nothing waits for it, and the first click after
+    // unlocking is an ordinary one.
+    void cancelForLock() {
+        cancelWorkspaceInteraction();
+        m_drainingPointerButtons.clear();
+    }
     // A touchscreen can appear after the effect loads, handing the top and
     // bottom edges from Plasma to this router mid-session. Any interaction in
     // flight belongs to the previous backend and is cancelled rather than split.

@@ -900,6 +900,20 @@ void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     m_displaysChanged.start();
     if (output) m_displayLeft[output->name()].start();
+    // §11: a stage takes no card while Search is open or a card is held on
+    // it, and a hand-over it refused is not asked again. What any display
+    // holds open is closed before the gone display's cards are handed over,
+    // and an offer on that display goes with it.
+    if (m_roomOffer && (!m_roomOffer->output || m_roomOffer->output == output)) leaveRoomOffer();
+    if (m_currentSession) {
+        QStringList keys;
+        for (const auto &display : m_currentSession->displays) keys.append(display.first);
+        for (const QString &key : std::as_const(keys)) {
+            SessionScope scope(this, m_currentSession, key);
+            if (m_cardStage->launcherGuestActive()) closeLauncherGuest();
+            if (m_cardStage->cardGrabActive()) m_cardStage->finishCardGrab(false);
+        }
+    }
     cancelInputForCardStage();
     if (m_table.isOpen() && tableOutput() == output) closeTable();
     forEachSession([&] { m_desktopStage->handleScreenRemoved(output); });

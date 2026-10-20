@@ -249,6 +249,10 @@ public:
     paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // A pane given back as a plain window, not as a card: the cards that
+    // waited behind it stay together as a Stack of their own, as when the
+    // pane closes, and it is no longer anything's face.
+    void paneLeftWithoutCard(const KWin::EffectWindow *pane);
     // Kadunce let every window go: no Stack waits behind any of them.
     void forgetAllPaneStacks() { m_paneStacks.clear(); }
     // Drops a window from every Stack that waits behind a pane.

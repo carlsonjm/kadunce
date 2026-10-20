@@ -1043,12 +1043,15 @@ bool CardStageController::admitTransferredWindowToTablet(
         parkActiveSnapshot();
         if (!valid()) return true;
     }
-    // A source record belongs to cancellation until commit. Same-output
-    // admission may retain it; cross-output adoption establishes a new receiver
+    // A source record belongs to cancellation until commit. Committed, the
+    // record the giving stage kept goes on as this card's own, whichever
+    // display it was taken on: a maximized window carried here comes back
+    // maximized, and on a display that is there (onOwnDisplay). A window
+    // arriving from another display with no record establishes a new receiver
     // origin from KWin's accepted tablet placement before it takes the Active
     // card's size.
     const bool sameOutput = restore ? restore->output == tablet : window->screen() == tablet;
-    if (sameOutput && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
+    if ((sameOutput || restore) && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
     if (!adoptPublishedCard(client.data(), tablet.data(),
             [&] { return liveCardIndex(arrival) >= 0; },
             [&] { retainManagedOwnership(arrival); }, target, valid)) {
@@ -1340,7 +1343,10 @@ bool CardStageController::releaseCard(KWin::EffectWindow *window, bool restore)
     m_host->unredirectForCardStage(window);
     if (record && restore) {
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-        restoreWindowState(window->window(), *record, record->geometry, true);
+        // Given back as a full release gives it: on a display that is still
+        // there, and clear of the panels' room.
+        const ActiveRestoreSnapshot own = onOwnDisplay(*record);
+        restoreWindowState(window->window(), own, placeClearOfPanels(own), true);
     }
     qInfo() << "Kadunce" << Revision << "let" << logNameOf(window)
             << "go for another desktop;" << m_workspace.windows().size() << "individual cards";

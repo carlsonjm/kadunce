@@ -248,6 +248,14 @@ void CardStageController::forgetPaneStack(const KWin::EffectWindow *pane)
     m_paneStacks.remove(pane);
 }
 
+void CardStageController::paneLeftWithoutCard(const KWin::EffectWindow *pane)
+{
+    if (!m_paneStacks.contains(pane)) return;
+    const auto behind = paneStack(pane);
+    m_paneStacks.remove(pane);
+    if (behind.size() > 1) (void)restack(behind.first(), behind.mid(1));
+}
+
 void CardStageController::forgetFromPaneStacks(const KWin::EffectWindow *window)
 {
     for (auto it = m_paneStacks.begin(); it != m_paneStacks.end();) {
