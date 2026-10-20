@@ -64,6 +64,11 @@ if [[ $before =~ ^[0-9]+$ ]]; then pixels=1; else pixels=; echo "the screen cann
 echo "contrast before: ${before:-none}, dock band: $(band 2>/dev/null)"
 [[ -n $pixels ]] && check "the card's stripes are drawn sharp" test "$before" -ge 200
 
+# The Context Panel's tail, laid under the windows.
+"${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" --fade &
+fade_pid=$!
+trap 'kill "$client_pid" $surface_pid $fade_pid 2>/dev/null || true' EXIT
+sleep .8
 said=$(frost_lines)
 surface 'Shuffle Settings' --frost
 echo "facts $(probe windowFacts | jq -c 'map(select(.class == "shuffle-settings") | {caption, class, layer, x, y, width, height})')"
@@ -72,6 +77,8 @@ check "Settings is a layer surface of its own program" \
 echo "said: $(rg -o '^Kadunce .* frosts "Virtual-0" under Shuffle Settings.*' "$log" | tail -1)"
 check "Kadunce lays the frost under the panel" \
     rg -q '^Kadunce .* frosts "Virtual-0" under Shuffle Settings, laid under a panel' "$log"
+check "the panel's fade laid under the windows is drawn over the frost" \
+    rg -q '^Kadunce .* frosts "Virtual-0" under Shuffle Settings, laid under a panel .* with 1 panel fades over it' "$log"
 check "the frost is said once for Settings" test "$(frost_lines)" -eq $((said + 1))
 if [[ -n $pixels ]]; then
     frosted=$(contrast); dock=$(band)

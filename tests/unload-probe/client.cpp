@@ -514,5 +514,23 @@ static int surfaceOnly(const QString &title, bool frost) {
   "org.kde.KWin", "/Kadunce", "co.goodinput.Kadunce", "frostBehind") << true);
  return qApp->exec();
 }
-int main(int argc,char**argv) { QApplication a(argc,argv); if (argc > 2 && QByteArray(argv[1]) == "--surface") return surfaceOnly(QString::fromUtf8(argv[2]), argc > 3 && QByteArray(argv[3]) == "--frost"); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
+// A panel's fade laid under the windows, as the Context Panel lays its tail.
+static int fadeOnly() {
+ auto *w = new QWidget; w->setAttribute(Qt::WA_TranslucentBackground);
+ w->setFixedHeight(40);
+ w->winId();
+ for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
+ if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
+  layer->setScope(QStringLiteral("on-screen-display"));
+  layer->setLayer(LayerShellQt::Window::LayerBottom);
+  layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorTop
+   | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+  layer->setExclusiveZone(-1);
+  layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+  layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+ }
+ w->show();
+ return qApp->exec();
+}
+int main(int argc,char**argv) { QApplication a(argc,argv); if (argc > 1 && QByteArray(argv[1]) == "--fade") return fadeOnly(); if (argc > 2 && QByteArray(argv[1]) == "--surface") return surfaceOnly(QString::fromUtf8(argv[2]), argc > 3 && QByteArray(argv[3]) == "--frost"); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
 #include "client.moc"

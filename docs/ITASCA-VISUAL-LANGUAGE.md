@@ -232,7 +232,8 @@ they preserve these relationships and respect the user's animation settings.
   in hand. Without the blur it is a filled box at the hover fill.
 - While Shuffle Settings stands over the work on a display, everything under
   that display's panels is frosted with the same glass, so it has no edge of
-  its own: the panels and their fades stand over it as they are. It fades in
+  its own: the panels and their fades stand over it as they are, a fade
+  that lies under the windows, as the Context Panel's tail does, included. It fades in
   over 140 ms. Settings asks for it with `frostBehind` on Kadunce's bus
   object, and any layer surface of the asking program frosts while it shows,
   until the program asks no more or leaves the bus. The keyboard sheet does

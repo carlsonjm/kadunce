@@ -10366,6 +10366,14 @@ KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
     return nullptr;
 }
 
+bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
+{
+    return window && !window->isDeleted() && window->window() && window->isVisible() && m_paintingOutput
+        && window->screen() == m_paintingOutput && window->isOnScreenDisplay()
+        && window->window()->inherits("KWin::LayerShellV1Window")
+        && window->window()->layer() == KWin::BelowLayer && settingsSurfaceOn(m_paintingOutput);
+}
+
 void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                                     KWin::EffectWindow *window)
 {
@@ -10391,11 +10399,24 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
         : float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
     const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
     if (drawn) m_frostDrawn[screen->name()].append(whole);
+    // The fades a panel lays under the windows, the Context Panel's tail
+    // among them, are drawn over the glass, so the panel ends as it always
+    // does rather than at the edge of a bar.
+    int fades = 0;
+    for (KWin::EffectWindow *fade : KWin::effects->stackingOrder()) {
+        if (!fadeOverSettingsFrost(fade)) continue;
+        ++fades;
+        KWin::WindowPaintData fadeData;
+        fadeData.setOpacity(fade->opacity());
+        (void)painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, fade,
+            PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), fadeData); });
+    }
     if (!m_settingsFrostSaid.contains(screen->name())) {
         m_settingsFrostSaid.insert(screen->name());
         qInfo() << "Kadunce" << Revision << "frosts" << screen->name() << "under Shuffle Settings, laid under"
                 << (window == settings ? "Settings" : "a panel")
-                << (drawn ? "as glass" : "but the glass could not be drawn");
+                << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
+                << "panel fades over it";
     }
 }
 
@@ -11494,6 +11515,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          KWin::WindowPaintData &data)
 {
     drawSettingsFrostUnder(renderTarget, viewport, window);
+    // A panel's fade laid under the windows is drawn over the frost instead.
+    if (fadeOverSettingsFrost(window)) return paintResult(true);
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);
