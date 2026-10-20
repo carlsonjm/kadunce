@@ -1072,6 +1072,11 @@ private:
     // their windows stand on, and empty stages of that kind are let go.
     void handOverGoneStages();
     void forgetGoneStages();
+    // §11: a display plugged in takes the cards of the display with the dock.
+    // Back from a short absence, it takes only those KWin put back there.
+    void noteDisplayJoined(KWin::LogicalOutput *output);
+    void moveCardsToJoinedDisplay();
+    [[nodiscard]] KWin::LogicalOutput *dockDisplayBesides(const KWin::LogicalOutput *joined) const;
     // KWin rearranged windows for a display that came, went or moved, so a
     // window it moved between displays just now was not sent by the person.
     [[nodiscard]] bool displaysJustChanged() const
@@ -1516,6 +1521,13 @@ private:
     bool m_cardDisplayMoved = false;
     QElapsedTimer m_displaysChanged;
     int m_cardDisplaySettleRounds = 0;
+    struct DisplayJoin {
+        QString from;
+        QString to;
+        bool returned = false;
+    };
+    std::optional<DisplayJoin> m_displayJoined;
+    QHash<QString, QElapsedTimer> m_displayLeft;
     bool m_holdingDependents = false;
     // Waiting dialogs drawn on their cards in Spread. KWin keeps them hidden,
     // so each is held paintable for as long as it is drawn.
