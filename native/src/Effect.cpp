@@ -67,6 +67,7 @@
 #include <QKeyEvent>
 #include <QLineF>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
@@ -239,6 +240,8 @@ void main() {
 )GLSL";
 // The keyboard outline fades in over the Visual sheet's micro transition.
 constexpr int KeyboardOutlineFadeMs = 140;
+// The frost behind Shuffle Settings fades in over the same step.
+constexpr int SettingsFrostFadeMs = 140;
 // The shape a window's border asks the pointer for. KWin 6.8 no longer
 // exposes it, and there it reads as none.
 template<typename Window>
@@ -1214,6 +1217,7 @@ Effect::Effect()
         m_keyboardEdgeShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::MapTexture, QByteArray(KeyboardEdgeVertex), QByteArray(KeyboardEdgeFragment));
         m_frostedBox.create();
+        m_settingsFrost.create();
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -6943,9 +6947,10 @@ void Effect::watchClaimOwner(const QString &owner)
             const bool hadLine = m_contextLineClaims.removeIf([&service](const auto &claim) {
                 return claim.value().owner == service;
             }) > 0;
+            const bool hadFrost = m_frostBehind.remove(service) > 0;
             m_topEdgeClaimWatcher->removeWatchedService(service);
             // Kadunce's own words come back on the displays it left.
-            if (hadLine) KWin::effects->addRepaintFull();
+            if (hadLine || hadFrost) KWin::effects->addRepaintFull();
         });
     }
     m_topEdgeClaimWatcher->addWatchedService(owner);
@@ -6966,6 +6971,21 @@ void Effect::clearContextLineClaim(const QString &key)
     if (!calledFromDBus()) return;
     if (m_contextLineClaims.remove(message().service() + QLatin1Char('\n') + key) > 0)
         KWin::effects->addRepaintFull();
+}
+
+void Effect::frostBehind(bool on)
+{
+    if (!calledFromDBus()) return;
+    const QString caller = message().service();
+    if (!on) {
+        if (m_frostBehind.remove(caller) > 0) KWin::effects->addRepaintFull();
+        return;
+    }
+    const auto pid = connection().interface()->servicePid(caller);
+    if (!pid.isValid() || pid.value() == 0) return;
+    watchClaimOwner(caller);
+    m_frostBehind.insert(caller, qint64(pid.value()));
+    KWin::effects->addRepaintFull();
 }
 
 bool Effect::contextLineClaimed(const KWin::LogicalOutput *output) const
@@ -9735,6 +9755,31 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // so the blur only ever reads what lies under it.
         for (const QRectF &rect : m_frostDrawn.value(data.screen->name())) data.paint |= whole(rect);
         if (const auto box = heldDestinationOn(data.screen)) data.paint |= whole(*box);
+        // Settings' frost reads the whole display, so the whole display is
+        // drawn afresh from the frame it first stands there.
+        // Once Settings has gone, the glass dissolves over the same time.
+        const int frostFade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
+        if (settingsSurfaceOn(data.screen)) {
+            auto &since = m_settingsFrostSince[data.screen->name()];
+            if (!since.isValid()) since.start();
+            m_settingsFrostLeaving.remove(data.screen->name());
+            data.paint |= whole(QRectF(data.screen->geometry()));
+            if (since.elapsed() < frostFade) m_settingsFrostFading.append(data.screen->geometry());
+        } else {
+            if (m_settingsFrostSince.remove(data.screen->name()) > 0) {
+                m_settingsFrostLeaving[data.screen->name()].start();
+                qInfo() << "Kadunce" << Revision << "dissolves the frost on" << data.screen->name()
+                        << "over" << frostFade << "ms";
+            }
+            const auto leaving = m_settingsFrostLeaving.constFind(data.screen->name());
+            if (leaving != m_settingsFrostLeaving.constEnd() && leaving->elapsed() < frostFade) {
+                data.paint |= whole(QRectF(data.screen->geometry()));
+                m_settingsFrostFading.append(data.screen->geometry());
+            } else {
+                m_settingsFrostLeaving.remove(data.screen->name());
+                m_settingsFrostSaid.remove(data.screen->name());
+            }
+        }
         if (m_placementPreview && m_placementPreviewOutput == data.screen)
             data.paint |= whole(QRectF(*m_placementPreview));
         // The keyboard's window, outlined: where the outline leaves and
@@ -9778,6 +9823,7 @@ void Effect::postPaintScreen()
     const bool continueRepaint = m_continueRepaint;
     m_continueRepaint = false;
     for (const QRect &rect : std::exchange(m_keyboardOutlineFading, {})) KWin::effects->addRepaint(KWin::Rect(rect));
+    for (const QRect &rect : std::exchange(m_settingsFrostFading, {})) KWin::effects->addRepaint(KWin::Rect(rect));
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
@@ -10316,6 +10362,84 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     fillDestinationParts(renderTarget, viewport, parts, box, 0.13f, 0.f);
 }
 
+KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
+{
+    if (!screen || m_previewDesktop || m_frostBehind.isEmpty()) return nullptr;
+    // A layer surface has no title, and Settings and the keyboard sheet are
+    // the same program, so Settings is known by the process that asked for
+    // frost behind it.
+    const auto stack = KWin::effects->stackingOrder();
+    for (KWin::EffectWindow *window : stack) {
+        if (!window || window->isDeleted() || !window->window() || !window->isVisible()
+            || window->screen() != screen
+            || !window->window()->inherits("KWin::LayerShellV1Window")) continue;
+        for (const qint64 pid : m_frostBehind)
+            if (qint64(window->pid()) == pid) return window;
+    }
+    return nullptr;
+}
+
+bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
+{
+    return window && !window->isDeleted() && window->window() && window->isVisible() && m_paintingOutput
+        && window->screen() == m_paintingOutput && window->isOnScreenDisplay()
+        && window->window()->inherits("KWin::LayerShellV1Window")
+        && window->window()->layer() == KWin::BelowLayer
+        && (settingsSurfaceOn(m_paintingOutput) || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
+}
+
+void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                    KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *screen = m_paintingOutput;
+    if (!window || !screen || m_settingsFrostDrawnOn == screen || !window->window()
+        || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
+    KWin::EffectWindow *settings = settingsSurfaceOn(screen);
+    const bool leaving = !settings && m_settingsFrostLeaving.contains(screen->name());
+    if (!settings && !leaving) return;
+    // The glass is laid under the first of this display's panels to be
+    // drawn, or under Settings itself where there are none, so the panels
+    // and their fades stand over it as they are, and nothing ends at an edge.
+    const QRectF whole(screen->geometry());
+    if (window != settings && !(window->isDock() && QRectF(window->frameGeometry()).intersects(whole))) return;
+    m_settingsFrostDrawnOn = screen;
+    QList<QRectF> parts;
+    for (const auto &dirty : m_paintingRegion.rects()) {
+        const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
+        if (!part.isEmpty()) parts.append(part);
+    }
+    const int fade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
+    float strength = 1.0F;
+    if (leaving) {
+        strength = fade <= 0 ? 0.0F
+            : float(1.0 - std::clamp(double(m_settingsFrostLeaving.value(screen->name()).elapsed()) / fade, 0.0, 1.0));
+    } else if (const auto since = m_settingsFrostSince.constFind(screen->name());
+               since != m_settingsFrostSince.constEnd() && fade > 0) {
+        strength = float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
+    }
+    const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
+    if (drawn) m_frostDrawn[screen->name()].append(whole);
+    // The fades a panel lays under the windows, the Context Panel's tail
+    // among them, are drawn over the glass, so the panel ends as it always
+    // does rather than at the edge of a bar.
+    int fades = 0;
+    for (KWin::EffectWindow *fade : KWin::effects->stackingOrder()) {
+        if (!fadeOverSettingsFrost(fade)) continue;
+        ++fades;
+        KWin::WindowPaintData fadeData;
+        fadeData.setOpacity(fade->opacity());
+        (void)painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, fade,
+            PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), fadeData); });
+    }
+    if (!m_settingsFrostSaid.contains(screen->name())) {
+        m_settingsFrostSaid.insert(screen->name());
+        qInfo() << "Kadunce" << Revision << "frosts" << screen->name() << "under Shuffle Settings, laid under"
+                << (window == settings ? "Settings" : "a panel")
+                << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
+                << "panel fades over it";
+    }
+}
+
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const QList<QRectF> &parts, const QRectF &box,
     float fill, float ring)
@@ -10364,6 +10488,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingOutput = screen;
     m_paintingRegion = deviceRegion;
     m_heldBoxDrawnOn = nullptr;
+    m_settingsFrostDrawnOn = nullptr;
     if (screen) m_frostDrawn.remove(screen->name());
     if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) {
@@ -11409,6 +11534,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    drawSettingsFrostUnder(renderTarget, viewport, window);
+    // A panel's fade laid under the windows is drawn over the frost instead.
+    if (fadeOverSettingsFrost(window)) return paintResult(true);
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);

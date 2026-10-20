@@ -219,6 +219,10 @@ public Q_SLOTS:
     // leaves the bus (TETTEGOUCHE-CONTEXT.md § Context-line claims).
     Q_SCRIPTABLE bool claimContextLine(const QString &key, const QString &outputName);
     Q_SCRIPTABLE void clearContextLineClaim(const QString &key);
+    // While asked, the caller's own layer surfaces frost everything under
+    // a display's panels as they stand over it, until it asks no more or
+    // leaves the bus. Shuffle Settings asks; the keyboard sheet does not.
+    Q_SCRIPTABLE void frostBehind(bool on);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -1365,6 +1369,27 @@ private:
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
+    // Shuffle Settings stands over the work on a display: everything under
+    // its panels is frosted with the placement box's own glass, so it has no
+    // edge of its own. A glass of its own, as it spans the whole display; the
+    // display it is laid on this frame; and since when each display has had
+    // it, by name, for it to fade in.
+    FrostedBox m_settingsFrost;
+    QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
+    QHash<QString, QElapsedTimer> m_settingsFrostSince;
+    QHash<QString, QElapsedTimer> m_settingsFrostLeaving;
+    QList<QRect> m_settingsFrostFading;
+    // The displays whose frost has been said in the log since Settings came.
+    QSet<QString> m_settingsFrostSaid;
+    // The programs that asked for frost behind them, by bus name, with the
+    // process their surfaces are known by.
+    QHash<QString, qint64> m_frostBehind;
+    [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
+    // A panel's fade laid under the windows on the display being drawn,
+    // while Settings frosts it: drawn over the glass, not in its own place.
+    [[nodiscard]] bool fadeOverSettingsFrost(KWin::EffectWindow *window) const;
+    void drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                KWin::EffectWindow *window);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown
