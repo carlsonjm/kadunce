@@ -156,16 +156,15 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
-// The keyboard's window outlined: 2 px of the accent just inside a 1 px edge
-// of the opposite tone, both inside the window's own edge so its contents
-// stay where they are and nothing is left behind as it moves.
+// The keyboard's window outlined: 2 px of the accent just inside the window's
+// own edge, so its contents stay where they are and nothing is left behind as
+// it moves. This one follows the paper corner Kadunce trims a window to.
 constexpr auto KeyboardOutlineFragment = R"GLSL(#version 140
 in vec2 point;
 out vec4 fragColor;
 uniform vec4 destinationBox;
 uniform float outlineRadius;
 uniform vec3 outlineInk;
-uniform vec4 edgeInk;
 uniform float outlineOpacity;
 #include "colormanagement.glsl"
 void main() {
@@ -175,10 +174,67 @@ void main() {
     float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
     float feather = max(fwidth(d), 0.5);
     float inside = 1.0 - smoothstep(-feather, 0.0, d);
-    float edge = smoothstep(-1.0 - feather, -1.0, d) * inside;
-    float accent = smoothstep(-3.0 - feather, -3.0, d) * (1.0 - smoothstep(-1.0 - feather, -1.0, d));
-    vec4 color = (vec4(outlineInk, 1.0) * accent + vec4(edgeInk.rgb * edgeInk.a, edgeInk.a) * edge) * outlineOpacity;
+    float accent = smoothstep(-2.0 - feather, -2.0, d) * inside;
+    vec4 color = vec4(outlineInk, 1.0) * accent * outlineOpacity;
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
+}
+)GLSL";
+// The same outline on a window that keeps its own corners, or none: drawn
+// with the window's own picture, along the edge of what it paints, so it
+// follows whatever corner the application draws. A pixel is on the band when
+// the picture ends within 2 px of it; translucency the window has throughout
+// is not an edge.
+constexpr auto KeyboardEdgeVertex = R"GLSL(#version 140
+in vec4 position;
+in vec4 texcoord;
+uniform mat4 modelViewProjectionMatrix;
+out vec2 texcoord0;
+void main() {
+    gl_Position = modelViewProjectionMatrix * position;
+    texcoord0 = texcoord.st;
+}
+)GLSL";
+constexpr auto KeyboardEdgeFragment = R"GLSL(#version 140
+in vec2 texcoord0;
+out vec4 fragColor;
+#include "colormanagement.glsl"
+#include "saturation.glsl"
+uniform sampler2D sampler;
+uniform vec4 modulation;
+uniform vec3 outlineInk;
+uniform float outlineOpacity;
+uniform float bandTexels;
+uniform float frameMargin;
+uniform float cornerReach;
+float outsideAt(vec2 uv, float centre) {
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;
+    float a = texture(sampler, uv).a;
+    return 1.0 - smoothstep(0.25, 0.75, a / max(centre, 0.001));
+}
+void main() {
+    vec4 tex = texture(sampler, texcoord0);
+    vec2 size = vec2(textureSize(sampler, 0));
+    vec2 texel = 1.0 / size;
+    // The edge lies along the frame, and only bends away from it in a corner,
+    // so the rest of the window is not searched.
+    vec2 p = texcoord0 * size;
+    vec2 fromFrame = min(p, size - p) - vec2(frameMargin);
+    bool nearEdge = min(fromFrame.x, fromFrame.y) <= bandTexels * 1.4 + 1.0
+        || max(fromFrame.x, fromFrame.y) <= cornerReach;
+    float band = 0.0;
+    for (int i = 0; i < 12 && nearEdge; ++i) {
+        float angle = float(i) * 0.5235988;
+        vec2 step = vec2(cos(angle), sin(angle)) * texel * bandTexels;
+        band = max(band, max(outsideAt(texcoord0 + step * 0.5, tex.a), outsideAt(texcoord0 + step, tex.a)));
+        band = max(band, 0.5 * outsideAt(texcoord0 + step * 1.35, tex.a));
+    }
+    band *= smoothstep(0.3, 0.6, tex.a) * outlineOpacity;
+    tex = sourceEncodingToNitsInDestinationColorspace(tex);
+    tex = adjustSaturation(tex);
+    vec4 ink = sourceEncodingToNitsInDestinationColorspace(vec4(outlineInk, 1.0)) * tex.a;
+    tex = mix(tex, ink, band);
+    tex *= modulation;
+    fragColor = nitsToDestinationEncoding(tex);
 }
 )GLSL";
 // The keyboard outline fades in over the Visual sheet's micro transition.
@@ -1031,6 +1087,30 @@ void Effect::enterInputScope(const QPointF &position, InputReach reach, qint64 c
     m_inputScopes.push_back(std::make_unique<SessionScope>(this, m_currentSession, key));
 }
 
+void Effect::noteEdgeContact(const QPointF &position) const
+{
+    // A contact that lands at a display's top or bottom says how the edges
+    // read it, before anything takes it, so a swipe there that did nothing
+    // can be read back.
+    const KWin::LogicalOutput *at = KWin::effects->screenAt(position.toPoint());
+    if (!at || !m_inputRouter) return;
+    const QRectF area(at->geometry());
+    const bool nearBottom = position.y() >= area.bottom() - 24.0;
+    if (!nearBottom && position.y() >= area.top() + 24.0) return;
+    const WorkspaceInputGeometry edges = geometryForInput();
+    qInfo() << "Kadunce edge contact" << position << "on" << at->name() << area
+            << (nearBottom ? "at the bottom;" : "at the top;")
+            << "edges owned" << m_inputRouter->ownsSystemEdges()
+            << "backend" << (m_usesDirectSystemEdges ? "z13-direct" : "plasma-native")
+            << "stage display" << (edges.isValid() ? edges.tablet : QRectF())
+            << "touchscreen" << m_touchOutputName << edges.touchscreen.area
+            << "keys here" << inputPanelContainsForInput(position)
+            << "bottom band" << m_inputRouter->inBottomBezel(position)
+            << "table open" << tableOpenForInput()
+            << "strokes held" << m_strokeContacts.size() << "on" << m_strokeKey
+            << "router holds" << m_inputRouter->heldForLog();
+}
+
 void Effect::leaveInputScope(InputReach reach, qint64 contact)
 {
     if (!m_inputScopes.empty()) m_inputScopes.pop_back();
@@ -1131,6 +1211,8 @@ Effect::Effect()
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
         m_keyboardOutlineShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(KeyboardOutlineFragment));
+        m_keyboardEdgeShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::MapTexture, QByteArray(KeyboardEdgeVertex), QByteArray(KeyboardEdgeFragment));
         m_frostedBox.create();
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
@@ -1575,6 +1657,7 @@ Effect::Effect()
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
             return m_inputRouter && m_inputRouter->inBottomBezel(position);
         };
+        m_touchWitness->touchedAt = [this](const QPointF &position) { noteEdgeContact(position); };
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
         };
@@ -10109,7 +10192,8 @@ bool Effect::paintedAsItStands(KWin::EffectWindow *window)
 
 KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
 {
-    if (!m_showsKeyboardOutline || !m_keyboardOutlineShader || !screen || m_previewDesktop) return nullptr;
+    if (!m_showsKeyboardOutline || !m_keyboardOutlineShader || !m_keyboardEdgeShader || !screen || m_previewDesktop)
+        return nullptr;
     // Nothing is outlined while a window is in hand, or while Spread, Table or
     // an open room's offer stands on the display.
     if (m_carriedWindow || m_cardStage->cardGrabActive()) return nullptr;
@@ -10136,15 +10220,32 @@ KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
     return nullptr;
 }
 
+float Effect::keyboardOutlineOpacity(KWin::EffectWindow *window, const KWin::WindowPaintData &data) const
+{
+    if (!m_paintingOutput || window->screen() != m_paintingOutput) return 0.0F;
+    const auto found = m_keyboardOutlines.constFind(m_paintingOutput->name());
+    if (found == m_keyboardOutlines.cend() || found->window != window) return 0.0F;
+    const int duration = motionDuration(KeyboardOutlineFadeMs, KWin::effects->animationTimeFactor());
+    const double progress = std::clamp(double(found->since.elapsed()) / duration, 0.0, 1.0);
+    return float((1.0 - std::pow(1.0 - progress, 3.0)) * data.opacity());
+}
+
+QColor Effect::keyboardOutlineInk()
+{
+    // The accent, or the scheme's text where the accent would vanish into its
+    // ground.
+    const SurfaceTone &tone = SurfaceTone::current();
+    const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
+    return std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
+}
+
 void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
     KWin::EffectWindow *window, const KWin::Region &deviceRegion, const KWin::WindowPaintData &data)
 {
-    if (!m_keyboardOutlineShader || !m_paintingOutput || window->screen() != m_paintingOutput) return;
-    const auto found = m_keyboardOutlines.constFind(m_paintingOutput->name());
-    if (found == m_keyboardOutlines.cend() || found->window != window) return;
-    const int duration = motionDuration(KeyboardOutlineFadeMs, KWin::effects->animationTimeFactor());
-    const double progress = std::clamp(double(found->since.elapsed()) / duration, 0.0, 1.0);
-    const float opacity = float((1.0 - std::pow(1.0 - progress, 3.0)) * data.opacity());
+    // A window that keeps its own corners has its outline drawn with its
+    // picture (drawWindow); one Kadunce trims gets it here, on the trim.
+    if (!m_keyboardOutlineShader || !trimsCorners(window)) return;
+    const float opacity = keyboardOutlineOpacity(window, data);
     if (opacity <= 0.0F) return;
     const QRectF frame(window->frameGeometry());
     const QRectF box(frame.x() + data.xTranslation(), frame.y() + data.yTranslation(),
@@ -10158,24 +10259,14 @@ void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const 
                  << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
     }
     if (vertices.isEmpty()) return;
-    // A maximized window meets the display's edges, so its outline is square.
-    const KWin::Window *client = window->window();
-    const double radius = client && client->maximizeMode() == KWin::MaximizeFull ? 0.0 : CardCornerRadius;
-    // The accent, or the scheme's text where the accent would vanish into its
-    // ground; the edge is whichever of Ghost White and the dark surface
-    // stands apart from it, so the outline shows on any window.
-    const SurfaceTone &tone = SurfaceTone::current();
-    const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
-    const QColor ink = std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
-    const QColor edge = SurfaceTone::isDark(ink) ? QColor(248, 248, 255) : QColor(20, 20, 20);
+    const QColor ink = keyboardOutlineInk();
     KWin::ShaderBinder binder(m_keyboardOutlineShader.get());
     auto matrix = viewport.projectionMatrix();
     matrix.scale(viewport.scale(), viewport.scale());
     m_keyboardOutlineShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     m_keyboardOutlineShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    m_keyboardOutlineShader->setUniform("outlineRadius", float(radius));
+    m_keyboardOutlineShader->setUniform("outlineRadius", float(CardCornerRadius));
     m_keyboardOutlineShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
-    m_keyboardOutlineShader->setUniform("edgeInk", QVector4D(edge.redF(), edge.greenF(), edge.blueF(), 0.55F));
     m_keyboardOutlineShader->setUniform("outlineOpacity", opacity);
     m_keyboardOutlineShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
@@ -11219,6 +11310,30 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         if (trimsCorners(window)) {
             m_drawnAs.insert(window, QStringLiteral("trimmed"));
             return drawTrimmedWindow(renderTarget, viewport, window, mask, deviceRegion, data);
+        }
+        if (const float outline = m_keyboardEdgeShader ? keyboardOutlineOpacity(window, data) : 0.0F;
+            outline > 0.0F) {
+            m_drawnAs.insert(window, QStringLiteral("outlined"));
+            (void)redirectSource(window, false);
+            setShader(window, m_keyboardEdgeShader.get());
+            KWin::ShaderManager::instance()->pushShader(m_keyboardEdgeShader.get());
+            const QColor ink = keyboardOutlineInk();
+            m_keyboardEdgeShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
+            m_keyboardEdgeShader->setUniform("outlineOpacity", outline);
+            m_keyboardEdgeShader->setUniform("bandTexels", float(2.0 * viewport.scale()));
+            // How far the picture reaches past the frame, for its shadow, and
+            // how far an application's own corner reaches in from it.
+            const QRectF frame(window->frameGeometry());
+            const QRectF picture(window->expandedGeometry());
+            const double margin = std::max({frame.left() - picture.left(), frame.top() - picture.top(),
+                picture.right() - frame.right(), picture.bottom() - frame.bottom(), 0.0});
+            m_keyboardEdgeShader->setUniform("frameMargin", float(margin * viewport.scale()));
+            m_keyboardEdgeShader->setUniform("cornerReach", float(24.0 * viewport.scale()));
+            glActiveTexture(GL_TEXTURE0);
+            const bool drawn = painted([&] { return KWin::OffscreenEffect::drawWindow(
+                renderTarget, viewport, window, mask, deviceRegion, data); });
+            KWin::ShaderManager::instance()->popShader();
+            return paintResult(drawn);
         }
         m_drawnAs.insert(window, QStringLiteral("plain"));
         // Redirection is otherwise ephemeral. A window Kadunce does not trim,

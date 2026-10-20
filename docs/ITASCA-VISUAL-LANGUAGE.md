@@ -231,9 +231,9 @@ they preserve these relationships and respect the user's animation settings.
   texture on a light wallpaper and a dark one alike. It lies under the window
   in hand. Without the blur it is a filled box at the hover fill.
 - While another window shows beside it on its display, the window the
-  keyboard types into is outlined: 2 px of the accent inside a 1 px edge of
-  Ghost White or the dark surface, whichever stands apart from the accent,
-  following the window's corner, and fading in over 140 ms. The scheme's text
+  keyboard types into is outlined: 2 px of the accent just inside its edge,
+  following the corner it has, the paper corner or the application's own,
+  and fading in over 140 ms. The scheme's text
   stands in for an accent too close to its ground. A lone window, Spread and
   a window in hand show none, and Settings can switch it off.
 - A wheel turned while a window is held on a monitor changes
