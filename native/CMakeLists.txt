@@ -42,17 +42,38 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/FrostedBox.h
         src/CardStageController.cpp
         src/CardStageController.h
+        src/CardStageInternal.h
+        src/CardStagePoses.cpp
+        src/CardStageKeyboard.cpp
+        src/CardStageCarry.cpp
+        src/CardStageBento.cpp
+        src/CardStageRow.cpp
         src/ReleasePlace.h
         src/BentoLayout.cpp
         src/BentoLayout.h
         src/DesktopStageController.cpp
         src/DesktopZones.cpp
         src/DesktopStageController.h
+        src/DesktopStageInternal.h
+        src/DesktopStageArrivals.cpp
+        src/DesktopStageLayouts.cpp
+        src/DesktopStageDividers.cpp
         src/WorkspaceInputRouter.cpp
         src/WorkspaceInputRouter.h
         src/TouchEdge.h
         src/Effect.cpp
         src/Effect.h
+        src/EffectInternal.h
+        src/EffectDisplays.cpp
+        src/EffectTable.cpp
+        src/EffectCarry.cpp
+        src/EffectStacks.cpp
+        src/EffectInput.cpp
+        src/EffectKeys.cpp
+        src/EffectContext.cpp
+        src/EffectNotes.cpp
+        src/EffectOffers.cpp
+        src/EffectPaint.cpp
         src/EffectGuest.cpp
         src/EffectShared.h
         src/DesktopRemoval.h
