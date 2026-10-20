@@ -1235,7 +1235,9 @@ void Effect::scheduleDissolve()
 void Effect::dissolveEmptyWorkspaces()
 {
     m_dissolveQueued = false;
-    if (m_table.isOpen()) return;
+    // Windows closing as the session saves or ends are not the person
+    // emptying a workspace; it is still there when they sign back in.
+    if (m_table.isOpen() || KWin::effects->sessionState() != KWin::SessionState::Normal) return;
     auto *manager = KWin::VirtualDesktopManager::self();
     const auto desktops = KWin::effects->desktops();
     const auto stack = KWin::effects->stackingOrder();

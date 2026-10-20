@@ -745,6 +745,13 @@ if rg -q '\bmoveWindow\(|windowToScreen\(|frameGeometry\s*=' "${native_dir}"; th
     exit 1
 fi
 
+# Windows closing at sign-out must not dissolve the workspaces they leave.
+if ! grep -A6 '^void Effect::dissolveEmptyWorkspaces()' "$project_dir/native/src/EffectTable.cpp" \
+        | grep -q 'sessionState() != KWin::SessionState::Normal'; then
+    echo "dissolveEmptyWorkspaces no longer holds off while the session saves or ends" >&2
+    exit 1
+fi
+
 # A scene the gate does not run is not evidence, and it goes stale unseen.
 for scene in "$project_dir"/tests/unload-probe/*session.sh; do
     name=$(basename "$scene" .sh)
