@@ -67,6 +67,7 @@
 #include <QKeyEvent>
 #include <QLineF>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
@@ -6946,9 +6947,10 @@ void Effect::watchClaimOwner(const QString &owner)
             const bool hadLine = m_contextLineClaims.removeIf([&service](const auto &claim) {
                 return claim.value().owner == service;
             }) > 0;
+            const bool hadFrost = m_frostBehind.remove(service) > 0;
             m_topEdgeClaimWatcher->removeWatchedService(service);
             // Kadunce's own words come back on the displays it left.
-            if (hadLine) KWin::effects->addRepaintFull();
+            if (hadLine || hadFrost) KWin::effects->addRepaintFull();
         });
     }
     m_topEdgeClaimWatcher->addWatchedService(owner);
@@ -6969,6 +6971,21 @@ void Effect::clearContextLineClaim(const QString &key)
     if (!calledFromDBus()) return;
     if (m_contextLineClaims.remove(message().service() + QLatin1Char('\n') + key) > 0)
         KWin::effects->addRepaintFull();
+}
+
+void Effect::frostBehind(bool on)
+{
+    if (!calledFromDBus()) return;
+    const QString caller = message().service();
+    if (!on) {
+        if (m_frostBehind.remove(caller) > 0) KWin::effects->addRepaintFull();
+        return;
+    }
+    const auto pid = connection().interface()->servicePid(caller);
+    if (!pid.isValid() || pid.value() == 0) return;
+    watchClaimOwner(caller);
+    m_frostBehind.insert(caller, qint64(pid.value()));
+    KWin::effects->addRepaintFull();
 }
 
 bool Effect::contextLineClaimed(const KWin::LogicalOutput *output) const
@@ -9748,6 +9765,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
                 m_settingsFrostFading.append(data.screen->geometry());
         } else {
             m_settingsFrostSince.remove(data.screen->name());
+            m_settingsFrostSaid.remove(data.screen->name());
         }
         if (m_placementPreview && m_placementPreviewOutput == data.screen)
             data.paint |= whole(QRectF(*m_placementPreview));
@@ -10333,17 +10351,17 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
 
 KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
 {
-    if (!screen || m_previewDesktop) return nullptr;
-    // Shuffle Settings is a layer surface of the shuffle-settings program,
-    // known apart from the keyboard sheet the same program draws by its
-    // title, which is the product's name and never translated.
+    if (!screen || m_previewDesktop || m_frostBehind.isEmpty()) return nullptr;
+    // A layer surface has no title, and Settings and the keyboard sheet are
+    // the same program, so Settings is known by the process that asked for
+    // frost behind it.
     const auto stack = KWin::effects->stackingOrder();
     for (KWin::EffectWindow *window : stack) {
         if (!window || window->isDeleted() || !window->window() || !window->isVisible()
             || window->screen() != screen
             || !window->window()->inherits("KWin::LayerShellV1Window")) continue;
-        if (window->window()->resourceName() == QLatin1String("shuffle-settings")
-            && window->caption() == QLatin1String("Shuffle Settings")) return window;
+        for (const qint64 pid : m_frostBehind)
+            if (qint64(window->pid()) == pid) return window;
     }
     return nullptr;
 }
@@ -10371,8 +10389,14 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     const int fade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
     const float strength = since == m_settingsFrostSince.constEnd() || fade <= 0 ? 1.0F
         : float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
-    if (m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength))
-        m_frostDrawn[screen->name()].append(whole);
+    const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
+    if (drawn) m_frostDrawn[screen->name()].append(whole);
+    if (!m_settingsFrostSaid.contains(screen->name())) {
+        m_settingsFrostSaid.insert(screen->name());
+        qInfo() << "Kadunce" << Revision << "frosts" << screen->name() << "under Shuffle Settings, laid under"
+                << (window == settings ? "Settings" : "a panel")
+                << (drawn ? "as glass" : "but the glass could not be drawn");
+    }
 }
 
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,

@@ -3,6 +3,7 @@
 #include <QTouchEvent>
 #include <QMouseEvent>
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QWindow>
@@ -493,7 +494,7 @@ private: BandStandIn *band_ = nullptr;
 };
 // With --surface TITLE, a clear layer surface over the tablet's work area
 // and nothing else, as Shuffle Settings and the keyboard sheet are.
-static int surfaceOnly(const QString &title) {
+static int surfaceOnly(const QString &title, bool frost) {
  auto *w = new QWidget; w->setWindowTitle(title); w->setAttribute(Qt::WA_TranslucentBackground);
  w->winId();
  for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
@@ -507,7 +508,10 @@ static int surfaceOnly(const QString &title) {
   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
  }
  w->show();
+ // As Shuffle Settings does when it shows; the keyboard sheet never asks.
+ if (frost) QDBusConnection::sessionBus().asyncCall(QDBusMessage::createMethodCall(
+  "org.kde.KWin", "/Kadunce", "co.goodinput.Kadunce", "frostBehind") << true);
  return qApp->exec();
 }
-int main(int argc,char**argv) { QApplication a(argc,argv); if (argc > 2 && QByteArray(argv[1]) == "--surface") return surfaceOnly(QString::fromUtf8(argv[2])); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
+int main(int argc,char**argv) { QApplication a(argc,argv); if (argc > 2 && QByteArray(argv[1]) == "--surface") return surfaceOnly(QString::fromUtf8(argv[2]), argc > 3 && QByteArray(argv[3]) == "--frost"); Client w; w.showMaximized(); QDBusConnection::sessionBus().registerService("co.goodinput.UnloadClient"); QDBusConnection::sessionBus().registerObject("/Client",&w,QDBusConnection::ExportAllSlots); return a.exec(); }
 #include "client.moc"

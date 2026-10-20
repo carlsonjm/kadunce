@@ -233,7 +233,10 @@ they preserve these relationships and respect the user's animation settings.
 - While Shuffle Settings stands over the work on a display, everything under
   that display's panels is frosted with the same glass, so it has no edge of
   its own: the panels and their fades stand over it as they are. It fades in
-  over 140 ms. The keyboard sheet frosts nothing.
+  over 140 ms. Settings asks for it with `frostBehind` on Kadunce's bus
+  object, and any layer surface of the asking program frosts while it shows,
+  until the program asks no more or leaves the bus. The keyboard sheet does
+  not ask, and frosts nothing.
 - While another window shows beside it on its display, the window the
   keyboard types into is outlined: 2 px of the accent just inside its edge,
   following the corner it has, the paper corner or the application's own,

@@ -219,6 +219,10 @@ public Q_SLOTS:
     // leaves the bus (TETTEGOUCHE-CONTEXT.md § Context-line claims).
     Q_SCRIPTABLE bool claimContextLine(const QString &key, const QString &outputName);
     Q_SCRIPTABLE void clearContextLineClaim(const QString &key);
+    // While asked, the caller's own layer surfaces frost everything under
+    // a display's panels as they stand over it, until it asks no more or
+    // leaves the bus. Shuffle Settings asks; the keyboard sheet does not.
+    Q_SCRIPTABLE void frostBehind(bool on);
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
@@ -1374,6 +1378,11 @@ private:
     QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
     QHash<QString, QElapsedTimer> m_settingsFrostSince;
     QList<QRect> m_settingsFrostFading;
+    // The displays whose frost has been said in the log since Settings came.
+    QSet<QString> m_settingsFrostSaid;
+    // The programs that asked for frost behind them, by bus name, with the
+    // process their surfaces are known by.
+    QHash<QString, qint64> m_frostBehind;
     [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
     void drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                                 KWin::EffectWindow *window);

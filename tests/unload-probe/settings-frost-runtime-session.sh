@@ -2,10 +2,12 @@
 # ITASCA-VISUAL-LANGUAGE.md: while Shuffle Settings stands over the work on a
 # display, everything under its panels is frosted with the placement box's
 # glass, and the panels stand over it as they are. Settings is played by the
-# client under the program name Settings has, as a clear layer surface with
-# Settings' title; the keyboard sheet, the same program under its own title,
-# frosts nothing. A striped card says whether what is drawn over it is
-# blurred, and the dock's band whether the panel is left as it was.
+# client under the program name Settings has, as a clear layer surface that
+# asks Kadunce for frost behind it as Settings does; the keyboard sheet, the
+# same program asking nothing, frosts nothing. Kadunce says in the session's
+# log where it laid the glass. Where the screen can be read back, a striped
+# card says whether what is drawn over it is blurred, and the dock's band
+# whether the panel is left as it was.
 #
 # Needs the tablet fixture. Every check is reported.
 set -uo pipefail
@@ -42,38 +44,56 @@ echo "facts $(probe windowFacts | jq -c 'map(select(.caption == "Stripes" or .ca
 
 # The middle of the striped card, and the dock's band under the cards.
 read -r sx sy < <(probe windowFacts | jq -r 'first(.[] | select(.caption == "Stripes")) | "\(.x + .width / 2 - 80 | floor) \(.y + .height / 2 - 40 | floor)"')
-contrast() { python3 "$here/capture-contrast.py" "$sx" "$sy" 160 80; }
+contrast() { python3 "$here/capture-contrast.py" "$sx" "$sy" 160 80 2>/dev/null; }
+log="$(dirname "$XDG_RUNTIME_DIR")/session.log"
+frost_lines() { rg -c 'frosts "Virtual-0" under Shuffle Settings' "$log" || echo 0; }
 band() { python3 "$here/capture-band.py" 100 764 400 28 101010; }
 # The program name is what KWin knows a Wayland client's windows by.
 surface() {
     cp "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" "$XDG_RUNTIME_DIR/shuffle-settings"
-    "$XDG_RUNTIME_DIR/shuffle-settings" --surface "$1" &
+    "$XDG_RUNTIME_DIR/shuffle-settings" --surface "$@" &
     surface_pid=$!
     sleep 1.2
 }
 gone() { kill "$surface_pid" 2>/dev/null; wait "$surface_pid" 2>/dev/null; surface_pid=; sleep .8; }
 
+# A screen that cannot be read back leaves the pixels unsaid; the log
+# still says where the glass went.
 before=$(contrast)
-echo "contrast before: $before, dock band: $(band)"
-check "the card's stripes are drawn sharp" test "$before" -ge 200
+if [[ $before =~ ^[0-9]+$ ]]; then pixels=1; else pixels=; echo "the screen cannot be read back here; pixels are not checked"; fi
+echo "contrast before: ${before:-none}, dock band: $(band 2>/dev/null)"
+[[ -n $pixels ]] && check "the card's stripes are drawn sharp" test "$before" -ge 200
 
-surface 'Shuffle Settings'
-frosted=$(contrast)
-dock=$(band)
-echo "contrast under Settings: $frosted, dock band: $dock"
+said=$(frost_lines)
+surface 'Shuffle Settings' --frost
+echo "facts $(probe windowFacts | jq -c 'map(select(.class == "shuffle-settings") | {caption, class, layer, x, y, width, height})')"
 check "Settings is a layer surface of its own program" \
-    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'any(.[]; .caption == \"Shuffle Settings\" and .class == \"shuffle-settings\")'"
-check "under Settings the card is frosted" test "$frosted" -le 40
-check "the dock stands over the frost as it was" python3 -c "import sys; sys.exit(float('$dock') < 0.95)"
+    bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'any(.[]; .class == \"shuffle-settings\")'"
+echo "said: $(rg -o 'frosts "Virtual-0" under Shuffle Settings.*' "$log" | tail -1)"
+check "Kadunce lays the frost under the panel" \
+    rg -q 'frosts "Virtual-0" under Shuffle Settings, laid under a panel' "$log"
+check "the frost is said once for Settings" test "$(frost_lines)" -eq $((said + 1))
+if [[ -n $pixels ]]; then
+    frosted=$(contrast); dock=$(band)
+    echo "contrast under Settings: $frosted, dock band: $dock"
+    check "under Settings the card is frosted" test "$frosted" -le 40
+    check "the dock stands over the frost as it was" python3 -c "import sys; sys.exit(float('$dock') < 0.95)"
+fi
 gone
-after=$(contrast)
-echo "contrast after Settings: $after"
-check "with Settings gone the stripes are sharp again" test "$after" -ge 200
+if [[ -n $pixels ]]; then
+    after=$(contrast)
+    echo "contrast after Settings: $after"
+    check "with Settings gone the stripes are sharp again" test "$after" -ge 200
+fi
 
+said=$(frost_lines)
 surface 'Keyboard shortcuts'
-sheet=$(contrast)
-echo "contrast under the keyboard sheet: $sheet"
-check "the keyboard sheet frosts nothing" test "$sheet" -ge 200
+check "the keyboard sheet frosts nothing" test "$(frost_lines)" -eq "$said"
+if [[ -n $pixels ]]; then
+    sheet=$(contrast)
+    echo "contrast under the keyboard sheet: $sheet"
+    check "under the keyboard sheet the stripes are sharp" test "$sheet" -ge 200
+fi
 gone
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
