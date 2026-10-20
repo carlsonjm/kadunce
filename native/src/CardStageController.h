@@ -79,6 +79,9 @@ public:
         const KWin::EffectWindow *window) const {
         return isManagedWindowForCardStage(window);
     }
+    // Whether another stage or layout, on any display or desktop, holds the
+    // window already: a display taking in its windows leaves that one alone.
+    [[nodiscard]] virtual bool heldElsewhereForCardStage(const KWin::EffectWindow *) const { return false; }
     // Where the visible virtual keyboard's top edge sits on this display, if
     // one is up. A keyboard is a compositor fact and reaches every effect, so
     // reading it here costs no dependency on a downstream surface. A host with

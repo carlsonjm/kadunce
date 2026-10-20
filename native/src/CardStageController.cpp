@@ -462,8 +462,11 @@ void CardStageController::rebuildLiveCards()
         // CARD-LIFECYCLE.md §2 and §7: a window minimized before Kadunce held
         // the display is held too, as a sleeping card, so picking it wakes it
         // as a card. Only an awake window can be the one presented.
-        if (!m_host->mayHoldWindowForCardStage(window)
-            || window->screen() != tablet) {
+        // Where KWin intends the window to be, as a display change moves it
+        // before its client answers; one another stage holds stays its own.
+        if (!m_host->mayHoldWindowForCardStage(window) || !window->window()
+            || window->window()->moveResizeOutput() != tablet
+            || m_host->heldElsewhereForCardStage(window)) {
             continue;
         }
         const bool awake = m_host->isManagedWindowForCardStage(window);

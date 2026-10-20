@@ -246,6 +246,10 @@ public:
         SessionScope scope(m_effect, m_session, m_key);
         return cards().mayHoldWindowForCardStage(window);
     }
+    bool heldElsewhereForCardStage(const KWin::EffectWindow *window) const override
+    {
+        return m_effect->sessionHolding(window) != nullptr;
+    }
     std::optional<double> inputPanelTopForCardStage(KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session, m_key);

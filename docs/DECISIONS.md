@@ -556,12 +556,12 @@ diagonal hand-off from the edge.
 ### A Spread on every display
 
 Every window is a card on every display, and each display has its own Spread, Active card and Stacks
-(`CARD-LIFECYCLE.md` §11, decided 17 October 2026). A card belongs to the
+(`CARD-LIFECYCLE.md` §11). A card belongs to the
 display its window stands on, so no card waits on a display it is not shown
 on, and each context line reads its own display. A card moved across takes
-its Stack in one step. The
-primary display is the one you choose while attached, else the one a
-touchscreen drives, else the largest; Kadunce finds the touched display as KWin
+its Stack in one step; a display plugged in takes the dock display's, so
+docking moves everything. The primary display is chosen, else the
+touchscreen's, else the largest; Kadunce finds the touched display as KWin
 places the touchscreen, never by name; of two, the built-in. It takes
 the cards of a display that goes away and answers the keys when no window is
 in use. Rejected: one Spread holding every display's cards, which re-homed
