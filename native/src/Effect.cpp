@@ -239,6 +239,8 @@ void main() {
 )GLSL";
 // The keyboard outline fades in over the Visual sheet's micro transition.
 constexpr int KeyboardOutlineFadeMs = 140;
+// The frost behind Shuffle Settings fades in over the same step.
+constexpr int SettingsFrostFadeMs = 140;
 // The shape a window's border asks the pointer for. KWin 6.8 no longer
 // exposes it, and there it reads as none.
 template<typename Window>
@@ -1214,6 +1216,7 @@ Effect::Effect()
         m_keyboardEdgeShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::MapTexture, QByteArray(KeyboardEdgeVertex), QByteArray(KeyboardEdgeFragment));
         m_frostedBox.create();
+        m_settingsFrost.create();
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -9735,6 +9738,17 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // so the blur only ever reads what lies under it.
         for (const QRectF &rect : m_frostDrawn.value(data.screen->name())) data.paint |= whole(rect);
         if (const auto box = heldDestinationOn(data.screen)) data.paint |= whole(*box);
+        // Settings' frost reads the whole display, so the whole display is
+        // drawn afresh from the frame it first stands there.
+        if (settingsSurfaceOn(data.screen)) {
+            auto &since = m_settingsFrostSince[data.screen->name()];
+            if (!since.isValid()) since.start();
+            data.paint |= whole(QRectF(data.screen->geometry()));
+            if (since.elapsed() < motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor()))
+                m_settingsFrostFading.append(data.screen->geometry());
+        } else {
+            m_settingsFrostSince.remove(data.screen->name());
+        }
         if (m_placementPreview && m_placementPreviewOutput == data.screen)
             data.paint |= whole(QRectF(*m_placementPreview));
         // The keyboard's window, outlined: where the outline leaves and
@@ -9778,6 +9792,7 @@ void Effect::postPaintScreen()
     const bool continueRepaint = m_continueRepaint;
     m_continueRepaint = false;
     for (const QRect &rect : std::exchange(m_keyboardOutlineFading, {})) KWin::effects->addRepaint(KWin::Rect(rect));
+    for (const QRect &rect : std::exchange(m_settingsFrostFading, {})) KWin::effects->addRepaint(KWin::Rect(rect));
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
@@ -10316,6 +10331,50 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     fillDestinationParts(renderTarget, viewport, parts, box, 0.13f, 0.f);
 }
 
+KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
+{
+    if (!screen || m_previewDesktop) return nullptr;
+    // Shuffle Settings is a layer surface of the shuffle-settings program,
+    // known apart from the keyboard sheet the same program draws by its
+    // title, which is the product's name and never translated.
+    const auto stack = KWin::effects->stackingOrder();
+    for (KWin::EffectWindow *window : stack) {
+        if (!window || window->isDeleted() || !window->window() || !window->isVisible()
+            || window->screen() != screen
+            || !window->window()->inherits("KWin::LayerShellV1Window")) continue;
+        if (window->window()->resourceName() == QLatin1String("shuffle-settings")
+            && window->caption() == QLatin1String("Shuffle Settings")) return window;
+    }
+    return nullptr;
+}
+
+void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                    KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *screen = m_paintingOutput;
+    if (!window || !screen || m_settingsFrostDrawnOn == screen || !window->window()
+        || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
+    KWin::EffectWindow *settings = settingsSurfaceOn(screen);
+    if (!settings) return;
+    // The glass is laid under the first of this display's panels to be
+    // drawn, or under Settings itself where there are none, so the panels
+    // and their fades stand over it as they are, and nothing ends at an edge.
+    const QRectF whole(screen->geometry());
+    if (window != settings && !(window->isDock() && QRectF(window->frameGeometry()).intersects(whole))) return;
+    m_settingsFrostDrawnOn = screen;
+    QList<QRectF> parts;
+    for (const auto &dirty : m_paintingRegion.rects()) {
+        const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
+        if (!part.isEmpty()) parts.append(part);
+    }
+    const auto since = m_settingsFrostSince.constFind(screen->name());
+    const int fade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
+    const float strength = since == m_settingsFrostSince.constEnd() || fade <= 0 ? 1.0F
+        : float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
+    if (m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength))
+        m_frostDrawn[screen->name()].append(whole);
+}
+
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const QList<QRectF> &parts, const QRectF &box,
     float fill, float ring)
@@ -10364,6 +10423,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingOutput = screen;
     m_paintingRegion = deviceRegion;
     m_heldBoxDrawnOn = nullptr;
+    m_settingsFrostDrawnOn = nullptr;
     if (screen) m_frostDrawn.remove(screen->name());
     if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) {
@@ -11409,6 +11469,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    drawSettingsFrostUnder(renderTarget, viewport, window);
     // Hidden with its application even before KWin is told, so a dialog that
     // opens behind the card in front is never seen for a frame.
     if (isDependentWindow(window) && !dependentShown(dependentLead(window))) return paintResult(true);

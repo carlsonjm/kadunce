@@ -1365,6 +1365,18 @@ private:
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
+    // Shuffle Settings stands over the work on a display: everything under
+    // its panels is frosted with the placement box's own glass, so it has no
+    // edge of its own. A glass of its own, as it spans the whole display; the
+    // display it is laid on this frame; and since when each display has had
+    // it, by name, for it to fade in.
+    FrostedBox m_settingsFrost;
+    QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
+    QHash<QString, QElapsedTimer> m_settingsFrostSince;
+    QList<QRect> m_settingsFrostFading;
+    [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
+    void drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                KWin::EffectWindow *window);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown

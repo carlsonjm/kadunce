@@ -230,6 +230,10 @@ they preserve these relationships and respect the user's animation settings.
   blurred about as far as 24 px, under a mid grey veil at 24%, so it reads by
   texture on a light wallpaper and a dark one alike. It lies under the window
   in hand. Without the blur it is a filled box at the hover fill.
+- While Shuffle Settings stands over the work on a display, everything under
+  that display's panels is frosted with the same glass, so it has no edge of
+  its own: the panels and their fades stand over it as they are. It fades in
+  over 140 ms. The keyboard sheet frosts nothing.
 - While another window shows beside it on its display, the window the
   keyboard types into is outlined: 2 px of the accent just inside its edge,
   following the corner it has, the paper corner or the application's own,

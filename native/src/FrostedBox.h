@@ -60,10 +60,12 @@ public:
     // Draws `box` frosted, within `parts` and inside `bounds`, all in logical
     // pixels, over what `renderTarget` holds. Every pixel of the box inside
     // `bounds` must be drawn afresh this frame, or the glass would blur
-    // itself. False when nothing could be drawn and a plain fill is to stand
-    // in.
+    // itself. `strength` lays the glass part way over what is under it, as
+    // it fades in. False when nothing could be drawn and a plain fill is to
+    // stand in.
     bool paint(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
-               const QList<QRectF> &parts, const QRectF &box, double radius, const QRectF &bounds)
+               const QList<QRectF> &parts, const QRectF &box, double radius, const QRectF &bounds,
+               float strength = 1.0F)
     {
         if (!ready()) return false;
         const QRect area = box.intersected(bounds).toAlignedRect().intersected(bounds.toAlignedRect());
@@ -127,6 +129,7 @@ public:
             shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
             shader->setUniform("outlineRadius", float(radius));
             shader->setUniform("veil", QVector4D(VeilGrey, VeilGrey, VeilGrey, VeilOpacity));
+            shader->setUniform("strength", strength);
             shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
                 renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
             m_textures[1]->bind();
@@ -221,6 +224,7 @@ uniform vec2 halfpixel;
 uniform vec4 destinationBox;
 uniform float outlineRadius;
 uniform vec4 veil;
+uniform float strength;
 in vec2 point;
 in vec2 uv;
 out vec4 fragColor;
@@ -242,7 +246,7 @@ void main() {
     float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
     float feather = max(fwidth(d), 0.5);
     float inside = 1.0 - smoothstep(-feather, 0.0, d);
-    fragColor = vec4(mix(blurred, grey, veil.a), 1.0) * inside;
+    fragColor = vec4(mix(blurred, grey, veil.a), 1.0) * inside * strength;
 }
 )GLSL";
 
