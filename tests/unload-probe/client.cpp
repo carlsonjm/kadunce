@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QWindow>
