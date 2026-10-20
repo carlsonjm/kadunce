@@ -105,6 +105,16 @@ if [[ -n $pixels ]]; then
 fi
 gone
 
+# The question before a restart, shut down or sign out, played by the
+# client under the name of KDE's program for it, asking nothing.
+cp "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" "$XDG_RUNTIME_DIR/ksmserver-logout-greeter"
+"$XDG_RUNTIME_DIR/ksmserver-logout-greeter" --surface 'Restart' &
+surface_pid=$!
+sleep 1.2
+check "the power question frosts under the panel as Settings does" \
+    rg -q '^Kadunce .* frosts "Virtual-0" under the power question, laid under a panel .* with 1 panel fades over it' "$log"
+gone
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 (( failures == 0 )) || exit "$failures"
 echo 'PASS: Settings frosts the work under the panels, the panels stand over it as they are, and the keyboard sheet frosts nothing'
