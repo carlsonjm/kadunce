@@ -235,7 +235,9 @@ they preserve these relationships and respect the user's animation settings.
   its own: the panels and their fades stand over it as they are, a fade
   that lies under the windows, as the Context Panel's tail does, included. It fades in
   over 140 ms, and dissolves over 300 ms once Settings has gone. The
-  question before a restart, shut down or sign out is frosted behind alike. Settings asks for it with `frostBehind` on Kadunce's bus
+  question before a restart, shut down or sign out is frosted behind alike,
+  and KDE's own blur across its whole display is held off so the panels and
+  the glass show as they do behind Settings. Settings asks for it with `frostBehind` on Kadunce's bus
   object, and any layer surface of the asking program frosts while it shows,
   until the program asks no more or leaves the bus. The keyboard sheet does
   not ask, and frosts nothing.
