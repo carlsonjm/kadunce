@@ -77,4 +77,5 @@ check "the keyboard sheet frosts nothing" test "$sheet" -ge 200
 gone
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
-(( failures == 0 ))
+(( failures == 0 )) || exit "$failures"
+echo 'PASS: Settings frosts the work under the panels, the panels stand over it as they are, and the keyboard sheet frosts nothing'
