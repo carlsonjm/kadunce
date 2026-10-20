@@ -1085,7 +1085,7 @@ int CardStageController::applyGutter()
     return moved;
 }
 
-bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
+bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window, std::optional<KWin::RectF> place)
 {
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || m_cardGrabActive || m_launcherGuestActive || !tablet || !window
@@ -1105,6 +1105,9 @@ bool CardStageController::admitArrivalAsCard(KWin::EffectWindow *window)
     // record is where KWin put it on this display, which is a place release
     // can always return it to.
     retainManagedOwnership(window);
+    if (place && QRectF(tablet->geometry()).contains(QRectF(*place)))
+        for (auto &saved : m_parkedRestores)
+            if (saved.window == window && saved.floating()) saved.geometry = *place;
     m_originalCardStackingOrder.append(window);
     m_host->connectManagedWindowForCardStage(window);
     KWin::effects->setElevatedWindow(window, false);

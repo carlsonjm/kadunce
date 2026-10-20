@@ -550,6 +550,17 @@ private:
     // an edge.
     [[nodiscard]] static KWin::RectF givenBackPlace(const RestoreSnapshot &snapshot,
         KWin::LogicalOutput *target, bool ownDisplay);
+public:
+    // Where the last display to go away had its layout's window given back,
+    // which KWin's own evacuation can overwrite before a card is made of it.
+    [[nodiscard]] std::optional<KWin::RectF> placeGivenBack(const KWin::EffectWindow *window) const
+    {
+        for (const auto &[given, place] : m_givenBack)
+            if (given && given == window) return place;
+        return std::nullopt;
+    }
+private:
+    QList<std::pair<QPointer<KWin::EffectWindow>, KWin::RectF>> m_givenBack;
     // A window given back that was minimized before its layout is minimized
     // again: now, when KWin already holds its restored state, which returns
     // true, else once KWin does.

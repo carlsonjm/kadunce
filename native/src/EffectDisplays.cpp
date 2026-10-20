@@ -1248,7 +1248,12 @@ bool Effect::settleCardsOnThisDisplay()
     KWin::EffectWindow *resume = nullptr;
     quint64 latest = 0;
     for (const auto &window : std::as_const(arrivals)) {
-        if (!window || !m_cardStage->admitArrivalAsCard(window)) continue;
+        // A window a gone display's layout gave back keeps the place it was
+        // given, which KWin's own evacuation may have moved it from since.
+        std::optional<KWin::RectF> given;
+        for (const auto &entry : m_sessions)
+            if (!given && entry.second->layouts) given = entry.second->layouts->placeGivenBack(window);
+        if (!window || !m_cardStage->admitArrivalAsCard(window, given)) continue;
         const quint64 used = m_activationOrder.value(windowIdentity(window));
         if (!resume || used >= latest) {
             resume = window;

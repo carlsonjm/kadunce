@@ -1227,6 +1227,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
     }
     const Session session = it.value();
     m_sessions.erase(it);
+    if (outputRemoving) m_givenBack.clear();
     QPointer<KWin::LogicalOutput> fallbackOutput = outputForKey(key);
     QPointer<KWin::LogicalOutput> replacementOutput;
     if (outputRemoving) {
@@ -1304,6 +1305,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
             && (snapshot.userMinimized || snapshot.minimized);
         if (valid() && restoreWindowStateChecked(client.data(), snapshot, restoreGeometry,
                            preserveGeometry, !keptAsleep, false, valid)) {
+            if (outputRemoving) m_givenBack.append({snapshot.window, restoreGeometry});
             if (!keptAsleep && reminimizeRestored(client.data(), snapshot))
                 return valid() ? RestoreResult::Completed
                     : (clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted);

@@ -560,7 +560,9 @@ public:
     // §3: a window KWin moved onto this display because the display it stood
     // on went away arrives as one card. It is admitted unselected, so the
     // caller decides which arrival, if any, is presented.
-    bool admitArrivalAsCard(KWin::EffectWindow *window);
+    // `place`, where one was given back for it, is its record's place rather
+    // than wherever KWin moved it since.
+    bool admitArrivalAsCard(KWin::EffectWindow *window, std::optional<KWin::RectF> place = {});
     // A stage owning nothing on a display presenting its layout starts behind
     // it (§2), so what arrives becomes cards there; one that took nothing
     // stops again.
