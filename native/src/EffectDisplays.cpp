@@ -574,7 +574,11 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
     // display's Spread, at the end of its row.
     DesktopSession *session = card ? sessionHolding(card) : nullptr;
     if (!session || card->isDeleted() || !card->window() || !isCardDisplay(to)) return false;
-    SessionScope here(this, session, stageKeyOf(card));
+    // Read from the card's own desktop: a desktop not shown holds its cards
+    // under keys the one shown cannot find.
+    const auto heldAt = session->keyHolding(card);
+    if (!heldAt) return false;
+    SessionScope here(this, session, *heldAt);
     CardStageController *from = m_cardStage;
     const QString toKey = stageKeyFor(to);
     if (from->liveCardIndex(card) < 0 || toKey == m_scopedKey) return false;
@@ -895,6 +899,7 @@ bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window, KWin::Lo
 void Effect::handleScreenRemoved(KWin::LogicalOutput *output)
 {
     m_displaysChanged.start();
+    if (output) m_displayLeft[output->name()].start();
     cancelInputForCardStage();
     if (m_table.isOpen() && tableOutput() == output) closeTable();
     forEachSession([&] { m_desktopStage->handleScreenRemoved(output); });
@@ -921,6 +926,7 @@ void Effect::settleCardsOnDisplays()
     // §11: a stage whose display went away, or that the way displays hold
     // cards no longer keeps, gives each card to the display it stands on now.
     handOverGoneStages();
+    moveCardsToJoinedDisplay();
     // Each display holding cards settles its own, and is held again once
     // every card is placed.
     QTimer::singleShot(0, this, [this] { (void)holdDisplaysInCards(nullptr); });
@@ -992,6 +998,123 @@ void Effect::handOverGoneStages()
         }
     }
     forgetGoneStages();
+}
+
+KWin::LogicalOutput *Effect::dockDisplayBesides(const KWin::LogicalOutput *joined) const
+{
+    // The display a dock stands along the bottom of: the Shuffle Dock, or
+    // Plasma's own bottom panel. Without one, the primary display.
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (!window || window->isDeleted() || !window->isDock()) continue;
+        KWin::LogicalOutput *output = window->screen();
+        if (!output || output == joined || !isCardDisplay(output)) continue;
+        const QRectF frame(window->frameGeometry());
+        const QRectF area(output->geometry());
+        // A floating panel stands a little above the edge.
+        if (frame.y() > area.center().y() && frame.y() + frame.height() >= area.y() + area.height() - 32)
+            return output;
+    }
+    KWin::LogicalOutput *primary = primaryOutput();
+    return primary != joined ? primary : nullptr;
+}
+
+void Effect::noteDisplayJoined(KWin::LogicalOutput *output)
+{
+    // Read as KWin announces the display, before the dock has moved for it.
+    if (!output || !m_cardsOnEveryDisplay || m_releasing) return;
+    KWin::LogicalOutput *dock = dockDisplayBesides(output);
+    if (!dock) return;
+    // A display back within moments, as one is through sleep or a loose
+    // cable, was not plugged in by the person: its cards come back as KWin
+    // puts their windows back, and the rest stay where they are.
+    constexpr qint64 ShortAbsence = 10000;
+    const auto left = m_displayLeft.constFind(output->name());
+    const bool returned = left != m_displayLeft.cend() && left->isValid() && left->elapsed() < ShortAbsence;
+    m_displayJoined = DisplayJoin{dock->name(), output->name(), returned};
+    qInfo() << "Kadunce" << Revision << output->name() << (returned ? "came back" : "was plugged in")
+            << "beside the dock on" << dock->name();
+}
+
+void Effect::moveCardsToJoinedDisplay()
+{
+    // §11: plugged in, a display takes every card and pane of the display
+    // with the dock, each Stack with its card. The one in use there is shown
+    // on the new display and the rest wait in its Spread. A display that came
+    // back from a short absence takes only the cards KWin put back on it.
+    const auto join = std::exchange(m_displayJoined, std::nullopt);
+    if (!join || m_releasing || !m_cardsOnEveryDisplay) return;
+    KWin::LogicalOutput *from = screenNamed(join->from);
+    KWin::LogicalOutput *to = screenNamed(join->to);
+    if (!from || !to || from == to || !isCardDisplay(from) || !isCardDisplay(to)) return;
+    cancelInputForCardStage();
+    std::vector<DesktopSession *> sessions;
+    for (const auto &entry : m_sessions) sessions.push_back(entry.second.get());
+    int moved = 0;
+    for (DesktopSession *session : sessions) {
+        const auto found = session->displays.find(join->from);
+        if (found == session->displays.end()) continue;
+        CardStageController *stage = found->second->cards.get();
+        const auto standsThere = [to](KWin::EffectWindow *window) {
+            return window && window->window() && window->window()->moveResizeOutput() == to;
+        };
+        // The window in use there: the Active card, else the one used last.
+        QPointer<KWin::EffectWindow> inUse = stage->isActive() && stage->presentation() == CardPresentation::Active
+            ? stage->activeCardIdentity() : nullptr;
+        if (!inUse) {
+            quint64 latest = 0;
+            QList<QPointer<KWin::EffectWindow>> candidates = stage->liveCards();
+            candidates.append(session->layouts->panesOn(join->from));
+            for (const auto &window : std::as_const(candidates)) {
+                const quint64 used = window ? m_activationOrder.value(windowIdentity(window)) : 0;
+                if (window && !window->isDeleted() && !window->isMinimized() && (!inUse || used > latest)) {
+                    inUse = window;
+                    latest = used;
+                }
+            }
+        }
+        QSet<KWin::EffectWindow *> tried;
+        for (int round = 0; round < 64; ++round) {
+            SessionScope here(this, session, join->from);
+            if (m_cardStage->launcherGuestActive()) closeLauncherGuest();
+            // Each pick is read again: a layout left with one pane ends into a
+            // card, and a card's Stack goes with it.
+            KWin::EffectWindow *pane = nullptr;
+            if (!join->returned) {
+                for (const auto &window : m_desktopStage->panesOn(join->from))
+                    if (window && !window->isDeleted() && !tried.contains(window.data())
+                        && (!pane || pane == inUse)) pane = window;
+            }
+            if (pane) {
+                tried.insert(pane);
+                if (m_desktopStage->handoffPaneToOutput(pane, to)) ++moved;
+                continue;
+            }
+            KWin::EffectWindow *card = nullptr;
+            for (const auto &window : m_cardStage->liveCards()) {
+                if (!window || window->isDeleted() || tried.contains(window.data())) continue;
+                if (join->returned && !standsThere(window)) continue;
+                const auto deck = m_cardStage->stackFrontToBack(window);
+                if (!deck.isEmpty() && deck.first() != window) continue;
+                if (!card || card == inUse) card = window;
+            }
+            if (!card) break;
+            tried.insert(card);
+            const bool show = !join->returned && card == inUse && session == m_currentSession;
+            if (moveCardToDisplay(card, to, show)) ++moved;
+        }
+        // A desktop not shown shows it there when it is shown again.
+        if (join->returned || session == m_currentSession || !inUse || inUse->isDeleted()) continue;
+        SessionScope there(this, session, join->to);
+        if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Desktop
+            && m_cardStage->liveCardIndex(inUse) >= 0)
+            (void)m_cardStage->presentCardActive(inUse, false);
+    }
+    qInfo() << "Kadunce" << Revision << "moved" << moved << "cards and panes from" << join->from
+            << "to" << join->to << (join->returned ? "as KWin put them back" : "as it was plugged in");
+    if (moved > 0) {
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
+    }
 }
 
 void Effect::forgetGoneStages()

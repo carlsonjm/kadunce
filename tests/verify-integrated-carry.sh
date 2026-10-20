@@ -34,6 +34,7 @@ scenes=(
     connected-stacks-runtime production
     every-display-runtime production
     every-display-wake-runtime production
+    every-display-plug-runtime production
     every-display-carry-runtime production
     every-display-pane-runtime production
     every-display-full-runtime production

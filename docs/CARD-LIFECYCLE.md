@@ -447,7 +447,9 @@ else the primary (`DECISIONS.md` § A Spread on every display).
 The primary display is your choice while attached, else the touchscreen,
 else the largest (`kaduncerc` `[Spread] Display`, kept by identity through
 renaming). Unplugged, a display's cards wait in the Spread of the display
-KWin moves them to, else the primary's.
+KWin moves them to, else the primary's. Plugged in, a display takes the dock
+display's cards and panes, showing the one in use; back within ten seconds,
+only those KWin returns.
 
 Search floats on the display in use, or a desktop clicked; Spread takes it in.
 
@@ -470,10 +472,9 @@ chosen (`kaduncerc` `[Sizing]`).
 Sized Solo, a display shows one card: one carried or sent there is that card,
 Stack and all; closing or carrying it off brings back the one before. It stays
 though its application stops short (§5). Sized Connected, it plays cards into
-its layout. A window opens as a card where KWin places it. A card moved to
+its layout. A card moved to
 another display goes there with its Stack in one transfer, joining a live
-layout, else Active. Spreads open
-together each show their own cards. Let go (§13), windows
+layout, else Active. Let go (§13), windows
 stay windows until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps one Spread, on the primary
@@ -482,7 +483,7 @@ Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 On a display switched to zones (Meta+Shift+B or the tray), the zones drawn
-with Meta+T are the layout, in place of KWin's default. Each window keeps a
+with Meta+T are the layout. Each window keeps a
 zone it fits, and KWin owns the edges until release.
 
 A transfer (`ARCHITECTURE.md` § Transfer transaction) that fails changes

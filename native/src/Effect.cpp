@@ -440,6 +440,7 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
             [this](KWin::LogicalOutput *output) {
                 m_displaysChanged.start();
+                noteDisplayJoined(output);
                 forEachSession([&] { m_desktopStage->handleScreenAdded(output); });
                 refreshCardOutput();
                 scheduleCardDisplaySettle();
@@ -852,8 +853,8 @@ bool Effect::startTabletInCards(KWin::EffectWindow *arrival)
     if (m_letGo) return false;
     const auto eligible = [this, tablet](KWin::EffectWindow *window) {
         return window && !window->isDeleted() && isCardWindow(window)
-            && window->screen() == tablet && window->window()
-            && window->window()->readyForPainting()
+            && window->window() && window->window()->moveResizeOutput() == tablet
+            && !sessionHolding(window) && window->window()->readyForPainting()
             && !window->isUserMove() && !window->isUserResize();
     };
     KWin::EffectWindow *active = eligible(arrival) ? arrival : nullptr;
