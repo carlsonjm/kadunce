@@ -1,6 +1,6 @@
---- a/native/src/Effect.cpp
-+++ b/native/src/Effect.cpp
-@@ -1381,6 +1381,7 @@
+--- a/native/src/EffectDisplays.cpp
++++ b/native/src/EffectDisplays.cpp
+@@ -252,6 +252,7 @@
              devices.append({device->outputName(), device->property("size").toSizeF()});
          }
      }
