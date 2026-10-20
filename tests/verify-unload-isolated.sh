@@ -11,6 +11,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     lifetime-runtime-session.sh|ownership-session.sh|ownership-transition-session.sh) ;;
     spread-fingers-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
+    settings-frost-runtime-session.sh) ;;
     connected-sizes-runtime-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh|x11-fill-return-runtime-session.sh) ;;
@@ -112,7 +113,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == settings-frost-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
