@@ -113,7 +113,18 @@ constexpr auto Revision = KADUNCE_REVISION;
 // Off unless asked for (TESTING.md § Confirming the running build): what the
 // pointer is over near a display's top edge, read on every motion there.
 Q_LOGGING_CATEGORY(KaduncePointer, "kadunce.pointer", QtWarningMsg)
-constexpr double CardCornerRadius = 8.0;
+// The paper tier every window is cut to, as a person has set it (CardTuning.h).
+double cardCornerRadius()
+{
+    return Kadunce::cardTuning().cornerRadius;
+}
+// Where the shadow of a card drawn at `card` reaches, the card included.
+QRectF shadowExtent(const QRectF &card)
+{
+    const Kadunce::CardShadowShape shape = Kadunce::cardShadowShape(Kadunce::cardTuning().shadow);
+    if (!shape.cast() || card.isEmpty()) return {};
+    return card.adjusted(-shape.reachSides(), -shape.reachAbove(), shape.reachSides(), shape.reachBelow());
+}
 constexpr qint64 FrameStallMs = 50;
 // How far the Active card must travel under a KWin move before the cards let go.
 constexpr double ActiveMoveTravel = 12.0;
@@ -154,6 +165,31 @@ void main() {
     vec4 fill = vec4(surfaceFill.rgb * surfaceFill.a, surfaceFill.a) * inside;
     vec4 color = vec4(outlineInk * edgeAlpha, edgeAlpha) + fill * (1.0 - edgeAlpha);
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
+}
+)GLSL";
+// The shadow a card casts: a soft rounded box under the card, fallen a little
+// below it, drawn only outside the card so its own trimmed corners stay clear.
+constexpr auto ShadowFragment = R"GLSL(#version 140
+in vec2 point;
+out vec4 fragColor;
+uniform vec4 cardBox;
+uniform float cardRadius;
+uniform float shadowBlur;
+uniform float shadowOffset;
+uniform float shadowOpacity;
+#include "colormanagement.glsl"
+float roundedBox(vec2 p, vec4 box, float radius) {
+    vec2 halfSize = box.zw * 0.5;
+    float r = min(radius, min(halfSize.x, halfSize.y));
+    vec2 q = abs(p - box.xy - halfSize) - (halfSize - vec2(r));
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+}
+void main() {
+    float card = roundedBox(point, cardBox, cardRadius);
+    float fallen = roundedBox(point - vec2(0.0, shadowOffset), cardBox, cardRadius);
+    float t = clamp((fallen + 0.25 * shadowBlur) / (1.25 * shadowBlur), 0.0, 1.0);
+    float alpha = shadowOpacity * (1.0 - t) * (1.0 - t) * smoothstep(-0.5, 0.5, card);
+    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(vec4(0.0, 0.0, 0.0, alpha)));
 }
 )GLSL";
 // The shape a window's border asks the pointer for. KWin 6.8 no longer
@@ -238,7 +274,7 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     matrix.translate(-box.right(), -box.bottom());
     shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    shader->setUniform("outlineRadius", float(CardCornerRadius));
+    shader->setUniform("outlineRadius", float(cardCornerRadius()));
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
@@ -785,6 +821,10 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::windowDeleted, this,
         [this](KWin::EffectWindow *window) {
             m_previewSourceBounds.remove(window);
+            if (const auto trace = m_shadowTraces.constFind(window); trace != m_shadowTraces.cend()) {
+                KWin::effects->addRepaint(KWin::RectF(trace->drawn.united(trace->expected)).toAlignedRect());
+                m_shadowTraces.erase(trace);
+            }
             m_previewRefs.remove(window);
             releaseHeldPicture(window);
             if (m_capturingHeld == window) m_capturingHeld = nullptr;
@@ -844,6 +884,8 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
+        m_shadowShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(ShadowFragment));
         m_fanApertureShader =
             KWin::ShaderManager::instance()->generateCustomShader(
                 KWin::ShaderTrait::MapTexture, QByteArray(FanApertureVertexShader),
@@ -8571,6 +8613,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_continueRepaint = true;
         }
     }
+    traceShadows(data);
     KWin::effects->prePaintScreen(data);
 }
 
@@ -8601,6 +8644,8 @@ void Effect::postPaintScreen()
     }
     // A kept picture is looked at again each frame until it is let go.
     if (!m_heldPictures.empty()) KWin::effects->addRepaintFull();
+    // A shadow drawn somewhere new is cleared from where it was next frame.
+    if (!m_shadowRepaint.isEmpty()) KWin::effects->addRepaint(std::exchange(m_shadowRepaint, KWin::Region()));
 }
 
 void Effect::noteTabletFrameStart()
@@ -8668,6 +8713,9 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     // Its trimmed corners show what is under them, so that must be drawn.
     if (trimsCorners(window)) data.setTranslucent();
+    // Its shadow falls outside it, and KWin draws a window only inside its own
+    // bounds unless it is told the window is drawn elsewhere too.
+    if (m_shadowTraces.contains(window)) data.setTransformed();
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -8714,7 +8762,7 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
         matrix.scale(viewport.scale(), viewport.scale());
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-        m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
+        m_destinationShader->setUniform("outlineRadius", float(cardCornerRadius()));
         const QVector3D ink = SurfaceTone::current().lineInk();
         m_destinationShader->setUniform("surfaceFill", QVector4D(ink, 0.035f));
         m_destinationShader->setUniform("outlineOpacity", 0.65f);
@@ -8773,7 +8821,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             matrix.scale(viewport.scale(), viewport.scale());
             m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
             m_destinationShader->setUniform("destinationBox", QVector4D(box.x(),box.y(),box.width(),box.height()));
-            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(CardCornerRadius));
+            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(cardCornerRadius()));
             const QVector3D ink = SurfaceTone::current().lineInk();
             m_destinationShader->setUniform("surfaceFill", QVector4D(ink, pill ? .85f : .035f));
             m_destinationShader->setUniform("outlineOpacity", pill ? 0.f : .8f);
@@ -9482,6 +9530,108 @@ bool Effect::trimsCorners(KWin::EffectWindow *window) const
     return !KWin::effects->isEffectLoaded(RoundedCornersEffect);
 }
 
+bool Effect::castsShadow(KWin::EffectWindow *window) const
+{
+    if (!m_shadowShader || !Kadunce::cardShadowShape(Kadunce::cardTuning().shadow).cast()) return false;
+    if (!window || window->isDeleted() || !window->isVisible() || !trimsCorners(window)) return false;
+    if (m_table.isOpen()) return false;
+    return !(m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread);
+}
+
+void Effect::traceShadows(KWin::ScreenPrePaintData &data)
+{
+    // A window that comes to cast one is traced from its first frame.
+    if (Kadunce::cardShadowShape(Kadunce::cardTuning().shadow).cast()) {
+        const auto windows = KWin::effects->stackingOrder();
+        for (KWin::EffectWindow *window : windows)
+            if (!m_shadowTraces.contains(window) && castsShadow(window)) m_shadowTraces.insert(window, {});
+    }
+    // KWin redraws where a window moved to and from, and a shadow reaches
+    // past both: the frame that moves it redraws where its shadow was drawn
+    // and where it now falls.
+    KWin::Region changed;
+    for (auto it = m_shadowTraces.begin(); it != m_shadowTraces.end();) {
+        const QRectF now = castsShadow(it.key()) ? shadowExtent(QRectF(it.key()->frameGeometry())) : QRectF();
+        if (now != it->expected) {
+            changed |= KWin::RectF(it->drawn.united(now)).toAlignedRect();
+            changed |= KWin::RectF(it->expected).toAlignedRect();
+            it->expected = now;
+        }
+        if (now.isEmpty()) {
+            changed |= KWin::RectF(it->drawn).toAlignedRect();
+            it = m_shadowTraces.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    if (changed.isEmpty()) return;
+    data.paint |= changed;
+    // The same shadow can fall on another display, drawn in its own frame.
+    KWin::effects->addRepaint(changed);
+}
+
+void Effect::paintCardShadow(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                             KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                             const KWin::WindowPaintData &data)
+{
+    // A tilted card is one Spread or Table draws, and they cast none.
+    if (!qFuzzyIsNull(data.rotationAngle()) || data.opacity() <= 0.0) return;
+    const auto trace = m_shadowTraces.find(window);
+    if (trace == m_shadowTraces.end()) return;
+    const QRectF frame(window->frameGeometry());
+    const QRectF card(frame.x() + data.xTranslation(), frame.y() + data.yTranslation(),
+                      frame.width() * data.xScale(), frame.height() * data.yScale());
+    const QRectF extent = shadowExtent(card);
+    if (extent != trace->drawn) {
+        m_shadowRepaint |= KWin::RectF(trace->drawn.united(extent)).toAlignedRect();
+        trace->drawn = extent;
+    }
+    if (extent.isEmpty()) return;
+    const Kadunce::CardShadowShape shape = Kadunce::cardShadowShape(Kadunce::cardTuning().shadow);
+    // The ring around the card, not the card: it is drawn over by the window.
+    QList<QVector2D> vertices;
+    const auto quad = [&vertices](const QRectF &part) {
+        if (part.width() <= 0 || part.height() <= 0) return;
+        vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
+                 << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
+    };
+    // Inside its corners the card is cut away, so the band along each edge
+    // reaches in as far as the corners do.
+    const double inset = std::min({cardCornerRadius(), card.width() / 2.0, card.height() / 2.0});
+    const QRectF inner = card.adjusted(inset, inset, -inset, -inset);
+    quad(QRectF(extent.left(), extent.top(), extent.width(), inner.top() - extent.top()));
+    quad(QRectF(extent.left(), inner.bottom(), extent.width(), extent.bottom() - inner.bottom()));
+    quad(QRectF(extent.left(), inner.top(), inner.left() - extent.left(), inner.height()));
+    quad(QRectF(inner.right(), inner.top(), extent.right() - inner.right(), inner.height()));
+    if (vertices.isEmpty()) return;
+    KWin::ShaderBinder binder(m_shadowShader.get());
+    auto matrix = viewport.projectionMatrix();
+    matrix.scale(viewport.scale(), viewport.scale());
+    m_shadowShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+    m_shadowShader->setUniform("cardBox", QVector4D(card.x(), card.y(), card.width(), card.height()));
+    m_shadowShader->setUniform("cardRadius", float(cardCornerRadius()));
+    m_shadowShader->setUniform("shadowBlur", float(shape.blur));
+    m_shadowShader->setUniform("shadowOffset", float(shape.offset));
+    m_shadowShader->setUniform("shadowOpacity", float(shape.opacity * data.opacity()));
+    m_shadowShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+        renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+    const bool blended = glIsEnabled(GL_BLEND);
+    const bool scissored = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissor[4];
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissor);
+    GLint sr, dr, sa, da;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &sr); glGetIntegerv(GL_BLEND_DST_RGB, &dr);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &sa); glGetIntegerv(GL_BLEND_DST_ALPHA, &da);
+    glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    auto *buffer = KWin::GLVertexBuffer::streamingBuffer();
+    glEnable(GL_SCISSOR_TEST);
+    buffer->reset(); buffer->setVertices(vertices); buffer->render(deviceRegion, GL_TRIANGLES, true);
+    glScissor(previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3]);
+    if (!scissored) glDisable(GL_SCISSOR_TEST);
+    glBlendFuncSeparate(sr, dr, sa, da);
+    if (!blended) glDisable(GL_BLEND);
+}
+
 bool Effect::redirectSource(KWin::EffectWindow *window, bool reportChange)
 {
     const QRectF frame(window->frameGeometry());
@@ -9531,7 +9681,7 @@ PaintResult Effect::drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
         QVector2D(static_cast<float>(std::round(frame.width() * scale)),
                   static_cast<float>(std::round(frame.height() * scale))));
     m_fanApertureShader->setUniform(m_fanApertureRadiusLocation,
-        static_cast<float>(CardCornerRadius * scale));
+        static_cast<float>(cardCornerRadius() * scale));
     m_fanApertureShader->setUniform("tiltedSampling",
         qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
     glActiveTexture(GL_TEXTURE0);
@@ -9552,6 +9702,8 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
     if (window == m_capturingHeld)
         return paintResult(painted([&] { return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
+    if (m_shadowTraces.contains(window) && window != m_fanApertureWindow && castsShadow(window))
+        paintCardShadow(renderTarget, viewport, window, deviceRegion, data);
     if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
         // Let go once the app has drawn twice at its new size.
         if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
@@ -9678,16 +9830,19 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
         const auto clip = deviceRegion
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(shows.intersected(box))))
-            & roundedClip(deviceTarget, CardCornerRadius * viewport.scale());
+            & roundedClip(deviceTarget, cardCornerRadius() * viewport.scale());
         if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
             mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);
     // A sleeping card stands in Spread dimmed, so it can be found and woken,
-    // unless the context line says so instead and the card stands whole.
-    if (m_sleepingShown.contains(window) && !contextLineClaimed(tabletOutput()))
-        data.multiplyOpacity(SleepingCardOpacity);
+    // unless the context line says so instead and the card stands whole, or
+    // a person has chosen either for every sleeping card.
+    if (m_sleepingShown.contains(window)) {
+        const std::optional<bool> chosen = Kadunce::cardTuning().sleepingDimmed;
+        if (chosen ? *chosen : !contextLineClaimed(tabletOutput())) data.multiplyOpacity(SleepingCardOpacity);
+    }
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
@@ -9720,10 +9875,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         m_fanApertureOrigin = QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
                                       (target.y() - logicalRegion.y()) * viewport.scale());
         m_fanApertureSize = QSizeF(deviceTarget.size());
-        m_fanApertureRadius = CardCornerRadius * viewport.scale();
+        m_fanApertureRadius = cardCornerRadius() * viewport.scale();
         const auto clip = deviceRegion
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(plan->clip)))
-            & (rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
+            & (rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
@@ -9911,7 +10066,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
-    const double apertureRadius = CardCornerRadius * viewport.scale();
+    const double apertureRadius = cardCornerRadius() * viewport.scale();
     const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceAperture)
