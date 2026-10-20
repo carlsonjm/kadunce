@@ -620,6 +620,17 @@ public Q_SLOTS:
         }
         return false;
     }
+    // Moves one window's frame to x, y, keeping its size, as a person
+    // dragging it there would leave it.
+    bool placeCaption(const QString &caption, int x, int y) {
+        for (auto *w : KWin::effects->stackingOrder()) {
+            if (w->isDeleted() || !w->window() || w->caption() != caption) continue;
+            const auto g = w->window()->moveResizeGeometry();
+            w->window()->moveResize(KWin::RectF(x, y, g.width(), g.height()));
+            return true;
+        }
+        return false;
+    }
     bool maximizeCaption(const QString &caption) {
         for (auto *w : KWin::effects->stackingOrder()) {
             if (w->isDeleted() || !w->window() || w->caption() != caption) continue;

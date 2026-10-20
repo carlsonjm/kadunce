@@ -85,7 +85,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             || (!visible && !member.minimized)) return false;
         auto *window = client->effectWindow();
         windows.append(window);
-        snapshots.append(ActiveRestoreSnapshot{saved, window, true});
+        snapshots.append(ActiveRestoreSnapshot{saved.place(), window, true});
         return true;
     };
     // Each pane is a card of its own in the row (§11, A layout in Spread),
@@ -760,21 +760,25 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
     return true;
 }
 
+bool CardStageController::takesCardFromOtherDisplay(const KWin::EffectWindow *window) const
+{
+    return !m_cardGrabActive && !m_launcherGuestActive && m_host->tabletOutputForCardStage()
+        && window && !window->isDeleted() && window->window() && window->isNormalWindow()
+        && m_host->mayHoldWindowForCardStage(window)
+        && !window->isUserMove() && !window->isUserResize() && liveCardIndex(window) < 0;
+}
+
 bool CardStageController::admitCardFromOtherDisplay(
     KWin::EffectWindow *window, const std::function<bool()> &commitSource,
     const NativeMoveSnapshot *restore)
 {
     QPointer<KWin::LogicalOutput> tablet = m_host->tabletOutputForCardStage();
-    if (m_cardGrabActive || m_launcherGuestActive || !tablet || !window
-        || window->isDeleted() || !window->window() || !window->isNormalWindow()
-        || !m_host->mayHoldWindowForCardStage(window)
-        || window->isUserMove() || window->isUserResize()
-        || liveCardIndex(window) >= 0) return false;
+    if (!takesCardFromOtherDisplay(window)) return false;
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
     // §5 keeps the record the window had before a layout placed it, so
     // release still returns it where it began.
-    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+    const ActiveRestoreSnapshot incoming{restore ? restore->place()
         : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const bool started = !m_active;
     const int previousSelection = m_workspace.selectedIndex();
@@ -962,7 +966,7 @@ bool CardStageController::admitSleepingPaneAsCard(
     // still returns it where it began. The caller supplies it because the
     // session that held it has already published a plan that no longer names
     // this window.
-    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+    const ActiveRestoreSnapshot incoming{restore ? restore->place()
         : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) return false;
@@ -1163,7 +1167,7 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     // still returns it where it began rather than to a pane rectangle. The
     // caller supplies it because the session that held it has already
     // published a plan that no longer names this window.
-    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+    const ActiveRestoreSnapshot incoming{restore ? restore->place()
         : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) {

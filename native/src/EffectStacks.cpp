@@ -1013,6 +1013,9 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
     onThisStageLater(0, [this, front = QPointer(front), members] {
         if (!front || front->isDeleted() || m_releasing) return;
         QList<KWin::EffectWindow *> alive;
+        // Those that cannot follow now stay one Stack where they are, behind
+        // the first of them, rather than loose cards there.
+        QHash<CardStageController *, QList<KWin::EffectWindow *>> left;
         for (const auto &member : members) {
             if (!member || member->isDeleted() || member == front) continue;
             CardStageController *from = stageHolding(member);
@@ -1021,10 +1024,15 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
                 const QPointer<KWin::EffectWindow> follower = member;
                 if (!m_cardStage->admitCardFromOtherDisplay(member,
                         [from, follower] { return follower && from->releaseCardToStage(follower); },
-                        restore ? &*restore : nullptr)) continue;
+                        restore ? &*restore : nullptr)) {
+                    left[from].append(member.data());
+                    continue;
+                }
             }
             alive.append(member.data());
         }
+        for (auto it = left.cbegin(); it != left.cend(); ++it)
+            if (it.value().size() > 1) (void)it.key()->stackBehind(it.value().first(), it.value().mid(1));
         for (const auto &display : m_scopedSession->displays)
             if (display.second->cards.get() != m_cardStage) display.second->cards->forgetPaneStack(front);
         (void)restoreLeftLayout(front, alive);

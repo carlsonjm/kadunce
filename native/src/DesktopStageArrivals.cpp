@@ -829,7 +829,7 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     const QString key = outputKey(output);
     const auto managed = m_host->activeRestoreForDesktopStage(window);
     if (!restore && managed) restore = &*managed;
-    RestoreSnapshot incoming{restore ? WindowPlace(*restore)
+    RestoreSnapshot incoming{restore ? restore->place()
         : WindowPlace{.geometry = geometry, .floatingGeometry = geometry, .outputName = key,
               .outputGeometry = output ? QRectF(output->geometry()) : QRectF()}, window, true};
     // CARD-LIFECYCLE.md §11, Connected: a card paired into a display with no

@@ -952,7 +952,7 @@ bool CardStageController::admitTransferredWindowToTablet(
     }
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
-    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+    const ActiveRestoreSnapshot incoming{restore ? restore->place()
         : placeOf(client.data(), window->frameGeometry(), window->screen()), window, true};
     const KWin::RectF target(activeTarget(tablet));
     const auto ticket = m_transferGuard.issue();

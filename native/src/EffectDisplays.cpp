@@ -589,6 +589,17 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
     const QPointer<KWin::EffectWindow> moving = card;
     {
         SessionScope there(this, session, toKey);
+        // A Stack moves whole or not at all: one card the other display cannot
+        // take now keeps the whole Stack here.
+        for (auto *member : std::as_const(behind)) {
+            // One not a card here yet, as an arriving window, is not the Stack's
+            // to wait for.
+            if (member == card || from->liveCardIndex(member) < 0
+                || into.takesCardFromOtherDisplay(member)) continue;
+            qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(card) << "here: its Stack's"
+                    << logNameOf(member) << "cannot move to" << to->name() << "now";
+            return false;
+        }
         if (!into.admitCardFromOtherDisplay(card,
                 [from, moving] { return moving && from->releaseCardToStage(moving); },
                 restore ? &*restore : nullptr)) {
@@ -598,6 +609,7 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
     }
     from->forgetPaneStack(card);
     QList<KWin::EffectWindow *> carried;
+    QList<KWin::EffectWindow *> left;
     for (auto *member : std::as_const(behind)) {
         const auto memberRestore = record(member);
         const QPointer<KWin::EffectWindow> follower = member;
@@ -605,7 +617,13 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
         if (into.admitCardFromOtherDisplay(member,
                 [from, follower] { return follower && from->releaseCardToStage(follower); },
                 memberRestore ? &*memberRestore : nullptr)) carried.append(member);
+        else if (member) left.append(member);
     }
+    // One that still could not follow is not left loose: those left here
+    // stay one Stack, behind the first of them.
+    if (left.size() > 1 && !from->stackBehind(left.first(), left.mid(1)))
+        qInfo() << "Kadunce" << Revision << "could not keep" << left.size() << "cards stacked on"
+                << m_scopedKey << "that did not follow" << logNameOf(card);
     {
         SessionScope there(this, session, toKey);
         if (!carried.isEmpty() && !into.stackBehind(card, carried))
@@ -993,6 +1011,19 @@ void Effect::handOverGoneStages()
             // nothing is shown there.
             const QPointer<KWin::EffectWindow> wasShown = stage->presentation() == CardPresentation::Active
                 ? stage->activeCardIdentity() : nullptr;
+            // A Stack behind a pane of the gone display's layout is no card's
+            // Stack, so it is kept for its pane: the pane comes back where it
+            // was given back, and its Stack is rejoined behind it there.
+            QList<std::pair<QPointer<KWin::EffectWindow>, QList<KWin::EffectWindow *>>> paneStacks;
+            const auto &kept = stage->paneStackRecords();
+            for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+                const auto record = kept.constFind(window);
+                if (record == kept.cend() || window->isDeleted()) continue;
+                QList<KWin::EffectWindow *> members;
+                for (const auto &member : record.value())
+                    if (member && !member->isDeleted()) members.append(member.data());
+                if (!members.isEmpty()) paneStacks.append({window, members});
+            }
             for (const auto &card : std::as_const(cards)) {
                 if (!card || card->isDeleted() || stage->liveCardIndex(card) < 0) continue;
                 // A card behind another goes with its face.
@@ -1002,6 +1033,13 @@ void Effect::handOverGoneStages()
                 if (!isCardDisplay(there)) there = primary;
                 if (!moveCardToDisplay(card, there, false))
                     qInfo() << "Kadunce" << Revision << "could not hand" << logNameOf(card) << "to" << there->name();
+            }
+            for (const auto &[pane, members] : std::as_const(paneStacks)) {
+                if (!pane || pane->isDeleted()) continue;
+                KWin::LogicalOutput *there = pane->window() ? pane->window()->moveResizeOutput() : nullptr;
+                if (!isCardDisplay(there)) there = primary;
+                SessionScope receiving(this, session, stageKeyFor(there));
+                rejoinStack(pane, members);
             }
             const auto heldAt = wasShown && !wasShown->isDeleted() ? session->keyHolding(wasShown) : std::nullopt;
             if (heldAt && *heldAt != key) {
@@ -1343,47 +1381,42 @@ void Effect::observeCardBook()
 void Effect::readCardBook()
 {
     if (!m_cardStage || !m_desktopStage || m_releasing || !m_scopedSession) return;
-    QList<CardBookDisplay> displays;
-    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
-        const bool holds = isCardDisplay(output);
-        displays.append({output->name(), holds, holds, sizingFor(output) == DisplaySizing::Solo});
-    }
-
-    // This desktop's windows, read from every record that names one.
+    // Every desktop's windows, read from every record that names one: a card
+    // a desktop not shown still holds is as much its status as one shown.
     QHash<quintptr, KWin::EffectWindow *> windows;
     const auto add = [&](KWin::EffectWindow *window) {
         if (window && !window->isDeleted()) windows.insert(reinterpret_cast<quintptr>(window), window);
     };
-    QHash<quintptr, QString> paneOf;
-    for (const auto &view : m_desktopStage->ownershipView())
-        for (const auto pane : view.panes) paneOf.insert(pane, view.output);
-    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
-        if (paneOf.contains(reinterpret_cast<quintptr>(window))) add(window);
-    // §11: each display's own stage, by the display it holds cards for.
+    QHash<quintptr, QStringList> paneOf;
     QHash<quintptr, QStringList> stagesOf;
-    QHash<quintptr, std::vector<quintptr>> behind;
-    QHash<quintptr, quintptr> faceOf;
-    for (const auto &display : m_scopedSession->displays) {
-        const CardStageController &cards = *display.second->cards;
-        const QString name = display.first.isEmpty() ? m_cardOutputName : display.first;
-        for (const auto &card : cards.liveCards()) {
-            if (!card) continue;
-            add(card.data());
-            stagesOf[reinterpret_cast<quintptr>(card.data())].append(name);
-            const auto stack = cards.stackFrontToBack(card);
-            if (stack.size() > 1)
-                faceOf.insert(reinterpret_cast<quintptr>(card.data()), reinterpret_cast<quintptr>(stack.first()));
-        }
-        const auto &stacks = cards.paneStackRecords();
-        for (auto it = stacks.cbegin(); it != stacks.cend(); ++it) {
-            const auto holder = reinterpret_cast<quintptr>(it.key());
-            for (const auto &member : it.value()) {
-                if (!member || member->isDeleted()) continue;
-                add(member.data());
-                behind[reinterpret_cast<quintptr>(member.data())].push_back(holder);
+    QHash<quintptr, std::vector<CardBookStackPlace>> behind;
+    for (const auto &entry : m_sessions) {
+        const DesktopSession &session = *entry.second;
+        if (session.layouts)
+            for (const auto &view : session.layouts->ownershipView())
+                for (const auto pane : view.panes) paneOf[pane].append(view.output);
+        // §11: each display's own stage, by the display it holds cards for.
+        for (const auto &display : session.displays) {
+            const CardStageController &cards = *display.second->cards;
+            const QString name = display.first.isEmpty() ? m_cardOutputName : display.first;
+            for (const auto &card : cards.liveCards()) {
+                if (!card) continue;
+                add(card.data());
+                stagesOf[reinterpret_cast<quintptr>(card.data())].append(name);
+            }
+            const auto &stacks = cards.paneStackRecords();
+            for (auto it = stacks.cbegin(); it != stacks.cend(); ++it) {
+                const auto holder = reinterpret_cast<quintptr>(it.key());
+                for (const auto &member : it.value()) {
+                    if (!member || member->isDeleted()) continue;
+                    add(member.data());
+                    behind[reinterpret_cast<quintptr>(member.data())].push_back({holder, name});
+                }
             }
         }
     }
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+        if (paneOf.contains(reinterpret_cast<quintptr>(window))) add(window);
 
     std::vector<CardBookEntry> entries;
     entries.reserve(windows.size());
@@ -1396,14 +1429,14 @@ void Effect::readCardBook()
         entry.card = !held.isEmpty();
         entry.cardStage = held.isEmpty() ? QString() : held.first();
         entry.cardStages = int(held.size());
-        entry.paneOf = paneOf.value(it.key());
+        const QStringList panes = paneOf.value(it.key());
+        entry.paneOf = panes.isEmpty() ? QString() : panes.first();
+        entry.panes = int(panes.size());
         entry.behindPanes = behind.value(it.key());
-        entry.stackFace = faceOf.value(it.key());
-        entry.minimized = window->isMinimized();
         entries.push_back(std::move(entry));
     }
 
-    auto mismatches = checkCardBook(displays, entries);
+    auto mismatches = checkCardBook(entries);
     // Reported once, as ownership is: the book is read on every change.
     if (mismatches == m_observedCardBook) return;
     for (const auto &mismatch : mismatches) {

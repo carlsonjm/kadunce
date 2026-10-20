@@ -106,6 +106,7 @@ scenes=(
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
     monitor-overflow-runtime tablet
+    monitor-unplug-layout-runtime tablet
     monitor-lone-runtime tablet
     monitor-full-runtime tablet
     monitor-grid-runtime tablet

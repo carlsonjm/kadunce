@@ -21,6 +21,18 @@ namespace Kadunce {
 struct NativeMoveSnapshot : WindowPlace {
     QPointer<KWin::Window> window;
     QPointer<KWin::LogicalOutput> output;
+
+    // The place, naming the display the move stands on when the record
+    // itself names none.
+    [[nodiscard]] WindowPlace place() const
+    {
+        WindowPlace known = *this;
+        if (known.outputName.isEmpty() && output) {
+            known.outputName = output->name();
+            known.outputGeometry = QRectF(output->geometry());
+        }
+        return known;
+    }
 };
 
 // A native-call boundary, not an input filter or destination policy. Callers

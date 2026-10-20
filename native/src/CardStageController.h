@@ -503,6 +503,9 @@ public:
     bool admitCardFromOtherDisplay(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore);
+    // Whether admitCardFromOtherDisplay would take `window` now, asked of
+    // every card of a Stack before any of them moves.
+    [[nodiscard]] bool takesCardFromOtherDisplay(const KWin::EffectWindow *window) const;
     // §11, Every display: this card gives up individual ownership to the
     // layout of the display it shows on, in one step, whatever this display
     // presents. A card held aside is shown again for it.

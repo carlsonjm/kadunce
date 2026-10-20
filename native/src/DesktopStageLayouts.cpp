@@ -87,7 +87,7 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
             // bounds. Carry the source owner's record across this boundary,
             // with the display it was taken on, so a window that came from
             // another display goes back there when the layout lets it go.
-            static_cast<WindowPlace &>(saved) = *activeRestore;
+            static_cast<WindowPlace &>(saved) = activeRestore->place();
         }
         snapshots.append(saved);
     }
@@ -1180,11 +1180,18 @@ KWin::RectF DesktopStageController::givenBackPlace(const RestoreSnapshot &snapsh
     KWin::LogicalOutput *target, bool ownDisplay)
 {
     if (!target) return snapshot.geometry;
+    const QList<ReleaseDisplay> displays = releaseDisplays();
+    const ReleaseRecord record = snapshot.releaseRecord();
+    // A place already on `target`, taken on a display still there, is that
+    // display's own and only kept clear of panels, as a card's is.
+    const ReleaseDisplay *holding = releaseDisplayAt(displays, record.place.center());
+    const bool originGone = !record.origin.isEmpty() && !releaseDisplayNamed(displays, record.origin);
+    if (!ownDisplay && holding && holding->name == target->name() && !originGone) ownDisplay = true;
     if (ownDisplay) return snapshot.floating() ? fittedIntoWorkArea(snapshot.geometry, target)
                                                : snapshot.geometry;
     const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, target));
     return KWin::RectF(carriedPlace(QRectF(snapshot.geometry),
-        releaseCarriedFrom(releaseDisplays(), snapshot.releaseRecord()), work));
+        releaseCarriedFrom(displays, record), work));
 }
 
 bool DesktopStageController::reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot)
@@ -1285,8 +1292,8 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         if (restoreGeometry != snapshot.geometry)
             qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
                     << restoreGeometry << "instead of" << snapshot.geometry
-                    << (preserveGeometry ? ": its place lies under a panel's room"
-                                         : ": it is given back on another display");
+                    << (targetOutput == originalOutput ? ": its place lies under a panel's room"
+                                                       : ": it is given back on another display");
         client->sendToOutput(targetOutput);
         // A window Kadunce parked in the dock was awake before it was parked.
         if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
@@ -1448,7 +1455,7 @@ bool DesktopStageController::resumeProjectedSession(
         if (pane) candidate.windows.append(member.window);
         // §7's intent crosses back with the window. Without it the next solve
         // would offer a sleeping window a pane, which §7 forbids.
-        candidate.snapshots.append(RestoreSnapshot{member.restore, member.window, true, !pane});
+        candidate.snapshots.append(RestoreSnapshot{member.restore.place(), member.window, true, !pane});
         return true;
     };
     for (const auto &member : projection.panes) {

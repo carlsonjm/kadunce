@@ -365,7 +365,7 @@ DesktopStageController::RestoreSnapshot DesktopStageController::makeSnapshot(
     }
     KWin::Window *client = window->window();
     if (const auto saved = m_host->activeRestoreForDesktopStage(window))
-        return {*saved, window, true};
+        return {saved->place(), window, true};
     return {placeOf(client, window->frameGeometry(), window->screen()), window, true};
 }
 
