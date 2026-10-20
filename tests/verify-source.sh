@@ -2,9 +2,39 @@
 
 set -euo pipefail
 
+# A class's code is split across its core file, a shared internal header and
+# its area files (docs/ARCHITECTURE.md § Source layout). The checks read the
+# class whole, so they hold wherever in its files the code they name sits.
+src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../native/src" && pwd)"
+whole_sources=()
+trap 'rm -f "${whole_sources[@]}"' EXIT
+# The core file, then the header, then every other file named for the class.
+whole() {
+    local core="$1" prefix="$2" out file
+    out="$(mktemp)"
+    whole_sources+=("$out")
+    cat "${src_dir}/${core}" "${src_dir}/${prefix}Internal.h" >"$out"
+    for file in "${src_dir}/${prefix}"[A-Z]*.cpp; do
+        [[ $file == "${src_dir}/${core}" ]] || cat "$file" >>"$out"
+    done
+    printf '%s' "$out"
+}
+# No source file grows past the ceiling; new code goes in its area's file.
+source_ceiling=2000
+for file in "${src_dir}"/*.cpp "${src_dir}"/*.h; do
+    lines=$(wc -l <"$file")
+    if (( lines > source_ceiling )); then
+        echo "FAIL: ${file##*/} has ${lines} lines, over the ${source_ceiling}-line ceiling (docs/ARCHITECTURE.md § Source layout)" >&2
+        exit 1
+    fi
+done
+effect_whole="$(whole Effect.cpp Effect)"
+card_whole="$(whole CardStageController.cpp CardStage)"
+desktop_whole="$(whole DesktopStageController.cpp DesktopStage)"
+
 # Every Stack in the row is open, except beside the search launcher, where
 # guest-centered Spread compacts them, its formerly selected neighbor included.
-controller="$(dirname "$0")/../native/src/CardStageController.cpp"
+controller="${card_whole}"
 sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F 'if (!m_launcherGuestActive || m_launcherGuestArrival) {' > /dev/null
 rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
 
@@ -18,11 +48,11 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # calls this and from wherever.
 cd "${project_dir}"
 native_dir="${project_dir}/native"
-effect_cpp="${native_dir}/src/Effect.cpp"
+effect_cpp="${effect_whole}"
 # Spread's guest service, split out of Effect.cpp.
 effect_guest_cpp="${native_dir}/src/EffectGuest.cpp"
 effect_header="${native_dir}/src/Effect.h"
-card_cpp="${native_dir}/src/CardStageController.cpp"
+card_cpp="${card_whole}"
 card_header="${native_dir}/src/CardStageController.h"
 # Ordering of ownership publication, native placement and projection retirement
 # is carried by OwnershipHandoff.h and covered behaviorally by the
@@ -67,7 +97,7 @@ PY_A2
 # CARD-LIFECYCLE.md §5: a window a layout cannot show becomes an AWAKE card.
 # Publishing a layout is therefore the one place that must never minimize, which
 # is what the deleted overflow container made it do.
-python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_PUBLISH'
+python3 - "${desktop_whole}" <<'PY_PUBLISH'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
 publish = source.split('bool DesktopStageController::applySession(', 1)[1].split(
@@ -83,7 +113,7 @@ PY_PUBLISH
 # sends a window the layout cannot show to card ownership. A placement that does
 # not settle is therefore answered by shedding the panes that would not take
 # their rects, never by returning the session to Plasma.
-python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_SETTLE'
+python3 - "${desktop_whole}" <<'PY_SETTLE'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
 settle = source.split('void DesktopStageController::settleSessions(', 1)[1].split(
@@ -97,7 +127,7 @@ assert 'extractPaneToCards(' in shed, 'An unplaced pane must leave for card owne
 assert 'restoreSession(' not in shed, 'Shedding must not return the session to Plasma'
 assert 'isMinimized()' in shed, 'A sleeping pane belongs to §7, not to the settle'
 PY_SETTLE
-python3 - "${native_dir}/src/DesktopStageController.cpp" <<'PY_RESUME'
+python3 - "${desktop_whole}" <<'PY_RESUME'
 import pathlib, sys
 source = pathlib.Path(sys.argv[1]).read_text()
 resume = source.split('bool DesktopStageController::resumeProjectedSession(', 1)[1].split('void DesktopStageController::restoreAllSessions()', 1)[0]
@@ -121,7 +151,7 @@ pickup=$(sed -n '/^void CardStageController::beginCardGrab(/,/^void CardStageCon
 printf '%s\n' "$pickup" | perl -0777 -ne 'exit(!/captureCardTransition\(false, true\);.*?setElevatedWindow\(window, true\)/s)'
 router_cpp="${native_dir}/src/WorkspaceInputRouter.cpp"
 router_header="${native_dir}/src/WorkspaceInputRouter.h"
-desktop_cpp="${native_dir}/src/DesktopStageController.cpp"
+desktop_cpp="${desktop_whole}"
 desktop_header="${native_dir}/src/DesktopStageController.h"
 metadata_file="${native_dir}/src/metadata.json"
 install_script="${project_dir}/install.sh"
@@ -208,7 +238,7 @@ fi
 # from that day and one sat inside the integrated carry gate. Check the wire in
 # both directions instead: the effect must still report the frozen value, and
 # every presentation a test asserts must be one the effect can report.
-rg -q 'QStringLiteral\("cardLine"\)' "${project_dir}/native/src/Effect.cpp" || {
+rg -q 'QStringLiteral\("cardLine"\)' "${effect_cpp}" || {
     echo "Effect no longer reports the frozen cardLine presentation" >&2
     exit 1
 }

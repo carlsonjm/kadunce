@@ -62,6 +62,26 @@ controller views and never mutates a controller.
 The renderer still inside `Effect` may move behind a typed boundary, as long as
 the move adds no second model, event bus, or persistence service.
 
+## Source layout
+
+`Effect`, `CardStageController` and `DesktopStageController` each keep a core
+file named for the class, a private `EffectInternal.h`, `CardStageInternal.h` or
+`DesktopStageInternal.h` that their files share, and area files named for what
+they hold:
+
+- `Effect`: `EffectDisplays`, `EffectTable`, `EffectCarry`, `EffectStacks`,
+  `EffectInput`, `EffectKeys`, `EffectContext`, `EffectNotes`, `EffectOffers`,
+  `EffectPaint` and `EffectGuest`.
+- `CardStageController`: `CardStagePoses`, `CardStageKeyboard`,
+  `CardStageCarry`, `CardStageBento` and `CardStageRow`.
+- `DesktopStageController`: `DesktopStageArrivals`, `DesktopStageLayouts` and
+  `DesktopStageDividers`.
+
+New code goes in the file for its area, and a new area gets a file of its own.
+No file in `native/src` passes 2,000 lines. `tests/verify-source.sh` enforces
+the ceiling and reads each class's files as one, so moving code between them
+breaks no check.
+
 ## Presentation model
 
 Active presents one interactive card. Spread presents an ordered center and

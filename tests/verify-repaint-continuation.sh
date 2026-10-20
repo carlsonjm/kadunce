@@ -2,7 +2,7 @@
 # Source-level regression guard, not a GPU/runtime performance test.
 set -euo pipefail
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-source_file="$root/native/src/Effect.cpp"
+source_file="$root/native/src/EffectPaint.cpp"
 pre=$(sed -n '/^void Effect::prePaintScreen(/,/^void Effect::postPaintScreen(/p' "$source_file")
 post=$(sed -n '/^void Effect::postPaintScreen(/,/^void Effect::prePaintWindow(/p' "$source_file")
 [[ -n $post ]] || { echo 'FAIL: no post-paint continuation'; exit 1; }
