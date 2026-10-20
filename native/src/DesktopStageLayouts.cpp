@@ -87,14 +87,7 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
             // bounds. Carry the source owner's record across this boundary,
             // with the display it was taken on, so a window that came from
             // another display goes back there when the layout lets it go.
-            if (activeRestore->output) saved.outputName = outputKey(activeRestore->output);
-            saved.geometry = activeRestore->geometry;
-            saved.floatingGeometry = activeRestore->floatingGeometry;
-            saved.fullscreenRestoreGeometry = activeRestore->fullscreenRestoreGeometry;
-            saved.maximizeMode = activeRestore->maximizeMode;
-            saved.quickTileMode = activeRestore->quickTileMode;
-            saved.fullScreen = activeRestore->fullScreen;
-            saved.minimized = activeRestore->minimized;
+            static_cast<WindowPlace &>(saved) = *activeRestore;
         }
         snapshots.append(saved);
     }
@@ -546,9 +539,7 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
             session->snapshots.cend(),
             [window](const auto &s) { return s.window == window && s.valid; });
         if (saved == session->snapshots.cend()) return false;
-        sleepingRecord = NativeMoveSnapshot{window->window(), outputForKey(saved->outputName),
-            saved->geometry, saved->floatingGeometry, saved->fullscreenRestoreGeometry,
-            saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
+        sleepingRecord = NativeMoveSnapshot{*saved, window->window(), outputForKey(saved->outputName)};
     }
     const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
         KWin::LogicalOutput *from = outputForKey(sourceKey);
@@ -640,9 +631,7 @@ QList<DesktopStageController::PendingEviction> DesktopStageController::captureEv
         if (std::any_of(published.snapshots.cbegin(), published.snapshots.cend(),
                 [&saved](const auto &kept) { return kept.window == saved.window; })) continue;
         pending.append({saved.window,
-            {saved.window->window(), outputForKey(saved.outputName), saved.geometry,
-             saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
-             saved.quickTileMode, saved.fullScreen, saved.minimized},
+            NativeMoveSnapshot{saved, saved.window->window(), outputForKey(saved.outputName)},
             live.outputName, saved, arrival});
     }
     return pending;
@@ -1187,6 +1176,17 @@ KWin::RectF DesktopStageController::fittedIntoWorkArea(const KWin::RectF &geomet
         std::clamp(geometry.y(), work.y(), bottom), width, height);
 }
 
+KWin::RectF DesktopStageController::givenBackPlace(const RestoreSnapshot &snapshot,
+    KWin::LogicalOutput *target, bool ownDisplay)
+{
+    if (!target) return snapshot.geometry;
+    if (ownDisplay) return snapshot.floating() ? fittedIntoWorkArea(snapshot.geometry, target)
+                                               : snapshot.geometry;
+    const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, target));
+    return KWin::RectF(carriedPlace(QRectF(snapshot.geometry),
+        releaseCarriedFrom(releaseDisplays(), snapshot.releaseRecord()), work));
+}
+
 bool DesktopStageController::reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot)
 {
     if (!client || (!snapshot.minimized && !snapshot.userMinimized)) return false;
@@ -1278,19 +1278,15 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         if (!clientValid()) return RestoreResult::Aborted;
         const bool preserveGeometry = !outputRemoving && !regiven && targetOutput == originalOutput;
         const auto valid = [&] { return clientValid() && available(targetOutput); };
-        KWin::RectF restoreGeometry = snapshot.geometry;
         // A floating place is fitted into the room panels leave even on its
         // own display: one taken while a panel's room was smaller, or larger
         // than the room left, would stand under the panel.
-        const bool floating = !snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
-            && snapshot.quickTileMode == KWin::QuickTileMode{};
-        if (!preserveGeometry || floating) {
-            restoreGeometry = fittedIntoWorkArea(restoreGeometry, targetOutput);
-            if (preserveGeometry && restoreGeometry != snapshot.geometry)
-                qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
-                        << restoreGeometry << "instead of" << snapshot.geometry
-                        << ": its place lies under a panel's room";
-        }
+        const KWin::RectF restoreGeometry = givenBackPlace(snapshot, targetOutput, preserveGeometry);
+        if (restoreGeometry != snapshot.geometry)
+            qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
+                    << restoreGeometry << "instead of" << snapshot.geometry
+                    << (preserveGeometry ? ": its place lies under a panel's room"
+                                         : ": it is given back on another display");
         client->sendToOutput(targetOutput);
         // A window Kadunce parked in the dock was awake before it was parked.
         if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
@@ -1366,11 +1362,9 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         if (!window || window->isDeleted() || !window->window() || window->screen() != output
             || saved == session->snapshots.cend() || !saved->valid)
             return refuse("a pane is gone, elsewhere or has no record");
-        BentoProjectionMember member{window,
-            {window->window(), output, saved->geometry, saved->floatingGeometry,
-            saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
-            saved->fullScreen, saved->minimized || saved->userMinimized},
+        BentoProjectionMember member{window, NativeMoveSnapshot{*saved, window->window(), output},
             window->isMinimized()};
+        member.restore.minimized = saved->minimized || saved->userMinimized;
         if (session->windows.contains(window)) projection.panes.append(member);
         else projection.sleeping.append(member);
     }
@@ -1452,21 +1446,9 @@ bool DesktopStageController::resumeProjectedSession(
             return false;
         }
         if (pane) candidate.windows.append(member.window);
-        candidate.snapshots.append({
-            .window = member.window,
-            .geometry = member.restore.geometry,
-            .floatingGeometry = member.restore.floatingGeometry,
-            .fullscreenRestoreGeometry = member.restore.fullscreenRestoreGeometry,
-            .outputName = outputKey(member.restore.output),
-            .quickTileMode = member.restore.quickTileMode,
-            .maximizeMode = member.restore.maximizeMode,
-            .fullScreen = member.restore.fullScreen,
-            .minimized = member.restore.minimized,
-            .valid = true,
-            // §7's intent crosses back with the window. Without it the next
-            // solve would offer a sleeping window a pane, which §7 forbids.
-            .userMinimized = !pane,
-        });
+        // §7's intent crosses back with the window. Without it the next solve
+        // would offer a sleeping window a pane, which §7 forbids.
+        candidate.snapshots.append(RestoreSnapshot{member.restore, member.window, true, !pane});
         return true;
     };
     for (const auto &member : projection.panes) {

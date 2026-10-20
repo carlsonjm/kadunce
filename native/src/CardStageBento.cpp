@@ -85,13 +85,7 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
             || (!visible && !member.minimized)) return false;
         auto *window = client->effectWindow();
         windows.append(window);
-        snapshots.append({.window = window, .geometry = saved.geometry,
-            .floatingGeometry = saved.floatingGeometry,
-            .fullscreenRestoreGeometry = saved.fullscreenRestoreGeometry,
-            .quickTileMode = saved.quickTileMode, .maximizeMode = saved.maximizeMode,
-            .fullScreen = saved.fullScreen, .minimized = saved.minimized, .valid = true,
-            .outputName = outputNameOf(saved.output.data()),
-            .outputGeometry = outputGeometryOf(saved.output.data())});
+        snapshots.append(ActiveRestoreSnapshot{saved, window, true});
         return true;
     };
     // Each pane is a card of its own in the row (§11, A layout in Spread),
@@ -780,20 +774,8 @@ bool CardStageController::admitCardFromOtherDisplay(
     QPointer<KWin::Window> client = window->window();
     // §5 keeps the record the window had before a layout placed it, so
     // release still returns it where it began.
-    const ActiveRestoreSnapshot incoming{
-        .window = window,
-        .geometry = restore ? restore->geometry : client->moveResizeGeometry(),
-        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
-        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry
-                                             : client->fullscreenGeometryRestore(),
-        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
-        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
-        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
-        .minimized = restore ? restore->minimized : client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
-        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
-    };
+    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+        : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const bool started = !m_active;
     const int previousSelection = m_workspace.selectedIndex();
     const auto admission = m_workspace.prepareAdmission(arrival, false);
@@ -980,20 +962,8 @@ bool CardStageController::admitSleepingPaneAsCard(
     // still returns it where it began. The caller supplies it because the
     // session that held it has already published a plan that no longer names
     // this window.
-    const ActiveRestoreSnapshot incoming{
-        .window = window,
-        .geometry = restore ? restore->geometry : client->moveResizeGeometry(),
-        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
-        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry
-                                             : client->fullscreenGeometryRestore(),
-        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
-        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
-        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
-        .minimized = restore ? restore->minimized : client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
-        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
-    };
+    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+        : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) return false;
     if (!m_workspace.commitAdmission(*admission, commitSource)) return false;
@@ -1193,20 +1163,8 @@ bool CardStageController::admitDisplacedPaneAsHiddenCard(
     // still returns it where it began rather than to a pane rectangle. The
     // caller supplies it because the session that held it has already
     // published a plan that no longer names this window.
-    const ActiveRestoreSnapshot incoming{
-        .window = window,
-        .geometry = restore ? restore->geometry : client->moveResizeGeometry(),
-        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
-        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry
-                                             : client->fullscreenGeometryRestore(),
-        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
-        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
-        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
-        .minimized = restore ? restore->minimized : client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
-        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
-    };
+    const ActiveRestoreSnapshot incoming{restore ? WindowPlace(*restore)
+        : placeOf(client.data(), client->moveResizeGeometry(), window->screen()), window, true};
     const auto admission = m_workspace.prepareAdmission(arrival, false);
     if (!admission) {
         qInfo() << "Kadunce" << Revision << "did not take a displaced pane as a hidden card:"

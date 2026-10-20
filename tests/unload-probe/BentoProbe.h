@@ -132,9 +132,8 @@ struct BentoProbe {
         auto *w = ownershipArrival.data();
         if (!w || !w->window() || w->screen() != ownershipSource) return false;
         auto *native = w->window();
-        ownershipSourceSnapshot = {native, ownershipSource, native->moveResizeGeometry(),
-            native->geometryRestore(), native->fullscreenGeometryRestore(), native->maximizeMode(),
-            native->quickTileMode(), native->isFullScreen(), native->isMinimized()};
+        ownershipSourceSnapshot = {Kadunce::placeOf(native, native->moveResizeGeometry(), ownershipSource),
+            native, ownershipSource};
         ownershipCards = std::make_unique<Kadunce::CardStageController>(&ownershipHost);
         int calls = 0;
         if (ownershipCards->admitTransferredWindowToTablet(w, [&] { ++calls; return false; }, {}, &ownershipSourceSnapshot)

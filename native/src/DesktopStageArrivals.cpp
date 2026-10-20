@@ -184,16 +184,8 @@ bool DesktopStageController::admitCardWindow(
     for (const auto &existing : std::as_const(session->snapshots)) {
         if (existing.window == window) return session->windows.contains(window);
     }
-    const RestoreSnapshot snapshot{
-        .window = window,
-        .geometry = geometry,
-        .outputName = outputKey(output),
-        .quickTileMode = {},
-        .maximizeMode = KWin::MaximizeRestore,
-        .fullScreen = false,
-        .minimized = false,
-        .valid = true,
-    };
+    const RestoreSnapshot snapshot{WindowPlace{.geometry = geometry, .outputName = outputKey(output),
+        .outputGeometry = output ? QRectF(output->geometry()) : QRectF()}, window, true};
     // CARD-LIFECYCLE.md §5: a full layout yields a pane to the arrival instead
     // of parking it. Which pane yields is decided on a value copy and nothing
     // leaves until this admission has published, so a rejection disturbs
@@ -837,19 +829,9 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
     const QString key = outputKey(output);
     const auto managed = m_host->activeRestoreForDesktopStage(window);
     if (!restore && managed) restore = &*managed;
-    RestoreSnapshot incoming{
-        .window = window, .geometry = geometry, .floatingGeometry = geometry,
-        .fullscreenRestoreGeometry = {}, .outputName = key, .quickTileMode = {},
-        .maximizeMode = KWin::MaximizeRestore, .fullScreen = false,
-        .minimized = false, .valid = true};
-    if (restore) {
-        incoming = {.window = window, .geometry = restore->geometry,
-            .floatingGeometry = restore->floatingGeometry,
-            .fullscreenRestoreGeometry = restore->fullscreenRestoreGeometry,
-            .outputName = outputKey(restore->output), .quickTileMode = restore->quickTileMode,
-            .maximizeMode = restore->maximizeMode, .fullScreen = restore->fullScreen,
-            .minimized = restore->minimized, .valid = true};
-    }
+    RestoreSnapshot incoming{restore ? WindowPlace(*restore)
+        : WindowPlace{.geometry = geometry, .floatingGeometry = geometry, .outputName = key,
+              .outputGeometry = output ? QRectF(output->geometry()) : QRectF()}, window, true};
     // CARD-LIFECYCLE.md §11, Connected: a card paired into a display with no
     // layout, picked, newly opened or snapped, stands with its partner as two
     // even columns, the arrival in the one its side names, and the columns
@@ -1041,12 +1023,7 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
             auto saved = std::find_if(session->snapshots.begin(), session->snapshots.end(),
                 [&](const auto &s) { return s.window == arrival; });
             if (saved == session->snapshots.end()) return true;
-            *saved = {.window = arrival, .geometry = client->moveResizeGeometry(),
-                .floatingGeometry = client->geometryRestore(),
-                .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
-                .outputName = key, .quickTileMode = client->quickTileMode(),
-                .maximizeMode = client->maximizeMode(), .fullScreen = client->isFullScreen(),
-                .minimized = client->isMinimized(), .valid = true};
+            *saved = {placeOf(client.data(), client->moveResizeGeometry(), target.data()), arrival, true};
         }
         auto session = m_sessions.find(key);
         if (session != m_sessions.end() && applySession(session.value(), true)) scheduleSettle();

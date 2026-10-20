@@ -365,16 +365,9 @@ public:
                            std::optional<BentoSidePlacement> side = {});
 
 private:
-    struct RestoreSnapshot {
+    // A layout's restore record: the place, and how the window sleeps.
+    struct RestoreSnapshot : WindowPlace {
         QPointer<KWin::EffectWindow> window;
-        KWin::RectF geometry;
-        KWin::RectF floatingGeometry;
-        KWin::RectF fullscreenRestoreGeometry;
-        QString outputName;
-        KWin::QuickTileMode quickTileMode;
-        KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
-        bool fullScreen = false;
-        bool minimized = false;
         bool valid = false;
         bool userMinimized = false;
         // Minimized by Kadunce because a layout on a display that cannot own
@@ -551,6 +544,12 @@ private:
     // A place moved and shrunk into the room panels leave on output.
     [[nodiscard]] static KWin::RectF fittedIntoWorkArea(const KWin::RectF &geometry,
         KWin::LogicalOutput *output);
+    // Where a window is given back on `target`: on the display its place was
+    // taken on, that place, fitted clear of panels when it is its own; on any
+    // other, carried there as a card's is (ReleasePlace.h), never pinned to
+    // an edge.
+    [[nodiscard]] static KWin::RectF givenBackPlace(const RestoreSnapshot &snapshot,
+        KWin::LogicalOutput *target, bool ownDisplay);
     // A window given back that was minimized before its layout is minimized
     // again: now, when KWin already holds its restored state, which returns
     // true, else once KWin does.

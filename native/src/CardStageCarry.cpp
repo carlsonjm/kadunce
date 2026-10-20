@@ -70,11 +70,10 @@ std::optional<PreparedCarrySource> CardStageController::prepareNativeCarrySource
     source.m_outputGeometry = output->geometry();
     source.m_origin = {window->window()->internalId().toString(), output->name(),
         m_restoreGeneration, m_workspace.revision()};
-    // Use the authoritative pre-Active record, NOT the current gutter geometry.
-    const auto &saved = m_activeRestore;
-    source.m_restore = {window->window(), output, saved.geometry, saved.floatingGeometry,
-        saved.fullscreenRestoreGeometry, saved.maximizeMode, saved.quickTileMode,
-        saved.fullScreen, false};
+    // Use the authoritative pre-Active record, NOT the current gutter geometry,
+    // with the display its place was taken on: the carry stands on the tablet.
+    source.m_restore = {m_activeRestore, window->window(), output};
+    source.m_restore.minimized = false;
     return source;
 }
 

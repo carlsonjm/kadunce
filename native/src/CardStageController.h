@@ -596,20 +596,10 @@ public:
                          const std::function<bool()> &commitSource);
 
 private:
-    struct ActiveRestoreSnapshot {
+    // The card stage's restore record: the place, and whether it was taken.
+    struct ActiveRestoreSnapshot : WindowPlace {
         QPointer<KWin::EffectWindow> window;
-        KWin::RectF geometry;
-        KWin::RectF floatingGeometry;
-        KWin::RectF fullscreenRestoreGeometry;
-        KWin::QuickTileMode quickTileMode;
-        KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
-        bool fullScreen = false;
-        bool minimized = false;
         bool valid = false;
-        // The display the place was taken on, and its geometry then, so a
-        // place whose display has gone is given back on one there is.
-        QString outputName;
-        QRectF outputGeometry;
     };
 
     void rebuildLiveCards();
