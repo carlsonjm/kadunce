@@ -242,6 +242,7 @@ void main() {
 constexpr int KeyboardOutlineFadeMs = 140;
 // The frost behind Shuffle Settings fades in over the same step.
 constexpr int SettingsFrostFadeMs = 140;
+constexpr int SettingsFrostDissolveMs = 300;
 // The shape a window's border asks the pointer for. KWin 6.8 no longer
 // exposes it, and there it reads as none.
 template<typename Window>
@@ -9757,8 +9758,9 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         if (const auto box = heldDestinationOn(data.screen)) data.paint |= whole(*box);
         // Settings' frost reads the whole display, so the whole display is
         // drawn afresh from the frame it first stands there.
-        // Once Settings has gone, the glass dissolves over the same time.
+        // Once Settings has gone, the glass dissolves, more slowly than it came.
         const int frostFade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
+        const int frostDissolve = motionDuration(SettingsFrostDissolveMs, KWin::effects->animationTimeFactor());
         if (settingsSurfaceOn(data.screen)) {
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
@@ -9769,10 +9771,10 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             if (m_settingsFrostSince.remove(data.screen->name()) > 0) {
                 m_settingsFrostLeaving[data.screen->name()].start();
                 qInfo() << "Kadunce" << Revision << "dissolves the frost on" << data.screen->name()
-                        << "over" << frostFade << "ms";
+                        << "over" << frostDissolve << "ms";
             }
             const auto leaving = m_settingsFrostLeaving.constFind(data.screen->name());
-            if (leaving != m_settingsFrostLeaving.constEnd() && leaving->elapsed() < frostFade) {
+            if (leaving != m_settingsFrostLeaving.constEnd() && leaving->elapsed() < frostDissolve) {
                 data.paint |= whole(QRectF(data.screen->geometry()));
                 m_settingsFrostFading.append(data.screen->geometry());
             } else {
@@ -10362,17 +10364,25 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     fillDestinationParts(renderTarget, viewport, parts, box, 0.13f, 0.f);
 }
 
+bool Effect::isPowerQuestion(KWin::EffectWindow *window)
+{
+    return window && window->window()
+        && window->window()->resourceName() == QLatin1String("ksmserver-logout-greeter");
+}
+
 KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
 {
-    if (!screen || m_previewDesktop || m_frostBehind.isEmpty()) return nullptr;
+    if (!screen || m_previewDesktop) return nullptr;
     // A layer surface has no title, and Settings and the keyboard sheet are
     // the same program, so Settings is known by the process that asked for
-    // frost behind it.
+    // frost behind it. The question before a restart, shut down or sign out
+    // is KDE's own program, whose surface is frosted alike.
     const auto stack = KWin::effects->stackingOrder();
     for (KWin::EffectWindow *window : stack) {
         if (!window || window->isDeleted() || !window->window() || !window->isVisible()
             || window->screen() != screen
             || !window->window()->inherits("KWin::LayerShellV1Window")) continue;
+        if (isPowerQuestion(window)) return window;
         for (const qint64 pid : m_frostBehind)
             if (qint64(window->pid()) == pid) return window;
     }
@@ -10409,10 +10419,10 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
         if (!part.isEmpty()) parts.append(part);
     }
     const int fade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
+    const int dissolve = motionDuration(SettingsFrostDissolveMs, KWin::effects->animationTimeFactor());
     float strength = 1.0F;
     if (leaving) {
-        strength = fade <= 0 ? 0.0F
-            : float(1.0 - std::clamp(double(m_settingsFrostLeaving.value(screen->name()).elapsed()) / fade, 0.0, 1.0));
+        strength = float(1.0 - std::clamp(double(m_settingsFrostLeaving.value(screen->name()).elapsed()) / dissolve, 0.0, 1.0));
     } else if (const auto since = m_settingsFrostSince.constFind(screen->name());
                since != m_settingsFrostSince.constEnd() && fade > 0) {
         strength = float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
@@ -10433,7 +10443,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     }
     if (!m_settingsFrostSaid.contains(screen->name())) {
         m_settingsFrostSaid.insert(screen->name());
-        qInfo() << "Kadunce" << Revision << "frosts" << screen->name() << "under Shuffle Settings, laid under"
+        qInfo() << "Kadunce" << Revision << "frosts" << screen->name()
+                << (isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under"
                 << (window == settings ? "Settings" : "a panel")
                 << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
                 << "panel fades over it";

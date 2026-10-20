@@ -1385,6 +1385,9 @@ private:
     // process their surfaces are known by.
     QHash<QString, qint64> m_frostBehind;
     [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
+    // KDE's question before a restart, shut down or sign out, which Shuffle's
+    // sheet fills: frosted behind as Settings is.
+    [[nodiscard]] static bool isPowerQuestion(KWin::EffectWindow *window);
     // A panel's fade laid under the windows on the display being drawn,
     // while Settings frosts it: drawn over the glass, not in its own place.
     [[nodiscard]] bool fadeOverSettingsFrost(KWin::EffectWindow *window) const;
