@@ -10444,7 +10444,7 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!m_settingsFrostSaid.contains(screen->name())) {
         m_settingsFrostSaid.insert(screen->name());
         qInfo() << "Kadunce" << Revision << "frosts" << screen->name()
-                << (isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under"
+                << (isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under")
                 << (window == settings ? "Settings" : "a panel")
                 << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
                 << "panel fades over it";
