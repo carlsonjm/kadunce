@@ -13,177 +13,49 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: ${{ matrix.part }} on ${{ matrix.source }}
+  # Round 3: the Keyboard's caret session on Arch's KWin 6.8.1, with KWin's
+  # input-method log on and every session log kept, to see why a focused
+  # field no longer brings the keys up.
+  keyboard-681-logs:
+    name: Keyboard caret session logs on KWin 6.8.1
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/archlinux/archlinux:latest
-      options: --cap-add=SYS_NICE --privileged
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        source: [arch, cachyos]
-        # Round 1 (0f8655b) passed Cards, Status, Search and Notes on both;
-        # only the Keyboard reruns, from its own default branch.
-        part: [shuffle-keyboard]
-        include:
-          - part: kadunce
-            deps: >-
-              base-devel cmake extra-cmake-modules git ripgrep python file perl dbus
-              qt6-base qt6-declarative kwin kdecoration kcoreaddons kconfig kservice
-              kglobalaccel kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
-          - part: temperance
-            deps: >-
-              base-devel cmake ninja git python dbus extra-cmake-modules qt6-base
-              qt6-declarative kcalendarcore kconfig kcoreaddons kiconthemes ki18n
-              kitemmodels kjobwidgets kio kservice kstatusnotifieritem kwindowsystem
-              kxmlgui kpackage libplasma plasma-workspace pulseaudio-qt libkscreen
-              layer-shell-qt powerdevil kdeclarative kcmutils kirigami ksvg breeze-icons
-              kdeplasma-addons ttf-dejavu noto-fonts
-          - part: tettegouche
-            deps: >-
-              git base-devel cmake ninja extra-cmake-modules python ripgrep dbus
-              qt6-base qt6-declarative qt6-svg kcoreaddons kfilemetadata kglobalaccel
-              ki18n kio krunner kservice bluez-qt solid kirigami kpackage layer-shell-qt
-              libplasma plasma-workspace plasma-activities-stats kactivitymanagerd
-              appstream-qt kate okular ffmpegthumbs kdegraphics-thumbnailers
-          - part: gooseberry
-            deps: >-
-              base-devel cmake extra-cmake-modules git python dbus qt6-base
-              qt6-declarative kcoreaddons kdbusaddons ki18n kservice kwindowsystem
-              kirigami layer-shell-qt plasma-workspace
-          - part: shuffle-keyboard
-            deps: >-
-              base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base
-              qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils
-              kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland
-              wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
-    env:
-      QT_FORCE_STDERR_LOGGING: "1"
-      LANG: en_US.UTF-8
-      TZ: UTC
+      options: --cap-add=SYS_NICE
+    timeout-minutes: 45
     steps:
-      - name: Put CachyOS's repositories above Arch's
-        if: matrix.source == 'cachyos'
-        run: |
-          pacman-key --init
-          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
-          pacman-key --lsign-key F3B607488DB35A47
-          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3/' /etc/pacman.conf
-          sed -i '0,/^\[core\]/s//[cachyos-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-core-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-extra-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64\/$repo\n\n[core]/' /etc/pacman.conf
-          grep -n '^\[\|^Architecture' /etc/pacman.conf
-
       - name: Install the build stack
         run: |
-          pacman -Syyuu --noconfirm --needed ${{ matrix.deps }}
-          sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
-          locale-gen
-          useradd --create-home user
-
-      - name: Record the Plasma checked
-        run: |
-          {
-            echo "### ${{ matrix.part }} on ${{ matrix.source }}"
-            echo '```'
-            pacman -Q kwin libplasma plasma-workspace layer-shell-qt qt6-base kcoreaddons 2>/dev/null || true
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          pacman -Syu --noconfirm --needed \
+            base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base \
+            qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils \
+            kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland \
+            wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
+          pacman -Q kwin qt6-base | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@v5
         with:
-          repository: carlsonjm/${{ matrix.part }}
-          fetch-depth: 0
+          repository: carlsonjm/shuffle-keyboard
 
-      - name: Run ./verify.sh
+      - name: Build the Keyboard
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          case "${{ matrix.part }}" in
-            tettegouche)
-              chown -R user: "$GITHUB_WORKSPACE"
-              runuser -u user -- env HOME=/home/user LANG=en_US.UTF-8 CMAKE_GENERATOR=Ninja ./verify.sh ;;
-            temperance)
-              ./verify.sh ;;
-            *)
-              QT_QPA_PLATFORM=offscreen dbus-run-session -- ./verify.sh ;;
-          esac
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
+          cmake --build build > /dev/null
 
-      - name: Run the Keyboard's sealed sessions on this KWin
-        if: matrix.part == 'shuffle-keyboard'
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          cmake --build build
-          export SHUFFLE_KEYBOARD_BUILD="$PWD/build"
-          failed=()
-          for session in tests/verify-*.sh; do
-            echo "::group::${session}"
-            status=0
-            "${session}" || status=$?
-            echo "::endgroup::"
-            case "${status}" in
-              0) echo "passed: ${session}" ;;
-              77) echo "skipped: ${session}" ;;
-              *) echo "FAILED: ${session}"; failed+=("${session}") ;;
-            esac
-          done
-          ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
-
-  # Neither Arch nor CachyOS carried 6.8.1 at 23:00Z on 21 October, so Cards
-  # is built against KWin 6.8.1 compiled from KDE's tag: KWin is the one part
-  # of the release whose own code changed in a way a plugin can see.
-  kwin-681-from-source:
-    name: kadunce on KWin 6.8.1 built from source
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/archlinux/archlinux:latest
-    timeout-minutes: 120
-    steps:
-      - name: List the KWin each distribution offers now
-        run: |
-          pacman-key --init
-          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
-          pacman-key --lsign-key F3B607488DB35A47
-          cp /etc/pacman.conf /tmp/pacman-list.conf
-          printf '[cachyos-znver4]\nServer = https://mirror.cachyos.org/repo/x86_64_v4/$repo\n[cachyos-extra-znver4]\nServer = https://mirror.cachyos.org/repo/x86_64_v4/$repo\n[cachyos-extra-v3]\nServer = https://mirror.cachyos.org/repo/x86_64_v3/$repo\n[extra-testing]\nInclude = /etc/pacman.d/mirrorlist\n[kde-unstable]\nInclude = /etc/pacman.d/mirrorlist\n' >> /tmp/pacman-list.conf
-          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3 x86_64_v4/' /tmp/pacman-list.conf
-          mkdir -p /tmp/listdb
-          pacman --config /tmp/pacman-list.conf --dbpath /tmp/listdb -Sy >/dev/null
-          pacman --config /tmp/pacman-list.conf --dbpath /tmp/listdb -Sl | grep -E ' (kwin|plasma-workspace|layer-shell-qt|libplasma) ' | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Install Arch's KWin build stack
-        run: |
-          pacman -Syu --noconfirm --needed base-devel git ninja curl kwin
-          curl -fsSL -o /tmp/kwin.PKGBUILD https://gitlab.archlinux.org/archlinux/packaging/packages/kwin/-/raw/main/PKGBUILD
-          ( source /tmp/kwin.PKGBUILD
-            pacman -S --noconfirm --needed "${makedepends[@]}" )
-          pacman -S --noconfirm --needed \
-            cmake extra-cmake-modules ripgrep python file perl dbus qt6-base qt6-declarative \
-            kdecoration kcoreaddons kconfig kservice kglobalaccel kstatusnotifieritem \
-            libxcb vulkan-headers vulkan-icd-loader
-
-      - name: Build and install KWin 6.8.1 over Arch's 6.8.0
-        run: |
-          git clone -q --depth 1 -b v6.8.1 https://github.com/KDE/kwin /tmp/kwin
-          cmake -S /tmp/kwin -B /tmp/kwin-build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr \
-            -DCMAKE_INSTALL_LIBEXECDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
-            > /tmp/kwin-cmake.log 2>&1 || { tail -80 /tmp/kwin-cmake.log; exit 1; }
-          cmake --build /tmp/kwin-build > /tmp/kwin-build.log 2>&1 || { tail -80 /tmp/kwin-build.log; exit 1; }
-          cmake --install /tmp/kwin-build > /dev/null
-          grep -h 'PACKAGE_VERSION ' /usr/lib/cmake/KWin/KWinConfigVersion.cmake | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/checkout@v5
-        with:
-          repository: carlsonjm/kadunce
-          ref: main
-          fetch-depth: 0
-
-      - name: Run Kadunce's ./verify.sh on KWin 6.8.1
+      - name: Run the caret session and print its logs
         env:
-          QT_QPA_PLATFORM: offscreen
+          SHUFFLE_KEYBOARD_BUILD: ${{ github.workspace }}/build
+          SHUFFLE_CARET_KEEP: "1"
+          TMPDIR: /tmp/caret
+          QT_LOGGING_RULES: "kwin_virtualkeyboard.debug=true;kwin_wayland_server.debug=false"
+          WAYLAND_DEBUG: "0"
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          dbus-run-session -- ./verify.sh
-          cmake -S native -B /tmp/k -DBUILD_TESTING=OFF > /dev/null
-          cmake --build /tmp/k -j4 > /dev/null
-          plugin=$(find /tmp/k -name 'kwin4_effect_kadunce*.so' | head -1)
-          echo "Cards plugin built for KWin: $(strings "$plugin" | rg -x '6\.8\.[0-9]+' | sort -u | tr '\n' ' ')" | tee -a "$GITHUB_STEP_SUMMARY"
+          mkdir -p /tmp/caret
+          tests/verify-caret.sh || true
+          for root in /tmp/caret/shuffle-caret-run.*; do
+            for f in report.log compositor.log app.log stand-in.log kadunce.log input.log; do
+              echo "::group::${root##*/} ${f}"
+              cat "${root}/${f}" 2>/dev/null | grep -v 'MESA\|ZINK\|dri2' | head -400
+              echo "::endgroup::"
+            done
+          done
