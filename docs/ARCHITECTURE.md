@@ -252,11 +252,11 @@ neither consumes nor replays the client request. Failed or ambiguous proof stays
 native.
 
 Automatic electric-border tiling and maximize behavior, KDE's per-display desktop
-switching, its desktop-change pop-up, and Overview's top-left corner unless you
-gave it elsewhere are held in memory while Kadunce is active and given back on
-unload. Explicit Shift custom tiling and keyboard/manual window operations stay
-with KWin. On a display without cards
-whose zones are drawn, Kadunce places each pane in KWin's own zone through the
+switching, its desktop-change pop-up, KDE's Overview (`DECISIONS.md`) and the
+top-left corner, unless you gave the corner to something else, are held in
+memory while Kadunce is active and given back on unload. Explicit Shift custom
+tiling and keyboard/manual window operations stay with KWin. On a display
+without cards whose zones are drawn, Kadunce places each pane in KWin's own zone through the
 tile objects KWin publishes to scripting, reads each pane's rectangle from its
 zone, and takes every pane out of its zone before restoring it.
 

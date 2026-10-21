@@ -1,74 +1,50 @@
-# Shuffle terminology
+# Terminology
 
-The terms the whole suite uses, and how to apply them. The suite is Kadunce,
-Tettegouche, Temperance, Gooseberry, Shuffle, the Shuffle Keyboard and Split
-Rock.
+The words Kadunce uses for what it shows, so documents, on-screen text and
+code comments say the same thing.
 
-## Approved language
+## Terms
 
-| Term | Meaning | Status |
-| --- | --- | --- |
-| Shuffle for Plasma | Public product descriptor | Locked |
-| Workspace | One KDE virtual desktop as Table shows it: its cards, layouts and windows, across every display | Current |
-| Named workspace | A workspace you named; it stays when empty | Current |
-| Cards | Kadunce's name on a Shuffle install, and its tray switch | Current |
-| Card | An application window Kadunce holds on a card display | Locked |
-| Active card | The card in use: alone on a Solo display, the pane in use on a Connected one | Locked |
-| Spread | The ordered row of cards and Stacks you browse, each Bento pane a card | Locked |
-| Stack | Cards grouped by hand into one Spread entry; stepping through it goes round it as a ring | Locked |
-| Bento | Two or more windows shown together in one layout | Locked |
-| Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag | Current |
-| Sleeping card | A minimized card, drawn dimmed in Spread | Current |
-| Card display | Every display; each holds its own cards | Current |
-| Primary display | The display that takes an unplugged display's cards and answers keys with no window in use: the chosen one, else the touched one, else the largest. Every display has its own Spread | Current |
-| Display sizing | How a display plays cards, Solo or Connected. Solo: one card at a time over the whole work area, a Bento pair at most. Connected: room for more than two panes; a picked card joins the layout and each pane is its own card | Internal |
-| Plasma desktop | The ordinary KDE desktop outside cards | Current |
-| Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces | Locked |
-| Tab, menu bar, `+` | A workspace's pill in Table; Table left open by a flick, `Meta+W` or the corner; the tab that makes a workspace | Current |
-| Search | Tettegouche's launcher and search, opened from the dot | Locked |
-| Apps | Search's drawer of applications, A to Z | Current |
-| Files | Search's file manager, which opens every folder | Current |
-| Ambient | What is under way or waiting on you now: media, transfers, jobs, an application's question, a shared screen | Locked |
-| Island | One kind of Ambient activity in the panel; what does not fit folds into a counted bubble | Current |
-| Status Bar | Consumer-facing Temperance system and status surface | Locked |
-| Ticker | The Status Bar's line of what just happened | Current |
-| Notifications & Events | The history the bell opens | Current |
-| Control Center | Temperance quick system controls | Current |
-| System Tray | Temperance's organized presentation of Plasma tray entries | Current |
-| Shuffle Keyboard | Touch keyboard, editing surface and precision input | Locked |
-| Hide key | The key that puts the keys away | Current |
-| Precision surface | The whole keyboard latched as a trackpad, from the trackpad mark at the space bar's end | Locked |
-| Shuffle Lock | Privacy-first presentation over trusted system lock and authentication | Locked |
-| Bottom Surface | The one layout authority for Status Bar, Shuffle Dock, Ambient and the Keyboard boundary | Current |
-| Shuffle Dock | Minimal task and application presentation inside Bottom Surface | Current |
-| Notes | Gooseberry's name on a Shuffle install | Current |
-| Split Rock | The desktop assistant; inside Shuffle, Genie | Working |
+| Term | Meaning |
+| --- | --- |
+| Card | An application window Kadunce holds on a display |
+| Active card | The card in use: alone on a display sized Solo, the pane in use on one sized Connected (§ Naming rules) |
+| Spread | The ordered row of cards and Stacks you browse; each Bento pane is a card in it |
+| Stack | Cards you grouped by hand into one Spread entry; stepping through it goes round it as a ring |
+| Sleeping card | A minimized card, drawn dimmed in Spread |
+| Bento | Two or more windows shown together in one layout |
+| Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag between panes |
+| Primary display | The display that takes an unplugged display's cards and answers keys when no window is in use: the one you chose, else the touchscreen, else the largest |
+| Plasma desktop | The ordinary KDE desktop outside cards |
+| Workspace | One KDE virtual desktop as Table shows it: its cards, layouts and windows, on every display |
+| Named workspace | A workspace you named; it stays when empty |
+| Table | Every workspace as tabs pulled down from the top edge, the chosen one's cards hanging below; it moves cards between workspaces |
+| Tab, menu bar, `+` | A workspace's pill in Table; Table left open by a flick, `Meta+W` or the corner; the tab that makes a new workspace |
+| Cards | The name Kadunce shows in the system tray, and its on and off switch; Shuffle uses the same name |
+| Search | Tettegouche's launcher, which can sit in the middle of Spread |
+| Stuck notes | Gooseberry's notes attached to a window, which Spread draws on that window's card |
 
 ## Naming rules
 
-- **What people read** (READMEs, on-screen words, application entries, the
-  site) uses the approved terms above exactly.
-- **Component and code names** can stay. Kadunce, Tettegouche, Temperance,
-  Gooseberry, the Shuffle Keyboard and Split Rock are the repository names, and
-  outside Shuffle the open-source components keep their own names. Code names
-  nobody sees, such as `DesktopStageController`, can stay too.
+- **What people read** (the README, on-screen words, application entries) uses
+  the terms above exactly.
+- **Code names** can stay. Names nobody sees, such as
+  `DesktopStageController` or `CardStageController`, need not match.
 - **Installed identifiers** (reverse-DNS ids, D-Bus names, plugin and desktop
   entry ids, scriptable method names) change only in a coordinated, versioned
-  release, because changing one breaks installed copies. `co.goodinput.*` names
-  Kadunce, Temperance and the Tettegouche plugin; `io.github.carlsonjm.*` still
-  names Tettegouche's desktop entries and Gooseberry.
-- **Internal terms** are for engineers. Solo, Connected and "display sizing"
-  stay out of on-screen words, the tour and the site; there a display simply
-  shows one card or a layout.
+  release, because changing one breaks installed copies and the programs that
+  call them. Kadunce's are under `co.goodinput.Kadunce`.
+- **Display sizing** is an internal term. A display is sized **Solo**, one card
+  at a time over the whole work area and a Bento pair at most, or
+  **Connected**, room for more than two panes, where a picked card joins the
+  layout (`CARD-LIFECYCLE.md` §11). Solo, Connected and "display sizing" stay
+  out of on-screen words; there a display simply shows one card or a layout.
 
 ## Enforcement
 
-Checks catch a retired word when it comes back. Kadunce's `tests/verify-source.sh` and `tests/verify-docs.py` hold the
-list of retired words and fail when one returns, `docs/archive/` exempt, and
-Tettegouche's `tests/verify-source.sh` fails on retired identity in its source.
-Temperance has no guard yet.
-
-Kadunce's guard allows only two installed spellings: the
-`showCardLine` scriptable method and the `cardLine` workspace-context value,
-both consumed by Tettegouche. The `co.goodinput` rename left them in place; a
-later versioned migration retires them together.
+`tests/verify-source.sh` and `tests/verify-docs.py` fail when a retired word
+comes back, including Spread's earlier name and Solo's earlier name. Two
+installed spellings of Spread's earlier name remain allowed: the `showCardLine`
+scriptable method and the `cardLine` value in the workspace context, both read
+by Tettegouche (`TETTEGOUCHE-CONTEXT.md`). A later versioned release renames
+them together.

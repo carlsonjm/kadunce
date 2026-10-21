@@ -1,8 +1,8 @@
 # Testing
 
-How Kadunce is checked, from the fastest pre-check to a hands-on review on the
-tablet, and what each result can prove. `AGENTS.md` sets the safety-control
-rule and who installs; this document gives the procedure.
+How Kadunce is checked, from the fastest pre-check to a hands-on review on a
+real touchscreen device, and what each result can prove. `AGENTS.md` sets the
+safety-control rule and who installs; this document gives the procedure.
 
 ## What each check proves
 
@@ -12,7 +12,7 @@ rule and who installs; this document gives the procedure.
 | `./verify.sh` | Source and build only | Documentation hygiene, source guards including the idle-repaint guard, package and control checks, and that every word the tray control shows asks its catalog (`tools/messages.py`); run on every change | Runtime behavior |
 | `bash tests/verify-integrated-carry.sh` | Private compositors | Every scene of the private route matrix plus native tests | The installed system, appearance, hardware |
 | `bash tests/verify-live-control.sh` | Live, read-only | The tray control is registered, exposes its switch, and is wanted at session start | Any gesture |
-| Physical review | Live, by hand | What only the real tablet shows: feel, touch, bezel, folio, displays, keys | Anything a saved test already proves |
+| Physical review | Live, by hand | What only real hardware shows: feel, touch, the bezel, a detachable keyboard, displays, keys | Anything a saved test already proves |
 
 The `Arch current` GitHub check runs `./verify.sh` on every pull request, on
 `main` and daily, against Arch Linux's current KDE and Qt packages. It builds
@@ -20,7 +20,7 @@ against stock KWin, and a pull request merges only once it passes.
 
 A fifth class, live mutation, installs, toggles the effect, injects input,
 restarts or logs out of the real session. Installation, session restart and
-logout are performed by the session owner and handed over as one command
+logout are done by the person whose session it is, handed over as one command
 (`AGENTS.md` § Installation handover); no task wording changes that. Toggling
 the live effect or injecting input into the real session needs the task to say
 so in words; a request to test source or private runtime behavior does not.
@@ -110,9 +110,10 @@ KADUNCE_PROBE_SESSION=start-cards-runtime-session.sh KADUNCE_RUNTIME_BUILD=<buil
   `shuffle-keyboard` otherwise; the put-away step needs Shuffle Keyboard 0a8a6ea
   or later, and the sliding keys dca6a09 or later. `KADUNCE_TEST_LAUNCHER` names
   the launcher the search scene opens, the installed `tettegouche` otherwise.
-- `KADUNCE_TEST_SCALE` runs the tablet as the Z13 panel, 2560x1600 at that
-  scale, for the Spread drop, flick-ask, keyboard and keyboard-offscreen
-  scenes, where logical and device pixels differ.
+- `KADUNCE_TEST_SCALE` runs the virtual tablet as a 2560x1600 display at that
+  scale, so logical and device pixels differ, for `spread-fingers-runtime`,
+  `spread-bento-top-runtime`, `flick-ask-runtime`, `keyboard-runtime` and
+  `keyboard-offscreen-runtime`.
 - `KADUNCE_TEST_KWIN` names a disposable private KWin, as § Private compositor
   rules allows. The native takeover scene, `snap-session.sh`, needs `jq`.
 
@@ -149,8 +150,7 @@ to compensate for an unclassified sandbox, display, D-Bus or dependency failure.
 
 ## Structural change
 
-A regression blocks a refactor, and a new product idea enters the plan only
-after the maintainer approves its scope. Structural extraction keeps one mutable
+A regression blocks a refactor. Structural extraction keeps one mutable
 state owner, typed controller boundaries, value-first admission, and rendering
 that only reads state. A refactor may rename and restructure freely while it
 keeps the authority boundaries in
@@ -195,10 +195,12 @@ A scene the whitelist in `tests/verify-unload-isolated.sh` does not name is
 refused by name before anything starts. That is how to park a probe that cannot
 run yet; it never half-runs and reports a pass.
 
-Every virtual output is 1280x800, below the compact threshold, so each caps at
-two Bento panes and the larger pane of a two-pane landscape shape is roughly 780
-pixels wide. A probe asserting three panes, or a share wider than that, asserts a
-grammar no display in the harness has.
+A virtual output is 1280x800 unless its scene is one that
+`tests/verify-unload-isolated.sh` gives a monitor-sized output (2560x1440, or
+1920x1080 for `connected-sizes-runtime`). At 1280x800, below the compact
+threshold, a display caps at two Bento panes and the larger pane of a two-pane
+landscape shape is roughly 780 pixels wide. A probe there asserting three panes,
+or a share wider than that, asserts a grammar the display does not have.
 
 A failing assertion is often the probe, not the code. Before changing production
 code, find which term of the assertion is false (temporary diagnostic lines, one
@@ -306,10 +308,10 @@ candidate:
   It names windows by application and the start of their id, never by title.
   What the pointer is over near a display's top edge is logged only with
   `QT_LOGGING_RULES=kadunce.pointer.info=true` in KWin's environment.
-- Keys that do not appear while the folio keyboard is attached are KWin laptop
-  mode, not a regression. Check
+- Keys that do not appear while a detachable keyboard is attached are KWin
+  laptop mode, not a regression. Check
   `qdbus6 org.kde.KWin /org/kde/KWin org.kde.KWin.TabletModeManager.tabletMode`
-  first, and detach the folio for any check of the keys.
+  first, and detach the keyboard for any check of the on-screen keys.
 
 ## Bounded physical checklist
 
