@@ -109,7 +109,7 @@ result:
 
 On a display Kadunce already owns, with no live Bento layout, a left or right
 snap requests a Bento pair of exactly two named windows. One is the carried
-window. The other is the partner, and one of two rules names it.
+window; the other, the partner, is named by one of two rules.
 
 When the carried window is not the Active card — a window still on the native
 desktop — the partner is the Active card. A card carried in Spread never pairs.
@@ -126,15 +126,15 @@ Placement comes from the gesture:
 - Both become Bento panes.
 - No other window joins.
 
-The partner is named when the edge is contacted and stays the partner, whatever
-the presentation does during the carry.
+The partner, named when the edge is contacted, stays the partner through the
+carry.
 
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
 
 An entry commits completely or not at all. If adoption cannot be prepared safely,
-every window stays Native. If a pair cannot be prepared safely, the carried
-window and the partner keep the ownership and presentation they had.
+every window stays Native. If a pair cannot be prepared safely, both windows keep
+the ownership and presentation they had.
 
 ### The Bento action
 
@@ -145,6 +145,7 @@ the one that can.
 
 On a display that can own cards, it pairs like a side snap from the right:
 the Active card keeps the left side. With no card to pair, nothing happens.
+Connected, in Spread, it opens the centred card first and ends no layout.
 
 On a display that cannot own cards, it composes across the display.
 
@@ -225,7 +226,7 @@ hardware identity.
 A preset fixes how panes are arranged, not their proportions. A preferred
 proportion is a starting point, clamped by each window's minimum size, and the
 user then moves any shared boundary with its rail. A shape the minimums cannot
-satisfy is skipped.
+satisfy is skipped. Four panes make quarters.
 
 ### Choosing a shape by side contact
 
@@ -233,8 +234,8 @@ A side snap carries a size intent, larger or smaller, taken from where the edge
 was touched (`INPUT.md` § Active card and § Bento). Contact near the edge's midpoint
 keeps the previous choice.
 
-The carried window keeps the edge it was released into and takes the share its
-half asked for (§11, A side snap), wherever the carried window comes from.
+The carried window keeps the edge it was released into and the share its half
+asked for (§11, A side snap).
 
 ### When a pane leaves Bento
 
@@ -251,9 +252,8 @@ It keeps no Bento position or group, and stands in the Active card's place (§3)
 One displaced by a window carried or opened in comes back when
 that window leaves, if it still waits there unused.
 
-A window leaves for the display that can hold it as a card, keeping its
-restore record so release still returns it where it began. It waits in
-Spread there.
+A window waits in Spread on the display that can hold it as a card, keeping
+its restore record so release still returns it where it began.
 
 Where no display can hold a card, nothing leaves: the layout keeps its
 combination.
@@ -483,8 +483,8 @@ Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 Switched to zones (Meta+Shift+B or the tray), a display, Connected too, is
-laid out in the zones drawn with Meta+T, each window in one it fits; KWin
-owns their edges.
+laid out in the zones drawn with Meta+T, each window in one it fits, a snapped one at
+its edge; KWin owns their edges.
 
 A transfer (`ARCHITECTURE.md` § Transfer transaction) that fails changes
 neither display.

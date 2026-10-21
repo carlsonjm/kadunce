@@ -801,7 +801,7 @@ bool DesktopStageController::activatePreparedTabletDrop(const PreparedDrop &drop
     if (!plan || plan->windows.size() != (drop.alone ? 1 : 2)
         || !plan->windows.contains(drop.window)
         || (!drop.alone && !plan->windows.contains(drop.pairPartner))
-        || (drop.alone && !plan->placed)) return false;
+        || (drop.alone && !plan->placed && plan->zones.isEmpty())) return false;
     std::erase_if(m_restoredMinimizations, [&drop](const auto &pending) {
         return pending->output() == drop.output
             || pending->result() != RestoredMinimization::Result::Pending;

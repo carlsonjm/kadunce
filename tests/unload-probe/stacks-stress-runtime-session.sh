@@ -4,6 +4,7 @@
 # hold a Stack of four, built by resting a pane on another. Then, twice over:
 # Meta+Tab steps every Stack round to its front again, Spread opens over the
 # layout and closes, Meta+B ends the layout into cards and lays it out again,
+# the second time from Spread,
 # a card at the back of a Stack is called to its pane, and a card closed from
 # a Stack leaves the rest of it whole. After every step the card book holds
 # every card, every window is a pane or a card, and every Stack is whole.
@@ -187,6 +188,11 @@ for round in 1 2; do
     for p in 1 2 3 4; do
         check "round $round ended: Stack $p is still four cards" test "$(stack_size_of "${front[$p]}")" = 4
     done
+    # The second time, Meta+B in Spread closes it and lays every card out.
+    if [[ $round == 2 ]]; then
+        spread_key
+        check "round $round ended: Meta+S opens Spread" presents cardLine
+    fi
     probe key 48 125 >/dev/null
     sleep 2.4
     steady "round $round again" 4

@@ -6,8 +6,7 @@
 # many panes as minimum sizes allow. The layout sizes its panes, sharing the
 # width evenly within minimum sizes; an edge says only where a card goes. A
 # pick pairs evenly with the card in use, a third pick takes a third column
-# and a fourth joins the shortest column, the panes already there keeping
-# their places. Past minimum sizes the layout is laid out whole, a card
+# and a fourth makes four even quarters, two columns of two. Past minimum sizes the layout is laid out whole, a card
 # snapped to a side keeping that side, and that card is never the pane that
 # leaves for Spread. Every check reads where each pane stands and its size.
 # Every check is reported, so a failure does not hide the rest.
@@ -135,14 +134,13 @@ check 'third: three panes, where the stage alone would cap at two' panes 3
 check 'third: the first card stays at the left, a third wide' at "$a" '[10, 34, 628, 980]'
 check 'third: the second stays beside it, a third wide' at "$b" '[648, 34, 623, 980]'
 check 'third: the pick takes the third column at the right' at "$c" '[1282, 34, 628, 980]'
-slot_a=$(rect "$a") slot_b=$(rect "$b")
 pick "$d"
 report fourth
 check 'fourth: four panes' panes 4
-check 'fourth: the first card did not move' same_rect "$a" "$slot_a"
-check 'fourth: the second card did not move' same_rect "$b" "$slot_b"
-check 'fourth: the third keeps the top of its column' at "$c" '[1282, 34, 628, 485]'
-check 'fourth: the pick joins that column, under it' at "$d" '[1282, 529, 628, 485]'
+check 'fourth: the first card takes the top left quarter' at "$a" '[10, 34, 945, 485]'
+check 'fourth: the second goes under it' at "$b" '[10, 529, 945, 485]'
+check 'fourth: the third takes the top right quarter' at "$c" '[965, 34, 945, 485]'
+check 'fourth: the pick goes under it' at "$d" '[965, 529, 945, 485]'
 end_pass even
 
 # Pass two: a card too wide for half the stage. The pair cannot hold it in

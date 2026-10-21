@@ -5,7 +5,8 @@
 # KWin's own three columns, which count as drawn. A card picked from Spread
 # takes a zone beside the one in use; Meta+B ends the layout into cards and
 # Meta+B again lays every card there into the three zones, one each, KWin
-# holding each in its zone. Switched off, no window is held in a zone. Every
+# holding each in its zone. One card alone, carried to the right edge, takes
+# the zone at the right. Switched off, no window is held in a zone. Every
 # check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -42,6 +43,28 @@ select_card() {
 }
 pick() { select_card "$1" || echo "could not select $1"; open_selected; }
 bento_key() { probe key 48 125 >/dev/null; sleep 1.8; }
+title_at() { probe titleBarOf "$1" | jq -r 'select(.x != null) | [.x, .y] | map(floor) | @tsv'; }
+# A person's mouse presses a window's title bar, KWin's own, and carries it
+# through each point given in turn before letting go.
+title_drag() {
+    local id=$1 x y; shift
+    read -r x y <<<"$(title_at "$id")"
+    [[ -n ${y:-} ]] || { echo "no title bar on $id"; return 0; }
+    probe pointer "$x" "$y" >/dev/null
+    sleep .1
+    probe contactButton true >/dev/null
+    sleep .1
+    probe contactMotion "$((x + 30))" "$((y + 40))" >/dev/null
+    sleep .15
+    while (( $# >= 2 )); do
+        probe contactMotion "$1" "$2" >/dev/null
+        shift 2
+        sleep .12
+    done
+    sleep .4
+    probe contactButton false >/dev/null
+    sleep 1.6
+}
 large_panes() { kad workspaceContext | jq '[.applications[] | select(.pane and (.hasCard | not) and .output == "Virtual-1")] | length'; }
 panes_are() { [[ $(large_panes) == "$1" ]]; }
 # Runs a KWin script; what it prints with a tag lands in the session log.
@@ -132,6 +155,24 @@ for caption in Mail Wallet Browser; do
 done
 check 'zones: the three cards hold three different zones' \
     test "$(for c in Mail Wallet Browser; do tile_of 3 "$c"; done | grep -v '^none$' | sort -u | wc -l)" -eq 3
+
+# One card left awake, carried by its title bar to the right edge, takes the
+# zone at the right.
+probe minimizeWindow "$wallet" true >/dev/null
+sleep .8
+probe minimizeWindow "$browser" true >/dev/null
+sleep 1.2
+report alone
+check 'alone: the last card awake is the Active card' \
+    context --arg id "$mail" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+read -r gx gy gw <<<"$(kad workspaceContext | jq -r 'first(.displayContext.displays[] | select(.name == "Virtual-1")) | .geometry | [.x, .y, .width] | map(floor) | @tsv')"
+title_drag "$mail" "$((gx + gw - 300))" "$((gy + 500))" "$((gx + gw - 60))" "$((gy + 500))" "$((gx + gw - 3))" "$((gy + 500))"
+report snapped
+read_zones 6
+right_zone=$(zone_rects 6 | sort -n -k1 | tail -1)
+echo "right zone: $right_zone, Mail: $(tile_of 6 Mail)"
+check 'snapped right: the card is a pane' panes_are 1
+check 'snapped right: KWin holds it in the zone at the right' test "$(tile_of 6 Mail)" = "$right_zone"
 
 kad setUsesDrawnZones false
 sleep 1.5

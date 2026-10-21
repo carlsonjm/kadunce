@@ -329,9 +329,17 @@ report stepped-back
 check 'step back: Meta+Shift+Tab returns the first card to the pane' is_pane "$face"
 check 'step back: in the same place' same_rect "$face" "$slot_c"
 face_title=$(probe windowFacts | jq -r --arg id "$face" 'first(.[] | select(.id == $id)) | .caption')
+# The other pane used just before, so KWin hands it the focus as the front
+# card closes; the closed pane keeps it, on its next card.
+probe activateWindowId "$a" >/dev/null
+sleep .4
+probe activateWindowId "$face" >/dev/null
+sleep .4
 client closeCompanion "$face_title"
 sleep 1.5
 report closed-front
+check 'close: the focus stays in the pane, on the next card' focused "$other"
+check 'close: the other pane is not in use' bash -c "! qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -e --arg id '$a' 'first(.applications[] | select(.windowId == \$id)) | .focused'"
 check 'close: the next card of the Stack takes the pane' is_pane "$other"
 check 'close: in the same place' same_rect "$other" "$slot_c"
 # A card waiting behind a pane is held aside, and one left hidden draws

@@ -187,6 +187,24 @@ void Effect::unredirectForCardStage(KWin::EffectWindow *window)
     m_previewSourceBounds.remove(window);
 }
 
+void Effect::cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *output = window ? window->screen() : nullptr;
+    if (!output || m_desktopStage->managesWindow(window)) return;
+    const QList<QPointer<KWin::EffectWindow>> panes = m_desktopStage->panesOn(output->name());
+    if (panes.isEmpty()) return;
+    // A press meant for a pane must reach the pane, never the card drawn
+    // nowhere under it, so the panes stand above it again and the pane used
+    // last has the focus back.
+    for (const auto &pane : panes)
+        if (pane && !pane->isDeleted() && pane->window()) KWin::workspace()->raiseWindow(pane->window());
+    KWin::EffectWindow *back = m_lastActiveApplication && panes.contains(m_lastActiveApplication)
+        ? m_lastActiveApplication.data() : panes.first().data();
+    qInfo() << "Kadunce" << Revision << "kept" << logNameOf(window) << "behind the layout on" << output->name()
+            << "and gave the focus back to" << logNameOf(back);
+    if (back && !back->isDeleted()) activateShownPane(back);
+}
+
 void Effect::retireBentoProjectionForCardStage(
     const QList<QPointer<KWin::EffectWindow>> &windows)
 {
@@ -378,6 +396,14 @@ void Effect::toggleBento()
     KWin::LogicalOutput *target = m_cardsOnEveryDisplay ? nullptr : externalDesktopOutput();
     if (!target) target = tabletOutput();
     if (!target) return;
+    // §11, Connected: in Spread the key never ends a layout it does not show;
+    // it closes Spread on what is centred and lays out every card.
+    if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread
+        && target == tabletOutput() && connectedOutputForDesktopStage(target)
+        && m_cardStage->canOwnCards(target)) {
+        layOutFromSpread(target);
+        return;
+    }
     // §3 names a pair on a display that can own cards, so a Bento action there
     // composes two named windows rather than sweeping the display. A display
     // that cannot own cards reaches neither pairing rule and composes across
@@ -408,6 +434,8 @@ void Effect::toggleBento()
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
                     << "and" << (active ? "an" : "no") << "Active card";
+            // The key did nothing, so the line says why, once.
+            sayOnContextLine(QStringLiteral("hint"), gestureRefusalText(GestureRefusal::NoPartner));
         } else if (connectedOutputForDesktopStage(target)) {
             // §11, Connected: Bento auto-fill is the layout. The pair grows
             // to hold every open card of the display, as far as it has room.
@@ -462,6 +490,40 @@ void Effect::toggleBento()
         }
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
+    });
+}
+
+void Effect::layOutFromSpread(KWin::LogicalOutput *output)
+{
+    const QPointer<KWin::EffectWindow> picked = selectedWindow();
+    if (!picked || picked->isDeleted() || nativeWindowInteractionForInput()
+        || m_cardStage->cardGrabActive() || m_cardStage->launcherGuestActive()) return;
+    qInfo() << "Kadunce" << Revision << "Meta+B in Spread on" << output->name()
+            << "with" << logNameOf(picked) << "centred";
+    // What is centred opens as picking it would: a pane's card on its layout,
+    // any other card joining the layout Spread holds, or paired with the card
+    // in use, or shown alone; a sleeping card wakes as the Active card.
+    if (m_cardStage->selectedIsBentoGroup()) {
+        if (!m_cardStage->resumeSelectedBentoProjection()) return;
+    } else if (picked->isMinimized()) {
+        KWin::effects->activateWindow(picked);
+    } else if (!playPickedCardIntoLayout(picked)) {
+        if (!m_cardStage->presentSelectedNow()) return;
+    }
+    observeCardOwnership();
+    onThisStageLater(0, [this, picked, target = QPointer(output)] {
+        if (!target || m_releasing || !m_cardStage->isActive()) return;
+        if (!m_desktopStage->hasSessionOnOutput(target->name())) {
+            if (!pairActiveCardIntoBento(target)) {
+                qInfo() << "Kadunce" << Revision << "found no pair for Meta+B from Spread on" << target->name();
+                sayOnContextLine(QStringLiteral("hint"), gestureRefusalText(GestureRefusal::NoPartner));
+                return;
+            }
+            observeCardOwnership();
+        }
+        if (picked && !picked->isDeleted() && m_desktopStage->managesWindow(picked))
+            KWin::effects->activateWindow(picked);
+        QTimer::singleShot(0, this, [this, target] { fillLayoutWithCards(target); });
     });
 }
 

@@ -1200,20 +1200,40 @@ void Effect::setShowsKeyboardOutline(bool shows)
 void Effect::switchZoneMode()
 {
     setUsesDrawnZones(!m_usesDrawnZones);
-    const QString text = m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill");
+    // Switched by hand, the zones need no reminder.
+    m_zonesHinted = true;
+    sayOnContextLine(QStringLiteral("zones"),
+        m_usesDrawnZones ? QStringLiteral("Monitors: my zones") : QStringLiteral("Monitors: auto fill"));
+}
+
+void Effect::sayOnContextLine(const QString &kind, const QString &text)
+{
     // A surface showing the context says it on its line instead of a popup
     // over the work.
     if (!m_contextLineClaims.isEmpty()) {
-        m_zoneNotice = ZoneNotice{text, {}};
-        m_zoneNotice->shown.start();
+        m_lineNotice = LineNotice{kind, text, {}};
+        m_lineNotice->shown.start();
         m_contextNoticeEnd.start();
         Q_EMIT workspaceContextChanged();
         return;
     }
     auto message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.plasmashell"),
         QStringLiteral("/org/kde/osdService"), QStringLiteral("org.kde.osdService"), QStringLiteral("showText"));
-    message << QStringLiteral("view-grid") << text;
+    message << (kind == QLatin1String("zones") ? QStringLiteral("view-grid") : QStringLiteral("dialog-information"))
+            << text;
     QDBusConnection::sessionBus().asyncCall(message);
+}
+
+void Effect::hintZonesOnce()
+{
+    if (m_zonesHinted || !m_usesDrawnZones || !m_desktopStage) return;
+    for (KWin::LogicalOutput *output : KWin::effects->screens()) {
+        if (!output || !m_desktopStage->laysOutInZones(output->name())) continue;
+        m_zonesHinted = true;
+        qInfo() << "Kadunce" << Revision << "says the monitors take drawn zones, laying out" << output->name();
+        sayOnContextLine(QStringLiteral("hint"), QStringLiteral("Monitors: my zones. Meta+Shift+B for auto fill"));
+        return;
+    }
 }
 
 void Effect::saveNamedDesktops()

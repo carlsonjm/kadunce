@@ -1302,6 +1302,7 @@ void Effect::restackCarriedDecks()
 void Effect::observeCardOwnership()
 {
     observeCardBook();
+    hintZonesOnce();
     // One ledger over every desktop: a window has one owner across all of
     // them. A display has at most one layout per desktop, so another desktop's
     // layout is named with its desktop.

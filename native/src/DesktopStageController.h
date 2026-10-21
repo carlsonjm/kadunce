@@ -169,6 +169,8 @@ public:
     // bounds of the display it came from is, is asked for its place again.
     bool replacePaneShortOfPlace(KWin::EffectWindow *window);
     [[nodiscard]] bool hasSessionOnOutput(const QString &outputName) const;
+    // A layout on the display laid out in the zones drawn in KDE's tile editor.
+    [[nodiscard]] bool laysOutInZones(const QString &outputName) const;
     // A layout on the display whose panes have taken their places, as
     // Spread needs before it can hold the layout.
     [[nodiscard]] bool hasSettledSessionOnOutput(const QString &outputName) const;

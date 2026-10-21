@@ -223,12 +223,8 @@ std::vector<BentoRect> makeBentoLayout(int count, bool landscape)
                                      {0.0, 0.60, 0.50, 0.40},
                                      {0.50, 0.60, 0.50, 0.40}};
     }
-    if (count == 4) {
-        return {{0.0, 0.0, 0.50, 0.62},
-                {0.50, 0.0, 0.50, 0.38},
-                {0.0, 0.62, 0.50, 0.38},
-                {0.50, 0.38, 0.50, 0.62}};
-    }
+    // Four stand in even quarters (CARD-LIFECYCLE.md §5).
+    if (count == 4) return makeGridBentoLayout(4, 2);
     if (count == 5) {
         return {{0.22, 0.0, 0.56, 1.0},
                 {0.0, 0.0, 0.22, 0.50},

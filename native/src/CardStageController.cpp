@@ -1336,7 +1336,10 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
     // Bento layout. An activation reaching here was not routed into the
     // layout, and drawing a card over live panes is the state §2 does not
     // name, so the presentation stands.
-    if (m_presentation == CardPresentation::Bento) return;
+    if (m_presentation == CardPresentation::Bento) {
+        if (liveCardIndex(window) >= 0) m_host->cardActivatedBehindLayoutForCardStage(window);
+        return;
+    }
     if (m_arrivalWindow) clearCardTransition(); // An explicit different activation wins.
     const int targetIndex = liveCardIndex(window);
     if (targetIndex < 0) {

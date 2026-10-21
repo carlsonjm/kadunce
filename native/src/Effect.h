@@ -720,6 +720,9 @@ private:
     // Cards the top edge took out of a layout, called back alone (§10).
     QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
+    // §11, Connected: Meta+B in Spread opens what is centred and lays every
+    // card out with it.
+    void layOutFromSpread(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
@@ -831,6 +834,10 @@ private:
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
+    void cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *window) override;
+    // The next card of a closing pane's Stack, which keeps the focus while
+    // KWin hands it to the window used before (CARD-LIFECYCLE.md §11).
+    QPointer<KWin::EffectWindow> m_closeFocusTo;
     [[nodiscard]] bool holdPictureBeforeResizeForCardStage(
         KWin::EffectWindow *window, const std::function<void()> &resize) override;
     void retireBentoProjectionForCardStage(
@@ -1481,11 +1488,19 @@ private:
     // What those say, cheaply, so a frame that changes them announces it once.
     [[nodiscard]] QString contextLineSignature() const;
     QString m_reportedContextLine;
-    struct ZoneNotice {
+    // What Kadunce says on every display's line for a moment: the zones
+    // switched, or a hint for a key that did nothing (TETTEGOUCHE-CONTEXT.md).
+    struct LineNotice {
+        QString kind;
         QString text;
         QElapsedTimer shown;
     };
-    std::optional<ZoneNotice> m_zoneNotice;
+    std::optional<LineNotice> m_lineNotice;
+    void sayOnContextLine(const QString &kind, const QString &text);
+    // Said once a sign-in, as the first layout laid out in drawn zones
+    // starts, so zones switched on long ago are not mistaken for Bento.
+    bool m_zonesHinted = false;
+    void hintZonesOnce();
     // A notice no frame will clear, since nothing is drawn for it, ends here.
     QTimer m_contextNoticeEnd;
     // The display a card about to leave for the desktop is over, this frame.

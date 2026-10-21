@@ -245,8 +245,40 @@ bool DesktopStageController::planSession(Session &session,
             }
             const int required = requirePreferred ? int(considered.indexOf(preferred)) : -1;
             if (requirePreferred && required < 0) return false;
-            const auto admission = chooseZoneAdmission(candidates, zonePixels, current, required);
+            auto admission = chooseZoneAdmission(candidates, zonePixels, current, required);
             if (!admission) return false;
+            // A side snap takes the zone at that edge, where its card fits:
+            // the card holding it trades zones, or gives way, as it fits.
+            const int snapped = session.side && session.sideWindow
+                ? int(considered.indexOf(session.sideWindow)) : -1;
+            const int edge = snapped >= 0
+                ? bentoPaneOnSide(zonePixels, session.side->right, session.side->large || session.side->over) : -1;
+            const auto fits = [&](int candidate, int zone) {
+                return candidates[candidate].minimumWidth <= zonePixels[zone].width + 1
+                    && candidates[candidate].minimumHeight <= zonePixels[zone].height + 1;
+            };
+            if (edge >= 0 && fits(snapped, edge)) {
+                auto &chosen = admission->candidateIndices;
+                auto &zoned = admission->zoneIndices;
+                const auto at = [](const std::vector<int> &list, int value) {
+                    const auto it = std::find(list.cbegin(), list.cend(), value);
+                    return it == list.cend() ? -1 : int(it - list.cbegin());
+                };
+                const int mine = at(chosen, snapped);
+                const int holder = at(zoned, edge);
+                if (mine >= 0 && holder >= 0 && mine != holder) {
+                    if (fits(chosen[holder], zoned[mine])) std::swap(zoned[mine], zoned[holder]);
+                    else { chosen.erase(chosen.begin() + holder); zoned.erase(zoned.begin() + holder);
+                           zoned[holder < mine ? mine - 1 : mine] = edge; }
+                } else if (mine >= 0 && holder < 0) {
+                    zoned[mine] = edge;
+                } else if (mine < 0 && holder >= 0) {
+                    chosen[holder] = snapped;
+                } else if (mine < 0) {
+                    chosen.push_back(snapped);
+                    zoned.push_back(edge);
+                }
+            }
             const KWin::Rect area = stageArea(output);
             session.windows.clear();
             session.zones.clear();
@@ -345,6 +377,10 @@ bool DesktopStageController::planSession(Session &session,
                 const auto widenedSide = smallestSide(widened);
                 *columns = widenedSide && (!joinedSide || *widenedSide > *joinedSide)
                     ? widened : joined;
+                // Four cards stand in even quarters, two columns of two in
+                // the order they stood, where every quarter holds its card.
+                if (auto quarters = bentoColumnsQuartered(*columns); quarters && smallestSide(*quarters))
+                    *columns = *quarters;
             }
             std::vector<QPointer<KWin::EffectWindow>> handles;
             std::vector<BentoRect> rects;

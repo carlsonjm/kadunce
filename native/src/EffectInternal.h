@@ -299,6 +299,11 @@ public:
         SessionScope scope(m_effect, m_session, m_key);
         cards().unredirectForCardStage(window);
     }
+    void cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *window) override
+    {
+        SessionScope scope(m_effect, m_session, m_key);
+        cards().cardActivatedBehindLayoutForCardStage(window);
+    }
     bool holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
         const std::function<void()> &resize) override
     {

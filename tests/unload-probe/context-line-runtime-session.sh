@@ -2,8 +2,8 @@
 # TETTEGOUCHE-CONTEXT.md § Context-line claims: a surface that claims a
 # display's context line is given what Kadunce would have drawn there in the
 # workspace context, and each change is announced: Spread's chosen entry, with
-# a sleeping card's state as it is chosen, and the monitors' zones as they
-# switch, said for a while and then gone. The claim ends with its caller.
+# a sleeping card's state as it is chosen, the monitors' zones as they
+# switch, and why Meta+B did nothing, said for a while and then gone. The claim ends with its caller.
 #
 # Needs the tablet fixture. Every check is reported.
 set -uo pipefail
@@ -91,6 +91,21 @@ check "the notice is gone after its time" is "$(context | jq -c '.notice')" null
 probe keyHeld 48 1 125 42 >/dev/null
 sleep .3
 
+# Meta+B with every other card asleep does nothing, and says why.
+for id in $(probe windowFacts | jq -r --arg two "$(id_of 'Two')" \
+        '.[] | select(.class == "unload-client" and .id != $two) | .id'); do
+    probe minimizeWindow "$id" true >/dev/null
+done
+sleep .5
+probe key 48 125 >/dev/null
+sleep .5
+notice=$(context | jq -c '.notice')
+echo "Meta+B: $notice"
+check "a key that did nothing is hinted" is "$(jq -r '.kind' <<<"$notice")" hint
+check "with its reason" is "$(jq -r '.text' <<<"$notice")" "Nothing to pair it with"
+check "and nothing paired" is "$(context | jq -r '.cardStage.presentation')" cardLine
+sleep 2.8
+
 # The claim goes with its caller; the context still says the entry.
 kill "$claimer_pid" 2>/dev/null; wait "$claimer_pid" 2>/dev/null; claimer_pid=
 sleep .5
@@ -102,4 +117,4 @@ sleep .8
 check "outside Spread there is no entry" is "$(context | jq -c '.cardStage.spreadEntry')" null
 
 (( failures == 0 )) || exit "$failures"
-echo 'PASS: a claimed context line is told Spread'"'"'s entry, a sleeping card and the zones, each as it changes'
+echo 'PASS: a claimed context line is told Spread'"'"'s entry, a sleeping card, the zones and a hint, each as it changes'
