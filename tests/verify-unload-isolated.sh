@@ -211,4 +211,11 @@ timeout "$session_timeout" env "${caller_env[@]}" "${session_env[@]}" "${scaled_
     --no-lockscreen "${shortcut_args[@]}" --no-kactivities "${xwayland_args[@]}" "${input_method_args[@]}" \
     --exit-with-session "$session_script" >"$unload_root/session.log" 2>&1
 rg '^PASS:' "$unload_root/session.log"
+# Whatever a scene checks, the card book holds every card throughout: a record
+# of a card's status that disagrees with another fails the scene
+# (ARCHITECTURE.md, the card book).
+if rg -a 'Kadunce card book:' "$unload_root/session.log" >&2; then
+    echo "FAIL: the card book named a mismatch in ${KADUNCE_PROBE_SESSION:-session.sh}" >&2
+    exit 1
+fi
 # Keep bounded test artifacts/logs for inspection. Never install this probe.

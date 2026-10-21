@@ -122,8 +122,8 @@ ownership.
 A card's status is kept in several records: each display's card stage, its row and
 the Stacks behind panes, and each display's layout, on every desktop. The card
 book (`CardBook.h`) reads them all after every published change and logs each
-place they disagree as `Kadunce card book:`, once. Like the ownership ledger, it
-reports and never repairs. Where a window goes back is one record shape,
+place they disagree as `Kadunce card book:`, once, and any scene that logs one
+fails. Like the ownership ledger, it reports and never repairs. Where a window goes back is one record shape,
 `WindowPlace`, which each stage's record and a carry's extend and hand on whole.
 A Stack moves as one, or stays: a move checks every card of it first. A Stack waits as one: where a card behind another waits
 is read from its Stack's pane or front card, never kept for it, so no move can part
