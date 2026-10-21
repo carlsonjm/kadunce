@@ -929,8 +929,12 @@ void Effect::showGestureNote(KWin::LogicalOutput *output, QPointF contact, Gestu
     qInfo() << "Kadunce" << Revision << "refused a gesture on" << output->name() << ":" << text;
     m_gestureNote = std::move(note);
     KWin::effects->addRepaint(KWin::RectF(m_gestureNote->box).toAlignedRect());
-    // Said rather than drawn on a claimed display, so no frame ends it.
-    if (contextLineClaimed(output)) m_contextNoticeEnd.start();
+    // Said rather than drawn on a claimed display, so no frame ends it, or
+    // begins it: the line is told now.
+    if (contextLineClaimed(output)) {
+        m_contextNoticeEnd.start();
+        Q_EMIT workspaceContextChanged();
+    }
 }
 
 

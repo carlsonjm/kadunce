@@ -1412,8 +1412,19 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
                 m_cardStage->forgetPaneStack(window);
                 m_cardStage->notePaneStack(next, behind.mid(1));
                 m_cardStage->settlePaneStacks();
-                if (KWin::effects->activeWindow() == window || !KWin::effects->activeWindow())
-                    KWin::effects->activateWindow(next);
+                // The pane keeps the focus, on its next card, whatever KWin
+                // hands it to as the window goes: what it picks is the window
+                // used before, often a card behind another pane, and taking
+                // that would change the other pane under the person.
+                const bool inUse = window == m_lastActiveApplication.data()
+                    || KWin::effects->activeWindow() == window || !KWin::effects->activeWindow();
+                if (inUse) {
+                    m_closeFocusTo = next;
+                    activateShownPane(next);
+                    QTimer::singleShot(250, this, [this, next = QPointer(next)] {
+                        if (m_closeFocusTo == next) m_closeFocusTo.clear();
+                    });
+                }
             }
         }
     }
@@ -1464,6 +1475,14 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
             if (!opening && !admitActivatedCardToLiveBento(lead)) m_cardStage->handleWindowActivated(lead);
         }
         scheduleDependentSync();
+        return;
+    }
+    // A closing pane's next card keeps the focus KWin handed elsewhere.
+    if (m_closeFocusTo && window != m_closeFocusTo && isApplicationWindow(window)
+        && !m_closeFocusTo->isDeleted() && m_desktopStage->managesWindow(m_closeFocusTo)) {
+        qInfo() << "Kadunce" << Revision << "kept the focus on" << logNameOf(m_closeFocusTo)
+                << "in the closed pane's place, not" << logNameOf(window);
+        KWin::effects->activateWindow(m_closeFocusTo);
         return;
     }
     if (m_settlingWindow && window != m_settlingWindow) clearDropSettle();

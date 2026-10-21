@@ -834,6 +834,10 @@ private:
     void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) override;
     void unredirectForCardStage(KWin::EffectWindow *window) override;
+    void cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *window) override;
+    // The next card of a closing pane's Stack, which keeps the focus while
+    // KWin hands it to the window used before (CARD-LIFECYCLE.md §11).
+    QPointer<KWin::EffectWindow> m_closeFocusTo;
     [[nodiscard]] bool holdPictureBeforeResizeForCardStage(
         KWin::EffectWindow *window, const std::function<void()> &resize) override;
     void retireBentoProjectionForCardStage(

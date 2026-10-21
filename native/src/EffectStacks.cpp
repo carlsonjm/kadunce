@@ -187,6 +187,24 @@ void Effect::unredirectForCardStage(KWin::EffectWindow *window)
     m_previewSourceBounds.remove(window);
 }
 
+void Effect::cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *window)
+{
+    KWin::LogicalOutput *output = window ? window->screen() : nullptr;
+    if (!output || m_desktopStage->managesWindow(window)) return;
+    const QList<QPointer<KWin::EffectWindow>> panes = m_desktopStage->panesOn(output->name());
+    if (panes.isEmpty()) return;
+    // A press meant for a pane must reach the pane, never the card drawn
+    // nowhere under it, so the panes stand above it again and the pane used
+    // last has the focus back.
+    for (const auto &pane : panes)
+        if (pane && !pane->isDeleted() && pane->window()) KWin::workspace()->raiseWindow(pane->window());
+    KWin::EffectWindow *back = m_lastActiveApplication && panes.contains(m_lastActiveApplication)
+        ? m_lastActiveApplication.data() : panes.first().data();
+    qInfo() << "Kadunce" << Revision << "kept" << logNameOf(window) << "behind the layout on" << output->name()
+            << "and gave the focus back to" << logNameOf(back);
+    if (back && !back->isDeleted()) activateShownPane(back);
+}
+
 void Effect::retireBentoProjectionForCardStage(
     const QList<QPointer<KWin::EffectWindow>> &windows)
 {

@@ -226,7 +226,7 @@ hardware identity.
 A preset fixes how panes are arranged, not their proportions. A preferred
 proportion is a starting point, clamped by each window's minimum size, and the
 user then moves any shared boundary with its rail. A shape the minimums cannot
-satisfy is skipped.
+satisfy is skipped. Four panes make quarters.
 
 ### Choosing a shape by side contact
 
@@ -234,8 +234,8 @@ A side snap carries a size intent, larger or smaller, taken from where the edge
 was touched (`INPUT.md` § Active card and § Bento). Contact near the edge's midpoint
 keeps the previous choice.
 
-The carried window keeps the edge it was released into and takes the share its
-half asked for (§11, A side snap), wherever the carried window comes from.
+The carried window keeps the edge it was released into and the share its half
+asked for (§11, A side snap).
 
 ### When a pane leaves Bento
 
@@ -252,9 +252,8 @@ It keeps no Bento position or group, and stands in the Active card's place (§3)
 One displaced by a window carried or opened in comes back when
 that window leaves, if it still waits there unused.
 
-A window leaves for the display that can hold it as a card, keeping its
-restore record so release still returns it where it began. It waits in
-Spread there.
+A window waits in Spread on the display that can hold it as a card, keeping
+its restore record so release still returns it where it began.
 
 Where no display can hold a card, nothing leaves: the layout keeps its
 combination.
@@ -484,8 +483,8 @@ Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
 Switched to zones (Meta+Shift+B or the tray), a display, Connected too, is
-laid out in the zones drawn with Meta+T, each window in one it fits; KWin
-owns their edges.
+laid out in the zones drawn with Meta+T, each window in one it fits, a snapped one at
+its edge; KWin owns their edges.
 
 A transfer (`ARCHITECTURE.md` § Transfer transaction) that fails changes
 neither display.

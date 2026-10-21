@@ -140,6 +140,9 @@ public:
     virtual void connectManagedWindowForCardStage(
         KWin::EffectWindow *window) = 0;
     virtual void unredirectForCardStage(KWin::EffectWindow *window) = 0;
+    // A card behind a live layout was activated and no pane took it, so it is
+    // focused, raised and drawn nowhere: the panes go back above it.
+    virtual void cardActivatedBehindLayoutForCardStage(KWin::EffectWindow *) {}
     virtual void retireBentoProjectionForCardStage(
         const QList<QPointer<KWin::EffectWindow>> &windows) = 0;
     [[nodiscard]] virtual bool admitCardToDesktopStage(

@@ -74,6 +74,25 @@ void bentoColumnsKeep(BentoColumns<Handle> &layout, Keep keep)
     });
 }
 
+// Four cards, with no room open and no column widened by the wheel, as two
+// columns of two, read left to right and top to bottom; none otherwise.
+template<class Handle>
+[[nodiscard]] std::optional<BentoColumns<Handle>> bentoColumnsQuartered(const BentoColumns<Handle> &layout)
+{
+    if (!layout.shares.empty()) return std::nullopt;
+    std::vector<BentoColumnSlot<Handle>> cards;
+    for (const auto &column : layout.columns)
+        for (const auto &slot : column) {
+            if (slot.open) return std::nullopt;
+            cards.push_back(slot);
+        }
+    if (cards.size() != 4) return std::nullopt;
+    BentoColumns<Handle> quarters = layout;
+    quarters.columns = {{cards[0], cards[1]}, {cards[2], cards[3]}};
+    if (quarters == layout) return std::nullopt;
+    return quarters;
+}
+
 template<class Handle>
 void bentoColumnsRemove(BentoColumns<Handle> &layout, const Handle &window)
 {

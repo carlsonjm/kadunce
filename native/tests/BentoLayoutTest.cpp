@@ -99,6 +99,15 @@ int main()
         }
     }
 
+    // Four panes stand in even quarters (CARD-LIFECYCLE.md §5).
+    for (const bool landscape : {true, false}) {
+        const std::vector<BentoRect> quarters = makeBentoLayout(4, landscape);
+        require(quarters.size() == 4, "Four panes did not make four places");
+        for (const auto &rect : quarters)
+            require(std::abs(rect.width - 0.5) < .001 && std::abs(rect.height - 0.5) < .001,
+                    "Four panes did not stand in even quarters");
+    }
+
     const std::vector<BentoCandidate> ordinary{
         {300, 240, 1200, 800, true},
         {300, 240, 900, 900, false},
@@ -590,6 +599,20 @@ int main()
         };
         const BentoSidePlacement rightUnder{true, false, true}, rightBeside{true, true, true};
         const BentoSidePlacement leftUnder{false, false, true}, leftBeside{false, true, true};
+
+        // Four cards in columns, none widened and no room open, stand as two
+        // columns of two, in the order they stood.
+        Columns thirds;
+        thirds.columns = {{{1, false}}, {{2, false}}, {{3, false}, {4, false}}};
+        const auto quartered = bentoColumnsQuartered(thirds);
+        require(quartered && shape(*quartered) == std::vector<std::vector<int>>{{1, 2}, {3, 4}},
+            "Four cards in columns did not stand in quarters");
+        require(placeOf(*quartered, 3) && same(*placeOf(*quartered, 3), {0.5, 0.0, 0.5, 0.5}),
+            "The third of four cards did not take the top right quarter");
+        Columns open = thirds;
+        open.columns[0].push_back({0, true});
+        require(!bentoColumnsQuartered(open), "Columns with room open were quartered");
+        require(!bentoColumnsQuartered(*quartered), "Quarters were quartered again");
 
         // Alone, beside takes the half on its side and under that half's
         // lower corner, the rest open.
