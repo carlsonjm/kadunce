@@ -1,0 +1,128 @@
+name: Plasma point release check
+
+# One-off check, on this branch only: builds and tests every public suite part
+# against the newest Plasma that Arch and CachyOS each carry today, so a Plasma
+# point release is proved before a device takes it. Never merged; main's own
+# workflows keep their pins.
+on:
+  push:
+    branches: [claude/project-thread-cfmx2i]
+    paths: [".github/workflows/plasma-point-check.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.part }} on ${{ matrix.source }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/archlinux/archlinux:latest
+      options: --cap-add=SYS_NICE --privileged
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [arch, cachyos]
+        part: [kadunce, temperance, tettegouche, gooseberry, shuffle-keyboard]
+        include:
+          - part: kadunce
+            deps: >-
+              base-devel cmake extra-cmake-modules git ripgrep python file perl dbus
+              qt6-base qt6-declarative kwin kdecoration kcoreaddons kconfig kservice
+              kglobalaccel kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
+          - part: temperance
+            deps: >-
+              base-devel cmake ninja git python dbus extra-cmake-modules qt6-base
+              qt6-declarative kcalendarcore kconfig kcoreaddons kiconthemes ki18n
+              kitemmodels kjobwidgets kio kservice kstatusnotifieritem kwindowsystem
+              kxmlgui kpackage libplasma plasma-workspace pulseaudio-qt libkscreen
+              layer-shell-qt powerdevil kdeclarative kcmutils kirigami ksvg breeze-icons
+              kdeplasma-addons ttf-dejavu noto-fonts
+          - part: tettegouche
+            deps: >-
+              git base-devel cmake ninja extra-cmake-modules python ripgrep dbus
+              qt6-base qt6-declarative qt6-svg kcoreaddons kfilemetadata kglobalaccel
+              ki18n kio krunner kservice bluez-qt solid kirigami kpackage layer-shell-qt
+              libplasma plasma-workspace plasma-activities-stats kactivitymanagerd
+              appstream-qt kate okular ffmpegthumbs kdegraphics-thumbnailers
+          - part: gooseberry
+            deps: >-
+              base-devel cmake extra-cmake-modules git python dbus qt6-base
+              qt6-declarative kcoreaddons kdbusaddons ki18n kservice kwindowsystem
+              kirigami layer-shell-qt plasma-workspace
+          - part: shuffle-keyboard
+            deps: >-
+              base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base
+              qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils
+              kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland
+              wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
+    env:
+      QT_FORCE_STDERR_LOGGING: "1"
+      LANG: en_US.UTF-8
+      TZ: UTC
+    steps:
+      - name: Put CachyOS's repositories above Arch's
+        if: matrix.source == 'cachyos'
+        run: |
+          pacman-key --init
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
+          pacman-key --lsign-key F3B607488DB35A47
+          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3/' /etc/pacman.conf
+          sed -i '0,/^\[core\]/s//[cachyos-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-core-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-extra-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64\/$repo\n\n[core]/' /etc/pacman.conf
+          grep -n '^\[\|^Architecture' /etc/pacman.conf
+
+      - name: Install the build stack
+        run: |
+          pacman -Syyuu --noconfirm --needed ${{ matrix.deps }}
+          sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+          locale-gen
+          useradd --create-home user
+
+      - name: Record the Plasma checked
+        run: |
+          {
+            echo "### ${{ matrix.part }} on ${{ matrix.source }}"
+            echo '```'
+            pacman -Q kwin libplasma plasma-workspace layer-shell-qt qt6-base kcoreaddons 2>/dev/null || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v5
+        with:
+          repository: carlsonjm/${{ matrix.part }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Run ./verify.sh
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          case "${{ matrix.part }}" in
+            tettegouche)
+              chown -R user: "$GITHUB_WORKSPACE"
+              runuser -u user -- env HOME=/home/user LANG=en_US.UTF-8 CMAKE_GENERATOR=Ninja ./verify.sh ;;
+            temperance)
+              ./verify.sh ;;
+            *)
+              QT_QPA_PLATFORM=offscreen dbus-run-session -- ./verify.sh ;;
+          esac
+
+      - name: Run the Keyboard's sealed sessions on this KWin
+        if: matrix.part == 'shuffle-keyboard'
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build
+          export SHUFFLE_KEYBOARD_BUILD="$PWD/build"
+          failed=()
+          for session in tests/verify-*.sh; do
+            echo "::group::${session}"
+            status=0
+            "${session}" || status=$?
+            echo "::endgroup::"
+            case "${status}" in
+              0) echo "passed: ${session}" ;;
+              77) echo "skipped: ${session}" ;;
+              *) echo "FAILED: ${session}"; failed+=("${session}") ;;
+            esac
+          done
+          ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
