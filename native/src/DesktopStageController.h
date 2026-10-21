@@ -18,6 +18,7 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <QSet>
 #include <QStringList>
 #include <QTimer>
 
@@ -364,16 +365,9 @@ public:
                            std::optional<BentoSidePlacement> side = {});
 
 private:
-    struct RestoreSnapshot {
+    // A layout's restore record: the place, and how the window sleeps.
+    struct RestoreSnapshot : WindowPlace {
         QPointer<KWin::EffectWindow> window;
-        KWin::RectF geometry;
-        KWin::RectF floatingGeometry;
-        KWin::RectF fullscreenRestoreGeometry;
-        QString outputName;
-        KWin::QuickTileMode quickTileMode;
-        KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
-        bool fullScreen = false;
-        bool minimized = false;
         bool valid = false;
         bool userMinimized = false;
         // Minimized by Kadunce because a layout on a display that cannot own
@@ -434,6 +428,9 @@ private:
         QPointF contact;
     };
     std::optional<RailDrag> m_railDrag;
+    // Displays whose layout a departure asked to end while a pane was moved
+    // or a divider held; settleAfterInteraction asks again.
+    QSet<QString> m_heldDepartures;
     bool m_railRevealed = false;
     bool railValid() const;
 
@@ -481,6 +478,10 @@ private:
     // layout there sends what it has no room for to the dock, never to another
     // display and never loose beside it.
     [[nodiscard]] bool parksOverflow(const QString &key) const;
+    // CARD-LIFECYCLE.md §11: the displays the zones drawn in KDE's tile editor
+    // can lay out, switched to zones or not: one without cards, and one sized
+    // Connected, which plays its cards into them.
+    [[nodiscard]] bool canTakeDrawnZones(const QString &key) const;
     void parkWindow(const QString &key, KWin::EffectWindow *window,
                     const RestoreSnapshot *record = nullptr);
     void minimizeParked(const QString &key);
@@ -523,6 +524,11 @@ private:
     // before publishing. Settled by whoever observed it, because it can owe an
     // eviction and applySession is already committed to placing panes.
     void settleParticipation(const QString &key);
+    // §5 and §7 wait while a pane is moved or a divider held. Once that ends,
+    // what happened meanwhile is settled: a pane minimized then leaves as a
+    // sleeping card, and a layout left with one pane ends. True when the
+    // layout on that display ended, so nothing is left to publish.
+    [[nodiscard]] bool settleAfterInteraction(const QString &key);
 
     [[nodiscard]] QString outputKey(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::LogicalOutput *outputForKey(const QString &key) const;
@@ -542,6 +548,23 @@ private:
     // A place moved and shrunk into the room panels leave on output.
     [[nodiscard]] static KWin::RectF fittedIntoWorkArea(const KWin::RectF &geometry,
         KWin::LogicalOutput *output);
+    // Where a window is given back on `target`: on the display its place was
+    // taken on, that place, fitted clear of panels when it is its own; on any
+    // other, carried there as a card's is (ReleasePlace.h), never pinned to
+    // an edge.
+    [[nodiscard]] static KWin::RectF givenBackPlace(const RestoreSnapshot &snapshot,
+        KWin::LogicalOutput *target, bool ownDisplay);
+public:
+    // Where the last display to go away had its layout's window given back,
+    // which KWin's own evacuation can overwrite before a card is made of it.
+    [[nodiscard]] std::optional<KWin::RectF> placeGivenBack(const KWin::EffectWindow *window) const
+    {
+        for (const auto &[given, place] : m_givenBack)
+            if (given && given == window) return place;
+        return std::nullopt;
+    }
+private:
+    QList<std::pair<QPointer<KWin::EffectWindow>, KWin::RectF>> m_givenBack;
     // A window given back that was minimized before its layout is minimized
     // again: now, when KWin already holds its restored state, which returns
     // true, else once KWin does.

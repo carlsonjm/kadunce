@@ -94,6 +94,21 @@ int main()
     require(first && first->display.name == Tablet.name, "with no display named, the first one takes it");
     require(!releaseCarry({}, fromMonitor, {}, Tablet.name), "with no display at all, nothing moves");
 
+    // A layout giving a window back on another display measures its place
+    // as a card's is, so both come back at the same share of the way across.
+    require(releaseCarriedFrom(unplugged, fromMonitor) == MonitorGeometry,
+            "a gone display's place is measured as that display stood");
+    require(releaseCarriedFrom({Tablet, Monitor}, fromMonitor) == Monitor.geometry,
+            "a place on a display there is is measured on it");
+    require(releaseCarriedFrom({Tablet, Other}, fromMonitor) == MonitorGeometry,
+            "a display standing where the gone one stood does not stand in for it");
+    const QRectF layoutPlace = carriedPlace(fromMonitor.place,
+        releaseCarriedFrom(unplugged, fromMonitor), Tablet.work);
+    require(layoutPlace == given(unplugged, fromMonitor),
+            "a layout and a card give the same place back on the tablet");
+    require(layoutPlace.left() > Tablet.work.left() && layoutPlace.right() < Tablet.work.right(),
+            "a place carried off a gone display is not pinned to an edge");
+
     std::cout << "release-place: ok\n";
     return 0;
 }

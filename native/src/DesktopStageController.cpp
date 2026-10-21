@@ -45,9 +45,7 @@ std::optional<PreparedCarrySource> DesktopStageController::prepareNativeCarrySou
         source.m_desktopWindow = true;
         source.m_origin = {window->window()->internalId().toString(), saved.outputName,
             source.m_generation + 1, source.m_generation};
-        source.m_restore = {window->window(), window->screen(), saved.geometry,
-            saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
-            saved.quickTileMode, saved.fullScreen, saved.minimized};
+        source.m_restore = {saved, window->window(), window->screen()};
         return source;
     }
     if (!session || session->applying || !session->applicationToken) return std::nullopt;
@@ -62,9 +60,7 @@ std::optional<PreparedCarrySource> DesktopStageController::prepareNativeCarrySou
             session->applicationToken, source.m_generation};
         // Preserve pre-Bento restore geometry and flags; live tile geometry is
         // only a rendering origin and must not overwrite this record.
-        source.m_restore = {window->window(), outputForKey(saved.outputName), saved.geometry,
-            saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
-            saved.quickTileMode, saved.fullScreen, saved.minimized};
+        source.m_restore = {saved, window->window(), outputForKey(saved.outputName)};
         return source;
     }
     return std::nullopt;
@@ -368,26 +364,9 @@ DesktopStageController::RestoreSnapshot DesktopStageController::makeSnapshot(
         return {};
     }
     KWin::Window *client = window->window();
-    if (const auto saved = m_host->activeRestoreForDesktopStage(window)) {
-        return {.window = window, .geometry = saved->geometry,
-            .floatingGeometry = saved->floatingGeometry,
-            .fullscreenRestoreGeometry = saved->fullscreenRestoreGeometry,
-            .outputName = outputKey(saved->output), .quickTileMode = saved->quickTileMode,
-            .maximizeMode = saved->maximizeMode, .fullScreen = saved->fullScreen,
-            .minimized = saved->minimized, .valid = true};
-    }
-    return {
-        .window = window,
-        .geometry = window->frameGeometry(),
-        .floatingGeometry = client->geometryRestore(),
-        .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
-        .outputName = outputKey(window->screen()),
-        .quickTileMode = client->quickTileMode(),
-        .maximizeMode = client->maximizeMode(),
-        .fullScreen = client->isFullScreen(),
-        .minimized = window->isMinimized(),
-        .valid = true,
-    };
+    if (const auto saved = m_host->activeRestoreForDesktopStage(window))
+        return {saved->place(), window, true};
+    return {placeOf(client, window->frameGeometry(), window->screen()), window, true};
 }
 
 bool DesktopStageController::handoffWindowToOutput(
@@ -426,18 +405,9 @@ bool DesktopStageController::handoffWindowToOutput(
     if (!detach && (sessionForOutput(destination)
         || intent == CardDropIntent::ActivateBento)) {
         const QString destinationKey = outputKey(destination);
-        const RestoreSnapshot snapshot{
-            .window = window,
-            .geometry = destinationGeometry,
-            .floatingGeometry = destinationGeometry,
-            .fullscreenRestoreGeometry = {},
-            .outputName = destinationKey,
-            .quickTileMode = {},
-            .maximizeMode = KWin::MaximizeRestore,
-            .fullScreen = false,
-            .minimized = false,
-            .valid = true,
-        };
+        const RestoreSnapshot snapshot{WindowPlace{.geometry = destinationGeometry,
+            .floatingGeometry = destinationGeometry, .outputName = destinationKey,
+            .outputGeometry = QRectF(destination->geometry())}, window, true};
         const auto planner = [this, side, window, destinationKey](Session &session, const QPointer<KWin::EffectWindow> &preferred, bool required) {
                 if (side && session.outputName == destinationKey) {
                     session.side = side; session.sideWindow = window;
@@ -625,6 +595,12 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         removedSnapshot = *snapshot;
         wasShown = session.windows.contains(window);
         session.snapshots.erase(snapshot);
+        // A pane's zone and rectangle stand at its index: they leave with it,
+        // or every later pane reads its neighbour's zone.
+        const int index = session.windows.indexOf(window);
+        if (index >= 0 && index < static_cast<int>(session.rects.size()))
+            session.rects.erase(session.rects.begin() + index);
+        if (index >= 0 && index < session.zones.size()) session.zones.removeAt(index);
         session.windows.removeAll(window);
         break;
     }
@@ -645,11 +621,7 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         KWin::LogicalOutput *target = original ? original : leaving->screen();
         if (!target) target = m_host->tabletOutputForDesktopStage();
         const bool preserveGeometry = target && target == original;
-        const bool floating = !removedSnapshot.fullScreen
-            && removedSnapshot.maximizeMode == KWin::MaximizeRestore
-            && removedSnapshot.quickTileMode == KWin::QuickTileMode{};
-        KWin::RectF geometry = removedSnapshot.geometry;
-        if (target && (!preserveGeometry || floating)) geometry = fittedIntoWorkArea(geometry, target);
+        const KWin::RectF geometry = givenBackPlace(removedSnapshot, target, preserveGeometry);
         if (target) client->sendToOutput(target);
         const auto valid = [&] {
             return leaving && !leaving->isDeleted() && client && leaving->window() == client;
@@ -733,10 +705,11 @@ void DesktopStageController::zoneModeChanged()
 {
     const auto keys = m_sessions.keys();
     for (const auto &key : keys) {
-        if (!parksOverflow(key)) continue;
+        if (!canTakeDrawnZones(key)) continue;
         auto found = m_sessions.find(key);
         if (found == m_sessions.end() || found->windows.isEmpty()) continue;
-        // The new arrangement may have room for a window the dock holds.
+        // The new arrangement may have room for a window the dock holds; on a
+        // Connected display, a pane it has no room for goes to Spread.
         if (!wakeParked(key)) continue;
         found = m_sessions.find(key);
         if (found != m_sessions.end() && applySession(found.value(), false)) scheduleSettle();

@@ -53,22 +53,6 @@ void collectLeaves(QObject *tile, QList<QObject *> &leaves)
     for (auto *child : children) collectLeaves(child, leaves);
 }
 
-// KWin's layout for a display nobody has drawn on: three columns, a quarter,
-// a half and a quarter, the full height.
-bool isUntouchedDefault(const QList<QObject *> &leaves)
-{
-    if (leaves.size() != 3) return false;
-    constexpr double widths[] = {0.25, 0.5, 0.25};
-    double left = 0;
-    for (int index = 0; index < 3; ++index) {
-        const QRectF relative = rectProperty(leaves.at(index), "relativeGeometry");
-        if (std::abs(relative.x() - left) > 0.002 || std::abs(relative.width() - widths[index]) > 0.002
-            || std::abs(relative.y()) > 0.002 || std::abs(relative.height() - 1.0) > 0.002) return false;
-        left += widths[index];
-    }
-    return true;
-}
-
 // Whether KWin's tiles still publish what zones read and call, checked once
 // for each kind of tile KWin makes. A KWin that renamed any of it is told in
 // the journal, and its displays keep the curated library.
@@ -121,7 +105,9 @@ QList<DrawnZone> drawnZones(KWin::LogicalOutput *output)
     if (!root || !keepsZoneContract(root)) return zones;
     QList<QObject *> leaves;
     collectLeaves(root, leaves);
-    if (leaves.size() < 2 || isUntouchedDefault(leaves)) return zones;
+    // KWin's own three columns count as drawn: switched to zones, what the
+    // tile editor shows is the layout, and a person can draw exactly those.
+    if (leaves.size() < 2) return zones;
     for (auto *leaf : std::as_const(leaves)) {
         const QRectF rect = zoneWindowRect(leaf);
         if (rect.width() >= 1 && rect.height() >= 1) zones.append({leaf, rect});

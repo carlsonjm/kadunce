@@ -186,9 +186,12 @@ public:
     // eligible card on the contacted side of the carried card in Spread order. Read-only — a prepared carry embeds the workspace
     // revision, so naming a partner must not move selection or the pair side.
     // With `why`, the same walk says in words how it named the partner, or
-    // why it named none, for the journal.
+    // why it named none, for the journal. With `wholeStacks`, as Meta+B on a
+    // display sized Connected lays out every card there, a Stack's front is a
+    // partner too, and its Stack goes with it.
     [[nodiscard]] KWin::EffectWindow *partnerForSideSnap(
-        const KWin::EffectWindow *carried, bool leftEdge, QString *why = nullptr) const;
+        const KWin::EffectWindow *carried, bool leftEdge, QString *why = nullptr,
+        bool wholeStacks = false) const;
     // Why a title-bar drag of this window cannot be carried as the Active
     // card, in words for the journal; empty when it can.
     [[nodiscard]] QString nativeCarryRefusal(KWin::EffectWindow *window) const;
@@ -249,6 +252,10 @@ public:
     paneStackRecords() const { return m_paneStacks; }
     void notePaneStack(KWin::EffectWindow *pane, const QList<KWin::EffectWindow *> &behind);
     void forgetPaneStack(const KWin::EffectWindow *pane);
+    // A pane given back as a plain window, not as a card: the cards that
+    // waited behind it stay together as a Stack of their own, as when the
+    // pane closes, and it is no longer anything's face.
+    void paneLeftWithoutCard(const KWin::EffectWindow *pane);
     // Kadunce let every window go: no Stack waits behind any of them.
     void forgetAllPaneStacks() { m_paneStacks.clear(); }
     // Drops a window from every Stack that waits behind a pane.
@@ -499,6 +506,9 @@ public:
     bool admitCardFromOtherDisplay(KWin::EffectWindow *window,
         const std::function<bool()> &commitSource,
         const NativeMoveSnapshot *restore);
+    // Whether admitCardFromOtherDisplay would take `window` now, asked of
+    // every card of a Stack before any of them moves.
+    [[nodiscard]] bool takesCardFromOtherDisplay(const KWin::EffectWindow *window) const;
     // §11, Every display: this card gives up individual ownership to the
     // layout of the display it shows on, in one step, whatever this display
     // presents. A card held aside is shown again for it.
@@ -553,7 +563,9 @@ public:
     // §3: a window KWin moved onto this display because the display it stood
     // on went away arrives as one card. It is admitted unselected, so the
     // caller decides which arrival, if any, is presented.
-    bool admitArrivalAsCard(KWin::EffectWindow *window);
+    // `place`, where one was given back for it, is its record's place rather
+    // than wherever KWin moved it since.
+    bool admitArrivalAsCard(KWin::EffectWindow *window, std::optional<KWin::RectF> place = {});
     // A stage owning nothing on a display presenting its layout starts behind
     // it (§2), so what arrives becomes cards there; one that took nothing
     // stops again.
@@ -592,20 +604,10 @@ public:
                          const std::function<bool()> &commitSource);
 
 private:
-    struct ActiveRestoreSnapshot {
+    // The card stage's restore record: the place, and whether it was taken.
+    struct ActiveRestoreSnapshot : WindowPlace {
         QPointer<KWin::EffectWindow> window;
-        KWin::RectF geometry;
-        KWin::RectF floatingGeometry;
-        KWin::RectF fullscreenRestoreGeometry;
-        KWin::QuickTileMode quickTileMode;
-        KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
-        bool fullScreen = false;
-        bool minimized = false;
         bool valid = false;
-        // The display the place was taken on, and its geometry then, so a
-        // place whose display has gone is given back on one there is.
-        QString outputName;
-        QRectF outputGeometry;
     };
 
     void rebuildLiveCards();

@@ -37,20 +37,52 @@ void Effect::cancelInputForCardStage()
         refreshTable();
     }
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
-    if (m_carryRuntime) {
-        // Motion under way carries on: each glide checks on every frame that
-        // its window is still presented where it draws it, and stops when
-        // not. A carry this ends goes back with a presentation changing under
-        // it, so it does not glide home.
-        const bool carrying = bool(m_carriedWindow);
-        {
-            QScopedValueRollback<bool> outlives(m_motionOutlivesInterrupt, !carrying);
-            m_carryRuntime->cancel();
-        }
-        if (carrying) clearDropSettle();
-    }
+    cancelCarryForCardStage();
     m_inputActivationGuard.invalidate();
     if (m_inputRouter) m_inputRouter->cancelWorkspaceInteraction();
+}
+
+void Effect::cancelCarryForCardStage()
+{
+    if (!m_carryRuntime) return;
+    // Motion under way carries on: each glide checks on every frame that its
+    // window is still presented where it draws it, and stops when not. A carry
+    // this ends goes back with a presentation changing under it, so it does
+    // not glide home.
+    const bool carrying = bool(m_carriedWindow);
+    {
+        QScopedValueRollback<bool> outlives(m_motionOutlivesInterrupt, !carrying);
+        m_carryRuntime->cancel();
+    }
+    if (carrying) clearDropSettle();
+}
+
+void Effect::cancelInputOnStageDisplay()
+{
+    if (!scopedToCurrent()) return;
+    // Every display: a stage changing its cards cancels only what is under way
+    // on its own display. A stroke or a carry another display's stage owns
+    // goes on, so a window opening on the monitor drops nothing held on the
+    // tablet.
+    const bool strokeElsewhere = m_cardsOnEveryDisplay && !m_strokeContacts.isEmpty()
+        && m_strokeKey != m_scopedKey;
+    const bool carryElsewhere = m_cardsOnEveryDisplay && m_carriedWindow
+        && stageKeyOf(m_carriedWindow) != m_scopedKey;
+    if (!strokeElsewhere && !carryElsewhere) {
+        cancelInputForCardStage();
+        return;
+    }
+    if (!carryElsewhere && m_carriedWindow) cancelCarryForCardStage();
+    if (!strokeElsewhere) {
+        if (m_table.isOpen() && m_table.down()) {
+            m_table.interrupt();
+            relayoutTable();
+            refreshTable();
+        }
+        m_lineDestination.reset(); m_lineDestinationWindow.clear();
+        m_inputActivationGuard.invalidate();
+        if (m_inputRouter) m_inputRouter->cancelWorkspaceInteraction();
+    }
 }
 
 void Effect::connectManagedWindowForCardStage(KWin::EffectWindow *window)
@@ -236,8 +268,14 @@ bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output)
 {
     // CARD-LIFECYCLE.md §3 places by the gesture, and this gesture contacts no
     // edge, so the side is stated rather than read: the Active card keeps the
-    // left pane and its partner is named by walking right from it.
-    return pairActiveCardIntoBento(output, BentoSidePlacement{false, true}, false);
+    // left pane and its partner is named by walking right from it. §11,
+    // Connected: the key lays out every card there, so a Stack's front is a
+    // partner too, its Stack waiting behind the pane it takes.
+    auto *active = m_cardStage->activeCardIdentity();
+    if (!output || !active) return false;
+    return pairCardsIntoBento(output, active,
+        m_cardStage->partnerForSideSnap(active, false, nullptr, connectedOutputForDesktopStage(output)),
+        BentoSidePlacement{false, true});
 }
 
 bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output,
@@ -572,6 +610,10 @@ void Effect::release()
     });
     // Stacks carried to desktops not entered yet stay windows.
     m_pendingDecks.clear();
+    // Every window is its own now: none remembers a layout it left, or being
+    // kept alone, when cards next start.
+    m_leftLayouts.clear();
+    m_aloneOnPurpose.clear();
     returnDependentWindows();
     m_paintingOutput = nullptr;
     if (!hadCards && hadBento) {
@@ -977,6 +1019,9 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
     onThisStageLater(0, [this, front = QPointer(front), members] {
         if (!front || front->isDeleted() || m_releasing) return;
         QList<KWin::EffectWindow *> alive;
+        // Those that cannot follow now stay one Stack where they are, behind
+        // the first of them, rather than loose cards there.
+        QHash<CardStageController *, QList<KWin::EffectWindow *>> left;
         for (const auto &member : members) {
             if (!member || member->isDeleted() || member == front) continue;
             CardStageController *from = stageHolding(member);
@@ -985,10 +1030,15 @@ void Effect::rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWind
                 const QPointer<KWin::EffectWindow> follower = member;
                 if (!m_cardStage->admitCardFromOtherDisplay(member,
                         [from, follower] { return follower && from->releaseCardToStage(follower); },
-                        restore ? &*restore : nullptr)) continue;
+                        restore ? &*restore : nullptr)) {
+                    left[from].append(member.data());
+                    continue;
+                }
             }
             alive.append(member.data());
         }
+        for (auto it = left.cbegin(); it != left.cend(); ++it)
+            if (it.value().size() > 1) (void)it.key()->stackBehind(it.value().first(), it.value().mid(1));
         for (const auto &display : m_scopedSession->displays)
             if (display.second->cards.get() != m_cardStage) display.second->cards->forgetPaneStack(front);
         (void)restoreLeftLayout(front, alive);

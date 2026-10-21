@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-// The card book reads every record of a card's status at once and names each
-// place they disagree. It reports only: these cases check what it names, not
-// that anything is repaired.
+// The card book reads every record of a card's status at once, on every
+// desktop, and names each place they disagree. It reports only: these cases
+// check what it names, not that anything is repaired.
 #include "CardBook.h"
 
 #include <cstdlib>
@@ -22,13 +22,14 @@ bool names(const std::vector<CardBookMismatch> &found, quintptr window, CardBook
     }
     return false;
 }
-CardBookEntry card(quintptr window, const QString &screen, const QString &home = {})
+CardBookEntry card(quintptr window, const QString &screen, const QString &stage = {})
 {
     CardBookEntry entry;
     entry.window = window;
     entry.screen = screen;
     entry.card = true;
-    entry.home = home;
+    entry.cardStage = stage.isEmpty() ? screen : stage;
+    entry.cardStages = 1;
     return entry;
 }
 CardBookEntry pane(quintptr window, const QString &screen)
@@ -37,6 +38,7 @@ CardBookEntry pane(quintptr window, const QString &screen)
     entry.window = window;
     entry.screen = screen;
     entry.paneOf = screen;
+    entry.panes = 1;
     return entry;
 }
 } // namespace
@@ -45,99 +47,79 @@ int main()
 {
     const QString monitor = u"DP-1"_s;
     const QString tablet = u"eDP-1"_s;
-    const QList<CardBookDisplay> displays{
-        {monitor, true, true, false},
-        {tablet, false, true, true},
-    };
 
     // A clean book: a pane on each display, a Stack behind the tablet's pane
-    // waiting for the tablet, a Stack in Spread's row waiting together.
+    // kept by the tablet's stage, which holds its card.
     {
-        auto behind = card(12, monitor, tablet);
-        behind.behindPanes = {2};
-        auto face = card(13, monitor);
-        face.stackFace = 13;
-        auto under = card(14, monitor);
-        under.stackFace = 13;
+        auto behind = card(12, tablet);
+        behind.behindPanes = {{2, tablet}};
         const std::vector<CardBookEntry> entries{
-            pane(1, monitor), pane(2, tablet), card(11, monitor), behind, face, under,
+            pane(1, monitor), pane(2, tablet), card(11, monitor), behind,
         };
-        require(checkCardBook(displays, entries).empty(), "A clean book named a mismatch");
-        require(checkCardBook({}, {}).empty(), "An empty book named a mismatch");
+        require(checkCardBook(entries).empty(), "A clean book named a mismatch");
+        require(checkCardBook({}).empty(), "An empty book named a mismatch");
     }
 
     // The Stack-carry defect: the pane went to the tablet, the card behind it
-    // still waits for Spread's display.
+    // is still held by the monitor's stage.
     {
         auto behind = card(12, monitor);
-        behind.behindPanes = {2};
-        const auto found = checkCardBook(displays, {pane(2, tablet), behind});
+        behind.behindPanes = {{2, tablet}};
+        const auto found = checkCardBook({pane(2, tablet), behind});
         require(names(found, 12, CardBookMismatch::Rule::StackSplitAcrossDisplays),
             "A Stack left behind by its pane was not named");
         require(found.size() == 1, "A Stack left behind named more than one mismatch");
     }
 
-    // Behind a pane on Spread's display, a card waits for no other display.
-    {
-        auto behind = card(12, monitor, tablet);
-        behind.behindPanes = {1};
-        require(names(checkCardBook(displays, {pane(1, monitor), behind}), 12,
-                    CardBookMismatch::Rule::StackSplitAcrossDisplays),
-            "A card behind a Spread pane waiting for the tablet was not named");
-    }
-
-    // One window held as a card and as a pane at once.
+    // One window held as a card and as a pane at once, or by two layouts.
     {
         auto both = pane(3, tablet);
         both.card = true;
-        require(names(checkCardBook(displays, {both}), 3, CardBookMismatch::Rule::CardAndPane),
+        both.cardStage = tablet;
+        both.cardStages = 1;
+        require(names(checkCardBook({both}), 3, CardBookMismatch::Rule::CardAndPane),
             "A card that is also a pane was not named");
+        auto twice = pane(22, tablet);
+        twice.panes = 2;
+        require(names(checkCardBook({twice}), 22, CardBookMismatch::Rule::CardAndPane),
+            "A pane of two layouts was not named");
     }
 
     // A layout holding a pane that stands on another display.
     {
         auto strayed = pane(4, tablet);
         strayed.screen = monitor;
-        require(names(checkCardBook(displays, {strayed}), 4, CardBookMismatch::Rule::PaneOffItsDisplay),
+        require(names(checkCardBook({strayed}), 4, CardBookMismatch::Rule::PaneOffItsDisplay),
             "A pane off its layout's display was not named");
     }
 
-    // Waiting for Spread's display, or one keeping no cards, is no waiting
-    // place; waiting for a display that is gone is, until it returns.
+    // A card held by two stages, as one a desktop not shown still holds, and
+    // one held by a display's stage while it stands on another, as one a
+    // display that is gone still holds.
     {
-        const QList<CardBookDisplay> plain{{monitor, true, true, false}, {tablet, false, false, true}};
-        const auto found = checkCardBook(plain,
-            {card(5, monitor, monitor), card(6, monitor, tablet), card(19, monitor, u"HDMI-A-1"_s)});
-        require(names(found, 5, CardBookMismatch::Rule::WaitsForNoCardDisplay),
-            "A card waiting for Spread's display was not named");
-        require(names(found, 6, CardBookMismatch::Rule::WaitsForNoCardDisplay),
-            "A card waiting for a display keeping no cards was not named");
-        require(found.size() == 2, "A card waiting for a display that is gone was named");
-    }
-
-    // A pane that is also said to wait.
-    {
-        auto waiting = pane(7, tablet);
-        waiting.home = tablet;
-        require(names(checkCardBook(displays, {waiting}), 7, CardBookMismatch::Rule::PaneWaits),
-            "A pane that also waits was not named");
+        auto twice = card(5, tablet);
+        twice.cardStages = 2;
+        require(names(checkCardBook({twice}), 5, CardBookMismatch::Rule::CardOnTwoStages),
+            "A card of two stages was not named");
+        const auto found = checkCardBook({card(6, tablet, u"HDMI-A-1"_s)});
+        require(names(found, 6, CardBookMismatch::Rule::CardOffItsDisplay),
+            "A card a gone display still holds was not named");
     }
 
     // A Stack listing a pane, behind a window that is no pane, and a card
     // listed behind two panes; a window not yet a card may be listed.
     {
         auto loose = pane(8, tablet);
-        loose.behindPanes = {2};
+        loose.behindPanes = {{2, tablet}};
         CardBookEntry arriving;
         arriving.window = 21;
         arriving.screen = tablet;
-        arriving.home = tablet;
-        arriving.behindPanes = {2};
-        auto twice = card(9, monitor, tablet);
-        twice.behindPanes = {2, 20};
-        auto orphan = card(10, monitor, tablet);
-        orphan.behindPanes = {11};
-        const auto found = checkCardBook(displays,
+        arriving.behindPanes = {{2, tablet}};
+        auto twice = card(9, tablet);
+        twice.behindPanes = {{2, tablet}, {20, tablet}};
+        auto orphan = card(10, tablet);
+        orphan.behindPanes = {{11, tablet}};
+        const auto found = checkCardBook(
             {pane(2, tablet), pane(20, tablet), card(11, monitor), loose, arriving, twice, orphan});
         require(names(found, 8, CardBookMismatch::Rule::StackMemberIsPane),
             "A pane in another pane's Stack was not named");
@@ -149,55 +131,8 @@ int main()
             "A Stack behind a card was not named");
     }
 
-    // The cards of one Stack in Spread's row waiting for different displays.
-    {
-        auto face = card(13, monitor);
-        face.stackFace = 13;
-        auto under = card(14, monitor, tablet);
-        under.stackFace = 13;
-        require(names(checkCardBook(displays, {face, under}), 13,
-                    CardBookMismatch::Rule::RowStackSplitAcrossDisplays),
-            "A row Stack split across displays was not named");
-    }
-
-    // A Solo display shows one card; a minimized pane is not shown, and
-    // Spread's display is never Solo-checked.
-    {
-        auto hidden = pane(16, tablet);
-        hidden.minimized = true;
-        require(checkCardBook(displays, {pane(15, tablet), hidden, pane(1, monitor), pane(17, monitor)}).empty(),
-            "One shown card on a Solo display was named");
-        const auto found = checkCardBook(displays, {pane(15, tablet), pane(18, tablet)});
-        require(names(found, 0, CardBookMismatch::Rule::SoloShowsTwo),
-            "A Solo display showing two cards was not named");
-    }
-
-    // A display's own stage shows its card: it fronts a Stack as a pane does
-    // and counts as shown; held by Spread's stage as well, it is held twice.
-    {
-        CardBookEntry shown;
-        shown.window = 30;
-        shown.screen = tablet;
-        shown.stage = tablet;
-        auto behind = card(31, monitor, tablet);
-        behind.behindPanes = {30};
-        require(checkCardBook(displays, {shown, behind}).empty(),
-            "A display stage's card and its Stack were named");
-        auto twice = shown;
-        twice.card = true;
-        require(names(checkCardBook(displays, {twice}), 30, CardBookMismatch::Rule::CardAndPane),
-            "A card held by Spread and a display stage was not named");
-        auto strayed = shown;
-        strayed.screen = monitor;
-        require(names(checkCardBook(displays, {strayed}), 30, CardBookMismatch::Rule::PaneOffItsDisplay),
-            "A display stage's card off its display was not named");
-        require(names(checkCardBook(displays, {shown, pane(32, tablet)}), 0,
-                    CardBookMismatch::Rule::SoloShowsTwo),
-            "A Solo display showing a stage card and a pane was not named");
-    }
-
     for (auto rule = int(CardBookMismatch::Rule::CardAndPane);
-         rule <= int(CardBookMismatch::Rule::SoloShowsTwo); ++rule)
+         rule <= int(CardBookMismatch::Rule::CardOffItsDisplay); ++rule)
         require(!cardBookRuleName(CardBookMismatch::Rule(rule)).isEmpty(), "A rule has no name");
 
     std::cout << "card book: all cases passed\n";

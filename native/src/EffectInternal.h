@@ -273,7 +273,7 @@ public:
     void cancelInputForCardStage() override
     {
         SessionScope scope(m_effect, m_session, m_key);
-        cards().cancelInputForCardStage();
+        m_effect->cancelInputOnStageDisplay();
     }
     // A card whose application asked a question as it was flicked closed
     // opens with it. The opening waits a turn of the event loop and then acts

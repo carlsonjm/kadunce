@@ -132,7 +132,11 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
         && (!window->isOnDesktop(holder->desktop) || window->isOnAllDesktops())) {
         SessionScope scope(this, holder);
         if (CardStageController *own = stageHolding(window)) (void)own->releaseCard(window);
-        else m_desktopStage->releaseWindow(window);
+        else {
+            m_desktopStage->releaseWindow(window);
+            // A pane sent to another desktop leaves the cards behind it here.
+            for (const auto &display : holder->displays) display.second->cards->paneLeftWithoutCard(window);
+        }
     }
     if (window->isOnCurrentDesktop()) scheduleCardDisplaySettle();
     syncDesktopPreview();
@@ -1231,7 +1235,9 @@ void Effect::scheduleDissolve()
 void Effect::dissolveEmptyWorkspaces()
 {
     m_dissolveQueued = false;
-    if (m_table.isOpen()) return;
+    // Windows closing as the session saves or ends are not the person
+    // emptying a workspace; it is still there when they sign back in.
+    if (m_table.isOpen() || KWin::effects->sessionState() != KWin::SessionState::Normal) return;
     auto *manager = KWin::VirtualDesktopManager::self();
     const auto desktops = KWin::effects->desktops();
     const auto stack = KWin::effects->stackingOrder();

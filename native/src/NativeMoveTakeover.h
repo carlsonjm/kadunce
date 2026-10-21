@@ -3,6 +3,7 @@
 
 #include "CarrySession.h"
 #include "StaleTouchRelease.h"
+#include "WindowPlace.h"
 #include <effect/effecthandler.h>
 #include <window.h>
 #include <workspace.h>
@@ -15,16 +16,23 @@ namespace Kadunce {
 // Observed native state immediately before cancellation. This does NOT replace
 // the source controller's authoritative pre-Active/Bento restore record: origin's
 // restoreToken/revision refer to that record, which must remain owned by source.
-struct NativeMoveSnapshot {
+// The place keeps the display it was taken on; `output` is the display the
+// move stands on, which a carry watches and cancellation returns to.
+struct NativeMoveSnapshot : WindowPlace {
     QPointer<KWin::Window> window;
     QPointer<KWin::LogicalOutput> output;
-    KWin::RectF geometry;
-    KWin::RectF floatingGeometry;
-    KWin::RectF fullscreenRestoreGeometry;
-    KWin::MaximizeMode maximizeMode = KWin::MaximizeRestore;
-    KWin::QuickTileMode quickTileMode;
-    bool fullScreen = false;
-    bool minimized = false;
+
+    // The place, naming the display the move stands on when the record
+    // itself names none.
+    [[nodiscard]] WindowPlace place() const
+    {
+        WindowPlace known = *this;
+        if (known.outputName.isEmpty() && output) {
+            known.outputName = output->name();
+            known.outputGeometry = QRectF(output->geometry());
+        }
+        return known;
+    }
 };
 
 // A native-call boundary, not an input filter or destination policy. Callers
@@ -68,10 +76,8 @@ public:
         if (!m_carry.begin(owner, std::move(origin), contact, topLeft))
             return reject("rejected-carry-begin");
         m_owner = owner;
-        m_snapshot = {window, window->output(), window->frameGeometry(),
-            window->geometryRestore(), window->fullscreenGeometryRestore(),
-            window->maximizeMode(), window->quickTileMode(),
-            window->isFullScreen(), window->isMinimized()};
+        m_snapshot = {placeOf(window, window->frameGeometry(), window->output()),
+            window, window->output()};
         m_sourceValid = std::move(sourceValid);
         m_snapshot.geometry.translate(pendingMotion);
         m_connections.append(connect(window, &KWin::Window::closed, this, [this] {
@@ -96,8 +102,11 @@ public:
         // cancel returns to its original display; keep that authoritative home
         // while the compositor carry retains the observed pre-cancel pose.
         if (deferredDesktop && candidate && candidate->output()
-            && candidate->output()->name() == m_carry.origin().output)
+            && candidate->output()->name() == m_carry.origin().output) {
             m_snapshot.output = candidate->output();
+            m_snapshot.outputName = candidate->output()->name();
+            m_snapshot.outputGeometry = QRectF(candidate->output()->geometry());
+        }
         if (!valid()) return Result::Interrupted;
         return Result::Carrying;
     }

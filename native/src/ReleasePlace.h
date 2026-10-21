@@ -52,6 +52,26 @@ inline const ReleaseDisplay *releaseDisplayAt(const QList<ReleaseDisplay> &displ
     return nullptr;
 }
 
+// The frame a record's place is measured in, to carry it onto another display:
+// the display holding it, else the one it was taken on as it stands now, else
+// as it stood.
+inline QRectF releaseFrom(const QList<ReleaseDisplay> &displays, const ReleaseRecord &record)
+{
+    if (const ReleaseDisplay *holding = releaseDisplayAt(displays, record.place.center()))
+        return holding->geometry;
+    const ReleaseDisplay *origin = releaseDisplayNamed(displays, record.origin);
+    return origin ? origin->geometry : record.originGeometry;
+}
+
+// The frame a place leaving its display is carried from: a display that is
+// gone is measured as it stood, even where another now stands in its place.
+inline QRectF releaseCarriedFrom(const QList<ReleaseDisplay> &displays, const ReleaseRecord &record)
+{
+    if (!record.origin.isEmpty() && !releaseDisplayNamed(displays, record.origin))
+        return record.originGeometry;
+    return releaseFrom(displays, record);
+}
+
 // Whether, and where, a released window has to move. `own` is the display
 // the card belongs to where every display holds its own cards, empty
 // otherwise; `standing` is the display the window stands on now.
@@ -65,19 +85,17 @@ inline std::optional<ReleaseCarry> releaseCarry(const QList<ReleaseDisplay> &dis
 {
     const QPointF centre = record.place.center();
     const ReleaseDisplay *holding = releaseDisplayAt(displays, centre);
-    const ReleaseDisplay *origin = releaseDisplayNamed(displays, record.origin);
-    const QRectF from = holding ? holding->geometry
-        : origin ? origin->geometry : record.originGeometry;
+    const QRectF from = releaseFrom(displays, record);
     if (const ReleaseDisplay *owner = releaseDisplayNamed(displays, own)) {
         if (owner->geometry.contains(centre)) return std::nullopt;
         return ReleaseCarry{*owner, from};
     }
-    const bool originGone = !record.origin.isEmpty() && !origin;
+    const bool originGone = !record.origin.isEmpty() && !releaseDisplayNamed(displays, record.origin);
     if (!originGone && holding) return std::nullopt;
     const ReleaseDisplay *target = releaseDisplayNamed(displays, standing);
     if (!target && !displays.isEmpty()) target = &displays.constFirst();
     if (!target) return std::nullopt;
-    return ReleaseCarry{*target, originGone ? record.originGeometry : from};
+    return ReleaseCarry{*target, releaseCarriedFrom(displays, record)};
 }
 
 // A place carried onto `work`: no larger than it, and the same share of the

@@ -482,9 +482,9 @@ display, moving whole with it, and other displays as ordinary windows or one
 Bento layout, an edge snap organizing every window there
 (`DECISIONS.md` § A display without cards organizes everything it shows).
 
-On a display switched to zones (Meta+Shift+B or the tray), the zones drawn
-with Meta+T are the layout. Each window keeps a
-zone it fits, and KWin owns the edges until release.
+Switched to zones (Meta+Shift+B or the tray), a display, Connected too, is
+laid out in the zones drawn with Meta+T, each window in one it fits; KWin
+owns their edges.
 
 A transfer (`ARCHITECTURE.md` § Transfer transaction) that fails changes
 neither display.

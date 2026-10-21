@@ -32,6 +32,7 @@ scenes=(
     connected-runtime production
     connected-sizes-runtime production
     connected-stacks-runtime production
+    stacks-stress-runtime production
     every-display-runtime production
     every-display-wake-runtime production
     every-display-plug-runtime production
@@ -40,6 +41,7 @@ scenes=(
     every-display-full-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
+    connected-zones-runtime production
     connected-desk-keys-runtime production
     provenance-runtime production
     table-preview-runtime production
@@ -106,6 +108,7 @@ scenes=(
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
     monitor-overflow-runtime tablet
+    monitor-unplug-layout-runtime tablet
     monitor-lone-runtime tablet
     monitor-full-runtime tablet
     monitor-grid-runtime tablet

@@ -204,7 +204,7 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
 }
 
 KWin::EffectWindow *CardStageController::partnerForSideSnap(
-    const KWin::EffectWindow *carried, bool leftEdge, QString *why) const
+    const KWin::EffectWindow *carried, bool leftEdge, QString *why, bool wholeStacks) const
 {
     const auto say = [why](const QString &text) { if (why) *why = text; };
     const auto app = [](const KWin::EffectWindow *window) {
@@ -257,7 +257,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
         // §4: a search passes over every ordinary stack, so no walk breaks a
         // composed group. A stacked card reaches Bento only as the Active card.
         auto *candidate = m_workspace.windowForId(face).data();
-        if (m_workspace.stackSizeForId(face) > 1) {
+        if (m_workspace.stackSizeForId(face) > 1 && !wholeStacks) {
             passed.append(QStringLiteral("a Stack fronted by %1").arg(app(candidate)));
             continue;
         }
@@ -512,18 +512,7 @@ void CardStageController::retainManagedOwnership(KWin::EffectWindow *window)
     // Membership owns restoration, independently of the selected presentation.
     // Use KWin's accepted placement, which can precede a Wayland buffer/frame.
     m_parkedRestores.append(ActiveRestoreSnapshot{
-        .window = window,
-        .geometry = client->moveResizeGeometry(),
-        .floatingGeometry = client->geometryRestore(),
-        .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
-        .quickTileMode = client->quickTileMode(),
-        .maximizeMode = client->maximizeMode(),
-        .fullScreen = client->isFullScreen(),
-        .minimized = client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(client->output()),
-        .outputGeometry = outputGeometryOf(client->output()),
-    });
+        placeOf(client, client->moveResizeGeometry(), client->output()), window, true});
     ++m_restoreGeneration;
 }
 
@@ -566,18 +555,7 @@ bool CardStageController::enterActive()
         m_activeRestore = *retained;
         m_parkedRestores.erase(retained);
     } else m_activeRestore = ActiveRestoreSnapshot{
-        .window = effectWindow,
-        .geometry = effectWindow->frameGeometry(),
-        .floatingGeometry = client->geometryRestore(),
-        .fullscreenRestoreGeometry = client->fullscreenGeometryRestore(),
-        .quickTileMode = client->quickTileMode(),
-        .maximizeMode = client->maximizeMode(),
-        .fullScreen = client->isFullScreen(),
-        .minimized = client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(effectWindow->screen()),
-        .outputGeometry = outputGeometryOf(effectWindow->screen()),
-    };
+        placeOf(client, effectWindow->frameGeometry(), effectWindow->screen()), effectWindow, true};
     if (client->isFullScreen()) {
         client->setFullScreen(false);
     }
@@ -840,24 +818,14 @@ CardStageController::ActiveRestoreSnapshot CardStageController::onOwnDisplay(
     // never at a place its record kept from a display it has since left. In
     // every mode, a place whose display is gone, or that no display holds, is
     // carried onto a display there is (ReleasePlace.h).
-    QList<ReleaseDisplay> displays;
-    for (KWin::LogicalOutput *output : KWin::effects->screens())
-        if (output) displays.append({output->name(), QRectF(output->geometry()),
-            QRectF(KWin::effects->clientArea(KWin::MaximizeArea, output))});
     const KWin::LogicalOutput *own = m_host->releaseDisplayForCardStage(snapshot.window.data());
     const KWin::LogicalOutput *standing = snapshot.window ? snapshot.window->screen() : nullptr;
     if (!standing) standing = m_host->tabletOutputForCardStage();
-    const auto carry = releaseCarry(displays,
-        {QRectF(snapshot.geometry), snapshot.outputName, snapshot.outputGeometry},
+    const auto carry = releaseCarry(releaseDisplays(), snapshot.releaseRecord(),
         own ? own->name() : QString(), standing ? standing->name() : QString());
     if (!carry || carry->display.work.isEmpty()) return snapshot;
-    const auto carried = [&](const KWin::RectF &place) {
-        return KWin::RectF(carriedPlace(QRectF(place), carry->from, carry->display.work));
-    };
     ActiveRestoreSnapshot moved = snapshot;
-    moved.geometry = carried(snapshot.geometry);
-    moved.floatingGeometry = carried(snapshot.floatingGeometry);
-    moved.fullscreenRestoreGeometry = carried(snapshot.fullscreenRestoreGeometry);
+    static_cast<WindowPlace &>(moved) = snapshot.carriedOnto(carry->from, carry->display.work);
     qInfo() << "Kadunce" << Revision << "gives" << (snapshot.window ? logNameOf(snapshot.window) : QString())
             << "back on" << carry->display.name << "at" << moved.geometry << "not" << snapshot.geometry
             << "taken on" << (snapshot.outputName.isEmpty() ? QStringLiteral("an unknown display") : snapshot.outputName);
@@ -969,9 +937,7 @@ std::optional<NativeMoveSnapshot> CardStageController::managedRestore(KWin::Effe
     KWin::LogicalOutput *output = saved->outputName.isEmpty()
         ? nullptr : KWin::effects->findScreen(saved->outputName);
     if (!output) output = window->screen();
-    return NativeMoveSnapshot{window->window(), output, saved->geometry,
-        saved->floatingGeometry, saved->fullscreenRestoreGeometry, saved->maximizeMode,
-        saved->quickTileMode, saved->fullScreen, saved->minimized};
+    return NativeMoveSnapshot{*saved, window->window(), output};
 }
 
 bool CardStageController::admitTransferredWindowToTablet(
@@ -986,19 +952,8 @@ bool CardStageController::admitTransferredWindowToTablet(
     }
     QPointer<KWin::EffectWindow> arrival = window;
     QPointer<KWin::Window> client = window->window();
-    const ActiveRestoreSnapshot incoming{
-        .window = window,
-        .geometry = restore ? restore->geometry : window->frameGeometry(),
-        .floatingGeometry = restore ? restore->floatingGeometry : client->geometryRestore(),
-        .fullscreenRestoreGeometry = restore ? restore->fullscreenRestoreGeometry : client->fullscreenGeometryRestore(),
-        .quickTileMode = restore ? restore->quickTileMode : client->quickTileMode(),
-        .maximizeMode = restore ? restore->maximizeMode : client->maximizeMode(),
-        .fullScreen = restore ? restore->fullScreen : client->isFullScreen(),
-        .minimized = restore ? restore->minimized : client->isMinimized(),
-        .valid = true,
-        .outputName = outputNameOf(restore ? restore->output.data() : window->screen()),
-        .outputGeometry = outputGeometryOf(restore ? restore->output.data() : window->screen()),
-    };
+    const ActiveRestoreSnapshot incoming{restore ? restore->place()
+        : placeOf(client.data(), window->frameGeometry(), window->screen()), window, true};
     const KWin::RectF target(activeTarget(tablet));
     const auto ticket = m_transferGuard.issue();
     if (!target.isValid() || !KWin::effects->screens().contains(tablet.data())
@@ -1043,12 +998,15 @@ bool CardStageController::admitTransferredWindowToTablet(
         parkActiveSnapshot();
         if (!valid()) return true;
     }
-    // A source record belongs to cancellation until commit. Same-output
-    // admission may retain it; cross-output adoption establishes a new receiver
+    // A source record belongs to cancellation until commit. Committed, the
+    // record the giving stage kept goes on as this card's own, whichever
+    // display it was taken on: a maximized window carried here comes back
+    // maximized, and on a display that is there (onOwnDisplay). A window
+    // arriving from another display with no record establishes a new receiver
     // origin from KWin's accepted tablet placement before it takes the Active
     // card's size.
     const bool sameOutput = restore ? restore->output == tablet : window->screen() == tablet;
-    if (sameOutput && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
+    if ((sameOutput || restore) && m_active && !managedRestore(arrival)) m_parkedRestores.append(incoming);
     if (!adoptPublishedCard(client.data(), tablet.data(),
             [&] { return liveCardIndex(arrival) >= 0; },
             [&] { retainManagedOwnership(arrival); }, target, valid)) {
@@ -1340,7 +1298,10 @@ bool CardStageController::releaseCard(KWin::EffectWindow *window, bool restore)
     m_host->unredirectForCardStage(window);
     if (record && restore) {
         QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-        restoreWindowState(window->window(), *record, record->geometry, true);
+        // Given back as a full release gives it: on a display that is still
+        // there, and clear of the panels' room.
+        const ActiveRestoreSnapshot own = onOwnDisplay(*record);
+        restoreWindowState(window->window(), own, placeClearOfPanels(own), true);
     }
     qInfo() << "Kadunce" << Revision << "let" << logNameOf(window)
             << "go for another desktop;" << m_workspace.windows().size() << "individual cards";

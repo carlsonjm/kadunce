@@ -49,6 +49,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/CardStageBento.cpp
         src/CardStageRow.cpp
         src/ReleasePlace.h
+        src/WindowPlace.h
         src/BentoLayout.cpp
         src/BentoLayout.h
         src/DesktopStageController.cpp

@@ -53,16 +53,4 @@ constexpr int ArrivalExpandDuration = 220;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr double LauncherGuestDragPreview = 0.18;
 
-// The display a restore record's place was taken on, by name, so that one
-// unplugged and plugged back in is still found, and its geometry then.
-inline QString outputNameOf(const KWin::LogicalOutput *output)
-{
-    return output ? output->name() : QString();
-}
-
-inline QRectF outputGeometryOf(const KWin::LogicalOutput *output)
-{
-    return output ? QRectF(output->geometry()) : QRectF();
-}
-
 } // namespace Kadunce

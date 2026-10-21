@@ -87,14 +87,7 @@ bool DesktopStageController::activate(KWin::LogicalOutput *output,
             // bounds. Carry the source owner's record across this boundary,
             // with the display it was taken on, so a window that came from
             // another display goes back there when the layout lets it go.
-            if (activeRestore->output) saved.outputName = outputKey(activeRestore->output);
-            saved.geometry = activeRestore->geometry;
-            saved.floatingGeometry = activeRestore->floatingGeometry;
-            saved.fullscreenRestoreGeometry = activeRestore->fullscreenRestoreGeometry;
-            saved.maximizeMode = activeRestore->maximizeMode;
-            saved.quickTileMode = activeRestore->quickTileMode;
-            saved.fullScreen = activeRestore->fullScreen;
-            saved.minimized = activeRestore->minimized;
+            static_cast<WindowPlace &>(saved) = activeRestore->place();
         }
         snapshots.append(saved);
     }
@@ -225,10 +218,11 @@ bool DesktopStageController::planSession(Session &session,
         report(owned.mid(1));
         return true;
     }
-    // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
-    // it in KDE's tile editor, when there are any. A window keeps the zone it
-    // has while it fits, and one that fits no zone left waits as remainder.
-    if (parksOverflow(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
+    // CARD-LIFECYCLE.md §11: a display without cards, or one sized Connected,
+    // takes the zones drawn for it in KDE's tile editor, when there are any. A
+    // window keeps the zone it has while it fits, and one that fits no zone
+    // left waits as remainder: in the dock, or as a card in Spread.
+    if (canTakeDrawnZones(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
         const QList<DrawnZone> drawn = drawnZones(output);
         if (!drawn.isEmpty()) {
             const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
@@ -546,9 +540,7 @@ bool DesktopStageController::evictToTablet(const QString &sourceKey,
             session->snapshots.cend(),
             [window](const auto &s) { return s.window == window && s.valid; });
         if (saved == session->snapshots.cend()) return false;
-        sleepingRecord = NativeMoveSnapshot{window->window(), outputForKey(saved->outputName),
-            saved->geometry, saved->floatingGeometry, saved->fullscreenRestoreGeometry,
-            saved->maximizeMode, saved->quickTileMode, saved->fullScreen, saved->minimized};
+        sleepingRecord = NativeMoveSnapshot{*saved, window->window(), outputForKey(saved->outputName)};
     }
     const auto admit = [&](KWin::EffectWindow *departing, const std::function<bool()> &commit) {
         KWin::LogicalOutput *from = outputForKey(sourceKey);
@@ -589,6 +581,14 @@ bool DesktopStageController::parksOverflow(const QString &key) const
     return output && !m_host->outputCanOwnCards(output);
 }
 
+bool DesktopStageController::canTakeDrawnZones(const QString &key) const
+{
+    KWin::LogicalOutput *output = outputForKey(key);
+    return output && (!m_host->outputCanOwnCards(output)
+        || (m_host->connectedOutputForDesktopStage(output)
+            && !m_host->showsOneCardForDesktopStage(output)));
+}
+
 void DesktopStageController::parkWindow(const QString &key, KWin::EffectWindow *window,
                                         const RestoreSnapshot *record)
 {
@@ -607,6 +607,7 @@ void DesktopStageController::parkWindow(const QString &key, KWin::EffectWindow *
     if (index >= 0) {
         if (index < static_cast<int>(session->rects.size()))
             session->rects.erase(session->rects.begin() + index);
+        if (index < session->zones.size()) session->zones.removeAt(index);
         session->windows.removeAt(index);
     }
     minimizeParked(key);
@@ -639,9 +640,7 @@ QList<DesktopStageController::PendingEviction> DesktopStageController::captureEv
         if (std::any_of(published.snapshots.cbegin(), published.snapshots.cend(),
                 [&saved](const auto &kept) { return kept.window == saved.window; })) continue;
         pending.append({saved.window,
-            {saved.window->window(), outputForKey(saved.outputName), saved.geometry,
-             saved.floatingGeometry, saved.fullscreenRestoreGeometry, saved.maximizeMode,
-             saved.quickTileMode, saved.fullScreen, saved.minimized},
+            NativeMoveSnapshot{saved, saved.window->window(), outputForKey(saved.outputName)},
             live.outputName, saved, arrival});
     }
     return pending;
@@ -786,6 +785,30 @@ void DesktopStageController::settleParticipation(const QString &key)
     endLayoutIntoCardOwnership(key);
 }
 
+bool DesktopStageController::settleAfterInteraction(const QString &key)
+{
+    const auto session = m_sessions.constFind(key);
+    if (session != m_sessions.cend() && session->participationDirty) {
+        QList<QPointer<KWin::EffectWindow>> sleeping;
+        for (const auto &saved : std::as_const(session->snapshots))
+            if (saved.userMinimized && saved.window && saved.window->isMinimized()) sleeping.append(saved.window);
+        settleParticipation(key);
+        // As handleWindowMinimizedChanged gives a minimized pane up, except
+        // where the display keeps it waiting in the dock.
+        for (const auto &window : std::as_const(sleeping)) {
+            const auto held = m_sessions.constFind(key);
+            if (!window || held == m_sessions.cend() || parksOverflow(key)) break;
+            if (std::none_of(held->snapshots.cbegin(), held->snapshots.cend(),
+                    [&window](const auto &saved) { return saved.window == window; })) continue;
+            (void)evictToTablet(key, window, {}, EvictedAs::SleepingCard);
+        }
+    }
+    // A departure held on any display is asked about again, this one too.
+    const QSet<QString> held = std::exchange(m_heldDepartures, {});
+    for (const QString &departed : held) endLayoutIntoCardOwnership(departed);
+    return !m_sessions.contains(key);
+}
+
 bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
 {
     if (!bentoEndsAtOnePane(session)) return false;
@@ -805,7 +828,11 @@ bool DesktopStageController::layoutEndsIntoCards(const Session &session) const
 
 void DesktopStageController::endLayoutIntoCardOwnership(const QString &key)
 {
-    if (m_restoring || m_interactionWindow || m_railDrag) return;
+    if (m_restoring) return;
+    if (m_interactionWindow || m_railDrag) {
+        m_heldDepartures.insert(key);
+        return;
+    }
     // Every departure from a layout asks here whether it ends, so it is also
     // where a card the departing pane pushed out comes back, before a layout
     // that would fall to one pane without it is ended.
@@ -1078,6 +1105,23 @@ void DesktopStageController::shedUnsettledPanes(const QString &key)
                 << (window->isUserMove() ? "while KWin holds a move of it" : "");
         unsettled.append(window);
     }
+    // DECISIONS.md § A display without cards organizes everything it shows:
+    // there a window the layout cannot show waits in the dock, and the panes
+    // left are laid out again without it.
+    if (parksOverflow(key)) {
+        // The last window shown stays, short of its place or over it, so the
+        // display never shows nothing for a window too large for it.
+        for (const auto &window : std::as_const(unsettled)) {
+            const auto held = m_sessions.constFind(key);
+            if (held == m_sessions.cend() || held->windows.size() < 2) break;
+            if (window && !window->isDeleted()) parkWindow(key, window);
+        }
+        auto parked = m_sessions.find(key);
+        if (parked != m_sessions.end() && !unsettled.isEmpty() && reflowSession(parked.value())
+            && applySession(parked.value(), false))
+            scheduleSettle();
+        return;
+    }
     for (const auto &window : std::as_const(unsettled)) {
         // Re-found by key on every pass: a departure reenters this controller
         // and can end the layout, or empty it, under this loop.
@@ -1141,6 +1185,24 @@ KWin::RectF DesktopStageController::fittedIntoWorkArea(const KWin::RectF &geomet
         std::clamp(geometry.y(), work.y(), bottom), width, height);
 }
 
+KWin::RectF DesktopStageController::givenBackPlace(const RestoreSnapshot &snapshot,
+    KWin::LogicalOutput *target, bool ownDisplay)
+{
+    if (!target) return snapshot.geometry;
+    const QList<ReleaseDisplay> displays = releaseDisplays();
+    const ReleaseRecord record = snapshot.releaseRecord();
+    // A place already on `target`, taken on a display still there, is that
+    // display's own and only kept clear of panels, as a card's is.
+    const ReleaseDisplay *holding = releaseDisplayAt(displays, record.place.center());
+    const bool originGone = !record.origin.isEmpty() && !releaseDisplayNamed(displays, record.origin);
+    if (!ownDisplay && holding && holding->name == target->name() && !originGone) ownDisplay = true;
+    if (ownDisplay) return snapshot.floating() ? fittedIntoWorkArea(snapshot.geometry, target)
+                                               : snapshot.geometry;
+    const QRectF work(KWin::effects->clientArea(KWin::MaximizeArea, target));
+    return KWin::RectF(carriedPlace(QRectF(snapshot.geometry),
+        releaseCarriedFrom(displays, record), work));
+}
+
 bool DesktopStageController::reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot)
 {
     if (!client || (!snapshot.minimized && !snapshot.userMinimized)) return false;
@@ -1174,6 +1236,7 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
     }
     const Session session = it.value();
     m_sessions.erase(it);
+    if (outputRemoving) m_givenBack.clear();
     QPointer<KWin::LogicalOutput> fallbackOutput = outputForKey(key);
     QPointer<KWin::LogicalOutput> replacementOutput;
     if (outputRemoving) {
@@ -1232,25 +1295,27 @@ void DesktopStageController::restoreSession(const QString &key, bool outputRemov
         if (!clientValid()) return RestoreResult::Aborted;
         const bool preserveGeometry = !outputRemoving && !regiven && targetOutput == originalOutput;
         const auto valid = [&] { return clientValid() && available(targetOutput); };
-        KWin::RectF restoreGeometry = snapshot.geometry;
         // A floating place is fitted into the room panels leave even on its
         // own display: one taken while a panel's room was smaller, or larger
         // than the room left, would stand under the panel.
-        const bool floating = !snapshot.fullScreen && snapshot.maximizeMode == KWin::MaximizeRestore
-            && snapshot.quickTileMode == KWin::QuickTileMode{};
-        if (!preserveGeometry || floating) {
-            restoreGeometry = fittedIntoWorkArea(restoreGeometry, targetOutput);
-            if (preserveGeometry && restoreGeometry != snapshot.geometry)
-                qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
-                        << restoreGeometry << "instead of" << snapshot.geometry
-                        << ": its place lies under a panel's room";
-        }
+        const KWin::RectF restoreGeometry = givenBackPlace(snapshot, targetOutput, preserveGeometry);
+        if (restoreGeometry != snapshot.geometry)
+            qInfo() << "Kadunce" << Revision << client->resourceClass() << "is given back at"
+                    << restoreGeometry << "instead of" << snapshot.geometry
+                    << (targetOutput == originalOutput ? ": its place lies under a panel's room"
+                                                       : ": it is given back on another display");
         client->sendToOutput(targetOutput);
         // A window Kadunce parked in the dock was awake before it was parked.
         if (snapshot.parked && client->isMinimized()) client->setMinimized(false);
+        // One the person put away in the layout stays put away: its place is
+        // given back without bringing it up, so nothing has to minimize it
+        // again, which a release that unloads Kadunce would not wait for.
+        const bool keptAsleep = client->isMinimized() && !snapshot.parked
+            && (snapshot.userMinimized || snapshot.minimized);
         if (valid() && restoreWindowStateChecked(client.data(), snapshot, restoreGeometry,
-                           preserveGeometry, true, false, valid)) {
-            if (reminimizeRestored(client.data(), snapshot))
+                           preserveGeometry, !keptAsleep, false, valid)) {
+            if (outputRemoving) m_givenBack.append({snapshot.window, restoreGeometry});
+            if (!keptAsleep && reminimizeRestored(client.data(), snapshot))
                 return valid() ? RestoreResult::Completed
                     : (clientValid() ? RestoreResult::OutputLost : RestoreResult::Aborted);
             return RestoreResult::Completed;
@@ -1315,11 +1380,9 @@ bool DesktopStageController::transferTabletSessionToSpread(KWin::LogicalOutput *
         if (!window || window->isDeleted() || !window->window() || window->screen() != output
             || saved == session->snapshots.cend() || !saved->valid)
             return refuse("a pane is gone, elsewhere or has no record");
-        BentoProjectionMember member{window,
-            {window->window(), output, saved->geometry, saved->floatingGeometry,
-            saved->fullscreenRestoreGeometry, saved->maximizeMode, saved->quickTileMode,
-            saved->fullScreen, saved->minimized || saved->userMinimized},
+        BentoProjectionMember member{window, NativeMoveSnapshot{*saved, window->window(), output},
             window->isMinimized()};
+        member.restore.minimized = saved->minimized || saved->userMinimized;
         if (session->windows.contains(window)) projection.panes.append(member);
         else projection.sleeping.append(member);
     }
@@ -1401,21 +1464,9 @@ bool DesktopStageController::resumeProjectedSession(
             return false;
         }
         if (pane) candidate.windows.append(member.window);
-        candidate.snapshots.append({
-            .window = member.window,
-            .geometry = member.restore.geometry,
-            .floatingGeometry = member.restore.floatingGeometry,
-            .fullscreenRestoreGeometry = member.restore.fullscreenRestoreGeometry,
-            .outputName = outputKey(member.restore.output),
-            .quickTileMode = member.restore.quickTileMode,
-            .maximizeMode = member.restore.maximizeMode,
-            .fullScreen = member.restore.fullScreen,
-            .minimized = member.restore.minimized,
-            .valid = true,
-            // §7's intent crosses back with the window. Without it the next
-            // solve would offer a sleeping window a pane, which §7 forbids.
-            .userMinimized = !pane,
-        });
+        // §7's intent crosses back with the window. Without it the next solve
+        // would offer a sleeping window a pane, which §7 forbids.
+        candidate.snapshots.append(RestoreSnapshot{member.restore.place(), member.window, true, !pane});
         return true;
     };
     for (const auto &member : projection.panes) {

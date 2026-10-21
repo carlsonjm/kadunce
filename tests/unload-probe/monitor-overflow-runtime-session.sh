@@ -4,8 +4,8 @@
 # A window its layout has no room for goes to the dock, minimized: never to the
 # card display and never loose beside the layout. Picking it from the dock
 # brings it back as an arrival, and closing a pane brings one back on its own.
-# Switching Kadunce off returns every window to the desktop, minimized ones
-# included.
+# Switching Kadunce off returns every window to the desktop, those waiting in
+# the dock included; one the person minimized stays minimized.
 #
 # Needs the tablet fixture, so that a card display exists to be wrongly sent
 # to. Each monitor window's minimum size lets two share the 1280x800 monitor
@@ -96,8 +96,13 @@ sleep .8
 for name in 'Monitor A' 'Monitor B' 'Monitor C' 'Monitor D'; do
     id=$(probe windowFacts | jq -r --arg c "$name" 'first(.[] | select(.caption == $c)) | .id // empty')
     [[ -n $id ]] || continue
+    # CARD-LIFECYCLE.md §13: the one the person minimized stays minimized.
+    if [[ $id == "$mine" ]]; then
+        check "switching off keeps $name minimized, as the person left it" test "$(probe windowMinimized "$id")" = true
+        continue
+    fi
     check "switching off returns $name to the desktop" test "$(probe windowMinimized "$id")" = false
 done
 
 if ((failures)); then echo "FAIL: monitor overflow: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: a monitor layout sends what it cannot show to the dock, takes it back from there when picked or when room frees, and returns everything on switch-off'
+echo 'PASS: a monitor layout sends what it cannot show to the dock, takes it back from there when picked or when room frees, and on switch-off returns what the dock held and keeps what the person minimized'
