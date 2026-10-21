@@ -91,7 +91,12 @@ check "the notice is gone after its time" is "$(context | jq -c '.notice')" null
 probe keyHeld 48 1 125 42 >/dev/null
 sleep .3
 
-# Meta+B with only a sleeping card beside it does nothing, and says why.
+# Meta+B with every other card asleep does nothing, and says why.
+for id in $(probe windowFacts | jq -r --arg two "$(id_of 'Two')" \
+        '.[] | select(.class == "unload-client" and .id != $two) | .id'); do
+    probe minimizeWindow "$id" true >/dev/null
+done
+sleep .5
 probe key 48 125 >/dev/null
 sleep .5
 notice=$(context | jq -c '.notice')
