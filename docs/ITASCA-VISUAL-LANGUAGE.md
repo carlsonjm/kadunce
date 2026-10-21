@@ -1,14 +1,17 @@
-# Itasca visual language
+# Visual language
 
-The suite's shared visual grammar. How each component behaves is still set by
-its own interaction documents.
+The visual grammar Kadunce shares with Tettegouche, Temperance, Gooseberry and
+the Shuffle Keyboard, and Kadunce's own geometry. How each component behaves is
+set by its own interaction documents. The file keeps an earlier name, Itasca,
+because code comments cite it.
 
 ## Intent
 
-Itasca should feel quiet, spatial, and touch-native. Shape, spacing, and contrast
-should explain what an object does before copy has to explain it. Preserve the
-character already visible in Tettegouche's launcher, Temperance's rail and popups, and
-Kadunce's cards rather than adopting a generic desktop theme wholesale.
+These components should feel quiet, spatial, and touch-native. Shape, spacing,
+and contrast should explain what an object does before copy has to explain it.
+Preserve the character already visible in Tettegouche's launcher, Temperance's
+rail and popups, and Kadunce's cards rather than adopting a generic desktop
+theme wholesale.
 
 ## Shape means function
 
@@ -81,7 +84,7 @@ right away.
 
 ## Color roles
 
-These values apply to everything the suite draws itself.
+These values apply to everything these components draw themselves.
 
 | Role | Current baseline | Purpose |
 |---|---|---|
@@ -112,8 +115,8 @@ These values apply to everything the suite draws itself.
 
 ### Terminal palette
 
-For a terminal that wants the suite's look; Shuffle's install leaves the
-person's own terminal alone. Each color comes from a role above.
+For a terminal that wants the same look; neither Kadunce nor Shuffle changes
+your terminal's colors. Each color comes from a role above.
 
 | Slot | Normal | Bright | Role |
 |---|---|---|---|
@@ -330,19 +333,19 @@ vendors a pinned subset of the SVGs it uses. The pinned version is Lucide Static
   vendors only its required subset.
 
 Temperance's bell uses Lucide Bell geometry, redrawn locally for its animated
-clapper and slash. It is the first suite-specific exception on record.
+clapper and slash. It is the one exception so far.
 
 ### Protected custom icon work
 
-These visuals are product identity or behavior, and stay as they are:
+These are each component's own marks, and stay as they are:
 
-- Tette Dot, the launcher's identity.
+- Tette Dot, Tettegouche's launcher dot.
 - Temperance's animated Bell and custom Weather glyph.
 - Kadunce's pearl-card tray mark: one card between its neighbours' edges,
-  shared with Shuffle's dock Spread button (redesigned 14 Oct 2026).
+  shared with Shuffle's dock Spread button.
 
 Don't replace, redraw or simplify them with Lucide, or fold them into it. Keep
-their geometry and behavior unless a product redesign changes them.
+their geometry and behavior unless a deliberate redesign changes them.
 
 ## Responsive composition
 
@@ -350,7 +353,7 @@ Width reveals information, not capability.
 
 - Measure the real available span.
 - Reserve the actionable core and the spacing that keeps it legible.
-- Add context in product-priority order at natural widths.
+- Add context in order of importance at natural widths.
 - Use the exact remaining width before eliding.
 - Remove optional information only when its useful minimum cannot fit.
 - Keep activities compact and left-packed; place unused width afterward.
@@ -385,4 +388,4 @@ Ambient media is the reference:
   another's assets at run time.
 
 Soft primary (`#F2FFFFFF`) is a separate foreground level. App-specific outer
-silhouettes may differ when they encode product identity or interaction.
+silhouettes may differ when they encode a component's identity or interaction.

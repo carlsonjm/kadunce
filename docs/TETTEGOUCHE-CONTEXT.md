@@ -54,7 +54,7 @@ process names its program. Any other caller is answered
 have their own rule (§ Launcher guest protocol 3).
 
 The payload identifies itself with schema
-`co.goodinput.kadunce.workspace-context` and integer `version: 1`. Consumers
+`co.goodinput.kadunce.workspace-context` and integer `version: 1`. A reader
 must reject unknown major versions instead of guessing at fields.
 
 ## Version 1 payload
@@ -343,6 +343,5 @@ until that surface stands on the card's window or 800 ms pass; nothing then
 slides or fades in after the card settles.
 Nothing comes up over the card itself. Holding a note carries it to another
 card (`INPUT.md` § Spread).
-This takes up Gooseberry's requests for a card's notes on its corner in Spread
-and for carrying a note between cards. Spread never moves or resizes a window
-for a note, and the Active card shows none.
+Spread never moves or resizes a window for a note, and the Active card shows
+none.

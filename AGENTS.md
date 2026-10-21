@@ -29,7 +29,7 @@ and adds no separate protocol.
 
 These hold in every Shuffle repository.
 
-- The maintainer approves product behavior and visual direction before
+- The maintainer approves behavior and visual direction before
   implementation begins.
   Engineering may present evidence, constraints and alternatives; an unapproved
   proposal does not become a candidate.
@@ -37,7 +37,7 @@ These hold in every Shuffle repository.
   a disjoint file set.
 - Reproduce a defect and measure the property controlling it before changing it.
   A fix whose symptom cannot be reproduced is not yet a fix.
-- Components never depend on private product features.
+- Components never depend on Shuffle's private features.
 
 ## Work packets
 
@@ -49,7 +49,7 @@ it when resolved.
 
 Batch two or three related physical checks into one candidate; freeze what
 passed, and later candidates touch only failures. Keep feasibility, a minimal
-prototype and product implementation separate. Unfinished architecture work
+prototype and the full implementation separate. Unfinished architecture work
 lives on a named WIP branch. Behavior that saved tests fully prove reaches
 `main` once its checks pass; how a gesture feels and real hardware reach it only
 after the physical pass.
@@ -62,12 +62,12 @@ subject, and `docs/README.md` routes every subject to its owner.
 - State a rule once, in its owner, and cite it elsewhere. Replace stale text;
   never append a correction beside it.
 - Every input Kadunce handles is defined in `docs/INPUT.md`, and other documents
-  cite it. It opens with the controls map: each destination by its product
-  name, with the touch and key that reach it, and every other action under that
+  cite it. It opens with the controls map: each destination by the name
+  people see, with the touch and key that reach it, and every other action under that
   name below. A README quick start repeats rows of the map; `tests/verify-public.py`
   checks both.
 - This repository is public. Its documents, code comments and commit messages
-  describe the product: Kadunce does things, you act, shipped behavior is in the
+  describe the software: Kadunce does things, you act, shipped behavior is in the
   present tense, and planned behavior is kept privately; `docs/LIMITATIONS.md`
   says what Kadunce does not do yet. They carry no names, approvals or approval
   dates, and no chat or handover narration.
@@ -130,7 +130,7 @@ when a candidate is promotable.
 ## Versioning
 
 Repairs, polish and missing regression fixes are patch revisions. A genuinely
-new product capability advances the minor version.
+new capability advances the minor version.
 
 ## Installation handover
 

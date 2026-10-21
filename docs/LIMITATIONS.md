@@ -17,8 +17,9 @@ What Kadunce does not do yet, and what it will not do.
   update. A rebuilt plugin may need a logout and login before the compositor
   loads it.
 - Guided repair rebuilds the source kept at installation, runs its tests and
-  asks for authorization to replace one plugin file, through Shuffle's install
-  key or the system's own `/usr/bin/install`. It works offline, so the build
+  asks for authorization to replace one plugin file, through the root-owned
+  helper Shuffle installs where it is set up, otherwise the system's own
+  `/usr/bin/install`. It works offline, so the build
   dependencies must already be installed. Its log is
   `$XDG_STATE_HOME/kadunce/repair.log`, normally
   `~/.local/state/kadunce/repair.log`. Its checksums catch accidental edits but
