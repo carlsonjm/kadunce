@@ -159,8 +159,8 @@ QJsonValue Effect::contextNotice() const
     if (m_detachShownOn) return notice(QStringLiteral("returnToDesktop"), tr("Return to desktop"), m_detachShownOn);
     if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
         return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
-    if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
-        return notice(QStringLiteral("zones"), m_zoneNotice->text, nullptr);
+    if (m_lineNotice && m_lineNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        return notice(m_lineNotice->kind, m_lineNotice->text, nullptr);
     // The open room's offer says how to choose on its display's own line.
     if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
         return notice(QStringLiteral("offer"), roomOfferHint(), m_roomOffer->output);
@@ -254,8 +254,8 @@ QString Effect::contextLineSignature() const
     if (m_detachShownOn) signature += QStringLiteral("d ") + m_detachShownOn->name();
     else if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
         signature += QStringLiteral("r ") + m_gestureNote->text;
-    else if (m_zoneNotice && m_zoneNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
-        signature += QStringLiteral("z ") + m_zoneNotice->text;
+    else if (m_lineNotice && m_lineNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
+        signature += QStringLiteral("z ") + m_lineNotice->text;
     else if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
         signature += QStringLiteral("o ") + m_roomOffer->output->name();
     return signature;

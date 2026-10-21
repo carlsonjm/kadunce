@@ -91,7 +91,8 @@ must reject unknown major versions instead of guessing at fields.
   is `sleeping`.
 - `notice`: what Kadunce is saying for a moment, or `null`: `kind` is
   `refused` for a gesture that sprang back, `zones` for the monitors' zones
-  switched with Meta+Shift+B, or `returnToDesktop` while a card held over the
+  switched with Meta+Shift+B, `hint` for a key that did nothing or, once a
+  sign-in, the first layout in drawn zones, or `returnToDesktop` while a card held over the
   bottom edge would leave for the desktop; with its `text` in words and the
   `output` it is said on, empty for every display.
 - `lastActivated`, optional on each application: an in-memory, monotonic

@@ -237,6 +237,12 @@ bool DesktopStageController::hasSessionOnOutput(
     return m_sessions.contains(outputName);
 }
 
+bool DesktopStageController::laysOutInZones(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session != m_sessions.cend() && !session->zones.isEmpty();
+}
+
 bool DesktopStageController::hasSettledSessionOnOutput(const QString &outputName) const
 {
     const auto session = m_sessions.constFind(outputName);

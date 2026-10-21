@@ -471,7 +471,7 @@ Effect::Effect()
     m_contextNoticeEnd.setSingleShot(true);
     m_contextNoticeEnd.setInterval(GestureNoteTiming::TotalMs + 20);
     connect(&m_contextNoticeEnd, &QTimer::timeout, this, [this] {
-        if (m_zoneNotice && m_zoneNotice->shown.elapsed() >= GestureNoteTiming::TotalMs) m_zoneNotice.reset();
+        if (m_lineNotice && m_lineNotice->shown.elapsed() >= GestureNoteTiming::TotalMs) m_lineNotice.reset();
         if (m_gestureNote && m_gestureNote->shown.elapsed() >= GestureNoteTiming::TotalMs) m_gestureNote.reset();
         Q_EMIT workspaceContextChanged();
         KWin::effects->addRepaintFull();

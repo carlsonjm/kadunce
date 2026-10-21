@@ -416,6 +416,8 @@ void Effect::toggleBento()
             qInfo() << "Kadunce" << Revision << "found no pair for Bento on" << target->name()
                     << "with cards" << (m_cardStage->isActive() ? "shown" : "not shown")
                     << "and" << (active ? "an" : "no") << "Active card";
+            // The key did nothing, so the line says why, once.
+            sayOnContextLine(QStringLiteral("hint"), gestureRefusalText(GestureRefusal::NoPartner));
         } else if (connectedOutputForDesktopStage(target)) {
             // §11, Connected: Bento auto-fill is the layout. The pair grows
             // to hold every open card of the display, as far as it has room.
@@ -496,6 +498,7 @@ void Effect::layOutFromSpread(KWin::LogicalOutput *output)
         if (!m_desktopStage->hasSessionOnOutput(target->name())) {
             if (!pairActiveCardIntoBento(target)) {
                 qInfo() << "Kadunce" << Revision << "found no pair for Meta+B from Spread on" << target->name();
+                sayOnContextLine(QStringLiteral("hint"), gestureRefusalText(GestureRefusal::NoPartner));
                 return;
             }
             observeCardOwnership();

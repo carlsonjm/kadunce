@@ -1484,11 +1484,19 @@ private:
     // What those say, cheaply, so a frame that changes them announces it once.
     [[nodiscard]] QString contextLineSignature() const;
     QString m_reportedContextLine;
-    struct ZoneNotice {
+    // What Kadunce says on every display's line for a moment: the zones
+    // switched, or a hint for a key that did nothing (TETTEGOUCHE-CONTEXT.md).
+    struct LineNotice {
+        QString kind;
         QString text;
         QElapsedTimer shown;
     };
-    std::optional<ZoneNotice> m_zoneNotice;
+    std::optional<LineNotice> m_lineNotice;
+    void sayOnContextLine(const QString &kind, const QString &text);
+    // Said once a sign-in, as the first layout laid out in drawn zones
+    // starts, so zones switched on long ago are not mistaken for Bento.
+    bool m_zonesHinted = false;
+    void hintZonesOnce();
     // A notice no frame will clear, since nothing is drawn for it, ends here.
     QTimer m_contextNoticeEnd;
     // The display a card about to leave for the desktop is over, this frame.
