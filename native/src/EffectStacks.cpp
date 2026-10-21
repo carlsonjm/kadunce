@@ -268,8 +268,14 @@ bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output)
 {
     // CARD-LIFECYCLE.md §3 places by the gesture, and this gesture contacts no
     // edge, so the side is stated rather than read: the Active card keeps the
-    // left pane and its partner is named by walking right from it.
-    return pairActiveCardIntoBento(output, BentoSidePlacement{false, true}, false);
+    // left pane and its partner is named by walking right from it. §11,
+    // Connected: the key lays out every card there, so a Stack's front is a
+    // partner too, its Stack waiting behind the pane it takes.
+    auto *active = m_cardStage->activeCardIdentity();
+    if (!output || !active) return false;
+    return pairCardsIntoBento(output, active,
+        m_cardStage->partnerForSideSnap(active, false, nullptr, connectedOutputForDesktopStage(output)),
+        BentoSidePlacement{false, true});
 }
 
 bool Effect::pairActiveCardIntoBento(KWin::LogicalOutput *output,

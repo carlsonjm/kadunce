@@ -204,7 +204,7 @@ bool CardStageController::isEligiblePartner(const KWin::EffectWindow *window) co
 }
 
 KWin::EffectWindow *CardStageController::partnerForSideSnap(
-    const KWin::EffectWindow *carried, bool leftEdge, QString *why) const
+    const KWin::EffectWindow *carried, bool leftEdge, QString *why, bool wholeStacks) const
 {
     const auto say = [why](const QString &text) { if (why) *why = text; };
     const auto app = [](const KWin::EffectWindow *window) {
@@ -257,7 +257,7 @@ KWin::EffectWindow *CardStageController::partnerForSideSnap(
         // §4: a search passes over every ordinary stack, so no walk breaks a
         // composed group. A stacked card reaches Bento only as the Active card.
         auto *candidate = m_workspace.windowForId(face).data();
-        if (m_workspace.stackSizeForId(face) > 1) {
+        if (m_workspace.stackSizeForId(face) > 1 && !wholeStacks) {
             passed.append(QStringLiteral("a Stack fronted by %1").arg(app(candidate)));
             continue;
         }

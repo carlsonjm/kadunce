@@ -186,9 +186,12 @@ public:
     // eligible card on the contacted side of the carried card in Spread order. Read-only — a prepared carry embeds the workspace
     // revision, so naming a partner must not move selection or the pair side.
     // With `why`, the same walk says in words how it named the partner, or
-    // why it named none, for the journal.
+    // why it named none, for the journal. With `wholeStacks`, as Meta+B on a
+    // display sized Connected lays out every card there, a Stack's front is a
+    // partner too, and its Stack goes with it.
     [[nodiscard]] KWin::EffectWindow *partnerForSideSnap(
-        const KWin::EffectWindow *carried, bool leftEdge, QString *why = nullptr) const;
+        const KWin::EffectWindow *carried, bool leftEdge, QString *why = nullptr,
+        bool wholeStacks = false) const;
     // Why a title-bar drag of this window cannot be carried as the Active
     // card, in words for the journal; empty when it can.
     [[nodiscard]] QString nativeCarryRefusal(KWin::EffectWindow *window) const;
