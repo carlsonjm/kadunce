@@ -109,7 +109,7 @@ result:
 
 On a display Kadunce already owns, with no live Bento layout, a left or right
 snap requests a Bento pair of exactly two named windows. One is the carried
-window. The other is the partner, and one of two rules names it.
+window; the other, the partner, is named by one of two rules.
 
 When the carried window is not the Active card — a window still on the native
 desktop — the partner is the Active card. A card carried in Spread never pairs.
@@ -126,15 +126,15 @@ Placement comes from the gesture:
 - Both become Bento panes.
 - No other window joins.
 
-The partner is named when the edge is contacted and stays the partner, whatever
-the presentation does during the carry.
+The partner, named when the edge is contacted, stays the partner through the
+carry.
 
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
 
 An entry commits completely or not at all. If adoption cannot be prepared safely,
-every window stays Native. If a pair cannot be prepared safely, the carried
-window and the partner keep the ownership and presentation they had.
+every window stays Native. If a pair cannot be prepared safely, both windows keep
+the ownership and presentation they had.
 
 ### The Bento action
 
@@ -145,6 +145,7 @@ the one that can.
 
 On a display that can own cards, it pairs like a side snap from the right:
 the Active card keeps the left side. With no card to pair, nothing happens.
+Connected, in Spread, it opens the centred card first and ends no layout.
 
 On a display that cannot own cards, it composes across the display.
 

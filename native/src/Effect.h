@@ -720,6 +720,9 @@ private:
     // Cards the top edge took out of a layout, called back alone (§10).
     QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
+    // §11, Connected: Meta+B in Spread opens what is centred and lays every
+    // card out with it.
+    void layOutFromSpread(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
