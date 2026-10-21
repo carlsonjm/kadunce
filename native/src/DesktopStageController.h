@@ -478,6 +478,10 @@ private:
     // layout there sends what it has no room for to the dock, never to another
     // display and never loose beside it.
     [[nodiscard]] bool parksOverflow(const QString &key) const;
+    // CARD-LIFECYCLE.md §11: the displays the zones drawn in KDE's tile editor
+    // can lay out, switched to zones or not: one without cards, and one sized
+    // Connected, which plays its cards into them.
+    [[nodiscard]] bool canTakeDrawnZones(const QString &key) const;
     void parkWindow(const QString &key, KWin::EffectWindow *window,
                     const RestoreSnapshot *record = nullptr);
     void minimizeParked(const QString &key);

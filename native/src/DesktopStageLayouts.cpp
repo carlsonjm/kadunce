@@ -218,10 +218,11 @@ bool DesktopStageController::planSession(Session &session,
         report(owned.mid(1));
         return true;
     }
-    // CARD-LIFECYCLE.md §11: a display without cards takes the zones drawn for
-    // it in KDE's tile editor, when there are any. A window keeps the zone it
-    // has while it fits, and one that fits no zone left waits as remainder.
-    if (parksOverflow(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
+    // CARD-LIFECYCLE.md §11: a display without cards, or one sized Connected,
+    // takes the zones drawn for it in KDE's tile editor, when there are any. A
+    // window keeps the zone it has while it fits, and one that fits no zone
+    // left waits as remainder: in the dock, or as a card in Spread.
+    if (canTakeDrawnZones(session.outputName) && m_host->usesDrawnZonesForDesktopStage()) {
         const QList<DrawnZone> drawn = drawnZones(output);
         if (!drawn.isEmpty()) {
             const QList<QPointer<KWin::EffectWindow>> considered = owned.mid(0, 10);
@@ -578,6 +579,14 @@ bool DesktopStageController::parksOverflow(const QString &key) const
 {
     KWin::LogicalOutput *output = outputForKey(key);
     return output && !m_host->outputCanOwnCards(output);
+}
+
+bool DesktopStageController::canTakeDrawnZones(const QString &key) const
+{
+    KWin::LogicalOutput *output = outputForKey(key);
+    return output && (!m_host->outputCanOwnCards(output)
+        || (m_host->connectedOutputForDesktopStage(output)
+            && !m_host->showsOneCardForDesktopStage(output)));
 }
 
 void DesktopStageController::parkWindow(const QString &key, KWin::EffectWindow *window,

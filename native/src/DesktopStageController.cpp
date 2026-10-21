@@ -705,10 +705,11 @@ void DesktopStageController::zoneModeChanged()
 {
     const auto keys = m_sessions.keys();
     for (const auto &key : keys) {
-        if (!parksOverflow(key)) continue;
+        if (!canTakeDrawnZones(key)) continue;
         auto found = m_sessions.find(key);
         if (found == m_sessions.end() || found->windows.isEmpty()) continue;
-        // The new arrangement may have room for a window the dock holds.
+        // The new arrangement may have room for a window the dock holds; on a
+        // Connected display, a pane it has no room for goes to Spread.
         if (!wakeParked(key)) continue;
         found = m_sessions.find(key);
         if (found != m_sessions.end() && applySession(found.value(), false)) scheduleSettle();

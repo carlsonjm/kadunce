@@ -22,9 +22,8 @@ struct DrawnZone {
 };
 
 // The zones drawn for a display on the current desktop, in KWin's order.
-// KWin's untouched default layout, or a display with no layout, has none:
-// a display without drawn zones keeps the curated library
-// (CARD-LIFECYCLE.md §11).
+// KWin's own three columns are zones like any drawn; a display with no
+// layout has none and keeps the curated library (CARD-LIFECYCLE.md §11).
 [[nodiscard]] QList<DrawnZone> drawnZones(KWin::LogicalOutput *output);
 
 // The rectangle a window placed in a zone takes now, which moves with the

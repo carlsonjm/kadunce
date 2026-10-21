@@ -40,6 +40,7 @@ scenes=(
     every-display-full-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
+    connected-zones-runtime production
     connected-desk-keys-runtime production
     provenance-runtime production
     table-preview-runtime production
