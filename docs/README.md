@@ -19,12 +19,12 @@ for the subject wins.
 | `DECISIONS.md` | why each rule holds and what it rejected |
 | `LIMITATIONS.md` | what Kadunce does not do yet, and what it will not do |
 | `TESTING.md` | what each check proves, running the private harness, promotion, failure classification and confirming the running build |
-| `TERMINOLOGY.md` | the suite's approved language and naming rules |
-| `ITASCA-VISUAL-LANGUAGE.md` | the shared visual and motion grammar, and Kadunce's geometry |
+| `TERMINOLOGY.md` | Kadunce's terms and naming rules |
+| `ITASCA-VISUAL-LANGUAGE.md` | the visual and motion language Kadunce shares with the components it works with, and Kadunce's geometry |
 | `TETTEGOUCHE-CONTEXT.md` | the versioned context and guest D-Bus interface Kadunce offers Tettegouche, and the stuck notes it reads from Gooseberry |
 | `REQUESTS.md` | placement requests: how another program asks Kadunce to open an application at a point |
 | `TABLE.md` | Table: what it does to workspaces and their windows, how it looks, and its invariants |
-| `UPSTREAM.md` | problems in KDE software Shuffle could report or patch |
+| `UPSTREAM.md` | problems in KDE software that could be reported or patched |
 
 ## Keeping documentation small
 

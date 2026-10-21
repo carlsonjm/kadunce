@@ -214,7 +214,7 @@ minimized or displaced panes.
 
 Each display has one maximum visible pane count, read by every admission path.
 
-The tablet's maximum is two; a larger display, what minimum sizes allow, or its
+A Solo display holds two; a larger one, what minimum sizes allow, or its
 zones (§11).
 
 Layout orientation follows the work area's own proportions, not the display's

@@ -6,7 +6,7 @@ themselves are stated in `CARD-LIFECYCLE.md` (ownership and presentation),
 reasoning and cites them rather than restating them. Superseded reasoning is in
 Git history.
 
-## Product and authority
+## Behavior and authority
 
 ### A dialog waits with its application
 
@@ -35,11 +35,11 @@ sign-in and every toggle.
 A display with no card left starts again
 with the next window to open, so no state exists that §2 does not name.
 
-Every card taken stands in the Active card's place and stays there
-(§3): a maximized one behind the Active card, or one its application
-maximized at sign-in, kept a panel watching for windows that reach it, as
-Shuffle's band does, opaque; the application's wish goes in its restore record.
-Rejected: panels ignoring cards behind the Active card.
+Every card taken stands in the Active card's place and stays there (§3),
+even one maximized behind the Active card or by its application at sign-in.
+Left reaching the screen's bottom, it would keep a panel that watches for
+windows touching it, as Shuffle's band does, opaque; the maximize goes in its
+restore record. Rejected: panels ignoring cards behind the Active card.
 
 ### A side snap admits one card; Bento needs two named windows
 
@@ -161,10 +161,9 @@ at hardware, when what matters is whether the work area has room.
 
 ### The Bento shortcut names a pair, and targets a display rather than the pointer
 
-It targets the display `CARD-LIFECYCLE.md` §3 gives it: the external display
-while one is attached, otherwise the tablet. It used to read the pointer, which
-on a touch tablet is wherever the pointer was last left, so it acted on a
-display you were not looking at; that path was removed rather than kept as
+It targets the display `CARD-LIFECYCLE.md` §3 gives it. It used to read the
+pointer, which on a touch tablet is wherever the pointer was last left, so it
+acted on a display you were not looking at; that path was removed rather than kept as
 a second rule. On a display that can own cards it names a pair the way a side
 snap does, for the reason § A side snap admits one card gives.
 
@@ -379,8 +378,7 @@ window menu. On the centred Stack a slow stroke scrubs its cards and a quick one
 moves the row. Bento comes only from carrying the Active card to a side.
 Rejected: the long reorder sweep and edge-dwell paging. Moves told apart by a
 held card's travel need a band between them a hand can feel; a shorter reorder
-that closed it passed every automated check and failed by hand (`wip/reorder-
-push-20260921`).
+that closed it passed every automated check and failed by hand.
 
 ### A stack takes no arrival from the desktop
 
@@ -521,21 +519,21 @@ anything steal focus; a token anything reads.
 
 ### A frozen identity needs a guard that watches both directions
 
-`tests/verify-source.sh` rejects retired vocabulary and names the two layer-3
-identities as the only permitted occurrences. That catches a regression and
+`tests/verify-source.sh` rejects retired vocabulary and names the two frozen
+installed identities as the only permitted occurrences. That catches a regression and
 cannot catch a rename: a vocabulary pass once rewrote the frozen `cardLine`
 value inside three probe assertions, which then asserted a value the effect
 never reports. A frozen wire value is checked on the wire: the source must still
 report it, and every value a test asserts must be one the source can report.
 
-### A consumer gets a working plugin from the package manager
+### A packaged install gets a working plugin from the package manager
 
 KDE publishes no stable KWin effect ABI, so a Plasma update can leave the plugin
 unloadable. That failure is safe: KWin declines the plugin, the tray switch
 persists and the desktop keeps working. Decided: the plugin ships as a package
 from a project pacman repository, built per KWin release in CI, so a corrected
 plugin arrives through ordinary system updates. Rejected: the guided repair as
-the consumer path, which needs a full C++, Qt, KDE Frameworks and KWin toolchain
+the everyday path, which needs a full C++, Qt, KDE Frameworks and KWin toolchain
 on every installation.
 
 ## Across the suite
@@ -574,12 +572,12 @@ one-step way back.
 
 A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): a picked card joins what is open. Full, the pane used
-longest ago yields, as equal panes give no answer. Solo was named Active
-until 14 October; Active now means only the card in use.
+longest ago yields, as equal panes give no answer. Solo was once named Active;
+Active now means only the card in use.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 
-Shuffle owns layout, resizing, editing gestures and the keyboard to
+The Shuffle Keyboard owns layout, resizing, editing gestures and the keyboard to
 precision-surface transition; KDE, KWin or another mature input-method stack
 owns locale, keymaps and application delivery. A custom input engine is a last
 resort.

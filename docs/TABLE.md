@@ -54,7 +54,7 @@ window is in `CARD-LIFECYCLE.md`.
   gives up the colours, then name length, leaving circles holding numbers. `+`
   is a circle. Cards show the application icon, name and window title; a Stack
   is one card with Spread's closed-stack edges behind it.
-- Float: the rows stand apart, with no lines between them. What the finger is on
+- The rows float apart, with no lines between them. What the finger is on
   lifts, lighter and a little larger with a soft shadow, and the tab whose cards
   hang stays lifted. Cards come up to meet a finger nearing them, the chosen one
   rises toward the lift line as it is pulled, and the card in hand is the card

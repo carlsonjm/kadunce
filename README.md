@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> · <a href="#controls">Controls</a> · <a href="docs/README.md">Docs</a> · <a href="https://shuffleplasma.com">Part of Shuffle</a>
+  <a href="#install">Install</a> · <a href="#controls">Controls</a> · <a href="docs/README.md">Docs</a> · <a href="#used-in-shuffle">Used in Shuffle</a>
 </p>
 
 <p align="center">
@@ -97,8 +97,9 @@ current KWin…** in the Cards menu. If you had Cards switched off, they stay of
 `disable.sh` returns every window to Plasma and turns Kadunce off until you turn
 it on again with the **Cards** switch in the system tray. `uninstall.sh` removes
 what was installed, including the repair kit and Kadunce's state. It keeps your
-settings in `kaduncerc` for a later install and leaves this folder alone. If the
-plugin is still loaded afterwards, log out and back in.
+settings, in `kaduncerc` and kwinrc's `[Effect-kadunce]`, for a later install
+and leaves this folder alone. If the plugin is still loaded afterwards, log out
+and back in.
 
 </details>
 
@@ -186,7 +187,7 @@ Read `AGENTS.md` before working in this repository. The documentation index is i
 native/                 KWin effect, window controllers, and native tests
 control/                system tray control
 tests/                  source, package, control, and session checks
-docs/                   product contracts and architecture
+docs/                   behavior contracts and architecture
 install.sh              verified installation
 disable.sh              safe release and temporary disable
 uninstall.sh            installed component removal
@@ -210,14 +211,16 @@ proves.
 
 </details>
 
-## Part of Shuffle
+## Used in Shuffle
 
-Kadunce is one of the open-source pieces of Shuffle, a touch-first desktop for
-KDE Plasma, alongside [Tettegouche](https://github.com/carlsonjm/tettegouche),
-[Temperance](https://github.com/carlsonjm/temperance),
-[Gooseberry](https://github.com/carlsonjm/gooseberry) and
-[Split Rock](https://github.com/carlsonjm/split-rock). In Shuffle, Kadunce is
-called Cards. Get the whole thing at [shuffleplasma.com](https://shuffleplasma.com).
+Kadunce needs nothing beyond KDE Plasma. It also works with
+[Tettegouche](https://github.com/carlsonjm/tettegouche)'s launcher and
+[Gooseberry](https://github.com/carlsonjm/gooseberry)'s notes when they are
+installed. [Shuffle](https://shuffleplasma.com), a touch-first desktop for KDE
+Plasma, bundles Kadunce with them and with
+[Temperance](https://github.com/carlsonjm/temperance) and
+[Split Rock](https://github.com/carlsonjm/split-rock), and shows Kadunce as
+Cards.
 
 ## License
 
