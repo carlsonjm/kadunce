@@ -92,7 +92,7 @@ chmod 700 "$unload_root/runtime"
 # were written for virtual outputs that hold no cards unless the tablet
 # fixture's touchscreen drives one, so each keeps cards to a touchscreen,
 # except the ones that prove the choice itself and Connected on a monitor.
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-stacks-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-sizes-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} != spread-display-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-stacks-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != stacks-stress-runtime-session.sh && ${KADUNCE_PROBE_SESSION:-session.sh} != connected-sizes-runtime-session.sh ]]; then
     kwriteconfig6 --file "$unload_root/config/kaduncerc" --group Spread --key WithoutTouchscreen false
 fi
 # Every scene runs what a person gets by default: every display holds its own
