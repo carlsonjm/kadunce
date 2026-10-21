@@ -66,12 +66,14 @@ inline QList<ReleaseDisplay> releaseDisplays()
     return displays;
 }
 
-// The place `client` has now, at `geometry` on `output`.
+// The place `client` has now, at `geometry` on `output`. Its tiling is the one
+// asked for: a window just taken out of a zone still reports the zone until
+// its application answers, and a record of that would put it back there.
 inline WindowPlace placeOf(KWin::Window *client, const KWin::RectF &geometry,
                            const KWin::LogicalOutput *output)
 {
     return {geometry, client->geometryRestore(), client->fullscreenGeometryRestore(),
-        client->quickTileMode(), client->maximizeMode(), client->isFullScreen(),
+        client->requestedQuickTileMode(), client->maximizeMode(), client->isFullScreen(),
         client->isMinimized(), output ? output->name() : QString(),
         output ? QRectF(output->geometry()) : QRectF()};
 }
