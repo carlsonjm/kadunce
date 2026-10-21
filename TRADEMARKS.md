@@ -8,11 +8,12 @@ redistribute the source under its terms.
 
 ## The names and marks are not part of that licence
 
-The following are not licensed under the GPL and remain the property of the
-copyright holder, Jared Carlson:
+The following are not licensed under the GPL and belong to the copyright
+holder, Jared Carlson:
 
-- The publisher name **Good Input** and the product name **Shuffle for Plasma**
-- The names **Kadunce**, **Tettegouche** and **Temperance**
+- The publisher name **Good Input** and the name **Shuffle for Plasma**
+- The names **Kadunce**, **Tettegouche**, **Temperance**, **Gooseberry**,
+  **Split Rock** and **Shuffle Keyboard**
 - The Kadunce logo
 
 This is the usual arrangement for free software: you can redistribute the
