@@ -1,7 +1,7 @@
 name: Plasma point release check
 
-# One-off check, on this branch only; never merged. Round 4: the exact
-# CachyOS lookup shuffle's Packages gate makes, printed.
+# One-off check, on this branch only; never merged. Round 5: the Keyboard's
+# sealed sessions on Arch's KWin 6.8.1, at the fix branch and at its base.
 on:
   push:
     branches: [claude/project-thread-cfmx2i]
@@ -11,20 +11,48 @@ permissions:
   contents: read
 
 jobs:
-  gate:
+  sessions:
+    name: Keyboard sessions on KWin 6.8.1 (${{ matrix.ref }})
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/archlinux/archlinux:latest
+      options: --cap-add=SYS_NICE
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [claude/project-thread-cfmx2i, shuffle-1.0]
+    timeout-minutes: 45
     steps:
-      - run: |
-          pacman -Sy >/dev/null
-          lists="$(mktemp -d)"
-          printf '%s\n' '[options]' 'Architecture = x86_64 x86_64_v3' 'SigLevel = Never' > "${lists}/pacman.conf"
-          for repo in cachyos-v3 cachyos-core-v3 cachyos-extra-v3; do
-            printf '[%s]\nServer = https://mirror.cachyos.org/repo/x86_64_v3/$repo\n' "${repo}" >> "${lists}/pacman.conf"
+      - name: Install the build stack
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base \
+            qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils \
+            kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland \
+            wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
+          pacman -Q kwin qt6-base | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v5
+        with:
+          repository: carlsonjm/shuffle-keyboard
+          ref: ${{ matrix.ref }}
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
+          cmake --build build > /dev/null
+      - name: Run every sealed session
+        env:
+          SHUFFLE_KEYBOARD_BUILD: ${{ github.workspace }}/build
+        run: |
+          failed=()
+          for session in tests/verify-*.sh; do
+            echo "::group::${session}"
+            status=0
+            "${session}" || status=$?
+            echo "::endgroup::"
+            case "${status}" in
+              0) echo "passed: ${session}" | tee -a "$GITHUB_STEP_SUMMARY" ;;
+              77) echo "skipped: ${session}" | tee -a "$GITHUB_STEP_SUMMARY" ;;
+              *) echo "FAILED: ${session}" | tee -a "$GITHUB_STEP_SUMMARY"; failed+=("${session}") ;;
+            esac
           done
-          mkdir "${lists}/db"
-          pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sy
-          for package in kwin qt6-base kcoreaddons libplasma; do
-            echo "${package}: arch=$(pacman -Si ${package} | awk '/^Version/ {print $3; exit}') cachyos=$(pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Si "${package}" 2>&1 | awk '/^Repository|^Version|error/ {printf "%s ", $0}')" | tee -a "$GITHUB_STEP_SUMMARY"
-          done
+          ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
