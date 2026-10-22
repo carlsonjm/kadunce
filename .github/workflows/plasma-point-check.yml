@@ -1,7 +1,7 @@
 name: Plasma point release check
 
-# One-off check, on this branch only; never merged. Round 7: the Keyboard's
-# sealed sessions on KWin 6.8.1, Arch and CachyOS, at the fix and at its base,
+# One-off check, on this branch only; never merged. Round 8: the Keyboard's
+# sealed sessions on KWin 6.8.1, Arch and CachyOS, at the fix with its guard,
 # in a privileged container as round 1 was.
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         source: [arch, cachyos]
-        ref: [claude/project-thread-cfmx2i, shuffle-1.0]
+        ref: [claude/project-thread-cfmx2i]
     timeout-minutes: 45
     env:
       QT_FORCE_STDERR_LOGGING: "1"
