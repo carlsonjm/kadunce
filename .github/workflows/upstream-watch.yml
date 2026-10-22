@@ -1,0 +1,208 @@
+name: Upstream watch
+
+# Reads, once a day, the versions Arch Linux and CachyOS carry of every
+# upstream package the public suite parts build on or behave by, and compares
+# them with the previous day's. When any changed, it builds and tests Cards,
+# Search, Status, Notes and the Keyboard against today's Arch and today's
+# CachyOS, the Keyboard's sealed typing sessions included, so a point release
+# that changes behaviour shows here the morning after it ships. With nothing
+# new it stops after the version read.
+#
+# The "Upstream changes" line in the versions job's log names what moved; each
+# failing check names the part that owns the failure.
+on:
+  schedule:
+    - cron: "30 8 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Run every check even if no version changed
+        type: boolean
+        default: false
+  push:
+    paths:
+      - ".github/workflows/upstream-watch.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-watch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  versions:
+    name: Upstream versions
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/archlinux/archlinux:latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    steps:
+      - name: Read today's versions from Arch and CachyOS
+        run: |
+          pacman-key --init
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
+          pacman-key --lsign-key F3B607488DB35A47
+          lists=/tmp/lists
+          mkdir -p "${lists}/db"
+          cp /etc/pacman.conf "${lists}/pacman.conf"
+          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3/' "${lists}/pacman.conf"
+          for repo in cachyos-v3 cachyos-core-v3 cachyos-extra-v3; do
+            printf '[%s]\nServer = https://mirror.cachyos.org/repo/x86_64_v3/$repo\n' "${repo}" >> "${lists}/pacman.conf"
+          done
+          printf '[cachyos]\nServer = https://mirror.cachyos.org/repo/x86_64/$repo\n' >> "${lists}/pacman.conf"
+          pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sy > /dev/null
+          watched='kwin|libplasma|plasma-workspace|layer-shell-qt|kscreenlocker|plasma-login-manager|libkscreen|kscreen|plasma-keyboard|kcoreaddons|kio|baloo|plasma-activities|qt6-base|qt6-declarative|qt6-wayland|mesa|linux|linux-cachyos'
+          # One line per repository and package, so Arch and CachyOS are
+          # compared separately.
+          pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sl \
+            | awk -v re="^(${watched})$" '$2 ~ re { print $1 "/" $2, $3 }' \
+            | sort > versions.txt
+          cat versions.txt
+          [[ -s versions.txt ]] || { echo "::error::No package list could be read."; exit 1; }
+
+      - name: Restore yesterday's versions
+        uses: actions/cache/restore@v4
+        with:
+          path: previous
+          key: upstream-versions-${{ github.run_id }}
+          restore-keys: upstream-versions-
+
+      - name: Compare
+        id: compare
+        run: |
+          if [[ -f previous/versions.txt ]]; then
+            changes=$(diff previous/versions.txt versions.txt | sed -n 's/^> //p' || true)
+          else
+            changes="no earlier record; checking everything"
+          fi
+          if [[ -n "${changes}" || "${{ inputs.force }}" == true ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "### Upstream changes"
+            echo '```'
+            echo "${changes:-none}"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Upstream changes: $(echo "${changes:-none}" | tr '\n' ';')"
+          mkdir -p previous
+          cp versions.txt previous/versions.txt
+
+      - name: Keep today's versions for tomorrow
+        uses: actions/cache/save@v4
+        with:
+          path: previous
+          key: upstream-versions-${{ github.run_id }}
+
+  verify:
+    name: ${{ matrix.part }} on ${{ matrix.source }}
+    needs: versions
+    if: needs.versions.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/archlinux/archlinux:latest
+      # Privileged gives KWin a render device; without one the Keyboard's
+      # sealed sessions draw a one-pixel panel and every tap misses.
+      options: --cap-add=SYS_NICE --privileged
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [arch, cachyos]
+        part: [kadunce, temperance, tettegouche, gooseberry, shuffle-keyboard]
+        include:
+          - part: kadunce
+            deps: >-
+              base-devel cmake extra-cmake-modules git ripgrep python file perl dbus
+              qt6-base qt6-declarative kwin kdecoration kcoreaddons kconfig kservice
+              kglobalaccel kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
+          - part: temperance
+            deps: >-
+              base-devel cmake ninja git python dbus extra-cmake-modules qt6-base
+              qt6-declarative kcalendarcore kconfig kcoreaddons kiconthemes ki18n
+              kitemmodels kjobwidgets kio kservice kstatusnotifieritem kwindowsystem
+              kxmlgui kpackage libplasma plasma-workspace pulseaudio-qt libkscreen
+              layer-shell-qt powerdevil kdeclarative kcmutils kirigami ksvg breeze-icons
+              kdeplasma-addons ttf-dejavu noto-fonts
+          - part: tettegouche
+            deps: >-
+              git base-devel cmake ninja extra-cmake-modules python ripgrep dbus
+              qt6-base qt6-declarative qt6-svg kcoreaddons kfilemetadata kglobalaccel
+              ki18n kio krunner kservice bluez-qt solid kirigami kpackage layer-shell-qt
+              libplasma plasma-workspace plasma-activities-stats kactivitymanagerd
+              appstream-qt kate okular ffmpegthumbs kdegraphics-thumbnailers
+          - part: gooseberry
+            deps: >-
+              base-devel cmake extra-cmake-modules git python dbus qt6-base
+              qt6-declarative kcoreaddons kdbusaddons ki18n kservice kwindowsystem
+              kirigami layer-shell-qt plasma-workspace
+          - part: shuffle-keyboard
+            deps: >-
+              base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base
+              qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils
+              kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland
+              wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
+    env:
+      QT_FORCE_STDERR_LOGGING: "1"
+      LANG: en_US.UTF-8
+      TZ: UTC
+    steps:
+      - name: Put CachyOS's repositories above Arch's
+        if: matrix.source == 'cachyos'
+        run: |
+          pacman-key --init
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
+          pacman-key --lsign-key F3B607488DB35A47
+          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3/' /etc/pacman.conf
+          sed -i '0,/^\[core\]/s//[cachyos-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-core-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-extra-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64\/$repo\n\n[core]/' /etc/pacman.conf
+
+      - name: Install the build stack
+        run: |
+          pacman -Syyuu --noconfirm --needed ${{ matrix.deps }}
+          sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+          locale-gen
+          useradd --create-home user
+          pacman -Q kwin libplasma plasma-workspace layer-shell-qt qt6-base kcoreaddons 2>/dev/null || true
+
+      - uses: actions/checkout@v5
+        with:
+          repository: carlsonjm/${{ matrix.part }}
+          fetch-depth: 0
+
+      - name: Run ./verify.sh
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          case "${{ matrix.part }}" in
+            tettegouche)
+              chown -R user: "$GITHUB_WORKSPACE"
+              runuser -u user -- env HOME=/home/user LANG=en_US.UTF-8 CMAKE_GENERATOR=Ninja ./verify.sh ;;
+            temperance)
+              ./verify.sh ;;
+            *)
+              QT_QPA_PLATFORM=offscreen dbus-run-session -- ./verify.sh ;;
+          esac
+
+      - name: Run the Keyboard's sealed sessions on this KWin
+        if: matrix.part == 'shuffle-keyboard'
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
+          cmake --build build > /dev/null
+          export SHUFFLE_KEYBOARD_BUILD="$PWD/build"
+          failed=()
+          for session in tests/verify-*.sh; do
+            echo "::group::${session}"
+            status=0
+            "${session}" || status=$?
+            echo "::endgroup::"
+            case "${status}" in
+              0) echo "passed: ${session}" ;;
+              77) echo "skipped: ${session}" ;;
+              *) echo "FAILED: ${session}"; failed+=("${session}") ;;
+            esac
+          done
+          ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
