@@ -1,9 +1,7 @@
 name: Plasma point release check
 
-# One-off check, on this branch only: builds and tests every public suite part
-# against the newest Plasma that Arch and CachyOS each carry today, so a Plasma
-# point release is proved before a device takes it. Never merged; main's own
-# workflows keep their pins.
+# One-off check, on this branch only; never merged. Round 4: the exact
+# CachyOS lookup shuffle's Packages gate makes, printed.
 on:
   push:
     branches: [claude/project-thread-cfmx2i]
@@ -13,49 +11,20 @@ permissions:
   contents: read
 
 jobs:
-  # Round 3: the Keyboard's caret session on Arch's KWin 6.8.1, with KWin's
-  # input-method log on and every session log kept, to see why a focused
-  # field no longer brings the keys up.
-  keyboard-681-logs:
-    name: Keyboard caret session logs on KWin 6.8.1
+  gate:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/archlinux/archlinux:latest
-      options: --cap-add=SYS_NICE
-    timeout-minutes: 45
     steps:
-      - name: Install the build stack
-        run: |
-          pacman -Syu --noconfirm --needed \
-            base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base \
-            qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils \
-            kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland \
-            wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
-          pacman -Q kwin qt6-base | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/checkout@v5
-        with:
-          repository: carlsonjm/shuffle-keyboard
-
-      - name: Build the Keyboard
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
-          cmake --build build > /dev/null
-
-      - name: Run the caret session and print its logs
-        env:
-          SHUFFLE_KEYBOARD_BUILD: ${{ github.workspace }}/build
-          SHUFFLE_CARET_KEEP: "1"
-          TMPDIR: /tmp/caret
-          QT_LOGGING_RULES: "kwin_virtualkeyboard.debug=true;kwin_wayland_server.debug=false"
-          WAYLAND_DEBUG: "0"
-        run: |
-          mkdir -p /tmp/caret
-          tests/verify-caret.sh || true
-          for root in /tmp/caret/shuffle-caret-run.*; do
-            for f in report.log compositor.log app.log stand-in.log kadunce.log input.log; do
-              echo "::group::${root##*/} ${f}"
-              cat "${root}/${f}" 2>/dev/null | grep -v 'MESA\|ZINK\|dri2' | head -400
-              echo "::endgroup::"
-            done
+      - run: |
+          pacman -Sy >/dev/null
+          lists="$(mktemp -d)"
+          printf '%s\n' '[options]' 'Architecture = x86_64 x86_64_v3' 'SigLevel = Never' > "${lists}/pacman.conf"
+          for repo in cachyos-v3 cachyos-core-v3 cachyos-extra-v3; do
+            printf '[%s]\nServer = https://mirror.cachyos.org/repo/x86_64_v3/$repo\n' "${repo}" >> "${lists}/pacman.conf"
+          done
+          mkdir "${lists}/db"
+          pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sy
+          for package in kwin qt6-base kcoreaddons libplasma; do
+            echo "${package}: arch=$(pacman -Si ${package} | awk '/^Version/ {print $3; exit}') cachyos=$(pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Si "${package}" 2>&1 | awk '/^Repository|^Version|error/ {printf "%s ", $0}')" | tee -a "$GITHUB_STEP_SUMMARY"
           done
