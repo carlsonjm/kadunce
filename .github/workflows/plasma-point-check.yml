@@ -1,8 +1,8 @@
 name: Plasma point release check
 
-# One-off check, on this branch only; never merged. Round 6: why the keys the
-# fix brings up stay below the edge on KWin 6.8.1, and whether the seat
-# session also fails on 6.8.0 today.
+# One-off check, on this branch only; never merged. Round 7: the Keyboard's
+# sealed sessions on KWin 6.8.1, Arch and CachyOS, at the fix and at its base,
+# in a privileged container as round 1 was.
 on:
   push:
     branches: [claude/project-thread-cfmx2i]
@@ -13,45 +13,43 @@ permissions:
 
 jobs:
   sessions:
-    name: Keyboard fix on ${{ matrix.kwin }}
+    name: Keyboard ${{ matrix.ref }} on ${{ matrix.source }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/archlinux/archlinux:latest
-      options: --cap-add=SYS_NICE
+      # Round 1 ran privileged, which gave KWin a render device; rounds 5 and
+      # 6 did not, and the Keyboard drew nothing.
+      options: --cap-add=SYS_NICE --privileged
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - kwin: "6.8.1"
-            snapshot: ""
-          - kwin: "6.8.0"
-            snapshot: "2026/10/20"
+        source: [arch, cachyos]
+        ref: [claude/project-thread-cfmx2i, shuffle-1.0]
     timeout-minutes: 45
+    env:
+      QT_FORCE_STDERR_LOGGING: "1"
     steps:
+      - name: Put CachyOS's repositories above Arch's
+        if: matrix.source == 'cachyos'
+        run: |
+          pacman-key --init
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver hkps://keyserver.ubuntu.com
+          pacman-key --lsign-key F3B607488DB35A47
+          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3/' /etc/pacman.conf
+          sed -i '0,/^\[core\]/s//[cachyos-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-core-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos-extra-v3]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64_v3\/$repo\n\n[cachyos]\nServer = https:\/\/mirror.cachyos.org\/repo\/x86_64\/$repo\n\n[core]/' /etc/pacman.conf
       - name: Install the build stack
         run: |
-          if [[ -n "${{ matrix.snapshot }}" ]]; then
-            echo "Server = https://archive.archlinux.org/repos/${{ matrix.snapshot }}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
-            pacman -Syyuu --noconfirm
-          fi
-          pacman -Syu --noconfirm --needed \
+          pacman -Syyuu --noconfirm --needed \
             base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base \
             qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils \
             kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland \
             wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
-          pacman -Q kwin qt6-base qt6-wayland qt6-declarative mesa wayland layer-shell-qt | tee -a "$GITHUB_STEP_SUMMARY"
+          pacman -Q kwin qt6-base qt6-wayland mesa | tee -a "$GITHUB_STEP_SUMMARY"
+          ls -l /dev/dri 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v5
         with:
           repository: carlsonjm/shuffle-keyboard
-          ref: claude/project-thread-cfmx2i
-      - name: Trace the arrival (this run only)
-        run: |
-          f=src/qml/main.qml
-          sed -i 's|^    function advanceArrival() {|&\n        console.warn("DBG advance arriving=" + root.arriving + " seated=" + root.seated + " settle=" + seatSettle.running + " shown=" + root.compositorShown);|' "$f"
-          sed -i 's|^        function onCompositorVisibilityChecked(visible) {|&\n            console.warn("DBG compositor visible=" + visible + " shown=" + root.compositorShown + " arriving=" + root.arriving + " window=" + root.visible + " leaving=" + root.leaving);|' "$f"
-          sed -i 's|^    onVisibleChanged: {|&\n        console.warn("DBG window visible=" + visible + " carry=" + carry);|' "$f"
-          sed -i 's|^    function travelTo(target, duration, easing) {|&\n        console.warn("DBG travel to=" + target + " from=" + root.carry);|' "$f"
-          grep -c 'DBG' "$f"
+          ref: ${{ matrix.ref }}
       - name: Build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
@@ -59,11 +57,7 @@ jobs:
       - name: Run every sealed session
         env:
           SHUFFLE_KEYBOARD_BUILD: ${{ github.workspace }}/build
-          SHUFFLE_FEEDBACK_KEEP: "1"
-          SHUFFLE_SEAT_KEEP: "1"
-          TMPDIR: /tmp/probes
         run: |
-          mkdir -p /tmp/probes
           failed=()
           for session in tests/verify-*.sh; do
             echo "::group::${session}"
@@ -77,13 +71,3 @@ jobs:
             esac
           done
           ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
-      - name: Kept logs
-        if: always()
-        run: |
-          for root in /tmp/probes/shuffle-feedback-run.* /tmp/probes/shuffle-seat*; do
-            [[ -d "${root}" ]] || continue
-            for f in "${root}"/*.log; do
-              echo "===== ${f}"
-              grep -vE 'MESA|hunspell|propertyCache' "${f}" | head -150
-            done
-          done
