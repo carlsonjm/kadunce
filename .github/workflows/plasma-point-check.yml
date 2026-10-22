@@ -1,7 +1,8 @@
 name: Plasma point release check
 
-# One-off check, on this branch only; never merged. Round 5: the Keyboard's
-# sealed sessions on Arch's KWin 6.8.1, at the fix branch and at its base.
+# One-off check, on this branch only; never merged. Round 6: why the keys the
+# fix brings up stay below the edge on KWin 6.8.1, and whether the seat
+# session also fails on 6.8.0 today.
 on:
   push:
     branches: [claude/project-thread-cfmx2i]
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   sessions:
-    name: Keyboard sessions on KWin 6.8.1 (${{ matrix.ref }})
+    name: Keyboard fix on ${{ matrix.kwin }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/archlinux/archlinux:latest
@@ -20,21 +21,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ref: [claude/project-thread-cfmx2i, shuffle-1.0]
+        include:
+          - kwin: "6.8.1"
+            snapshot: ""
+          - kwin: "6.8.0"
+            snapshot: "2026/10/20"
     timeout-minutes: 45
     steps:
       - name: Install the build stack
         run: |
+          if [[ -n "${{ matrix.snapshot }}" ]]; then
+            echo "Server = https://archive.archlinux.org/repos/${{ matrix.snapshot }}/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+            pacman -Syyuu --noconfirm
+          fi
           pacman -Syu --noconfirm --needed \
             base-devel clang cmake extra-cmake-modules git ninja pkgconf qt6-base \
             qt6-declarative qt6-virtualkeyboard qt6-wayland kcoreaddons ki18n kcmutils \
             kconfig kcrash libplasma layer-shell-qt libxkbcommon wayland \
             wayland-protocols plasma-wayland-protocols dbus kwin python-gobject mesa
-          pacman -Q kwin qt6-base | tee -a "$GITHUB_STEP_SUMMARY"
+          pacman -Q kwin qt6-base qt6-wayland qt6-declarative mesa wayland layer-shell-qt | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v5
         with:
           repository: carlsonjm/shuffle-keyboard
-          ref: ${{ matrix.ref }}
+          ref: claude/project-thread-cfmx2i
+      - name: Trace the arrival (this run only)
+        run: |
+          f=src/qml/main.qml
+          sed -i 's|^    function advanceArrival() {|&\n        console.warn("DBG advance arriving=" + root.arriving + " seated=" + root.seated + " settle=" + seatSettle.running + " shown=" + root.compositorShown);|' "$f"
+          sed -i 's|^        function onCompositorVisibilityChecked(visible) {|&\n            console.warn("DBG compositor visible=" + visible + " shown=" + root.compositorShown + " arriving=" + root.arriving + " window=" + root.visible + " leaving=" + root.leaving);|' "$f"
+          sed -i 's|^    onVisibleChanged: {|&\n        console.warn("DBG window visible=" + visible + " carry=" + carry);|' "$f"
+          sed -i 's|^    function travelTo(target, duration, easing) {|&\n        console.warn("DBG travel to=" + target + " from=" + root.carry);|' "$f"
+          grep -c 'DBG' "$f"
       - name: Build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null
@@ -42,7 +59,11 @@ jobs:
       - name: Run every sealed session
         env:
           SHUFFLE_KEYBOARD_BUILD: ${{ github.workspace }}/build
+          SHUFFLE_FEEDBACK_KEEP: "1"
+          SHUFFLE_SEAT_KEEP: "1"
+          TMPDIR: /tmp/probes
         run: |
+          mkdir -p /tmp/probes
           failed=()
           for session in tests/verify-*.sh; do
             echo "::group::${session}"
@@ -56,3 +77,13 @@ jobs:
             esac
           done
           ((${#failed[@]} == 0)) || { printf 'Failed: %s\n' "${failed[@]}"; exit 1; }
+      - name: Kept logs
+        if: always()
+        run: |
+          for root in /tmp/probes/shuffle-feedback-run.* /tmp/probes/shuffle-seat*; do
+            [[ -d "${root}" ]] || continue
+            for f in "${root}"/*.log; do
+              echo "===== ${f}"
+              grep -vE 'MESA|hunspell|propertyCache' "${f}" | head -150
+            done
+          done
