@@ -131,7 +131,10 @@ void Effect::keyboardHeading(double height, int durationMs)
 
 void Effect::raiseKeyboard()
 {
-    if (!callerMayDrive()) return;
+    // Over the lock screen the keys reach nothing but the lock, so anyone may
+    // ask for them there. The lock itself must: kscreenlocker 6.8 hides its
+    // greeter's program from other processes, so it cannot be recognised.
+    if (!KWin::effects->isScreenLocked() && !callerMayDrive()) return;
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method) return;
     m_keyboardAskedSince.start();
@@ -177,6 +180,9 @@ const char *Effect::keyboardRefusal(const KWin::InputMethod &method) const
     constexpr qint64 AskedMs = 1500;
     if (m_keyboardAskedSince.isValid() && m_keyboardAskedSince.elapsed() < AskedMs)
         return nullptr;
+    // The lock screen's only field is the password, and nothing behind the
+    // lock can take the focus from it: keys raised there are always wanted.
+    if (KWin::effects->isScreenLocked()) return nullptr;
     // Otherwise the compositor raised the keys because a field was enabled
     // soon after a touch, which is also true when the application focused
     // the field itself after a touch somewhere else in it. A tap on a field
