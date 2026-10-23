@@ -72,9 +72,11 @@ jobs:
 
       - name: Compare
         id: compare
+        shell: bash
         run: |
+          # Both lists are sorted, so comm names the lines new today.
           if [[ -f previous/versions.txt ]]; then
-            changes=$(diff previous/versions.txt versions.txt | sed -n 's/^> //p' || true)
+            changes=$(comm -13 previous/versions.txt versions.txt)
           else
             changes="no earlier record; checking everything"
           fi
