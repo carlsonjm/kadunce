@@ -83,6 +83,27 @@ inline double carryEntryPosition(int k, double shift, double pitch, double gap =
     return (k + std::clamp(shift, 0.0, 1.0) * gap) * pitch;
 }
 
+// The row's position once its gap has gone from `before` to `after` pitches
+// wide, for a held card's centre at row coordinate `centre`: the item nearest
+// the card stands where it stood, and the far side of the gap closes or parts
+// instead. Whichever side of its old place the card is carried to, the card
+// it is over stays under it.
+inline double carryGapAnchored(double position, double centre, const std::vector<double> &shifts,
+                               double pitch, double before, double after)
+{
+    int nearest = -1;
+    double distance = 0.0;
+    for (int k = 0; k < static_cast<int>(shifts.size()); ++k) {
+        const double d = std::abs(centre - carryEntryPosition(k, shifts[std::size_t(k)], pitch, before));
+        if (nearest < 0 || d < distance) {
+            nearest = k;
+            distance = d;
+        }
+    }
+    if (nearest < 0) return position;
+    return position + std::clamp(shifts[std::size_t(nearest)], 0.0, 1.0) * (after - before) * pitch;
+}
+
 // A carried row of `entries` and its gap, from the outer edge of its first
 // card to the outer edge of its last.
 inline double carryRowSpan(int entries, double pitch, double cardWidth)

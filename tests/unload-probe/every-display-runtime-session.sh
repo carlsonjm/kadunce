@@ -78,11 +78,11 @@ select_on() {
     done
     selected_on "$d" "$id"
 }
-# Carry the card beside the one in the middle of a display's Spread onto it
-# and let go there, as a person makes a Stack (spread-carry.bash, for one
-# display among two).
+# Carry the card beside the one in the middle of a display's Spread onto
+# where that one showed and let go there, as a person makes a Stack
+# (spread-carry.bash, for one display among two).
 carry_onto_centre_on() {
-    local d=$1 id=$2 ctx g centre_id centre_y pick_x centre_x finger target_x held_x
+    local d=$1 id=$2 ctx g centre_id centre_y pick_x centre_x finger held_x
     ctx=$(kad workspaceContext)
     g=$(jq -c --arg d "$d" 'first(.displayContext.displays[] | select(.name == $d)) | .geometry' <<<"$ctx")
     centre_id=$(jq -r --arg d "$d" 'first(.displayContext.displays[] | select(.name == $d)) | .cardStage.selectedCardId' <<<"$ctx")
@@ -96,10 +96,8 @@ carry_onto_centre_on() {
     finger=$((pick_x < centre_x ? pick_x + 30 : pick_x - 30))
     probe motion "$id" "$finger" "$centre_y"
     sleep .5
-    target_x=$(kad workspaceContext | jq -r --arg id "$centre_id" \
-        'first(.applications[] | select(.windowId == $id)) | .spreadRect | (.x + .width / 2) | floor')
     held_x=$(kad nativeCarryState | jq -r '.lineRect | (.x + .width / 2) | floor')
-    probe motion "$id" "$((finger + target_x - held_x))" "$centre_y"
+    probe motion "$id" "$((finger + centre_x - held_x))" "$centre_y"
     sleep .6
     echo "state carry $(kad nativeCarryState | jq -c '{lineCarrying, carryAim, carryIndex}')"
     probe up "$id"

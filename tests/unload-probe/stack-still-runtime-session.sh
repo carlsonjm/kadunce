@@ -32,7 +32,8 @@ width=$(kad workspaceContext | jq '.displayContext.displays[] | select(.role == 
 probe pointer 500 350
 kad showCardLine
 sleep .5
-carry_onto_centre 61
+# Carried from the left onto where the centred card showed, a card joins it.
+carry_onto_centre 61 left
 probe up 61
 sleep .8
 kad workspaceContext | jq -e '[.applications[] | select(.hasCard and .stackSize == 2)] | length == 2'

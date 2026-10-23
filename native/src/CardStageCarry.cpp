@@ -593,9 +593,16 @@ void CardStageController::advanceCarry(double seconds)
     // never pushes that card out from under the held one.
     const bool overCard = m_carry.moved && !m_carry.sliding
         && (m_carry.candidate.kind == CarryAim::Kind::Card || m_carry.aim.kind == CarryAim::Kind::Card);
-    if (!overCard)
+    // The card nearest the held one stands still as the gap closes or parts,
+    // so a card carried right onto its neighbour finds it where it showed.
+    if (!overCard) {
+        const double before = m_carry.gapWidth;
         ease(m_carry.gapWidth, !m_carry.moved ? 1.0 : m_carry.sliding ? 0.0 : CarryGapWidth,
              seconds, 0.09, 0.002);
+        if (m_carry.moved && m_carry.gapWidth != before)
+            m_carry.position = carryGapAnchored(m_carry.position, carryRowAt(heldX, *frame),
+                m_carry.shifts, frame->pitch, before, m_carry.gapWidth);
+    }
     for (int k = 0; k < items; ++k) {
         const double target = k >= m_carry.gap ? 1.0 : 0.0;
         ease(m_carry.shifts[std::size_t(k)], target, seconds, 0.055, 0.002);

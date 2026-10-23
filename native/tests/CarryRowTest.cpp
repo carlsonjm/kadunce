@@ -186,5 +186,32 @@ int main() {
     check(std::abs(carryStackLeash(5000)) <= CarryStackLeash && carryStackLeash(-5000) < 0
               && carryStackLeash(4) > 3.5,
           "a card held in its Stack roamed, or did not answer the finger at all");
+    // As the gap narrows, the card a held one is carried onto stays where it
+    // showed, from either side. Picked up left of the centred card (gap
+    // before item 0) and carried onto it, the centred card stands still; so
+    // does the one carried onto from the right (gap after item 1).
+    {
+        const std::vector<double> right = {1.0, 1.0}, left = {0.0, 0.0};
+        const auto shown = [&](const std::vector<double> &shifts, double position, double gap, int k) {
+            return carryEntryPosition(k, shifts[std::size_t(k)], pitch, gap) - position;
+        };
+        double position = pitch;
+        const double before = shown(right, position, 1.0, 0);
+        double gap = 1.0;
+        for (int step = 0; step < 40; ++step) {
+            const double next = gap + (CarryGapWidth - gap) * 0.2;
+            position = carryGapAnchored(position, position, right, pitch, gap, next);
+            gap = next;
+        }
+        check(std::abs(shown(right, position, gap, 0) - before) < 1e-6,
+              "the centred card slid away from a card carried onto it from the left");
+        check(std::abs(shown(right, position, gap, 0) - shown(right, position, gap, 1) + pitch) < 1e-6,
+              "the cards past the one under a held card moved apart");
+        position = pitch;
+        check(carryGapAnchored(position, position, left, pitch, 1.0, CarryGapWidth) == position,
+              "the centred card moved under a card carried onto it from the right");
+        check(carryGapAnchored(position, position, {}, pitch, 1.0, CarryGapWidth) == position,
+              "an empty row moved");
+    }
     std::cout << "A held card's row parts, slides and zooms as the hand asks, a Bento pane stays named while the hand rests, and a Stack's card reorders front to back\n";
 }
