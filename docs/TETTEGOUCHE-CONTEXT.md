@@ -50,7 +50,10 @@ suite's surfaces live in may bring anything forward: `activateApplicationWindow`
 `kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard` and `plasma-keyboard`,
 installed under `/usr` or in the person's `~/.local/bin`, as the caller's
 process names its program. Any other caller is answered
-`org.freedesktop.DBus.Error.AccessDenied` and nothing changes. The guest calls
+`org.freedesktop.DBus.Error.AccessDenied` and nothing changes. While the
+screen is locked, `raiseKeyboard` is answered for any caller: the keys reach
+nothing but the lock, and kscreenlocker 6.8 hides its greeter's program, so the
+lock cannot be recognised by it. The guest calls
 have their own rule (§ Launcher guest protocol 3).
 
 The payload identifies itself with schema
