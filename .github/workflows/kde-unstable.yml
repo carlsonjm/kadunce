@@ -10,6 +10,8 @@ on:
     - cron: "37 7 * * *"
   workflow_dispatch:
   push:
+    # Branches only: a release tag starts nothing.
+    branches: ['**']
     paths:
       - ".github/workflows/kde-unstable.yml"
       - "native/**"
