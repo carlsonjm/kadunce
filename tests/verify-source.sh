@@ -36,7 +36,7 @@ desktop_whole="$(whole DesktopStageController.cpp DesktopStage)"
 # guest-centered Spread compacts them, its formerly selected neighbor included.
 controller="${card_whole}"
 sed -n '/CardStackPose CardStageController::stackPoseForWindow/,/KWin::Rect CardStageController::launcherGuestTarget/p' "$controller" | grep -F 'if (!m_launcherGuestActive || m_launcherGuestArrival) {' > /dev/null
-rg -Fq 'closed.visible = closedDepth <= 3;' "$controller"
+rg -Fq 'closed.visible = closed.visible && closedDepth <= 3;' "$controller"
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # ripgrep anchors a --glob containing a slash to the working directory rather
@@ -382,12 +382,12 @@ rg -q 'A large fan did not expose a deterministic back-to-front deck' \
     "${native_dir}/tests/SpreadModelTest.cpp"
 rg -q 'restoreOriginalStackingOrder' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"
 rg -q 'mapToDeviceCoordinatesAligned\(target\)' "${effect_cpp}" "${card_cpp}"
-rg -q 'roundedClip(deviceTarget, CardCornerRadius' -F "${effect_cpp}"
+rg -q 'roundedClip(deviceTarget, cardCornerRadius()' -F "${effect_cpp}"
 rg -q 'const bool useFanAperture = m_fanApertureShader' -F "${effect_cpp}"
 rg -q 'useFanAperture ? KWin::Region(deviceAperture)' -F "${effect_cpp}"
-rg -q 'constexpr double CardCornerRadius = 10\.0' "${effect_cpp}" "${card_cpp}"
+rg -q 'DefaultCornerRadius = 10\.0' "${native_dir}/src/CardTuning.h"
 rg -q 'path\.addRoundedRect' "${effect_cpp}" "${card_cpp}"
-rg -q 'CardCornerRadius \* viewport\.scale\(\)' "${effect_cpp}" "${card_cpp}"
+rg -q 'cardCornerRadius\(\) \* viewport\.scale\(\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'class WorkspaceInputRouter final : public KWin::InputEventFilter' \
     "${router_header}"
 rg -q 'class WorkspaceInputTarget' "${router_header}"
@@ -612,7 +612,7 @@ rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${car
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior.
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
-    "003f0966ad0d90db85b67b983be94f640763c553b613dc7e6b074c4b58cf25ea"
+    "b6d8743405bd79c671445e233be40a35c9612b39ba0ca4239d06dced46b1615a"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
@@ -668,7 +668,8 @@ rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"
 rg -q 'inProjectedLayout' "${card_cpp}" "${effect_cpp}"
 rg -q 'workHeight \* 0\.54' "${native_dir}/src/SpreadLayout.cpp"
-rg -q 'workWidth \* 0\.056' "${native_dir}/src/SpreadLayout.cpp"
+rg -q 'workWidth \* spreadGutterShare' "${native_dir}/src/SpreadLayout.cpp"
+rg -q 'Own = 0\.056' "${native_dir}/src/CardTuning.h"
 rg -q 'restoreActiveSnapshot' "${effect_cpp}" "${card_cpp}"
 rg -q 'setQuickTileMode\(KWin::QuickTileMode\{\}' "${effect_cpp}" "${card_cpp}"
 rg -q 'activateWindow' "${effect_cpp}" "${card_cpp}"

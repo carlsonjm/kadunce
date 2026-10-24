@@ -4,6 +4,7 @@
 */
 
 #include "SpreadLayout.h"
+#include "CardTuning.h"
 
 #include <algorithm>
 #include <cmath>
@@ -57,7 +58,7 @@ SpreadLayout makeSpreadLayout(double workX, double workY,
 {
     const double cardWidth = workWidth * 0.54;
     const double cardHeight = workHeight * 0.54;
-    const double gutter = workWidth * 0.056;
+    const double gutter = workWidth * spreadGutterShare(cardTuning().spreadPeek);
     const double centerX = workX + (workWidth - cardWidth) / 2.0;
     const double cardY = workY + (workHeight - cardHeight) / 2.0;
 
@@ -155,6 +156,9 @@ CardStackPose makeOpenStackPose(int cardIndex, int cardCount, int activeIndex,
     if (cardIndex == currentPosition) {
         return {0.0, 0.0, StackFaceRotation, true};
     }
+    if (!cardTuning().stackBehindShown) {
+        return {0.0, 0.0, 0.0, false};
+    }
 
     // The TouchPad fans the exposed deck behind the face. Keep three compressed
     // fan poses fixed while identities cycle through them; this makes group
@@ -209,6 +213,9 @@ CardStackPose makeClosedStackPose(int cardIndex, int cardCount,
     constexpr int TouchPadMaximumClosedSteps = 3;
     const int stepsBehind = std::min(
         cardCount - 1 - cardIndex, TouchPadMaximumClosedSteps);
+    if (stepsBehind > 0 && !cardTuning().stackBehindShown) {
+        return {0.0, 0.0, 0.0, false};
+    }
     const double scale = outputWidth / TouchPadReferenceWidth;
     return {-StackClosedStep * scale * stepsBehind, 0.0, 0.0, true};
 }

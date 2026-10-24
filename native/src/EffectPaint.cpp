@@ -6,13 +6,18 @@
 // Painting: each frame's preparation, the screen, and every window drawn as a
 // card.
 #include "EffectInternal.h"
+#include "CardTuning.h"
 
 namespace Kadunce
 {
 
 namespace
 {
-constexpr double CardCornerRadius = 10.0;
+// The paper tier every window is cut to, as a person has set it (CardTuning.h).
+double cardCornerRadius()
+{
+    return cardTuning().cornerRadius;
+}
 constexpr qint64 FrameStallMs = 50;
 // The keyboard outline fades in over the Visual sheet's micro transition.
 constexpr int KeyboardOutlineFadeMs = 140;
@@ -93,7 +98,7 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     matrix.translate(-box.right(), -box.bottom());
     shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    shader->setUniform("outlineRadius", float(CardCornerRadius));
+    shader->setUniform("outlineRadius", float(cardCornerRadius()));
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
@@ -563,7 +568,7 @@ void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const 
     matrix.scale(viewport.scale(), viewport.scale());
     m_keyboardOutlineShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     m_keyboardOutlineShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    m_keyboardOutlineShader->setUniform("outlineRadius", float(CardCornerRadius));
+    m_keyboardOutlineShader->setUniform("outlineRadius", float(cardCornerRadius()));
     m_keyboardOutlineShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
     m_keyboardOutlineShader->setUniform("outlineOpacity", opacity);
     m_keyboardOutlineShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
@@ -607,7 +612,7 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     // A destination is a box of frosted glass, so it reads as a place over
     // any window or wallpaper under it, light or dark. Without the blur it
     // is a filled box at the Visual sheet's hover step.
-    if (m_frostedBox.paint(renderTarget, viewport, parts, box, CardCornerRadius, clip)) {
+    if (m_frostedBox.paint(renderTarget, viewport, parts, box, cardCornerRadius(), clip)) {
         m_frostDrawn[screen->name()].append(box.intersected(clip));
         return;
     }
@@ -718,7 +723,7 @@ void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
         matrix.scale(viewport.scale(), viewport.scale());
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-        m_destinationShader->setUniform("outlineRadius", float(CardCornerRadius));
+        m_destinationShader->setUniform("outlineRadius", float(cardCornerRadius()));
         const QVector3D ink = SurfaceTone::current().lineInk();
         m_destinationShader->setUniform("surfaceFill", QVector4D(ink, fill));
         m_destinationShader->setUniform("outlineOpacity", ring);
@@ -799,7 +804,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             matrix.scale(viewport.scale(), viewport.scale());
             m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
             m_destinationShader->setUniform("destinationBox", QVector4D(box.x(),box.y(),box.width(),box.height()));
-            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(CardCornerRadius));
+            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(cardCornerRadius()));
             const QVector3D ink = SurfaceTone::current().lineInk();
             m_destinationShader->setUniform("surfaceFill", QVector4D(ink, pill ? .85f : .035f));
             m_destinationShader->setUniform("outlineOpacity", pill ? 0.f : .8f);
@@ -993,7 +998,7 @@ PaintResult Effect::drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
         QVector2D(static_cast<float>(std::round(frame.width() * scale)),
                   static_cast<float>(std::round(frame.height() * scale))));
     m_fanApertureShader->setUniform(m_fanApertureRadiusLocation,
-        static_cast<float>(CardCornerRadius * scale));
+        static_cast<float>(cardCornerRadius() * scale));
     m_fanApertureShader->setUniform("tiltedSampling",
         qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
     glActiveTexture(GL_TEXTURE0);
@@ -1188,7 +1193,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
         const auto clip = deviceRegion
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(shows.intersected(box))))
-            & roundedClip(deviceTarget, CardCornerRadius * viewport.scale());
+            & roundedClip(deviceTarget, cardCornerRadius() * viewport.scale());
         if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
             mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);
         return paintResult(true);
@@ -1214,16 +1219,19 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(KWin::RectF(picture));
         const auto clip = deviceRegion
             & KWin::Region(deviceTarget)
-            & roundedClip(deviceTarget, CardCornerRadius * viewport.scale());
+            & roundedClip(deviceTarget, cardCornerRadius() * viewport.scale());
         if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
             mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);
     // A sleeping card stands in Spread dimmed, so it can be found and woken,
-    // unless the context line says so instead and the card stands whole.
-    if (m_sleepingShown.contains(window) && !contextLineClaimed(tabletOutput()))
-        data.multiplyOpacity(SleepingCardOpacity);
+    // unless the context line says so instead and the card stands whole, or
+    // a person has chosen either for every sleeping card.
+    if (m_sleepingShown.contains(window)) {
+        const std::optional<bool> chosen = cardTuning().sleepingDimmed;
+        if (chosen ? *chosen : !contextLineClaimed(tabletOutput())) data.multiplyOpacity(SleepingCardOpacity);
+    }
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
@@ -1268,7 +1276,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         m_fanApertureOrigin = QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
                                       (target.y() - logicalRegion.y()) * viewport.scale());
         m_fanApertureSize = QSizeF(deviceTarget.size());
-        m_fanApertureRadius = CardCornerRadius * viewport.scale();
+        m_fanApertureRadius = cardCornerRadius() * viewport.scale();
         // Tilted, its corners reach past the box it was carried in: the
         // display, not that box, bounds them.
         const QRectF bounds = tiltReach > 0
@@ -1278,7 +1286,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(bounds)))
             & (tiltReach > 0 ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
-               : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, CardCornerRadius * viewport.scale()));
+               : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
@@ -1468,7 +1476,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && !deviceAperture.isEmpty();
     const KWin::Region outputFence(viewport.mapToDeviceCoordinatesAligned(
         m_paintingOutput->geometry()));
-    const double apertureRadius = CardCornerRadius * viewport.scale();
+    const double apertureRadius = cardCornerRadius() * viewport.scale();
     const KWin::Region cardClip = (rotatedFanCard
         ? deviceRegion
         : deviceRegion & (useFanAperture ? KWin::Region(deviceAperture)

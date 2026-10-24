@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include "CardTuning.h"
+
 namespace Kadunce
 {
 // CARD-LIFECYCLE.md §11, Connected: a window carried over another pane joins
 // that pane's Stack once it has rested there this long, as a held card joins
 // a Stack in Spread once the card under it has risen; let go sooner, the two
 // panes swap.
-inline constexpr long long PaneStackDwell = 450;
+inline constexpr long long PaneStackDwell = CardTuning::DefaultStackPauseMs;
+// That rest as a person has set it (CardTuning.h).
+inline long long paneStackDwell() { return cardTuning().stackPauseMs; }
 
 template<class Handle>
 struct PaneStackAim {
@@ -26,13 +30,13 @@ struct PaneStackAim {
     }
     [[nodiscard]] bool ready(long long now) const
     {
-        return pane && since >= 0 && now - since >= PaneStackDwell;
+        return pane && since >= 0 && now - since >= paneStackDwell();
     }
     // How long until it would be ready, so the aim can be read again then.
     [[nodiscard]] long long remaining(long long now) const
     {
         if (!pane || since < 0) return -1;
-        const long long left = PaneStackDwell - (now - since);
+        const long long left = paneStackDwell() - (now - since);
         return left > 0 ? left : 0;
     }
     void clear()
