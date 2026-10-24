@@ -34,7 +34,7 @@ CardStageController::CardStageController(CardStageHost *host)
         qInfo() << "Kadunce" << Revision << "cards tuned: corners" << tuning.cornerRadius << "px; sleeping"
                 << (tuning.sleepingDimmed ? (*tuning.sleepingDimmed ? "dimmed" : "at full strength") : "as the context line says")
                 << "; stacking after" << tuning.stackPauseMs << "ms; cards behind a Stack"
-                << (tuning.stackBehindShown ? "shown" : "hidden") << "; Spread peek" << tuning.spreadPeek;
+                << (tuning.stackBehindShown ? "shown" : "hidden") << "; Spread peek" << tuning.spreadPeek << "; shadow" << tuning.shadow;
         KWin::effects->addRepaintFull();
     });
     m_arrivalTimer.setSingleShot(true);

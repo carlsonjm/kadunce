@@ -339,6 +339,13 @@ int main(int argc, char **argv)
     require(std::abs(wide.gutter - 20.0) < 1e-9 && std::abs(wide.cards[1].width - 540.0) < 1e-9);
     tune("SpreadPeek", "0", [] { return Kadunce::cardTuning().spreadPeek == 0.0; });
     require(std::abs(Kadunce::makeSpreadLayout(0, 0, 1000, 800).gutter - 120.0) < 1e-9);
+    // Unset, no card casts a shadow; set, it reaches furthest below the card.
+    require(!Kadunce::cardShadowShape(Kadunce::CardTuning{}.shadow).cast());
+    tune("CardShadow", "3", [] { return Kadunce::cardTuning().shadow == 1.0; });
+    const auto deep = Kadunce::cardShadowShape(Kadunce::cardTuning().shadow);
+    require(deep.cast() && deep.reachBelow() > deep.reachSides() && deep.reachSides() > deep.reachAbove());
+    tune("CardShadow", "0.5", [] { return Kadunce::cardTuning().shadow == 0.5; });
+    require(Kadunce::cardShadowShape(0.5).opacity < deep.opacity);
 
     // The keys installed for a settings program are the keys read.
     QFile installed(QStringLiteral(KADUNCE_SETTINGS_KEYS));
