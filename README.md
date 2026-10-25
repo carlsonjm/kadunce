@@ -22,9 +22,6 @@ touch, mouse or keyboard. Switch it off and everything goes back to the Plasma
 desktop.
 </p>
 
-<p align="center"><a href="assets/readme/cards.mp4"><img src="assets/readme/showcase.webp" alt="Spread on a tablet: the trail page as the card in the middle, with photos and music on either side. Press to play the clip." width="100%"></a></p>
-<p align="center"><sub>Cards on, then off: the same windows come back where they were.</sub></p>
-
 ## What you get
 
 <table>
