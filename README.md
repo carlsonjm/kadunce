@@ -22,7 +22,7 @@ touch, mouse or keyboard. Switch it off and everything goes back to the Plasma
 desktop.
 </p>
 
-<p align="center"><img src="assets/readme/showcase.webp" alt="Turning Cards on from Control Center: overlapping windows become cards, then Cards off puts every window back where it was" width="100%"></p>
+<p align="center"><img src="assets/readme/showcase.webp" alt="Files as a card, with Control Center open where Cards turns on and off" width="100%"></p>
 <p align="center"><sub>Cards on, then off: the same windows come back where they were.</sub></p>
 
 ## What you get
