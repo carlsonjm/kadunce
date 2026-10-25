@@ -19,8 +19,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Text-only changes (Markdown files and nothing else) skip the build: the
+  # check still runs and passes, so a README edit merges in about a minute.
+  # A scheduled or manual run, or any other file changed, runs everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: files
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$PR_BASE" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          code=true
+          if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            files="$(git diff --name-only "$base"...HEAD)"
+            if [ -n "$files" ]; then
+              code=false
+              while IFS= read -r f; do
+                case "$f" in *.md) ;; *) code=true ;; esac
+              done <<< "$files"
+            fi
+            printf 'Changed:\n%s\n' "$files"
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   verify:
     name: Arch current
+    needs: changes
     runs-on: ubuntu-latest
     # Arch Linux's official image as Arch publishes it to GitHub's own
     # registry, which Actions reaches without Docker Hub's or Amazon's
@@ -30,6 +67,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Install build dependencies
+        if: needs.changes.outputs.code == 'true'
         run: |
           pacman -Syu --noconfirm --needed \
             base-devel cmake extra-cmake-modules git ripgrep python file perl dbus \
@@ -37,14 +75,27 @@ jobs:
             kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
             kstatusnotifieritem libxcb vulkan-headers vulkan-icd-loader
 
+      - name: Text-only change, install git and Python
+        if: needs.changes.outputs.code != 'true'
+        run: pacman -Sy --noconfirm --needed git python
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      - name: Text-only change, check the text
+        if: needs.changes.outputs.code != 'true'
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python3 tests/verify-docs.py
+          python3 tests/verify-public.py
+
       - name: Record the KDE and Qt versions checked
+        if: needs.changes.outputs.code == 'true'
         run: pacman -Q kwin kdecoration qt6-base extra-cmake-modules kcoreaddons vulkan-headers
 
       - name: Run ./verify.sh
+        if: needs.changes.outputs.code == 'true'
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
