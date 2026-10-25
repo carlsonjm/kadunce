@@ -1407,33 +1407,37 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
     KWin::Rect visualTarget = target;
-    // A card shaped unlike its slot, as a pane's card can be, is drawn whole
-    // at its own shape, with no backing either side of it.
+    // Every card is drawn whole at its own shape, which is seldom exactly its
+    // slot's: a window standing inside the Active card's gutter is a little
+    // wider than the work area its slot is cut from, and a pane's card can be
+    // far from it. Nothing of the backing shows either side of the window.
     if (!grabbedWindow && logicalRegion.width() > 0 && logicalRegion.height() > 0
         && visualTarget.width() > 0 && visualTarget.height() > 0) {
-        const double shape = double(logicalRegion.width()) / logicalRegion.height();
-        const double slotShape = double(visualTarget.width()) / visualTarget.height();
-        if (std::abs(shape / slotShape - 1.0) > 0.06) {
-            const QSizeF fitted = QSizeF(logicalRegion.width(), logicalRegion.height())
-                .scaled(QSizeF(visualTarget.width(), visualTarget.height()), Qt::KeepAspectRatio);
-            visualTarget = KWin::Rect(
-                qRound(visualTarget.x() + (visualTarget.width() - fitted.width()) / 2.0),
-                qRound(visualTarget.y() + (visualTarget.height() - fitted.height()) / 2.0),
-                qRound(fitted.width()), qRound(fitted.height()));
-        }
+        const QSizeF fitted = QSizeF(logicalRegion.width(), logicalRegion.height())
+            .scaled(QSizeF(visualTarget.width(), visualTarget.height()), Qt::KeepAspectRatio);
+        visualTarget = KWin::Rect(
+            qRound(visualTarget.x() + (visualTarget.width() - fitted.width()) / 2.0),
+            qRound(visualTarget.y() + (visualTarget.height() - fitted.height()) / 2.0),
+            qRound(fitted.width()), qRound(fitted.height()));
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    {
-        const KWin::Region outputFence(
-            viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
-        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-            deviceRegion & outputFence, QRectF(visualTarget), paintPose.rotation,
-            float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
-    }
     m_cardLabelTargets.insert(window, QRectF(target));
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
+    {
+        // The backing lies exactly under the window's picture, which KWin
+        // fits to whole points and may leave a fraction short of the card,
+        // so not even a hairline of it shows past the window's edge.
+        const QRectF picture = QRectF(logicalRegion.x(), logicalRegion.y(),
+            window->width() * data.xScale(), window->height() * data.yScale())
+            .intersected(QRectF(visualTarget));
+        const KWin::Region outputFence(
+            viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
+        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+            deviceRegion & outputFence, picture, paintPose.rotation,
+            float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
+    }
     // KWin hands back where it will draw the window's frame, fitted inside
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.

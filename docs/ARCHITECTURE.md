@@ -91,8 +91,10 @@ membership. Bento presents real windows you can use at the same time.
 the rest.
 
 Live card content uses KWin's `OffscreenEffect` texture path with contain scaling,
-the established fan rotation/aperture, and a backing where aspect ratios differ:
-near black, or the window colours' ground under a light colour scheme.
+the established fan rotation/aperture, and a backing exactly under each
+window's picture, so it shows only through a see-through window and never as a
+strip past its edge: near black, or the window colours' ground under a light
+colour scheme. Each card takes its window's own shape inside its slot.
 Proportional margins are intended. Kadunce keeps no snapshot cache or
 capture-readiness state machine. Motion may retain a departing face only as
 ephemeral paint state; it cannot change membership or input visibility. A card
