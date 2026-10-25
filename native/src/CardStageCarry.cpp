@@ -614,7 +614,7 @@ void CardStageController::advanceCarry(double seconds)
         riseTarget = 1.0;
     } else if (m_carry.moved && m_carry.candidate.kind == CarryAim::Kind::Card) {
         m_carry.riseIndex = m_carry.candidate.index;
-        riseTarget = 0.6 * std::min(1.0, double(m_carry.candidateSince.elapsed()) / CarryJoinDwell);
+        riseTarget = 0.6 * std::min(1.0, double(m_carry.candidateSince.elapsed()) / double(carryJoinDwell()));
     }
     ease(m_carry.rise, riseTarget, seconds, 0.05, 0.002);
     if (riseTarget == 0.0 && m_carry.rise == 0.0) {

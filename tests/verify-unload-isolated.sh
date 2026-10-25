@@ -4,7 +4,7 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case ${KADUNCE_PROBE_SESSION:-session.sh} in
     guest-drawer-runtime-session.sh|guest-beside-runtime-session.sh|guest-float-runtime-session.sh|provenance-runtime-session.sh|active-launch-runtime-session.sh|placement-runtime-session.sh|placement-display-runtime-session.sh|companion-guest-runtime-session.sh|companion-focus-runtime-session.sh|adopt-reach-runtime-session.sh|signin-reach-runtime-session.sh|late-maximize-runtime-session.sh|late-maximize-active-runtime-session.sh|late-maximize-signin-runtime-session.sh|fill-return-runtime-session.sh|notes-focus-runtime-session.sh) ;;
     side-runtime-session.sh|escape-carry-runtime-session.sh|touch-after-carry-runtime-session.sh|sleeping-pane-runtime-session.sh|settle-runtime-session.sh|bento-motion-runtime-session.sh) ;;
-    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|solo-offer-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh|bento-gap-runtime-session.sh) ;;
+    stack-runtime-session.sh|start-cards-runtime-session.sh|minimized-start-runtime-session.sh|minimized-only-runtime-session.sh|sleeping-spread-runtime-session.sh|solo-offer-runtime-session.sh|switcher-hidden-runtime-session.sh|gap-runtime-session.sh|bento-top-runtime-session.sh|bento-gap-runtime-session.sh|shadow-runtime-session.sh) ;;
     keyboard-runtime-session.sh|keyboard-minimized-runtime-session.sh|keyboard-chosen-runtime-session.sh|keyboard-dock-runtime-session.sh|keyboard-roll-runtime-session.sh|keyboard-focus-runtime-session.sh|keyboard-search-runtime-session.sh|keyboard-tap-runtime-session.sh|keyboard-table-runtime-session.sh) ;;
     keyboard-offscreen-runtime-session.sh|keyboard-spread-runtime-session.sh|keyboard-click-runtime-session.sh|keyboard-first-runtime-session.sh) ;;
     membership-runtime-session.sh|no-touch-runtime-session.sh|spread-display-runtime-session.sh|connected-runtime-session.sh|connected-stacks-runtime-session.sh|stacks-stress-runtime-session.sh|every-display-runtime-session.sh|every-display-wake-runtime-session.sh|every-display-plug-runtime-session.sh|every-display-carry-runtime-session.sh|every-display-pane-runtime-session.sh|every-display-full-runtime-session.sh|connected-keys-runtime-session.sh|connected-bento-key-runtime-session.sh|connected-zones-runtime-session.sh|connected-desk-keys-runtime-session.sh|desktop-bezel-runtime-session.sh|output-unplug-runtime-session.sh|monitor-overflow-runtime-session.sh|monitor-unplug-layout-runtime-session.sh|monitor-lone-runtime-session.sh|monitor-full-runtime-session.sh|monitor-grid-runtime-session.sh|monitor-sent-runtime-session.sh|monitor-flee-runtime-session.sh|monitor-side-runtime-session.sh|first-entry-runtime-session.sh|bottom-release-runtime-session.sh|divider-tablet-runtime-session.sh|monitor-return-runtime-session.sh|monitor-bottom-runtime-session.sh|monitor-zones-runtime-session.sh) ;;
@@ -113,7 +113,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == settings-frost-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == settings-frost-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == shadow-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
@@ -156,6 +156,11 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == keyboard-*runtime-session.sh ]]; t
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == contact-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-stacks-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stacks-stress-runtime-session.sh || ${#xwayland_args[@]} != 0 ]]; then
     kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key library org.kde.breeze
+fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == shadow-runtime-session.sh ]]; then
+    # No title bar of KWin's, as Shuffle's windows have none that casts its
+    # own shadow, so Kadunce trims the window and casts the card's.
+    kwriteconfig6 --file "$unload_root/config/kwinrc" --group org.kde.kdecoration2 --key NoPlugin true
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == gap-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == divider-tablet-runtime-session.sh ]]; then
     # Breeze with no borders keeps an invisible resize border outside a

@@ -53,9 +53,9 @@ Spread shows:
 ### Sleeping
 
 A minimized individual card stays owned but is not shown. Spread draws
-it dimmed in its place, or at full strength while a context line says it sleeps
-(`TETTEGOUCHE-CONTEXT.md` § Context-line claims). Selecting it wakes it and
-presents it as Active.
+it dimmed in place, or at full strength while a context line says it sleeps
+(`TETTEGOUCHE-CONTEXT.md` § Context-line claims); `SleepingDimmed` overrides
+both. Selecting it wakes it as Active.
 
 ### Desktop
 
