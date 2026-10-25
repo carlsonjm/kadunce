@@ -88,6 +88,8 @@ cmake --build "${native_build_dir}" -j2
 echo "[4/6] Updating the per-user workspace control..."
 /usr/bin/install -Dm644 "${project_dir}/assets/co.goodinput.kadunce-logo.png" \
     "${HOME}/.local/share/icons/hicolor/512x512/apps/co.goodinput.kadunce-logo.png"
+/usr/bin/install -Dm644 "${project_dir}/native/settings-keys" \
+    "${XDG_DATA_HOME:-${HOME}/.local/share}/kadunce/settings-keys"
 for icon in co.goodinput.kadunce-cards co.goodinput.kadunce-cards-off; do
     /usr/bin/install -Dm644 "${project_dir}/control/assets/${icon}.svg" \
         "${HOME}/.local/share/icons/hicolor/scalable/apps/${icon}.svg"

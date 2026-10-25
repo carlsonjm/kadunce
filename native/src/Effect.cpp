@@ -42,6 +42,31 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
+// The shadow a card casts: a soft rounded box under the card, fallen a little
+// below it, drawn only outside the card so its own trimmed corners stay clear.
+constexpr auto ShadowFragment = R"GLSL(#version 140
+in vec2 point;
+out vec4 fragColor;
+uniform vec4 cardBox;
+uniform float cardRadius;
+uniform float shadowBlur;
+uniform float shadowOffset;
+uniform float shadowOpacity;
+#include "colormanagement.glsl"
+float roundedBox(vec2 p, vec4 box, float radius) {
+    vec2 halfSize = box.zw * 0.5;
+    float r = min(radius, min(halfSize.x, halfSize.y));
+    vec2 q = abs(p - box.xy - halfSize) - (halfSize - vec2(r));
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+}
+void main() {
+    float card = roundedBox(point, cardBox, cardRadius);
+    float fallen = roundedBox(point - vec2(0.0, shadowOffset), cardBox, cardRadius);
+    float t = clamp((fallen + 0.25 * shadowBlur) / (1.25 * shadowBlur), 0.0, 1.0);
+    float alpha = shadowOpacity * (1.0 - t) * (1.0 - t) * smoothstep(-0.5, 0.5, card);
+    fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(vec4(0.0, 0.0, 0.0, alpha)));
+}
+)GLSL";
 // The keyboard's window outlined: 2 px of the accent just inside the window's
 // own edge, so its contents stay where they are and nothing is left behind as
 // it moves. This one follows the paper corner Kadunce trims a window to.
@@ -246,6 +271,10 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::windowDeleted, this,
         [this](KWin::EffectWindow *window) {
             m_previewSourceBounds.remove(window);
+            if (const auto trace = m_shadowTraces.constFind(window); trace != m_shadowTraces.cend()) {
+                KWin::effects->addRepaint(KWin::RectF(trace->drawn.united(trace->expected)).toAlignedRect());
+                m_shadowTraces.erase(trace);
+            }
             m_previewRefs.remove(window);
             m_drawnAs.remove(window);
             releaseHeldPicture(window);
@@ -313,6 +342,8 @@ Effect::Effect()
         && KWin::OffscreenEffect::supported()) {
         m_destinationShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(DestinationFragment));
+        m_shadowShader = KWin::ShaderManager::instance()->generateCustomShader(
+            KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(ShadowFragment));
         m_keyboardOutlineShader = KWin::ShaderManager::instance()->generateCustomShader(
             KWin::ShaderTrait::UniformColor, QByteArray(DestinationVertex), QByteArray(KeyboardOutlineFragment));
         m_keyboardEdgeShader = KWin::ShaderManager::instance()->generateCustomShader(

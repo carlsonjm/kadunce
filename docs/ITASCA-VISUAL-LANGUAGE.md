@@ -215,14 +215,26 @@ they preserve these relationships and respect the user's animation settings.
 
 ## Kadunce geometry
 
-- Kadunce cuts every application window and dialog to the 10 px paper tier,
-  with no outline, whether it is a card, a pane or loose on the desktop, and
+- Kadunce cuts every application window and dialog to the paper tier, 10 px
+  unless set, with no outline, whether it is a card, a pane or loose on the desktop, and
   whether it has a title bar or draws its own. A window that casts its own
   shadow, or is maximized or full screen, keeps its corners, and Kadunce trims
   nothing while the separately installed Rounded Corners effect runs.
 - The Active card's gutter is output-relative, 10 px by default and bounded to
   4–48 px, the same on every edge. Bento's panes stand that far apart too, on
   every display, so they stand 10 px apart by default.
+- kwinrc `[Effect-kadunce]` tunes the cards, each key read as it changes and
+  listed in the installed `kadunce/settings-keys`: `ActiveCardGutter`;
+  `CardCornerRadius`, the paper tier at 2–15 px; `SleepingDimmed`, true to
+  dim every sleeping card in Spread and false to draw each at full strength;
+  `StackPauseMs`, 200–800 ms (450 unset), how long a carried pane rests on
+  another before they stack, Spread's shorter rest keeping its share;
+  `StackBehind`, `hairline` or `none`, whether Spread shows the cards behind a
+  Stack's front; `SpreadPeek`, 0–1 (0.5 unset), how far Spread's neighbours
+  show, narrowing the space between its cards from 12% of the work area to 2%
+  while the cards keep their size; and `CardShadow`, 0–1 (0, none, unset), how
+  deep a soft shadow every window Kadunce trims casts below itself, outside
+  Spread and Table, which lay their cards out their own way.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
 - Opening Spread from the Active card or a Bento layout shrinks it from the

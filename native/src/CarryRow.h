@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
+#include "CardTuning.h"
 #include "SpreadLayout.h"
 #include "SpreadStroke.h"
 #include <algorithm>
@@ -60,6 +61,12 @@ inline constexpr double CarryHeldRise = 1.05;
 inline constexpr double CarryJoinReach = 0.32;
 inline constexpr double CarryJoinKeep = 1.3;
 inline constexpr int CarryJoinDwell = 250;
+// That rest as the pause before stacking a person has set stretches it
+// (CardTuning.h), at its own share of the pause.
+inline long long carryJoinDwell()
+{
+    return std::lround(CarryJoinDwell * cardTuning().stackPauseScale());
+}
 // A new gap waits this long, so a card passing over another does not open
 // and close the row behind it.
 inline constexpr int CarryGapDwell = 60;
@@ -272,7 +279,7 @@ inline CarryAim carryAim(double centre, const std::vector<double> &positions, do
 inline CarryAim carryAimStep(const CarryAim &aim, const CarryAim &next, long long waited, int gap)
 {
     if (next == aim) return aim;
-    if (next.kind == CarryAim::Kind::Card) return waited < CarryJoinDwell ? aim : next;
+    if (next.kind == CarryAim::Kind::Card) return waited < carryJoinDwell() ? aim : next;
     if (next.index != gap && waited < CarryGapDwell)
         return aim.kind == CarryAim::Kind::Card ? CarryAim{CarryAim::Kind::Gap, gap} : aim;
     return next;

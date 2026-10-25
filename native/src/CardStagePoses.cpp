@@ -723,7 +723,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
         CardStackPose closed = makeClosedStackPose(
             memberCount - 1 - closedDepth, memberCount,
             tablet->geometry().width());
-        closed.visible = closedDepth <= 3;
+        closed.visible = closed.visible && closedDepth <= 3;
         if (cardGrabActive() && m_carry.inStack && spread.sameStack(cardId, spread.selectedId())) {
             // The Stack a card is held in parts front to back at the place it
             // would take: the cards in front of it to the right of the seam,
@@ -763,6 +763,7 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
                     : base.right() - work.x();
                 pose = neighborStackPose(closedDepth, memberCount, side,
                     available, extent);
+                pose.visible = pose.visible && (closedDepth == 0 || cardTuning().stackBehindShown);
             }
         }
     }
