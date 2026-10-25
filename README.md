@@ -22,8 +22,8 @@ touch, mouse or keyboard. Switch it off and everything goes back to the Plasma
 desktop.
 </p>
 
-<p align="center"><img src="assets/readme/showcase.webp" alt="Spread: the cards of every display in one row, the Active card in the middle" width="100%"></p>
-<p align="center"><sub>Spread</sub></p>
+<p align="center"><img src="assets/readme/showcase.webp" alt="Files as a card, with Control Center open where Cards turns on and off" width="100%"></p>
+<p align="center"><sub>Cards on, then off: the same windows come back where they were.</sub></p>
 
 ## What you get
 
