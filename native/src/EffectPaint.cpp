@@ -1534,33 +1534,46 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
     KWin::Rect visualTarget = target;
-    // A card shaped unlike its slot, as a pane's card can be, is drawn whole
-    // at its own shape, with no backing either side of it.
-    if (!grabbedWindow && logicalRegion.width() > 0 && logicalRegion.height() > 0
+    // Every card is drawn whole at its window's own shape, which is seldom
+    // exactly its slot's: a window standing inside the Active card's gutter
+    // is a little wider than the work area its slot is cut from, and a pane's
+    // card can be far from it. The shape is the window's frame, not what it
+    // paints around it, so a window drawing margins of its own outside its
+    // frame is fitted, cut and backed at the frame.
+    const QSizeF frameSize = QRectF(window->frameGeometry()).size();
+    if (!grabbedWindow && !frameSize.isEmpty()
         && visualTarget.width() > 0 && visualTarget.height() > 0) {
-        const double shape = double(logicalRegion.width()) / logicalRegion.height();
-        const double slotShape = double(visualTarget.width()) / visualTarget.height();
-        if (std::abs(shape / slotShape - 1.0) > 0.06) {
-            const QSizeF fitted = QSizeF(logicalRegion.width(), logicalRegion.height())
-                .scaled(QSizeF(visualTarget.width(), visualTarget.height()), Qt::KeepAspectRatio);
-            visualTarget = KWin::Rect(
-                qRound(visualTarget.x() + (visualTarget.width() - fitted.width()) / 2.0),
-                qRound(visualTarget.y() + (visualTarget.height() - fitted.height()) / 2.0),
-                qRound(fitted.width()), qRound(fitted.height()));
-        }
+        const QSizeF fitted = frameSize
+            .scaled(QSizeF(visualTarget.width(), visualTarget.height()), Qt::KeepAspectRatio);
+        visualTarget = KWin::Rect(
+            qRound(visualTarget.x() + (visualTarget.width() - fitted.width()) / 2.0),
+            qRound(visualTarget.y() + (visualTarget.height() - fitted.height()) / 2.0),
+            qRound(fitted.width()), qRound(fitted.height()));
     }
     const bool rotatedFanCard = !qFuzzyIsNull(paintPose.rotation);
-    {
-        const KWin::Region outputFence(
-            viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
-        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-            deviceRegion & outputFence, QRectF(visualTarget), paintPose.rotation,
-            float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
-    }
     m_cardLabelTargets.insert(window, QRectF(target));
     KWin::Effect::setPositionTransformations(
         data, logicalRegion, window, visualTarget,
         Qt::KeepAspectRatio);
+    // The card is the window's frame exactly as KWin draws it this frame,
+    // which it fits to whole points and may leave a fraction short of the
+    // slot. The cut, its corners and the backing all follow that edge, so
+    // neither the backing nor anything the window paints past its frame
+    // shows beside it.
+    const QRectF face = QRectF(logicalRegion.x(), logicalRegion.y(),
+        window->width() * data.xScale(), window->height() * data.yScale())
+        .intersected(QRectF(visualTarget));
+    {
+        // The window's edge fades over its last physical pixel; the backing
+        // stops a pixel inside it, so it never rims the card.
+        const double inset = 1.0 / viewport.scale();
+        const QRectF backing = face.adjusted(inset, inset, -inset, -inset);
+        const KWin::Region outputFence(
+            viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry()));
+        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+            deviceRegion & outputFence, backing, paintPose.rotation,
+            float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
+    }
     // KWin hands back where it will draw the window's frame, fitted inside
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.
@@ -1568,20 +1581,15 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.
-        const double originX =
-            (visualTarget.x() + visualTarget.width() - logicalRegion.x())
-            / data.xScale();
-        const double originY =
-            (visualTarget.y() + visualTarget.height() - logicalRegion.y())
-            / data.yScale();
+        const double originX = (face.right() - logicalRegion.x()) / data.xScale();
+        const double originY = (face.bottom() - logicalRegion.y()) / data.yScale();
         data.setRotationAngle(paintPose.rotation);
         data.setRotationOrigin(QVector3D(originX, originY, 0.0));
     }
 
     // deviceRegion is KWin's actual renderer clip.
-    const KWin::Rect apertureTarget = visualTarget;
     const KWin::Rect deviceAperture =
-        viewport.mapToDeviceCoordinatesAligned(apertureTarget);
+        viewport.mapToDeviceCoordinatesAligned(KWin::RectF(face));
     // QRegion remains only the hard output fence. Each visible preview uses
     // the shared offscreen aperture for one physical pixel of fractional edge
     // coverage; this is independent of client alpha and therefore treats a
@@ -1605,11 +1613,11 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanPaintSize = useFanAperture
         ? QSizeF(data.xScale(), data.yScale()) : QSizeF();
     m_fanApertureOrigin = useFanAperture
-        ? QPointF((apertureTarget.x() - logicalRegion.x()) * viewport.scale(),
-                  (apertureTarget.y() - logicalRegion.y()) * viewport.scale())
+        ? QPointF((face.x() - logicalRegion.x()) * viewport.scale(),
+                  (face.y() - logicalRegion.y()) * viewport.scale())
         : QPointF();
     m_fanApertureSize = useFanAperture
-        ? QSizeF(deviceAperture.size()) : QSizeF();
+        ? face.size() * viewport.scale() : QSizeF();
     m_fanApertureRadius = useFanAperture
         ? static_cast<float>(apertureRadius) : 0.0F;
 
