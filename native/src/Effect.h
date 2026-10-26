@@ -126,10 +126,13 @@ public:
     }
 
     // Painting while any display's cards are on, and while windows are given
-    // rounded corners, which every window keeps, card or not.
+    // rounded corners, which every window keeps, card or not. Table and the
+    // spoken line are drawn only in the frames this effect prepares, so they
+    // keep it painting while they are up, whoever trims the corners.
     [[nodiscard]] bool isActive() const override
     {
         return anyCardStageActive() || roundsCorners()
+            || (m_tablePresenter && m_tablePresenter->visible()) || (m_spokenLine && m_spokenLine->visible())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }

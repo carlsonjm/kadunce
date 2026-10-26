@@ -59,6 +59,7 @@ public:
 private:
     std::unique_ptr<KWin::OffscreenQuickScene> m_scene;
     bool m_dirty = false;
+    qreal m_scale = 0;
     QTimer m_closing;
     // The name's changes, gathered and said once a turn.
     QTimer m_typed;
