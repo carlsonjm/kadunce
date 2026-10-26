@@ -5,6 +5,8 @@ name: Scenes
 # device gate still runs every scene before a handover.
 on:
   pull_request:
+    # Text-only changes don't move a window; no scenes to run.
+    paths-ignore: ['**.md']
   workflow_dispatch:
     inputs:
       scenes:
