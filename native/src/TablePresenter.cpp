@@ -38,6 +38,15 @@ TablePresenter::~TablePresenter() = default;
 
 void TablePresenter::show(const QRect &geometry, qreal scale, const QVariantMap &model)
 {
+    // A view moved to a display of another shape keeps drawing in the shape
+    // of the one it left, stretched to fit, so Table starts afresh there.
+    if (m_scene && (m_scene->geometry().size() != KWin::Rect(geometry).size() || m_scale != scale)) {
+        endEditing();
+        m_closing.stop();
+        m_scene.reset();
+        m_dirty = false;
+    }
+    m_scale = scale;
     if (!m_scene) {
         m_scene = std::make_unique<KWin::OffscreenQuickScene>();
         // Rendered in the compositor's own frames, as KWin's Overview is. A
