@@ -22,6 +22,12 @@ touch, mouse or keyboard. Switch it off and everything goes back to the Plasma
 desktop.
 </p>
 
+
+
+https://github.com/user-attachments/assets/02c3e61f-bb2d-49e1-94b7-08f11d055059
+
+
+
 ## What you get
 
 <table>
