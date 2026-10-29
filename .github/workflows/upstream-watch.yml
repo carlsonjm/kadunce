@@ -1,12 +1,12 @@
 name: Upstream watch
 
-# Reads, every hour, the newest Plasma KDE has released and the versions Arch
+# Reads, twice a day, the newest Plasma KDE has released and the versions Arch
 # Linux and CachyOS carry of every upstream package the public suite parts
-# build on or behave by, and compares them with the previous hour's. When any
+# build on or behave by, and compares them with the previous read's. When any
 # changed, it builds and tests Cards, Search, Status, Notes and the Keyboard
 # against the current Arch and CachyOS, the Keyboard's sealed typing sessions
-# included, so a point release that changes behaviour shows here within the
-# hour a distribution ships it. KDE's own release usually comes a day before
+# included, so a point release that changes behaviour shows here the same
+# day a distribution ships it. KDE's own release usually comes a day before
 # either distribution's, so its line is the earliest notice. With nothing new
 # it stops after the version read.
 #
@@ -14,7 +14,7 @@ name: Upstream watch
 # failing check names the part that owns the failure.
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 2,14 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -30,7 +30,7 @@ permissions:
 
 concurrency:
   group: upstream-watch-${{ github.ref }}
-  # A check under way finishes; the next hour's read waits for it.
+  # A check under way finishes; the next read waits for it.
   cancel-in-progress: false
 
 jobs:
