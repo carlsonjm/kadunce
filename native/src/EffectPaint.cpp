@@ -292,14 +292,14 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             stepSessionEndGlass();
             m_settingsFrostSince.remove(data.screen->name());
             m_settingsFrostLeaving.remove(data.screen->name());
-            data.paint |= whole(QRectF(data.screen->geometry()));
+            data.paint |= whole(QRectF(data.screen->geometryF()));
             m_continueRepaint = true;
         } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen)) {
             if (isPowerQuestion(settings)) m_powerQuestionSeen.start();
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
             m_settingsFrostLeaving.remove(data.screen->name());
-            data.paint |= whole(QRectF(data.screen->geometry()));
+            data.paint |= whole(QRectF(data.screen->geometryF()));
             if (since.elapsed() < frostFade) m_settingsFrostFading.append(data.screen->geometry());
         } else {
             if (m_settingsFrostSince.remove(data.screen->name()) > 0) {
@@ -309,7 +309,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             }
             const auto leaving = m_settingsFrostLeaving.constFind(data.screen->name());
             if (leaving != m_settingsFrostLeaving.constEnd() && leaving->elapsed() < frostDissolve) {
-                data.paint |= whole(QRectF(data.screen->geometry()));
+                data.paint |= whole(QRectF(data.screen->geometryF()));
                 m_settingsFrostFading.append(data.screen->geometry());
             } else {
                 m_settingsFrostLeaving.remove(data.screen->name());
@@ -696,7 +696,7 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     // The glass is laid under the first of this display's panels to be
     // drawn, or under Settings itself where there are none, so the panels
     // and their fades stand over it as they are, and nothing ends at an edge.
-    const QRectF whole(screen->geometry());
+    const QRectF whole(screen->geometryF());
     if (window != settings && !(window->isDock() && QRectF(window->frameGeometry()).intersects(whole))) return;
     m_settingsFrostDrawnOn = screen;
     QList<QRectF> parts;
@@ -817,7 +817,9 @@ void Effect::drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const K
                                  KWin::LogicalOutput *screen)
 {
     if (!screen) return;
-    const QRectF whole(screen->geometry());
+    // A scaled display ends part way through a logical pixel; its whole
+    // extent is covered, or a sliver of the scene shows along the edge.
+    const QRectF whole(screen->geometryF());
     QList<QRectF> parts;
     for (const auto &dirty : m_paintingRegion.rects()) {
         const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
