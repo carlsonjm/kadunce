@@ -86,6 +86,7 @@ scenes=(
     bento-exit-partner-runtime tablet
     switcher-hidden-runtime tablet
     gap-runtime tablet
+    active-slide-runtime tablet
     bento-top-runtime tablet
     bento-gap-runtime tablet
     dialog-runtime tablet

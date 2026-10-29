@@ -183,6 +183,11 @@ they preserve these relationships and respect the user's animation settings.
 - Animate the container or relationship before individually animating its details.
 - Keep related controls together during motion; never scatter a cluster to fill
   changing width.
+- The Active card turns along the row as one strip: the leaving and arriving
+  cards at full size, 10 px apart. Under the finger it follows 1:1 and settles
+  with ease-out cubic; a tap, the wheel or a key plays the turn over 260 ms with
+  ease-in-out cubic. At a row end the card gives about 6% of its width and
+  settles back. Bento, other displays and Table keep their own motion.
 - Responsive disclosure should fade/settle optional information without moving the
   stable actionable core unnecessarily.
 - Small sequencing delays may clarify order, but repeated stagger should stay
