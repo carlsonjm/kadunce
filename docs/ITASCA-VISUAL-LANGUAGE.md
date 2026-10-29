@@ -265,8 +265,8 @@ they preserve these relationships and respect the user's animation settings.
   display, panels included, while the cards are given back and the
   windows close. A window that opens then, such as one asking whether to
   save, or KDE's word that something did not close, clears the glass until
-  it goes. Once no window is left, or after 3 s, the glass darkens to
-  black over a second (instant motion: 150 ms), so power-off is never seen.
+  it goes. Meanwhile the glass darkens to black over a second (instant
+  motion: 150 ms), so power-off is never seen.
   If the session goes on instead, the glass dissolves and the windows go
   back into cards.
 - While another window shows beside it on its display, the window the

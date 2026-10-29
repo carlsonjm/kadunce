@@ -1456,6 +1456,10 @@ private:
     SessionEndGlass m_sessionEnd;
     // When the power question last stood on a display.
     QElapsedTimer m_powerQuestionSeen;
+    // Plasma saves the session, steps back to normal, then quits; only a
+    // session still normal after this wait has gone on.
+    QTimer m_sessionGoesOn;
+    static constexpr int SessionGoesOnMs = 2000;
     void beginSessionEndGlass(bool cardsGivenBack);
     void endSessionEndGlass();
     void stepSessionEndGlass();

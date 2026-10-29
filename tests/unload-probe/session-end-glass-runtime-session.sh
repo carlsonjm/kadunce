@@ -61,13 +61,18 @@ question() {
 # Answered: the question goes, and the session begins to end at once.
 answer() { kill "$surface_pid" 2>/dev/null; wait "$surface_pid" 2>/dev/null; surface_pid=; session setState "$1"; }
 
+# Plasma saves the session, steps back to normal, then quits.
 question 'Shut down'
-answer $quitting
+answer $saving
+session setState $normal
+session setState $quitting
 check "the glass stays up while the session ends" seen '^Kadunce .* keeps the glass up while the session ends'
 check "the cards are given back under it" seen '^Kadunce .* lets every window go'
 sleep .8
 # The question's own glass begins to dissolve the frame it goes, before the
 # session says it is ending; from then on nothing dissolves.
+check "saving and stepping back on to quit is no cancel" \
+    bash -c "tail -n +$(since_end) '$log' | rg -q '^Kadunce .* the session goes on' && exit 1 || exit 0"
 check "the glass does not dissolve once the session is ending" \
     bash -c "tail -n +$(since_end) '$log' | rg -q '^Kadunce .* dissolves the frost on' && exit 1 || exit 0"
 
@@ -91,7 +96,7 @@ ends=$(said 'keeps the glass up while the session ends')
 question 'Restart'
 answer $saving
 check "the glass stays up again" bash -c "for t in {1..60}; do (( \$(rg -c 'keeps the glass up while the session ends' '$log') > $ends )) && exit 0; sleep .1; done; exit 1"
-sleep 4
+sleep 1.5
 check "the glass darkens to black" seen '^Kadunce .* darkens the glass to black'
 sleep 1.5
 black=$(band 000000)

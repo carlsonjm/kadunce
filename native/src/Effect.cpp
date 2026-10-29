@@ -467,6 +467,10 @@ Effect::Effect()
             });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
+    m_sessionGoesOn.setSingleShot(true);
+    connect(&m_sessionGoesOn, &QTimer::timeout, this, [this] {
+        if (KWin::effects->sessionState() == KWin::SessionState::Normal) endSessionEndGlass();
+    });
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
             this, &Effect::handleScreenRemoved);
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
@@ -1816,7 +1820,8 @@ void Effect::handleSessionStateChanged()
                 << "restoring managed windows before session save or shutdown";
         release();
     }
-    if (!ending) endSessionEndGlass();
+    if (ending) m_sessionGoesOn.stop();
+    else if (m_sessionEnd.on && !m_sessionGoesOn.isActive()) m_sessionGoesOn.start(SessionGoesOnMs);
 }
 
 } // namespace Kadunce

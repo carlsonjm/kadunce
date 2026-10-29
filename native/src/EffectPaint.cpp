@@ -35,9 +35,6 @@ constexpr int SettingsFrostDissolveMs = 300;
 // short change of opacity where motion is instant.
 constexpr int SessionEndDarkenMs = 1000;
 constexpr int SessionEndDarkenInstantMs = 150;
-// A window still open this long after the session began ending is one that
-// keeps no window of its own to close; the glass darkens without it.
-constexpr int SessionEndDarkenAfterMs = 3000;
 
 // The renderer that draws a view's scene. From KWin 6.8 each render device
 // has its own; earlier KWin has one.
@@ -787,25 +784,22 @@ void Effect::stepSessionEndGlass()
     // asking something, a save question or KDE's word that something did not
     // close; the glass clears while it stands.
     bool asking = false;
-    bool open = false;
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
-        if (!window || window->isDeleted() || !window->isVisible()) continue;
-        const bool ordinary = window->isNormalWindow() || window->isDialog();
-        if (!m_sessionEnd.known.contains(window)
-            && (ordinary || window->isNotification() || window->isCriticalNotification()))
+        if (!window || window->isDeleted() || !window->isVisible() || m_sessionEnd.known.contains(window)) continue;
+        if (window->isNormalWindow() || window->isDialog() || window->isNotification()
+            || window->isCriticalNotification())
             asking = true;
-        else if (ordinary)
-            open = true;
     }
     if (asking != m_sessionEnd.asking) {
         m_sessionEnd.asking = asking;
         qInfo() << "Kadunce" << Revision
                 << (asking ? "clears the glass for a window asking something" : "brings the glass back");
     }
-    const bool darken = !asking && (!open || m_sessionEnd.since.elapsed() >= SessionEndDarkenAfterMs);
+    // Plasma turns the power off a moment after the windows are asked to
+    // close, so the glass darkens at once, and lifts for anything asking.
+    const bool darken = !asking;
     if (darken && !m_sessionEnd.darkening)
-        qInfo() << "Kadunce" << Revision << "darkens the glass to black"
-                << (open ? "with windows still open" : "with every window closed");
+        qInfo() << "Kadunce" << Revision << "darkens the glass to black";
     m_sessionEnd.darkening = darken;
     const double factor = KWin::effects->animationTimeFactor();
     const auto toward = [step](double &value, double target, int duration) {
