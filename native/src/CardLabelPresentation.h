@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <KLocalizedString>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -36,7 +37,7 @@ struct CardLabelPresentation {
     }
     if (kept.size() <= 1) return kept.value(0);
     const QString last = kept.takeLast();
-    return QObject::tr("%1 and %2").arg(kept.join(QStringLiteral(", ")), last);
+    return i18n("%1 and %2", kept.join(QStringLiteral(", ")), last);
 }
 
 // A pane's card names the layout it belongs to: the card's own application,
@@ -46,7 +47,7 @@ struct CardLabelPresentation {
 {
     const QString partners = namesInLine(partnerNames);
     return partners.isEmpty() ? applicationName
-                              : QObject::tr("%1 · with %2").arg(applicationName, partners);
+                              : i18n("%1 · with %2", applicationName, partners);
 }
 
 // A Stack's face names the cards waiting behind it, nearest first, as many as
@@ -56,7 +57,7 @@ struct CardLabelPresentation {
 {
     const QString behind = namesInLine(behindNames);
     return behind.isEmpty() ? applicationName
-                            : QObject::tr("%1 · then %2").arg(applicationName, behind);
+                            : i18n("%1 · then %2", applicationName, behind);
 }
 
 [[nodiscard]] inline QString stackPositionLabel(int position, int count)

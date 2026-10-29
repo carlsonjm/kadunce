@@ -18,7 +18,11 @@ include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui GuiPrivate Widgets Quick)
-find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config Service)
+find_package(KF6 6.26 REQUIRED COMPONENTS CoreAddons GlobalAccel Config Service I18n)
+
+# The plugin asks the kadunce catalog for its words: KWin never loads a
+# plugin's Qt translations.
+add_compile_definitions(TRANSLATION_DOMAIN="kadunce")
 find_package(KWin 6.7 REQUIRED COMPONENTS kwineffects)
 find_package(KDecoration3 REQUIRED)
 find_package(XCB REQUIRED COMPONENTS XCB)
@@ -119,6 +123,7 @@ target_link_libraries(kwin4_effect_kadunce
     KF6::GlobalAccel
     KF6::ConfigCore
     KF6::Service
+    KF6::I18n
     KWin::kwin
 )
 
@@ -127,7 +132,7 @@ if(BUILD_TESTING)
     add_executable(kadunce-card-label-presentation-test
         tests/CardLabelPresentationTest.cpp)
     target_include_directories(kadunce-card-label-presentation-test PRIVATE src)
-    target_link_libraries(kadunce-card-label-presentation-test PRIVATE Qt6::Core)
+    target_link_libraries(kadunce-card-label-presentation-test PRIVATE Qt6::Core KF6::I18n)
     add_test(NAME card-label-presentation COMMAND kadunce-card-label-presentation-test)
     add_executable(kadunce-table-gesture-test tests/TableGestureTest.cpp)
     target_include_directories(kadunce-table-gesture-test PRIVATE src)
@@ -139,7 +144,7 @@ if(BUILD_TESTING)
     add_test(NAME table-layout COMMAND kadunce-table-layout-test)
     add_executable(kadunce-spread-reading-test tests/SpreadReadingTest.cpp)
     target_include_directories(kadunce-spread-reading-test PRIVATE src)
-    target_link_libraries(kadunce-spread-reading-test PRIVATE Qt6::Core)
+    target_link_libraries(kadunce-spread-reading-test PRIVATE Qt6::Core KF6::I18n)
     add_test(NAME spread-reading COMMAND kadunce-spread-reading-test)
     add_executable(kadunce-row-page-motion-test tests/RowPageMotionTest.cpp)
     target_include_directories(kadunce-row-page-motion-test PRIVATE src)
@@ -214,7 +219,7 @@ if(BUILD_TESTING)
     add_test(NAME deliberate-edge-entry COMMAND kadunce-deliberate-edge-entry-test)
     add_executable(kadunce-gesture-note-test tests/GestureNoteTest.cpp)
     target_include_directories(kadunce-gesture-note-test PRIVATE src)
-    target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core)
+    target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core KF6::I18n)
     add_test(NAME gesture-note COMMAND kadunce-gesture-note-test)
     add_executable(kadunce-surface-tone-test tests/SurfaceToneTest.cpp)
     target_include_directories(kadunce-surface-tone-test PRIVATE src)

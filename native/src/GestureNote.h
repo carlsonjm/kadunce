@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <KLocalizedString>
 #include "DeliberateEdgeEntry.h"
 
 #include <QObject>
@@ -32,15 +33,15 @@ enum class GestureRefusal {
 {
     switch (refusal) {
     case GestureRefusal::NoPartner:
-        return QObject::tr("Nothing to pair it with");
+        return i18n("Nothing to pair it with");
     case GestureRefusal::NoRoom:
-        return QObject::tr("Not enough room for it here");
+        return i18n("Not enough room for it here");
     case GestureRefusal::NotArranged:
-        return QObject::tr("This window can't be arranged");
+        return i18n("This window can't be arranged");
     case GestureRefusal::Unplaced:
         break;
     }
-    return QObject::tr("It can't go there");
+    return i18n("It can't go there");
 }
 
 // The refusal an edge decision states by itself. Pairing and placement that

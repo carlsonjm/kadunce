@@ -3,6 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include <KLocalizedString>
 #include "EffectInternal.h"
 
 namespace Kadunce
@@ -431,7 +432,7 @@ Effect::Effect()
     if (!m_usesDirectSystemEdges) {
         // Plasma's bottom touch edge opens Spread, as the bezel does on the
         // tablet, and so do three fingers on any touchscreen.
-        m_showSpreadAction = new QAction(tr("Show Spread"), this);
+        m_showSpreadAction = new QAction(i18n("Show Spread"), this);
         m_showSpreadAction->setObjectName(
             QStringLiteral("Kadunce Show Spread"));
         connect(m_showSpreadAction, &QAction::triggered,
@@ -439,7 +440,7 @@ Effect::Effect()
         KWin::effects->registerTouchBorder(
             KWin::ElectricBottom, m_showSpreadAction);
 
-        m_showActiveAction = new QAction(tr("Show Active card"), this);
+        m_showActiveAction = new QAction(i18n("Show Active card"), this);
         m_showActiveAction->setObjectName(
             QStringLiteral("Kadunce Show Active"));
         connect(m_showActiveAction, &QAction::triggered,
