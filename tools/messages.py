@@ -29,9 +29,11 @@ ROOT = Path(__file__).resolve().parent.parent
 REPO = "kadunce"
 
 # Each catalog, and the sources that ask it for words: the Cards switch in
-# the tray, its menu, its messages and its settings window.
+# the tray, its menu, its messages and its settings window; and the
+# compositor plugin's gesture notes, Spread and Table words.
 DOMAINS = {
     "kadunce-control": ["control/src/*.cpp", "control/src/*.h"],
+    "kadunce": ["native/src/*.cpp", "native/src/*.h"],
 }
 
 # QML a person sees. The compositor plugin's Table is not yet listed (below).
@@ -40,10 +42,8 @@ SHIPPED_QML = []
 # C++ a person reads: a QStringLiteral or QLatin1String with words in it.
 SHIPPED_CPP = ["control/src/*.cpp", "control/src/*.h"]
 
-# Tests and probes, which no one reads on screen, and the compositor plugin,
-# whose words still use Qt's tr(), which KWin never loads for a plugin. It
-# moves to a catalog of its own with a build that loads the plugin in KWin.
-NOT_SHIPPED = ["tests/*", "tools/*", "control/tests/*", "native/*"]
+# Tests and probes, which no one reads on screen.
+NOT_SHIPPED = ["tests/*", "tools/*", "control/tests/*", "native/tests/*"]
 
 KEYWORDS = [
     "i18n:1", "i18nc:1c,2", "i18np:1,2", "i18ncp:1c,2,3",
