@@ -61,50 +61,103 @@ desktop, and the **Cards** switch in the system tray turns Kadunce off.
 
 ## Install
 
+These steps are for Arch Linux or CachyOS running KDE Plasma 6.7 or newer in a
+Wayland session, the default on both. Kadunce is built on your computer from
+this page's code, so you type a few commands into **Konsole**, Plasma's
+terminal. Open it from the application launcher.
+
+### 1. What you need
+
+Check your Plasma version. It must say 6.7 or higher:
+
+```bash
+plasmashell --version
+```
+
+Bring the computer up to date, then restart it. Kadunce is built against the
+KWin that is installed, so the KWin that is running has to be the same one:
+
+```bash
+sudo pacman -Syu
+```
+
+After the restart, open Konsole again and install what the build needs. Type
+your password when asked, and answer `Y`:
+
+```bash
+sudo pacman -S --needed base-devel git cmake extra-cmake-modules ripgrep python perl file qt6-base qt6-declarative qt6-tools kwin kdecoration kcoreaddons kconfig ki18n kservice kglobalaccel kstatusnotifieritem libxcb vulkan-headers
+```
+
+### 2. Download
+
+This puts the code in a folder called `kadunce` in your home folder. Use
+`git` rather than GitHub's Download ZIP, so a later update is one command:
+
+```bash
+cd ~
+git clone https://github.com/carlsonjm/kadunce.git
+cd kadunce
+```
+
+### 3. Install
+
 ```bash
 ./install.sh
 ```
 
-The installer checks and builds Kadunce, then asks for permission to install the
-KWin plugin. Log out and back in afterwards so KWin loads it. Kadunce runs on
-your distribution's own KWin.
+The installer checks the code, builds it and counts its six steps, `[1/6]` to
+`[6/6]`, which takes a few minutes. At step 5 a password window asks to put
+Kadunce's plugin in place for KWin; type your password there. Don't restart
+the computer until it says **All six installation steps completed**.
 
-<details>
-<summary>Requirements</summary>
+### 4. Finish
 
-- KDE Plasma 6.7 or newer
-- A Wayland session
-- Qt 6.10 and KDE Frameworks 6.26, or newer
-- KWin development files
-- CMake and a C++20 compiler
-- `pkexec` for system installation
+Sign out and back in, so KWin starts with Kadunce loaded.
 
-</details>
+### 5. Check it worked
 
-<details>
-<summary>After a KWin update</summary>
+- A **Cards** icon is in the system tray. If you don't see it, click the small
+  arrow at the tray's end.
+- Press `Meta+S`, or swipe up from the bottom edge of a touchscreen. Your open
+  windows lay out as cards in a row, Spread. Pick one to use it.
+- `Meta+Esc` puts every window back on the Plasma desktop at any time.
 
-Run `./install.sh` again after every KWin update, or choose **Repair for
-current KWin…** in the Cards menu. If you had Cards switched off, they stay off.
+### 6. Update
 
-</details>
-
-<details>
-<summary>Turn off or uninstall</summary>
+After every system update that brings a new KWin, run the installer again, or
+choose **Repair for current KWin…** in the Cards menu. To get a newer Kadunce:
 
 ```bash
+cd ~/kadunce
+git pull
+./install.sh
+```
+
+If you had Cards switched off, they stay off.
+
+### 7. Turn off or uninstall
+
+To turn Kadunce off without removing it, click the **Cards** switch in the
+system tray, or run:
+
+```bash
+cd ~/kadunce
 ./disable.sh
+```
+
+Every window goes back to Plasma. The Cards switch turns it on again.
+
+To remove it:
+
+```bash
+cd ~/kadunce
 ./uninstall.sh
 ```
 
-`disable.sh` returns every window to Plasma and turns Kadunce off until you turn
-it on again with the **Cards** switch in the system tray. `uninstall.sh` removes
-what was installed, including the repair kit and Kadunce's state. It keeps your
-settings, in `kaduncerc` and kwinrc's `[Effect-kadunce]`, for a later install
-and leaves this folder alone. If the plugin is still loaded afterwards, log out
-and back in.
-
-</details>
+A password window asks to remove the plugin. Sign out and back in afterwards.
+Your settings stay, in `kaduncerc` and in kwinrc's `[Effect-kadunce]`, for a
+later install. To delete the download too, run `rm -rf ~/kadunce`. The
+packages from step 1 can stay; Plasma uses most of them.
 
 ## Displays
 
