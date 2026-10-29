@@ -16,6 +16,7 @@
 #include "RestoredMinimization.h"
 #include "RowTravel.h"
 #include "CarryRow.h"
+#include "ActiveSlide.h"
 
 #include <effect/effectwindow.h>
 
@@ -378,6 +379,16 @@ public:
     void pageStack(int delta);
     // §11: the Active card's Stack steps in place, the next card Active.
     bool stepActiveStack(int delta);
+
+    // INPUT.md § Active card: the Active card turns along the row as a strip,
+    // the leaving card and the arriving one side by side. A swipe in the gap
+    // carries it under the finger; let go, it goes on or springs back.
+    // `side` is the gap the swipe began in: -1 the left, for the card before.
+    void dragActiveSlide(int side, double travel);
+    void releaseActiveSlide(int side, double travel, double speed);
+    // How far a card of the strip stands from its place, while the strip moves.
+    [[nodiscard]] std::optional<double> activeSlideShift(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool activeSlideRunning() const;
 
     // The row as something a hand moves. Travel is the finger's distance since
     // its stroke locked, positive rightward or downward; a velocity is the
@@ -745,6 +756,25 @@ private:
     RowMotion m_row;
     double m_rowDragOrigin = 0.0;
     QElapsedTimer m_motionClock;
+    // The Active card's strip. `side` is where the arriving card comes from.
+    struct ActiveSlideState {
+        QPointer<KWin::EffectWindow> leaving;
+        QPointer<KWin::EffectWindow> arriving;
+        int side = 0;
+        double pitch = 0.0;
+        bool tracking = false;
+        double position = 0.0;
+        ActiveSlideMotion motion;
+        QElapsedTimer clock;
+    } m_activeSlide;
+    [[nodiscard]] double activeSlidePosition() const;
+    [[nodiscard]] double activeSlidePitch() const;
+    void startActiveSlide(KWin::EffectWindow *leaving, KWin::EffectWindow *arriving, int side,
+                          double from, double to, ActiveSlideMotion::Shape shape, int baseMs);
+    void endActiveSlide();
+    void continueActiveSlide(KWin::EffectWindow *leaving, int side);
+    // The card a step of the Active card would bring, without taking it.
+    [[nodiscard]] KWin::EffectWindow *activeStepPeek(int delta) const;
     bool m_scrubbing = false;
     int m_scrubApplied = 0;
     struct Lift {

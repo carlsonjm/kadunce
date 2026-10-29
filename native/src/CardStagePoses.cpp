@@ -303,7 +303,7 @@ KWin::Rect CardStageController::carryTarget(KWin::LogicalOutput *output,
 
 bool CardStageController::animationsRunning() const
 {
-    return m_row.moving() || m_lift.phase == Lift::Phase::Return
+    return m_row.moving() || activeSlideRunning() || m_lift.phase == Lift::Phase::Return
         || m_lift.phase == Lift::Phase::Throw
         || (m_cardGrabActive && (m_carry.animating || (m_cardGrabScaleTimer.isValid()
             && m_cardGrabScaleTimer.elapsed() < motion(HeldPickupDuration))))
@@ -457,6 +457,8 @@ void CardStageController::anchorRowTransition()
 
 int CardStageController::paintSlot(const KWin::EffectWindow *window) const
 {
+    // Both cards of the Active card's strip are drawn while it moves.
+    if (activeSlideShift(window)) return 0;
     if (rowMotionApplies()) return rowSlotInMotion(window);
     const int slot = visibleSlot(window);
     if (slot == 99 && m_slideLeavers && m_previewTransition.isValid()

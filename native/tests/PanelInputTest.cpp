@@ -93,6 +93,8 @@ struct Target : WorkspaceInputTarget {
     void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
     void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
     void pageStackFromInput(int) override { ++actions; }
+    void dragActiveSlideFromInput(int, double) override {}
+    void releaseActiveSlideFromInput(int, double, double) override { ++actions; }
     void activateSelectedFromInput() override { ++actions; if (onActivate) onActivate(); }
     QPointF pickup, carried, dropped;
     int carryMoves = 0, drops = 0;

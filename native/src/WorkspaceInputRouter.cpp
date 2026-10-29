@@ -37,6 +37,8 @@ constexpr double TablePull = 20.0;
 // One notch of a mouse wheel; a touchpad's travel adds up to the same step.
 constexpr double TableWheelStep = 15.0;
 constexpr double CardHoldMotion = 12.0;
+// A gap swipe carries the Active card's strip once it has gone this far across.
+constexpr double ActiveSwipeLock = 12.0;
 constexpr int CardHoldDelay = 300;
 // A tap is shorter than a hold and moves no further than one may.
 constexpr qint64 TapLongestMs = CardHoldDelay;
@@ -874,10 +876,37 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
     if (m_touchMode == TouchMode::Spread && m_stroke.live
         && m_stroke.source == HoldSource::Touch) {
         updateSpreadStroke(m_touchCurrent);
+    } else if ((m_touchMode == TouchMode::ActiveLeft || m_touchMode == TouchMode::ActiveRight)
+               && !m_touchCommitted) {
+        followActiveSwipe(event->time);
     } else if (!m_touchCommitted) {
         updateTouchGesture();
     }
     return true;
+}
+
+void WorkspaceInputRouter::followActiveSwipe(std::chrono::microseconds time)
+{
+    const QPointF delta = m_touchCurrent - m_touchStart;
+    // The strip follows once the finger has chosen across over down.
+    if (!m_activeSwipe.live) {
+        if (std::abs(delta.x()) <= ActiveSwipeLock || std::abs(delta.x()) <= std::abs(delta.y()) * 1.2) return;
+        m_activeSwipe.live = true;
+        m_activeSwipe.lastX = m_activeSwipe.previousX = m_touchCurrent.x();
+        m_activeSwipe.lastTime = m_activeSwipe.previousTime = time;
+    }
+    m_activeSwipe.previousX = m_activeSwipe.lastX;
+    m_activeSwipe.previousTime = m_activeSwipe.lastTime;
+    m_activeSwipe.lastX = m_touchCurrent.x();
+    m_activeSwipe.lastTime = time;
+    m_target->dragActiveSlideFromInput(m_touchMode == TouchMode::ActiveLeft ? -1 : 1, delta.x());
+}
+
+double WorkspaceInputRouter::activeSwipeSpeed() const
+{
+    const double ms = std::chrono::duration<double, std::milli>(
+        m_activeSwipe.lastTime - m_activeSwipe.previousTime).count();
+    return ms > 0.0 && ms < 100.0 ? (m_activeSwipe.lastX - m_activeSwipe.previousX) / ms : 0.0;
 }
 
 bool WorkspaceInputRouter::touchUp(KWin::TouchUpEvent *event)
@@ -960,6 +989,11 @@ bool WorkspaceInputRouter::touchCancel()
 
 bool WorkspaceInputRouter::routeTouchCancel()
 {
+    // A cancelled swipe takes the strip back to the card it started on.
+    if (m_activeSwipe.live) {
+        m_target->releaseActiveSlideFromInput(m_touchMode == TouchMode::ActiveLeft ? -1 : 1, 0.0, 0.0);
+        m_activeSwipe = {};
+    }
     if (m_railTouch >= 0) {
         m_railHoldTimer.stop(); m_railReady = false;
         m_observedTouchIds.remove(m_railTouch);
@@ -1256,14 +1290,6 @@ void WorkspaceInputRouter::updateTouchGesture()
             ? m_target->pageRightFromInput()
             : m_target->pageLeftFromInput();
         m_touchCommitted = true;
-    } else if (m_touchMode == TouchMode::ActiveLeft
-               && delta.x() > 30.0 && horizontal) {
-        m_target->pageLeftFromInput();
-        m_touchCommitted = true;
-    } else if (m_touchMode == TouchMode::ActiveRight
-               && delta.x() < -30.0 && horizontal) {
-        m_target->pageRightFromInput();
-        m_touchCommitted = true;
     } else if (m_touchMode == TouchMode::StackBefore
                && delta.x() > 30.0 && horizontal) {
         m_target->stepStackBesideFromInput(m_touchStart, -1);
@@ -1327,10 +1353,14 @@ void WorkspaceInputRouter::finishTouchGesture()
         finishSpreadStroke(m_touchCurrent);
     } else if (m_touchMode == TouchMode::Spread) {
         finishSpreadGesture(m_touchStart, m_touchCurrent);
-    } else if (m_touchMode == TouchMode::ActiveLeft) {
-        m_target->pageLeftFromInput();
-    } else if (m_touchMode == TouchMode::ActiveRight) {
-        m_target->pageRightFromInput();
+    } else if (m_touchMode == TouchMode::ActiveLeft || m_touchMode == TouchMode::ActiveRight) {
+        // Let go: the strip goes on or springs back; a touch that never
+        // swiped is a tap, the card before or after.
+        const int side = m_touchMode == TouchMode::ActiveLeft ? -1 : 1;
+        if (m_activeSwipe.live)
+            m_target->releaseActiveSlideFromInput(side, (m_touchCurrent - m_touchStart).x(), activeSwipeSpeed());
+        else
+            side < 0 ? m_target->pageLeftFromInput() : m_target->pageRightFromInput();
     } else if (m_touchMode == TouchMode::StackBefore) {
         m_target->stepStackBesideFromInput(m_touchStart, -1);
     } else if (m_touchMode == TouchMode::StackAfter) {
@@ -1438,6 +1468,7 @@ void WorkspaceInputRouter::resetTouch()
     m_touchStart = {};
     m_touchCurrent = {};
     m_bezelSpread = {};
+    m_activeSwipe = {};
 }
 
 void WorkspaceInputRouter::beginBezelSpread(const QPointF &position, std::chrono::microseconds time)

@@ -86,6 +86,8 @@ struct Target final : WorkspaceInputTarget {
     void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
     void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
     void pageStackFromInput(int) override { ++actions; }
+    void dragActiveSlideFromInput(int, double) override {}
+    void releaseActiveSlideFromInput(int, double, double) override { ++actions; }
     void activateSelectedFromInput() override { ++actions; if (onActivate) onActivate(); }
     void beginCardGrab(const QPointF &) override { ++actions; ++grabStarts; grabbed = true; }
     void updateCardGrab(const QPointF &) override { ++actions; }

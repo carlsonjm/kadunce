@@ -189,6 +189,17 @@ void Effect::pageStackFromInput(int delta)
     pageStack(delta);
 }
 
+void Effect::dragActiveSlideFromInput(int side, double travel)
+{
+    m_cardStage->dragActiveSlide(side, travel);
+}
+
+void Effect::releaseActiveSlideFromInput(int side, double travel, double speed)
+{
+    if (m_cardStage->launcherGuestActive()) dismissLauncherGuestFromInput();
+    m_cardStage->releaseActiveSlide(side, travel, speed);
+}
+
 bool Effect::hasActiveDesktopStage() const
 {
     return m_desktopStage && m_desktopStage->hasActiveSession();
