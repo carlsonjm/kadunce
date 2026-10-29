@@ -1,18 +1,20 @@
 name: Upstream watch
 
-# Reads, once a day, the versions Arch Linux and CachyOS carry of every
-# upstream package the public suite parts build on or behave by, and compares
-# them with the previous day's. When any changed, it builds and tests Cards,
-# Search, Status, Notes and the Keyboard against today's Arch and today's
-# CachyOS, the Keyboard's sealed typing sessions included, so a point release
-# that changes behaviour shows here the morning after it ships. With nothing
-# new it stops after the version read.
+# Reads, every hour, the newest Plasma KDE has released and the versions Arch
+# Linux and CachyOS carry of every upstream package the public suite parts
+# build on or behave by, and compares them with the previous hour's. When any
+# changed, it builds and tests Cards, Search, Status, Notes and the Keyboard
+# against the current Arch and CachyOS, the Keyboard's sealed typing sessions
+# included, so a point release that changes behaviour shows here within the
+# hour a distribution ships it. KDE's own release usually comes a day before
+# either distribution's, so its line is the earliest notice. With nothing new
+# it stops after the version read.
 #
 # The "Upstream changes" line in the versions job's log names what moved; each
 # failing check names the part that owns the failure.
 on:
   schedule:
-    - cron: "30 8 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -28,7 +30,8 @@ permissions:
 
 concurrency:
   group: upstream-watch-${{ github.ref }}
-  cancel-in-progress: true
+  # A check under way finishes; the next hour's read waits for it.
+  cancel-in-progress: false
 
 jobs:
   versions:
@@ -54,12 +57,29 @@ jobs:
           done
           printf '[cachyos]\nServer = https://mirror.cachyos.org/repo/x86_64/$repo\n' >> "${lists}/pacman.conf"
           pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sy > /dev/null
-          watched='kwin|libplasma|plasma-workspace|layer-shell-qt|kscreenlocker|plasma-login-manager|libkscreen|kscreen|plasma-keyboard|kcoreaddons|kio|baloo|plasma-activities|qt6-base|qt6-declarative|qt6-wayland|mesa|linux|linux-cachyos'
+          # nodejs and simdjson: a simdjson bump that lands before nodejs is
+          # rebuilt against it leaves node unable to start.
+          watched='kwin|libplasma|plasma-workspace|layer-shell-qt|kscreenlocker|plasma-login-manager|libkscreen|kscreen|plasma-keyboard|kcoreaddons|kio|baloo|plasma-activities|qt6-base|qt6-declarative|qt6-wayland|mesa|linux|linux-cachyos|nodejs|simdjson'
           # One line per repository and package, so Arch and CachyOS are
           # compared separately.
           pacman --config "${lists}/pacman.conf" --dbpath "${lists}/db" -Sl \
             | awk -v re="^(${watched})$" '$2 ~ re { print $1 "/" $2, $3 }' \
-            | sort > versions.txt
+            > versions.txt
+          # CachyOS's Zen 4 repositories, read separately so one that cannot
+          # be reached leaves the rest of the list intact.
+          mkdir -p "${lists}/znver4-db"
+          grep -v '^\[cachyos' /etc/pacman.conf | sed '/^\[core\]/,$d' > "${lists}/znver4.conf"
+          sed -i 's/^#\?Architecture = .*/Architecture = x86_64 x86_64_v3 x86_64_v4 znver4/' "${lists}/znver4.conf"
+          for repo in cachyos-znver4 cachyos-core-znver4 cachyos-extra-znver4; do
+            printf '[%s]\nServer = https://mirror.cachyos.org/repo/x86_64_v4/$repo\nServer = https://mirror.cachyos.org/repo/znver4/$repo\n' "${repo}" >> "${lists}/znver4.conf"
+          done
+          if pacman --config "${lists}/znver4.conf" --dbpath "${lists}/znver4-db" -Sy > /dev/null; then
+            pacman --config "${lists}/znver4.conf" --dbpath "${lists}/znver4-db" -Sl \
+              | awk -v re="^(${watched})$" '$2 ~ re { print $1 "/" $2, $3 }' >> versions.txt
+          else
+            echo "::warning::CachyOS's Zen 4 repositories could not be read."
+          fi
+          sort -o versions.txt versions.txt
           cat versions.txt
           [[ -s versions.txt ]] || { echo "::error::No package list could be read."; exit 1; }
 
@@ -69,6 +89,24 @@ jobs:
           path: previous
           key: upstream-versions-${{ github.run_id }}
           restore-keys: upstream-versions-
+
+      - name: Read KDE's newest Plasma release
+        shell: bash
+        run: |
+          # KDE publishes each release as a directory of its stable downloads.
+          release=$(curl -fsSL --retry 3 https://download.kde.org/stable/plasma/ \
+            | grep -oE 'href="[0-9]+\.[0-9]+(\.[0-9]+)?/"' \
+            | grep -oE '[0-9]+(\.[0-9]+)+' | sort -V | tail -n 1) || true
+          if [[ -n "${release}" ]]; then
+            echo "kde/plasma ${release}" >> versions.txt
+          elif [[ -f previous/versions.txt ]]; then
+            # An unreachable listing keeps the last release read, so it does
+            # not count as news when it comes back.
+            grep '^kde/plasma ' previous/versions.txt >> versions.txt || true
+            echo "::warning::KDE's release listing could not be read."
+          fi
+          sort -o versions.txt versions.txt
+          grep '^kde/' versions.txt || true
 
       - name: Compare
         id: compare
