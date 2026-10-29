@@ -456,6 +456,12 @@ void Effect::prePaintWindow(KWin::RenderView *view,
         && !m_desktopStage->managesWindow(window)
         && m_cardStage->presentation() != CardPresentation::Desktop
         && m_cardStage->paintSlot(window) == 99) data.setTranslucent();
+    // The Active card's strip draws its two cards off their places, so neither
+    // hides the other, and each is drawn beyond its own bounds.
+    if (m_cardStage->activeSlideShift(window)) {
+        data.setTransformed();
+        data.setTranslucent();
+    }
     if (m_cardStage->isActive()
         && window != m_nativeCarry
         && m_cardStage->presentation() == CardPresentation::Spread
@@ -1461,6 +1467,15 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                                     std::max(0.0, *edge - output.y()));
             if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask,
                 deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data); })) return paintResult(false);
+            return paintResult(true);
+        }
+        if (const auto shift = m_cardStage->activeSlideShift(window)) {
+            // The strip: each card moves with it, and stops at the display's
+            // edge rather than reaching the next display.
+            data.translate(*shift, 0.0);
+            const auto outputClip = viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry());
+            if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
+                mask | PAINT_WINDOW_TRANSFORMED, deviceRegion & KWin::Region(outputClip), data); })) return paintResult(false);
             return paintResult(true);
         }
         if (!painted([&] { return KWin::effects->paintWindow(

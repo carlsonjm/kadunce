@@ -62,8 +62,8 @@ bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a Bento pane leaving its layout. The first time, every other window on that display becomes a card too. |
 | Drag a window onto a card display | It becomes its card. |
-| Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) becomes Active, round a Stack's ring. The pointer: a page tab. |
-| Wheel in the gap beside the Active card | Up for the card before, down for the card after. |
+| Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in as one strip, round a Stack's ring. The pointer: a page tab. |
+| Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
 | Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. |

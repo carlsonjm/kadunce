@@ -168,6 +168,11 @@ public:
     virtual void pageLeftFromInput() = 0;
     virtual void pageRightFromInput() = 0;
     virtual void pageStackFromInput(int delta) = 0;
+    // INPUT.md § Active card: a swipe in the gap beside the Active card
+    // carries its strip under the finger. `side` is the gap, -1 the left;
+    // travel is the finger's, rightward positive; speed in pixels per ms.
+    virtual void dragActiveSlideFromInput(int side, double travel) = 0;
+    virtual void releaseActiveSlideFromInput(int side, double travel, double speed) = 0;
     virtual void activateSelectedFromInput() = 0;
     virtual void beginCardGrab(const QPointF &position) = 0;
     virtual void updateCardGrab(const QPointF &position) = 0;
@@ -342,6 +347,8 @@ private:
     [[nodiscard]] double strokeTime();
     void finishTouchGesture();
     void resetTouch();
+    void followActiveSwipe(std::chrono::microseconds time);
+    [[nodiscard]] double activeSwipeSpeed() const;
     void beginBezelSpread(const QPointF &position, std::chrono::microseconds time);
     void followBezelSpread(const QPointF &position, std::chrono::microseconds time);
     void finishBezelSpread(bool cancelled, std::chrono::microseconds time);
@@ -412,6 +419,13 @@ private:
     QPointF m_guestOutsidePointerStart;
     bool m_guestOutsidePointerMoved = false;
     bool m_touchCommitted = false;
+    // A swipe in the Active card's gap, carrying the strip: the last two
+    // samples of the finger give its speed when it lets go.
+    struct ActiveSwipe {
+        bool live = false;
+        double lastX = 0.0, previousX = 0.0;
+        std::chrono::microseconds lastTime{0}, previousTime{0};
+    } m_activeSwipe;
     int m_pointerActiveSide = 0;
     int m_pointerStackSide = 0;
     QPointF m_pointerStackStart;

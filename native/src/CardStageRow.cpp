@@ -33,6 +33,7 @@ void CardStageController::pageHorizontal(int delta)
     if (m_arrivalWindow) clearCardTransition();
     finishCardGrab(false);
     const bool wasActive = m_presentation == CardPresentation::Active;
+    const int requested = delta;
     // An open card's side swipe goes round its Stack, which it never leaves;
     // a card on its own walks the row. In Spread the row moves.
     bool activeStack = false;
@@ -46,7 +47,14 @@ void CardStageController::pageHorizontal(int delta)
         const int selectedIndex = m_workspace.selectedIndex();
         delta = std::clamp(delta, -selectedIndex, m_workspace.count() - 1 - selectedIndex);
     }
-    if (delta == 0) return;
+    KWin::EffectWindow *leaving = wasActive ? selectedWindow() : nullptr;
+    if (delta == 0) {
+        // At a row end the Active card gives a little and settles back.
+        if (wasActive && leaving && requested != 0 && !m_activeSlide.tracking)
+            startActiveSlide(leaving, nullptr, requested > 0 ? 1 : -1, 0.0, ActiveSlideGive,
+                             ActiveSlideMotion::Shape::Give, ActiveSlideDuration);
+        return;
+    }
     if (!wasActive && !m_launcherGuestActive) {
         captureCardTransition(false, true);
         m_rowPageTransition = true;
@@ -67,6 +75,8 @@ void CardStageController::pageHorizontal(int delta)
     if (wasActive && !enterActive()) {
         m_presentation = CardPresentation::Spread;
     }
+    if (wasActive && m_presentation == CardPresentation::Active)
+        continueActiveSlide(leaving, delta > 0 ? 1 : -1);
     if (!wasActive) anchorRowTransition();
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
@@ -237,12 +247,14 @@ bool CardStageController::stepActiveStack(int delta)
         || delta == 0
         || m_workspace.stackSizeForId(m_workspace.selectedId()) <= 1) return false;
     finishCardGrab(false);
+    KWin::EffectWindow *leaving = selectedWindow();
     parkActiveSnapshot();
     m_workspace.pageStack(delta);
     if (!enterActive()) {
         m_presentation = CardPresentation::Spread;
         return false;
     }
+    continueActiveSlide(leaving, delta > 0 ? 1 : -1);
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce stepped the Active card's Stack to position"
@@ -818,6 +830,155 @@ void CardStageController::cancelStroke()
     KWin::effects->addRepaintFull();
 }
 
+KWin::EffectWindow *CardStageController::activeStepPeek(int delta) const
+{
+    if (!m_active || m_presentation != CardPresentation::Active || delta == 0) return nullptr;
+    const ActiveStep step = activeStep(m_workspace.stackSizeForId(m_workspace.selectedId()),
+        m_workspace.selectedIndex(), m_workspace.count(), delta);
+    if (step.along == ActiveStep::Along::None) return nullptr;
+    // The same step pageHorizontal takes, on a copy of the row.
+    SpreadModel model = m_workspace.model();
+    if (step.along == ActiveStep::Along::Stack) {
+        model.pageStack(step.delta);
+    } else {
+        model.page(step.delta);
+        const auto members = model.stackMembersForId(model.selectedId());
+        if (members.size() > 1) {
+            const int wanted = step.delta > 0 ? members.front() : members.back();
+            for (int turn = 0; turn < int(members.size()) && model.selectedId() != wanted; ++turn)
+                model.pageStack(1);
+        }
+    }
+    KWin::EffectWindow *peek = m_workspace.windowForId(model.selectedId());
+    return peek == selectedWindow() ? nullptr : peek;
+}
+
+double CardStageController::activeSlidePitch() const
+{
+    auto *tablet = m_host->tabletOutputForCardStage();
+    const double width = tablet ? QRectF(activeTarget(tablet)).width() : 0.0;
+    return width > 0.0 ? width + ActiveSlideGap : 0.0;
+}
+
+double CardStageController::activeSlidePosition() const
+{
+    const auto &slide = m_activeSlide;
+    if (slide.tracking || !slide.clock.isValid()) return slide.position;
+    return activeSlideAt(slide.motion, slide.clock.elapsed());
+}
+
+bool CardStageController::activeSlideRunning() const
+{
+    const auto &slide = m_activeSlide;
+    if (!slide.leaving || slide.side == 0) return false;
+    if (!m_active || m_presentation != CardPresentation::Active) return false;
+    return slide.tracking || (slide.clock.isValid() && !activeSlideDone(slide.motion, slide.clock.elapsed()));
+}
+
+std::optional<double> CardStageController::activeSlideShift(const KWin::EffectWindow *window) const
+{
+    if (!window || !activeSlideRunning()) return std::nullopt;
+    const auto &slide = m_activeSlide;
+    const double position = activeSlidePosition();
+    if (window == slide.leaving) return activeSlideLeavingShift(position, slide.side, slide.pitch);
+    if (window == slide.arriving) return activeSlideArrivingShift(position, slide.side, slide.pitch);
+    return std::nullopt;
+}
+
+void CardStageController::startActiveSlide(KWin::EffectWindow *leaving, KWin::EffectWindow *arriving,
+    int side, double from, double to, ActiveSlideMotion::Shape shape, int baseMs)
+{
+    const double pitch = activeSlidePitch();
+    if (!leaving || side == 0 || pitch <= 0.0 || motionIsInstant()) {
+        endActiveSlide();
+        return;
+    }
+    m_activeSlide.leaving = leaving;
+    m_activeSlide.arriving = arriving;
+    m_activeSlide.side = side;
+    m_activeSlide.pitch = pitch;
+    m_activeSlide.tracking = false;
+    m_activeSlide.position = from;
+    // Carried on from the hand, the strip keeps the hand's pace at every speed
+    // but instant; a canned turn follows Plasma's animation speed.
+    m_activeSlide.motion = {from, to, shape == ActiveSlideMotion::Shape::Out ? baseMs : motion(baseMs), shape};
+    m_activeSlide.clock.start();
+    m_motionClock.start();
+    KWin::effects->addRepaintFull();
+}
+
+void CardStageController::endActiveSlide()
+{
+    m_activeSlide = {};
+    KWin::effects->addRepaintFull();
+}
+
+void CardStageController::continueActiveSlide(KWin::EffectWindow *leaving, int side)
+{
+    KWin::EffectWindow *arriving = selectedWindow();
+    if (!leaving || !arriving || leaving == arriving) {
+        endActiveSlide();
+        return;
+    }
+    // Input during a turn carries on from what is on screen: a turn back
+    // reverses the strip where it stands; any other starts from its card.
+    double from = 0.0;
+    auto &slide = m_activeSlide;
+    if (activeSlideRunning()) {
+        const double now = activeSlidePosition();
+        if (slide.tracking) from = now;
+        else if (slide.leaving == arriving && slide.arriving == leaving) from = 1.0 - now;
+    }
+    const bool fromHand = slide.tracking;
+    startActiveSlide(leaving, arriving, side, from, 1.0,
+                     fromHand ? ActiveSlideMotion::Shape::Out : ActiveSlideMotion::Shape::InOut,
+                     ActiveSlideDuration);
+}
+
+void CardStageController::dragActiveSlide(int side, double travel)
+{
+    if (!m_active || m_presentation != CardPresentation::Active || side == 0) return;
+    const double pitch = activeSlidePitch();
+    if (pitch <= 0.0) return;
+    // A swipe in the left gap moves rightward and brings the card before.
+    const int arrivingSide = side < 0 ? -1 : 1;
+    const double toward = side < 0 ? travel : -travel;
+    KWin::EffectWindow *arriving = activeStepPeek(arrivingSide);
+    auto &slide = m_activeSlide;
+    slide.leaving = selectedWindow();
+    slide.arriving = arriving;
+    slide.side = arrivingSide;
+    slide.pitch = pitch;
+    slide.tracking = true;
+    slide.position = activeSlideTracked(toward, pitch, arriving != nullptr);
+    slide.clock.invalidate();
+    KWin::effects->addRepaintFull();
+}
+
+void CardStageController::releaseActiveSlide(int side, double travel, double speed)
+{
+    auto &slide = m_activeSlide;
+    if (!slide.tracking) {
+        // A touch that never moved is a tap: the card before or after.
+        pageHorizontal(side < 0 ? -1 : 1);
+        return;
+    }
+    const double pitch = std::max(1.0, slide.pitch);
+    const double toward = side < 0 ? travel : -travel;
+    const double flick = (side < 0 ? speed : -speed) * 1000.0 / pitch;
+    if (slide.arriving && activeSlideCommits(std::max(0.0, toward) / pitch, flick)) {
+        // pageHorizontal takes the step; the strip goes on from the hand.
+        pageHorizontal(side < 0 ? -1 : 1);
+        return;
+    }
+    // Short of it, the strip springs back to the card it started on.
+    KWin::EffectWindow *leaving = slide.leaving;
+    KWin::EffectWindow *arriving = slide.arriving;
+    const double from = slide.position;
+    startActiveSlide(leaving, arriving, slide.side, from, 0.0, ActiveSlideMotion::Shape::Out,
+                     ActiveSlideDuration);
+}
+
 void CardStageController::advanceMotion()
 {
     if (!m_motionClock.isValid()) return;
@@ -853,6 +1014,7 @@ void CardStageController::advanceMotion()
             endLift();
         }
     }
+    if (!m_activeSlide.tracking && m_activeSlide.side != 0 && !activeSlideRunning()) m_activeSlide = {};
     if (!animationsRunning()) m_motionClock.invalidate();
     KWin::effects->addRepaintFull();
 }
