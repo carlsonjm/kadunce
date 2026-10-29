@@ -261,6 +261,14 @@ they preserve these relationships and respect the user's animation settings.
   object, and any layer surface of the asking program frosts while it shows,
   until the program asks no more or leaves the bus. The keyboard sheet does
   not ask, and frosts nothing.
+- Session end: once that question is answered, the glass stays over every
+  display, panels included, while the cards are given back and the
+  windows close. A window that opens then, such as one asking whether to
+  save, or KDE's word that something did not close, clears the glass until
+  it goes. Once no window is left, or after 3 s, the glass darkens to
+  black over a second (instant motion: 150 ms), so power-off is never seen.
+  If the session goes on instead, the glass dissolves and the windows go
+  back into cards.
 - While another window shows beside it on its display, the window the
   keyboard types into is outlined: 2 px of the accent just inside its edge,
   following the corner it has, the paper corner or the application's own,

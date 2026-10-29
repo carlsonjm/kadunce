@@ -1399,7 +1399,8 @@ private:
     void drawRoomOffer(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
-                              const QList<QRectF> &parts, const QRectF &box, float fill, float ring);
+                              const QList<QRectF> &parts, const QRectF &box, float fill, float ring,
+                              std::optional<QVector3D> ink = std::nullopt);
     // Where a window will land is frosted glass (FrostedBox.h). What each
     // display frosted in its last frame, by name, is drawn afresh in its
     // next, so the glass never blurs itself.
@@ -1436,6 +1437,30 @@ private:
     [[nodiscard]] bool fadeOverSettingsFrost(KWin::EffectWindow *window) const;
     void drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                                 KWin::EffectWindow *window);
+    // The power question answered, the session ends behind its glass: the
+    // frost stays over every display while windows are given back and close,
+    // clears for a window asking something, such as whether to save, and
+    // darkens to black once nothing is left, so power-off is never seen.
+    struct SessionEndGlass {
+        bool on = false;
+        // Windows there when it began; any other is one asking something.
+        QSet<KWin::EffectWindow *> known;
+        QElapsedTimer since;
+        QElapsedTimer lastStep;
+        double frost = 1.0;
+        double black = 0.0;
+        bool asking = false;
+        bool darkening = false;
+        bool cardsGivenBack = false;
+    };
+    SessionEndGlass m_sessionEnd;
+    // When the power question last stood on a display.
+    QElapsedTimer m_powerQuestionSeen;
+    void beginSessionEndGlass(bool cardsGivenBack);
+    void endSessionEndGlass();
+    void stepSessionEndGlass();
+    void drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                             KWin::LogicalOutput *screen);
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown

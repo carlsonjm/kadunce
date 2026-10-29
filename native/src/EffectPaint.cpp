@@ -31,6 +31,13 @@ constexpr int KeyboardOutlineFadeMs = 140;
 // The frost behind Shuffle Settings fades in over the same step.
 constexpr int SettingsFrostFadeMs = 140;
 constexpr int SettingsFrostDissolveMs = 300;
+// The glass a session ends behind darkens to black over a second, or in a
+// short change of opacity where motion is instant.
+constexpr int SessionEndDarkenMs = 1000;
+constexpr int SessionEndDarkenInstantMs = 150;
+// A window still open this long after the session began ending is one that
+// keeps no window of its own to close; the glass darkens without it.
+constexpr int SessionEndDarkenAfterMs = 3000;
 
 // The renderer that draws a view's scene. From KWin 6.8 each render device
 // has its own; earlier KWin has one.
@@ -283,7 +290,15 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // Once Settings has gone, the glass dissolves, more slowly than it came.
         const int frostFade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
         const int frostDissolve = motionDuration(SettingsFrostDissolveMs, KWin::effects->animationTimeFactor());
-        if (settingsSurfaceOn(data.screen)) {
+        if (m_sessionEnd.on) {
+            // The session ends behind glass drawn over the whole display.
+            stepSessionEndGlass();
+            m_settingsFrostSince.remove(data.screen->name());
+            m_settingsFrostLeaving.remove(data.screen->name());
+            data.paint |= whole(QRectF(data.screen->geometry()));
+            m_continueRepaint = true;
+        } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen)) {
+            if (isPowerQuestion(settings)) m_powerQuestionSeen.start();
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
             m_settingsFrostLeaving.remove(data.screen->name());
@@ -676,7 +691,7 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
                                     KWin::EffectWindow *window)
 {
     KWin::LogicalOutput *screen = m_paintingOutput;
-    if (!window || !screen || m_settingsFrostDrawnOn == screen || !window->window()
+    if (!window || !screen || m_sessionEnd.on || m_settingsFrostDrawnOn == screen || !window->window()
         || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
     KWin::EffectWindow *settings = settingsSurfaceOn(screen);
     const bool leaving = !settings && m_settingsFrostLeaving.contains(screen->name());
@@ -725,9 +740,112 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     }
 }
 
+void Effect::beginSessionEndGlass(bool cardsGivenBack)
+{
+    if (m_sessionEnd.on) {
+        m_sessionEnd.cardsGivenBack = m_sessionEnd.cardsGivenBack || cardsGivenBack;
+        return;
+    }
+    m_sessionEnd = SessionEndGlass{};
+    m_sessionEnd.on = true;
+    m_sessionEnd.cardsGivenBack = cardsGivenBack;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+        if (window) m_sessionEnd.known.insert(window);
+    m_sessionEnd.since.start();
+    m_sessionEnd.lastStep.start();
+    qInfo() << "Kadunce" << Revision << "keeps the glass up while the session ends";
+    KWin::effects->addRepaintFull();
+}
+
+void Effect::endSessionEndGlass()
+{
+    if (!m_sessionEnd.on) return;
+    const bool cardsGivenBack = m_sessionEnd.cardsGivenBack;
+    m_sessionEnd = SessionEndGlass{};
+    // Cancelled: the glass dissolves as it does when the question goes, and
+    // the cards given back for the session's end are taken up again.
+    for (KWin::LogicalOutput *screen : KWin::effects->screens()) {
+        if (!screen) continue;
+        m_settingsFrostLeaving[screen->name()].start();
+        m_settingsFrostSaid.insert(screen->name());
+    }
+    qInfo() << "Kadunce" << Revision << "the session goes on: the glass dissolves"
+            << (cardsGivenBack ? "and the cards come back" : "");
+    if (cardsGivenBack) {
+        m_letGo = false;
+        QTimer::singleShot(0, this, [this] { (void)holdDisplaysInCards(nullptr); });
+    }
+    KWin::effects->addRepaintFull();
+}
+
+void Effect::stepSessionEndGlass()
+{
+    // Once a frame, whichever display paints first.
+    const qint64 step = m_sessionEnd.lastStep.restart();
+    if (step <= 0) return;
+    // A window that was not there when the session began ending is one
+    // asking something, a save question or KDE's word that something did not
+    // close; the glass clears while it stands.
+    bool asking = false;
+    bool open = false;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (!window || window->isDeleted() || !window->isVisible()) continue;
+        const bool ordinary = window->isNormalWindow() || window->isDialog();
+        if (!m_sessionEnd.known.contains(window)
+            && (ordinary || window->isNotification() || window->isCriticalNotification()))
+            asking = true;
+        else if (ordinary)
+            open = true;
+    }
+    if (asking != m_sessionEnd.asking) {
+        m_sessionEnd.asking = asking;
+        qInfo() << "Kadunce" << Revision
+                << (asking ? "clears the glass for a window asking something" : "brings the glass back");
+    }
+    const bool darken = !asking && (!open || m_sessionEnd.since.elapsed() >= SessionEndDarkenAfterMs);
+    if (darken && !m_sessionEnd.darkening)
+        qInfo() << "Kadunce" << Revision << "darkens the glass to black"
+                << (open ? "with windows still open" : "with every window closed");
+    m_sessionEnd.darkening = darken;
+    const double factor = KWin::effects->animationTimeFactor();
+    const auto toward = [step](double &value, double target, int duration) {
+        const double delta = double(step) / std::max(1, duration);
+        value = target > value ? std::min(target, value + delta) : std::max(target, value - delta);
+    };
+    toward(m_sessionEnd.frost, asking ? 0.0 : 1.0,
+           motionDuration(asking ? SettingsFrostDissolveMs : SettingsFrostFadeMs, factor));
+    toward(m_sessionEnd.black, darken ? 1.0 : 0.0,
+           motionInstant(factor) ? SessionEndDarkenInstantMs
+                                 : motionDuration(darken ? SessionEndDarkenMs : SettingsFrostDissolveMs, factor));
+}
+
+void Effect::drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                 KWin::LogicalOutput *screen)
+{
+    if (!screen) return;
+    const QRectF whole(screen->geometry());
+    QList<QRectF> parts;
+    for (const auto &dirty : m_paintingRegion.rects()) {
+        const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
+        if (!part.isEmpty()) parts.append(part);
+    }
+    // Over everything on the display, its panels too, as nothing is left to use.
+    if (m_sessionEnd.frost > 0.0) {
+        const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole,
+                                                 float(m_sessionEnd.frost));
+        if (drawn) m_frostDrawn[screen->name()].append(whole);
+    }
+    // The fill's box reaches past the display, so its rounded corners fall
+    // outside and black meets every edge.
+    const qreal corner = 2.0 * cardCornerRadius();
+    if (m_sessionEnd.black > 0.0)
+        fillDestinationParts(renderTarget, viewport, parts, whole.adjusted(-corner, -corner, corner, corner),
+                             float(m_sessionEnd.black), 0.f, QVector3D(0.f, 0.f, 0.f));
+}
+
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const QList<QRectF> &parts, const QRectF &box,
-    float fill, float ring)
+    float fill, float ring, std::optional<QVector3D> fillInk)
 {
     QList<QVector2D> vertices;
     for (const auto &part : parts) {
@@ -743,7 +861,7 @@ void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
         m_destinationShader->setUniform("outlineRadius", float(cardCornerRadius()));
-        const QVector3D ink = SurfaceTone::current().lineInk();
+        const QVector3D ink = fillInk.value_or(SurfaceTone::current().lineInk());
         m_destinationShader->setUniform("surfaceFill", QVector4D(ink, fill));
         m_destinationShader->setUniform("outlineOpacity", ring);
         m_destinationShader->setUniform("outlineInk", ink);
@@ -790,6 +908,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
+    if (m_sessionEnd.on) drawSessionEndGlass(renderTarget, viewport, screen);
     // §11: an offered card's picture is kept once the scene has drawn it this
     // frame, so a sleeping window's newest content is what is kept; taken
     // before, a window just woken for the offer can still have none.

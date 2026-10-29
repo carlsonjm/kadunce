@@ -1807,11 +1807,16 @@ void Effect::handleSessionStateChanged()
         owning = owning || hasActiveDesktopStage();
         forEachDisplayStage([&](CardStageController &stage) { owning = owning || stage.isActive(); });
     });
-    if (owning && KWin::effects->sessionState() != KWin::SessionState::Normal) {
+    const bool ending = KWin::effects->sessionState() != KWin::SessionState::Normal;
+    // The power question just answered: the session ends behind its glass.
+    if (ending && (m_powerQuestionSeen.isValid() && m_powerQuestionSeen.elapsed() < 2000))
+        beginSessionEndGlass(owning);
+    if (owning && ending) {
         qInfo() << "Kadunce" << Revision
                 << "restoring managed windows before session save or shutdown";
         release();
     }
+    if (!ending) endSessionEndGlass();
 }
 
 } // namespace Kadunce
