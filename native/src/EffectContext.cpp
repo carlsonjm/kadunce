@@ -6,6 +6,7 @@
 // What the Effect tells other programs: the top edge and context line, the
 // workspace context, placement requests (docs/REQUESTS.md), gesture notes and
 // the spoken line.
+#include <KLocalizedString>
 #include "EffectInternal.h"
 
 namespace Kadunce
@@ -156,7 +157,7 @@ QJsonValue Effect::contextNotice() const
             {QStringLiteral("output"), output ? output->name() : QString()},
         };
     };
-    if (m_detachShownOn) return notice(QStringLiteral("returnToDesktop"), tr("Return to desktop"), m_detachShownOn);
+    if (m_detachShownOn) return notice(QStringLiteral("returnToDesktop"), i18n("Return to desktop"), m_detachShownOn);
     if (m_gestureNote && m_gestureNote->output && m_gestureNote->shown.elapsed() < GestureNoteTiming::TotalMs)
         return notice(QStringLiteral("refused"), m_gestureNote->text, m_gestureNote->output);
     if (m_lineNotice && m_lineNotice->shown.elapsed() < GestureNoteTiming::TotalMs)
@@ -979,9 +980,9 @@ QString Effect::tableLine() const
 {
     const auto workspaceName = [this](int index) {
         const TableWorkspace &workspace = m_tableWorkspaces[index];
-        QString name = workspace.name.isEmpty() ? tr("Workspace %1").arg(index + 1)
-                                                : tr("Workspace %1, %2").arg(index + 1).arg(workspace.name);
-        if (workspace.current) name = tr("%1, current").arg(name);
+        QString name = workspace.name.isEmpty() ? i18n("Workspace %1", index + 1)
+                                                : i18n("Workspace %1, %2", index + 1, workspace.name);
+        if (workspace.current) name = i18n("%1, current", name);
         return name;
     };
     const auto cardName = [](const TableCard &card) {
@@ -992,24 +993,24 @@ QString Effect::tableLine() const
         return spreadEntryName(entry);
     };
     const auto validWorkspace = [this](int index) { return index >= 0 && index < m_tableWorkspaces.size(); };
-    if (m_table.cancelling()) return tr("Let go to cancel");
+    if (m_table.cancelling()) return i18n("Let go to cancel");
     if (m_table.carrying()) {
-        if (m_table.over() == TableGesture::Over::Plus) return tr("New workspace");
+        if (m_table.over() == TableGesture::Over::Plus) return i18n("New workspace");
         if (m_table.over() == TableGesture::Over::Workspace && validWorkspace(m_table.overWorkspace()))
-            return tr("Move to %1").arg(workspaceName(m_table.overWorkspace()));
+            return i18n("Move to %1", workspaceName(m_table.overWorkspace()));
         const int from = m_table.carryFrom();
         const int card = m_table.carryCard();
         if (validWorkspace(from) && card >= 0 && card < m_tableWorkspaces[from].cards.size())
-            return tr("Moving %1").arg(cardName(m_tableWorkspaces[from].cards[card]));
+            return i18n("Moving %1", cardName(m_tableWorkspaces[from].cards[card]));
     }
     const int tray = m_table.trayWorkspace();
     if (m_table.level() == TableLevel::Cards && validWorkspace(tray) && m_table.card() >= 0
         && m_table.card() < m_tableWorkspaces[tray].cards.size())
         return cardName(m_tableWorkspaces[tray].cards[m_table.card()]);
-    if (m_table.onPlus()) return tr("New workspace");
+    if (m_table.onPlus()) return i18n("New workspace");
     if (validWorkspace(m_table.hovered())) return workspaceName(m_table.hovered());
     if (validWorkspace(m_table.shownWorkspace())) return workspaceName(m_table.shownWorkspace());
-    return tr("Table");
+    return i18n("Table");
 }
 
 // Spread and Table are said to a screen reader while either shows, the
@@ -1048,7 +1049,7 @@ void Effect::syncSpokenLine()
     if (!opened && line == m_spokenText) return;
     m_spokenSurface = surface;
     m_spokenText = line;
-    if (opened) line = surface == SpokenSurface::Table ? tr("Table, %1").arg(line) : tr("Spread, %1").arg(line);
+    if (opened) line = surface == SpokenSurface::Table ? i18n("Table, %1", line) : i18n("Spread, %1", line);
     if (!m_spokenLine) m_spokenLine = std::make_unique<SpokenLine>();
     m_spokenLine->say(QRectF(output->geometry()).toRect(), line);
 }

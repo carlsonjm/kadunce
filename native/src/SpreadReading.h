@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <KLocalizedString>
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -37,18 +38,18 @@ inline QString spreadEntryName(const SpreadReadingEntry &entry)
     if (!entry.title.isEmpty() && entry.title != entry.application) parts.append(entry.title);
     const QString behind = namesInLine(entry.behind);
     const QString partners = namesInLine(entry.pairedWith);
-    if (!behind.isEmpty()) parts.append(QObject::tr("then %1").arg(behind));
-    else if (!partners.isEmpty()) parts.append(QObject::tr("with %1").arg(partners));
-    if (entry.stacked > 1) parts.append(QObject::tr("Stack of %1 cards").arg(entry.stacked));
-    if (entry.sleeping) parts.append(QObject::tr("sleeping"));
-    if (parts.isEmpty()) parts.append(QObject::tr("Card"));
+    if (!behind.isEmpty()) parts.append(i18n("then %1", behind));
+    else if (!partners.isEmpty()) parts.append(i18n("with %1", partners));
+    if (entry.stacked > 1) parts.append(i18n("Stack of %1 cards", entry.stacked));
+    if (entry.sleeping) parts.append(i18n("sleeping"));
+    if (parts.isEmpty()) parts.append(i18n("Card"));
     return parts.join(QStringLiteral(", "));
 }
 
 // Where an entry stands in the row, counted from the row's first entry.
 inline QString spreadEntryPlace(int index, int count)
 {
-    return QObject::tr("%1 of %2").arg(index + 1).arg(count);
+    return i18n("%1 of %2", index + 1, count);
 }
 
 // What a screen reader says for Spread's chosen entry: its name and where it
@@ -56,7 +57,7 @@ inline QString spreadEntryPlace(int index, int count)
 inline QString spreadLine(const QList<SpreadReadingEntry> &entries, int selected)
 {
     if (selected < 0 || selected >= entries.size()) return QString();
-    return QObject::tr("%1, %2").arg(spreadEntryName(entries.at(selected)), spreadEntryPlace(selected, entries.size()));
+    return i18n("%1, %2", spreadEntryName(entries.at(selected)), spreadEntryPlace(selected, entries.size()));
 }
 
 } // namespace Kadunce

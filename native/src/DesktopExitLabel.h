@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
+#include <KLocalizedString>
 #include "SurfaceTone.h"
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
@@ -13,7 +14,7 @@ namespace Kadunce {
 class DesktopExitLabel {
 public:
     void render(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
-                const QRectF &box, const QString &text = QObject::tr("return to desktop")) {
+                const QRectF &box, const QString &text = i18n("return to desktop")) {
             const SurfaceTone &tone = SurfaceTone::current();
             const QColor fill = tone.pillFill(235);
             const QColor words = tone.labelText();

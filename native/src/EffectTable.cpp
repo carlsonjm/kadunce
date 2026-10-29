@@ -4,6 +4,7 @@
 */
 
 // Table and the workspaces it shows, the desktop preview and named desktops.
+#include <KLocalizedString>
 #include "EffectInternal.h"
 
 namespace Kadunce
@@ -394,9 +395,9 @@ void Effect::relayoutTable()
     // A name cleared while it is typed offers to remove the workspace; KDE
     // keeps at least one.
     const bool removable = m_tableRenaming >= 0 && m_tableRenameText.trimmed().isEmpty() && manager->count() > 1;
-    m_tableLayout = layoutTable(tableDisplay().size(), tabs, cards, m_table.carrying() ? tr("New") : QString(),
-        tr("Empty. It dissolves when you leave."),
-        TableMetrics{&TablePresenter::measure}, plus, removable ? tr("Remove workspace") : QString());
+    m_tableLayout = layoutTable(tableDisplay().size(), tabs, cards, m_table.carrying() ? i18n("New") : QString(),
+        i18n("Empty. It dissolves when you leave."),
+        TableMetrics{&TablePresenter::measure}, plus, removable ? i18n("Remove workspace") : QString());
     QList<double> tabCentres;
     for (const QRectF &tab : std::as_const(m_tableLayout.tabs)) tabCentres.append(tab.center().x());
     QList<QList<double>> cardCentres;
@@ -467,8 +468,8 @@ void Effect::refreshTable()
         ? std::clamp(finger.y() / std::max(1.0, tabsBottom), 0.0, 1.0) : 1.0;
     // Letting go at the edge changes nothing, and says so beneath the tabs.
     // While a name is typed, the rule it serves is said beneath the tabs.
-    model[QStringLiteral("hint")] = m_table.cancelling() ? tr("Let go to cancel")
-        : m_tableRenaming >= 0 ? tr("A named workspace stays, even empty") : QString();
+    model[QStringLiteral("hint")] = m_table.cancelling() ? i18n("Let go to cancel")
+        : m_tableRenaming >= 0 ? i18n("A named workspace stays, even empty") : QString();
     model[QStringLiteral("hintY")] = tabsBottom + 12.0;
     switch (m_tableLayout.parts) {
     case TableTabParts::All: model[QStringLiteral("parts")] = QStringLiteral("all"); break;
@@ -503,14 +504,14 @@ void Effect::refreshTable()
         {QStringLiteral("visible"), !remove.isEmpty()},
         {QStringLiteral("x"), remove.x()}, {QStringLiteral("y"), remove.y()},
         {QStringLiteral("width"), remove.width()}, {QStringLiteral("height"), remove.height()},
-        {QStringLiteral("label"), tr("Remove workspace")},
+        {QStringLiteral("label"), i18n("Remove workspace")},
     };
     const QRectF plus = m_tableLayout.plus;
     model[QStringLiteral("plus")] = QVariantMap{
         {QStringLiteral("visible"), !plus.isEmpty()},
         {QStringLiteral("x"), plus.x()}, {QStringLiteral("y"), plus.y()},
         {QStringLiteral("width"), plus.width()}, {QStringLiteral("height"), plus.height()},
-        {QStringLiteral("label"), m_table.carrying() ? tr("New") : QString()},
+        {QStringLiteral("label"), m_table.carrying() ? i18n("New") : QString()},
         {QStringLiteral("hover"), m_table.onPlus()},
         {QStringLiteral("target"), m_table.carrying() && m_table.over() == TableGesture::Over::Plus},
     };
@@ -536,8 +537,8 @@ void Effect::refreshTable()
             model[QStringLiteral("empty")] = QVariantMap{
                 {QStringLiteral("visible"), true}, {QStringLiteral("x"), empty.x()}, {QStringLiteral("y"), empty.y()},
                 {QStringLiteral("width"), empty.width()}, {QStringLiteral("height"), empty.height()},
-                {QStringLiteral("text"), m_tableWorkspaces[tray].named ? tr("Empty. Named, so it stays.")
-                                                                         : tr("Empty. It dissolves when you leave.")},
+                {QStringLiteral("text"), m_tableWorkspaces[tray].named ? i18n("Empty. Named, so it stays.")
+                                                                         : i18n("Empty. It dissolves when you leave.")},
             };
         }
     }

@@ -4,6 +4,7 @@
 */
 
 // Room offers: the cards offered for an open place, and the pair offer.
+#include <KLocalizedString>
 #include "EffectInternal.h"
 
 namespace Kadunce
@@ -149,7 +150,7 @@ void Effect::offerOpenRoom(KWin::LogicalOutput *output, int ask, int tries)
 
 QString Effect::roomOfferHint() const
 {
-    return tr("Pick one for this side \u00b7 Esc leaves it open");
+    return i18n("Pick one for this side \u00b7 Esc leaves it open");
 }
 
 void Effect::leaveRoomOffer(bool restore)
