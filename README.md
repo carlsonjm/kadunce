@@ -113,7 +113,7 @@ cd kadunce
 ```
 
 The installer checks the code, builds it and counts its six steps, `[1/6]` to
-`[6/6]`, which takes a few minutes. At step 5 a password window asks to put
+`[6/6]`. At step 5 a password window asks to put
 Kadunce's plugin in place for KWin; type your password there. Don't restart
 the computer until it says **All six installation steps completed**.
 
