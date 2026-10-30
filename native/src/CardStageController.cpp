@@ -1233,7 +1233,7 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
 
     const bool animateArrival = m_presentation == CardPresentation::Spread
         && !m_launcherGuestActive && !m_cardGrabActive;
-    const bool atSignIn = m_signInBurst.arrive(sessionMs()) && !m_host->arrangingForCardStage();
+    const bool atSignIn = m_host->reopenedAtSignInForCardStage(window) && m_signInBurst.arrive(sessionMs());
     if (atSignIn && m_presentation == CardPresentation::Active && !m_launcherGuestActive
         && !m_cardGrabActive && admitBehindAtSignIn(window, m_workspace.selectedIndex())) {
         return true;
@@ -1298,13 +1298,18 @@ void CardStageController::settleSignInBurst()
 {
     m_signInBurst.end();
     const QList<QPointer<KWin::EffectWindow>> arrived = std::exchange(m_signInBehind, {});
+    // The app in use when the last sign-in ended, else the last to come.
     KWin::EffectWindow *last = nullptr;
+    KWin::EffectWindow *used = nullptr;
     for (const auto &window : arrived) {
-        if (window && !window->isDeleted() && liveCardIndex(window) >= 0) last = window;
+        if (!window || window->isDeleted() || liveCardIndex(window) < 0) continue;
+        last = window;
+        if (!used && m_host->usedAtSignOutForCardStage(window)) used = window;
     }
+    if (used) last = used;
     if (arrived.size() < 2 || !last) return;
     qInfo() << "Kadunce" << Revision << "the session's" << arrived.size()
-            << "returning apps settled; showing the last," << logNameOf(last);
+            << "returning apps settled; showing" << logNameOf(last);
     if (!m_active || m_presentation != CardPresentation::Active || m_cardGrabActive
         || m_launcherGuestActive || selectedWindow() == last) return;
     handleWindowActivated(last);

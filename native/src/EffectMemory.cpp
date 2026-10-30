@@ -237,6 +237,22 @@ QVariantMap Effect::bringBack(const QString &requestToken)
     };
 }
 
+bool Effect::reopenedAtSignInForCardStage(const KWin::EffectWindow *window) const
+{
+    if (m_bringBack || m_layoutRun || !m_memory.hasOffer() || !isApplicationWindow(window)) return false;
+    const QString app = LaunchIdentity::normalized(applicationIdentity(window));
+    return !app.isEmpty() && std::any_of(m_memory.offered->windows.cbegin(), m_memory.offered->windows.cend(),
+        [&app](const auto &remembered) { return LaunchIdentity::normalized(remembered.appId) == app; });
+}
+
+bool Effect::usedAtSignOutForCardStage(const KWin::EffectWindow *window) const
+{
+    if (!m_memory.hasOffer() || !isApplicationWindow(window)) return false;
+    const QString app = LaunchIdentity::normalized(applicationIdentity(window));
+    return !app.isEmpty() && std::any_of(m_memory.offered->windows.cbegin(), m_memory.offered->windows.cend(),
+        [&app](const auto &remembered) { return remembered.active && LaunchIdentity::normalized(remembered.appId) == app; });
+}
+
 void Effect::cancelBringBack(const QString &requestToken)
 {
     if (!callerMayDrive()) return;

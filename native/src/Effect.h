@@ -450,7 +450,8 @@ private:
     void cardGutterChangedForCardStage() override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
-    [[nodiscard]] bool arrangingForCardStage() const override;
+    [[nodiscard]] bool reopenedAtSignInForCardStage(const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool usedAtSignOutForCardStage(const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {
         return isOtherCardDisplay(output);

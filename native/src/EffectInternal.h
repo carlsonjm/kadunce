@@ -333,10 +333,15 @@ public:
         SessionScope scope(m_effect, m_session, m_key);
         return cards().layoutLeavesRoomForCardStage();
     }
-    bool arrangingForCardStage() const override
+    bool reopenedAtSignInForCardStage(const KWin::EffectWindow *window) const override
     {
         SessionScope scope(m_effect, m_session, m_key);
-        return cards().arrangingForCardStage();
+        return cards().reopenedAtSignInForCardStage(window);
+    }
+    bool usedAtSignOutForCardStage(const KWin::EffectWindow *window) const override
+    {
+        SessionScope scope(m_effect, m_session, m_key);
+        return cards().usedAtSignOutForCardStage(window);
     }
     bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {

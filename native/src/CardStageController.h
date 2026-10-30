@@ -122,9 +122,12 @@ public:
     // Whether the layout this display presents was placed by a side snap, so
     // it can leave room open where the desktop shows (CARD-LIFECYCLE.md §11).
     [[nodiscard]] virtual bool layoutLeavesRoomForCardStage() const { return false; }
-    // Whether a bring-back or a saved layout is placing the windows arriving
-    // now, so they are already spoken for.
-    [[nodiscard]] virtual bool arrangingForCardStage() const { return false; }
+    // Whether the window's app was open when the last sign-in ended, so its
+    // session reopening it brings it back, and whether it was the one in
+    // use then. Never while a bring-back or a saved layout is placing the
+    // windows arriving, which are already spoken for.
+    [[nodiscard]] virtual bool reopenedAtSignInForCardStage(const KWin::EffectWindow *) const { return false; }
+    [[nodiscard]] virtual bool usedAtSignOutForCardStage(const KWin::EffectWindow *) const { return false; }
     // Whether this display holds its own cards, beside the one holding Spread.
     [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
     // Moves a card to another display holding its own cards with its Stack,
