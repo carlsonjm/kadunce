@@ -329,6 +329,58 @@ int main()
         stroke(table, 440, 0.52, 500);
         check(table.carrying() && table.carryCard() == 1, "the next card still lifts");
     }
+    {
+        using Key = TableGesture::Key;
+        TableGesture table = opened(1);
+        table.key(Key::Down);
+        table.key(Key::Right);
+        auto action = table.key(Key::CarryRight);
+        check(action.kind == Kind::StayOpen && table.keyCarrying() && table.carryFrom() == 1 && table.carryCard() == 1
+                  && table.over() == TableGesture::Over::Workspace && table.overWorkspace() == 2,
+              "shift's right lifts the chosen card and carries it to the next tab");
+        check(table.level() == TableLevel::Tabs && table.shownWorkspace() == 2 && table.trayWorkspace() == 2,
+              "the displays show the workspace the card is over, its cards hanging");
+        table.key(Key::Left);
+        table.key(Key::Enter);
+        check(table.isOpen() && table.keyCarrying() && table.overWorkspace() == 2, "plain keys wait while the keys carry");
+        action = table.key(Key::Drop);
+        check(action.kind == Kind::Move && action.workspace == 1 && action.card == 1 && action.destination == 2
+                  && table.isOpen() && !table.carrying(),
+              "letting go of shift moves it there, and Table stays open");
+        table.showAfterMove(2, 1);
+        table.key(Key::CarryRight);
+        check(table.over() == TableGesture::Over::Plus && !table.onPlus(), "past the last tab the card is over +");
+        table.key(Key::CarryRight);
+        check(table.over() == TableGesture::Over::Plus, "and stays there");
+        action = table.key(Key::Drop);
+        check(action.kind == Kind::Create && action.workspace == 2 && action.card == 1, "let go on +, a workspace is made for it");
+    }
+    {
+        using Key = TableGesture::Key;
+        TableGesture table = opened(0);
+        table.key(Key::Down);
+        table.key(Key::CarryRight);
+        table.key(Key::CarryLeft);
+        auto action = table.key(Key::Drop);
+        check(action.kind == Kind::StayOpen && table.isOpen() && !table.carrying() && table.level() == TableLevel::Cards
+                  && table.locked() == 0 && table.card() == 0,
+              "let go on its own tab, the card goes back still chosen");
+        table.key(Key::CarryLeft);
+        check(table.keyCarrying() && table.overWorkspace() == 0, "carried left past the first tab, it stays on it");
+        table.key(Key::CarryRight);
+        action = table.key(Key::Escape);
+        check(action.kind == Kind::StayOpen && table.isOpen() && !table.carrying() && table.locked() == 0 && table.card() == 0,
+              "escape puts the carried card back, chosen");
+        action = table.key(Key::Drop);
+        check(action.kind == Kind::StayOpen && !table.carrying(), "letting go of shift with nothing carried does nothing");
+        table.key(Key::Up);
+        table.key(Key::CarryRight);
+        check(!table.carrying() && table.hovered() == 1, "on the tabs shift's arrows only choose");
+        table.key(Key::Down);
+        table.key(Key::CarryRight);
+        table.press(QPointF(300, 60), -1, 1);
+        check(!table.carrying() && table.locked() == 1, "a finger on Table puts back what the keys carry");
+    }
     std::cout << "Table gesture checks passed\n";
     return 0;
 }
