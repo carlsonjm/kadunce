@@ -132,6 +132,8 @@ public:
         m_pressAt = position;
         m_last = position;
         m_held = false;
+        // A finger takes over from the keys: the card they carry goes back.
+        if (m_keyCarry) putBack();
         m_pressTab = m_sticky && !m_carrying ? tab : -1;
         m_pressedAt = now;
         const int tray = trayWorkspace();
@@ -289,20 +291,55 @@ public:
         }
     }
 
-    enum class Key { Left, Right, Up, Down, Enter, Escape, Rename };
+    // CarryLeft and CarryRight are Shift's arrows, and Drop is Shift let go.
+    enum class Key { Left, Right, Up, Down, Enter, Escape, Rename, CarryLeft, CarryRight, Drop };
 
     // The keyboard: left and right choose, down and up change level, Enter
     // goes where the displays show, F2 renames the workspace they show,
-    // Escape cancels.
+    // Escape cancels. Shift's arrows on a chosen card lift it and carry it
+    // across the tabs and +, and letting go of Shift sets it down there, as
+    // a finger letting go does.
     TableAction key(Key key)
     {
         if (!m_open) return {};
-        if (m_carrying) {
+        if (m_carrying && !m_keyCarry) {
             if (key == Key::Escape) refuseCarry();
+            return {TableAction::Kind::StayOpen};
+        }
+        if (m_carrying) {
+            switch (key) {
+            case Key::CarryLeft:
+                carryStep(-1);
+                break;
+            case Key::CarryRight:
+                carryStep(1);
+                break;
+            case Key::Drop:
+                return dropKeyCarry();
+            case Key::Escape:
+                putBack();
+                break;
+            default:
+                break;
+            }
             return {TableAction::Kind::StayOpen};
         }
         m_sticky = true;
         switch (key) {
+        case Key::CarryLeft:
+        case Key::CarryRight: {
+            const int steps = key == Key::CarryLeft ? -1 : 1;
+            if (m_level == TableLevel::Cards && m_card >= 0 && m_locked >= 0) {
+                liftCard(m_card);
+                m_keyCarry = true;
+                carryStep(steps);
+            } else {
+                step(steps);
+            }
+            break;
+        }
+        case Key::Drop:
+            break;
         case Key::Left:
             step(-1);
             break;
@@ -344,6 +381,7 @@ public:
     void refuseCarry()
     {
         m_refused = m_carryCard;
+        m_keyCarry = false;
         m_carrying = false;
         m_carryCard = -1;
         m_carryFrom = -1;
@@ -358,6 +396,7 @@ public:
         if (!m_open) return;
         m_down = false;
         m_sticky = true;
+        if (m_keyCarry) putBack();
         m_carrying = false;
         m_carryCard = -1;
         m_carryFrom = -1;
@@ -390,6 +429,8 @@ public:
     [[nodiscard]] bool cancelling() const { return m_cancelling; }
     [[nodiscard]] bool scrubbing() const { return m_open && !m_sticky; }
     [[nodiscard]] bool carrying() const { return m_carrying; }
+    // The card in hand is carried by the keys rather than a finger.
+    [[nodiscard]] bool keyCarrying() const { return m_carrying && m_keyCarry; }
     [[nodiscard]] int carryCard() const { return m_carryCard; }
     [[nodiscard]] int carryFrom() const { return m_carryFrom; }
     // The finger, pointer or keys are on + rather than a tab.
@@ -540,6 +581,60 @@ private:
         if (y > m_config.cancel + 0.03) m_scrubbed = true;
     }
 
+    // The keys move the card in hand one place along the tabs, + coming
+    // after the last. The displays show the workspace it is over, its cards
+    // hanging, as they do under a carrying finger.
+    void carryStep(int steps)
+    {
+        if (m_tabs.isEmpty()) return;
+        const int count = int(m_tabs.size());
+        const int last = count - (hasPlus() ? 0 : 1);
+        const int at = std::clamp((m_over == Over::Plus ? count : m_overWorkspace) + steps, 0, last);
+        m_level = TableLevel::Tabs;
+        m_card = -1;
+        if (at == count) {
+            m_over = Over::Plus;
+            m_overWorkspace = -1;
+        } else {
+            m_over = Over::Workspace;
+            m_overWorkspace = at;
+            m_hovered = at;
+        }
+    }
+
+    // The card the keys carry goes back to its place, chosen again.
+    void putBack()
+    {
+        const int card = m_carryCard;
+        const int from = m_carryFrom;
+        m_keyCarry = false;
+        m_carrying = false;
+        m_carryCard = -1;
+        m_carryFrom = -1;
+        m_over = Over::Nothing;
+        m_overWorkspace = -1;
+        m_onPlus = false;
+        m_level = TableLevel::Cards;
+        m_locked = from;
+        m_hovered = from;
+        m_card = card;
+    }
+
+    // Shift let go: on another tab the card moves there, on + a workspace is
+    // made for it, and on its own tab it goes back, still chosen. Table stays
+    // open either way; the keys have chosen nothing to open.
+    TableAction dropKeyCarry()
+    {
+        const int card = m_carryCard;
+        const int from = m_carryFrom;
+        const Over over = m_over;
+        const int destination = m_overWorkspace;
+        putBack();
+        if (over == Over::Plus) return {TableAction::Kind::Create, from, card};
+        if (over == Over::Workspace && destination != from) return {TableAction::Kind::Move, from, card, destination};
+        return {TableAction::Kind::StayOpen};
+    }
+
     TableAction dropCarry()
     {
         const int card = m_carryCard;
@@ -598,6 +693,7 @@ private:
     int m_refused = -1;
     bool m_onPlus = false;
     bool m_carrying = false;
+    bool m_keyCarry = false;
     int m_carryCard = -1;
     int m_carryFrom = -1;
     Over m_over = Over::Nothing;

@@ -469,6 +469,7 @@ void Effect::refreshTable()
     // Letting go at the edge changes nothing, and says so beneath the tabs.
     // While a name is typed, the rule it serves is said beneath the tabs.
     model[QStringLiteral("hint")] = m_table.cancelling() ? i18n("Let go to cancel")
+        : m_table.keyCarrying() ? i18n("Let go of Shift to set it down; Escape puts it back")
         : m_tableRenaming >= 0 ? i18n("A named workspace stays, even empty") : QString();
     model[QStringLiteral("hintY")] = tabsBottom + 12.0;
     switch (m_tableLayout.parts) {
@@ -552,9 +553,18 @@ void Effect::refreshTable()
         && held >= 0 && held < m_tableWorkspaces[from].cards.size() && held < m_tableLayout.cards[from].size()) {
         const TableCard &card = m_tableWorkspaces[from].cards[held];
         const QRectF rect = m_tableLayout.cards[from][held];
+        // The keys hang it under the tab or + it is over.
+        QPointF hand = finger;
+        if (m_table.keyCarrying()) {
+            const int over = m_table.overWorkspace();
+            const QRectF place = m_table.over() == TableGesture::Over::Plus ? m_tableLayout.plus
+                : m_tableLayout.tabs.value(over);
+            hand = QPointF(place.center().x(), tabsBottom + 20.0);
+        }
         m_tableCarried = QVariantMap{
-            {QStringLiteral("x"), finger.x() - rect.width() / 2.0},
-            {QStringLiteral("y"), std::max(finger.y() - 12.0, tabsBottom + 8.0)},
+            {QStringLiteral("x"), hand.x() - rect.width() / 2.0},
+            {QStringLiteral("y"), std::max(hand.y() - 12.0, tabsBottom + 8.0)},
+            {QStringLiteral("keys"), m_table.keyCarrying()},
             {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()},
             {QStringLiteral("textWidth"), m_tableLayout.textWidths[from].value(held)},
             {QStringLiteral("application"), card.application}, {QStringLiteral("title"), card.title},
@@ -869,12 +879,18 @@ void Effect::grabbedKeyboardEvent(QKeyEvent *event)
         else if (m_tablePresenter) m_tablePresenter->forwardKey(event);
         return;
     }
-    if (event->type() != QEvent::KeyPress) return;
     using Key = TableGesture::Key;
+    // Shift let go sets down the card its arrows carry.
+    if (event->type() == QEvent::KeyRelease && event->key() == Qt::Key_Shift && m_table.keyCarrying()) {
+        applyTableKey(Key::Drop);
+        return;
+    }
+    if (event->type() != QEvent::KeyPress) return;
+    const bool shift = event->modifiers() & Qt::ShiftModifier;
     std::optional<Key> key;
     switch (event->key()) {
-    case Qt::Key_Left: key = Key::Left; break;
-    case Qt::Key_Right: key = Key::Right; break;
+    case Qt::Key_Left: key = shift ? Key::CarryLeft : Key::Left; break;
+    case Qt::Key_Right: key = shift ? Key::CarryRight : Key::Right; break;
     case Qt::Key_Up: key = Key::Up; break;
     case Qt::Key_Down: key = Key::Down; break;
     case Qt::Key_Return:
@@ -886,7 +902,21 @@ void Effect::grabbedKeyboardEvent(QKeyEvent *event)
     }
     // Keys wait while a finger or a button is on Table.
     if (!key || m_table.down()) return;
-    applyTableAction(m_table.key(*key));
+    applyTableKey(*key);
+}
+
+void Effect::applyTableKey(TableGesture::Key key)
+{
+    const bool carrying = m_table.carrying();
+    const TableAction action = m_table.key(key);
+    if (!carrying && m_table.carrying()) {
+        const int from = m_table.carryFrom();
+        const int card = m_table.carryCard();
+        if (from < 0 || from >= m_tableWorkspaces.size() || card < 0 || card >= m_tableWorkspaces[from].cards.size())
+            m_table.refuseCarry();
+    }
+    if (carrying != m_table.carrying() && m_table.isOpen()) relayoutTable();
+    applyTableAction(action);
 }
 
 void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination)
