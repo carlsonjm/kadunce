@@ -46,8 +46,10 @@ the context line for itself, and change the settings. Only the programs the
 suite's surfaces live in may bring anything forward: `activateApplicationWindow`,
 `raiseKeyboard`, `keyboardHeading`, `showCardLine`, `showActive`, `toggleTable`,
 `previewDesktop`, `commitDesktopPreview`, the placement calls,
-`toggleBentoOnOutput` and `handoffBentoLeadToOutput`. Those are `plasmashell`,
-`kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard` and `plasma-keyboard`,
+`toggleBentoOnOutput`, `handoffBentoLeadToOutput` and every call of
+`REQUESTS.md` § Bringing apps back. Those are `plasmashell`,
+`kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard`, `plasma-keyboard` and
+`split-rock-core`,
 installed under `/usr` or in the person's `~/.local/bin`, as the caller's
 process names its program. Any other caller is answered
 `org.freedesktop.DBus.Error.AccessDenied` and nothing changes. While the

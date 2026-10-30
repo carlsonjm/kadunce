@@ -1263,6 +1263,7 @@ void Effect::dissolveEmptyWorkspaces()
     m_sessionHold.noteState(KWin::effects->sessionState() == KWin::SessionState::Normal, steadyMs());
     const bool ending = m_sessionHold.holds(steadyMs());
     if (m_table.isOpen() || ending) return;
+    const QSet<QString> awaited = workspacesAwaitedByBringBack();
     auto *manager = KWin::VirtualDesktopManager::self();
     const auto desktops = KWin::effects->desktops();
     const auto stack = KWin::effects->stackingOrder();
@@ -1272,7 +1273,7 @@ void Effect::dissolveEmptyWorkspaces()
         // made elsewhere stays until it has been entered and left.
         if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())
             || m_unenteredDesktops.contains(desktop->id())
-            || !mayDissolveWorkspace(desktop->id(), false, ending, {})) continue;
+            || !mayDissolveWorkspace(desktop->id(), false, ending, awaited)) continue;
         const bool kept = std::any_of(stack.cbegin(), stack.cend(), [desktop](KWin::EffectWindow *window) {
             return !window->isDeleted() && window->isNormalWindow() && !window->isOnAllDesktops()
                 && !dependentLead(window) && window->isOnDesktop(desktop);

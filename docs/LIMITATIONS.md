@@ -8,6 +8,9 @@ What Kadunce does not do yet, and what it will not do.
   opened there. The Active card sent that way stops being a card and stays
   where KWin put it, outside that display's layout. Kadunce ignores a pane sent
   that way.
+- Bringing applications back places only each application's first window. A
+  pair on a workspace not shown comes back as two cards, and cards return in
+  the order their windows arrive rather than the order they stood.
 - Nobody has measured whether switching Kadunce off returns a window to the
   right place after its display has moved in the desktop layout.
 - A Wayland dialog that names no parent window becomes a card. No application

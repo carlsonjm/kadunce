@@ -25,6 +25,8 @@ int main()
     require(programMayDrive(QStringLiteral("/usr/bin/tettegouche"), home), "Search brings a window forward");
     require(programMayDrive(QStringLiteral("/home/test/.local/bin/shuffle-keyboard"), home),
         "the keys installed for the person");
+    require(programMayDrive(QStringLiteral("/usr/bin/split-rock-core"), home),
+        "Shuffle Core brings the apps back");
     require(programMayDrive(QStringLiteral("/usr/bin/plasmashell (deleted)"), home),
         "a shell updated on disk while it runs is still the shell");
 
