@@ -235,7 +235,7 @@ Click the **Cards** icon in the system tray to turn Kadunce on or off.
 - **Settings…**, where you set the gutter around the Active card, 4 to 48 px,
   10 px by default. Bento's panes stand that far apart too.
 
-Every word the menu shows can be translated.
+Every word the menu shows can be translated, and comes in German, French, Spanish and Brazilian Portuguese as well as English.
 
 </details>
 

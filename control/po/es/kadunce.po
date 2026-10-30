@@ -1,0 +1,152 @@
+# Spanish translation of kadunce.
+# Machine-made first translation; corrections from native speakers are welcome.
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: kadunce\n"
+"Report-Msgid-Bugs-To: https://github.com/carlsonjm/kadunce/issues\n"
+"POT-Creation-Date: 2026-10-30 14:21+0000\n"
+"PO-Revision-Date: 2026-10-30 00:00+0000\n"
+"Last-Translator: Claude\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: native/src/CardLabelPresentation.h
+msgid "%1 and %2"
+msgstr "%1 y %2"
+
+#: native/src/CardLabelPresentation.h
+msgid "%1 · with %2"
+msgstr "%1 · con %2"
+
+#: native/src/CardLabelPresentation.h
+msgid "%1 · then %2"
+msgstr "%1 · luego %2"
+
+#: native/src/DesktopExitLabel.h
+msgid "return to desktop"
+msgstr "volver al escritorio"
+
+#: native/src/Effect.cpp
+msgid "Show Spread"
+msgstr "Mostrar Abanico"
+
+#: native/src/Effect.cpp
+msgid "Show Active card"
+msgstr "Mostrar la tarjeta activa"
+
+#: native/src/EffectContext.cpp
+msgid "Return to desktop"
+msgstr "Volver al escritorio"
+
+#: native/src/EffectContext.cpp
+msgid "Workspace %1"
+msgstr "Espacio de trabajo %1"
+
+#: native/src/EffectContext.cpp
+msgid "Workspace %1, %2"
+msgstr "Espacio de trabajo %1, %2"
+
+#: native/src/EffectContext.cpp
+msgid "%1, current"
+msgstr "%1, actual"
+
+#: native/src/EffectContext.cpp native/src/EffectTable.cpp
+msgid "Let go to cancel"
+msgstr "Suelta para cancelar"
+
+#: native/src/EffectContext.cpp
+msgid "New workspace"
+msgstr "Nuevo espacio de trabajo"
+
+#: native/src/EffectContext.cpp
+msgid "Move to %1"
+msgstr "Mover a %1"
+
+#: native/src/EffectContext.cpp
+msgid "Moving %1"
+msgstr "Moviendo %1"
+
+#: native/src/EffectContext.cpp
+msgid "Table"
+msgstr "Mesa"
+
+#: native/src/EffectContext.cpp
+msgid "Spread, %1"
+msgstr "Abanico, %1"
+
+#: native/src/EffectContext.cpp
+msgid "Table, %1"
+msgstr "Mesa, %1"
+
+#: native/src/EffectOffers.cpp
+msgid "Pick one for this side · Esc leaves it open"
+msgstr "Elige uno para este lado · Esc lo deja abierto"
+
+#: native/src/EffectTable.cpp
+msgid "New"
+msgstr "Nuevo"
+
+#: native/src/EffectTable.cpp
+msgid "Empty. It dissolves when you leave."
+msgstr "Vacío. Desaparece cuando lo dejas."
+
+#: native/src/EffectTable.cpp
+msgid "Remove workspace"
+msgstr "Eliminar espacio de trabajo"
+
+#: native/src/EffectTable.cpp
+msgid "A named workspace stays, even empty"
+msgstr "Un espacio de trabajo con nombre se mantiene, aunque esté vacío"
+
+#: native/src/EffectTable.cpp
+msgid "Empty. Named, so it stays."
+msgstr "Vacío. Tiene nombre, así que se mantiene."
+
+#: native/src/GestureNote.h
+msgid "Nothing to pair it with"
+msgstr "Nada con qué emparejarlo"
+
+#: native/src/GestureNote.h
+msgid "Not enough room for it here"
+msgstr "No hay espacio suficiente aquí"
+
+#: native/src/GestureNote.h
+msgid "This window can't be arranged"
+msgstr "Esta ventana no se puede organizar"
+
+#: native/src/GestureNote.h
+msgid "It can't go there"
+msgstr "No puede ir ahí"
+
+#: native/src/SpreadReading.h
+msgid "then %1"
+msgstr "luego %1"
+
+#: native/src/SpreadReading.h
+msgid "with %1"
+msgstr "con %1"
+
+#: native/src/SpreadReading.h
+msgid "Stack of %1 cards"
+msgstr "Pila de %1 tarjetas"
+
+#: native/src/SpreadReading.h
+msgid "sleeping"
+msgstr "en reposo"
+
+#: native/src/SpreadReading.h
+msgid "Card"
+msgstr "Tarjeta"
+
+#: native/src/SpreadReading.h
+msgid "%1 of %2"
+msgstr "%1 de %2"
+
+#: native/src/SpreadReading.h
+msgid "%1, %2"
+msgstr "%1, %2"

@@ -618,6 +618,7 @@ private:
     void relayoutTable();
     void refreshTable();
     void applyTableAction(const TableAction &action);
+    void applyTableKey(TableGesture::Key key);
     void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination);
     [[nodiscard]] TableHit tableHitAt(const QPointF &local) const;
     [[nodiscard]] int tableCardAt(const QPointF &local) const;
