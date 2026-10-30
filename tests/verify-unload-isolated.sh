@@ -12,6 +12,7 @@ case ${KADUNCE_PROBE_SESSION:-session.sh} in
     spread-fingers-runtime-session.sh|flick-ask-runtime-session.sh|stack-still-runtime-session.sh) ;;
     active-admission-session.sh) ;;
     settings-frost-runtime-session.sh) ;;
+    session-end-glass-runtime-session.sh) ;;
     connected-sizes-runtime-session.sh) ;;
     launch-runtime-session.sh) ;;
     native-entry-runtime-session.sh|x11-native-entry-runtime-session.sh|x11-tablet-runtime-session.sh|x11-fill-return-runtime-session.sh) ;;
@@ -113,7 +114,7 @@ if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == x11*runtime-session.sh ]]; then
 fi
 input_method_args=()
 session_env=()
-if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == settings-frost-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == shadow-runtime-session.sh ]]; then
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == desktop-switch*-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == dialog-card-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == output-unplug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == monitor-overflow-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == sleeping-spread-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == bento-exit-partner-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == stack-still-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == settings-frost-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == session-end-glass-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == shadow-runtime-session.sh ]]; then
     session_env=(KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1)
 fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-*runtime-session.sh ]]; then
@@ -189,6 +190,7 @@ fi
 # Table's touch scene walks every gesture Table has, renaming included.
 session_timeout=40s
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == table-runtime-session.sh ]]; then session_timeout=70s; fi
+if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == session-end-glass-runtime-session.sh ]]; then session_timeout=70s; fi
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == line-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == first-entry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == spread-display-runtime-session.sh ]]; then session_timeout=60s; fi
 # Each bottom-edge exit on the card display, by pointer and by touch.
 if [[ ${KADUNCE_PROBE_SESSION:-session.sh} == card-exit-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == guest-float-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == connected-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-wake-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-plug-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-carry-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-pane-runtime-session.sh || ${KADUNCE_PROBE_SESSION:-session.sh} == every-display-full-runtime-session.sh ]]; then session_timeout=120s; fi

@@ -467,6 +467,10 @@ Effect::Effect()
             });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
+    m_sessionGoesOn.setSingleShot(true);
+    connect(&m_sessionGoesOn, &QTimer::timeout, this, [this] {
+        if (KWin::effects->sessionState() == KWin::SessionState::Normal) endSessionEndGlass();
+    });
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
             this, &Effect::handleScreenRemoved);
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
@@ -1807,11 +1811,17 @@ void Effect::handleSessionStateChanged()
         owning = owning || hasActiveDesktopStage();
         forEachDisplayStage([&](CardStageController &stage) { owning = owning || stage.isActive(); });
     });
-    if (owning && KWin::effects->sessionState() != KWin::SessionState::Normal) {
+    const bool ending = KWin::effects->sessionState() != KWin::SessionState::Normal;
+    // The power question just answered: the session ends behind its glass.
+    if (ending && (m_powerQuestionSeen.isValid() && m_powerQuestionSeen.elapsed() < 2000))
+        beginSessionEndGlass(owning);
+    if (owning && ending) {
         qInfo() << "Kadunce" << Revision
                 << "restoring managed windows before session save or shutdown";
         release();
     }
+    if (ending) m_sessionGoesOn.stop();
+    else if (m_sessionEnd.on && !m_sessionGoesOn.isActive()) m_sessionGoesOn.start(SessionGoesOnMs);
 }
 
 } // namespace Kadunce

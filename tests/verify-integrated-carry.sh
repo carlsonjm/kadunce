@@ -106,6 +106,7 @@ scenes=(
     caller-fence-runtime tablet
     context-line-runtime tablet
     settings-frost-runtime tablet
+    session-end-glass-runtime tablet
     tablet-desktop-runtime tablet
     desktop-bezel-runtime tablet
     output-unplug-runtime tablet
