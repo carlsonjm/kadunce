@@ -7,7 +7,8 @@
 namespace Kadunce
 {
 // Who may drive Kadunce over D-Bus: bring a window forward, raise the keys,
-// open Spread, Table or a layout, or place an application
+// open Spread, Table or a layout, place an application, or read and bring
+// back what workspace memory keeps
 // (TETTEGOUCHE-CONTEXT.md § Who may call). Asking what Kadunce shows, claiming
 // an edge or a context line for oneself, and the settings stay open to any
 // caller; none of them brings anything forward.
@@ -24,6 +25,7 @@ namespace Kadunce
         QStringLiteral("tettegouche"),
         QStringLiteral("shuffle-keyboard"),
         QStringLiteral("plasma-keyboard"),
+        QStringLiteral("split-rock-core"),
     };
 }
 

@@ -71,7 +71,7 @@ they hold:
 
 - `Effect`: `EffectDisplays`, `EffectTable`, `EffectCarry`, `EffectStacks`,
   `EffectInput`, `EffectKeys`, `EffectContext`, `EffectNotes`, `EffectOffers`,
-  `EffectPaint` and `EffectGuest`.
+  `EffectPaint`, `EffectGuest`, `EffectMemory` and `EffectSavedLayouts`.
 - `CardStageController`: `CardStagePoses`, `CardStageKeyboard`,
   `CardStageCarry`, `CardStageBento` and `CardStageRow`.
 - `DesktopStageController`: `DesktopStageArrivals`, `DesktopStageLayouts` and
@@ -117,7 +117,8 @@ returns a window to the native desktop (`CARD-LIFECYCLE.md` §14).
 
 Card Stage release clears its live registry. Identity is stable by window handle or
 UUID while the effect is loaded; array indices are compatibility data, not durable
-identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §13).
+identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §13) but where
+applications stood, which `REQUESTS.md` § Bringing apps back reads.
 
 Constrained new windows use the Bento admission solver or prepared individual-card
 ownership.

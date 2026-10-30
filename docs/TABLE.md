@@ -31,7 +31,9 @@ window is in `CARD-LIFECYCLE.md`.
 - A workspace with no cards dissolves once you leave it unless you named it.
   This holds for desktops made in KDE's settings too, and a window on every
   desktop does not keep one. A desktop made elsewhere while Kadunce runs stays
-  until you have entered and left it. Signing out never dissolves one.
+  until you have entered and left it. Signing out never dissolves one, nor
+  does leaving one that a remembered session may yet bring applications back
+  to (`REQUESTS.md` § Bringing apps back).
 - KDE's three-finger sideways swipe still flips to the neighbouring
   workspace. Kadunce holds off KDE's desktop-name pop-up while it runs. The dock
   lists the current workspace's applications.

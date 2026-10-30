@@ -23,6 +23,9 @@
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
 #include "PendingLaunch.h"
+#include "SessionEndHold.h"
+#include "WorkspaceMemory.h"
+#include "SavedLayout.h"
 #include "PlacementAim.h"
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
@@ -209,6 +212,22 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool placeApplication(const QStringList &applicationIds, const QString &windowId,
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
+    // Workspace memory (docs/REQUESTS.md § Bringing apps back): the session
+    // remembered at the last sign-out, bringing its apps back to their
+    // places, and the sets of apps opened together after signing in.
+    Q_SCRIPTABLE int workspaceMemoryProtocolVersion() const { return 1; }
+    Q_SCRIPTABLE QVariantMap savedSession();
+    Q_SCRIPTABLE QVariantMap bringBack(const QString &requestToken);
+    Q_SCRIPTABLE void cancelBringBack(const QString &requestToken);
+    Q_SCRIPTABLE void dismissSavedSession();
+    Q_SCRIPTABLE QVariantList openTogether();
+    Q_SCRIPTABLE void forgetWorkspaceMemory();
+    // Saved layouts (docs/REQUESTS.md § Saved layouts): the desk on the
+    // workspace and display in use as groups, and arranging one from groups.
+    Q_SCRIPTABLE int layoutProtocolVersion() const { return 1; }
+    Q_SCRIPTABLE QVariantMap currentLayout();
+    Q_SCRIPTABLE QVariantMap arrangeLayout(const QString &requestToken, const QList<QVariantMap> &groups);
+    Q_SCRIPTABLE void cancelLayout(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     // A strip along a display's top edge kept from Table's pull, in that
     // display's own coordinates, under the caller's key; held until cleared or
@@ -270,6 +289,11 @@ Q_SIGNALS:
     Q_SCRIPTABLE void workspaceContextChanged();
     Q_SCRIPTABLE void bridgeUnavailable();
     Q_SCRIPTABLE void placementSettled(const QString &requestToken, const QString &windowId, bool placed);
+    Q_SCRIPTABLE void appBroughtBack(const QString &requestToken, const QString &appId,
+                                     const QString &windowId, bool placed);
+    Q_SCRIPTABLE void bringBackFinished(const QString &requestToken, int placed, int missed);
+    Q_SCRIPTABLE void layoutAppPlaced(const QString &requestToken, const QString &appId, bool placed);
+    Q_SCRIPTABLE void layoutFinished(const QString &requestToken, int placed, int missed);
 
 private:
     // A touchscreen driving a display decides which backend owns the top and
@@ -688,6 +712,65 @@ private:
     void scheduleDissolve();
     void dissolveEmptyWorkspaces();
     bool m_dissolveQueued = false;
+    // Whether the session may be ending, so that no workspace emptied while
+    // it signs out is tidied away (SessionEndHold.h).
+    SessionEndHold m_sessionHold;
+
+    // Workspace memory (WorkspaceMemory.h): this sign-in's record and the one
+    // offered from the last, in the person's data folder; written every
+    // minute and once more as the session ends, before cards are given back.
+    Memory::MemoryFile m_memory;
+    Memory::OpenTogetherLog m_openTogether;
+    Memory::SignInGathering m_signInGathering;
+    QTimer m_memorySave;
+    // Written once as the session began to end; a session that goes on
+    // writes again at the next one.
+    bool m_memoryEndWritten = false;
+    static constexpr int MemorySaveMs = 60000;
+    static constexpr int BringBackWaitMs = 60000;
+    void startWorkspaceMemory();
+    void rememberWorkspaceAtSessionEnd();
+    void resumeWorkspaceMemory();
+    Memory::RememberedSession captureWorkspace();
+    void saveWorkspaceMemory(bool clean);
+    void writeMemoryFile();
+    void writeOpenTogether();
+    void gatherSignInSet(bool force);
+    // A bring-back waiting for its apps: a window claimed as it is added, by
+    // window id, goes to its place once admitted. One on another workspace is
+    // sent there at once and waits there as a card.
+    std::optional<Memory::BringBackRun> m_bringBack;
+    QHash<QString, Memory::BringBackStep> m_bringBackClaims;
+    QPointer<KWin::EffectWindow> m_bringBackActive;
+    quint64 m_bringBackGeneration = 0;
+    int m_bringBackPlacing = 0;
+    void claimBroughtBackWindow(KWin::EffectWindow *window);
+    void completeBringBackForWindow(KWin::EffectWindow *window);
+    void placeBroughtBack(QList<Memory::ReadyPlacement> ready);
+    void finishBringBackIfDone();
+    [[nodiscard]] QSet<QString> workspacesAwaitedByBringBack() const;
+    // A saved layout being arranged (SavedLayout.h): its windows come to the
+    // workspace and display in use as they open, become cards, and form
+    // their Stacks; the row is put in order once every app has come or the
+    // wait is over. Never at the same time as a bring-back.
+    std::optional<SavedLayouts::LayoutRun> m_layoutRun;
+    QString m_layoutDesktop;
+    QString m_layoutOutput;
+    // When each window became ready, and the windows already sent to their
+    // place once, by window id.
+    QHash<QString, qint64> m_layoutReadySince;
+    QSet<QString> m_layoutSent;
+    quint64 m_layoutGeneration = 0;
+    static constexpr int LayoutWaitMs = 60000;
+    static constexpr int LayoutSettleMs = 5000;
+    static constexpr int LayoutTickMs = 150;
+    bool claimLayoutWindow(KWin::EffectWindow *window);
+    void completeLayoutForWindow(KWin::EffectWindow *window);
+    void settleLayout();
+    void arrangeLayoutCards(bool order);
+    [[nodiscard]] bool layoutWindowSettled(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                           KWin::VirtualDesktop *desktop);
+    [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window) const;
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.

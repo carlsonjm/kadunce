@@ -11,6 +11,7 @@ code comments say the same thing.
 | Active card | The card in use: alone on a display sized Solo, the pane in use on one sized Connected (§ Naming rules) |
 | Spread | The ordered row of cards and Stacks you browse; each Bento pane is a card in it |
 | Stack | Cards you grouped by hand into one Spread entry; stepping through it goes round it as a ring |
+| Saved layout | A named desk a driving program keeps: groups of applications on one workspace, each alone or one Stack; not a Bento layout |
 | Sleeping card | A minimized card, drawn dimmed in Spread |
 | Bento | Two or more windows shown together in one layout |
 | Bento layout, pane, divider | One display's layout, each window in it, and the boundary you drag between panes |

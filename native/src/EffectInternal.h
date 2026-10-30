@@ -72,6 +72,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
+#include <QDBusMetaType>
 #include <QDBusPendingCall>
 #include <QDBusServiceWatcher>
 #include <QDebug>
@@ -100,6 +101,13 @@ namespace Kadunce
 #endif
 
 constexpr auto Revision = KADUNCE_REVISION;
+// Milliseconds on a clock that never steps back.
+inline qint64 steadyMs()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
 inline QString windowIdentity(const KWin::EffectWindow *window)
 {
     return window

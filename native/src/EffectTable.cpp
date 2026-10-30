@@ -1287,8 +1287,13 @@ void Effect::dissolveEmptyWorkspaces()
 {
     m_dissolveQueued = false;
     // Windows closing as the session saves or ends are not the person
-    // emptying a workspace; it is still there when they sign back in.
-    if (m_table.isOpen() || KWin::effects->sessionState() != KWin::SessionState::Normal) return;
+    // emptying a workspace; it is still there when they sign back in. Plasma
+    // steps back to normal between saving and quitting, so the hold lasts
+    // until the session has stayed normal (SessionEndHold.h).
+    m_sessionHold.noteState(KWin::effects->sessionState() == KWin::SessionState::Normal, steadyMs());
+    const bool ending = m_sessionHold.holds(steadyMs());
+    if (m_table.isOpen() || ending) return;
+    const QSet<QString> awaited = workspacesAwaitedByBringBack();
     auto *manager = KWin::VirtualDesktopManager::self();
     const auto desktops = KWin::effects->desktops();
     const auto stack = KWin::effects->stackingOrder();
@@ -1297,7 +1302,8 @@ void Effect::dissolveEmptyWorkspaces()
         // The workspace the person is in stays until they leave it, and one
         // made elsewhere stays until it has been entered and left.
         if (desktop == KWin::effects->currentDesktop() || m_namedDesktops.contains(desktop->id())
-            || m_unenteredDesktops.contains(desktop->id())) continue;
+            || m_unenteredDesktops.contains(desktop->id())
+            || !mayDissolveWorkspace(desktop->id(), false, ending, awaited)) continue;
         const bool kept = std::any_of(stack.cbegin(), stack.cend(), [desktop](KWin::EffectWindow *window) {
             return !window->isDeleted() && window->isNormalWindow() && !window->isOnAllDesktops()
                 && !dependentLead(window) && window->isOnDesktop(desktop);

@@ -21,9 +21,7 @@ The mark is Plasma's standard attention flag, so Kadunce and whatever shows it
 never depend on each other. A waiting application shows in Ambient, not as
 a notification pulling you to it: a waiting dialog is ongoing state with an
 owner and a truthful action, Ambient's admission rule; Temperance keeps passing
-events. A Wayland dialog naming no parent is indistinguishable from an
-application and admitted as one; such dialogs are found by survey, not guessed
-at.
+events.
 
 ### Switching Kadunce on puts the tablet in cards
 
@@ -438,10 +436,13 @@ Hide key; neither the dock nor the keys carry a handle, and their height is
 fixed. Rejected: a handle on the keys that carried them away by a drag or a tap,
 and a scrub column that set their height.
 
-### Persistent membership is not promised across unload
+### Places outlive a sign-out; membership does not outlive unload
 
-The context endpoint and live registry disappear with the effect. Rejected:
-adding a service solely to preserve membership across unload.
+The live registry goes with the effect. A sign-out keeps only where each app
+stood; its first window returns there by the placement path while Shuffle Core
+asks and launches (`REQUESTS.md` § Bringing apps back). Rejected: a service
+preserving membership; KDE's session restore alone, blind to cards, pairs and
+displays; launching from the compositor; keeping titles.
 
 ## Rendering and output
 
@@ -572,8 +573,7 @@ one-step way back.
 
 A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): a picked card joins what is open. Full, the pane used
-longest ago yields, as equal panes give no answer. Solo was once named Active;
-Active now means only the card in use.
+longest ago yields, as equal panes give no answer.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

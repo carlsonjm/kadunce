@@ -776,6 +776,8 @@ Effect::Effect()
         connectManagedWindow(window);
     }
 
+    // A saved layout's groups arrive as an array of dictionaries.
+    qDBusRegisterMetaType<QList<QVariantMap>>();
     if (!QDBusConnection::sessionBus().registerObject(
             QStringLiteral("/Kadunce"),
             QStringLiteral("co.goodinput.Kadunce"), this,
@@ -783,6 +785,9 @@ Effect::Effect()
         qWarning() << "Kadunce" << Revision
                    << "could not publish the workspace context interface";
     }
+    // Before any window of this sign-in arrives, so the first one opened by
+    // hand starts the gathering of apps opened together.
+    startWorkspaceMemory();
 
     // Gooseberry's notes, while it runs; without it Spread draws none.
     m_stuckNotesWatcher = new StuckNotesWatcher(this);
@@ -1340,6 +1345,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         centreFloatingWindow(window);
         return;
     }
+    // A window a saved layout or a bring-back waits for is claimed before it
+    // is admitted.
+    if (!claimLayoutWindow(window)) claimBroughtBackWindow(window);
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     // §11, Every display: the display it opens on takes it.
@@ -1364,12 +1372,16 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
             completePlacementForWindow(candidate);
+            completeBringBackForWindow(candidate);
+            completeLayoutForWindow(candidate);
             return;
         }
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
             completePlacementForWindow(candidate);
+            completeBringBackForWindow(candidate);
+            completeLayoutForWindow(candidate);
             return;
         }
         // §11, Connected: a window opening beside the one card shown joins it
@@ -1403,6 +1415,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         completeLauncherGuestForWindow(candidate);
         observeCardOwnership();
         completePlacementForWindow(candidate);
+        completeBringBackForWindow(candidate);
+        completeLayoutForWindow(candidate);
     };
     QTimer::singleShot(0, this, admitReadyWindow);
     if (window->window() && !window->window()->readyForPainting())
@@ -1812,6 +1826,20 @@ void Effect::handleSessionStateChanged()
         forEachDisplayStage([&](CardStageController &stage) { owning = owning || stage.isActive(); });
     });
     const bool ending = KWin::effects->sessionState() != KWin::SessionState::Normal;
+    // Where every window stands is remembered before the cards are given
+    // back (WorkspaceMemory.h); nothing is tidied while the session may end.
+    if (ending && !m_memoryEndWritten) {
+        m_memoryEndWritten = true;
+        rememberWorkspaceAtSessionEnd();
+    }
+    m_sessionHold.noteState(!ending, steadyMs());
+    if (!ending && m_sessionHold.ending())
+        QTimer::singleShot(SessionEndHold::GoesOnMs + 50, this, [this] {
+            if (!m_sessionHold.holds(steadyMs())) {
+                resumeWorkspaceMemory();
+                scheduleDissolve();
+            }
+        });
     // The power question just answered: the session ends behind its glass.
     if (ending && (m_powerQuestionSeen.isValid() && m_powerQuestionSeen.elapsed() < 2000))
         beginSessionEndGlass(owning);
