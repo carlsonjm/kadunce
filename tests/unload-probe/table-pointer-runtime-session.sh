@@ -8,7 +8,8 @@
 # top-left corner opens it there, where KDE puts Overview, while a push against
 # the rest of the top edge does not; Overview has the corner back once Kadunce
 # is off. A hanging card dragged lifts for the pointer to carry to another
-# workspace.
+# workspace, and Shift's arrows carry a chosen card to another workspace or +,
+# set down as Shift is let go.
 set -Eeuo pipefail
 trap 'echo "FAIL: table pointer $LINENO" >&2' ERR
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]]
@@ -39,7 +40,7 @@ push() {
     return 0
 }
 # evdev key codes.
-Esc=1 W=17 Enter=28 Left=105 Right=106 Down=108 Meta=125
+Esc=1 W=17 Enter=28 Shift=42 Left=105 Right=106 Down=108 Meta=125
 press() { probe key "$1" "${2:-0}"; sleep .4; }
 shortcut() { press "$W" "$Meta"; }
 point() { probe pointer $1; sleep .15; }
@@ -199,6 +200,33 @@ test "$(table '.open')" = true
 press "$Esc"
 test "$(table '.open')" = false
 echo 'PASS: a card pressed and held still stays put, and dragged it lifts and the pointer carries it to another workspace'
+
+# The keys carry a chosen card: Shift held, an arrow takes it to the next tab,
+# and letting go of Shift sets it down there. Table stays open on it.
+shortcut
+test "$(table '.hovered')" = 0
+press "$Down"
+keyed=$(table '.previewCard')
+test -n "$keyed"
+probe keyHeld "$Right" 1 "$Shift" 0
+sleep .8
+test "$(desktops_of "$keyed")" = "$two"
+test "$(table '.open')" = true
+test "$(table '.carrying')" = false
+test "$(table '.locked')" = 1
+test "$(current)" = "$one"
+# Past the last tab it is over +, and let go there it gets a workspace of its own.
+probe keyHeld "$Right" 1 "$Shift" 0
+sleep .8
+made=$(desktops_of "$keyed")
+test -n "$made"
+test "$made" != "$one"
+test "$made" != "$two"
+test "$(table '.open')" = true
+press "$Esc"
+test "$(table '.open')" = false
+test "$(current)" = "$one"
+echo "PASS: Shift's arrows carry a chosen card to another workspace, or to + for a new one, set down as Shift is let go"
 test -z "$(kad ownershipViolations)"
 echo 'PASS: no window had two owners'
 

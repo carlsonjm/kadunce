@@ -566,7 +566,19 @@ Item {
             shadow.size: 24
             shadow.yOffset: 8
             shadow.color: Qt.rgba(0, 0, 0, 0.5)
-            onVisibleChanged: if (visible) popping.restart()
+            // Once it has popped up where it lifted, it may slide.
+            property bool placed: false
+            onVisibleChanged: {
+                placed = false;
+                if (!visible) return;
+                popping.restart();
+                Qt.callLater(() => lifted.placed = lifted.visible);
+            }
+            // Carried by the keys, it slides from tab to tab.
+            Behavior on x {
+                enabled: lifted.placed && lifted.entry !== null && lifted.entry.keys === true
+                NumberAnimation { duration: root.ms(180); easing.type: Easing.OutCubic }
+            }
             SequentialAnimation {
                 id: popping
                 NumberAnimation { target: lifted; property: "pop"; from: 1.0; to: 1.14; duration: root.ms(90); easing.type: Easing.OutQuad }
