@@ -23,6 +23,7 @@
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
 #include "PendingLaunch.h"
+#include "SessionEndHold.h"
 #include "PlacementAim.h"
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
@@ -687,6 +688,10 @@ private:
     void scheduleDissolve();
     void dissolveEmptyWorkspaces();
     bool m_dissolveQueued = false;
+    // Whether the session may be ending, so that no workspace emptied while
+    // it signs out is tidied away (SessionEndHold.h).
+    SessionEndHold m_sessionHold;
+
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.

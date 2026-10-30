@@ -83,6 +83,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectOffers.cpp
         src/EffectPaint.cpp
         src/EffectGuest.cpp
+        src/SessionEndHold.h
         src/EffectShared.h
         src/DesktopRemoval.h
         src/PaintResult.h
@@ -251,6 +252,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-touch-edge-test PRIVATE src)
     target_link_libraries(kadunce-touch-edge-test PRIVATE Qt6::Core)
     add_test(NAME touch-edge COMMAND kadunce-touch-edge-test)
+    add_executable(kadunce-session-end-hold-test tests/SessionEndHoldTest.cpp)
+    target_include_directories(kadunce-session-end-hold-test PRIVATE src)
+    target_link_libraries(kadunce-session-end-hold-test PRIVATE Qt6::Core)
+    add_test(NAME session-end-hold COMMAND kadunce-session-end-hold-test)
     add_executable(kadunce-desktop-removal-test tests/DesktopRemovalTest.cpp)
     target_include_directories(kadunce-desktop-removal-test PRIVATE src)
     target_link_libraries(kadunce-desktop-removal-test PRIVATE Qt6::Core)

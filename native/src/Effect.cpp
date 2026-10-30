@@ -1812,6 +1812,12 @@ void Effect::handleSessionStateChanged()
         forEachDisplayStage([&](CardStageController &stage) { owning = owning || stage.isActive(); });
     });
     const bool ending = KWin::effects->sessionState() != KWin::SessionState::Normal;
+    // Nothing is tidied while the session may end (SessionEndHold.h).
+    m_sessionHold.noteState(!ending, steadyMs());
+    if (!ending && m_sessionHold.ending())
+        QTimer::singleShot(SessionEndHold::GoesOnMs + 50, this, [this] {
+            if (!m_sessionHold.holds(steadyMs())) scheduleDissolve();
+        });
     // The power question just answered: the session ends behind its glass.
     if (ending && (m_powerQuestionSeen.isValid() && m_powerQuestionSeen.elapsed() < 2000))
         beginSessionEndGlass(owning);

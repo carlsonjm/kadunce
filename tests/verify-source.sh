@@ -746,9 +746,13 @@ if rg -q '\bmoveWindow\(|windowToScreen\(|frameGeometry\s*=' "${native_dir}"; th
     exit 1
 fi
 
-# Windows closing at sign-out must not dissolve the workspaces they leave.
-if ! grep -A6 '^void Effect::dissolveEmptyWorkspaces()' "$project_dir/native/src/EffectTable.cpp" \
-        | grep -q 'sessionState() != KWin::SessionState::Normal'; then
+# Windows closing at sign-out must not dissolve the workspaces they leave,
+# Plasma's brief step back to normal between saving and quitting included
+# (SessionEndHold.h; the session-end-hold test covers the states).
+if ! grep -A12 '^void Effect::dissolveEmptyWorkspaces()' "$project_dir/native/src/EffectTable.cpp" \
+        | grep -q 'm_sessionHold.holds(' \
+    || ! grep -A20 '^void Effect::handleSessionStateChanged()' "$project_dir/native/src/Effect.cpp" \
+        | grep -q 'm_sessionHold.noteState('; then
     echo "dissolveEmptyWorkspaces no longer holds off while the session saves or ends" >&2
     exit 1
 fi
