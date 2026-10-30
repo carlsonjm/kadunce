@@ -1,0 +1,149 @@
+# Brazilian Portuguese translation of kadunce-control.
+# Machine-made first translation; corrections from native speakers are welcome.
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: kadunce-control\n"
+"Report-Msgid-Bugs-To: https://github.com/carlsonjm/kadunce/issues\n"
+"POT-Creation-Date: 2026-10-30 14:21+0000\n"
+"PO-Revision-Date: 2026-10-30 00:00+0000\n"
+"Last-Translator: Claude\n"
+"Language-Team: Brazilian Portuguese\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: control/src/main.cpp
+msgid "Cards"
+msgstr "Cartões"
+
+#: control/src/main.cpp
+msgid "Cards on"
+msgstr "Cartões ativados"
+
+#: control/src/main.cpp
+msgid "Checking KWin compatibility…"
+msgstr "Verificando a compatibilidade com o KWin…"
+
+#: control/src/main.cpp
+msgid "Repair for current KWin…"
+msgstr "Reparar para o KWin atual…"
+
+#: control/src/main.cpp
+msgid "Repair cards"
+msgstr "Reparar cartões"
+
+#: control/src/main.cpp
+msgid "Rebuilt and installed for the current KWin. Your enabled/disabled choice was preserved. No session restart was performed. If KWin still rejects it, save your work and log out and back in."
+msgstr "Recompilado e instalado para o KWin atual. Sua escolha de ativado/desativado foi mantida. A sessão não foi reiniciada. Se o KWin ainda o rejeitar, salve seu trabalho e saia e entre novamente."
+
+#: control/src/main.cpp
+msgid "Repair did not complete. No effect toggle or desktop restart was requested. See details for the failing step."
+msgstr "O reparo não foi concluído. Nenhuma alternância de efeito ou reinício da área de trabalho foi solicitado. Veja os detalhes para a etapa que falhou."
+
+#: control/src/main.cpp
+msgid "Repair could not start"
+msgstr "Não foi possível iniciar o reparo"
+
+#: control/src/main.cpp
+msgid "Monitors use my zones (Meta+T)"
+msgstr "Os monitores usam minhas zonas (Meta+T)"
+
+#: control/src/main.cpp
+msgid "Settings…"
+msgstr "Configurações…"
+
+#: control/src/main.cpp
+msgid "Repair cards?"
+msgstr "Reparar cartões?"
+
+#: control/src/main.cpp
+msgid "Rebuild the source saved during installation for your current KWin? No downloads or development-folder changes are used. Checks run before an administrator prompt installs the plugin. Your workspace switch stays available; nothing will restart automatically."
+msgstr "Recompilar para o seu KWin atual o código-fonte salvo durante a instalação? Nada é baixado e nenhuma pasta de desenvolvimento é alterada. Verificações são feitas antes do pedido de administrador que instala o plugin. Seu botão de espaço de trabalho continua disponível; nada será reiniciado automaticamente."
+
+#: control/src/main.cpp
+msgid "Cards settings"
+msgstr "Configurações dos cartões"
+
+#: control/src/main.cpp
+msgctxt "@item:valuesuffix the gutter, in pixels"
+msgid " px"
+msgstr " px"
+
+#: control/src/main.cpp
+msgid "Active card gutter"
+msgstr "Margem do cartão ativo"
+
+#: control/src/main.cpp
+msgid ""
+"Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
+"4–48 px. The gutter preserves room for edge swipes."
+msgstr ""
+"Padrão: 10 px. Aplica-se na hora, e os painéis do Bento ficam à mesma distância.\n"
+"4–48 px. A margem preserva espaço para os gestos a partir da borda."
+
+#: control/src/main.cpp
+msgid "KWin %1 → %2: rebuild needed"
+msgstr "KWin %1 → %2: recompilação necessária"
+
+#: control/src/main.cpp
+msgid "KWin compatibility could not be determined"
+msgstr "Não foi possível determinar a compatibilidade com o KWin"
+
+#: control/src/main.cpp
+msgid "Built for installed KWin %1"
+msgstr "Compilado para o KWin %1 instalado"
+
+#: control/src/main.cpp
+msgid "Repair in progress…"
+msgstr "Reparo em andamento…"
+
+#: control/src/main.cpp
+msgid "Off"
+msgstr "Desativado"
+
+#: control/src/main.cpp
+msgid "On"
+msgstr "Ativado"
+
+#: control/src/main.cpp
+msgid "Changing cards…"
+msgstr "Alterando os cartões…"
+
+#: control/src/main.cpp
+msgid "Cards need a rebuild"
+msgstr "Os cartões precisam ser recompilados"
+
+#: control/src/main.cpp
+msgid "KWin was updated. Choose ‘Repair for current KWin’ from this tray menu. If you have not restarted since the system update, finish it with a normal logout/login first."
+msgstr "O KWin foi atualizado. Escolha “Reparar para o KWin atual” neste menu da bandeja. Se você não reiniciou desde a atualização do sistema, conclua-a primeiro saindo e entrando novamente."
+
+#: control/src/main.cpp
+msgid "Cards stayed off"
+msgstr "Os cartões continuaram desativados"
+
+#: control/src/main.cpp
+msgid "KWin did not accept the workspace effect. The previous disabled state was preserved."
+msgstr "O KWin não aceitou o efeito de espaço de trabalho. O estado desativado anterior foi mantido."
+
+#: control/src/main.cpp
+msgid "Spread and Bento are ready."
+msgstr "Leque e Bento estão prontos."
+
+#: control/src/main.cpp
+msgid "Cards stayed on"
+msgstr "Os cartões continuaram ativados"
+
+#: control/src/main.cpp
+msgid "KWin could not confirm a safe release, so the enabled state was restored."
+msgstr "O KWin não pôde confirmar uma liberação segura, então o estado ativado foi restaurado."
+
+#: control/src/main.cpp
+msgid "Cards off"
+msgstr "Cartões desativados"
+
+#: control/src/main.cpp
+msgid "Managed windows were safely released."
+msgstr "As janelas gerenciadas foram liberadas com segurança."
