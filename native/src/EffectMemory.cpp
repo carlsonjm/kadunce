@@ -197,7 +197,8 @@ QVariantMap Effect::bringBack(const QString &requestToken)
     const auto refused = [](const QString &reason) {
         return QVariantMap{{QStringLiteral("accepted"), false}, {QStringLiteral("reason"), reason}};
     };
-    if (m_bringBack) return refused(QStringLiteral("busy"));
+    // Never while a saved layout is being arranged.
+    if (m_bringBack || m_layoutRun) return refused(QStringLiteral("busy"));
     if (requestToken.isEmpty() || !m_memory.hasOffer()) return refused(QStringLiteral("nothing"));
     QStringList outputs;
     for (KWin::LogicalOutput *output : KWin::effects->screens())

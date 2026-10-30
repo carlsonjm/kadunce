@@ -47,7 +47,7 @@ suite's surfaces live in may bring anything forward: `activateApplicationWindow`
 `raiseKeyboard`, `keyboardHeading`, `showCardLine`, `showActive`, `toggleTable`,
 `previewDesktop`, `commitDesktopPreview`, the placement calls,
 `toggleBentoOnOutput`, `handoffBentoLeadToOutput` and every call of
-`REQUESTS.md` § Bringing apps back. Those are `plasmashell`,
+`REQUESTS.md` § Bringing apps back and § Saved layouts. Those are `plasmashell`,
 `kscreenlocker_greet`, `tettegouche`, `shuffle-keyboard`, `plasma-keyboard` and
 `split-rock-core`,
 installed under `/usr` or in the person's `~/.local/bin`, as the caller's

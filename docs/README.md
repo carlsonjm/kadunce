@@ -22,7 +22,7 @@ for the subject wins.
 | `TERMINOLOGY.md` | Kadunce's terms and naming rules |
 | `ITASCA-VISUAL-LANGUAGE.md` | the visual and motion language Kadunce shares with the components it works with, and Kadunce's geometry |
 | `TETTEGOUCHE-CONTEXT.md` | the versioned context and guest D-Bus interface Kadunce offers Tettegouche, and the stuck notes it reads from Gooseberry |
-| `REQUESTS.md` | placement requests: how another program asks Kadunce to open an application at a point, and bringing applications back after a sign-in |
+| `REQUESTS.md` | placement requests: how another program asks Kadunce to open an application at a point, bringing applications back after a sign-in, and saved layouts |
 | `TABLE.md` | Table: what it does to workspaces and their windows, how it looks, and its invariants |
 | `UPSTREAM.md` | problems in KDE software that could be reported or patched |
 

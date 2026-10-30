@@ -71,7 +71,7 @@ they hold:
 
 - `Effect`: `EffectDisplays`, `EffectTable`, `EffectCarry`, `EffectStacks`,
   `EffectInput`, `EffectKeys`, `EffectContext`, `EffectNotes`, `EffectOffers`,
-  `EffectPaint`, `EffectGuest` and `EffectMemory`.
+  `EffectPaint`, `EffectGuest`, `EffectMemory` and `EffectSavedLayouts`.
 - `CardStageController`: `CardStagePoses`, `CardStageKeyboard`,
   `CardStageCarry`, `CardStageBento` and `CardStageRow`.
 - `DesktopStageController`: `DesktopStageArrivals`, `DesktopStageLayouts` and

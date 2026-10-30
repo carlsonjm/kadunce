@@ -113,3 +113,46 @@ sign-in form one set, kept in `$XDG_DATA_HOME/kadunce/open-together.json` with
 how often it has been seen. A set needs two applications. Kadunce switched on
 with windows already open gathers nothing, and applications brought back are
 not counted. The 32 most recently seen sets are kept.
+
+## Saved layouts
+
+A driving program keeps named desks: groups of applications on one workspace,
+each a lone card or one Stack. Kadunce reads the desk shown and arranges a
+desk from groups; it never launches an application. Shuffle Core keeps the
+layouts, launches what is not running and asks Kadunce for the rest.
+
+| Call | Result |
+| --- | --- |
+| `layoutProtocolVersion()` | `1` |
+| `currentLayout()` | `workspace`, and `groups`, each `apps` and `stack` |
+| `arrangeLayout(requestToken, groups)` | `accepted`, `launch` and `alreadyOpen`, or `reason`: `busy` or `empty` |
+| `cancelLayout(requestToken)` | applications not yet come are missed |
+| signal `layoutAppPlaced(requestToken, appId, placed)` | one application's window went to its place, or could not |
+| signal `layoutFinished(requestToken, placed, missed)` | the arrangement is over |
+
+`groups` is an array of dictionaries (`aa{sv}`), `apps` desktop ids, a Stack's
+front first, and `stack` true for two or more applications sharing a Stack.
+
+### Reading the desk
+
+`currentLayout` reads the workspace shown on the display in use: its cards left
+to right, each Stack front first, then its panes and other windows, front-most
+first. A window whose application has no desktop file is left out, and an
+application appears once, in its first group.
+
+### Arranging
+
+Groups are cleaned first: blank ids and an application already named go, and a
+group that is not a Stack stands each application alone. An application
+running anywhere uses its front-most window, a shown one before a minimized
+one; every other is in `launch`, and its first window is claimed as it opens.
+Each window goes to the workspace and display in use and becomes a card there.
+A Stack forms in the listed order as its applications come. Once every
+application has come, or after 60 seconds, the groups lead the row in order,
+the first one in use, and the cards outside the layout follow as they stood.
+A window that does not reach its place within 5 seconds is reported not
+placed. Applications a layout opens are not counted as opened by hand.
+
+One arrangement runs at a time, and never with a bring-back: either answers
+`busy` while the other runs. An empty token or no applications answers
+`empty`. Nothing is closed.

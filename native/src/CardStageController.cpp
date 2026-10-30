@@ -5,6 +5,8 @@
 
 #include "CardStageInternal.h"
 
+#include <QMap>
+
 namespace Kadunce
 {
 
@@ -331,6 +333,68 @@ bool CardStageController::stackBehind(KWin::EffectWindow *face, const QList<KWin
     if (!m_workspace.stackBehind(face, members)) return false;
     syncSelectedStackingOrder();
     standStackWhole(face);
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
+QList<QList<KWin::EffectWindow *>> CardStageController::rowEntries() const
+{
+    QList<QList<KWin::EffectWindow *>> entries;
+    if (!m_active) return entries;
+    const auto &model = m_workspace.model();
+    QMap<int, QList<KWin::EffectWindow *>> byEntry;
+    for (int id = 1; id <= m_workspace.windows().size(); ++id) {
+        const int entry = model.entryIndexForId(id);
+        KWin::EffectWindow *window = m_workspace.windows().at(id - 1).data();
+        if (entry < 0 || !window || byEntry.contains(entry)) continue;
+        QList<KWin::EffectWindow *> members = stackFrontToBack(window);
+        if (members.isEmpty()) members.append(window);
+        byEntry.insert(entry, members);
+    }
+    for (const auto &members : std::as_const(byEntry)) entries.append(members);
+    return entries;
+}
+
+bool CardStageController::arrangeEntries(const QList<QList<KWin::EffectWindow *>> &entries, bool order)
+{
+    if (!m_active || m_cardGrabActive || m_launcherGuestActive) return false;
+    bool changed = false;
+    for (const auto &entry : entries) {
+        if (entry.isEmpty() || liveCardIndex(entry.first()) < 0) continue;
+        if (entry.size() > 1) {
+            changed = restack(entry.first(), entry.mid(1)) || changed;
+            continue;
+        }
+        const int id = liveCardIndex(entry.first()) + 1;
+        for (int guard = 0; m_workspace.stackSizeForId(id) > 1 && guard < 64; ++guard) {
+            if (!m_workspace.releaseMember(id)) break;
+            changed = true;
+        }
+    }
+    if (order) {
+        // Each face in turn is moved to its place; the entries before it are
+        // already where they belong, so moving it leaves them there.
+        int place = 0;
+        KWin::EffectWindow *first = nullptr;
+        for (const auto &entry : entries) {
+            if (entry.isEmpty() || liveCardIndex(entry.first()) < 0) continue;
+            KWin::EffectWindow *face = entry.first();
+            // A face already in an earlier entry, as when a Stack could not
+            // form, stays where that entry is.
+            if (!m_workspace.selectCard(liveCardIndex(face) + 1) || m_workspace.selectedIndex() < place) continue;
+            if (!first) first = face;
+            const int movement = std::min(place, m_workspace.count() - 1) - m_workspace.selectedIndex();
+            if (movement != 0) m_workspace.moveSelected(movement);
+            ++place;
+        }
+        if (first) {
+            (void)m_workspace.selectCard(liveCardIndex(first) + 1);
+            changed = true;
+        }
+    }
+    if (!changed) return false;
+    syncSelectedStackingOrder();
+    if (KWin::EffectWindow *selected = selectedWindow()) standStackWhole(selected);
     KWin::effects->addRepaintFull();
     return true;
 }

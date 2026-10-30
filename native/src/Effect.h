@@ -25,6 +25,7 @@
 #include "PendingLaunch.h"
 #include "SessionEndHold.h"
 #include "WorkspaceMemory.h"
+#include "SavedLayout.h"
 #include "PlacementAim.h"
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
@@ -221,6 +222,12 @@ public Q_SLOTS:
     Q_SCRIPTABLE void dismissSavedSession();
     Q_SCRIPTABLE QVariantList openTogether();
     Q_SCRIPTABLE void forgetWorkspaceMemory();
+    // Saved layouts (docs/REQUESTS.md § Saved layouts): the desk on the
+    // workspace and display in use as groups, and arranging one from groups.
+    Q_SCRIPTABLE int layoutProtocolVersion() const { return 1; }
+    Q_SCRIPTABLE QVariantMap currentLayout();
+    Q_SCRIPTABLE QVariantMap arrangeLayout(const QString &requestToken, const QList<QVariantMap> &groups);
+    Q_SCRIPTABLE void cancelLayout(const QString &requestToken);
     Q_SCRIPTABLE bool toggleBentoOnOutput(const QString &outputName);
     // A strip along a display's top edge kept from Table's pull, in that
     // display's own coordinates, under the caller's key; held until cleared or
@@ -285,6 +292,8 @@ Q_SIGNALS:
     Q_SCRIPTABLE void appBroughtBack(const QString &requestToken, const QString &appId,
                                      const QString &windowId, bool placed);
     Q_SCRIPTABLE void bringBackFinished(const QString &requestToken, int placed, int missed);
+    Q_SCRIPTABLE void layoutAppPlaced(const QString &requestToken, const QString &appId, bool placed);
+    Q_SCRIPTABLE void layoutFinished(const QString &requestToken, int placed, int missed);
 
 private:
     // A touchscreen driving a display decides which backend owns the top and
@@ -740,6 +749,28 @@ private:
     void placeBroughtBack(QList<Memory::ReadyPlacement> ready);
     void finishBringBackIfDone();
     [[nodiscard]] QSet<QString> workspacesAwaitedByBringBack() const;
+    // A saved layout being arranged (SavedLayout.h): its windows come to the
+    // workspace and display in use as they open, become cards, and form
+    // their Stacks; the row is put in order once every app has come or the
+    // wait is over. Never at the same time as a bring-back.
+    std::optional<SavedLayouts::LayoutRun> m_layoutRun;
+    QString m_layoutDesktop;
+    QString m_layoutOutput;
+    // When each window became ready, and the windows already sent to their
+    // place once, by window id.
+    QHash<QString, qint64> m_layoutReadySince;
+    QSet<QString> m_layoutSent;
+    quint64 m_layoutGeneration = 0;
+    static constexpr int LayoutWaitMs = 60000;
+    static constexpr int LayoutSettleMs = 5000;
+    static constexpr int LayoutTickMs = 150;
+    bool claimLayoutWindow(KWin::EffectWindow *window);
+    void completeLayoutForWindow(KWin::EffectWindow *window);
+    void settleLayout();
+    void arrangeLayoutCards(bool order);
+    [[nodiscard]] bool layoutWindowSettled(KWin::EffectWindow *window, KWin::LogicalOutput *output,
+                                           KWin::VirtualDesktop *desktop);
+    [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window) const;
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.

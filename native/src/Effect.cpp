@@ -776,6 +776,8 @@ Effect::Effect()
         connectManagedWindow(window);
     }
 
+    // A saved layout's groups arrive as an array of dictionaries.
+    qDBusRegisterMetaType<QList<QVariantMap>>();
     if (!QDBusConnection::sessionBus().registerObject(
             QStringLiteral("/Kadunce"),
             QStringLiteral("co.goodinput.Kadunce"), this,
@@ -1343,8 +1345,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         centreFloatingWindow(window);
         return;
     }
-    // A window a bring-back waits for is claimed before it is admitted.
-    claimBroughtBackWindow(window);
+    // A window a saved layout or a bring-back waits for is claimed before it
+    // is admitted.
+    if (!claimLayoutWindow(window)) claimBroughtBackWindow(window);
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     // §11, Every display: the display it opens on takes it.
@@ -1370,6 +1373,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             observeCardOwnership();
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
+            completeLayoutForWindow(candidate);
             return;
         }
         // §3: a display that can own cards and holds none takes the arrival
@@ -1377,6 +1381,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
+            completeLayoutForWindow(candidate);
             return;
         }
         // §11, Connected: a window opening beside the one card shown joins it
@@ -1411,6 +1416,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         observeCardOwnership();
         completePlacementForWindow(candidate);
         completeBringBackForWindow(candidate);
+        completeLayoutForWindow(candidate);
     };
     QTimer::singleShot(0, this, admitReadyWindow);
     if (window->window() && !window->window()->readyForPainting())

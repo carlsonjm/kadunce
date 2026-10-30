@@ -214,6 +214,14 @@ public:
     // Stacks cards that stand alone behind face, as a stack carried here from
     // another desktop left it. Not an ownership transition.
     bool stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
+    // The row's entries left to right, each a lone card or a Stack front
+    // first (SavedLayout.h).
+    [[nodiscard]] QList<QList<KWin::EffectWindow *>> rowEntries() const;
+    // A saved layout's cards as entries: each list of two or more becomes
+    // one Stack in that order, and a list of one stands alone, out of any
+    // Stack it was in. With `order`, the entries then lead the row in the
+    // order given, the first one selected; other cards follow as they stood.
+    bool arrangeEntries(const QList<QList<KWin::EffectWindow *>> &entries, bool order);
     // Whether the window belongs to the display's layout while Spread shows
     // it: a pane of it, or a window sleeping with it, each a card of its own
     // in the row.
