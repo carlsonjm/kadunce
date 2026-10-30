@@ -87,6 +87,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectSavedLayouts.cpp
         src/SavedLayout.h
         src/SessionEndHold.h
+        src/SignInBurst.h
         src/WorkspaceMemory.h
         src/EffectShared.h
         src/DesktopRemoval.h
@@ -268,6 +269,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-saved-layout-test PRIVATE src)
     target_link_libraries(kadunce-saved-layout-test PRIVATE Qt6::Core)
     add_test(NAME saved-layout COMMAND kadunce-saved-layout-test)
+    add_executable(kadunce-sign-in-burst-test tests/SignInBurstTest.cpp)
+    target_include_directories(kadunce-sign-in-burst-test PRIVATE src)
+    target_link_libraries(kadunce-sign-in-burst-test PRIVATE Qt6::Core)
+    add_test(NAME sign-in-burst COMMAND kadunce-sign-in-burst-test)
     add_executable(kadunce-desktop-removal-test tests/DesktopRemovalTest.cpp)
     target_include_directories(kadunce-desktop-removal-test PRIVATE src)
     target_link_libraries(kadunce-desktop-removal-test PRIVATE Qt6::Core)

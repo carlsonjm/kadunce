@@ -370,13 +370,12 @@ gives the yielding pane to that side.
 
 ### While an individual card is Active
 
-The new window becomes a new individual Active card.
-
-The previous Active card stays an individual Spread neighbor.
+The new window becomes Active; the previous card stays a neighbor. Apps
+reopened at sign-in wait behind; the last then shows.
 
 ### While Spread is open
 
-The new window becomes an individual card, the selected Spread entry.
+The new window becomes the selected Spread entry.
 
 ## 9. Ordinary stacks
 

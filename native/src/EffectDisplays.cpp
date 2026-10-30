@@ -396,6 +396,11 @@ bool Effect::layoutLeavesRoomForCardStage() const
     return output && m_desktopStage->presentsPlacedLayoutOn(output->name());
 }
 
+bool Effect::arrangingForCardStage() const
+{
+    return m_bringBack.has_value() || m_layoutRun.has_value();
+}
+
 KWin::LogicalOutput *Effect::tabletOutput() const
 {
     if (m_cardOutputName.isEmpty()) return nullptr;

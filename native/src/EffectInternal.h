@@ -333,6 +333,11 @@ public:
         SessionScope scope(m_effect, m_session, m_key);
         return cards().layoutLeavesRoomForCardStage();
     }
+    bool arrangingForCardStage() const override
+    {
+        SessionScope scope(m_effect, m_session, m_key);
+        return cards().arrangingForCardStage();
+    }
     bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session, m_key);
