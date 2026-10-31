@@ -269,35 +269,68 @@ void Effect::settleLayout()
 
 void Effect::arrangeLayoutCards(bool order)
 {
-    if (!m_layoutRun || !m_currentSession) return;
-    KWin::LogicalOutput *output = screenNamed(m_layoutOutput);
+    if (!m_layoutRun) return;
+    // Put in order at the end, a Stack Cards could not form yet, as while
+    // Search is still leaving, is tried again until it stands.
+    const auto generation = ++m_layoutStandGeneration;
+    standLayout(m_layoutRun->entries(), m_layoutOutput, m_layoutDesktop, order, order ? LayoutStandTries : 0,
+                generation);
+}
+
+QString Effect::layoutRoleOf(KWin::EffectWindow *window)
+{
+    if (!window || window->isDeleted()) return QStringLiteral("gone");
+    SessionScope scope(this, m_currentSession, stageKeyOf(window));
+    if (m_desktopStage->managesWindow(window)) return QStringLiteral("pane");
+    if (m_cardStage->liveCardIndex(window) >= 0) return QStringLiteral("card");
+    return QStringLiteral("window");
+}
+
+void Effect::standLayout(const QList<QStringList> &ids, const QString &outputName, const QString &desktopId,
+                         bool order, int tries, quint64 generation)
+{
+    if (generation != m_layoutStandGeneration || !m_currentSession) return;
+    // A hand moving a window since leaves the desk to it.
+    if (tries < LayoutStandTries && (m_carriedWindow || m_nativeCarry || m_releasing)) return;
+    KWin::LogicalOutput *output = screenNamed(outputName);
     if (!output) output = KWin::effects->activeScreen();
     KWin::VirtualDesktop *current = KWin::effects->currentDesktop();
     // A layout's workspace not shown forms its cards when it is entered.
-    if (!output || !current || current->id() != m_layoutDesktop) return;
+    if (!output || !current || current->id() != desktopId) return;
     QList<QList<KWin::EffectWindow *>> entries;
-    for (const auto &ids : m_layoutRun->entries()) {
+    for (const auto &group : ids) {
         QList<KWin::EffectWindow *> windows;
-        for (const auto &id : ids)
+        for (const auto &id : group)
             for (KWin::EffectWindow *candidate : KWin::effects->stackingOrder())
                 if (candidate && !candidate->isDeleted() && windowIdentity(candidate) == id) windows.append(candidate);
         if (!windows.isEmpty()) entries.append(windows);
     }
     if (entries.isEmpty()) return;
+    QStringList unformed;
+    QString busy;
+    {
+        SessionScope scope(this, m_currentSession, stageKeyFor(output));
+        if (!m_cardStage->isActive()) busy = QStringLiteral("Cards is not running here");
+        else if (m_cardStage->launcherGuestActive()) busy = QStringLiteral("Search is still open");
+        else if (m_cardStage->cardGrabActive()) busy = QStringLiteral("a card is held");
+    }
     // A display showing its layout keeps a Stack as a pane with the rest
     // behind it: the group's first pane stands in front, every other pane of
     // it joins in its order, and its cards wait behind them.
+    QList<QList<KWin::EffectWindow *>> cardStacks;
     for (auto &windows : entries) {
         if (windows.size() < 2) continue;
+        KWin::EffectWindow *front = windows.first();
+        if (layoutRoleOf(front) != QLatin1String("pane")) {
+            cardStacks.append(windows);
+            continue;
+        }
         QList<KWin::EffectWindow *> panes;
         QList<KWin::EffectWindow *> cards;
-        {
-            SessionScope scope(this, m_currentSession, stageKeyFor(output));
-            if (!m_desktopStage->managesWindow(windows.first())) continue;
-            for (KWin::EffectWindow *window : windows) {
-                if (m_desktopStage->managesWindow(window)) panes.append(window);
-                else if (m_cardStage->liveCardIndex(window) >= 0) cards.append(window);
-            }
+        for (KWin::EffectWindow *window : std::as_const(windows)) {
+            const QString role = layoutRoleOf(window);
+            if (role == QLatin1String("pane")) panes.append(window);
+            else if (role == QLatin1String("card")) cards.append(window);
         }
         for (qsizetype at = panes.size() - 1; at > 0; --at) {
             bool already = false;
@@ -305,9 +338,10 @@ void Effect::arrangeLayoutCards(bool order)
                 SessionScope scope(this, m_currentSession, stageKeyOf(panes.at(at)));
                 already = m_cardStage->paneStack(panes.at(at - 1)).contains(panes.at(at));
             }
-            if (!already) (void)stackPaneOnto(panes.at(at - 1), panes.at(at));
+            if (already) continue;
+            SessionScope scope(this, m_currentSession, stageKeyOf(panes.at(at)));
+            (void)stackPaneOnto(panes.at(at - 1), panes.at(at));
         }
-        KWin::EffectWindow *front = panes.first();
         if (!cards.isEmpty()) {
             SessionScope scope(this, m_currentSession, stageKeyOf(front));
             QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(front);
@@ -316,8 +350,24 @@ void Effect::arrangeLayoutCards(bool order)
             m_cardStage->notePaneStack(front, behind);
             m_cardStage->settlePaneStacks();
         }
-        qInfo() << "Kadunce" << Revision << "stood a layout's Stack of" << windows.size() << "with"
-                << logNameOf(front) << "in front";
+        // It stands when every other one waits behind the front pane, and
+        // Cards was free to set them there.
+        bool formed = busy.isEmpty();
+        {
+            SessionScope scope(this, m_currentSession, stageKeyOf(front));
+            const auto behind = m_cardStage->paneStack(front);
+            for (KWin::EffectWindow *window : std::as_const(windows))
+                if (window != front && !behind.contains(window)) formed = false;
+        }
+        if (formed) {
+            qInfo() << "Kadunce" << Revision << "stood a layout's Stack of" << windows.size() << "with"
+                    << logNameOf(front) << "in front";
+        } else {
+            QStringList roles;
+            for (KWin::EffectWindow *window : std::as_const(windows))
+                roles.append(logNameOf(window) + QLatin1Char(' ') + layoutRoleOf(window));
+            unformed.append(roles.join(QStringLiteral(", ")));
+        }
         // Every one of them now stands in the pane's Stack.
         windows = {front};
     }
@@ -328,12 +378,43 @@ void Effect::arrangeLayoutCards(bool order)
         for (auto &windows : entries)
             windows.removeIf([this](KWin::EffectWindow *window) { return m_cardStage->liveCardIndex(window) < 0; });
         entries.removeIf([](const auto &windows) { return windows.isEmpty(); });
-        if (entries.isEmpty() || !m_cardStage->arrangeEntries(entries, order)) return;
-        first = entries.first().first();
+        if (!entries.isEmpty() && m_cardStage->arrangeEntries(entries, order)) first = entries.first().first();
+        // A Stack of cards stands when its front holds every one of them.
+        for (const auto &windows : std::as_const(cardStacks)) {
+            const auto stood = m_cardStage->stackFrontToBack(windows.first());
+            bool formed = stood.size() == windows.size();
+            for (KWin::EffectWindow *window : windows) formed = formed && stood.contains(window);
+            if (formed) {
+                qInfo() << "Kadunce" << Revision << "stood a layout's Stack of" << windows.size() << "cards with"
+                        << logNameOf(windows.first()) << "in front";
+                continue;
+            }
+            QStringList roles;
+            for (KWin::EffectWindow *window : windows) {
+                const QString role = m_cardStage->liveCardIndex(window) >= 0 ? QStringLiteral("card here")
+                                                                                : layoutRoleOf(window);
+                roles.append(logNameOf(window) + QLatin1Char(' ') + role);
+            }
+            unformed.append(roles.join(QStringLiteral(", ")));
+        }
     }
-    observeCardOwnership();
-    // The first group is the card in use.
-    if (order && first) (void)activateApplicationWindow(windowIdentity(first));
+    if (first) observeCardOwnership();
+    // The first group is the card in use: so at once, and again once a
+    // Stack that waited stands.
+    if (first && order && (tries == LayoutStandTries || unformed.isEmpty()))
+        (void)activateApplicationWindow(windowIdentity(first));
+    if (unformed.isEmpty() || tries <= 0) {
+        if (!unformed.isEmpty() && order)
+            qInfo() << "Kadunce" << Revision << "could not stand a layout's Stack on" << output->name() << ":"
+                    << unformed << (busy.isEmpty() ? QString() : QStringLiteral("while ") + busy);
+        return;
+    }
+    if (tries == LayoutStandTries)
+        qInfo() << "Kadunce" << Revision << "waits to stand a layout's Stack on" << output->name() << ":" << unformed
+                << (busy.isEmpty() ? QString() : QStringLiteral("while ") + busy);
+    QTimer::singleShot(LayoutStandRetryMs, this, [this, ids, outputName, desktopId, order, tries, generation] {
+        standLayout(ids, outputName, desktopId, order, tries - 1, generation);
+    });
 }
 
 } // namespace Kadunce

@@ -154,7 +154,8 @@ order, and its cards wait behind them. Once every
 application has come, or after 60 seconds, the groups lead the row in order,
 the first one in use, and the cards outside the layout follow as they stood.
 A window that does not reach its place within 5 seconds is reported not
-placed. Applications a layout opens are not counted as opened by hand.
+placed. A Stack Cards cannot form at once, as while Search is still closing,
+is tried again for six seconds, and the log names what kept it apart. Applications a layout opens are not counted as opened by hand.
 
 One arrangement runs at a time, and never with a bring-back: either answers
 `busy` while the other runs. An empty token or no applications answers

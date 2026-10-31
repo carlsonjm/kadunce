@@ -784,6 +784,15 @@ private:
     void completeLayoutForWindow(KWin::EffectWindow *window);
     void settleLayout();
     void arrangeLayoutCards(bool order);
+    // Forms the layout's Stacks and puts its row in order; a Stack that does
+    // not stand yet is tried again `tries` more times.
+    void standLayout(const QList<QStringList> &ids, const QString &outputName, const QString &desktopId, bool order,
+                     int tries, quint64 generation);
+    // pane, card, window or gone, as the stage holding it sees it, for the log.
+    [[nodiscard]] QString layoutRoleOf(KWin::EffectWindow *window);
+    quint64 m_layoutStandGeneration = 0;
+    static constexpr int LayoutStandTries = 30;
+    static constexpr int LayoutStandRetryMs = 200;
     [[nodiscard]] bool layoutWindowSettled(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                                            KWin::VirtualDesktop *desktop);
     [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window) const;
