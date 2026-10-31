@@ -84,6 +84,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectPaint.cpp
         src/EffectGuest.cpp
         src/EffectMemory.cpp
+        src/EffectSignInGlass.cpp
         src/EffectSavedLayouts.cpp
         src/SavedLayout.h
         src/SessionEndHold.h
