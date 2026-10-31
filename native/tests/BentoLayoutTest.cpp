@@ -975,10 +975,15 @@ int main()
                 "A column was widened past what the others allow");
             require(!bentoColumnsResize(layout, 9, .5, least), "A window the layout does not hold was resized");
         }
-        require(appKindFromCategories({"System", "TerminalEmulator"}) == AppKind::Terminal
-                && appKindFromCategories({"Network", "WebBrowser"}) == AppKind::Browser
-                && appKindFromCategories({"Qt", "KDE", "System", "FileManager"}) == AppKind::Files
-                && appKindFromCategories({"Utility"}) == AppKind::Other,
+        const auto kindOf = [](std::initializer_list<const char *> names) {
+            QStringList categories;
+            for (const char *name : names) categories.append(QString::fromLatin1(name));
+            return appKindFromCategories(categories);
+        };
+        require(kindOf({"System", "TerminalEmulator"}) == AppKind::Terminal
+                && kindOf({"Network", "WebBrowser"}) == AppKind::Browser
+                && kindOf({"Qt", "KDE", "System", "FileManager"}) == AppKind::Files
+                && kindOf({"Utility"}) == AppKind::Other,
             "An application's kind was misread from its categories");
         require(!naturalSizeFor(AppKind::Other, QSizeF(1920, 1080))
                 && naturalSizeFor(AppKind::Browser, QSizeF(1024, 700)) == QSizeF(1024, 700),
