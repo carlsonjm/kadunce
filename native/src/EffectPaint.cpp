@@ -911,6 +911,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // A display with no panel or splash drawn over it takes the sign-in
     // glass over everything.
     drawSignInGlass(renderTarget, viewport, nullptr);
+    drawSignInBlack(renderTarget, viewport, screen);
     if (m_sessionEnd.on) drawSessionEndGlass(renderTarget, viewport, screen);
     // §11: an offered card's picture is kept once the scene has drawn it this
     // frame, so a sleeping window's newest content is what is kept; taken

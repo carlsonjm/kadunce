@@ -1590,6 +1590,8 @@ private:
         QElapsedTimer clearingSince;
         QPointer<KWin::EffectWindow> front;
         QElapsedTimer frontSince;
+        // Running when there is no splash: the glass comes up from black.
+        QElapsedTimer fromBlack;
     };
     struct SignInGlassSpy;
     SignInGlass m_signInGlass;
@@ -1603,6 +1605,7 @@ private:
     static constexpr int SignInGlassLongestMs = 10000;
     static constexpr int SignInGlassDissolveMs = 300;
     static constexpr int SignInFrontGrowMs = 260;
+    static constexpr int SignInFromBlackMs = 1000;
     static constexpr double SignInFrontStartScale = 0.96;
     void beginSignInGlass(bool windowsOpen);
     void clearSignInGlass(const char *why);
@@ -1614,6 +1617,8 @@ private:
     [[nodiscard]] bool waitsBehindSignInGlass(KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
     void drawSignInGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                          KWin::EffectWindow *under);
+    void drawSignInBlack(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                         KWin::LogicalOutput *screen);
     void growSignInFront(KWin::EffectWindow *window, int &mask, KWin::WindowPaintData &data) const;
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal

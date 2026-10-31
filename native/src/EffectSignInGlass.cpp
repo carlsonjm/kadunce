@@ -10,6 +10,7 @@
 #include <input_event_spy.h>
 
 #include <QFile>
+#include <QStandardPaths>
 
 #include <unistd.h>
 
@@ -34,6 +35,24 @@ qint64 compositorAgeMs()
     const double startedS = fields.at(19).toDouble() / double(ticks > 0 ? ticks : 100);
     const double upS = uptime.readAll().split(' ').value(0).toDouble();
     return qint64((upS - startedS) * 1000.0);
+}
+
+// Whether this session starts with a splash: KDE's splash setting names an
+// engine, "none" when the person switched it off.
+bool splashRuns()
+{
+    const QString config = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+        + QStringLiteral("/ksplashrc");
+    QFile file(config);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return true;
+    bool inGroup = false;
+    while (!file.atEnd()) {
+        const QString line = QString::fromUtf8(file.readLine()).trimmed();
+        if (line.startsWith(QLatin1Char('['))) inGroup = line == QLatin1String("[KSplash]");
+        else if (inGroup && line.startsWith(QLatin1String("Engine=")))
+            return line.mid(7).compare(QLatin1String("none"), Qt::CaseInsensitive) != 0;
+    }
+    return true;
 }
 
 bool isSplash(const KWin::EffectWindow *window)
@@ -74,6 +93,9 @@ void Effect::beginSignInGlass(bool windowsOpen)
     m_signInGlass = SignInGlass{};
     m_signInGlass.on = true;
     m_signInGlass.lastStep.start();
+    // The splash comes up from black over the sign-in screen's hand-off;
+    // with no splash, the glass itself comes up from black, alike.
+    if (!splashRuns()) m_signInGlass.fromBlack.start();
     m_signInGlassCap.setSingleShot(true);
     connect(&m_signInGlassCap, &QTimer::timeout, this, [this] { clearSignInGlass("its time ran out"); });
     m_signInGlassCap.start(SignInGlassLongestMs);
@@ -128,7 +150,9 @@ void Effect::stepSignInGlass(KWin::ScreenPrePaintData &data)
     const int dissolve = motionDuration(SignInGlassDissolveMs, KWin::effects->animationTimeFactor());
     const int grow = motionDuration(SignInFrontGrowMs, KWin::effects->animationTimeFactor());
     if (m_signInGlass.clearing && m_signInGlass.clearingSince.elapsed() >= dissolve
-        && (!m_signInGlass.frontSince.isValid() || m_signInGlass.frontSince.elapsed() >= grow)) {
+        && (!m_signInGlass.frontSince.isValid() || m_signInGlass.frontSince.elapsed() >= grow)
+        && (!m_signInGlass.fromBlack.isValid()
+            || m_signInGlass.fromBlack.elapsed() >= motionDuration(SignInFromBlackMs, KWin::effects->animationTimeFactor()))) {
         m_signInGlass = SignInGlass{};
         KWin::effects->addRepaintFull();
         return;
@@ -148,6 +172,28 @@ void Effect::stepSignInGlass(KWin::ScreenPrePaintData &data)
     }
     if (data.screen) data.paint |= KWin::Rect(QRectF(data.screen->geometryF()).toAlignedRect());
     m_continueRepaint = true;
+}
+
+void Effect::drawSignInBlack(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                             KWin::LogicalOutput *screen)
+{
+    if (!m_signInGlass.on || !m_signInGlass.fromBlack.isValid() || !screen) return;
+    const int rise = motionDuration(SignInFromBlackMs, KWin::effects->animationTimeFactor());
+    const double t = rise > 0 ? std::clamp(double(m_signInGlass.fromBlack.elapsed()) / rise, 0.0, 1.0) : 1.0;
+    // Eased as the session's end darkens, the other way round.
+    const double black = 1.0 - (1.0 - std::pow(1.0 - t, 3.0));
+    if (black <= 0.0) return;
+    const QRectF whole(screen->geometryF());
+    QList<QRectF> parts;
+    for (const auto &dirty : m_paintingRegion.rects()) {
+        const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
+        if (!part.isEmpty()) parts.append(part);
+    }
+    // The fill's box reaches well past the display, so its rounded corners
+    // fall outside and black meets every edge.
+    const qreal corner = 64.0;
+    fillDestinationParts(renderTarget, viewport, parts, whole.adjusted(-corner, -corner, corner, corner),
+                         float(black), 0.f, QVector3D(0.f, 0.f, 0.f));
 }
 
 float Effect::signInGlassStrength() const
