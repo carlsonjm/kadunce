@@ -14,16 +14,6 @@ namespace
 {
 // How long room a panel gave up must stay free before the Active card takes it.
 constexpr int WorkAreaGrowWait = 6000;
-
-// Time since the session started. Cards loads with KWin, which starts with
-// the session; a display added later shares the clock rather than starting
-// one of its own.
-qint64 sessionMs()
-{
-    static QElapsedTimer clock;
-    if (!clock.isValid()) clock.start();
-    return clock.elapsed();
-}
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -49,10 +39,6 @@ CardStageController::CardStageController(CardStageHost *host)
                 << (tuning.stackBehindShown ? "shown" : "hidden") << "; Spread peek" << tuning.spreadPeek << "; shadow" << tuning.shadow;
         KWin::effects->addRepaintFull();
     });
-    (void)sessionMs();
-    m_signInSettleTimer.setSingleShot(true);
-    QObject::connect(&m_signInSettleTimer, &QTimer::timeout, &m_signInSettleTimer,
-        [this]() { settleSignInBurst(); });
     m_arrivalTimer.setSingleShot(true);
     QObject::connect(&m_arrivalTimer, &QTimer::timeout, &m_arrivalTimer, [this]() {
         const auto window = m_arrivalWindow;
@@ -1233,11 +1219,6 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
 
     const bool animateArrival = m_presentation == CardPresentation::Spread
         && !m_launcherGuestActive && !m_cardGrabActive;
-    const bool atSignIn = m_host->reopenedAtSignInForCardStage(window) && m_signInBurst.arrive(sessionMs());
-    if (atSignIn && m_presentation == CardPresentation::Active && !m_launcherGuestActive
-        && !m_cardGrabActive && admitBehindAtSignIn(window, m_workspace.selectedIndex())) {
-        return true;
-    }
     m_host->cancelInputForCardStage();
     if (animateArrival) captureCardTransition();
     finishCardGrab(false);
@@ -1247,11 +1228,6 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     m_presentation = CardPresentation::Spread;
     int previousSelection = m_workspace.selectedIndex();
     m_workspace.append(window, animateArrival || m_launcherGuestActive);
-    if (atSignIn) {
-        // The first the session brings back is shown; the rest wait behind it.
-        m_signInBehind.append(window);
-        m_signInSettleTimer.start(std::max<qint64>(0, m_signInBurst.settlesAt() - sessionMs()));
-    }
     if (!m_openingClock.isValid()) m_openingClock.start();
     // Those past their opening are forgotten as each new one arrives.
     m_openedAt.removeIf([this](const auto &entry) {
@@ -1263,56 +1239,6 @@ bool CardStageController::handleWindowAdded(KWin::EffectWindow *window)
     m_host->connectManagedWindowForCardStage(window);
     finishNewArrival(window, animateArrival, previousSelection);
     return true;
-}
-
-bool CardStageController::admitBehindAtSignIn(KWin::EffectWindow *window, int previousSelection)
-{
-    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
-    if (!selectedWindow() || !tablet) return false;
-    m_workspace.append(window, false);
-    if (m_workspace.selectedIndex() <= previousSelection) ++previousSelection;
-    m_workspace.selectIndex(previousSelection);
-    if (!m_openingClock.isValid()) m_openingClock.start();
-    m_openedAt.removeIf([this](const auto &entry) {
-        return m_openingClock.elapsed() - entry.value() > OpeningStateGrace;
-    });
-    m_openedAt.insert(window, m_openingClock.elapsed());
-    retainManagedOwnership(window);
-    m_originalCardStackingOrder.append(window);
-    m_host->connectManagedWindowForCardStage(window);
-    m_signInBehind.append(window);
-    settleCardsInActivePlace({window}, tablet);
-    // The card shown stays in front and keeps the keys: KWin raised and
-    // focused the newcomer as it mapped.
-    syncSelectedElevation();
-    if (!enterActive()) m_presentation = CardPresentation::Spread;
-    m_signInSettleTimer.start(std::max<qint64>(0, m_signInBurst.settlesAt() - sessionMs()));
-    KWin::effects->addRepaintFull();
-    qInfo() << "Kadunce" << Revision << "took" << logNameOf(window)
-            << "in behind the Active card as the session starts;" << m_signInBurst.count()
-            << "arrived together so far";
-    return true;
-}
-
-void CardStageController::settleSignInBurst()
-{
-    m_signInBurst.end();
-    const QList<QPointer<KWin::EffectWindow>> arrived = std::exchange(m_signInBehind, {});
-    // The app in use when the last sign-in ended, else the last to come.
-    KWin::EffectWindow *last = nullptr;
-    KWin::EffectWindow *used = nullptr;
-    for (const auto &window : arrived) {
-        if (!window || window->isDeleted() || liveCardIndex(window) < 0) continue;
-        last = window;
-        if (!used && m_host->usedAtSignOutForCardStage(window)) used = window;
-    }
-    if (used) last = used;
-    if (arrived.size() < 2 || !last) return;
-    qInfo() << "Kadunce" << Revision << "the session's" << arrived.size()
-            << "returning apps settled; showing" << logNameOf(last);
-    if (!m_active || m_presentation != CardPresentation::Active || m_cardGrabActive
-        || m_launcherGuestActive || selectedWindow() == last) return;
-    handleWindowActivated(last);
 }
 
 void CardStageController::finishNewArrival(KWin::EffectWindow *window,
@@ -1473,13 +1399,6 @@ void CardStageController::handleWindowActivated(KWin::EffectWindow *window)
         return;
     }
     if (window == m_arrivalWindow) return; // Let its center/expand sequence finish.
-    // KWin focuses each app the session brings back as it maps; they wait
-    // behind the card shown until they settle, so the shown card keeps it.
-    if (m_signInBurst.open(sessionMs()) && window != selectedWindow()
-        && m_signInBehind.contains(window) && m_presentation == CardPresentation::Active) {
-        if (!enterActive()) m_presentation = CardPresentation::Spread;
-        return;
-    }
     if (m_closeHandoff && m_presentation == CardPresentation::Spread) {
         qInfo() << "Kadunce" << Revision << "kept Spread as a closed card handed the focus to"
                 << logNameOf(window);

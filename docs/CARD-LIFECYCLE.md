@@ -371,7 +371,7 @@ gives the yielding pane to that side.
 ### While an individual card is Active
 
 The new window becomes Active; the previous card stays a neighbor. Apps
-reopened at sign-in wait behind; the one last used shows.
+reopened at sign-in wait unseen; the one last used shows.
 
 ### While Spread is open
 

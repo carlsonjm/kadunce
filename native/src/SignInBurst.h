@@ -11,9 +11,10 @@ namespace Kadunce
 // left open at sign-out a few hundred milliseconds apart, just after the
 // splash goes, and each one taken in as the Active card would show full
 // screen in turn. Those arriving close together at the start join one burst
-// and wait behind the card already shown; once no more have come for
-// `QuietMs`, or the burst has run `LongestMs`, one is shown. A window opened
-// later, or after a gap, is the person's own and is shown as it comes.
+// and wait out of sight; once no more have come for `QuietMs`, or the burst
+// has run `LongestMs`, they all become cards at once and one is shown. A
+// window opened later, or after a gap, is the person's own and is shown as
+// it comes.
 class SignInBurst
 {
 public:

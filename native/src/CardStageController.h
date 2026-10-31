@@ -17,7 +17,6 @@
 #include "RowTravel.h"
 #include "CarryRow.h"
 #include "ActiveSlide.h"
-#include "SignInBurst.h"
 
 #include <effect/effectwindow.h>
 
@@ -122,12 +121,6 @@ public:
     // Whether the layout this display presents was placed by a side snap, so
     // it can leave room open where the desktop shows (CARD-LIFECYCLE.md §11).
     [[nodiscard]] virtual bool layoutLeavesRoomForCardStage() const { return false; }
-    // Whether the window's app was open when the last sign-in ended, so its
-    // session reopening it brings it back, and whether it was the one in
-    // use then. Never while a bring-back or a saved layout is placing the
-    // windows arriving, which are already spoken for.
-    [[nodiscard]] virtual bool reopenedAtSignInForCardStage(const KWin::EffectWindow *) const { return false; }
-    [[nodiscard]] virtual bool usedAtSignOutForCardStage(const KWin::EffectWindow *) const { return false; }
     // Whether this display holds its own cards, beside the one holding Spread.
     [[nodiscard]] virtual bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *) const { return false; }
     // Moves a card to another display holding its own cards with its Stack,
@@ -658,10 +651,6 @@ private:
     bool growSelectedToActive();
     bool m_growingChosen = false;
     void finishNewArrival(KWin::EffectWindow *window, bool animateArrival, int previousSelection);
-    // A window the session brought back as it started waits behind the
-    // Active card; true when it was taken in that way.
-    bool admitBehindAtSignIn(KWin::EffectWindow *window, int previousSelection);
-    void settleSignInBurst();
     bool enterActive();
     void restoreActiveSnapshot();
     void parkActiveSnapshot();
@@ -837,12 +826,6 @@ private:
     std::optional<KWin::Rect> m_heldActivePlace;
     QElapsedTimer m_openingClock;
     static constexpr qint64 OpeningStateGrace = 2000;
-    // Windows the session brings back as it starts wait behind the card
-    // already shown, and the last of them is shown once they settle, rather
-    // than each in turn (SignInBurst.h).
-    SignInBurst m_signInBurst;
-    QList<QPointer<KWin::EffectWindow>> m_signInBehind;
-    QTimer m_signInSettleTimer;
     QPointer<KWin::EffectWindow> m_arrivalWindow;
     bool m_arrivalExpanding = false;
     QList<QPointer<KWin::EffectWindow>> m_originalCardStackingOrder;

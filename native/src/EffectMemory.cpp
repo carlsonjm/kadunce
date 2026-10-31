@@ -16,6 +16,8 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 
+#include <limits>
+
 namespace Kadunce
 {
 
@@ -68,6 +70,9 @@ QString signInId()
 
 void Effect::startWorkspaceMemory()
 {
+    m_sessionStartedMs = steadyMs();
+    m_signInSettle.setSingleShot(true);
+    connect(&m_signInSettle, &QTimer::timeout, this, &Effect::settleSignIn);
     m_memory = Memory::MemoryFile::decode(readSmallFile(memoryPath()));
     m_memory.begin(signInId());
     m_openTogether = Memory::OpenTogetherLog::decode(readSmallFile(openTogetherPath()));
@@ -237,20 +242,60 @@ QVariantMap Effect::bringBack(const QString &requestToken)
     };
 }
 
-bool Effect::reopenedAtSignInForCardStage(const KWin::EffectWindow *window) const
+const Memory::RememberedWindow *Effect::rememberedAtSignOut(const KWin::EffectWindow *window) const
 {
-    if (m_bringBack || m_layoutRun || !m_memory.hasOffer() || !isApplicationWindow(window)) return false;
+    if (!m_memory.hasOffer() || !isApplicationWindow(window)) return nullptr;
     const QString app = LaunchIdentity::normalized(applicationIdentity(window));
-    return !app.isEmpty() && std::any_of(m_memory.offered->windows.cbegin(), m_memory.offered->windows.cend(),
-        [&app](const auto &remembered) { return LaunchIdentity::normalized(remembered.appId) == app; });
+    if (app.isEmpty()) return nullptr;
+    // The first of its windows, or the one in use, as it stood.
+    const Memory::RememberedWindow *found = nullptr;
+    for (const auto &remembered : m_memory.offered->windows) {
+        if (LaunchIdentity::normalized(remembered.appId) != app) continue;
+        if (remembered.active) return &remembered;
+        if (!found) found = &remembered;
+    }
+    return found;
 }
 
-bool Effect::usedAtSignOutForCardStage(const KWin::EffectWindow *window) const
+bool Effect::holdForSignIn(KWin::EffectWindow *window, const std::function<void()> &admit)
 {
-    if (!m_memory.hasOffer() || !isApplicationWindow(window)) return false;
-    const QString app = LaunchIdentity::normalized(applicationIdentity(window));
-    return !app.isEmpty() && std::any_of(m_memory.offered->windows.cbegin(), m_memory.offered->windows.cend(),
-        [&app](const auto &remembered) { return remembered.active && LaunchIdentity::normalized(remembered.appId) == app; });
+    if (std::any_of(m_signInHeld.cbegin(), m_signInHeld.cend(), [window](const auto &held) { return held.window == window; }))
+        return true;
+    // A bring-back or a saved layout places its own windows.
+    if (m_bringBack || m_layoutRun || !window->window() || !rememberedAtSignOut(window)) return false;
+    if (!m_signInBurst.arrive(steadyMs() - m_sessionStartedMs)) return false;
+    window->window()->setHidden(true);
+    m_signInHeld.append({window, admit});
+    m_signInSettle.start(int(std::max<qint64>(0, m_signInBurst.settlesAt() - (steadyMs() - m_sessionStartedMs))));
+    qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(window) << "out of sight as the session reopens it;"
+            << m_signInBurst.count() << "so far";
+    return true;
+}
+
+void Effect::settleSignIn()
+{
+    m_signInBurst.end();
+    QList<SignInHeld> held = std::exchange(m_signInHeld, {});
+    held.removeIf([](const auto &entry) { return !entry.window || entry.window->isDeleted(); });
+    if (held.isEmpty()) return;
+    // In the order they stood at sign-out; the one in use then is shown.
+    const auto orderOf = [this](const SignInHeld &entry) {
+        const auto *remembered = rememberedAtSignOut(entry.window);
+        return remembered && remembered->order > 0 ? remembered->order : std::numeric_limits<int>::max();
+    };
+    std::stable_sort(held.begin(), held.end(), [&orderOf](const auto &a, const auto &b) { return orderOf(a) < orderOf(b); });
+    QPointer<KWin::EffectWindow> shown;
+    for (const auto &entry : held) {
+        const auto *remembered = rememberedAtSignOut(entry.window);
+        if (!shown && remembered && remembered->active) shown = entry.window;
+    }
+    if (!shown) shown = held.first().window;
+    qInfo() << "Kadunce" << Revision << "the session reopened" << held.size() << "apps; showing" << logNameOf(shown);
+    for (const auto &entry : held) {
+        if (entry.window->window()) entry.window->window()->setHidden(false);
+        entry.admit();
+    }
+    if (shown && !shown->isDeleted()) KWin::effects->activateWindow(shown);
 }
 
 void Effect::cancelBringBack(const QString &requestToken)

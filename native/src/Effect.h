@@ -24,6 +24,7 @@
 #include "PaintResult.h"
 #include "PendingLaunch.h"
 #include "SessionEndHold.h"
+#include "SignInBurst.h"
 #include "WorkspaceMemory.h"
 #include "SavedLayout.h"
 #include "PlacementAim.h"
@@ -450,8 +451,6 @@ private:
     void cardGutterChangedForCardStage() override;
     [[nodiscard]] bool connectedForCardStage() const override;
     [[nodiscard]] bool layoutLeavesRoomForCardStage() const override;
-    [[nodiscard]] bool reopenedAtSignInForCardStage(const KWin::EffectWindow *window) const override;
-    [[nodiscard]] bool usedAtSignOutForCardStage(const KWin::EffectWindow *window) const override;
     [[nodiscard]] bool holdsOwnCardsForCardStage(const KWin::LogicalOutput *output) const override
     {
         return isOtherCardDisplay(output);
@@ -747,6 +746,21 @@ private:
     quint64 m_bringBackGeneration = 0;
     int m_bringBackPlacing = 0;
     void claimBroughtBackWindow(KWin::EffectWindow *window);
+    // The apps the session reopens as it starts (SignInBurst.h): each one
+    // the last sign-in left open is kept out of sight as it comes, and once
+    // they settle all become cards at once, in the order they stood, the one
+    // in use then shown. Nothing is shown full screen and then replaced.
+    struct SignInHeld {
+        QPointer<KWin::EffectWindow> window;
+        std::function<void()> admit;
+    };
+    SignInBurst m_signInBurst;
+    QList<SignInHeld> m_signInHeld;
+    QTimer m_signInSettle;
+    qint64 m_sessionStartedMs = 0;
+    [[nodiscard]] const Memory::RememberedWindow *rememberedAtSignOut(const KWin::EffectWindow *window) const;
+    bool holdForSignIn(KWin::EffectWindow *window, const std::function<void()> &admit);
+    void settleSignIn();
     void completeBringBackForWindow(KWin::EffectWindow *window);
     void placeBroughtBack(QList<Memory::ReadyPlacement> ready);
     void finishBringBackIfDone();
