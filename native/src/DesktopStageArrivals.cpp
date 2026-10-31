@@ -483,7 +483,10 @@ bool DesktopStageController::stackPaneOnto(KWin::EffectWindow *pane, KWin::Effec
         if (!snapshot.valid) return false;
         candidate.snapshots.append(snapshot);
     } else {
-        // Its room given up, the layout is laid out again as after a closure.
+        // Its room given up, the layout is laid out again as after a closure:
+        // the places dividers gave the panes before are dropped, so the panes
+        // left grow into the room, as after a closure.
+        candidate.rects.clear();
         QList<QPointer<KWin::EffectWindow>> unshowable;
         if (!reflowSession(candidate, nullptr, false, false, &unshowable) || !unshowable.isEmpty()
             || !candidate.windows.contains(paneHandle)) return false;
