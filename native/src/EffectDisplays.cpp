@@ -714,7 +714,12 @@ std::optional<NaturalNeed> Effect::naturalNeedForDesktopStage(const KWin::Effect
     if (kind == m_appKinds.cend()) {
         KService::Ptr service = app.isEmpty() ? KService::Ptr() : KService::serviceByDesktopName(app);
         if (!service && !app.isEmpty()) service = KService::serviceByStorageId(app + QStringLiteral(".desktop"));
-        kind = m_appKinds.insert(app, service ? appKindFromCategories(service->categories()) : AppKind::Other);
+        // An installed application whose desktop file names no kind we know
+        // still stands at a width of its own, as mail does, never an even
+        // share of the display; only a window no desktop file describes
+        // takes what the layout gives it.
+        const AppKind named = service ? appKindFromCategories(service->categories()) : AppKind::Other;
+        kind = m_appKinds.insert(app, service && named == AppKind::Other ? AppKind::Communication : named);
     }
     std::optional<QSizeF> natural = naturalSizeFor(*kind, area);
     const QString key = naturalWidthKey(app, output->geometry().width());
