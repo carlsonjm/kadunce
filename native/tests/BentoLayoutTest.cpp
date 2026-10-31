@@ -1003,9 +1003,9 @@ int main()
                 && kindOf({"Qt", "KDE", "System", "FileManager"}) == AppKind::Files
                 && kindOf({"Utility"}) == AppKind::Other,
             "An application's kind was misread from its categories");
-        require(naturalSizeFor(AppKind::Other, QSizeF(1920, 1080)) == QSizeF(1100, 1080)
+        require(!naturalSizeFor(AppKind::Other, QSizeF(1920, 1080))
                 && naturalSizeFor(AppKind::Browser, QSizeF(1024, 700)) == QSizeF(1024, 700),
-            "An application of no known kind was left without a width, or a size exceeded the area");
+            "A natural size was given where none is known, or exceeded the area");
     }
 
     std::cout << "Bento layout/admission checks passed\n";
