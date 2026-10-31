@@ -161,12 +161,22 @@ float Effect::signInGlassStrength() const
 
 bool Effect::liesOverSignInGlass(KWin::EffectWindow *window) const
 {
-    // The panels, the splash and what stands with them are drawn over the
-    // glass as they are; windows and the desktop are frosted under it.
-    if (!window || !window->window()) return false;
-    return window->isDock() || isSplash(window) || window->isOnScreenDisplay() || window->isNotification()
-        || window->isCriticalNotification()
-        || (window->window()->inherits("KWin::LayerShellV1Window") && !window->isDesktop());
+    // The panels and the splash are drawn over the glass as they are;
+    // windows and the desktop are frosted under it.
+    return window && (window->isDock() || isSplash(window));
+}
+
+bool Effect::waitsBehindSignInGlass(KWin::EffectWindow *window, KWin::WindowPaintData &data) const
+{
+    // A surface standing above the panels, such as the keyboard or a sheet,
+    // would be drawn over glass laid under them: it waits unseen while the
+    // glass stands, and comes in as the glass dissolves.
+    if (!m_signInGlass.on || !window || !window->window() || window->isDesktop() || liesOverSignInGlass(window)
+        || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    const float strength = signInGlassStrength();
+    if (strength >= 1.f) return true;
+    data.multiplyOpacity(1.0 - strength);
+    return false;
 }
 
 void Effect::drawSignInGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,

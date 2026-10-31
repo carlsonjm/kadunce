@@ -446,6 +446,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     // Asked of the stage holding the window, else its display's.
     SessionScope scope(this, m_currentSession, stageKeyOf(window));
     if (m_signInGlass.on && window == m_signInGlass.front) { data.setTransformed(); data.setTranslucent(); }
+    else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
         || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)
         || m_roomOfferShown.contains(window)) {
@@ -1393,6 +1394,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
 {
     drawSettingsFrostUnder(renderTarget, viewport, window);
     drawSignInGlass(renderTarget, viewport, window);
+    if (waitsBehindSignInGlass(window, data)) return paintResult(true);
     growSignInFront(window, mask, data);
     // A panel's fade laid under the windows is drawn over the frost instead.
     if (fadeOverSettingsFrost(window)) return paintResult(true);

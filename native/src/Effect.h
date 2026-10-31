@@ -1611,6 +1611,7 @@ private:
     void stepSignInGlass(KWin::ScreenPrePaintData &data);
     [[nodiscard]] float signInGlassStrength() const;
     [[nodiscard]] bool liesOverSignInGlass(KWin::EffectWindow *window) const;
+    [[nodiscard]] bool waitsBehindSignInGlass(KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
     void drawSignInGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                          KWin::EffectWindow *under);
     void growSignInFront(KWin::EffectWindow *window, int &mask, KWin::WindowPaintData &data) const;
