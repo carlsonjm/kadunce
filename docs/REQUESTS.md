@@ -65,7 +65,7 @@ asks the person and launches the applications; Kadunce never launches one.
 | Call | Result |
 | --- | --- |
 | `workspaceMemoryProtocolVersion()` | `1` |
-| `savedSession()` | `available`, and with it `count`, `apps`, `when`, `clean` and `windows` |
+| `savedSession()` | `available`, and with it `count`, `apps`, `missing`, `when`, `clean` and `windows` |
 | `bringBack(requestToken)` | `accepted`, `launch`, `alreadyOpen` and `count`, or `reason`: `nothing` or `busy` |
 | `cancelBringBack(requestToken)` | applications not yet back are missed |
 | `dismissSavedSession()` | the session is no longer offered |
@@ -74,7 +74,8 @@ asks the person and launches the applications; Kadunce never launches one.
 | signal `appBroughtBack(requestToken, appId, windowId, placed)` | one application's first window went to its place, or could not |
 | signal `bringBackFinished(requestToken, placed, missed)` | the bring-back is over |
 
-`apps`, `launch` and `alreadyOpen` are desktop ids; `when` and `lastSeen` are
+`apps`, `missing`, `launch` and `alreadyOpen` are desktop ids, `missing` the
+apps of `apps` not running when asked; `when` and `lastSeen` are
 Unix seconds; `clean` is false when the record is the last periodic one, as
 after a crash.
 
@@ -136,8 +137,8 @@ front first, and `stack` true for two or more applications sharing a Stack.
 ### Reading the desk
 
 `currentLayout` reads the workspace shown on the display in use: its cards left
-to right, each Stack front first, then its panes and other windows, front-most
-first. A window whose application has no desktop file is left out, and an
+to right, each Stack front first, then its panes, each with the cards waiting
+behind it as one Stack, then other windows, front-most first. A window whose application has no desktop file is left out, and an
 application appears once, in its first group.
 
 ### Arranging
@@ -147,11 +148,14 @@ group that is not a Stack stands each application alone. An application
 running anywhere uses its front-most window, a shown one before a minimized
 one; every other is in `launch`, and its first window is claimed as it opens.
 Each window goes to the workspace and display in use and becomes a card there.
-A Stack forms in the listed order as its applications come. Once every
+A Stack forms in the listed order as its applications come; on a display
+showing its layout, its first pane stays in front, its other panes join it in
+order, and its cards wait behind them. Once every
 application has come, or after 60 seconds, the groups lead the row in order,
 the first one in use, and the cards outside the layout follow as they stood.
 A window that does not reach its place within 5 seconds is reported not
-placed. Applications a layout opens are not counted as opened by hand.
+placed. A Stack Cards cannot form at once, as while Search is still closing,
+is tried again for six seconds, and the log names what kept it apart. Applications a layout opens are not counted as opened by hand.
 
 One arrangement runs at a time, and never with a bring-back: either answers
 `busy` while the other runs. An empty token or no applications answers
