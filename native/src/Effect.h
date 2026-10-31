@@ -1566,6 +1566,45 @@ private:
     void stepSessionEndGlass();
     void drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                              KWin::LogicalOutput *screen);
+    // A fresh sign-in starts behind the same glass (EffectSignInGlass.cpp):
+    // every display frosted under its panels and the splash, from the
+    // effect's first frame until the apps the session reopens have settled.
+    // The card shown then grows from 96% into place as the frost dissolves;
+    // with nothing reopened it clears a quiet after the splash goes. Any
+    // touch, click or key, or a window asking something, clears it at once,
+    // and it never stands longer than SignInGlassLongestMs.
+    struct SignInGlass {
+        bool on = false;
+        bool clearing = false;
+        bool splashGone = false;
+        QElapsedTimer lastStep;
+        QElapsedTimer clearingSince;
+        QPointer<KWin::EffectWindow> front;
+        QElapsedTimer frontSince;
+    };
+    struct SignInGlassSpy;
+    SignInGlass m_signInGlass;
+    QTimer m_signInGlassCap;
+    QTimer m_signInGlassQuiet;
+    // Shared, so the effect's own destructor need not see the spy's type.
+    std::shared_ptr<SignInGlassSpy> m_signInGlassSpy;
+    QPointer<KWin::LogicalOutput> m_signInGlassDrawnOn;
+    // A compositor older than this is not starting a session.
+    static constexpr qint64 SignInGlassFreshMs = 15000;
+    static constexpr int SignInGlassLongestMs = 10000;
+    static constexpr int SignInGlassDissolveMs = 300;
+    static constexpr int SignInFrontGrowMs = 260;
+    static constexpr double SignInFrontStartScale = 0.96;
+    void beginSignInGlass(bool windowsOpen);
+    void clearSignInGlass(const char *why);
+    void dropSignInGlassSpy();
+    void revealSignInFront(KWin::EffectWindow *window);
+    void stepSignInGlass(KWin::ScreenPrePaintData &data);
+    [[nodiscard]] float signInGlassStrength() const;
+    [[nodiscard]] bool liesOverSignInGlass(KWin::EffectWindow *window) const;
+    void drawSignInGlass(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                         KWin::EffectWindow *under);
+    void growSignInFront(KWin::EffectWindow *window, int &mask, KWin::WindowPaintData &data) const;
     DesktopExitLabel m_detachLabel;
     // A refused gesture springs back and says why (GestureNote.h). The refusal
     // is decided while the carry moves, never invented at release, and shown

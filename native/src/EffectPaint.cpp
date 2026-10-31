@@ -287,6 +287,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // Once Settings has gone, the glass dissolves, more slowly than it came.
         const int frostFade = motionDuration(SettingsFrostFadeMs, KWin::effects->animationTimeFactor());
         const int frostDissolve = motionDuration(SettingsFrostDissolveMs, KWin::effects->animationTimeFactor());
+        stepSignInGlass(data);
         if (m_sessionEnd.on) {
             // The session ends behind glass drawn over the whole display.
             stepSessionEndGlass();
@@ -444,6 +445,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
 {
     // Asked of the stage holding the window, else its display's.
     SessionScope scope(this, m_currentSession, stageKeyOf(window));
+    if (m_signInGlass.on && window == m_signInGlass.front) { data.setTransformed(); data.setTranslucent(); }
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
         || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)
         || m_roomOfferShown.contains(window)) {
@@ -888,6 +890,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_paintingRegion = deviceRegion;
     m_heldBoxDrawnOn = nullptr;
     m_settingsFrostDrawnOn = nullptr;
+    m_signInGlassDrawnOn = nullptr;
     if (screen) m_frostDrawn.remove(screen->name());
     if (!m_heldPictures.empty()) captureHeldPictures();
     if (screen && screen == tabletOutput()) {
@@ -904,6 +907,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
+    // A display with no panel or splash drawn over it takes the sign-in
+    // glass over everything.
+    drawSignInGlass(renderTarget, viewport, nullptr);
     if (m_sessionEnd.on) drawSessionEndGlass(renderTarget, viewport, screen);
     // §11: an offered card's picture is kept once the scene has drawn it this
     // frame, so a sleeping window's newest content is what is kept; taken
@@ -1386,6 +1392,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          KWin::WindowPaintData &data)
 {
     drawSettingsFrostUnder(renderTarget, viewport, window);
+    drawSignInGlass(renderTarget, viewport, window);
+    growSignInFront(window, mask, data);
     // A panel's fade laid under the windows is drawn over the frost instead.
     if (fadeOverSettingsFrost(window)) return paintResult(true);
     // The power question asks KDE's blur for its whole display, which would
