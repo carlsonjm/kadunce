@@ -740,8 +740,12 @@ std::optional<NaturalNeed> Effect::naturalNeedForDesktopStage(const KWin::Effect
 std::optional<double> Effect::naturalActiveShareForCardStage(const KWin::EffectWindow *window,
     const KWin::LogicalOutput *output) const
 {
+    // §11, Connected: one card fills the display; only a width the person
+    // gave its application stands it narrower.
     const auto need = naturalNeedForDesktopStage(window, output);
-    if (!need || need->width <= 0.0 || need->width >= .999) return std::nullopt;
+    if (!need || need->width <= 0.0 || need->width >= .999 || !output) return std::nullopt;
+    if (!m_naturalWidths.contains(naturalWidthKey(naturalAppOf(window), output->geometry().width())))
+        return std::nullopt;
     return need->width;
 }
 

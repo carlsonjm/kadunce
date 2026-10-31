@@ -895,27 +895,6 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
         pair->columns = {{partner}, {arriving}};
         pair->paired = true;
         if (!side->right) std::swap(pair->columns.front(), pair->columns.back());
-        // Two of known kinds stand at the sizes they want (NaturalSize.h),
-        // what they leave open beside them, the arrival on its side.
-        const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &held) {
-            return held ? m_host->naturalNeedForDesktopStage(held.data(), output).value_or(NaturalNeed{})
-                        : NaturalNeed{};
-        };
-        const NaturalNeed partnerNeed = needOf(QPointer<KWin::EffectWindow>(pairPartner));
-        const NaturalNeed arrivalNeed = needOf(QPointer<KWin::EffectWindow>(window));
-        if (partnerNeed.width > 0.0 && arrivalNeed.width > 0.0) {
-            BentoPlacedColumns natural;
-            natural.columns = {{partner}};
-            natural.natural = true;
-            natural.shares = {{QPointer<KWin::EffectWindow>(pairPartner), partnerNeed.width}};
-            const auto fit = bentoColumnsFitNatural(natural, QPointer<KWin::EffectWindow>(window),
-                                                    arrivalNeed, needOf, 0);
-            if (fit == NaturalFit::Opened || fit == NaturalFit::Squeezed) {
-                if (!side->right) std::rotate(natural.columns.rbegin(), natural.columns.rbegin() + 1,
-                                              natural.columns.rend());
-                pair = natural;
-            }
-        }
     }
     const auto planner = [this, side, window, alone, pair](Session &plan,
                                                            const auto &preferred, bool required) {
