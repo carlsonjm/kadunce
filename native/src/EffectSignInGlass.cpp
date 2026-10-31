@@ -168,11 +168,12 @@ bool Effect::liesOverSignInGlass(KWin::EffectWindow *window) const
 
 bool Effect::waitsBehindSignInGlass(KWin::EffectWindow *window, KWin::WindowPaintData &data) const
 {
-    // A surface standing above the panels, such as the keyboard or a sheet,
-    // would be drawn over glass laid under them: it waits unseen while the
-    // glass stands, and comes in as the glass dissolves.
-    if (!m_signInGlass.on || !window || !window->window() || window->isDesktop() || liesOverSignInGlass(window)
-        || !window->window()->inherits("KWin::LayerShellV1Window")) return false;
+    // The panels, and any surface standing above them such as the keyboard
+    // or a sheet, wait unseen while the glass stands and come in together as
+    // it dissolves, so nothing appears or swaps over the glass. The splash
+    // alone stands over it as it is.
+    if (!m_signInGlass.on || !window || !window->window() || window->isDesktop() || isSplash(window)
+        || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return false;
     const float strength = signInGlassStrength();
     if (strength >= 1.f) return true;
     data.multiplyOpacity(1.0 - strength);

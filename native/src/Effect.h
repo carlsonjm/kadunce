@@ -1578,7 +1578,8 @@ private:
     // A fresh sign-in starts behind the same glass (EffectSignInGlass.cpp):
     // every display frosted under its panels and the splash, from the
     // effect's first frame until the apps the session reopens have settled.
-    // The card shown then grows from 96% into place as the frost dissolves;
+    // The panels wait unseen behind it. The card shown then grows from 96%
+    // into place as the frost dissolves and the panels fade in with it;
     // with nothing reopened it clears a quiet after the splash goes. Any
     // touch, click or key, or a window asking something, clears it at once,
     // and it never stands longer than SignInGlassLongestMs.
