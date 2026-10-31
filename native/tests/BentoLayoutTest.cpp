@@ -888,10 +888,28 @@ int main()
                     && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 0}},
                 "A terminal beside a browser did not take the top of a column of its own");
             const auto widths = bentoColumnsWidths(layout);
-            require(near(widths[0], .5), "Standing columns moved when the layout turned natural");
+            require(widths[0] > widths[1] + .1 && widths[0] + widths[1] <= 1.0 + 1e-6,
+                "Standing columns stayed even shares when the layout turned natural");
             require(bentoColumnsFitNatural(layout, 3, needOf(3), needOf, 0) == NaturalFit::Filled
                     && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 3}},
                 "Files did not fill the room under the terminal");
+        }
+        {
+            // Three panes standing as even strips, as a side snap or an
+            // older layout leaves them, settle at the widths they want.
+            const auto needOf = [&](int window) { return needOn(kinds.at(window), qhd); };
+            Columns layout;
+            layout.columns = {{{1, false}}, {{2, false}}, {{4, false}}};
+            bentoColumnsSettleNatural(layout, needOf);
+            const auto widths = bentoColumnsWidths(layout);
+            require(layout.natural && widths.size() == 3 && widths[0] > widths[1] + .1
+                    && widths[2] > widths[1] + .05 && widths[0] + widths[1] + widths[2] <= 1.0 + 1e-6,
+                "Three panes stayed as even strips");
+            Columns kept;
+            kept.columns = {{{1, false}}, {{2, false}}};
+            kept.shares = {{2, .6}};
+            bentoColumnsSettleNatural(kept, needOf, 2);
+            require(near(bentoColumnsWidths(kept)[1], .6), "A width the wheel gave a snapped pane was lost");
         }
         {
             // A browser alone at its page width, then a terminal and files:
@@ -985,9 +1003,9 @@ int main()
                 && kindOf({"Qt", "KDE", "System", "FileManager"}) == AppKind::Files
                 && kindOf({"Utility"}) == AppKind::Other,
             "An application's kind was misread from its categories");
-        require(!naturalSizeFor(AppKind::Other, QSizeF(1920, 1080))
+        require(naturalSizeFor(AppKind::Other, QSizeF(1920, 1080)) == QSizeF(1100, 1080)
                 && naturalSizeFor(AppKind::Browser, QSizeF(1024, 700)) == QSizeF(1024, 700),
-            "A natural size was given where none is known, or exceeded the area");
+            "An application of no known kind was left without a width, or a size exceeded the area");
     }
 
     std::cout << "Bento layout/admission checks passed\n";

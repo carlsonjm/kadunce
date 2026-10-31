@@ -587,7 +587,7 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
     const auto *session = sessionForOutput(output);
     if (!drop || !session || !session->windows.contains(window)) return std::nullopt;
     // §11, Connected: resized by the wheel, the pane keeps its place.
-    if (columnShare && session->placed) {
+    if (columnShare) {
         drop->localTarget = window;
         drop->columnShare = columnShare;
         return prepareLocalPlacement(*drop) ? drop : std::nullopt;
@@ -606,8 +606,11 @@ bool DesktopStageController::holdsInPlacedColumns(const KWin::LogicalOutput *out
                                                   const KWin::EffectWindow *window) const
 {
     const auto *session = output ? sessionForOutput(output) : nullptr;
-    return session && session->placed
-        && bentoColumnsHold(*session->placed, QPointer<KWin::EffectWindow>(const_cast<KWin::EffectWindow *>(window)));
+    // Panes standing in no columns yet are read into columns as they stand.
+    return session && (session->placed
+        ? bentoColumnsHold(*session->placed, QPointer<KWin::EffectWindow>(const_cast<KWin::EffectWindow *>(window)))
+        : session->windows.contains(const_cast<KWin::EffectWindow *>(window))
+            && m_host->connectedOutputForDesktopStage(output));
 }
 
 std::optional<DesktopStageController::Session> DesktopStageController::prepareLocalPlacement(
@@ -633,8 +636,14 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
     }
     if (!drop.localTarget) return std::nullopt;
     if (drop.columnShare && drop.localTarget == drop.window) {
-        if (!session->placed || !drop.output) return std::nullopt;
+        if (!drop.output) return std::nullopt;
         Session plan = *session;
+        if (!plan.placed) {
+            std::vector<QPointer<KWin::EffectWindow>> standing(plan.windows.cbegin(), plan.windows.cend());
+            if (standing.size() != plan.rects.size()) return std::nullopt;
+            plan.placed = bentoColumnsFromRects(standing, plan.rects);
+            if (!plan.placed) plan.placed = bentoColumnsDealt(standing);
+        }
         const double span = std::max(1, drop.area.width());
         const bool resized = bentoColumnsResize(*plan.placed, QPointer<KWin::EffectWindow>(drop.window),
             *drop.columnShare, [span](const QPointer<KWin::EffectWindow> &held) {

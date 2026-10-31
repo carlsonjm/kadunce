@@ -359,6 +359,10 @@ template<class Handle>
         return std::nullopt;
     return layout;
 }
+// Room left beside natural columns narrower than this goes to them rather
+// than standing open.
+inline constexpr double NaturalSliver = .1;
+
 // Turns standing columns natural without moving any: each keeps the width it
 // stands at as its share.
 template<class Handle>
@@ -367,6 +371,58 @@ void bentoColumnsMakeNatural(BentoColumns<Handle> &layout)
     if (layout.natural) return;
     const std::vector<double> widths = bentoColumnsWidths(layout);
     for (std::size_t c = 0; c < layout.columns.size(); ++c) bentoColumnsSetShare(layout, c, widths[c]);
+    layout.natural = true;
+    layout.paired = false;
+}
+
+// Turns standing columns natural at the widths their cards want
+// (NaturalSize.h), not the even shares they stood at: each column takes the
+// most a card in it wants, a column of no known want keeping its width and one
+// in `keep` the share it was given. Too wide together, the columns wanting
+// more than their least give way in proportion; room left open narrower than
+// NaturalSliver goes to the widest column.
+template<class Handle, class NeedOf>
+void bentoColumnsSettleNatural(BentoColumns<Handle> &layout, NeedOf needOf, const Handle &keep = Handle{})
+{
+    if (layout.natural || layout.columns.empty()) return;
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    const std::size_t count = layout.columns.size();
+    std::vector<double> want(count, 0.0), least(count, 0.0);
+    std::vector<bool> fixed(count, false);
+    for (std::size_t c = 0; c < count; ++c) {
+        for (const auto &slot : layout.columns[c]) {
+            if (slot.open) continue;
+            const NaturalNeed held = needOf(slot.window);
+            want[c] = std::max(want[c], held.width);
+            least[c] = std::max(least[c], held.leastWidth);
+            if (keep && slot.window == keep) fixed[c] = true;
+        }
+        if (fixed[c]) {
+            for (const auto &[window, share] : layout.shares)
+                for (const auto &slot : layout.columns[c])
+                    if (!slot.open && slot.window == window) want[c] = share;
+        }
+        if (want[c] <= 0.0) { want[c] = widths[c]; fixed[c] = true; }
+        want[c] = std::max(want[c], least[c]);
+    }
+    double total = 0.0;
+    for (const double w : want) total += w;
+    if (total > 1.0 + 1e-6) {
+        double spare = 0.0;
+        for (std::size_t c = 0; c < count; ++c)
+            if (!fixed[c]) spare += std::max(0.0, want[c] - least[c]);
+        const double over = total - 1.0;
+        for (std::size_t c = 0; c < count && spare > 0.0; ++c)
+            if (!fixed[c])
+                want[c] -= std::max(0.0, want[c] - least[c]) * std::min(1.0, over / spare);
+        total = 0.0;
+        for (const double w : want) total += w;
+        // Still too wide: the columns stand as they stood.
+        if (total > 1.0 + 1e-6) return;
+    }
+    if (total < 1.0 - 1e-6 && 1.0 - total < NaturalSliver)
+        want[std::size_t(std::distance(want.begin(), std::max_element(want.begin(), want.end())))] += 1.0 - total;
+    for (std::size_t c = 0; c < count; ++c) bentoColumnsSetShare(layout, c, want[c]);
     layout.natural = true;
     layout.paired = false;
 }
@@ -416,10 +472,6 @@ bool bentoColumnsResize(BentoColumns<Handle> &layout, const Handle &window, doub
 
 enum class NaturalFit { None, Filled, Opened, Squeezed, Joined };
 
-// Room left beside natural columns narrower than this goes to them rather
-// than standing open.
-inline constexpr double NaturalSliver = .1;
-
 // CARD-LIFECYCLE.md §11, Connected: a card arriving with no place named fits
 // in at its natural size (NaturalSize.h). In order: room open in a column it
 // fits; room open beside the columns, where it takes its own width, a short
@@ -432,7 +484,7 @@ template<class Handle, class NeedOf>
 NaturalFit bentoColumnsFitNatural(BentoColumns<Handle> &layout, const Handle &window,
                                   const NaturalNeed &need, NeedOf needOf, int near = -1)
 {
-    bentoColumnsMakeNatural(layout);
+    bentoColumnsSettleNatural(layout, needOf);
     const std::size_t count = layout.columns.size();
     const std::vector<double> widths = bentoColumnsWidths(layout);
     std::vector<std::size_t> order(count);

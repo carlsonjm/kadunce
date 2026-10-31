@@ -90,6 +90,10 @@ public:
         const KWin::EffectWindow *, const KWin::LogicalOutput *) const {
         return std::nullopt;
     }
+    // §11, Connected: a pane this window holds was resized to `share` of
+    // `output`'s work area, which its application keeps from now on.
+    virtual void teachNaturalWidthForDesktopStage(const KWin::EffectWindow *, const KWin::LogicalOutput *,
+                                                  double) {}
     // When the person last used this window, later uses larger; 0 for never.
     [[nodiscard]] virtual long long lastUsedForDesktopStage(const KWin::EffectWindow *) const {
         return 0;
@@ -589,6 +593,9 @@ private:
     bool reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot);
     // Activating, the keys go to `focus` where the layout shows it, else to
     // its first pane.
+    // §11, Connected: each pane a divider or an edge resized keeps that width
+    // for its application, beside `before`, the places the panes stood.
+    void teachResizedPanes(const Session &session, const std::vector<BentoRect> &before);
     bool applySession(Session &session, bool activateLead, KWin::EffectWindow *focus = nullptr);
     void scheduleSettle();
     void settleSessions();

@@ -40,9 +40,9 @@ enum class AppKind { Other, Terminal, Browser, Document, Files, Communication, M
 // The size, in logical pixels, a window of this kind wants on a display with
 // `area` free: a terminal a small square of about 80 by 24 characters, a
 // browser the width most web pages are made for, a document one page wide.
-// Media takes all it is given, keeping its shape where it fills the room. A
-// size the area cannot hold is the area. Other kinds want none, and stand as
-// a layout would stand them.
+// Media takes all it is given. A size the area cannot hold is the area. An
+// application of no known kind stands as wide as mail, so that no window
+// opens as a strip of an even share.
 [[nodiscard]] inline std::optional<QSizeF> naturalSizeFor(AppKind kind, QSizeF area)
 {
     if (area.isEmpty()) return std::nullopt;
@@ -54,9 +54,9 @@ enum class AppKind { Other, Terminal, Browser, Document, Files, Communication, M
     case AppKind::Browser: return clamp(1280, area.height());
     case AppKind::Document: return clamp(1000, area.height());
     case AppKind::Files: return clamp(960, 640);
-    case AppKind::Communication: return clamp(1100, area.height());
+    case AppKind::Communication:
+    case AppKind::Other: return clamp(1100, area.height());
     case AppKind::Media: return area;
-    case AppKind::Other: return std::nullopt;
     }
     return std::nullopt;
 }

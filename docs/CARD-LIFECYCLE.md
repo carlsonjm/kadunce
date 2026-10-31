@@ -460,7 +460,7 @@ chosen (`kaduncerc` `[Sizing]`).
 
 | Behavior | Solo | Connected |
 | --- | --- | --- |
-| A picked card or new window | Becomes Active (§6, §8) | Joins at its kind's width, or the wheel's (`kaduncerc` `[NaturalWidths]`), centred alone, else beside the card in use, in open room; else the pane used longest ago yields |
+| A picked card or new window | Becomes Active (§6, §8) | Joins at its kind's width, or the one last given (`kaduncerc` `[NaturalWidths]`), centred alone, else beside the card in use, in open room; else the pane used longest ago yields |
 | A side snap | Takes its half's share (§3); unpaired, the rest offers sleeping cards | Names a place: an edge's middle half beside, full height; its bottom quarter under, at that column's foot, its top quarter over; alone, it keeps that place, the wheel its width, its open room offering other cards |
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9), at the whole width | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |

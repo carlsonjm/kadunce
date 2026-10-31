@@ -319,8 +319,18 @@ bool DesktopStageController::planSession(Session &session,
         }
         const bool snapped = session.side && session.side->connected && session.sideWindow
             && preferred == session.sideWindow && owned.contains(session.sideWindow);
-        if (snapped && !columns) {
-            if (session.placeAlone) {
+        const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &window) {
+            return window ? m_host->naturalNeedForDesktopStage(window.data(), output)
+                                .value_or(NaturalNeed{}) : NaturalNeed{};
+        };
+        // §11, Connected: a card of a known kind arriving where panes stand
+        // fits in among them at its natural size, as in columns placed.
+        const QPointer<KWin::EffectWindow> naturalArrival = !snapped && preferred
+                && owned.contains(preferred) && !session.windows.contains(preferred)
+                && !session.windows.isEmpty() && needOf(QPointer(preferred)).width > 0.0
+            ? QPointer(preferred) : nullptr;
+        if ((snapped || naturalArrival) && !columns) {
+            if (snapped && session.placeAlone) {
                 columns = BentoPlacedColumns{};
             } else {
                 // A layout already standing in columns takes the snap as a
@@ -334,7 +344,8 @@ bool DesktopStageController::planSession(Session &session,
                     standingRects.push_back(session.rects[i]);
                 }
                 for (const auto &window : std::as_const(owned))
-                    whole = whole && (window == session.sideWindow || session.windows.contains(window));
+                    whole = whole && (window == (snapped ? session.sideWindow : naturalArrival)
+                                      || session.windows.contains(window));
                 if (whole) columns = bentoColumnsFromRects(standing, standingRects);
                 // Any other shape is dealt into columns first, so a snap on a
                 // Connected display always names a place.
@@ -345,6 +356,10 @@ bool DesktopStageController::planSession(Session &session,
             if (snapped) {
                 bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
                 columns->paired = false;
+                // Each column stands at the width its cards want, not an even
+                // share; a width the wheel gave the snapped card stays.
+                bentoColumnsSettleNatural(*columns, needOf, session.side->share > 0.0
+                    ? QPointer(session.sideWindow) : QPointer<KWin::EffectWindow>());
             }
             // The shorter side of the smallest pane, when every pane holds
             // its card's minimum.
@@ -367,10 +382,6 @@ bool DesktopStageController::planSession(Session &session,
             // size (NaturalSize.h); one that fits nowhere at the sizes the
             // others want is unshowable here, so the pane used longest ago
             // yields its room to it (shortenToShowable).
-            const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &window) {
-                return window ? m_host->naturalNeedForDesktopStage(window.data(), output)
-                                    .value_or(NaturalNeed{}) : NaturalNeed{};
-            };
             int inUse = -1;
             long long latest = -1;
             for (std::size_t c = 0; c < columns->columns.size(); ++c)
@@ -383,7 +394,7 @@ bool DesktopStageController::planSession(Session &session,
             for (const auto &window : std::as_const(owned)) {
                 if (bentoColumnsHold(*columns, window)) continue;
                 if (const auto need = m_host->naturalNeedForDesktopStage(window.data(), output);
-                    need && need->width > 0.0 && !snapped) {
+                    need && need->width > 0.0) {
                     if (bentoColumnsFitNatural(*columns, window, *need, needOf, inUse) == NaturalFit::None)
                         unfitted.append(window);
                     continue;
