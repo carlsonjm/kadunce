@@ -809,12 +809,16 @@ KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,
     const KWin::EffectWindow *window) const
 {
     const KWin::Rect whole = activeTarget(output);
-    const auto share = m_activeWidths.constFind(window);
-    if (share == m_activeWidths.cend() || !window || !window->window()) return whole;
+    if (!window || !window->window()) return whole;
     // A card in a Stack stands at the Stack's size, the whole Active width,
     // whatever width the wheel gave it alone.
     if (stackFrontToBack(window).size() > 1) return whole;
-    return narrowedActive(whole, *share, window->window()->minSize().width());
+    const auto share = m_activeWidths.constFind(window);
+    if (share != m_activeWidths.cend()) return narrowedActive(whole, *share, window->window()->minSize().width());
+    // §11, Connected: a lone card stands at the width its kind wants.
+    if (const auto natural = m_host->naturalActiveShareForCardStage(window, output))
+        return narrowedActive(whole, *natural, window->window()->minSize().width());
+    return whole;
 }
 
 KWin::Rect CardStageController::narrowedActive(const KWin::Rect &whole, double share,
@@ -828,8 +832,10 @@ KWin::Rect CardStageController::narrowedActive(const KWin::Rect &whole, double s
 
 void CardStageController::setActiveWidth(const KWin::EffectWindow *window, double share)
 {
-    if (share >= 1.0 || share <= 0.0) m_activeWidths.remove(window);
-    else m_activeWidths.insert(window, share);
+    // The whole width is kept as a width too: given on purpose, it stands
+    // over the narrower width a lone card's kind would want.
+    if (share <= 0.0) m_activeWidths.remove(window);
+    else m_activeWidths.insert(window, std::min(share, 1.0));
 }
 
 bool CardStageController::refitActive(KWin::EffectWindow *window)

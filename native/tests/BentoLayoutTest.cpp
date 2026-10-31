@@ -5,6 +5,7 @@
 
 #include "BentoLayout.h"
 #include "BentoColumns.h"
+#include <map>
 #include "BentoSidePlacement.h"
 #include "WheelWidth.h"
 #include <algorithm>
@@ -858,6 +859,130 @@ int main()
             {400, 300, 1, 1, false}, std::optional<BentoCandidate>{BentoCandidate{400, 300, 1, 1, false}});
         require(even && even->size() == 2 && std::abs((*even)[0].width - 0.5) < .001,
             "A Connected side snap did not share the width evenly");
+    }
+
+    {
+        // CARD-LIFECYCLE.md §11, Connected: arrivals fit in at the sizes their
+        // kinds want (NaturalSize.h), never into equal strips.
+        using Columns = BentoColumns<int>;
+        const QSizeF hd(1920, 1080), qhd(2560, 1440);
+        const auto needOn = [](AppKind kind, QSizeF area) {
+            return naturalNeed(naturalSizeFor(kind, area), QSizeF(400, 300), area);
+        };
+        std::map<int, AppKind> kinds{{1, AppKind::Browser}, {2, AppKind::Terminal},
+                                     {3, AppKind::Files}, {4, AppKind::Document}};
+        const auto shape = [](const Columns &layout) {
+            std::vector<std::vector<int>> cards;
+            for (const auto &column : layout.columns) {
+                cards.emplace_back();
+                for (const auto &slot : column) cards.back().push_back(slot.open ? 0 : slot.window);
+            }
+            return cards;
+        };
+        const auto near = [](double a, double b) { return std::abs(a - b) < .002; };
+        for (const QSizeF area : {hd, qhd}) {
+            const auto needOf = [&](int window) { return needOn(kinds.at(window), area); };
+            Columns layout;
+            layout.columns = {{{1, false}}};
+            require(bentoColumnsFitNatural(layout, 2, needOf(2), needOf, 0) == NaturalFit::Opened
+                    && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 0}},
+                "A terminal beside a browser did not take the top of a column of its own");
+            const auto widths = bentoColumnsWidths(layout);
+            require(near(widths[0], .5), "Standing columns moved when the layout turned natural");
+            require(bentoColumnsFitNatural(layout, 3, needOf(3), needOf, 0) == NaturalFit::Filled
+                    && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 3}},
+                "Files did not fill the room under the terminal");
+        }
+        {
+            // A browser alone at its page width, then a terminal and files:
+            // one large window and two small, room too thin to use given away.
+            const auto needOf = [&](int window) { return needOn(kinds.at(window), hd); };
+            Columns layout;
+            layout.columns = {{{1, false}}};
+            layout.natural = true;
+            layout.shares = {{1, 1280.0 / 1920.0}};
+            require(bentoColumnsFitNatural(layout, 2, needOf(2), needOf, 0) == NaturalFit::Opened,
+                "A terminal found no room beside a browser at its page width");
+            auto widths = bentoColumnsWidths(layout);
+            require(widths.size() == 2 && near(widths[0], 1280.0 / 1920.0) && near(widths[1], 640.0 / 1920.0),
+                "The browser gave up width, or the terminal did not take the rest");
+            require(bentoColumnsFitNatural(layout, 3, needOf(3), needOf, 0) == NaturalFit::Filled
+                    && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 3}},
+                "Three windows were not one large and two small");
+            require(bentoColumnsOpenRooms(layout).empty(), "Room was left open in a full layout");
+            // No room left at natural sizes: nothing changes, and the caller
+            // gives up the pane used longest ago.
+            const Columns full = layout;
+            require(bentoColumnsFitNatural(layout, 4, needOf(4), needOf, 0) == NaturalFit::None
+                    && layout == full,
+                "A document squeezed in below the sizes the others want");
+        }
+        {
+            // A wider display leaves room open beside natural columns.
+            const auto needOf = [&](int window) { return needOn(kinds.at(window), qhd); };
+            Columns layout;
+            layout.columns = {{{1, false}}};
+            layout.natural = true;
+            layout.shares = {{1, .5}};
+            require(bentoColumnsFitNatural(layout, 2, needOf(2), needOf, 0) == NaturalFit::Opened,
+                "A terminal found no room on a wide display");
+            require(bentoColumnsFitNatural(layout, 3, needOf(3), needOf, 0) == NaturalFit::Filled,
+                "Files did not take the room under the terminal");
+            const auto widths = bentoColumnsWidths(layout);
+            require(near(widths[1], 960.0 / 2560.0), "The column did not widen to what files want");
+            const auto rooms = bentoColumnsOpenRooms(layout);
+            require(rooms.size() == 1 && near(rooms[0].width, 320.0 / 2560.0) && near(rooms[0].x, 1 - 320.0 / 2560.0),
+                "The room beside the columns was not left open");
+            // A card leaving keeps its column's width, and a column going
+            // leaves its width open.
+            bentoColumnsRemove(layout, 2);
+            require(near(bentoColumnsWidths(layout)[1], 960.0 / 2560.0)
+                    && shape(layout) == std::vector<std::vector<int>>{{1}, {0, 3}},
+                "A column narrowed, or closed up, when a card left it");
+            bentoColumnsRemove(layout, 3);
+            require(layout.columns.size() == 1 && bentoColumnsOpenRooms(layout).size() == 1
+                    && near(bentoColumnsOpenRooms(layout)[0].width, .5),
+                "A column that went did not leave its width open");
+        }
+        {
+            // Short windows join a column of short windows when nothing else
+            // fits; a tall one never does.
+            const auto needOf = [&](int window) { return needOn(window == 1 ? AppKind::Browser : AppKind::Terminal, hd); };
+            Columns layout;
+            layout.columns = {{{1, false}}, {{2, false}, {3, false}}};
+            layout.natural = true;
+            layout.shares = {{1, 1280.0 / 1920.0}, {2, 640.0 / 1920.0}};
+            require(bentoColumnsFitNatural(layout, 5, needOf(5), needOf, 1) == NaturalFit::Joined
+                    && shape(layout) == std::vector<std::vector<int>>{{1}, {2, 3, 5}},
+                "A terminal did not join the column of terminals");
+        }
+        {
+            // The wheel sets a held pane's column width: open room first,
+            // then the others' spare width, never past what they allow.
+            Columns layout;
+            layout.columns = {{{1, false}}, {{2, false}, {3, false}}};
+            layout.natural = true;
+            layout.shares = {{1, .5}, {2, .3}};
+            const auto least = [](int) { return .2; };
+            require(bentoColumnsResize(layout, 2, .4, least)
+                    && near(bentoColumnsWidths(layout)[0], .5) && near(bentoColumnsWidths(layout)[1], .4),
+                "Widening a column did not take the open room first");
+            require(bentoColumnsResize(layout, 3, .7, least)
+                    && near(bentoColumnsWidths(layout)[0], .3) && near(bentoColumnsWidths(layout)[1], .7),
+                "Widening past the open room did not take the other column's spare width");
+            require(bentoColumnsResize(layout, 1, 1.0, least)
+                    && near(bentoColumnsWidths(layout)[0], .8) && near(bentoColumnsWidths(layout)[1], .2),
+                "A column was widened past what the others allow");
+            require(!bentoColumnsResize(layout, 9, .5, least), "A window the layout does not hold was resized");
+        }
+        require(appKindFromCategories({"System", "TerminalEmulator"}) == AppKind::Terminal
+                && appKindFromCategories({"Network", "WebBrowser"}) == AppKind::Browser
+                && appKindFromCategories({"Qt", "KDE", "System", "FileManager"}) == AppKind::Files
+                && appKindFromCategories({"Utility"}) == AppKind::Other,
+            "An application's kind was misread from its categories");
+        require(!naturalSizeFor(AppKind::Other, QSizeF(1920, 1080))
+                && naturalSizeFor(AppKind::Browser, QSizeF(1024, 700)) == QSizeF(1024, 700),
+            "A natural size was given where none is known, or exceeded the area");
     }
 
     std::cout << "Bento layout/admission checks passed\n";

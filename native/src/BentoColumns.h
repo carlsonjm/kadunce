@@ -3,6 +3,7 @@
 
 #include "BentoLayout.h"
 #include "BentoSidePlacement.h"
+#include "NaturalSize.h"
 
 #include <algorithm>
 #include <cmath>
@@ -36,6 +37,10 @@ struct BentoColumns {
     // A share of the width a wheel gave the column a card holds, oldest
     // first. The columns with none share what is left evenly.
     std::vector<std::pair<Handle, double>> shares;
+    // Placed at the widths their cards want (NaturalSize.h): while every
+    // column holds a share and the shares leave some of the width, the rest
+    // stays open beside them, where the desktop shows.
+    bool natural = false;
     bool operator==(const BentoColumns &) const = default;
 };
 
@@ -48,6 +53,22 @@ template<class Handle>
     return false;
 }
 
+// Gives the column `column` the share `share` of the width, as the wheel
+// gives the column a card holds one.
+template<class Handle>
+void bentoColumnsSetShare(BentoColumns<Handle> &layout, std::size_t column, double share)
+{
+    if (column >= layout.columns.size()) return;
+    const auto &held = layout.columns[column];
+    std::erase_if(layout.shares, [&held](const auto &given) {
+        return std::any_of(held.begin(), held.end(), [&given](const auto &slot) {
+            return !slot.open && slot.window == given.first;
+        });
+    });
+    for (const auto &slot : held)
+        if (!slot.open) { layout.shares.push_back({slot.window, share}); return; }
+}
+
 // Takes every card `keep` refuses out of the layout. A column left empty, or
 // holding only open room, goes; when one column is left it stands on the side
 // it already stood.
@@ -55,15 +76,26 @@ template<class Handle, class Keep>
 void bentoColumnsKeep(BentoColumns<Handle> &layout, Keep keep)
 {
     const std::size_t before = layout.columns.size();
+    // Natural columns keep their widths through a card leaving, the share
+    // passing to a card left in the column; a column left with only open
+    // room goes, and leaves its width open.
+    std::vector<double> widths = layout.natural ? bentoColumnsWidths(layout) : std::vector<double>{};
     int firstGone = -1;
     for (std::size_t index = 0; index < layout.columns.size();) {
         auto &column = layout.columns[index];
-        std::erase_if(column, [&keep](const auto &slot) { return !slot.open && !keep(slot.window); });
+        // §11, Connected: in natural columns a card's room opens as it leaves.
+        if (layout.natural) {
+            for (auto &slot : column)
+                if (!slot.open && !keep(slot.window)) slot = {Handle{}, true};
+        } else {
+            std::erase_if(column, [&keep](const auto &slot) { return !slot.open && !keep(slot.window); });
+        }
         const bool empty = std::none_of(column.begin(), column.end(),
             [](const auto &slot) { return !slot.open; });
         if (empty) {
             if (firstGone < 0) firstGone = int(index);
             layout.columns.erase(layout.columns.begin() + index);
+            if (layout.natural) widths.erase(widths.begin() + index);
         } else {
             ++index;
         }
@@ -72,6 +104,8 @@ void bentoColumnsKeep(BentoColumns<Handle> &layout, Keep keep)
     std::erase_if(layout.shares, [&layout](const auto &share) {
         return !bentoColumnsHold(layout, share.first);
     });
+    if (layout.natural)
+        for (std::size_t c = 0; c < layout.columns.size(); ++c) bentoColumnsSetShare(layout, c, widths[c]);
 }
 
 // Four cards, with no room open and no column widened by the wheel, as two
@@ -211,6 +245,11 @@ template<class Handle>
         }
     }
     if (count == 1) return {given[0] > 0.0 ? given[0] : 0.5};
+    if (layout.natural && std::all_of(given.cbegin(), given.cend(), [](double g) { return g > 0.0; })) {
+        double total = 0.0;
+        for (const double g : given) total += g;
+        if (total <= 1.0 + 1e-6) return given;
+    }
     for (std::size_t dropped = 0;; ++dropped) {
         double fixed = 0.0;
         std::size_t free = 0;
@@ -226,6 +265,15 @@ template<class Handle>
     }
 }
 
+// Where the first column starts: a lone column, or natural columns leaving
+// room, stand on the side they were placed on, the room on the other.
+[[nodiscard]] inline double bentoColumnsStart(const std::vector<double> &widths, bool alignRight)
+{
+    double total = 0.0;
+    for (const double width : widths) total += width;
+    return alignRight && total < 1.0 - 1e-6 ? 1.0 - total : 0.0;
+}
+
 // Each card's place, in the order `handles` lists them. Columns share the
 // width as bentoColumnsWidths gives it, and a column's slots its height.
 template<class Handle>
@@ -237,7 +285,7 @@ void bentoColumnsLayout(const BentoColumns<Handle> &layout, std::vector<Handle> 
     const std::size_t count = layout.columns.size();
     if (count == 0) return;
     const std::vector<double> widths = bentoColumnsWidths(layout);
-    double x = count == 1 && layout.alignRight ? 1.0 - widths[0] : 0.0;
+    double x = bentoColumnsStart(widths, layout.alignRight);
     for (std::size_t c = 0; c < count; ++c) {
         const auto &column = layout.columns[c];
         const double height = 1.0 / double(std::max<std::size_t>(1, column.size()));
@@ -260,7 +308,8 @@ template<class Handle>
     const std::size_t count = layout.columns.size();
     if (count == 0 || layout.paired) return rooms;
     const std::vector<double> widths = bentoColumnsWidths(layout);
-    double x = count == 1 && layout.alignRight ? 1.0 - widths[0] : 0.0;
+    const double start = bentoColumnsStart(widths, layout.alignRight);
+    double x = start;
     for (std::size_t c = 0; c < count; ++c) {
         const auto &column = layout.columns[c];
         const double height = 1.0 / double(std::max<std::size_t>(1, column.size()));
@@ -268,8 +317,8 @@ template<class Handle>
             if (column[s].open) rooms.push_back({x, double(s) * height, widths[c], height});
         x += widths[c];
     }
-    if (count == 1)
-        rooms.push_back({layout.alignRight ? 0.0 : widths[0], 0.0, 1.0 - widths[0], 1.0});
+    const double left = 1.0 - (x - start);
+    if (left > 1e-6) rooms.push_back({start > 0.0 ? 0.0 : x, 0.0, left, 1.0});
     return rooms;
 }
 
@@ -309,5 +358,157 @@ template<class Handle>
     if (std::abs(expectY - 1.0) > tolerance || std::abs(expectX - 1.0) > tolerance)
         return std::nullopt;
     return layout;
+}
+// Turns standing columns natural without moving any: each keeps the width it
+// stands at as its share.
+template<class Handle>
+void bentoColumnsMakeNatural(BentoColumns<Handle> &layout)
+{
+    if (layout.natural) return;
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    for (std::size_t c = 0; c < layout.columns.size(); ++c) bentoColumnsSetShare(layout, c, widths[c]);
+    layout.natural = true;
+    layout.paired = false;
+}
+
+// §11, Connected: the wheel turned while a pane is held away from the edges
+// gives its column `share` of the width. It takes room open beside the
+// columns first, then width from the others, none narrower than its cards
+// allow; `leastOf` answers the least share of the width a card allows. False
+// when the layout does not hold `window`.
+template<class Handle, class LeastOf>
+bool bentoColumnsResize(BentoColumns<Handle> &layout, const Handle &window, double share, LeastOf leastOf)
+{
+    int at = -1;
+    for (std::size_t c = 0; c < layout.columns.size() && at < 0; ++c)
+        for (const auto &slot : layout.columns[c])
+            if (!slot.open && slot.window == window) { at = int(c); break; }
+    if (at < 0) return false;
+    bentoColumnsMakeNatural(layout);
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    const auto leastOfColumn = [&](std::size_t c) {
+        double least = 0.0;
+        for (const auto &slot : layout.columns[c])
+            if (!slot.open) least = std::max(least, leastOf(slot.window));
+        return least;
+    };
+    double others = 0.0, othersLeast = 0.0;
+    for (std::size_t c = 0; c < widths.size(); ++c) {
+        if (int(c) == at) continue;
+        others += widths[c];
+        othersLeast += leastOfColumn(c);
+    }
+    share = std::clamp(share, leastOfColumn(at), std::max(leastOfColumn(at), 1.0 - othersLeast));
+    const double over = share + others - 1.0;
+    if (over > 1e-6) {
+        double spare = 0.0;
+        for (std::size_t c = 0; c < widths.size(); ++c)
+            if (int(c) != at) spare += std::max(0.0, widths[c] - leastOfColumn(c));
+        for (std::size_t c = 0; c < widths.size(); ++c) {
+            if (int(c) == at || spare <= 0.0) continue;
+            const double give = std::max(0.0, widths[c] - leastOfColumn(c)) * std::min(1.0, over / spare);
+            bentoColumnsSetShare(layout, c, widths[c] - give);
+        }
+    }
+    bentoColumnsSetShare(layout, std::size_t(at), share);
+    return true;
+}
+
+enum class NaturalFit { None, Filled, Opened, Squeezed, Joined };
+
+// Room left beside natural columns narrower than this goes to them rather
+// than standing open.
+inline constexpr double NaturalSliver = .1;
+
+// CARD-LIFECYCLE.md §11, Connected: a card arriving with no place named fits
+// in at its natural size (NaturalSize.h). In order: room open in a column it
+// fits; room open beside the columns, where it takes its own width, a short
+// window the top of a column of its own with the room under it left open;
+// width the columns stand at beyond what their cards want; the foot of a
+// column of short windows that holds one more. `needOf` answers what a card
+// already standing wants; `near` is the column of the card in use, which an
+// arrival stands as close to as it can. Nothing changes when none fits.
+template<class Handle, class NeedOf>
+NaturalFit bentoColumnsFitNatural(BentoColumns<Handle> &layout, const Handle &window,
+                                  const NaturalNeed &need, NeedOf needOf, int near = -1)
+{
+    bentoColumnsMakeNatural(layout);
+    const std::size_t count = layout.columns.size();
+    const std::vector<double> widths = bentoColumnsWidths(layout);
+    std::vector<std::size_t> order(count);
+    for (std::size_t c = 0; c < count; ++c) order[c] = c;
+    if (near >= 0)
+        std::stable_sort(order.begin(), order.end(), [near](std::size_t a, std::size_t b) {
+            return std::abs(int(a) - near) < std::abs(int(b) - near);
+        });
+    double used = 0.0;
+    for (const double width : widths) used += width;
+    const double room = std::max(0.0, 1.0 - used);
+    for (const std::size_t c : order) {
+        auto &column = layout.columns[c];
+        const double height = 1.0 / double(std::max<std::size_t>(1, column.size()));
+        if (widths[c] + 1e-6 < need.leastWidth || height + 1e-6 < need.leastHeight) continue;
+        for (auto &slot : column) {
+            if (!slot.open) continue;
+            slot = {window, false};
+            // A column narrower than its new card wants widens into room
+            // open beside it, leaving none too thin to use.
+            if (need.width > widths[c] && room > 0.0) {
+                double grown = std::min(room, need.width - widths[c]);
+                if (room - grown < NaturalSliver) grown = room;
+                bentoColumnsSetShare(layout, c, widths[c] + grown);
+            }
+            return NaturalFit::Filled;
+        }
+    }
+    // A window of no known kind asks an even share, as the columns stand.
+    const double wanted = need.width > 0.0 ? need.width
+        : std::max(need.leastWidth, 1.0 / double(count + 1));
+    // What each column stands at beyond the most its cards want.
+    std::vector<double> spare(count, 0.0);
+    double spareTotal = 0.0;
+    for (std::size_t c = 0; c < count; ++c) {
+        double most = 0.0;
+        for (const auto &slot : layout.columns[c]) {
+            if (slot.open) continue;
+            const NaturalNeed held = needOf(slot.window);
+            most = std::max({most, held.width, held.leastWidth});
+        }
+        spare[c] = most > 0.0 ? std::max(0.0, widths[c] - most) : 0.0;
+        spareTotal += spare[c];
+    }
+    if (room + 1e-6 >= need.leastWidth || room + spareTotal + 1e-6 >= need.leastWidth) {
+        double share = std::min(wanted, room + spareTotal);
+        if (room + spareTotal - share < NaturalSliver) share = room + spareTotal;
+        const double taken = std::max(0.0, share - room);
+        const NaturalFit fit = taken > 1e-6 ? NaturalFit::Squeezed : NaturalFit::Opened;
+        if (taken > 1e-6)
+            for (std::size_t c = 0; c < count; ++c)
+                if (spare[c] > 0.0) bentoColumnsSetShare(layout, c, widths[c] - taken * spare[c] / spareTotal);
+        std::vector<BentoColumnSlot<Handle>> fresh{{window, false}};
+        if (need.shortWindow()) fresh.push_back({Handle{}, true});
+        if (layout.columns.empty()) layout.alignRight = false;
+        if (layout.alignRight) layout.columns.insert(layout.columns.begin(), std::move(fresh));
+        else layout.columns.push_back(std::move(fresh));
+        layout.shares.push_back({window, share});
+        return fit;
+    }
+    if (!need.shortWindow()) return NaturalFit::None;
+    int best = -1;
+    for (const std::size_t c : order) {
+        const auto &column = layout.columns[c];
+        if (widths[c] + 1e-6 < need.leastWidth) continue;
+        const double height = 1.0 / double(column.size() + 1);
+        bool fits = height + 1e-6 >= need.leastHeight;
+        for (const auto &slot : column) {
+            if (slot.open) continue;
+            const NaturalNeed held = needOf(slot.window);
+            fits = fits && held.shortWindow() && height + 1e-6 >= held.leastHeight;
+        }
+        if (fits && (best < 0 || column.size() < layout.columns[best].size())) best = int(c);
+    }
+    if (best < 0) return NaturalFit::None;
+    layout.columns[best].push_back({window, false});
+    return NaturalFit::Joined;
 }
 } // namespace Kadunce

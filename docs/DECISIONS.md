@@ -572,8 +572,8 @@ one-step way back.
 ### A big display plays cards into its layout
 
 A display with room for more than two panes is Connected
-(`CARD-LIFECYCLE.md` §11): a picked card joins what is open. Full, the pane used
-longest ago yields, as equal panes give no answer.
+(`CARD-LIFECYCLE.md` §11): a picked card joins at its kind's or wheel's width.
+Full, the pane used longest ago yields; not three strips.
 
 ### Shuffle Keyboard is required and uses system input plumbing
 

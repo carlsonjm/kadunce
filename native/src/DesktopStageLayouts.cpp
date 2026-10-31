@@ -363,8 +363,31 @@ bool DesktopStageController::planSession(Session &session,
                 }
                 return smallest;
             };
+            // §11, Connected: a card of a known kind fits in at its natural
+            // size (NaturalSize.h); one that fits nowhere at the sizes the
+            // others want is unshowable here, so the pane used longest ago
+            // yields its room to it (shortenToShowable).
+            const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &window) {
+                return window ? m_host->naturalNeedForDesktopStage(window.data(), output)
+                                    .value_or(NaturalNeed{}) : NaturalNeed{};
+            };
+            int inUse = -1;
+            long long latest = -1;
+            for (std::size_t c = 0; c < columns->columns.size(); ++c)
+                for (const auto &slot : columns->columns[c])
+                    if (!slot.open && m_host->lastUsedForDesktopStage(slot.window.data()) > latest) {
+                        latest = m_host->lastUsedForDesktopStage(slot.window.data());
+                        inUse = int(c);
+                    }
+            QList<QPointer<KWin::EffectWindow>> unfitted;
             for (const auto &window : std::as_const(owned)) {
                 if (bentoColumnsHold(*columns, window)) continue;
+                if (const auto need = m_host->naturalNeedForDesktopStage(window.data(), output);
+                    need && need->width > 0.0 && !snapped) {
+                    if (bentoColumnsFitNatural(*columns, window, *need, needOf, inUse) == NaturalFit::None)
+                        unfitted.append(window);
+                    continue;
+                }
                 if (bentoColumnsFill(*columns, window)) continue;
                 // Past the open room a card joins the column holding fewest or
                 // starts a column at the right, whichever leaves the smallest
@@ -379,7 +402,8 @@ bool DesktopStageController::planSession(Session &session,
                     ? widened : joined;
                 // Four cards stand in even quarters, two columns of two in
                 // the order they stood, where every quarter holds its card.
-                if (auto quarters = bentoColumnsQuartered(*columns); quarters && smallestSide(*quarters))
+                if (auto quarters = bentoColumnsQuartered(*columns);
+                    !columns->natural && quarters && smallestSide(*quarters))
                     *columns = *quarters;
             }
             std::vector<QPointer<KWin::EffectWindow>> handles;
@@ -404,6 +428,7 @@ bool DesktopStageController::planSession(Session &session,
                 session.sideWindow.clear();
                 session.lone = false;
                 session.placeAlone = false;
+                report(unfitted);
                 return true;
             }
             // Columns that cannot hold every card at its minimum give way to

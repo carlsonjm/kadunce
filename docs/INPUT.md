@@ -73,7 +73,7 @@ bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of a display | It pairs into Bento on your side with the Active card, or for the Active card the card used before it, the upper half larger. With none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
+| Drag a window by its title bar to the left or right edge of a display | Within 32 px on a monitor, it pairs on your side with the Active card, or for the Active card the card used before it, the upper half larger. With none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
@@ -96,7 +96,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
 | `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
-| Wheel while dragging on a monitor | At a side its column narrows or widens; elsewhere it becomes the Active card that wide, centred. Slow turns pause at common widths. |
+| Wheel while dragging on a monitor | It resizes in place, its app keeping that width; whole, it fills. Slow turns pause at common widths. |
 | Click a picture in room a side snap left | It fills that room; `Escape` declines. |
 
 ## Table

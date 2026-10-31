@@ -577,11 +577,17 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
 
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareLocalCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output,
-    const KWin::RectF &geometry, QPointF contact) const
+    const KWin::RectF &geometry, QPointF contact, std::optional<double> columnShare) const
 {
     auto drop = prepareCardDrop(window, output, geometry);
     const auto *session = sessionForOutput(output);
     if (!drop || !session || !session->windows.contains(window)) return std::nullopt;
+    // §11, Connected: resized by the wheel, the pane keeps its place.
+    if (columnShare && session->placed) {
+        drop->localTarget = window;
+        drop->columnShare = columnShare;
+        return prepareLocalPlacement(*drop) ? drop : std::nullopt;
+    }
     const auto pixels = sessionPixels(*session, drop->area);
     for (int i = 0; i < session->windows.size() && i < static_cast<int>(pixels.size()); ++i) {
         const auto &p = pixels.at(i);
@@ -590,6 +596,14 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
         return prepareLocalPlacement(*drop) ? drop : std::nullopt;
     }
     return std::nullopt;
+}
+
+bool DesktopStageController::holdsInPlacedColumns(const KWin::LogicalOutput *output,
+                                                  const KWin::EffectWindow *window) const
+{
+    const auto *session = output ? sessionForOutput(output) : nullptr;
+    return session && session->placed
+        && bentoColumnsHold(*session->placed, QPointer<KWin::EffectWindow>(const_cast<KWin::EffectWindow *>(window)));
 }
 
 std::optional<DesktopStageController::Session> DesktopStageController::prepareLocalPlacement(
@@ -614,6 +628,22 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
         return plan;
     }
     if (!drop.localTarget) return std::nullopt;
+    if (drop.columnShare && drop.localTarget == drop.window) {
+        if (!session->placed || !drop.output) return std::nullopt;
+        Session plan = *session;
+        const double span = std::max(1, drop.area.width());
+        const bool resized = bentoColumnsResize(*plan.placed, QPointer<KWin::EffectWindow>(drop.window),
+            *drop.columnShare, [span](const QPointer<KWin::EffectWindow> &held) {
+                return held && held->window() ? held->window()->minSize().width() / span : 0.0;
+            });
+        if (!resized) return std::nullopt;
+        plan.side.reset();
+        plan.sideWindow.clear();
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (!planSession(plan, drop.window, true, &unshowable) || !unshowable.isEmpty()
+            || !plan.windows.contains(drop.window)) return std::nullopt;
+        return plan;
+    }
     const int from = session->windows.indexOf(drop.window);
     const int to = session->windows.indexOf(drop.localTarget);
     const auto pixels = sessionPixels(*session, drop.area);
@@ -849,6 +879,27 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
         pair->columns = {{partner}, {arriving}};
         pair->paired = true;
         if (!side->right) std::swap(pair->columns.front(), pair->columns.back());
+        // Two of known kinds stand at the sizes they want (NaturalSize.h),
+        // what they leave open beside them, the arrival on its side.
+        const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &held) {
+            return held ? m_host->naturalNeedForDesktopStage(held.data(), output).value_or(NaturalNeed{})
+                        : NaturalNeed{};
+        };
+        const NaturalNeed partnerNeed = needOf(QPointer<KWin::EffectWindow>(pairPartner));
+        const NaturalNeed arrivalNeed = needOf(QPointer<KWin::EffectWindow>(window));
+        if (partnerNeed.width > 0.0 && arrivalNeed.width > 0.0) {
+            BentoPlacedColumns natural;
+            natural.columns = {{partner}};
+            natural.natural = true;
+            natural.shares = {{QPointer<KWin::EffectWindow>(pairPartner), partnerNeed.width}};
+            const auto fit = bentoColumnsFitNatural(natural, QPointer<KWin::EffectWindow>(window),
+                                                    arrivalNeed, needOf, 0);
+            if (fit == NaturalFit::Opened || fit == NaturalFit::Squeezed) {
+                if (!side->right) std::rotate(natural.columns.rbegin(), natural.columns.rbegin() + 1,
+                                              natural.columns.rend());
+                pair = natural;
+            }
+        }
     }
     const auto planner = [this, side, window, alone, pair](Session &plan,
                                                            const auto &preferred, bool required) {
