@@ -65,7 +65,7 @@ asks the person and launches the applications; Kadunce never launches one.
 | Call | Result |
 | --- | --- |
 | `workspaceMemoryProtocolVersion()` | `1` |
-| `savedSession()` | `available`, and with it `count`, `apps`, `when`, `clean` and `windows` |
+| `savedSession()` | `available`, and with it `count`, `apps`, `missing`, `when`, `clean` and `windows` |
 | `bringBack(requestToken)` | `accepted`, `launch`, `alreadyOpen` and `count`, or `reason`: `nothing` or `busy` |
 | `cancelBringBack(requestToken)` | applications not yet back are missed |
 | `dismissSavedSession()` | the session is no longer offered |
@@ -74,7 +74,8 @@ asks the person and launches the applications; Kadunce never launches one.
 | signal `appBroughtBack(requestToken, appId, windowId, placed)` | one application's first window went to its place, or could not |
 | signal `bringBackFinished(requestToken, placed, missed)` | the bring-back is over |
 
-`apps`, `launch` and `alreadyOpen` are desktop ids; `when` and `lastSeen` are
+`apps`, `missing`, `launch` and `alreadyOpen` are desktop ids, `missing` the
+apps of `apps` not running when asked; `when` and `lastSeen` are
 Unix seconds; `clean` is false when the record is the last periodic one, as
 after a crash.
 

@@ -193,6 +193,15 @@ QVariantMap Effect::savedSession()
     reply.insert(QStringLiteral("when"), qlonglong(offered.savedAt));
     reply.insert(QStringLiteral("clean"), offered.clean);
     reply.insert(QStringLiteral("windows"), int(offered.windows.size()));
+    // The apps of it not running now: what a bring-back would open. Plasma
+    // may have reopened the rest already.
+    QStringList running;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+        if (isApplicationWindow(window)) running.append(LaunchIdentity::normalized(applicationIdentity(window)));
+    QStringList missing;
+    for (const QString &app : apps)
+        if (!running.contains(LaunchIdentity::normalized(app))) missing.append(app);
+    reply.insert(QStringLiteral("missing"), missing);
     return reply;
 }
 
