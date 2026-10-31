@@ -29,21 +29,43 @@ QVariantMap Effect::currentLayout()
     KWin::VirtualDesktop *desktop = KWin::effects->currentDesktop();
     KWin::LogicalOutput *output = KWin::effects->activeScreen();
     QList<QStringList> entries;
+    QList<QStringList> paneEntries;
     QSet<const KWin::EffectWindow *> counted;
-    // The cards on the display in use, left to right, each Stack front first.
+    const auto stack = KWin::effects->stackingOrder();
+    const auto onDesk = [output, desktop](const KWin::EffectWindow *window) {
+        return window && !window->isDeleted() && window->screen() == output && desktop
+            && window->isOnDesktop(desktop) && !window->isOnAllDesktops();
+    };
     if (output && m_currentSession) {
         SessionScope scope(this, m_currentSession, stageKeyFor(output));
+        // A pane's Stack is the pane and the cards waiting behind it, as a
+        // display showing its layout keeps one; front-most pane first.
+        for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
+            KWin::EffectWindow *pane = *it;
+            if (!onDesk(pane) || counted.contains(pane) || !m_desktopStage->managesWindow(pane)) continue;
+            counted.insert(pane);
+            QStringList apps{layoutAppIdentity(pane)};
+            for (KWin::EffectWindow *behind : m_cardStage->paneStack(pane)) {
+                if (!behind || counted.contains(behind)) continue;
+                counted.insert(behind);
+                apps.append(layoutAppIdentity(behind));
+            }
+            paneEntries.append(apps);
+        }
+        // The cards on the display in use, left to right, each Stack front
+        // first; those waiting behind a pane went with it.
         for (const auto &members : m_cardStage->rowEntries()) {
             QStringList apps;
             for (KWin::EffectWindow *member : members) {
+                if (counted.contains(member)) continue;
                 counted.insert(member);
                 if (member->screen() == output) apps.append(layoutAppIdentity(member));
             }
             entries.append(apps);
         }
     }
-    // Then panes and windows that are not cards, front-most first.
-    const auto stack = KWin::effects->stackingOrder();
+    entries.append(paneEntries);
+    // Then windows that are neither, front-most first.
     for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
         KWin::EffectWindow *window = *it;
         if (!window || window->isDeleted() || counted.contains(window) || window->screen() != output
@@ -241,6 +263,43 @@ void Effect::arrangeLayoutCards(bool order)
         if (!windows.isEmpty()) entries.append(windows);
     }
     if (entries.isEmpty()) return;
+    // A display showing its layout keeps a Stack as a pane with the rest
+    // behind it: the group's first pane stands in front, every other pane of
+    // it joins in its order, and its cards wait behind them.
+    for (auto &windows : entries) {
+        if (windows.size() < 2) continue;
+        QList<KWin::EffectWindow *> panes;
+        QList<KWin::EffectWindow *> cards;
+        {
+            SessionScope scope(this, m_currentSession, stageKeyFor(output));
+            if (!m_desktopStage->managesWindow(windows.first())) continue;
+            for (KWin::EffectWindow *window : windows) {
+                if (m_desktopStage->managesWindow(window)) panes.append(window);
+                else if (m_cardStage->liveCardIndex(window) >= 0) cards.append(window);
+            }
+        }
+        for (qsizetype at = panes.size() - 1; at > 0; --at) {
+            bool already = false;
+            {
+                SessionScope scope(this, m_currentSession, stageKeyOf(panes.at(at)));
+                already = m_cardStage->paneStack(panes.at(at - 1)).contains(panes.at(at));
+            }
+            if (!already) (void)stackPaneOnto(panes.at(at - 1), panes.at(at));
+        }
+        KWin::EffectWindow *front = panes.first();
+        if (!cards.isEmpty()) {
+            SessionScope scope(this, m_currentSession, stageKeyOf(front));
+            QList<KWin::EffectWindow *> behind = m_cardStage->paneStack(front);
+            for (KWin::EffectWindow *card : std::as_const(cards))
+                if (!behind.contains(card)) behind.append(card);
+            m_cardStage->notePaneStack(front, behind);
+            m_cardStage->settlePaneStacks();
+        }
+        qInfo() << "Kadunce" << Revision << "stood a layout's Stack of" << windows.size() << "with"
+                << logNameOf(front) << "in front";
+        // Every one of them now stands in the pane's Stack.
+        windows = {front};
+    }
     KWin::EffectWindow *first = nullptr;
     {
         SessionScope scope(this, m_currentSession, stageKeyFor(output));

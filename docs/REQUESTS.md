@@ -136,8 +136,8 @@ front first, and `stack` true for two or more applications sharing a Stack.
 ### Reading the desk
 
 `currentLayout` reads the workspace shown on the display in use: its cards left
-to right, each Stack front first, then its panes and other windows, front-most
-first. A window whose application has no desktop file is left out, and an
+to right, each Stack front first, then its panes, each with the cards waiting
+behind it as one Stack, then other windows, front-most first. A window whose application has no desktop file is left out, and an
 application appears once, in its first group.
 
 ### Arranging
@@ -147,7 +147,9 @@ group that is not a Stack stands each application alone. An application
 running anywhere uses its front-most window, a shown one before a minimized
 one; every other is in `launch`, and its first window is claimed as it opens.
 Each window goes to the workspace and display in use and becomes a card there.
-A Stack forms in the listed order as its applications come. Once every
+A Stack forms in the listed order as its applications come; on a display
+showing its layout, its first pane stays in front, its other panes join it in
+order, and its cards wait behind them. Once every
 application has come, or after 60 seconds, the groups lead the row in order,
 the first one in use, and the cards outside the layout follow as they stood.
 A window that does not reach its place within 5 seconds is reported not
