@@ -587,7 +587,9 @@ private:
     // again: now, when KWin already holds its restored state, which returns
     // true, else once KWin does.
     bool reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot);
-    bool applySession(Session &session, bool activateLead);
+    // Activating, the keys go to `focus` where the layout shows it, else to
+    // its first pane.
+    bool applySession(Session &session, bool activateLead, KWin::EffectWindow *focus = nullptr);
     void scheduleSettle();
     void settleSessions();
     // CARD-LIFECYCLE.md §5: a pane that will not fit the rect it was given is

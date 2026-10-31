@@ -1001,7 +1001,8 @@ bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
     return true;
 }
 
-bool DesktopStageController::applySession(Session &session, bool activateLead)
+bool DesktopStageController::applySession(Session &session, bool activateLead,
+                                          KWin::EffectWindow *focus)
 {
     if (session.participationDirty) {
         // §7's participation change is settled by whoever observed it, because
@@ -1077,7 +1078,8 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
             m_zoned.append(client);
     }
     releaseStrayZones();
-    const QPointer<KWin::EffectWindow> lead = plan.windows.value(0);
+    const QPointer<KWin::EffectWindow> lead = focus && plan.windows.contains(focus)
+        ? QPointer<KWin::EffectWindow>(focus) : plan.windows.value(0);
     if (activateLead && current() && lead && !lead->isDeleted() && lead->window()) {
         KWin::workspace()->raiseWindow(lead->window());
         if (!current() || !lead || lead->isDeleted() || !lead->window()) return false;

@@ -92,7 +92,9 @@ bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *
     m_applicationGuard.invalidate();
     const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    // What just opened takes the keys, as it would on a plain desktop, not
+    // the layout's first pane.
+    if (applySession(*session, true, window)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
@@ -199,7 +201,9 @@ bool DesktopStageController::admitCardWindow(
         || !unshowable.isEmpty()) return false;
     const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    // What just opened takes the keys, as it would on a plain desktop, not
+    // the layout's first pane.
+    if (applySession(*session, true, window)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
