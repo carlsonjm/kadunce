@@ -23,11 +23,19 @@ QString Effect::layoutAppIdentity(KWin::EffectWindow *window) const
     return !app.isEmpty() && KService::serviceByDesktopName(app) ? app : QString();
 }
 
+KWin::LogicalOutput *Effect::layoutDisplay() const
+{
+    // The display in use, as the dock or a touch last left it: asking from a
+    // popup on another display must not read that one.
+    if (KWin::LogicalOutput *inUse = screenNamed(inUseKey()); inUse && m_cardsOnEveryDisplay) return inUse;
+    return KWin::effects->activeScreen();
+}
+
 QVariantMap Effect::currentLayout()
 {
     if (!callerMayDrive()) return {};
     KWin::VirtualDesktop *desktop = KWin::effects->currentDesktop();
-    KWin::LogicalOutput *output = KWin::effects->activeScreen();
+    KWin::LogicalOutput *output = layoutDisplay();
     QList<QStringList> entries;
     QList<QStringList> paneEntries;
     QSet<const KWin::EffectWindow *> counted;
@@ -36,42 +44,55 @@ QVariantMap Effect::currentLayout()
         return window && !window->isDeleted() && window->screen() == output && desktop
             && window->isOnDesktop(desktop) && !window->isOnAllDesktops();
     };
+    const auto entryOf = [this, &counted](const QList<KWin::EffectWindow *> &members) {
+        QStringList apps;
+        for (KWin::EffectWindow *member : members) {
+            if (!member || counted.contains(member)) continue;
+            counted.insert(member);
+            apps.append(layoutAppIdentity(member));
+        }
+        return apps;
+    };
     if (output && m_currentSession) {
-        SessionScope scope(this, m_currentSession, stageKeyFor(output));
         // A pane's Stack is the pane and the cards waiting behind it, as a
-        // display showing its layout keeps one; front-most pane first.
+        // display showing its layout keeps one, read from the stage holding
+        // it; front-most pane first.
         for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
             KWin::EffectWindow *pane = *it;
             if (!onDesk(pane) || counted.contains(pane) || !m_desktopStage->managesWindow(pane)) continue;
-            counted.insert(pane);
-            QStringList apps{layoutAppIdentity(pane)};
-            for (KWin::EffectWindow *behind : m_cardStage->paneStack(pane)) {
-                if (!behind || counted.contains(behind)) continue;
-                counted.insert(behind);
-                apps.append(layoutAppIdentity(behind));
-            }
-            paneEntries.append(apps);
+            SessionScope scope(this, m_currentSession, stageKeyOf(pane));
+            paneEntries.append(entryOf(QList<KWin::EffectWindow *>{pane} + m_cardStage->paneStack(pane)));
         }
         // The cards on the display in use, left to right, each Stack front
         // first; those waiting behind a pane went with it.
-        for (const auto &members : m_cardStage->rowEntries()) {
-            QStringList apps;
-            for (KWin::EffectWindow *member : members) {
-                if (counted.contains(member)) continue;
-                counted.insert(member);
-                if (member->screen() == output) apps.append(layoutAppIdentity(member));
+        {
+            SessionScope scope(this, m_currentSession, stageKeyFor(output));
+            for (const auto &members : m_cardStage->rowEntries()) {
+                QList<KWin::EffectWindow *> here;
+                for (KWin::EffectWindow *member : members)
+                    if (onDesk(member)) here.append(member);
+                if (const QStringList apps = entryOf(here); !apps.isEmpty()) entries.append(apps);
             }
-            entries.append(apps);
+        }
+        // Then any card that row did not hold, with its Stack, from the
+        // stage holding it.
+        for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
+            KWin::EffectWindow *card = *it;
+            if (!onDesk(card) || counted.contains(card)) continue;
+            SessionScope scope(this, m_currentSession, stageKeyOf(card));
+            if (m_cardStage->liveCardIndex(card) < 0) continue;
+            const auto members = m_cardStage->stackFrontToBack(card);
+            entries.append(entryOf(members.isEmpty() ? QList<KWin::EffectWindow *>{card} : members));
         }
     }
     entries.append(paneEntries);
     // Then windows that are neither, front-most first.
     for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
         KWin::EffectWindow *window = *it;
-        if (!window || window->isDeleted() || counted.contains(window) || window->screen() != output
-            || !desktop || !window->isOnDesktop(desktop) || window->isOnAllDesktops()) continue;
+        if (!onDesk(window) || counted.contains(window)) continue;
         entries.append({layoutAppIdentity(window)});
     }
+    qInfo() << "Kadunce" << Revision << "read the desk on" << (output ? output->name() : QString()) << "as" << entries;
     QDBusArgument groups;
     groups.beginArray(qMetaTypeId<QVariantMap>());
     for (const auto &group : SavedLayouts::deskGroups(entries)) groups << SavedLayouts::toVariant(group);
@@ -109,7 +130,7 @@ QVariantMap Effect::arrangeLayout(const QString &requestToken, const QList<QVari
     }
     const auto plan = SavedLayouts::planArrangement(groups, open);
     KWin::VirtualDesktop *desktop = KWin::effects->currentDesktop();
-    KWin::LogicalOutput *output = KWin::effects->activeScreen();
+    KWin::LogicalOutput *output = layoutDisplay();
     m_layoutDesktop = desktop ? desktop->id() : QString();
     m_layoutOutput = output ? output->name() : QString();
     m_layoutReadySince.clear();

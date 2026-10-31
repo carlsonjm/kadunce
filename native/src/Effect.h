@@ -787,6 +787,7 @@ private:
     [[nodiscard]] bool layoutWindowSettled(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                                            KWin::VirtualDesktop *desktop);
     [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window) const;
+    [[nodiscard]] KWin::LogicalOutput *layoutDisplay() const;
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
     // that is not the Active card presented in front.
