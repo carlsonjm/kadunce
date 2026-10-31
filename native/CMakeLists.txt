@@ -391,5 +391,6 @@ if(BUILD_TESTING)
         src/BentoLayout.cpp
     )
     target_include_directories(kadunce-bento-layout-test PRIVATE src)
+    target_link_libraries(kadunce-bento-layout-test PRIVATE Qt6::Core)
     add_test(NAME bento-layout COMMAND kadunce-bento-layout-test)
 endif()

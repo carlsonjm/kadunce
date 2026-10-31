@@ -20,6 +20,9 @@ inline constexpr double WheelWidthTopStops[] = {3.0 / 4.0, 2.0 / 3.0, 1.0 / 2.0}
 // A side edge sets its column's share, the other side taking the rest.
 inline constexpr double WheelWidthSideStops[] = {2.0 / 3.0, 1.0 / 2.0, 1.0 / 3.0, 1.0 / 4.0};
 inline constexpr double WheelWidthSideMost = 0.8;
+// Turned this far, a window held away from the edges takes the whole width,
+// as the top edge gives it; short of it, a pane keeps its place at that width.
+inline constexpr double WheelWidthWhole = 0.98;
 // Narrower than this is no longer a place to work, whatever the app allows.
 inline constexpr double WheelWidthLeast = 1.0 / 6.0;
 

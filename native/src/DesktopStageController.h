@@ -7,6 +7,7 @@
 
 #include "BentoLayout.h"
 #include "BentoSidePlacement.h"
+#include "NaturalSize.h"
 #include "BentoProjectionSession.h"
 #include "CardOwnership.h"
 #include "DeferredCommandGuard.h"
@@ -82,6 +83,17 @@ public:
     [[nodiscard]] virtual bool showsOneCardForDesktopStage(const KWin::LogicalOutput *) const {
         return false;
     }
+    // §11, Connected: what this window wants of a layout on `output`, its
+    // natural size and its least (NaturalSize.h); none where windows there
+    // take what the layout gives them.
+    [[nodiscard]] virtual std::optional<NaturalNeed> naturalNeedForDesktopStage(
+        const KWin::EffectWindow *, const KWin::LogicalOutput *) const {
+        return std::nullopt;
+    }
+    // §11, Connected: a pane this window holds was resized to `share` of
+    // `output`'s work area, which its application keeps from now on.
+    virtual void teachNaturalWidthForDesktopStage(const KWin::EffectWindow *, const KWin::LogicalOutput *,
+                                                  double) {}
     // When the person last used this window, later uses larger; 0 for never.
     [[nodiscard]] virtual long long lastUsedForDesktopStage(const KWin::EffectWindow *) const {
         return 0;
@@ -318,6 +330,9 @@ public:
         // else on the display an input to the solve.
         bool alone = false;
         QPointer<KWin::EffectWindow> localTarget;
+        // §11, Connected: the wheel turned while the pane was held away from
+        // the edges gives its column this share of the width, in its place.
+        std::optional<double> columnShare;
         // CARD-LIFECYCLE.md §3: a side snap that pairs names the one card it
         // pairs with, so solving, preview and revalidation all see exactly two
         // windows instead of everything the display happens to own.
@@ -334,7 +349,12 @@ public:
     [[nodiscard]] bool cardDropValid(const PreparedDrop &drop) const;
     [[nodiscard]] std::optional<PreparedDrop> prepareLocalCardDrop(
         KWin::EffectWindow *window, KWin::LogicalOutput *output,
-        const KWin::RectF &geometry, QPointF contact) const;
+        const KWin::RectF &geometry, QPointF contact,
+        std::optional<double> columnShare = std::nullopt) const;
+    // Whether the layout on `output` stands in placed columns holding `window`,
+    // so the wheel can set its column's width in place.
+    [[nodiscard]] bool holdsInPlacedColumns(const KWin::LogicalOutput *output,
+                                            const KWin::EffectWindow *window) const;
     // Read-only layout solve: no placement, source removal or application token.
     [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop);
     // §3: Bento begins by pairing the carried window with the Active card. The
@@ -571,7 +591,12 @@ private:
     // again: now, when KWin already holds its restored state, which returns
     // true, else once KWin does.
     bool reminimizeRestored(KWin::Window *client, const RestoreSnapshot &snapshot);
-    bool applySession(Session &session, bool activateLead);
+    // Activating, the keys go to `focus` where the layout shows it, else to
+    // its first pane.
+    // §11, Connected: each pane a divider or an edge resized keeps that width
+    // for its application, beside `before`, the places the panes stood.
+    void teachResizedPanes(const Session &session, const std::vector<BentoRect> &before);
+    bool applySession(Session &session, bool activateLead, KWin::EffectWindow *focus = nullptr);
     void scheduleSettle();
     void settleSessions();
     // CARD-LIFECYCLE.md §5: a pane that will not fit the rect it was given is
