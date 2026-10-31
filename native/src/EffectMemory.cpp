@@ -80,6 +80,7 @@ void Effect::startWorkspaceMemory()
     const bool windowsOpen = std::any_of(stack.cbegin(), stack.cend(),
         [this](KWin::EffectWindow *window) { return isApplicationWindow(window); });
     m_signInGathering.begin(windowsOpen);
+    beginSignInGlass(windowsOpen);
     writeMemoryFile();
     m_memorySave.setInterval(MemorySaveMs);
     connect(&m_memorySave, &QTimer::timeout, this, [this] {
@@ -275,6 +276,8 @@ bool Effect::holdForSignIn(KWin::EffectWindow *window, const std::function<void(
     if (!m_signInBurst.arrive(steadyMs() - m_sessionStartedMs)) return false;
     window->window()->setHidden(true);
     m_signInHeld.append({window, admit});
+    // The burst, not the splash's quiet, now says when the glass clears.
+    m_signInGlassQuiet.stop();
     m_signInSettle.start(int(std::max<qint64>(0, m_signInBurst.settlesAt() - (steadyMs() - m_sessionStartedMs))));
     qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(window) << "out of sight as the session reopens it;"
             << m_signInBurst.count() << "so far";
@@ -305,6 +308,7 @@ void Effect::settleSignIn()
         entry.admit();
     }
     if (shown && !shown->isDeleted()) KWin::effects->activateWindow(shown);
+    revealSignInFront(shown);
 }
 
 void Effect::cancelBringBack(const QString &requestToken)

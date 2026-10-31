@@ -930,6 +930,7 @@ bool Effect::startTabletInCards(KWin::EffectWindow *arrival)
 Effect::~Effect()
 {
     m_releasing = true;
+    dropSignInGlassSpy();
     delete std::exchange(m_stuckNotesWatcher, nullptr);
     if (m_gapHeld) KWin::effects->stopMouseInterception(this);
     m_table.close();
