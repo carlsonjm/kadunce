@@ -910,6 +910,10 @@ int main()
             kept.shares = {{2, .6}};
             bentoColumnsSettleNatural(kept, needOf, 2);
             require(near(bentoColumnsWidths(kept)[1], .6), "A width the wheel gave a snapped pane was lost");
+            Columns unknown;
+            unknown.columns = {{{7, false}}, {{8, false}}};
+            bentoColumnsSettleNatural(unknown, [](int) { return NaturalNeed{}; });
+            require(!unknown.natural, "Columns of no known want turned natural");
         }
         {
             // A browser alone at its page width, then a terminal and files:

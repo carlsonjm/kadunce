@@ -380,7 +380,8 @@ void bentoColumnsMakeNatural(BentoColumns<Handle> &layout)
 // most a card in it wants, a column of no known want keeping its width and one
 // in `keep` the share it was given. Too wide together, the columns wanting
 // more than their least give way in proportion; room left open narrower than
-// NaturalSliver goes to the widest column.
+// NaturalSliver goes to the widest column. Where no card's want is known
+// nothing changes.
 template<class Handle, class NeedOf>
 void bentoColumnsSettleNatural(BentoColumns<Handle> &layout, NeedOf needOf, const Handle &keep = Handle{})
 {
@@ -389,10 +390,12 @@ void bentoColumnsSettleNatural(BentoColumns<Handle> &layout, NeedOf needOf, cons
     const std::size_t count = layout.columns.size();
     std::vector<double> want(count, 0.0), least(count, 0.0);
     std::vector<bool> fixed(count, false);
+    bool known = false;
     for (std::size_t c = 0; c < count; ++c) {
         for (const auto &slot : layout.columns[c]) {
             if (slot.open) continue;
             const NaturalNeed held = needOf(slot.window);
+            known = known || held.width > 0.0;
             want[c] = std::max(want[c], held.width);
             least[c] = std::max(least[c], held.leastWidth);
             if (keep && slot.window == keep) fixed[c] = true;
@@ -405,6 +408,8 @@ void bentoColumnsSettleNatural(BentoColumns<Handle> &layout, NeedOf needOf, cons
         if (want[c] <= 0.0) { want[c] = widths[c]; fixed[c] = true; }
         want[c] = std::max(want[c], least[c]);
     }
+    // Columns of no known want stand as they stood, not natural.
+    if (!known) return;
     double total = 0.0;
     for (const double w : want) total += w;
     if (total > 1.0 + 1e-6) {
