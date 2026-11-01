@@ -26,9 +26,12 @@ WorkspacePresentation Effect::presentationForInput() const
     // Bento is presented by the desktop stage's real panes. Card Stage still
     // owns its hidden individual cards, but none of its gestures apply, so the
     // router sees the same thing it saw before those cards could coexist.
+    // A Spread holding no card has nothing under the hand to take, so a press
+    // there belongs to the windows it would otherwise hide.
     if (!m_cardStage->isActive()
         || m_cardStage->presentation() == CardPresentation::Bento
-        || m_cardStage->presentation() == CardPresentation::Desktop) {
+        || m_cardStage->presentation() == CardPresentation::Desktop
+        || m_cardStage->emptySpread()) {
         return WorkspacePresentation::Inactive;
     }
     return m_cardStage->presentation() == CardPresentation::Spread
@@ -39,6 +42,18 @@ WorkspacePresentation Effect::presentationForInput() const
 void Effect::settleChosenCardForInput()
 {
     if (m_cardStage->finishGrowToActive()) observeCardOwnership();
+    // A press on a display whose Spread holds no card ends that Spread on the
+    // next turn, never inside the input filter's own callback.
+    if (m_cardStage->emptySpread()) {
+        onThisStageLater(0, [this] {
+            KWin::LogicalOutput *output = tabletOutput();
+            const bool layout = output && m_desktopStage->hasSessionOnOutput(output->name());
+            if (m_cardStage->leaveEmptySpread(layout)) {
+                observeCardOwnership();
+                Q_EMIT workspaceContextChanged();
+            }
+        });
+    }
 }
 
 WorkspaceInputGeometry Effect::geometryForInput() const

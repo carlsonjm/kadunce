@@ -772,6 +772,15 @@ void Effect::activateSelectedFromInput()
             } else {
                 toggleOwnedPresentation(true);
             }
+        } else {
+            // Said, so a pick that opened nothing can be read back.
+            qInfo() << "Kadunce" << Revision << "opened nothing from Spread:"
+                    << (!m_inputActivationGuard.accepts(ticket) ? "a later input replaced the pick"
+                        : !requested || requested->isDeleted() ? "no card was chosen"
+                        : selectedWindow() != requested ? "the choice moved on"
+                        : nativeWindowInteractionForInput() ? "KWin is moving a window"
+                        : m_cardStage->presentation() != CardPresentation::Spread ? "Spread had closed"
+                        : "a card is held or Search is open");
         }
     });
 }
