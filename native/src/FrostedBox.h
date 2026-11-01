@@ -43,6 +43,9 @@ public:
 
     void create()
     {
+        // Test build: no glass anywhere. Without its shaders the box is
+        // never ready, so every caller draws its plain stand-in or nothing.
+        return;
         auto *manager = KWin::ShaderManager::instance();
         m_down = manager->generateCustomShader(KWin::ShaderTrait::MapTexture,
             QByteArray(Vertex), QByteArray(DownFragment));
