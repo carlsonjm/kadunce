@@ -1140,6 +1140,35 @@ void CardStageController::stopBehindLayoutIfEmpty()
     m_originalCardStackingOrder.clear();
 }
 
+bool CardStageController::emptySpread() const
+{
+    return m_active && m_presentation == CardPresentation::Spread && m_workspace.windows().isEmpty()
+        && !m_launcherGuestActive && !m_cardGrabActive;
+}
+
+bool CardStageController::leaveEmptySpread(bool layoutShown)
+{
+    if (!emptySpread()) return false;
+    // §2: a Spread holding no card has nothing to show or choose, so it is no
+    // presentation at all. The display shows its layout again, or the stage
+    // stops, and input reaches the windows under it.
+    stopOpeningSpread();
+    clearCardTransition();
+    m_returnToDesktop = false;
+    if (layoutShown) {
+        m_presentation = CardPresentation::Bento;
+    } else {
+        m_active = false;
+        m_originalCardStackingOrder.clear();
+    }
+    m_host->setPagingShortcutsForCardStage(false);
+    syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "left a Spread holding no card:"
+            << (layoutShown ? "its display shows its layout again" : "its cards stop");
+    return true;
+}
+
 bool CardStageController::admitDisplacedPaneAsHiddenCard(
     KWin::EffectWindow *window, const std::function<bool()> &commitSource,
     const NativeMoveSnapshot *restore)

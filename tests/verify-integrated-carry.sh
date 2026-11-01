@@ -39,6 +39,7 @@ scenes=(
     every-display-carry-runtime production
     every-display-pane-runtime production
     every-display-full-runtime production
+    every-display-dragout-runtime production
     connected-keys-runtime production
     connected-bento-key-runtime production
     connected-zones-runtime production

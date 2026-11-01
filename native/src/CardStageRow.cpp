@@ -774,7 +774,9 @@ CardStageController::SpreadTap CardStageController::tapSpread(const QPointF &pos
         || m_lift.phase != Lift::Phase::None) return SpreadTap::None;
     KWin::EffectWindow *window = cardAt(tablet, position);
     if (!window) {
-        qInfo() << "Kadunce" << Revision << "tap on empty Spread: back to where the person was";
+        qInfo() << "Kadunce" << Revision << "tap on empty Spread: back to where the person was, on"
+                << tablet->name() << "with" << m_workspace.count() << "entries"
+                << (m_returnToDesktop ? "to the desktop" : "");
         if (m_returnToDesktop) {
             showDesktop();
             return SpreadTap::None;

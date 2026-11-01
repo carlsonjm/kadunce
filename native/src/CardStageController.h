@@ -600,6 +600,10 @@ public:
     // On Connected, Spread's panes stand at whole card size until resumed.
     void standPanesInCardPlace();
     void stopBehindLayoutIfEmpty();
+    // Active, showing Spread, and holding no card nor guest: nothing to choose.
+    [[nodiscard]] bool emptySpread() const;
+    // Leaves such a Spread for the layout its display shows, else stops.
+    bool leaveEmptySpread(bool layoutShown);
     // The display's Bento layout ended, so this stage cannot still be
     // presenting one. §12: what this stage owns returns to Spread.
     void leaveBentoPresentation();
