@@ -60,6 +60,7 @@
 #include <QSet>
 #include <QStringList>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <array>
@@ -122,9 +123,25 @@ public:
         return 50;
     }
 
+    // Glass reads the scene drawn under it, so while any stands, the desktop
+    // and every window must be drawn into the frame: a window KWin hands
+    // straight to the display, or lays on a plane of its own, is missing
+    // from what the glass reads, and the glass shows black in its place on
+    // the frames KWin does so. With no cards on, as on a new account, nothing
+    // else here held that off.
+    [[nodiscard]] bool glassStands() const
+    {
+        if (!m_frostBehind.isEmpty() || !m_settingsFrostSince.isEmpty() || !m_settingsFrostLeaving.isEmpty()
+            || m_signInGlass.on || m_sessionEnd.on) return true;
+        const auto stack = KWin::effects->stackingOrder();
+        return std::any_of(stack.cbegin(), stack.cend(), [](KWin::EffectWindow *window) {
+            return window && !window->isDeleted() && window->isVisible() && isPowerQuestion(window);
+        });
+    }
+
     [[nodiscard]] bool blocksDirectScanout() const override
     {
-        return anyCardStageActive()
+        return glassStands() || anyCardStageActive()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
@@ -135,7 +152,7 @@ public:
     // keep it painting while they are up, whoever trims the corners.
     [[nodiscard]] bool isActive() const override
     {
-        return anyCardStageActive() || roundsCorners()
+        return glassStands() || anyCardStageActive() || roundsCorners()
             || (m_tablePresenter && m_tablePresenter->visible()) || (m_spokenLine && m_spokenLine->visible())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
             || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
