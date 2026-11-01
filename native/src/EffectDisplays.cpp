@@ -695,6 +695,75 @@ long long Effect::lastUsedForDesktopStage(const KWin::EffectWindow *window) cons
     return window ? static_cast<long long>(m_activationOrder.value(windowIdentity(window))) : 0;
 }
 
+QString Effect::naturalAppOf(const KWin::EffectWindow *window) const
+{
+    if (!window || !window->window()) return {};
+    QString app = window->window()->desktopFileName().trimmed();
+    if (app.endsWith(QStringLiteral(".desktop"))) app.chop(8);
+    return app;
+}
+
+std::optional<NaturalNeed> Effect::naturalNeedForDesktopStage(const KWin::EffectWindow *window,
+    const KWin::LogicalOutput *output) const
+{
+    if (!window || !window->window() || !output || !connectedOutputForDesktopStage(output)) return std::nullopt;
+    const QSizeF area = workAreaForCardStage(output).size();
+    if (area.isEmpty()) return std::nullopt;
+    const QString app = naturalAppOf(window);
+    auto kind = m_appKinds.constFind(app);
+    if (kind == m_appKinds.cend()) {
+        KService::Ptr service = app.isEmpty() ? KService::Ptr() : KService::serviceByDesktopName(app);
+        if (!service && !app.isEmpty()) service = KService::serviceByStorageId(app + QStringLiteral(".desktop"));
+        // An installed application whose desktop file names no kind we know
+        // still stands at a width of its own, as mail does, never an even
+        // share of the display; only a window no desktop file describes
+        // takes what the layout gives it.
+        const AppKind named = service ? appKindFromCategories(service->categories()) : AppKind::Other;
+        kind = m_appKinds.insert(app, service && named == AppKind::Other ? AppKind::Communication : named);
+    }
+    std::optional<QSizeF> natural = naturalSizeFor(*kind, area);
+    const QString key = naturalWidthKey(app, output->geometry().width());
+    if (!key.isEmpty()) {
+        if (!m_naturalWidthsRead) {
+            const KConfigGroup widths = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))
+                ->group(QStringLiteral("NaturalWidths"));
+            for (const QString &entry : widths.keyList()) m_naturalWidths.insert(entry, widths.readEntry(entry, 0.0));
+            m_naturalWidthsRead = true;
+        }
+        const double taught = m_naturalWidths.value(key, 0.0);
+        if (taught > 0.0)
+            natural = QSizeF(std::min(taught, area.width()), natural ? natural->height() : area.height());
+    }
+    return naturalNeed(natural, window->window()->minSize(), area);
+}
+
+std::optional<double> Effect::naturalActiveShareForCardStage(const KWin::EffectWindow *window,
+    const KWin::LogicalOutput *output) const
+{
+    // §11, Connected: one card fills the display; only a width the person
+    // gave its application stands it narrower.
+    const auto need = naturalNeedForDesktopStage(window, output);
+    if (!need || need->width <= 0.0 || need->width >= .999 || !output) return std::nullopt;
+    if (!m_naturalWidths.contains(naturalWidthKey(naturalAppOf(window), output->geometry().width())))
+        return std::nullopt;
+    return need->width;
+}
+
+void Effect::teachNaturalWidth(const KWin::EffectWindow *window, const KWin::LogicalOutput *output,
+                               double share)
+{
+    if (!window || !output || share <= 0.0 || !connectedOutputForDesktopStage(output)) return;
+    const QString key = naturalWidthKey(naturalAppOf(window), output->geometry().width());
+    const double width = share * workAreaForCardStage(output).width();
+    if (key.isEmpty() || width <= 0.0) return;
+    KConfigGroup widths = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("NaturalWidths"));
+    m_naturalWidths.insert(key, std::round(width));
+    widths.writeEntry(key, std::round(width));
+    widths.sync();
+    qInfo() << "Kadunce" << Revision << "keeps" << naturalAppOf(window) << std::round(width)
+            << "px wide on displays" << output->geometry().width() << "px wide";
+}
+
 bool Effect::outputCanOwnCards(const KWin::LogicalOutput *output) const
 {
     return m_cardStage->canOwnCards(output);
@@ -829,7 +898,8 @@ bool Effect::admitSleepingPaneToTablet(KWin::EffectWindow *window, KWin::Logical
 std::optional<CarryEdge> Effect::carryEdgeAt(const KWin::LogicalOutput *output, QPointF contact) const
 {
     if (!output) return std::nullopt;
-    const auto edge = monitorCarryEdge(QRectF(output->geometry()), contact);
+    const auto edge = monitorCarryEdge(QRectF(output->geometry()), contact,
+        connectedOutputForDesktopStage(output) ? PointerCarryEdgeBand : CarryEdgeBand);
     if (edge && *edge != CarryEdge::Top && isPanelPoint(contact)) return std::nullopt;
     return edge;
 }

@@ -138,8 +138,10 @@ void DesktopStageController::handleWindowMoveResizeFinished(KWin::EffectWindow *
         // one moved into another zone takes that zone.
         syncZonesFromKde(source.value());
     } else if (resized) {
+        const std::vector<BentoRect> before = source->rects;
         adjustRail(source.value(), window, start,
                         window->frameGeometry());
+        teachResizedPanes(source.value(), before);
     }
     if (settleAfterInteraction(sourceKey)) return;
     source = m_sessions.find(sourceKey);
@@ -308,7 +310,10 @@ void DesktopStageController::finishRail(bool commit)
     m_railRevealed = false;
     if (valid) {
         m_applicationGuard.invalidate();
-        m_sessions[drag.rail.output].rects = std::move(drag.preview.rects);
+        Session &session = m_sessions[drag.rail.output];
+        const std::vector<BentoRect> before = session.rects;
+        session.rects = std::move(drag.preview.rects);
+        teachResizedPanes(session, before);
     }
     if (!settleAfterInteraction(drag.rail.output) && valid) {
         auto session = m_sessions.find(drag.rail.output);
@@ -462,6 +467,17 @@ void DesktopStageController::adjustRail(Session &session,
         }
     }
     session.rects = std::move(next);
+}
+
+void DesktopStageController::teachResizedPanes(const Session &session, const std::vector<BentoRect> &before)
+{
+    KWin::LogicalOutput *output = outputForKey(session.outputName);
+    if (!output || before.size() != session.rects.size()) return;
+    for (int i = 0; i < session.windows.size() && i < int(session.rects.size()); ++i) {
+        const double width = session.rects[i].width;
+        if (std::abs(width - before[i].width) > .005 && width < .999 && session.windows.at(i))
+            m_host->teachNaturalWidthForDesktopStage(session.windows.at(i).data(), output, width);
+    }
 }
 
 } // namespace Kadunce
