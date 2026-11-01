@@ -17,7 +17,6 @@
 #include <QVector2D>
 #include <QVector4D>
 
-#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -69,12 +68,7 @@ public:
                float strength = 1.0F)
     {
         if (!ready()) return false;
-        // The whole logical pixels inside `bounds`: a display at a fractional
-        // scale ends part way through one, and a copy reaching past the
-        // screen's last pixel fails on some frames and not others.
-        const QRect inside(QPoint(int(std::ceil(bounds.left())), int(std::ceil(bounds.top()))),
-                           QPoint(int(std::floor(bounds.right())) - 1, int(std::floor(bounds.bottom())) - 1));
-        const QRect area = box.intersected(bounds).toAlignedRect().intersected(inside);
+        const QRect area = box.intersected(bounds).toAlignedRect().intersected(bounds.toAlignedRect());
         if (area.width() >> Steps < 1 || area.height() >> Steps < 1) return false;
         QList<QVector2D> onscreen;
         for (const QRectF &part : parts) {
