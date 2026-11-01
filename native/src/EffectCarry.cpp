@@ -692,7 +692,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // monitors; on another display it is asked of the arrival below.
     if (m_carryWidthHeld && (!connectedOutputForDesktopStage(target) || (edge && *edge != CarryEdge::Top)))
         m_carryWidthHeld = false;
-    if (m_carryWidthHeld && !edge && local) edge = CarryEdge::Top;
+    // A pane held away from the edges keeps its place in the layout, the
+    // wheel setting its column's width, until the wheel takes it to the whole
+    // width, which the top edge gives.
+    const bool paneWidth = m_carryWidthHeld && !edge && local && bento && !desktopWindow
+        && m_carryWidth < WheelWidthWhole && m_desktopStage->holdsInPlacedColumns(target, m_carriedWindow);
+    if (m_carryWidthHeld && !edge && local && !paneWidth) edge = CarryEdge::Top;
     // Every return below that leaves an edge without a drop names why, and a
     // drop that is previewed but then refused at release cannot go there.
     std::optional<GestureRefusal> refusal;
@@ -1025,6 +1030,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         const QRectF drawn = carriedPose();
                         m_cardStage->setActiveWidth(carried, width);
                         if (!m_cardStage->refitActive(carried)) return false;
+                        teachNaturalWidth(carried, output, width);
                         glideIntoActive(carried, output, drawn);
                         return true;
                     });
@@ -1068,6 +1074,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     const QRectF drawn = carriedPose();
                     // Let go with no wheel turned, it stands at the whole width.
                     m_cardStage->setActiveWidth(carried, width > 0.0 ? width : 1.0);
+                    if (width > 0.0) teachNaturalWidth(carried, output, width);
                     if (adopt) {
                         if (!m_cardStage->adoptDisplayWithActive(carried, sourceValid)) return false;
                         glideIntoActive(carried, output, drawn);
@@ -1104,7 +1111,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
     // §11, Connected: a pane carried over another pane and rested there joins
     // that pane's Stack in front; let go sooner, the two swap below.
-    KWin::EffectWindow *over = local && bento && !desktopWindow && !edge
+    KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
         && connectedOutputForDesktopStage(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
     // Carried in from another display and rested on Spread's Active card, or
@@ -1160,7 +1167,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         landing = safeNativeLanding(landing, area);
     const KWin::RectF geometry(landing);
     const auto reserved = local && !desktopWindow && !side
-        ? m_desktopStage->prepareLocalCardDrop(m_carriedWindow, target, geometry, contact)
+        ? m_desktopStage->prepareLocalCardDrop(m_carriedWindow, target, geometry, contact,
+              paneWidth && m_carryWidth > 0.0 ? std::optional<double>(m_carryWidth) : std::nullopt)
         : m_desktopStage->prepareCardDrop(m_carriedWindow, target, geometry,
         stayNative ? DesktopStageController::CardDropIntent::NativeDesktop
         : edge && !m_cardStage->canOwnCards(target)
@@ -1190,16 +1198,21 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             ? CardStageController::narrowedActive(whole, arrivalWidth, m_carriedWindow->window()->minSize().width())
             : whole);
     }
+    // The width the wheel gave, which the application keeps from now on.
+    const double taught = arrivalWidth > 0.0 ? arrivalWidth
+        : paneWidth && m_carryWidth > 0.0 ? m_carryWidth
+        : side && side->share > 0.0 ? side->share : 0.0;
     previewDrop(*destination,
         [this, reserved, stackAfter, aimed = bool(stackAfter)] {
             return m_desktopStage->cardDropValid(*reserved) && (!aimed || (stackAfter && !stackAfter->isDeleted()));
         },
         [this, reserved, bento, output, geometry, stackAfter, targetRect = stackAfter ? std::optional<KWin::RectF>{} : m_carryPreview,
-         arrival = m_carriedWindow, arrivalWidth](const PreparedCarrySource &source) {
+         arrival = m_carriedWindow, arrivalWidth, taught](const PreparedCarrySource &source) {
             if (arrivalWidth > 0.0 && arrival) m_cardStage->setActiveWidth(arrival, arrivalWidth);
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
                 : carrySourceStage(source) && carrySourceStage(source)->transferNativeCarryToDesktop(source, output, geometry);
+            if (committed && taught > 0.0) teachNaturalWidth(arrival, output, taught);
             if (committed && targetRect) startDropSettle(arrival, output, QRectF(geometry), QRectF(*targetRect));
             if (committed && arrivalWidth > 0.0 && output) fitArrivalWidth(arrival, output->name(), arrivalWidth, 10);
             if (committed && stackAfter) {

@@ -943,6 +943,26 @@ private:
     bool m_cardsOnEveryDisplay = true;
     [[nodiscard]] long long lastUsedForDesktopStage(
         const KWin::EffectWindow *window) const override;
+    // §11, Connected: what a window wants of a layout and as a lone card
+    // (NaturalSize.h): a width the wheel gave its application on a display
+    // that wide, else its kind's natural size.
+    [[nodiscard]] std::optional<NaturalNeed> naturalNeedForDesktopStage(
+        const KWin::EffectWindow *window, const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] std::optional<double> naturalActiveShareForCardStage(
+        const KWin::EffectWindow *window, const KWin::LogicalOutput *output) const override;
+    void teachNaturalWidthForDesktopStage(const KWin::EffectWindow *window, const KWin::LogicalOutput *output,
+                                          double share) override
+    {
+        teachNaturalWidth(window, output, share);
+    }
+    [[nodiscard]] QString naturalAppOf(const KWin::EffectWindow *window) const;
+    // The wheel set this window's width, a share of `output`'s work area:
+    // its application stands that wide there from now on.
+    void teachNaturalWidth(const KWin::EffectWindow *window, const KWin::LogicalOutput *output,
+                           double share);
+    mutable QHash<QString, AppKind> m_appKinds;
+    mutable QHash<QString, double> m_naturalWidths;
+    mutable bool m_naturalWidthsRead = false;
     [[nodiscard]] bool outputCanOwnCards(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(

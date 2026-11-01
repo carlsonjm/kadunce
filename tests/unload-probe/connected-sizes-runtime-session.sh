@@ -5,8 +5,9 @@
 # stage, below the room that caps a work area at two panes, and it shows as
 # many panes as minimum sizes allow. The layout sizes its panes, sharing the
 # width evenly within minimum sizes; an edge says only where a card goes. A
-# pick pairs evenly with the card in use, a third pick takes a third column
-# and a fourth makes four even quarters, two columns of two. Past minimum sizes the layout is laid out whole, a card
+# pick pairs evenly with the card in use, a third pick goes under the right
+# half, never a third column, and a fourth goes under the left, four even
+# quarters. Past minimum sizes the layout is laid out whole, a card
 # snapped to a side keeping that side, and that card is never the pane that
 # leaves for Spread. Every check reads where each pane stands and its size.
 # Every check is reported, so a failure does not hide the rest.
@@ -130,17 +131,17 @@ check 'pair: the card in use takes the left half, top to bottom of the stage' at
 check 'pair: the pick takes the right half, the same size' at "$b" '[965, 34, 945, 980]'
 pick "$c"
 report thirds
-check 'third: three panes, where the stage alone would cap at two' panes 3
-check 'third: the first card stays at the left, a third wide' at "$a" '[10, 34, 628, 980]'
-check 'third: the second stays beside it, a third wide' at "$b" '[648, 34, 623, 980]'
-check 'third: the pick takes the third column at the right' at "$c" '[1282, 34, 628, 980]'
+check 'third: three panes' panes 3
+check 'third: the first card keeps the left half, top to bottom' at "$a" '[10, 34, 945, 980]'
+check 'third: the second keeps the top of the right half' at "$b" '[965, 34, 945, 485]'
+check 'third: the pick goes under it, never a third column' at "$c" '[965, 529, 945, 485]'
 pick "$d"
 report fourth
 check 'fourth: four panes' panes 4
 check 'fourth: the first card takes the top left quarter' at "$a" '[10, 34, 945, 485]'
-check 'fourth: the second goes under it' at "$b" '[10, 529, 945, 485]'
-check 'fourth: the third takes the top right quarter' at "$c" '[965, 34, 945, 485]'
-check 'fourth: the pick goes under it' at "$d" '[965, 529, 945, 485]'
+check 'fourth: the pick goes under it' at "$d" '[10, 529, 945, 485]'
+check 'fourth: the second keeps the top right quarter' at "$b" '[965, 34, 945, 485]'
+check 'fourth: the third stays under it' at "$c" '[965, 529, 945, 485]'
 end_pass even
 
 # Pass two: a card too wide for half the stage. The pair cannot hold it in

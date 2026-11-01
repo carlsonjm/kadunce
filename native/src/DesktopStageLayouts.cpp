@@ -319,8 +319,18 @@ bool DesktopStageController::planSession(Session &session,
         }
         const bool snapped = session.side && session.side->connected && session.sideWindow
             && preferred == session.sideWindow && owned.contains(session.sideWindow);
-        if (snapped && !columns) {
-            if (session.placeAlone) {
+        const auto needOf = [this, output](const QPointer<KWin::EffectWindow> &window) {
+            return window ? m_host->naturalNeedForDesktopStage(window.data(), output)
+                                .value_or(NaturalNeed{}) : NaturalNeed{};
+        };
+        // §11, Connected: a card arriving with no place named flows into
+        // columns, whatever shape the panes stand in: one card, then two
+        // halves, then under a half, never a third strip beside them.
+        const QPointer<KWin::EffectWindow> flowArrival = !snapped && preferred
+                && owned.contains(preferred) && !session.windows.contains(preferred)
+            ? QPointer(preferred) : nullptr;
+        if ((snapped || flowArrival) && !columns) {
+            if (snapped && session.placeAlone) {
                 columns = BentoPlacedColumns{};
             } else {
                 // A layout already standing in columns takes the snap as a
@@ -334,17 +344,27 @@ bool DesktopStageController::planSession(Session &session,
                     standingRects.push_back(session.rects[i]);
                 }
                 for (const auto &window : std::as_const(owned))
-                    whole = whole && (window == session.sideWindow || session.windows.contains(window));
-                if (whole) columns = bentoColumnsFromRects(standing, standingRects);
+                    whole = whole && (window == (snapped ? session.sideWindow : flowArrival)
+                                      || session.windows.contains(window));
+                if (whole && !standing.empty()) columns = bentoColumnsFromRects(standing, standingRects);
                 // Any other shape is dealt into columns first, so a snap on a
                 // Connected display always names a place.
-                if (whole && !columns) columns = bentoColumnsDealt(standing);
+                if (whole && !standing.empty() && !columns) columns = bentoColumnsDealt(standing);
+                // Nothing standing yet: the arrival is the first column.
+                if (whole && standing.empty() && flowArrival) {
+                    columns = BentoPlacedColumns{};
+                    columns->columns.push_back({{flowArrival, false}});
+                }
             }
         }
         if (columns) {
             if (snapped) {
                 bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
                 columns->paired = false;
+                // Each column stands at the width its cards want, not an even
+                // share; a width the wheel gave the snapped card stays.
+                bentoColumnsSettleNatural(*columns, needOf, session.side->share > 0.0
+                    ? QPointer(session.sideWindow) : QPointer<KWin::EffectWindow>());
             }
             // The shorter side of the smallest pane, when every pane holds
             // its card's minimum.
@@ -363,23 +383,23 @@ bool DesktopStageController::planSession(Session &session,
                 }
                 return smallest;
             };
+            QList<QPointer<KWin::EffectWindow>> unfitted;
             for (const auto &window : std::as_const(owned)) {
                 if (bentoColumnsHold(*columns, window)) continue;
                 if (bentoColumnsFill(*columns, window)) continue;
-                // Past the open room a card joins the column holding fewest or
-                // starts a column at the right, whichever leaves the smallest
-                // pane largest.
+                // §11, Connected: past the open room a card joins the bottom of
+                // the column holding fewest, so two halves become a half and
+                // two quarters, never a third strip. Only where that leaves a
+                // card under its minimum does it start a column at the right.
                 auto joined = *columns;
                 bentoColumnsJoin(joined, window);
                 auto widened = *columns;
                 widened.columns.push_back({{window, false}});
-                const auto joinedSide = smallestSide(joined);
-                const auto widenedSide = smallestSide(widened);
-                *columns = widenedSide && (!joinedSide || *widenedSide > *joinedSide)
-                    ? widened : joined;
+                *columns = smallestSide(joined) || !smallestSide(widened) ? joined : widened;
                 // Four cards stand in even quarters, two columns of two in
                 // the order they stood, where every quarter holds its card.
-                if (auto quarters = bentoColumnsQuartered(*columns); quarters && smallestSide(*quarters))
+                if (auto quarters = bentoColumnsQuartered(*columns);
+                    !columns->natural && quarters && smallestSide(*quarters))
                     *columns = *quarters;
             }
             std::vector<QPointer<KWin::EffectWindow>> handles;
@@ -404,6 +424,7 @@ bool DesktopStageController::planSession(Session &session,
                 session.sideWindow.clear();
                 session.lone = false;
                 session.placeAlone = false;
+                report(unfitted);
                 return true;
             }
             // Columns that cannot hold every card at its minimum give way to
@@ -976,7 +997,8 @@ bool DesktopStageController::shedUnshowable(const QString &key, Session probe,
     return true;
 }
 
-bool DesktopStageController::applySession(Session &session, bool activateLead)
+bool DesktopStageController::applySession(Session &session, bool activateLead,
+                                          KWin::EffectWindow *focus)
 {
     if (session.participationDirty) {
         // §7's participation change is settled by whoever observed it, because
@@ -1052,7 +1074,8 @@ bool DesktopStageController::applySession(Session &session, bool activateLead)
             m_zoned.append(client);
     }
     releaseStrayZones();
-    const QPointer<KWin::EffectWindow> lead = plan.windows.value(0);
+    const QPointer<KWin::EffectWindow> lead = focus && plan.windows.contains(focus)
+        ? QPointer<KWin::EffectWindow>(focus) : plan.windows.value(0);
     if (activateLead && current() && lead && !lead->isDeleted() && lead->window()) {
         KWin::workspace()->raiseWindow(lead->window());
         if (!current() || !lead || lead->isDeleted() || !lead->window()) return false;

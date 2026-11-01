@@ -83,6 +83,11 @@ public:
     // Whether another stage or layout, on any display or desktop, holds the
     // window already: a display taking in its windows leaves that one alone.
     [[nodiscard]] virtual bool heldElsewhereForCardStage(const KWin::EffectWindow *) const { return false; }
+    // §11, Connected: the share of the work area's width a lone card of this
+    // window's kind wants on `output` (NaturalSize.h), where the wheel gave it
+    // none; none where it stands at the whole width.
+    [[nodiscard]] virtual std::optional<double> naturalActiveShareForCardStage(
+        const KWin::EffectWindow *, const KWin::LogicalOutput *) const { return std::nullopt; }
     // Where the visible virtual keyboard's top edge sits on this display, if
     // one is up. A keyboard is a compositor fact and reaches every effect, so
     // reading it here costs no dependency on a downstream surface. A host with

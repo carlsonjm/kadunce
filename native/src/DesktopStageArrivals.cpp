@@ -92,7 +92,9 @@ bool DesktopStageController::admitArrival(Session *session, KWin::EffectWindow *
     m_applicationGuard.invalidate();
     const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    // What just opened takes the keys, as it would on a plain desktop, not
+    // the layout's first pane.
+    if (applySession(*session, true, window)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
@@ -199,7 +201,9 @@ bool DesktopStageController::admitCardWindow(
         || !unshowable.isEmpty()) return false;
     const auto pending = captureEvictions(live, candidate, window);
     *session = std::move(candidate);
-    if (applySession(*session, true)) scheduleSettle();
+    // What just opened takes the keys, as it would on a plain desktop, not
+    // the layout's first pane.
+    if (applySession(*session, true, window)) scheduleSettle();
     // Last, because adopting reenters this controller: nothing below may hold
     // a session reference or expect this one to still be here.
     publishEvictions(pending);
@@ -580,11 +584,17 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
 
 std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prepareLocalCardDrop(
     KWin::EffectWindow *window, KWin::LogicalOutput *output,
-    const KWin::RectF &geometry, QPointF contact) const
+    const KWin::RectF &geometry, QPointF contact, std::optional<double> columnShare) const
 {
     auto drop = prepareCardDrop(window, output, geometry);
     const auto *session = sessionForOutput(output);
     if (!drop || !session || !session->windows.contains(window)) return std::nullopt;
+    // §11, Connected: resized by the wheel, the pane keeps its place.
+    if (columnShare) {
+        drop->localTarget = window;
+        drop->columnShare = columnShare;
+        return prepareLocalPlacement(*drop) ? drop : std::nullopt;
+    }
     const auto pixels = sessionPixels(*session, drop->area);
     for (int i = 0; i < session->windows.size() && i < static_cast<int>(pixels.size()); ++i) {
         const auto &p = pixels.at(i);
@@ -593,6 +603,17 @@ std::optional<DesktopStageController::PreparedDrop> DesktopStageController::prep
         return prepareLocalPlacement(*drop) ? drop : std::nullopt;
     }
     return std::nullopt;
+}
+
+bool DesktopStageController::holdsInPlacedColumns(const KWin::LogicalOutput *output,
+                                                  const KWin::EffectWindow *window) const
+{
+    const auto *session = output ? sessionForOutput(output) : nullptr;
+    // Panes standing in no columns yet are read into columns as they stand.
+    return session && (session->placed
+        ? bentoColumnsHold(*session->placed, QPointer<KWin::EffectWindow>(const_cast<KWin::EffectWindow *>(window)))
+        : session->windows.contains(const_cast<KWin::EffectWindow *>(window))
+            && m_host->connectedOutputForDesktopStage(output));
 }
 
 std::optional<DesktopStageController::Session> DesktopStageController::prepareLocalPlacement(
@@ -617,6 +638,28 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareLo
         return plan;
     }
     if (!drop.localTarget) return std::nullopt;
+    if (drop.columnShare && drop.localTarget == drop.window) {
+        if (!drop.output) return std::nullopt;
+        Session plan = *session;
+        if (!plan.placed) {
+            std::vector<QPointer<KWin::EffectWindow>> standing(plan.windows.cbegin(), plan.windows.cend());
+            if (standing.size() != plan.rects.size()) return std::nullopt;
+            plan.placed = bentoColumnsFromRects(standing, plan.rects);
+            if (!plan.placed) plan.placed = bentoColumnsDealt(standing);
+        }
+        const double span = std::max(1, drop.area.width());
+        const bool resized = bentoColumnsResize(*plan.placed, QPointer<KWin::EffectWindow>(drop.window),
+            *drop.columnShare, [span](const QPointer<KWin::EffectWindow> &held) {
+                return held && held->window() ? held->window()->minSize().width() / span : 0.0;
+            });
+        if (!resized) return std::nullopt;
+        plan.side.reset();
+        plan.sideWindow.clear();
+        QList<QPointer<KWin::EffectWindow>> unshowable;
+        if (!planSession(plan, drop.window, true, &unshowable) || !unshowable.isEmpty()
+            || !plan.windows.contains(drop.window)) return std::nullopt;
+        return plan;
+    }
     const int from = session->windows.indexOf(drop.window);
     const int to = session->windows.indexOf(drop.localTarget);
     const auto pixels = sessionPixels(*session, drop.area);
