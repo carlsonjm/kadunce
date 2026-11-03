@@ -295,8 +295,9 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_settingsFrostLeaving.remove(data.screen->name());
             data.paint |= whole(QRectF(data.screen->geometryF()));
             m_continueRepaint = true;
-        } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen)) {
-            if (isPowerQuestion(settings)) m_powerQuestionSeen.start();
+        } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen);
+                   settings || tableFrostOn(data.screen)) {
+            if (settings && isPowerQuestion(settings)) m_powerQuestionSeen.start();
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
             m_settingsFrostLeaving.remove(data.screen->name());
@@ -678,13 +679,26 @@ KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
     return nullptr;
 }
 
+bool Effect::tableFrostOn(KWin::LogicalOutput *screen) const
+{
+    // Table frosts the desk of the display holding it, as Settings does, so
+    // it reads as a view of its own. Over Spread it frosts nothing, since
+    // its tabs leave Spread in view, and the glass clears while another
+    // workspace or a card is previewed, so the preview is seen as it is.
+    if (!screen || !m_table.isOpen() || m_tableOverSpread || !m_tablePresenter
+        || !m_tablePresenter->visible() || m_tablePresenterOutput != screen) return false;
+    return !m_previewCard
+        && (!m_previewDesktop || m_previewDesktop == KWin::effects->currentDesktop());
+}
+
 bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
 {
     return window && !window->isDeleted() && window->window() && window->isVisible() && m_paintingOutput
         && window->screen() == m_paintingOutput && window->isOnScreenDisplay()
         && window->window()->inherits("KWin::LayerShellV1Window")
         && window->window()->layer() == KWin::BelowLayer
-        && (settingsSurfaceOn(m_paintingOutput) || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
+        && (settingsSurfaceOn(m_paintingOutput) || tableFrostOn(m_paintingOutput)
+            || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
 }
 
 void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -694,8 +708,9 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!window || !screen || m_sessionEnd.on || m_settingsFrostDrawnOn == screen || !window->window()
         || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
     KWin::EffectWindow *settings = settingsSurfaceOn(screen);
-    const bool leaving = !settings && m_settingsFrostLeaving.contains(screen->name());
-    if (!settings && !leaving) return;
+    const bool table = !settings && tableFrostOn(screen);
+    const bool leaving = !settings && !table && m_settingsFrostLeaving.contains(screen->name());
+    if (!settings && !table && !leaving) return;
     // The glass is laid under the first of this display's panels to be
     // drawn, or under Settings itself where there are none, so the panels
     // and their fades stand over it as they are, and nothing ends at an edge.
@@ -716,6 +731,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
                since != m_settingsFrostSince.constEnd() && fade > 0) {
         strength = float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
     }
+    // A finger pulling Table down frosts the desk as far as it has come.
+    if (table) strength = std::min(strength, float(tablePull()));
     const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
     if (drawn) m_frostDrawn[screen->name()].append(whole);
     // The fades a panel lays under the windows, the Context Panel's tail
@@ -733,7 +750,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!m_settingsFrostSaid.contains(screen->name())) {
         m_settingsFrostSaid.insert(screen->name());
         qInfo() << "Kadunce" << Revision << "frosts" << screen->name()
-                << (isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under")
+                << (table ? "behind Table, laid under"
+                    : isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under")
                 << (window == settings ? "Settings" : "a panel")
                 << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
                 << "panel fades over it";

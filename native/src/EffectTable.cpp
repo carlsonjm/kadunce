@@ -242,6 +242,13 @@ bool Effect::commitDesktopPreview()
     return true;
 }
 
+double Effect::tablePull() const
+{
+    if (!m_table.scrubbing()) return 1.0;
+    const double tabsBottom = m_tableLayout.tabsTop + m_tableLayout.row;
+    return std::clamp(m_table.finger().y() / std::max(1.0, tabsBottom), 0.0, 1.0);
+}
+
 KWin::LogicalOutput *Effect::tableOutput() const
 {
     return m_tableOutput ? m_tableOutput.data() : tabletOutput();
@@ -464,8 +471,7 @@ void Effect::refreshTable()
     // stroke the band's darkness follows how far it has come, full by the
     // tabs; a flick, the corner and the key bring it in on its own.
     model[QStringLiteral("scrubbing")] = m_table.scrubbing();
-    model[QStringLiteral("pull")] = m_table.scrubbing()
-        ? std::clamp(finger.y() / std::max(1.0, tabsBottom), 0.0, 1.0) : 1.0;
+    model[QStringLiteral("pull")] = tablePull();
     // Letting go at the edge changes nothing, and says so beneath the tabs.
     // While a name is typed, the rule it serves is said beneath the tabs.
     model[QStringLiteral("hint")] = m_table.cancelling() ? i18n("Let go to cancel")

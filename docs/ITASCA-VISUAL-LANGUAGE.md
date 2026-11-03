@@ -260,7 +260,9 @@ they preserve these relationships and respect the user's animation settings.
   the glass show as they do behind Settings. Settings asks for it with `frostBehind` on Kadunce's bus
   object, and any layer surface of the asking program frosts while it shows,
   until the program asks no more or leaves the bus. The keyboard sheet does
-  not ask, and frosts nothing.
+  not ask, and frosts nothing. Table frosts its display alike while it is
+  open, except over Spread, and clears while it previews another workspace
+  or a card; a finger pulling it down frosts as far as it has come.
 - Session end: once that question is answered, the glass stays over every
   display, panels included, while the cards are given back and the
   windows close. A window that opens then, such as one asking whether to

@@ -1576,6 +1576,11 @@ private:
     // process their surfaces are known by.
     QHash<QString, qint64> m_frostBehind;
     [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
+    // Whether Table frosts the desk of this display now.
+    [[nodiscard]] bool tableFrostOn(KWin::LogicalOutput *screen) const;
+    // How far a finger pulling Table down has come toward its tabs, 0 to 1;
+    // 1 without one.
+    [[nodiscard]] double tablePull() const;
     // KDE's question before a restart, shut down or sign out, which Shuffle's
     // sheet fills: frosted behind as Settings is.
     [[nodiscard]] static bool isPowerQuestion(KWin::EffectWindow *window);
