@@ -246,6 +246,9 @@ they preserve these relationships and respect the user's animation settings.
   55%, meeting the window as it is drawn with no seam between them, a Stack's
   front turned with it, so it shows on a light window and a dark one alike.
   Search hosted in the row wears none.
+- A Stack in Spread carries its count on its front card's top-right corner: a
+  26 px round tag in the label's words with the pill's fill for its figure,
+  turned with the card and kept on the display.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
   screen it filled into its place in the row, a layout's panes as their own
   cards side by side, while the cards beside it slide in.

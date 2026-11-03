@@ -40,6 +40,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/CardLabelRenderer.h
         src/GestureNote.h
         src/GestureNoteLabel.h
+        src/StackCountBadge.h
+        src/StackCountBadgeBox.h
         src/StuckNotes.h
         src/StuckNotesWatcher.cpp
         src/StuckNotesWatcher.h
@@ -231,6 +233,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-gesture-note-test PRIVATE src)
     target_link_libraries(kadunce-gesture-note-test PRIVATE Qt6::Core KF6::I18n)
     add_test(NAME gesture-note COMMAND kadunce-gesture-note-test)
+    add_executable(kadunce-stack-count-badge-test tests/StackCountBadgeTest.cpp)
+    target_include_directories(kadunce-stack-count-badge-test PRIVATE src)
+    target_link_libraries(kadunce-stack-count-badge-test PRIVATE Qt6::Core)
+    add_test(NAME stack-count-badge COMMAND kadunce-stack-count-badge-test)
     add_executable(kadunce-surface-tone-test tests/SurfaceToneTest.cpp)
     target_include_directories(kadunce-surface-tone-test PRIVATE src)
     target_link_libraries(kadunce-surface-tone-test PRIVATE Qt6::Gui KF6::ConfigCore)

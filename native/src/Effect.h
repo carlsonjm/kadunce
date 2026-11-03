@@ -44,6 +44,7 @@
 #include "DesktopExitLabel.h"
 #include "GestureNoteLabel.h"
 #include "CardLabelRenderer.h"
+#include "StackCountBadge.h"
 #include "NoteStackRenderer.h"
 #include "KeptPicture.h"
 #include "FrostedBox.h"
@@ -336,6 +337,7 @@ private:
     QHash<KWin::EffectWindow *, DrawnFace> m_cardDrawnFaces;
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
+    StackCountBadge m_stackCountBadge;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     // The cards Spread shows behind a Stack's face, nearest first.
     [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
