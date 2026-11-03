@@ -200,6 +200,7 @@ void Effect::handleTransientChanged()
             QPointF(over.center().x() - box.width() / 2.0, over.center().y() - box.height() / 2.0)));
         m_cardLabelTargets.remove(window);
         m_cardFaceRects.remove(window);
+        m_cardDrawnFaces.remove(window);
         observeCardOwnership();
         qInfo() << "Kadunce" << logNameOf(window) << "belongs to" << logNameOf(lead)
                 << "and waits with it rather than as a card";
@@ -1133,7 +1134,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();
-        if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now)) {
+        if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now, contact)) {
             m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
         } else if (!local) {
             m_paneStackDwell.stop();

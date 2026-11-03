@@ -35,6 +35,11 @@ constexpr int SettingsFrostDissolveMs = 300;
 // short change of opacity where motion is instant.
 constexpr int SessionEndDarkenMs = 1000;
 constexpr int SessionEndDarkenInstantMs = 150;
+// The chosen card in Spread wears a ring on its edge: 2 px of the line ink,
+// lying over the window's last device pixel so no seam shows between them,
+// the rest outside the window, so it shows on any window.
+constexpr double ChosenRingWidth = 2.0;
+constexpr float ChosenRingOpacity = 0.55f;
 
 // The renderer that draws a view's scene. From KWin 6.8 each render device
 // has its own; earlier KWin has one.
@@ -95,7 +100,8 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
     const QRectF &box, double angle, float opacity, float outline,
     const QVector3D &fillColor = SurfaceTone::current().cardBacking(),
-    float fillOpacityScale = 1.0F)
+    float fillOpacityScale = 1.0F, std::optional<float> radius = std::nullopt,
+    std::optional<QVector3D> outlineInk = std::nullopt, std::optional<QPointF> pivot = std::nullopt)
 {
     if (!shader || box.isEmpty()) return;
     QList<QVector2D> vertices;
@@ -104,17 +110,19 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     KWin::ShaderBinder binder(shader);
     auto matrix = viewport.projectionMatrix();
     matrix.scale(viewport.scale(), viewport.scale());
-    matrix.translate(box.right(), box.bottom());
+    // Turned about the box's lower-right corner, or about the card's it rings.
+    const QPointF turn = pivot.value_or(box.bottomRight());
+    matrix.translate(turn.x(), turn.y());
     matrix.rotate(float(angle), 0, 0, 1);
-    matrix.translate(-box.right(), -box.bottom());
+    matrix.translate(-turn.x(), -turn.y());
     shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    shader->setUniform("outlineRadius", float(cardCornerRadius()));
+    shader->setUniform("outlineRadius", radius.value_or(float(cardCornerRadius())));
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
-    // Card surfaces draw no ring; this keeps the shared shader's ink defined.
-    shader->setUniform("outlineInk", QVector3D(0.88F, 0.88F, 0.88F));
+    // Card surfaces draw no ring unless asked; this keeps the ink defined.
+    shader->setUniform("outlineInk", outlineInk.value_or(QVector3D(0.88F, 0.88F, 0.88F)));
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
     const bool blended = glIsEnabled(GL_BLEND);
@@ -295,8 +303,9 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_settingsFrostLeaving.remove(data.screen->name());
             data.paint |= whole(QRectF(data.screen->geometryF()));
             m_continueRepaint = true;
-        } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen)) {
-            if (isPowerQuestion(settings)) m_powerQuestionSeen.start();
+        } else if (KWin::EffectWindow *settings = settingsSurfaceOn(data.screen);
+                   settings || tableFrostOn(data.screen)) {
+            if (settings && isPowerQuestion(settings)) m_powerQuestionSeen.start();
             auto &since = m_settingsFrostSince[data.screen->name()];
             if (!since.isValid()) since.start();
             m_settingsFrostLeaving.remove(data.screen->name());
@@ -678,13 +687,25 @@ KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
     return nullptr;
 }
 
+bool Effect::tableFrostOn(KWin::LogicalOutput *screen) const
+{
+    // Table frosts the desk of the display holding it, as Settings does, so
+    // it reads as a view of its own, whichever workspace it shows. Over
+    // Spread it frosts nothing, since its tabs leave Spread in view, and the
+    // glass clears while a card is previewed, so that card is seen as it is.
+    if (!screen || !m_table.isOpen() || m_tableOverSpread || !m_tablePresenter
+        || !m_tablePresenter->visible() || m_tablePresenterOutput != screen) return false;
+    return !m_previewCard;
+}
+
 bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
 {
     return window && !window->isDeleted() && window->window() && window->isVisible() && m_paintingOutput
         && window->screen() == m_paintingOutput && window->isOnScreenDisplay()
         && window->window()->inherits("KWin::LayerShellV1Window")
         && window->window()->layer() == KWin::BelowLayer
-        && (settingsSurfaceOn(m_paintingOutput) || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
+        && (settingsSurfaceOn(m_paintingOutput) || tableFrostOn(m_paintingOutput)
+            || m_settingsFrostLeaving.contains(m_paintingOutput->name()));
 }
 
 void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -694,8 +715,9 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!window || !screen || m_sessionEnd.on || m_settingsFrostDrawnOn == screen || !window->window()
         || !(window->isDock() || window->window()->inherits("KWin::LayerShellV1Window"))) return;
     KWin::EffectWindow *settings = settingsSurfaceOn(screen);
-    const bool leaving = !settings && m_settingsFrostLeaving.contains(screen->name());
-    if (!settings && !leaving) return;
+    const bool table = !settings && tableFrostOn(screen);
+    const bool leaving = !settings && !table && m_settingsFrostLeaving.contains(screen->name());
+    if (!settings && !table && !leaving) return;
     // The glass is laid under the first of this display's panels to be
     // drawn, or under Settings itself where there are none, so the panels
     // and their fades stand over it as they are, and nothing ends at an edge.
@@ -716,6 +738,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
                since != m_settingsFrostSince.constEnd() && fade > 0) {
         strength = float(std::clamp(double(since->elapsed()) / fade, 0.0, 1.0));
     }
+    // A finger pulling Table down frosts the desk as far as it has come.
+    if (table) strength = std::min(strength, float(tablePull()));
     const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
     if (drawn) m_frostDrawn[screen->name()].append(whole);
     // The fades a panel lays under the windows, the Context Panel's tail
@@ -733,7 +757,8 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     if (!m_settingsFrostSaid.contains(screen->name())) {
         m_settingsFrostSaid.insert(screen->name());
         qInfo() << "Kadunce" << Revision << "frosts" << screen->name()
-                << (isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under")
+                << (table ? "behind Table, laid under"
+                    : isPowerQuestion(settings) ? "under the power question, laid under" : "under Shuffle Settings, laid under")
                 << (window == settings ? "Settings" : "a panel")
                 << (drawn ? "as glass" : "but the glass could not be drawn") << "with" << fades
                 << "panel fades over it";
@@ -906,6 +931,11 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardFaceRects.erase(it);
             else ++it;
         }
+        for (auto it = m_cardDrawnFaces.begin(); it != m_cardDrawnFaces.end();) {
+            if (!it.key() || it.key()->isDeleted() || it.key()->screen() == screen
+                || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardDrawnFaces.erase(it);
+            else ++it;
+        }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // A display with no panel or splash drawn over it takes the sign-in
@@ -1005,6 +1035,28 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // A held card is above the row, so no name of the row shows through it.
         auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
+        // Which card a tap or Enter opens: the chosen card's ring, around
+        // the window as it is drawn this frame, following it as it moves.
+        // Search hosted in the row takes the middle instead, and wears none.
+        if (auto *chosen = m_cardStage->selectedWindow(); chosen && chosen != held
+            && !chosen->isDeleted() && !m_cardStage->launcherGuestActive()
+            && m_cardStage->paintSlot(chosen) != 99) {
+            const auto drawn = m_cardDrawnFaces.constFind(chosen);
+            if (drawn != m_cardDrawnFaces.cend() && !drawn->face.isEmpty()) {
+                // Around the card as it stands, a Stack's front turned with
+                // its fan about the same corner, so the ring keeps its shape.
+                // Its inner edge sits one device pixel inside the window's,
+                // over the soft edge a scaled window ends on.
+                const double outset = ChosenRingWidth - 1.0 / viewport.scale();
+                const QRectF box = drawn->face.adjusted(-outset, -outset, outset, outset);
+                const KWin::Region outputFence(
+                    viewport.mapToDeviceCoordinatesAligned(screen->geometry()));
+                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                    deviceRegion & outputFence, box, drawn->rotation, 0.0f, ChosenRingOpacity,
+                    SurfaceTone::current().lineInk(), 0.0F, float(cardCornerRadius() + outset),
+                    SurfaceTone::current().lineInk(), drawn->face.bottomRight());
+            }
+        }
         // The names, and a Stack's place, are said on a claimed context line.
         const bool namesSaid = contextLineClaimed(screen);
         for (int index = 0; !namesSaid && index < windows.size(); ++index) {
@@ -1719,6 +1771,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.
     m_cardFaceRects.insert(window, QRectF(logicalRegion));
+    // The card exactly as it is drawn, turned with it, for Spread's ring.
+    m_cardDrawnFaces.insert(window, {face, paintPose.rotation});
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.

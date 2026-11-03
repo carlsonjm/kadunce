@@ -24,6 +24,23 @@ int main()
     require(humanApplicationName({}, {}, {}, QStringLiteral("notes.txt"))
             == QStringLiteral("notes.txt"),
             "Caption fallback failed");
+    require(titleUnderName(QStringLiteral("Claude"), QStringLiteral("Claude")).isEmpty(),
+            "A title that is only the name was repeated");
+    require(titleUnderName(QStringLiteral("Kate"), QString::fromUtf8("Welcome \u2014 Kate"))
+            == QStringLiteral("Welcome"), "A title kept the name it ends in");
+    require(titleUnderName(QStringLiteral("Firefox"),
+                QString::fromUtf8("Shuffle \u2014 Mozilla Firefox"))
+            == QStringLiteral("Shuffle"), "A title kept a longer form of the name");
+    require(titleUnderName(QStringLiteral("Dolphin"), QStringLiteral("Downloads - dolphin"))
+            == QStringLiteral("Downloads"), "A plain hyphen before the name stayed");
+    require(titleUnderName(QStringLiteral("Kate"), QStringLiteral("notes.txt"))
+            == QStringLiteral("notes.txt"), "A title naming no application changed");
+    require(titleUnderName(QStringLiteral("Kate"), QString::fromUtf8("Kate \u2014 Kate")).isEmpty(),
+            "A title of the name twice kept it");
+    require(titleUnderName(QStringLiteral("Notes"), QStringLiteral("Meeting notes"))
+            == QStringLiteral("Meeting notes"), "A name inside a word was taken out");
+    require(titleUnderName({}, QStringLiteral(" Page ")) == QStringLiteral("Page"),
+            "A card with no name lost its title");
     require(pairedApplicationName(QStringLiteral("Firefox"), {QStringLiteral("Notes")})
             == QString::fromUtf8("Firefox · with Notes"),
             "A pair did not name its partner");

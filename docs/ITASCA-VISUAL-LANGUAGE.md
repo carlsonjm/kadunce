@@ -242,6 +242,10 @@ they preserve these relationships and respect the user's animation settings.
   Spread and Table, which lay their cards out their own way.
 - Spread with two entries draws its centre card at 64% of the work area and the
   shoulders at 54%; with three or more, every card is 54%.
+- The chosen card in Spread wears a ring on its edge: 2 px of the line ink at
+  55%, meeting the window as it is drawn with no seam between them, a Stack's
+  front turned with it, so it shows on a light window and a dark one alike.
+  Search hosted in the row wears none.
 - Opening Spread from the Active card or a Bento layout shrinks it from the
   screen it filled into its place in the row, a layout's panes as their own
   cards side by side, while the cards beside it slide in.
@@ -260,7 +264,9 @@ they preserve these relationships and respect the user's animation settings.
   the glass show as they do behind Settings. Settings asks for it with `frostBehind` on Kadunce's bus
   object, and any layer surface of the asking program frosts while it shows,
   until the program asks no more or leaves the bus. The keyboard sheet does
-  not ask, and frosts nothing.
+  not ask, and frosts nothing. Table frosts its display alike while it is
+  open, whichever workspace it shows, except over Spread, and clears while it
+  previews a card; a finger pulling it down frosts as far as it has come.
 - Session end: once that question is answered, the glass stays over every
   display, panels included, while the cards are given back and the
   windows close. A window that opens then, such as one asking whether to

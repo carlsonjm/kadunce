@@ -78,7 +78,7 @@ bottom edge is theirs.
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, the dragged one on your side. |
 | Hold a divider briefly, or click it, then drag | Both panes resize. |
-| Drag a Bento pane onto another pane of its layout | The two swap places. Connected, rested until it leans in, it joins that pane's Stack. |
+| Drag a Bento pane onto another pane of its layout | The two swap places. Connected, held still until it leans in, it joins that pane's Stack. |
 | Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends. |
 | Press `Escape`, or add a finger, while dragging a window | The drag is cancelled. |
 
