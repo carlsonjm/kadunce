@@ -40,12 +40,18 @@ const char *tableActionName(TableAction::Kind kind)
     return "nothing";
 }
 
-// KDE names a desktop it makes "Desktop N". Table treats that as no name yet:
-// the tab is its number until an application names it.
+// What + calls the workspace it makes until an application names it.
+QString newWorkspaceName()
+{
+    return i18nc("@label a workspace Table made empty, before an application names it", "New");
+}
+
+// KDE names a desktop it makes "Desktop N", and + calls one New. Table treats
+// either as no name yet: an application opened there names it.
 bool unnamedDesktop(const QString &name)
 {
     static const QRegularExpression kdeDefault(QStringLiteral("^Desktop \\d+$"));
-    return name.trimmed().isEmpty() || kdeDefault.match(name).hasMatch();
+    return name.trimmed().isEmpty() || kdeDefault.match(name).hasMatch() || name == newWorkspaceName();
 }
 }
 
@@ -362,9 +368,12 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
         }
         // A workspace nothing has named shows the name of the application it
         // holds first, as one made by carrying a card to + does.
-        if (unnamedDesktop(workspace.name) && !workspace.cards.isEmpty())
+        // A name the person gave stays, New among them.
+        const bool placeholder = !workspace.named && unnamedDesktop(workspace.name);
+        if (placeholder && !workspace.cards.isEmpty())
             workspace.name = workspace.cards.first().application;
-        if (unnamedDesktop(workspace.name)) workspace.name.clear();
+        // An empty one + made is New on its tab, as on the context line.
+        else if (placeholder && workspace.name != newWorkspaceName()) workspace.name.clear();
         workspaces.append(workspace);
     }
     return workspaces;
@@ -376,7 +385,8 @@ void Effect::readTableWorkspaces()
     // The name each unnamed workspace shows becomes its own, saved once.
     bool renamed = false;
     for (const TableWorkspace &workspace : std::as_const(m_tableWorkspaces)) {
-        if (!workspace.desktop || workspace.name.isEmpty()
+        if (!workspace.desktop || workspace.name.isEmpty() || workspace.named
+            || workspace.name == workspace.desktop->name()
             || !unnamedDesktop(workspace.desktop->name())) continue;
         workspace.desktop->setName(workspace.name);
         renamed = true;
@@ -1028,13 +1038,24 @@ void Effect::applyTableAction(const TableAction &action)
         return;
     }
     case TableAction::Kind::New: {
-        // KDE names it; its tab is its number until an application names it.
+        // Called New, in Table and on the context line alike, until its
+        // first application names it. Table stays open on its tab: a card
+        // carried there fills it, and the tab tapped enters it.
         auto *manager = KWin::VirtualDesktopManager::self();
-        if (KWin::VirtualDesktop *created = manager->createVirtualDesktop(manager->count())) {
-            showDesktopPreview(created, nullptr);
-            commitDesktopPreview();
+        KWin::VirtualDesktop *created = manager->createVirtualDesktop(manager->count(), newWorkspaceName());
+        if (!created) {
+            refreshTable();
+            return;
         }
-        finishTable();
+        // Left empty without being entered, it dissolves as Table closes.
+        m_unenteredDesktops.remove(created->id());
+        readTableWorkspaces();
+        int index = -1;
+        for (int i = 0; i < m_tableWorkspaces.size(); ++i)
+            if (m_tableWorkspaces[i].desktop == created) index = i;
+        relayoutTable();
+        if (index >= 0) m_table.showNewTab(index);
+        refreshTable();
         return;
     }
     case TableAction::Kind::Rename:
@@ -1210,6 +1231,17 @@ void Effect::loadNamedDesktops()
         group.deleteEntry(QStringLiteral("PinnedDesktops"));
         saveNamedDesktops();
     }
+    // A fresh install's first workspace is Home, not whatever application
+    // happened to be open there first, and Home is a name of its own.
+    auto *manager = KWin::VirtualDesktopManager::self();
+    KWin::VirtualDesktop *first = manager ? manager->desktops().value(0) : nullptr;
+    if (first && unnamedDesktop(first->name())) {
+        first->setName(i18n("Home"));
+        manager->save();
+        if (!m_namedDesktops.contains(first->id())) m_namedDesktops.append(first->id());
+        saveNamedDesktops();
+        qInfo() << "Kadunce" << Revision << "named the first workspace Home";
+    }
 }
 
 void Effect::setUsesDrawnZones(bool uses)
@@ -1287,6 +1319,18 @@ void Effect::scheduleDissolve()
     // A closing or departing window is still counted inside the call that
     // announces it; the turn after sees where everything stands.
     QTimer::singleShot(0, this, &Effect::dissolveEmptyWorkspaces);
+}
+
+bool Effect::currentWorkspaceDissolves() const
+{
+    auto *manager = KWin::VirtualDesktopManager::self();
+    KWin::VirtualDesktop *desktop = KWin::effects->currentDesktop();
+    if (!manager || !desktop || manager->count() <= 1 || m_namedDesktops.contains(desktop->id())) return false;
+    const auto stack = KWin::effects->stackingOrder();
+    return std::none_of(stack.cbegin(), stack.cend(), [desktop](KWin::EffectWindow *window) {
+        return !window->isDeleted() && window->isNormalWindow() && !window->isOnAllDesktops()
+            && !dependentLead(window) && window->isOnDesktop(desktop);
+    });
 }
 
 void Effect::dissolveEmptyWorkspaces()

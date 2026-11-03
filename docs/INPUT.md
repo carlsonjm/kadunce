@@ -117,7 +117,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | In the menu bar: tap a card, or the preview | What it shows opens. |
 | In the menu bar: drag a card | It is carried like a lifted card. |
 | In the menu bar: hold or right-click a tab | Its name can be typed. |
-| Tap or lift on `+` | An empty workspace opens; its first application names it. |
+| Tap or lift on `+` | An empty workspace, New, joins the tabs, Table open. |
 | Clear a workspace's name | Table offers to remove it (`TABLE.md`). |
 | `Meta+W` | Table opens as a menu bar on the pointer's display, or closes. |
 | Push the pointer into a display's top-left corner | The menu bar opens there; the rest of the edge stays with windows. |

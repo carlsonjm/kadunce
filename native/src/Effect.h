@@ -734,6 +734,9 @@ private:
     void endTableRename(bool commit);
     void removeTableWorkspace(int workspace);
     void scheduleDissolve();
+    // The workspace shown is empty, unnamed and not the only one, so leaving
+    // it dissolves it.
+    [[nodiscard]] bool currentWorkspaceDissolves() const;
     void dissolveEmptyWorkspaces();
     bool m_dissolveQueued = false;
     // Whether the session may be ending, so that no workspace emptied while

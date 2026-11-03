@@ -55,7 +55,7 @@ struct TableAction {
         Move,
         // Make a workspace for card `card` of `workspace` and move it there.
         Create,
-        // Make an empty workspace and enter it.
+        // Make an empty workspace; Table stays open on its tab.
         New,
         // Rename `workspace`: its tab held in a menu bar, right-clicked, or
         // F2.
@@ -194,7 +194,7 @@ public:
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
             if (m_level == TableLevel::Cards) return closeWith({TableAction::Kind::Close});
             // Lifting on + makes a workspace, as lifting on a tab enters one.
-            if (m_onPlus) return closeWith({TableAction::Kind::New});
+            if (m_onPlus) return makeNew();
             return closeWith({TableAction::Kind::Enter, m_hovered});
         }
         // A menu bar: a tap previews, a second tap on the same tab enters.
@@ -206,7 +206,7 @@ public:
         if (hit.card >= 0 && trayWorkspace() >= 0)
             return closeWith({TableAction::Kind::Activate, trayWorkspace(), hit.card});
         // + has nothing to preview, so one tap makes the workspace.
-        if (hit.plus) return closeWith({TableAction::Kind::New});
+        if (hit.plus) return makeNew();
         if (hit.tab >= 0) {
             if (hit.tab == m_hovered && m_level == TableLevel::Tabs && !m_onPlus)
                 return closeWith({TableAction::Kind::Enter, hit.tab});
@@ -364,7 +364,7 @@ public:
         case Key::Enter:
             if (m_level == TableLevel::Cards && m_card >= 0)
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
-            if (m_onPlus) return closeWith({TableAction::Kind::New});
+            if (m_onPlus) return makeNew();
             return closeWith({TableAction::Kind::Enter, m_hovered});
         case Key::Escape:
             return closeWith({TableAction::Kind::Close});
@@ -416,6 +416,16 @@ public:
         m_locked = destination;
         m_hovered = destination;
         m_card = card;
+    }
+
+    // The workspace + just made: its tab is in view, nothing of it chosen.
+    void showNewTab(int tab)
+    {
+        m_sticky = true;
+        m_onPlus = false;
+        m_level = TableLevel::Tabs;
+        m_hovered = tab;
+        m_card = -1;
     }
 
     [[nodiscard]] bool isOpen() const { return m_open; }
@@ -660,6 +670,18 @@ private:
             return {TableAction::Kind::StayOpen};
         }
         return {TableAction::Kind::Move, from, card, destination};
+    }
+
+    // + makes an empty workspace and Table stays open as a menu bar, so a
+    // card can be carried to the new tab or the tab entered.
+    TableAction makeNew()
+    {
+        m_sticky = true;
+        m_down = false;
+        m_onPlus = false;
+        m_level = TableLevel::Tabs;
+        m_card = -1;
+        return {TableAction::Kind::New};
     }
 
     TableAction closeWith(TableAction action)

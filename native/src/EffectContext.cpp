@@ -165,6 +165,10 @@ QJsonValue Effect::contextNotice() const
     // The open room's offer says how to choose on its display's own line.
     if (m_roomOffer && m_roomOffer->output && contextLineClaimed(m_roomOffer->output))
         return notice(QStringLiteral("offer"), roomOfferHint(), m_roomOffer->output);
+    // An empty workspace says on the line, as under its tab in Table, that it
+    // dissolves when left, so leaving it from the desktop warns too.
+    if (!m_table.isOpen() && currentWorkspaceDissolves())
+        return notice(QStringLiteral("dissolves"), i18n("Empty. It dissolves when you leave."), nullptr);
     return QJsonValue(QJsonValue::Null);
 }
 
