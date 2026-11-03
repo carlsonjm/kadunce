@@ -1133,7 +1133,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();
-        if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now)) {
+        if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(over), now, contact)) {
             m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
         } else if (!local) {
             m_paneStackDwell.stop();
