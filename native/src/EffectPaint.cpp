@@ -1057,24 +1057,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                     SurfaceTone::current().lineInk(), drawn->face.bottomRight());
             }
         }
-        // Each Stack's count on its front card's corner, so a Stack reads as
-        // one at a glance, whatever the context line says.
-        for (int index = 0; index < windows.size(); ++index) {
-            auto *window = windows.at(index).data();
-            if (!window || window == held || window->isDeleted()
-                || m_cardStage->paintSlot(window) == 99) continue;
-            const int cardId = index + 1;
-            const int count = model.stackSizeForId(cardId);
-            if (count < 2 || model.stackPositionForId(cardId)
-                != model.stackActivePositionForId(cardId)) continue;
-            const auto drawn = m_cardDrawnFaces.constFind(window);
-            if (drawn == m_cardDrawnFaces.cend() || drawn->face.isEmpty()) continue;
-            const QRectF badge = StackCountBadge::boxFor(
-                drawn->face, drawn->rotation, QRectF(screen->geometry()));
-            if (!heldRect.isEmpty() && badge.intersects(heldRect)) continue;
-            m_stackCountBadge.render(renderTarget, viewport, badge, count);
-            overlaid.append(badge);
-        }
         // The names, and a Stack's place, are said on a claimed context line.
         const bool namesSaid = contextLineClaimed(screen);
         for (int index = 0; !namesSaid && index < windows.size(); ++index) {
