@@ -100,7 +100,8 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     const KWin::RenderViewport &viewport, const KWin::Region &clip,
     const QRectF &box, double angle, float opacity, float outline,
     const QVector3D &fillColor = SurfaceTone::current().cardBacking(),
-    float fillOpacityScale = 1.0F)
+    float fillOpacityScale = 1.0F, std::optional<float> radius = std::nullopt,
+    std::optional<QVector3D> outlineInk = std::nullopt, std::optional<QPointF> pivot = std::nullopt)
 {
     if (!shader || box.isEmpty()) return;
     QList<QVector2D> vertices;
@@ -109,17 +110,19 @@ void paintCardSurface(KWin::GLShader *shader, const KWin::RenderTarget &renderTa
     KWin::ShaderBinder binder(shader);
     auto matrix = viewport.projectionMatrix();
     matrix.scale(viewport.scale(), viewport.scale());
-    matrix.translate(box.right(), box.bottom());
+    // Turned about the box's lower-right corner, or about the card's it rings.
+    const QPointF turn = pivot.value_or(box.bottomRight());
+    matrix.translate(turn.x(), turn.y());
     matrix.rotate(float(angle), 0, 0, 1);
-    matrix.translate(-box.right(), -box.bottom());
+    matrix.translate(-turn.x(), -turn.y());
     shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
     shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-    shader->setUniform("outlineRadius", float(cardCornerRadius()));
+    shader->setUniform("outlineRadius", radius.value_or(float(cardCornerRadius())));
     shader->setUniform("surfaceFill", QVector4D(fillColor,
         opacity * fillOpacityScale));
     shader->setUniform("outlineOpacity", outline);
-    // Card surfaces draw no ring; this keeps the shared shader's ink defined.
-    shader->setUniform("outlineInk", QVector3D(0.88F, 0.88F, 0.88F));
+    // Card surfaces draw no ring unless asked; this keeps the ink defined.
+    shader->setUniform("outlineInk", outlineInk.value_or(QVector3D(0.88F, 0.88F, 0.88F)));
     shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
     const bool blended = glIsEnabled(GL_BLEND);
@@ -687,13 +690,12 @@ KWin::EffectWindow *Effect::settingsSurfaceOn(KWin::LogicalOutput *screen) const
 bool Effect::tableFrostOn(KWin::LogicalOutput *screen) const
 {
     // Table frosts the desk of the display holding it, as Settings does, so
-    // it reads as a view of its own. Over Spread it frosts nothing, since
-    // its tabs leave Spread in view, and the glass clears while another
-    // workspace or a card is previewed, so the preview is seen as it is.
+    // it reads as a view of its own, whichever workspace it shows. Over
+    // Spread it frosts nothing, since its tabs leave Spread in view, and the
+    // glass clears while a card is previewed, so that card is seen as it is.
     if (!screen || !m_table.isOpen() || m_tableOverSpread || !m_tablePresenter
         || !m_tablePresenter->visible() || m_tablePresenterOutput != screen) return false;
-    return !m_previewCard
-        && (!m_previewDesktop || m_previewDesktop == KWin::effects->currentDesktop());
+    return !m_previewCard;
 }
 
 bool Effect::fadeOverSettingsFrost(KWin::EffectWindow *window) const
@@ -867,7 +869,7 @@ void Effect::drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const K
 
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const QList<QRectF> &parts, const QRectF &box,
-    float fill, float ring, std::optional<QVector3D> fillInk, std::optional<float> radius)
+    float fill, float ring, std::optional<QVector3D> fillInk)
 {
     QList<QVector2D> vertices;
     for (const auto &part : parts) {
@@ -882,7 +884,7 @@ void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
         matrix.scale(viewport.scale(), viewport.scale());
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-        m_destinationShader->setUniform("outlineRadius", radius.value_or(float(cardCornerRadius())));
+        m_destinationShader->setUniform("outlineRadius", float(cardCornerRadius()));
         const QVector3D ink = fillInk.value_or(SurfaceTone::current().lineInk());
         m_destinationShader->setUniform("surfaceFill", QVector4D(ink, fill));
         m_destinationShader->setUniform("outlineOpacity", ring);
@@ -927,6 +929,11 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         for (auto it = m_cardFaceRects.begin(); it != m_cardFaceRects.end();) {
             if (!it.key() || it.key()->isDeleted() || it.key()->screen() == screen
                 || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardFaceRects.erase(it);
+            else ++it;
+        }
+        for (auto it = m_cardDrawnFaces.begin(); it != m_cardDrawnFaces.end();) {
+            if (!it.key() || it.key()->isDeleted() || it.key()->screen() == screen
+                || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardDrawnFaces.erase(it);
             else ++it;
         }
     }
@@ -1034,17 +1041,18 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         if (auto *chosen = m_cardStage->selectedWindow(); chosen && chosen != held
             && !chosen->isDeleted() && !m_cardStage->launcherGuestActive()
             && m_cardStage->paintSlot(chosen) != 99) {
-            const auto face = m_cardFaceRects.constFind(chosen);
-            if (face != m_cardFaceRects.cend() && !face->isEmpty()) {
+            const auto drawn = m_cardDrawnFaces.constFind(chosen);
+            if (drawn != m_cardDrawnFaces.cend() && !drawn->face.isEmpty()) {
+                // Around the card as it stands, a Stack's front turned with
+                // its fan about the same corner, so the ring keeps its shape.
                 const double outset = ChosenRingGap + ChosenRingWidth;
-                const QRectF box = face->adjusted(-outset, -outset, outset, outset);
-                QRegion dirtied;
-                for (const auto &dirty : deviceRegion.rects())
-                    dirtied += QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).toAlignedRect();
-                QList<QRectF> parts;
-                for (const QRect &part : dirtied.intersected(box.toAlignedRect())) parts.append(QRectF(part));
-                fillDestinationParts(renderTarget, viewport, parts, box, 0.f, ChosenRingOpacity,
-                    std::nullopt, float(cardCornerRadius() + outset));
+                const QRectF box = drawn->face.adjusted(-outset, -outset, outset, outset);
+                const KWin::Region outputFence(
+                    viewport.mapToDeviceCoordinatesAligned(screen->geometry()));
+                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                    deviceRegion & outputFence, box, drawn->rotation, 0.0f, ChosenRingOpacity,
+                    SurfaceTone::current().lineInk(), 0.0F, float(cardCornerRadius() + outset),
+                    SurfaceTone::current().lineInk(), drawn->face.bottomRight());
             }
         }
         // The names, and a Stack's place, are said on a claimed context line.
@@ -1761,6 +1769,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.
     m_cardFaceRects.insert(window, QRectF(logicalRegion));
+    // The card exactly as it is drawn, turned with it, for Spread's ring.
+    m_cardDrawnFaces.insert(window, {face, paintPose.rotation});
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.

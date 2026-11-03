@@ -200,6 +200,7 @@ void Effect::handleTransientChanged()
             QPointF(over.center().x() - box.width() / 2.0, over.center().y() - box.height() / 2.0)));
         m_cardLabelTargets.remove(window);
         m_cardFaceRects.remove(window);
+        m_cardDrawnFaces.remove(window);
         observeCardOwnership();
         qInfo() << "Kadunce" << logNameOf(window) << "belongs to" << logNameOf(lead)
                 << "and waits with it rather than as a card";

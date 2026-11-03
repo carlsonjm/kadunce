@@ -328,6 +328,12 @@ private:
     // KWin is told to draw it at, kept as it is told. Notes placed on the
     // window stand on this, so they move with the picture frame by frame.
     QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
+    // Each card as it was last drawn in Spread: its face and its fan's turn.
+    struct DrawnFace {
+        QRectF face;
+        double rotation = 0.0;
+    };
+    QHash<KWin::EffectWindow *, DrawnFace> m_cardDrawnFaces;
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
@@ -1547,8 +1553,7 @@ private:
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               const QList<QRectF> &parts, const QRectF &box, float fill, float ring,
-                              std::optional<QVector3D> ink = std::nullopt,
-                              std::optional<float> radius = std::nullopt);
+                              std::optional<QVector3D> ink = std::nullopt);
     // Where a window will land is frosted glass (FrostedBox.h). What each
     // display frosted in its last frame, by name, is drawn afresh in its
     // next, so the glass never blurs itself.
