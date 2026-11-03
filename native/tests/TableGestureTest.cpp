@@ -247,7 +247,18 @@ int main()
         stroke(table, 640, 0.40, 300);
         check(table.onPlus() && table.level() == TableLevel::Tabs && !table.carrying(), "nothing hangs under + to pull into");
         const auto action = table.release(QPointF(640, 400), 400);
-        check(action.kind == Kind::New && !table.isOpen(), "lifting on + makes an empty workspace");
+        check(action.kind == Kind::New && table.isOpen() && table.sticky() && !table.onPlus(),
+              "lifting on + makes an empty workspace, and Table stays open");
+        table.setLayout({100, 300, 500, 640}, 760, {{80, 240}, {280, 440, 600}, {500}, {}});
+        table.showNewTab(3);
+        check(table.hovered() == 3 && table.level() == TableLevel::Tabs && table.card() == -1,
+              "the new workspace's tab is in view");
+        table.press(QPointF(640, 60), -1);
+        TableHit tab;
+        tab.tab = 3;
+        tab.insideRows = true;
+        const auto entered = table.release(QPointF(640, 60), 600, tab);
+        check(entered.kind == Kind::Enter && entered.workspace == 3 && !table.isOpen(), "a tap on the new tab enters it");
     }
     {
         TableGesture table = opened(0, true);
@@ -256,7 +267,7 @@ int main()
         hit.plus = true;
         hit.insideRows = true;
         const auto action = table.release(QPointF(650, 60), 100, hit);
-        check(action.kind == Kind::New && !table.isOpen(), "one tap on + makes an empty workspace");
+        check(action.kind == Kind::New && table.isOpen(), "one tap on + makes an empty workspace, Table open");
     }
     {
         TableGesture table = opened(1);
@@ -285,7 +296,7 @@ int main()
         table.key(TableGesture::Key::Down);
         check(table.level() == TableLevel::Tabs && table.onPlus(), "down on + hangs nothing");
         action = table.key(TableGesture::Key::Enter);
-        check(action.kind == Kind::New, "enter on + makes an empty workspace");
+        check(action.kind == Kind::New && table.isOpen() && !table.onPlus(), "enter on + makes an empty workspace");
         table.open(0, 0);
         action = table.key(TableGesture::Key::Escape);
         check(action.kind == Kind::Close && !table.isOpen(), "escape cancels");

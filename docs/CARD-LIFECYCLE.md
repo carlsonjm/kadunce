@@ -464,7 +464,7 @@ chosen (`kaduncerc` `[Sizing]`).
 | A dock launch | Opens Active | Names a place, as a side snap does |
 | A Stack | Steps in place (§9), at the whole width | Fills one pane, the rest behind; stepping or closing its front plays the next, and a card called comes forward. A card or pane rested on a pane or the tablet's card joins its Stack in front |
 | A full layout | An arrival takes the smallest slot it fits (§8) | Auto-fill lays all out past minimum sizes, keeping a snapped card's side; else the fitting pane used longest ago yields, never that card |
-| A pane leaving | §5 | §5, its room opening |
+| A pane leaving | §5 | §5; only a snap's room reopens |
 
 ### Every display
 

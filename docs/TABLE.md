@@ -22,13 +22,16 @@ window is in `CARD-LIFECYCLE.md`.
   whole and arrives as a Stack, face in front. A pane carried away leaves its
   layout.
 - A new workspace is named for the application of the card that made it; one
-  made empty with `+` takes its first application's name. The name and KDE's
-  desktop number are the whole label.
+  made empty with `+` is New, in Table and on the context line, until its
+  first application names it, and Table stays open on its tab. The name and
+  KDE's desktop number are the whole label. A fresh install's first workspace
+  is Home, a name of its own.
 - A name you give keeps the workspace; an application's does not. Which names
   are yours survives a restart. Clearing a name offers removal, and the
   windows go where KDE sends them: the next workspace, or the one before the
   last.
-- A workspace with no cards dissolves once you leave it unless you named it.
+- A workspace with no cards dissolves once you leave it unless you named it,
+  and the context line says so while you are in it.
   This holds for desktops made in KDE's settings too, and a window on every
   desktop does not keep one. A desktop made elsewhere while Kadunce runs stays
   until you have entered and left it. Signing out never dissolves one, nor
