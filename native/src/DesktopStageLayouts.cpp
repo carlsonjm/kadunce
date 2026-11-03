@@ -329,6 +329,11 @@ bool DesktopStageController::planSession(Session &session,
         const QPointer<KWin::EffectWindow> flowArrival = !snapped && preferred
                 && owned.contains(preferred) && !session.windows.contains(preferred)
             ? QPointer(preferred) : nullptr;
+        // Columns an arrival's flow deals from panes no snap placed were
+        // placed by no one: auto layout began them, so they leave no room
+        // open, and the card left when the other goes fills the display
+        // again. A card the person placed keeps its place (BentoColumns.h).
+        bool flowBegan = false;
         if ((snapped || flowArrival) && !columns) {
             if (snapped && session.placeAlone) {
                 columns = BentoPlacedColumns{};
@@ -350,6 +355,7 @@ bool DesktopStageController::planSession(Session &session,
                 // Any other shape is dealt into columns first, so a snap on a
                 // Connected display always names a place.
                 if (whole && !standing.empty() && !columns) columns = bentoColumnsDealt(standing);
+                flowBegan = !snapped && columns && !standing.empty();
                 // Nothing standing yet: the arrival is the first column.
                 if (whole && standing.empty() && flowArrival) {
                     columns = BentoPlacedColumns{};
@@ -358,6 +364,7 @@ bool DesktopStageController::planSession(Session &session,
             }
         }
         if (columns) {
+            if (flowBegan) columns->paired = true;
             if (snapped) {
                 bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
                 columns->paired = false;

@@ -1486,11 +1486,24 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
             }
         }
     }
+    // A pane of the shown layout, read before the layout lets it go.
+    KWin::LogicalOutput *paneOutput = nullptr;
+    {
+        SessionScope scope(this, m_scopedSession, stageKeyOf(window));
+        if (m_desktopStage->managesWindow(window)) paneOutput = window->screen();
+    }
     // The window may be held by a desktop that is not shown, on any display.
     forEachSession([&] {
         m_desktopStage->handleWindowClosed(window);
         forEachDisplayStage([&](CardStageController &stage) { stage.handleWindowClosed(window); });
     });
+    // §11, Connected: a placed card keeps its place as its partner goes, and
+    // the room the pane leaves offers the display's other cards, as after a
+    // side snap. A layout auto layout began fills the display again instead.
+    if (paneOutput && KWin::effects->screens().contains(paneOutput)) {
+        SessionScope scope(this, m_scopedSession, stageKeyFor(paneOutput));
+        if (m_desktopStage->openRoomOn(paneOutput)) askRoomOffer(paneOutput);
+    }
     if (m_table.isOpen()) {
         readTableWorkspaces();
         relayoutTable();
