@@ -22,7 +22,7 @@ int main()
         {{u"Firefox"_s, u"A more thoughtful web"_s}, {u"Elisa"_s, u"Now playing"_s}},
         {{u"Kate"_s, u"TableModel.cpp"_s}},
         {}};
-    const auto layout = layoutTable(display, tabs, cards, QString(), u"Empty. It dissolves when you leave."_s, metrics);
+    const auto layout = layoutTable(display, tabs, cards, QString(), u"Empty, right click to name it"_s, metrics);
     check(layout.parts == TableTabParts::All, "an uncrowded row shows everything");
     check(layout.plus.width() == layout.row && layout.plus.height() == layout.row, "+ at rest is a circle");
     check(layout.row == 46.0 && layout.tabsTop > 0 && layout.trayTop > layout.tabsTop + layout.row, "rows stack under the edge");

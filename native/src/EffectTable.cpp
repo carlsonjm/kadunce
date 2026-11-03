@@ -413,7 +413,7 @@ void Effect::relayoutTable()
     // keeps at least one.
     const bool removable = m_tableRenaming >= 0 && m_tableRenameText.trimmed().isEmpty() && manager->count() > 1;
     m_tableLayout = layoutTable(tableDisplay().size(), tabs, cards, m_table.carrying() ? i18n("New") : QString(),
-        i18n("Empty. It dissolves when you leave."),
+        i18n("Empty, right click to name it"),
         TableMetrics{&TablePresenter::measure}, plus, removable ? i18n("Remove workspace") : QString());
     QList<double> tabCentres;
     for (const QRectF &tab : std::as_const(m_tableLayout.tabs)) tabCentres.append(tab.center().x());
@@ -555,7 +555,7 @@ void Effect::refreshTable()
                 {QStringLiteral("visible"), true}, {QStringLiteral("x"), empty.x()}, {QStringLiteral("y"), empty.y()},
                 {QStringLiteral("width"), empty.width()}, {QStringLiteral("height"), empty.height()},
                 {QStringLiteral("text"), m_tableWorkspaces[tray].named ? i18n("Empty. Named, so it stays.")
-                                                                         : i18n("Empty. It dissolves when you leave.")},
+                                                                         : i18n("Empty, right click to name it")},
             };
         }
     }
@@ -1032,7 +1032,9 @@ void Effect::applyTableAction(const TableAction &action)
             refreshTable();
             return;
         }
-        // Table's own workspace dissolves as any left one does.
+        // Table's own workspace dissolves as any left one does, and its
+        // application's name is not one the person gave.
+        if (m_namedDesktops.removeAll(created->id()) > 0) saveNamedDesktops();
         m_unenteredDesktops.remove(created->id());
         moveTableCard(action.workspace, action.card, created);
         return;
@@ -1047,7 +1049,9 @@ void Effect::applyTableAction(const TableAction &action)
             refreshTable();
             return;
         }
-        // Left empty without being entered, it dissolves as Table closes.
+        // Nobody named it, whatever an earlier desktop's record says, and
+        // left empty without being entered it dissolves as Table closes.
+        if (m_namedDesktops.removeAll(created->id()) > 0) saveNamedDesktops();
         m_unenteredDesktops.remove(created->id());
         readTableWorkspaces();
         int index = -1;
@@ -1112,7 +1116,12 @@ void Effect::endTableRename(bool commit)
         // A name the person gives keeps the workspace, even one kept as it
         // was; cleared, it goes back to its application's name and keeps
         // it no longer.
-        if (!typed.isEmpty()) {
+        // New is what + calls a workspace before anything names it, so
+        // leaving the name as New names nothing.
+        const bool placeholder = typed == newWorkspaceName() && !m_namedDesktops.contains(desktop->id());
+        if (placeholder) {
+            desktop->setName(typed);
+        } else if (!typed.isEmpty()) {
             desktop->setName(typed);
             if (!m_namedDesktops.contains(desktop->id())) m_namedDesktops.append(desktop->id());
         } else {
@@ -1230,6 +1239,16 @@ void Effect::loadNamedDesktops()
             if (!m_namedDesktops.contains(id)) m_namedDesktops.append(id);
         group.deleteEntry(QStringLiteral("PinnedDesktops"));
         saveNamedDesktops();
+    }
+    // A desktop that is gone keeps no name record, or one made later under
+    // the same identity would start out named.
+    QStringList present;
+    for (KWin::VirtualDesktop *desktop : KWin::VirtualDesktopManager::self()->desktops())
+        if (desktop) present.append(desktop->id());
+    if (!present.isEmpty()) {
+        const qsizetype before = m_namedDesktops.size();
+        m_namedDesktops.removeIf([&present](const QString &id) { return !present.contains(id); });
+        if (m_namedDesktops.size() != before) saveNamedDesktops();
     }
     // A fresh install's first workspace is Home, not whatever application
     // happened to be open there first, and Home is a name of its own.
