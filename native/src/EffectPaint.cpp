@@ -35,6 +35,11 @@ constexpr int SettingsFrostDissolveMs = 300;
 // short change of opacity where motion is instant.
 constexpr int SessionEndDarkenMs = 1000;
 constexpr int SessionEndDarkenInstantMs = 150;
+// The chosen card in Spread wears a ring a hairline off its edge:
+// 2 px of the line ink, outside the window, so it shows on any window.
+constexpr double ChosenRingGap = 2.0;
+constexpr double ChosenRingWidth = 2.0;
+constexpr float ChosenRingOpacity = 0.55f;
 
 // The renderer that draws a view's scene. From KWin 6.8 each render device
 // has its own; earlier KWin has one.
@@ -862,7 +867,7 @@ void Effect::drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const K
 
 void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
     const KWin::RenderViewport &viewport, const QList<QRectF> &parts, const QRectF &box,
-    float fill, float ring, std::optional<QVector3D> fillInk)
+    float fill, float ring, std::optional<QVector3D> fillInk, std::optional<float> radius)
 {
     QList<QVector2D> vertices;
     for (const auto &part : parts) {
@@ -877,7 +882,7 @@ void Effect::fillDestinationParts(const KWin::RenderTarget &renderTarget,
         matrix.scale(viewport.scale(), viewport.scale());
         m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
         m_destinationShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
-        m_destinationShader->setUniform("outlineRadius", float(cardCornerRadius()));
+        m_destinationShader->setUniform("outlineRadius", radius.value_or(float(cardCornerRadius())));
         const QVector3D ink = fillInk.value_or(SurfaceTone::current().lineInk());
         m_destinationShader->setUniform("surfaceFill", QVector4D(ink, fill));
         m_destinationShader->setUniform("outlineOpacity", ring);
@@ -1023,6 +1028,25 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // A held card is above the row, so no name of the row shows through it.
         auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
+        // Which card a tap or Enter opens: the chosen card's ring, around
+        // the window as it is drawn this frame, following it as it moves.
+        // Search hosted in the row takes the middle instead, and wears none.
+        if (auto *chosen = m_cardStage->selectedWindow(); chosen && chosen != held
+            && !chosen->isDeleted() && !m_cardStage->launcherGuestActive()
+            && m_cardStage->paintSlot(chosen) != 99) {
+            const auto face = m_cardFaceRects.constFind(chosen);
+            if (face != m_cardFaceRects.cend() && !face->isEmpty()) {
+                const double outset = ChosenRingGap + ChosenRingWidth;
+                const QRectF box = face->adjusted(-outset, -outset, outset, outset);
+                QRegion dirtied;
+                for (const auto &dirty : deviceRegion.rects())
+                    dirtied += QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).toAlignedRect();
+                QList<QRectF> parts;
+                for (const QRect &part : dirtied.intersected(box.toAlignedRect())) parts.append(QRectF(part));
+                fillDestinationParts(renderTarget, viewport, parts, box, 0.f, ChosenRingOpacity,
+                    std::nullopt, float(cardCornerRadius() + outset));
+            }
+        }
         // The names, and a Stack's place, are said on a claimed context line.
         const bool namesSaid = contextLineClaimed(screen);
         for (int index = 0; !namesSaid && index < windows.size(); ++index) {

@@ -1547,7 +1547,8 @@ private:
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen, QList<QRectF> &overlaid);
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               const QList<QRectF> &parts, const QRectF &box, float fill, float ring,
-                              std::optional<QVector3D> ink = std::nullopt);
+                              std::optional<QVector3D> ink = std::nullopt,
+                              std::optional<float> radius = std::nullopt);
     // Where a window will land is frosted glass (FrostedBox.h). What each
     // display frosted in its last frame, by name, is drawn afresh in its
     // next, so the glass never blurs itself.
