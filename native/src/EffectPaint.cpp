@@ -35,9 +35,9 @@ constexpr int SettingsFrostDissolveMs = 300;
 // short change of opacity where motion is instant.
 constexpr int SessionEndDarkenMs = 1000;
 constexpr int SessionEndDarkenInstantMs = 150;
-// The chosen card in Spread wears a ring a hairline off its edge:
-// 2 px of the line ink, outside the window, so it shows on any window.
-constexpr double ChosenRingGap = 2.0;
+// The chosen card in Spread wears a ring on its edge: 2 px of the line ink,
+// lying over the window's last device pixel so no seam shows between them,
+// the rest outside the window, so it shows on any window.
 constexpr double ChosenRingWidth = 2.0;
 constexpr float ChosenRingOpacity = 0.55f;
 
@@ -1045,7 +1045,9 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             if (drawn != m_cardDrawnFaces.cend() && !drawn->face.isEmpty()) {
                 // Around the card as it stands, a Stack's front turned with
                 // its fan about the same corner, so the ring keeps its shape.
-                const double outset = ChosenRingGap + ChosenRingWidth;
+                // Its inner edge sits one device pixel inside the window's,
+                // over the soft edge a scaled window ends on.
+                const double outset = ChosenRingWidth - 1.0 / viewport.scale();
                 const QRectF box = drawn->face.adjusted(-outset, -outset, outset, outset);
                 const KWin::Region outputFence(
                     viewport.mapToDeviceCoordinatesAligned(screen->geometry()));
