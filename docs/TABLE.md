@@ -54,8 +54,9 @@ window is in `CARD-LIFECYCLE.md`.
 - Tabs are pills carrying the desktop's number, the name and the first few
   application colours; the workspace you are in is the brightest. A crowded row
   gives up the colours, then name length, leaving circles holding numbers. `+`
-  is a circle. Cards show the application icon, name and window title; a Stack
-  is one card with Spread's closed-stack edges behind it.
+  is a circle. Cards show the application icon, name and window title, less
+  any repeat of the name; a Stack is one card with Spread's closed-stack edges
+  behind it.
 - The rows float apart, with no lines between them. What the finger is on
   lifts, lighter and a little larger with a soft shadow, and the tab whose cards
   hang stays lifted. Cards come up to meet a finger nearing them, the chosen one

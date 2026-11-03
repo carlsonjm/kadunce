@@ -282,7 +282,10 @@ Item {
                 font.pixelSize: 13
                 font.weight: Font.Medium
             }
+            // A title that only repeated the name is left out, and the name
+            // stands alone in the middle.
             Text {
+                visible: text.length > 0
                 width: face.entry.textWidth || 0
                 text: face.entry.title || ""
                 color: root.text2

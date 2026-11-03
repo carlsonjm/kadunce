@@ -280,7 +280,7 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
         TableCard card;
         card.windows.append(window);
         card.application = applicationDisplayName(window);
-        card.title = window->caption();
+        card.title = titleUnderName(card.application, window->caption());
         card.icon = window->icon();
         return card;
     };

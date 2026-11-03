@@ -60,6 +60,35 @@ struct CardLabelPresentation {
                             : i18n("%1 · then %2", applicationName, behind);
 }
 
+// The line under an application's name on a Table card: the window's title,
+// less the application's name where the title repeats it. A title that is only
+// that name leaves the line empty, and "Welcome — Kate" under Kate reads
+// "Welcome". A title ending in a longer form of the name, as "Mozilla Firefox"
+// is of Firefox, loses it too.
+[[nodiscard]] inline QString titleUnderName(const QString &applicationName,
+                                            const QString &caption)
+{
+    const QString title = caption.trimmed();
+    const QString name = applicationName.trimmed();
+    if (name.isEmpty()) return title;
+    if (title.compare(name, Qt::CaseInsensitive) == 0) return {};
+    const QString longer = QLatin1Char(' ') + name;
+    for (const auto *separator : {"\u2014", "\u2013", "-", "|", "\u00b7"}) {
+        const QString between = QLatin1Char(' ') + QString::fromUtf8(separator)
+            + QLatin1Char(' ');
+        const qsizetype at = title.lastIndexOf(between);
+        if (at <= 0) continue;
+        const QString tail = title.mid(at + between.size()).trimmed();
+        if (tail.compare(name, Qt::CaseInsensitive) == 0
+            || tail.endsWith(longer, Qt::CaseInsensitive)) {
+            const QString kept = title.left(at).trimmed();
+            if (kept.compare(name, Qt::CaseInsensitive) == 0) return {};
+            if (!kept.isEmpty()) return kept;
+        }
+    }
+    return title;
+}
+
 [[nodiscard]] inline QString stackPositionLabel(int position, int count)
 {
     return count > 1 && position >= 0 && position < count
