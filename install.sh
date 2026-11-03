@@ -140,6 +140,11 @@ kwriteconfig6 --file kwinrc --group Plugins \
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
     "${native_effect_id}" >/dev/null 2>&1 || true
 
+# Table's QML is built into the plugin and compiled by KWin into its own disk
+# cache, which can keep the previous build's compiled QML after the plugin is
+# replaced. KWin compiles it afresh from the plugin once the cache is gone.
+rm -rf -- "${XDG_CACHE_HOME:-${HOME}/.cache}/kwin/qmlcache"
+
 if [[ "${keep_cards_off}" != true ]]; then
     kwriteconfig6 --file kwinrc --group Plugins \
         --key "${native_effect_id}Enabled" true
