@@ -538,6 +538,7 @@ bool Effect::paintedAsItStands(KWin::EffectWindow *window)
 
 void Effect::traceSpreadPaint(const QJsonObject &entry)
 {
+    ++m_spreadPaintTraced;
     if (!m_paintingOutput || m_paintingOutput != tabletOutput() || !m_cardStage->isActive()
         || m_cardStage->presentation() != CardPresentation::Spread) return;
     m_spreadPaintOrderDrawing.append(entry);
@@ -921,8 +922,12 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     SessionScope scope(this, m_currentSession, isCardDisplay(screen) ? stageKeyFor(screen) : m_scopedKey);
     m_paintingOutput = screen;
     m_paintingRegion = deviceRegion;
-    if (screen && screen == tabletOutput())
-        m_spreadPaintOrder = std::exchange(m_spreadPaintOrderDrawing, {});
+    if (screen && screen == tabletOutput()) {
+        ++m_spreadPaintFrames;
+        // A frame that drew nothing in Spread leaves the last one standing.
+        if (!m_spreadPaintOrderDrawing.isEmpty())
+            m_spreadPaintOrder = std::exchange(m_spreadPaintOrderDrawing, {});
+    }
     m_heldBoxDrawnOn = nullptr;
     m_settingsFrostDrawnOn = nullptr;
     m_signInGlassDrawnOn = nullptr;

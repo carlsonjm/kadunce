@@ -329,6 +329,8 @@ private:
     // drawn: each window, and where the chosen card's ring went among them.
     QJsonArray m_spreadPaintOrder;
     QJsonArray m_spreadPaintOrderDrawing;
+    int m_spreadPaintFrames = 0;
+    int m_spreadPaintTraced = 0;
     void traceSpreadPaint(const QJsonObject &entry);
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
     // Where each card's window is drawn this frame, inside its card: what

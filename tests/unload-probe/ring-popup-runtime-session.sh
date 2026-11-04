@@ -33,7 +33,7 @@ sleep .8
 covered() {
     local order share
     order=$(kad workspaceContext | jq -c '.spreadPaintOrder')
-    echo "Spread drew ($1): $order"
+    echo "Spread drew ($1): $order, frames and windows seen: $(kad workspaceContext | jq -c .spreadPaintCounts)"
     jq -e '(map(has("ring")) | index(true)) as $ring
         | (map((.layer // 0) > 2) | index(true)) as $above
         | $ring != null and $above != null and $ring < $above' <<<"$order" >/dev/null

@@ -590,6 +590,7 @@ QString Effect::workspaceContext() const
         {QStringLiteral("cardStage"), inUseStage},
         // Spread's last frame on the display that owns cards, as drawn.
         {QStringLiteral("spreadPaintOrder"), m_spreadPaintOrder},
+        {QStringLiteral("spreadPaintCounts"), QJsonArray{m_spreadPaintFrames, m_spreadPaintTraced}},
         {QStringLiteral("notice"), contextNotice()},
         {QStringLiteral("desktopStage"), QJsonObject{
             {QStringLiteral("active"), hasActiveDesktopStage()},
