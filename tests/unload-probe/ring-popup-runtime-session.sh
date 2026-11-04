@@ -51,6 +51,11 @@ client popupBand
 for attempt in {1..15}; do probe drawOrder | jq -e 'any(.notification)' >/dev/null && break; sleep .2; done
 probe drawOrder | jq -e 'any(.notification)' >/dev/null || { echo "DIAG no popup: $(probe drawOrder)"; false; }
 sleep .5
+# Spread opened again under the popup draws every frame of its way in.
+kad showActive
+sleep .5
+kad showCardLine
+sleep .8
 covered "two cards"
 echo 'PASS: a popup covers the chosen ring of one of two cards'
 # One app quits, as from the system tray, with the popup still open: the
