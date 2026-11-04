@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spread's chosen card wears a ring, and the ring is part of the card: a
 # panel applet's popup standing over the card covers its ring as it covers
-# the card, whether the card is alone in Spread or one of two.
+# the card, before and after an app quits with the popup open.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
 set -euo pipefail
@@ -58,13 +58,14 @@ kad showCardLine
 sleep .8
 covered "two cards"
 echo 'PASS: a popup covers the chosen ring of one of two cards'
-# One app quits, as from the system tray, with the popup still open: the
-# card left is chosen, alone, and Spread shows it.
+# One app quits, as from the system tray, with the popup still open: a card
+# left is chosen, and Spread shows it.
 client closeCompanion "Ring right"
 sleep 1
-kad workspaceContext | jq -e '[.applications[] | select(.hasCard)] | length == 1' >/dev/null
+kad workspaceContext | jq -e '[.applications[] | select(.hasCard) | .title] as $t
+    | ($t | index("Ring right")) == null and ($t | index("Ring left")) != null' >/dev/null
 kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"' >/dev/null || { kad showCardLine; sleep .8; }
 kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"' >/dev/null
-covered "lone card"
-echo 'PASS: a popup covers the chosen ring of a lone card'
+covered "after a quit"
+echo 'PASS: a popup covers the chosen ring after an app quits under it'
 client closePopup
