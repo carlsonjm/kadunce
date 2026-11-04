@@ -49,6 +49,8 @@
 #include "FrostedBox.h"
 #include "StuckNotes.h"
 
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QJsonValue>
 #include <QList>
 #include <QHash>
@@ -323,6 +325,11 @@ private:
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
     // How each window was last drawn, for the workspace context's corners.
     QHash<const KWin::EffectWindow *, QString> m_drawnAs;
+    // Spread's last frame on the display that owns cards, in the order it was
+    // drawn: each window, and where the chosen card's ring went among them.
+    QJsonArray m_spreadPaintOrder;
+    QJsonArray m_spreadPaintOrderDrawing;
+    void traceSpreadPaint(const QJsonObject &entry);
     QHash<KWin::EffectWindow *, QRectF> m_cardLabelTargets;
     // Where each card's window is drawn this frame, inside its card: what
     // KWin is told to draw it at, kept as it is told. Notes placed on the

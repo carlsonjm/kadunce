@@ -26,13 +26,23 @@ client colouredCompanion "Ring left" 1e6fd9 900 600
 sleep .8
 client colouredCompanion "Ring right" 2e8b57 900 600
 sleep .8
-# The band covers the middle of the display, across the chosen card's left
-# and right edges, where its ring stands: every pixel of it is the popup's.
+# The ring is drawn before the popup band, as the chosen card is: every
+# window KWin stacks above the cards is drawn over it. Where the screen can
+# be read back, every pixel of the band, across the chosen card's left and
+# right edges, is the popup's.
 covered() {
-    local share
-    share=$(python3 "$here/capture-band.py" 0 380 1280 40 8a2be2)
-    echo "popup share of the band ($1): $share"
-    [[ $share == 1.000 ]]
+    local order share
+    order=$(kad workspaceContext | jq -c '.spreadPaintOrder')
+    echo "Spread drew ($1): $order"
+    jq -e '(map(has("ring")) | index(true)) as $ring
+        | (map((.layer // 0) > 2) | index(true)) as $above
+        | $ring != null and $above != null and $ring < $above' <<<"$order" >/dev/null
+    if share=$(python3 "$here/capture-band.py" 0 380 1280 40 8a2be2 2>/dev/null); then
+        echo "popup share of the band ($1): $share"
+        [[ $share == 1.000 ]]
+    else
+        echo "the screen cannot be read back here; pixels are not checked"
+    fi
 }
 kad showCardLine
 sleep .8

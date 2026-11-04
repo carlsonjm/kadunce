@@ -536,6 +536,13 @@ bool Effect::paintedAsItStands(KWin::EffectWindow *window)
             && m_cardStage->liveCardIndex(window) < 0);
 }
 
+void Effect::traceSpreadPaint(const QJsonObject &entry)
+{
+    if (!m_paintingOutput || m_paintingOutput != tabletOutput() || !m_cardStage->isActive()
+        || m_cardStage->presentation() != CardPresentation::Spread) return;
+    m_spreadPaintOrderDrawing.append(entry);
+}
+
 KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
 {
     if (!m_showsKeyboardOutline || !m_keyboardOutlineShader || !m_keyboardEdgeShader || !screen || m_previewDesktop)
@@ -914,6 +921,8 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     SessionScope scope(this, m_currentSession, isCardDisplay(screen) ? stageKeyFor(screen) : m_scopedKey);
     m_paintingOutput = screen;
     m_paintingRegion = deviceRegion;
+    if (screen && screen == tabletOutput())
+        m_spreadPaintOrder = std::exchange(m_spreadPaintOrderDrawing, {});
     m_heldBoxDrawnOn = nullptr;
     m_settingsFrostDrawnOn = nullptr;
     m_signInGlassDrawnOn = nullptr;
@@ -1051,6 +1060,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 const QRectF box = drawn->face.adjusted(-outset, -outset, outset, outset);
                 const KWin::Region outputFence(
                     viewport.mapToDeviceCoordinatesAligned(screen->geometry()));
+                traceSpreadPaint(QJsonObject{{QStringLiteral("ring"), chosen->caption()}});
                 paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
                     deviceRegion & outputFence, box, drawn->rotation, 0.0f, ChosenRingOpacity,
                     SurfaceTone::current().lineInk(), 0.0F, float(cardCornerRadius() + outset),
@@ -1445,6 +1455,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    traceSpreadPaint(QJsonObject{{QStringLiteral("title"), window->caption()},
+        {QStringLiteral("layer"), window->window() ? int(window->window()->layer()) : -1},
+        {QStringLiteral("card"), m_cardStage->liveCardIndex(window) >= 0}});
     drawSettingsFrostUnder(renderTarget, viewport, window);
     drawSignInGlass(renderTarget, viewport, window);
     if (waitsBehindSignInGlass(window, data)) return paintResult(true);
