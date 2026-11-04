@@ -48,7 +48,9 @@ kad showCardLine
 sleep .8
 kad workspaceContext | jq -e '.cardStage.presentation == "cardLine"' >/dev/null
 client popupBand
-sleep .8
+for attempt in {1..15}; do probe drawOrder | jq -e 'any(.notification)' >/dev/null && break; sleep .2; done
+probe drawOrder | jq -e 'any(.notification)' >/dev/null || { echo "DIAG no popup: $(probe drawOrder)"; false; }
+sleep .5
 covered "two cards"
 echo 'PASS: a popup covers the chosen ring of one of two cards'
 # One app quits, as from the system tray, with the popup still open: the
