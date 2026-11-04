@@ -337,12 +337,6 @@ private:
     // KWin is told to draw it at, kept as it is told. Notes placed on the
     // window stand on this, so they move with the picture frame by frame.
     QHash<KWin::EffectWindow *, QRectF> m_cardFaceRects;
-    // Each card as it was last drawn in Spread: its face and its fan's turn.
-    struct DrawnFace {
-        QRectF face;
-        double rotation = 0.0;
-    };
-    QHash<KWin::EffectWindow *, DrawnFace> m_cardDrawnFaces;
     mutable QHash<KWin::EffectWindow *, QString> m_applicationDisplayNames;
     CardLabelRenderer m_cardLabelRenderer;
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;

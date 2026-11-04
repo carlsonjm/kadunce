@@ -945,11 +945,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
                 || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardFaceRects.erase(it);
             else ++it;
         }
-        for (auto it = m_cardDrawnFaces.begin(); it != m_cardDrawnFaces.end();) {
-            if (!it.key() || it.key()->isDeleted() || it.key()->screen() == screen
-                || m_cardStage->liveCardIndex(it.key()) >= 0) it = m_cardDrawnFaces.erase(it);
-            else ++it;
-        }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
     // A display with no panel or splash drawn over it takes the sign-in
@@ -1049,29 +1044,6 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         // A held card is above the row, so no name of the row shows through it.
         auto *held = m_cardStage->cardGrabActive() ? m_cardStage->selectedWindow() : nullptr;
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
-        // Which card a tap or Enter opens: the chosen card's ring, around
-        // the window as it is drawn this frame, following it as it moves.
-        // Search hosted in the row takes the middle instead, and wears none.
-        if (auto *chosen = m_cardStage->selectedWindow(); chosen && chosen != held
-            && !chosen->isDeleted() && !m_cardStage->launcherGuestActive()
-            && m_cardStage->paintSlot(chosen) != 99) {
-            const auto drawn = m_cardDrawnFaces.constFind(chosen);
-            if (drawn != m_cardDrawnFaces.cend() && !drawn->face.isEmpty()) {
-                // Around the card as it stands, a Stack's front turned with
-                // its fan about the same corner, so the ring keeps its shape.
-                // Its inner edge sits one device pixel inside the window's,
-                // over the soft edge a scaled window ends on.
-                const double outset = ChosenRingWidth - 1.0 / viewport.scale();
-                const QRectF box = drawn->face.adjusted(-outset, -outset, outset, outset);
-                const KWin::Region outputFence(
-                    viewport.mapToDeviceCoordinatesAligned(screen->geometry()));
-                traceSpreadPaint(QJsonObject{{QStringLiteral("ring"), chosen->caption()}});
-                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-                    deviceRegion & outputFence, box, drawn->rotation, 0.0f, ChosenRingOpacity,
-                    SurfaceTone::current().lineInk(), 0.0F, float(cardCornerRadius() + outset),
-                    SurfaceTone::current().lineInk(), drawn->face.bottomRight());
-            }
-        }
         // The names, and a Stack's place, are said on a claimed context line.
         const bool namesSaid = contextLineClaimed(screen);
         for (int index = 0; !namesSaid && index < windows.size(); ++index) {
@@ -1789,8 +1761,6 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // the card this frame; a note placed on the window stands on exactly
     // that, never on the slot the card is heading for.
     m_cardFaceRects.insert(window, QRectF(logicalRegion));
-    // The card exactly as it is drawn, turned with it, for Spread's ring.
-    m_cardDrawnFaces.insert(window, {face, paintPose.rotation});
     if (rotatedFanCard) {
         // Rotate each visible aperture around its own lower-right corner. The
         // canonical slot still supplies the accepted fan offset and envelope.
@@ -1844,6 +1814,27 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     m_fanApertureSize = {};
     m_fanApertureRadius = 0.0F;
     if (!drawn) return paintResult(false);
+
+    // Which card a tap or Enter opens: the chosen card's ring, around the
+    // card as it is drawn this frame, following it as it moves. It is drawn
+    // with the card, so whatever KWin stacks above the card, a panel
+    // applet's popup or the keys, covers the ring as it covers the card.
+    // Search hosted in the row takes the middle instead, and wears none.
+    if (m_cardStage->presentation() == CardPresentation::Spread && m_paintingOutput == tablet && !grabbedWindow
+        && window == m_cardStage->selectedWindow() && !m_cardStage->launcherGuestActive()
+        && slot != 99 && !face.isEmpty()) {
+        // Around the card as it stands, a Stack's front turned with its fan
+        // about the same corner, so the ring keeps its shape. Its inner edge
+        // sits one device pixel inside the window's, over the soft edge a
+        // scaled window ends on.
+        const double outset = ChosenRingWidth - 1.0 / viewport.scale();
+        const QRectF box = face.adjusted(-outset, -outset, outset, outset);
+        traceSpreadPaint(QJsonObject{{QStringLiteral("ring"), window->caption()}});
+        paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+            deviceRegion & outputFence, box, paintPose.rotation, 0.0f, ChosenRingOpacity,
+            SurfaceTone::current().lineInk(), 0.0F, float(cardCornerRadius() + outset),
+            SurfaceTone::current().lineInk(), face.bottomRight());
+    }
 
     // A dialog waiting with this application shows on its card.
     return paintResult(paintDialogsOn(renderTarget, viewport, window, drawnDialogsOf(window), cardClip, data));

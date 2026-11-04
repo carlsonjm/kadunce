@@ -1448,7 +1448,6 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
     m_cardFaceRects.remove(window);
-    m_cardDrawnFaces.remove(window);
     m_previewRefs.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer
     // exists to own, and its identity may be reused by the next allocation.
