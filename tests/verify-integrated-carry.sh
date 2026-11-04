@@ -82,6 +82,7 @@ scenes=(
     minimized-start-runtime tablet
     minimized-only-runtime tablet
     sleeping-spread-runtime tablet
+    ring-popup-runtime tablet
     solo-offer-runtime tablet
     card-exit-runtime tablet
     bento-exit-partner-runtime tablet

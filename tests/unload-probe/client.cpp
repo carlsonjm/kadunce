@@ -458,6 +458,22 @@ public Q_SLOTS:
   }
   w->resize(420, 300); w->show();
  }
+ // A popup band across the whole display's middle, over whatever card
+ // stands there, as a panel applet's popup stands over a card.
+ void popupBand() {
+  if (qGuiApp->platformName() != "wayland") return;
+  auto *w = new QWidget; w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("popup"); w->setWindowTitle("Popup band probe"); tint(w, QColor(0x8a, 0x2b, 0xe2));
+  w->winId();
+  for (QScreen *screen : qGuiApp->screens()) if (screen->name() == "Virtual-0") w->windowHandle()->setScreen(screen);
+  if (auto *layer = LayerShellQt::Window::get(w->windowHandle())) {
+   layer->setScope(QStringLiteral("notification"));
+   layer->setLayer(LayerShellQt::Window::LayerTop);
+   layer->setAnchors(LayerShellQt::Window::Anchors(LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
+   layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+   layer->setScreenConfiguration(LayerShellQt::Window::ScreenFromQWindow);
+  }
+  w->resize(1280, 120); w->show();
+ }
  void closePopup() {
   for (auto *w : QApplication::topLevelWidgets()) if (w->objectName() == "popup") w->close();
  }
