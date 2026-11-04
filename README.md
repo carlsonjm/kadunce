@@ -23,6 +23,11 @@ desktop.
 </p>
 
 
+<p align="center">
+<b>Kadunce is the card engine in <a href="https://shuffleplasma.com">Shuffle for Plasma</a></b>, a touch-first desktop for KDE Plasma that comes with every free part already set up to work together.
+</p>
+
+
 
 https://github.com/user-attachments/assets/02c3e61f-bb2d-49e1-94b7-08f11d055059
 
