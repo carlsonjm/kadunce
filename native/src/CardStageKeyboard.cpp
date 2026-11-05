@@ -18,6 +18,7 @@ void CardStageController::putBackKeyboardRoom()
 {
     m_keyboardRoomTimer.stop();
     m_keyboardRoomRelease.stop();
+    m_keyboardRoomGrace.stop();
     m_keyboardRestTimer.stop();
     m_keyboardHeadingTimer.stop();
     m_keyboardHeadingPending = false;
@@ -231,6 +232,7 @@ void CardStageController::updateKeyboardRoom(bool resting)
         // Whatever took the card out of Active placed it; the room left with it.
         m_keyboardRoom.reset();
         m_keyboardRoomRelease.stop();
+        m_keyboardRoomGrace.stop();
     }
     auto *tablet = m_host->tabletOutputForCardStage();
     if (!m_active || m_presentation != CardPresentation::Active
@@ -247,7 +249,19 @@ void CardStageController::updateKeyboardRoom(bool resting)
     // Room is made for keys typing into this card, never for keys another
     // window asked for while the card waits behind it.
     auto keyboardTop = m_host->inputPanelTopForCardStage(tablet);
-    if (!m_host->keyboardTypesIntoForCardStage(window)) keyboardTop.reset();
+    // Keys typing into another window over the card, as Search's field does,
+    // still cover its foot: room it was given stays, and none is made.
+    const bool roomGiven = m_keyboardRoom
+        && (m_keyboardRoom->height < m_keyboardRoom->base.height()
+            || m_keyboardRoom->top != m_keyboardRoom->base.y());
+    if (!m_host->keyboardTypesIntoForCardStage(window) && !roomGiven) keyboardTop.reset();
+    if (keyboardTop) m_keyboardRoomGrace.stop();
+    // Keys gone without a word of where they were going may only be blinking
+    // as the keyboard hands over; the room is given back once they stay gone.
+    if (!keyboardTop && roomGiven && !m_keyboardHeadingTop && !m_keyboardRoomReturnDue) {
+        if (!m_keyboardRoomGrace.isActive()) m_keyboardRoomGrace.start();
+        return;
+    }
     if (!keyboardTop) {
         m_keyboardRestTimer.stop();
         m_keyboardHeadingTimer.stop();
