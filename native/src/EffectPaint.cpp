@@ -1458,6 +1458,17 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (notesSurfaceStepsAside(window)) return paintResult(true);
     // Keys are drawn only once they are known to be the person's.
     if (!m_keysForPerson && window == KWin::effects->inputPanel()) return paintResult(true);
+    // The keys rise and leave on their own (the Keyboard's contract). KDE's
+    // Sliding Popups, earlier in the chain, slides and fades the keys' panel
+    // as well whenever the compositor hides or shows it, which a field
+    // handing over to the next one does in passing: after the Tette Dot it
+    // slid the keys out, blanked them, and slid them back in while the
+    // Keyboard held them still. Here they are drawn where they stand.
+    if (window == KWin::effects->inputPanel()) {
+        data.setXTranslation(0.0);
+        data.setYTranslation(0.0);
+        data.setOpacity(1.0);
+    }
     // A card flicked closed stays out of sight while its app closes.
     if (m_cardStage->thrownAway(window)) return paintResult(true);
     // A card a Stack steps to waits unseen until it stands in its place.
