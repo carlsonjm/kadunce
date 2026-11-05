@@ -1353,7 +1353,11 @@ private:
     void keepUnaskedKeyboardDown();
     // Keys the compositor hid while they still had a picture, drawn on until
     // the keyboard lets go of it, so a keyboard that slides out when typing
-    // ends is seen doing so. Held no longer than a slide takes.
+    // ends is seen doing so. Held no longer than the keyboard's longest wait
+    // before it sets off plus the slide itself: after the Tette Dot it waits up
+    // to 900 ms for Search's field to take the keys, and a picture let go
+    // sooner left the keys blank, then refused them to Search, which raised
+    // them from the bottom again.
     std::unique_ptr<KWin::EffectWindowVisibleRef> m_leavingKeys;
     QPointer<KWin::EffectWindow> m_leavingPanel;
     QMetaObject::Connection m_leavingKeysUnmap;
