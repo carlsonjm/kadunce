@@ -881,6 +881,10 @@ private:
     std::optional<KeyboardRoom> m_keyboardRoom;
     QTimer m_keyboardRoomTimer;
     QTimer m_keyboardRoomRelease;
+    // Keys that vanish without saying where they are going may be back at
+    // once, as the keyboard's handover blinks them: the room waits this long.
+    QTimer m_keyboardRoomGrace;
+    bool m_keyboardRoomReturnDue = false;
     // The keys are taken to rest once they have not moved for a moment, and
     // where they said they were going is kept until they do.
     QTimer m_keyboardRestTimer;
