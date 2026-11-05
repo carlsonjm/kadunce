@@ -287,7 +287,7 @@ Effect::Effect()
             if (window == m_leavingPanel) releaseLeavingKeys();
         });
     m_leavingKeysLimit.setSingleShot(true);
-    m_leavingKeysLimit.setInterval(600);
+    m_leavingKeysLimit.setInterval(1500);
     connect(&m_leavingKeysLimit, &QTimer::timeout, this, &Effect::releaseLeavingKeys);
     m_currentSession = sessionFor(KWin::effects->currentDesktop());
     scopeTo(m_currentSession);
