@@ -198,6 +198,13 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         // Every way Spread opens ends in a frame of it formed; a swipe still
         // under the fingers may yet spring back.
         const bool spreadOpen = m_notesSpreadShown && !m_cardStage->spreadOpening();
+        // Read before Search is asked in, so keys typing into it stay; put
+        // away after the frame, not in its paint.
+        if (spreadOpen && !std::exchange(m_spreadKeysAnswered, true)) {
+            const bool searchBeside = m_cardStage->launcherGuestActive() || !m_floatingLauncherOwner.isEmpty();
+            if (!searchBeside) QTimer::singleShot(0, this, &Effect::putKeysAwayForSpread);
+        }
+        if (!m_notesSpreadShown) m_spreadKeysAnswered = false;
         if (spreadOpen && !std::exchange(m_spreadOpenForLauncher, true)) inviteFloatingLauncher();
         if (!spreadOpen) m_spreadOpenForLauncher = false;
     }

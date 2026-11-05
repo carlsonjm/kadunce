@@ -14,6 +14,8 @@ namespace
 {
 // How long room a panel gave up must stay free before the Active card takes it.
 constexpr int WorkAreaGrowWait = 6000;
+// The keyboard's handover hides and shows its keys within 150 ms.
+constexpr int KeyboardRoomGraceMs = 250;
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -91,6 +93,12 @@ CardStageController::CardStageController(CardStageHost *host)
     m_keyboardRoomRelease.setInterval(1000);
     QObject::connect(&m_keyboardRoomRelease, &QTimer::timeout,
                      &m_keyboardRoomRelease, [this]() { m_keyboardRoom.reset(); });
+    m_keyboardRoomGrace.setSingleShot(true);
+    m_keyboardRoomGrace.setInterval(KeyboardRoomGraceMs);
+    QObject::connect(&m_keyboardRoomGrace, &QTimer::timeout, &m_keyboardRoomGrace, [this]() {
+        QScopedValueRollback<bool> due(m_keyboardRoomReturnDue, true);
+        updateKeyboardRoom();
+    });
     // The keys move by a new frame every refresh, so a moment without one is
     // the keys at rest, when a client is asked for the room they take. The
     // moment is longer than a finger's pause in a drag, so a hand that slows
@@ -842,6 +850,7 @@ void CardStageController::restoreActiveSnapshot()
     m_activeSettleRemaining = 0;
     m_keyboardRoomTimer.stop();
     m_keyboardRoomRelease.stop();
+    m_keyboardRoomGrace.stop();
     m_keyboardRestTimer.stop();
     m_keyboardHeadingTimer.stop();
     m_keyboardHeadingPending = false;

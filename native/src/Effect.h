@@ -503,6 +503,9 @@ private:
     void inviteFloatingLauncher();
     QString m_floatingLauncherOwner;
     bool m_spreadOpenForLauncher = false;
+    // Spread has had its one say over keys left up as it opened.
+    bool m_spreadKeysAnswered = false;
+    void putKeysAwayForSpread();
     // Whether the call being answered may steer Spread's guest: one Kadunce
     // makes itself, or one over D-Bus from the guest's own connection
     // (GuestCaller.h).

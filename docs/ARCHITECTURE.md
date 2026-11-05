@@ -225,6 +225,8 @@ ownership from paint state.
 | Provisional bottom-edge touch | Client until deliberate upward intent and successful native cancellation |
 | Foreign or unmatched release | Original route; it cannot activate a card |
 | Open Table | Kadunce: the keys grabbed and every touch Table's; a name being typed takes text focus |
+| Spread opening with the on-screen keys up | Kadunce puts them away unless Search is beside the row or about to join it |
+| On-screen keys typing into a window over the Active card | Room the card gave them stays until they go; keys gone without saying where get 250 ms to come back |
 
 Touch and pointer state are independent. Canceling one device cannot clear the
 other device's hold, grab, timer, or forwarded ownership. Each timer and delayed

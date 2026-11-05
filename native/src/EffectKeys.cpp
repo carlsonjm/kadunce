@@ -277,6 +277,25 @@ void Effect::keepUnaskedKeyboardDown()
                       << ": " << refusal;
 }
 
+void Effect::putKeysAwayForSpread()
+{
+    // Spread is chosen by looking, not typed into: keys left up from the card
+    // it came from would cover the row, so they go and the dock comes back,
+    // as over Table. Search beside the row types, so its keys stay: the frame
+    // that saw Spread formed asks only when Search was neither its guest nor
+    // floating over the work about to be asked in.
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (!method || !method->isVisible() || m_cardStage->launcherGuestActive()
+        || !m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Spread) return;
+    const KWin::Window *target = method->activeWindow();
+    qInfo() << "Kadunce puts the keyboard away for Spread from"
+            << (target ? logNameOf(target) : QStringLiteral("no window"));
+    // The touch that opened Spread has been answered, so the application
+    // still holding its field cannot bring the keys straight back.
+    if (m_inputRouter) m_answeredTouchEvents = m_inputRouter->touchEvents();
+    method->hide();
+}
+
 void Effect::answerTouches()
 {
     // A touch that ended just before the keys began to go may be what sent
