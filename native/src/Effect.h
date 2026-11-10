@@ -1493,6 +1493,9 @@ private:
     // cards go; travel does.
     QPointer<KWin::EffectWindow> m_heldActiveMove;
     QPointF m_heldActiveMoveOrigin;
+    // An application's repeated move of the window Kadunce already carries,
+    // while Kadunce ends it; its finish is not a drop.
+    QPointer<KWin::EffectWindow> m_repeatedNativeMove;
     // A display's own card let go at its bottom edge is an ordinary window
     // there until it is carried again, never taken back as a card (§10).
     QPointer<KWin::EffectWindow> m_letGoOnDisplay;

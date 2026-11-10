@@ -421,6 +421,26 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
         });
         return;
     }
+    // An X11 app that draws its own title bar, such as Steam, asks KWin for
+    // the move twice on one press, the second time after Kadunce has taken
+    // the first over as a carry. The carry keeps the press: ending it for the
+    // repeat would leave KWin's move under input the carry still holds, so
+    // the window would neither follow the held button nor stop at its
+    // release. The repeat is ended as soon as KWin has published it.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && m_carryRuntime && m_carryRuntime->route.busy() && m_carriedWindow == window) {
+        traceNativeMove(window, "native-repeat");
+        qInfo() << "Kadunce" << Revision << "keeps carrying" << applicationIdentity(window)
+                << "while its application asks for the same move again";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove()) return;
+            m_repeatedNativeMove = guarded;
+            StaleTouchRelease::cancel(guarded->window(), false);
+            m_repeatedNativeMove.clear();
+        });
+        return;
+    }
     traceNativeMove(window, "native-start");
     if (window == m_settlingWindow) clearDropSettle();
     if (m_carryRuntime && m_carryRuntime->route.busy()) m_carryRuntime->cancel();
@@ -1712,6 +1732,7 @@ void Effect::handleWindowMoveResizeStepped(
 
 void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
 {
+    if (window && window == m_repeatedNativeMove) return;
     if (m_carryRuntime && m_carryRuntime->handoff.ownsNativeFinish(window->window())) return;
     if (m_carryRuntime && m_carryRuntime->deferredFor(window->window())) m_carryRuntime->clearDeferred();
     traceNativeMove(window, "native-finished");
