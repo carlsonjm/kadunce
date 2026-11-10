@@ -1580,8 +1580,19 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             ? bentoMotionOf(window) : nullptr;
         const bool fitted = layoutMotion && !layoutMotion->arrival;
         const KWin::Rect target = KWin::RectF(leaned).toRect();
-        setPositionTransformations(data, logicalRegion, window, target,
-            fitted ? Qt::IgnoreAspectRatio : Qt::KeepAspectRatioByExpanding);
+        const QRectF frameRect(window->frameGeometry());
+        const QSizeF frameSize = frameRect.size();
+        if (fitted && frameSize.width() > 0.0 && frameSize.height() > 0.0) {
+            // Its frame's edges on the box's, each way on its own. Only a
+            // layout's pane is fitted so; a fan card keeps its aspect.
+            data.setXScale(target.width() / frameSize.width());
+            data.setYScale(target.height() / frameSize.height());
+            data.setXTranslation(target.x() - frameRect.x());
+            data.setYTranslation(target.y() - frameRect.y());
+            logicalRegion = target;
+        } else {
+            setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
+        }
         // What each frame of a layout motion drew, against what the client
         // had committed, reported with the motion's end.
         if (fitted && layoutMotion->trace.size() < 24)
