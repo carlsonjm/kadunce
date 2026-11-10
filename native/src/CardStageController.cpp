@@ -708,14 +708,6 @@ void CardStageController::standStackWhole(const KWin::EffectWindow *member)
     for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
 }
 
-KWin::EffectWindow *CardStageController::paneHolding(const KWin::EffectWindow *card) const
-{
-    if (!card) return nullptr;
-    for (auto it = m_paneStacks.cbegin(); it != m_paneStacks.cend(); ++it)
-        for (const auto &member : it.value())
-            if (member == card) return const_cast<KWin::EffectWindow *>(it.key());
-    return nullptr;
-}
 
 void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
     KWin::LogicalOutput *output, std::optional<KWin::RectF> place)

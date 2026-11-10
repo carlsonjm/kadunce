@@ -653,8 +653,6 @@ private:
     void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
                                   KWin::LogicalOutput *output = nullptr,
                                   std::optional<KWin::RectF> place = std::nullopt);
-    // The layout's pane `card` waits behind, if it waits behind one.
-    KWin::EffectWindow *paneHolding(const KWin::EffectWindow *card) const;
     // A card behind the Active one that its application maximized, or that
     // otherwise reaches past the Active place, goes back to that place.
     void holdCardInActivePlace(KWin::EffectWindow *window);
