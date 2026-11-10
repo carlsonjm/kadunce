@@ -1138,8 +1138,10 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
         // §11, Connected: over a pane of a Connected layout, the map of places
         // shows and the contact names one of the pane's five (PanePlaces.h).
-        // Its middle joins the pane's Stack at once; any side places the card
-        // by the pane, which the layout solve below reserves.
+        // Its middle joins the pane's Stack once the card rests there, as a
+        // pane rested on another does, so a quick let go never makes a Stack;
+        // any side places the card by the pane, which the layout solve below
+        // reserves.
         if (over && connectedOutputForDesktopStage(target) && m_desktopStage->managesWindow(over)) {
             m_carryMapOutput = target;
             const QRectF frame(over->frameGeometry());
@@ -1160,17 +1162,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     byPane.pane = reinterpret_cast<std::uintptr_t>(over);
                     side = byPane;
                     over = nullptr;
-                } else {
-                    m_paneStackDwell.stop();
-                    m_carryStackOnto = over;
                 }
             }
         }
     }
     QPointer<KWin::EffectWindow> stackAfter;
-    if (over && !local && m_carryPanePlace == PanePlace::Middle && m_carryPlacePane == over) {
-        stackAfter = over;
-    } else if (over) {
+    if (over) {
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();

@@ -97,7 +97,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 | Wheel while dragging on a monitor | It resizes in place, its app keeping that width; whole, it fills. Slow turns pause at common widths. |
-| Drag from another display onto a pane | Middle: its Stack; top, bottom: its column; side: new column. |
+| Drag from another display onto a pane | Rest in middle: Stack; top, bottom: column; side: new column. |
 | Click a picture in room a side snap left | It fills that room; `Escape` declines. |
 
 ## Table
