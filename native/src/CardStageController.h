@@ -626,6 +626,7 @@ public:
     // The Active card asked to fill the screen: it alone goes, returned to the
     // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
+    bool takeBackFilledCard(KWin::EffectWindow *window);
     // The window that has just opened, maximizing or tiling itself as its
     // application restores its saved state, stays the Active card.
     bool keepOpeningStateInActivePlace(KWin::EffectWindow *window);
@@ -998,6 +999,9 @@ private:
     // What keeps each card aside on the task list.
     QHash<const KWin::EffectWindow *, QMetaObject::Connection> m_asideListed;
     QList<QPointer<KWin::EffectWindow>> m_returnedToDesktop;
+    // Cards let go because they asked to fill the screen; each comes back as
+    // the Active card once it is restored (§2, Desktop).
+    QList<QPointer<KWin::EffectWindow>> m_filledFromCards;
     void holdCardsAside();
     void bringCardsBack();
     double m_launcherGuestOffset = 0.0;

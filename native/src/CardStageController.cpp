@@ -1296,6 +1296,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     m_aside.removeAll(window);
     QObject::disconnect(m_asideListed.take(window));
     m_returnedToDesktop.removeAll(window);
+    m_filledFromCards.removeAll(window);
     const int closedIndex = liveCardIndex(window);
     if (!m_active || closedIndex < 0) {
         return;
@@ -1481,6 +1482,7 @@ void CardStageController::handleActiveGeometryChanged(
     KWin::EffectWindow *window)
 {
     noteKeyboardRoomDrawn(window);
+    if (takeBackFilledCard(window)) return;
     if (m_active && window && m_activeRestore.window != window) {
         holdCardInActivePlace(window);
         return;
@@ -1599,10 +1601,37 @@ void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
             << (window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     (void)releaseCard(window, false);
+    m_filledFromCards.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
+    m_filledFromCards.append(window);
     // §2, Desktop: it is a window returned to the desktop like one let go at
     // the bottom edge, so asking for it under a card opened later shows the
     // desktop again rather than leave it behind that card.
     if (m_active && m_presentation == CardPresentation::Active) returnWindowToDesktop(window);
+}
+
+bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
+{
+    // §2, Desktop: a card let go to fill the screen is the Active card again
+    // once it is restored, as by its own button or a double click on its
+    // title bar, so filling the screen always has a way back.
+    m_filledFromCards.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    if (m_applyingWindowState || !window || !m_filledFromCards.contains(window)) return false;
+    KWin::Window *client = window->window();
+    if (!client) return false;
+    if (client->isInteractiveMove() || client->isInteractiveResize() || client->isMinimized()
+        || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeRestore
+        || client->requestedQuickTileMode() != KWin::QuickTileMode{}) return false;
+    m_filledFromCards.removeAll(window);
+    if (!m_active || liveCardIndex(window) >= 0) return false;
+    const QPointer<KWin::EffectWindow> restored = window;
+    // Taken in once this notification has returned, never inside it.
+    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] {
+        if (!restored || restored->isDeleted() || liveCardIndex(restored) >= 0) return;
+        if (handleWindowAdded(restored))
+            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
+                    << "back as the Active card: it no longer fills the screen";
+    });
+    return true;
 }
 
 } // namespace Kadunce
