@@ -1390,33 +1390,59 @@ void Effect::clearYieldingPanes()
     KWin::effects->addRepaintFull();
 }
 
+const char *Effect::bentoMotionEnd(const BentoMotion &m) const
+{
+    KWin::EffectWindow *window = m.window.data();
+    // An arrival not yet drawn moving stands where the card was let go,
+    // and is dropped if no frame draws it at all.
+    const bool started = m.timer.isValid();
+    const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
+    if (!window || window->isDeleted() || !window->window() || !m.output) return "window gone";
+    if (started ? m.timer.elapsed() >= duration
+                : !m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon)
+        return started ? "finished" : "never drawn";
+    if (window->isUserMove() || window->isUserResize()) return "held by a move";
+    if (window->isMinimized()) return "minimized";
+    if (QRectF(m.output->geometry()) != m.outputGeometry) return "display changed";
+    if (window->window()->moveResizeOutput() != m.output) return "left the display";
+    if (!landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)) return "asked elsewhere";
+    // A pane is drawn moving only while its layout is what the display
+    // presents; one that left it, or a layout gone into Spread, is drawn as
+    // what it is now.
+    if (!m_desktopStage->managesWindow(window)) return "left the layout";
+    if (isTabletOutput(m.output) && m_cardStage->isActive() && !m_cardStage->presentsBento())
+        return "layout not presented";
+    return nullptr;
+}
+
+const Effect::BentoMotion *Effect::bentoMotionOf(const KWin::EffectWindow *window) const
+{
+    for (const auto &m : m_bentoMotions)
+        if (m.window == window) return &m;
+    return nullptr;
+}
+
 std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
 {
-    for (const auto &m : m_bentoMotions) {
-        if (m.window != window) continue;
-        // An arrival not yet drawn moving stands where the card was let go,
-        // and is dropped if no frame draws it at all.
-        const bool started = m.timer.isValid();
-        const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
-        if (!window || window->isDeleted() || !window->window() || !m.output
-            || (started ? m.timer.elapsed() >= duration
-                        : !m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon)
-            || window->isUserMove() || window->isUserResize() || window->isMinimized()
-            || QRectF(m.output->geometry()) != m.outputGeometry
-            || window->window()->moveResizeOutput() != m.output
-            || !landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)
-            // A pane is drawn moving only while its layout is what the display
-            // presents; one that left it, or a layout gone into Spread, is
-            // drawn as what it is now.
-            || !m_desktopStage->managesWindow(window)
-            || (isTabletOutput(m.output) && m_cardStage->isActive()
-                && !m_cardStage->presentsBento())) return std::nullopt;
-        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
-            paneArrivalProgress(started, started ? m.timer.elapsed() : 0, duration));
-        return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
-            m.from.size()+(m.to.size()-m.from.size())*t);
-    }
-    return std::nullopt;
+    const BentoMotion *m = bentoMotionOf(window);
+    if (!m || bentoMotionEnd(*m)) return std::nullopt;
+    const int duration = motion(m->arrival ? PaneArrivalDuration : 220);
+    const bool started = m->timer.isValid();
+    const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        paneArrivalProgress(started, started ? m->timer.elapsed() : 0, duration));
+    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t,
+        m->from.size()+(m->to.size()-m->from.size())*t);
+}
+
+void Effect::reportBentoMotionEnd(const BentoMotion &m, const char *reason) const
+{
+    // One line per layout motion, so a pane that jumps instead of moving
+    // names why: how long it ran, how many frames drew it, and what ended it.
+    if (m.arrival) return;
+    qInfo().nospace() << "Kadunce " << Revision << " layout motion of " << logNameOf(m.window.data())
+                      << " ended (" << reason << ") after "
+                      << (m.timer.isValid() ? m.timer.elapsed() : -1) << " ms, " << m.frames
+                      << " frames, " << m.from << " to " << m.to;
 }
 
 void Effect::appearInPlace(KWin::EffectWindow *window)
@@ -1508,16 +1534,25 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (it->output != output) { ++it; continue; }
         if (it->window && !it->window->isDeleted()) unredirect(it->window);
+        if (!bentoMotionEnd(*it)) reportBentoMotionEnd(*it, "replaced by a new layout");
         it = m_bentoMotions.erase(it);
     }
     if (!output) return;
     QElapsedTimer clock; clock.start();
     for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
         auto *w = windows[i].data();
-        if (!w || w->isDeleted() || !w->window() || w->isMinimized()
-            || w == m_carriedWindow || w == m_settlingWindow || !from[i].isValid()
-            || from[i] == to[i] || w->window()->moveResizeOutput() != output
-            || QRectF(w->window()->moveResizeGeometry()) != to[i] || justOpened(w)) continue;
+        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || from[i] == to[i]) continue;
+        const char *still = w == m_carriedWindow ? "carried"
+            : w == m_settlingWindow ? "settling from a drop"
+            : !from[i].isValid() ? "not drawn before"
+            : w->window()->moveResizeOutput() != output ? "on another display"
+            : QRectF(w->window()->moveResizeGeometry()) != to[i] ? "KWin asked elsewhere"
+            : justOpened(w) ? "just opened" : nullptr;
+        if (still) {
+            qInfo().nospace() << "Kadunce " << Revision << " layout places " << logNameOf(w)
+                              << " without motion (" << still << "): " << from[i] << " to " << to[i];
+            continue;
+        }
         m_bentoMotions.append({w,output,from[i],to[i],QRectF(output->geometry()),clock});
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();

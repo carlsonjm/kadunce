@@ -403,8 +403,14 @@ private:
         bool arrival = false;
         bool drawnMoving = false;
         QElapsedTimer asked;
+        // Frames that drew it moving, for the line that reports its end.
+        int frames = 0;
     };
     QList<BentoMotion> m_bentoMotions;
+    // Why a layout motion no longer draws, or none while it still does.
+    [[nodiscard]] const char *bentoMotionEnd(const BentoMotion &motion) const;
+    [[nodiscard]] const BentoMotion *bentoMotionOf(const KWin::EffectWindow *window) const;
+    void reportBentoMotionEnd(const BentoMotion &motion, const char *reason) const;
     // Windows opened in the last moment: placed in their panes without motion.
     static constexpr qint64 OpenedStill = 2000;
     QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_justOpened;

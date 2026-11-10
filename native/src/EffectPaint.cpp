@@ -232,10 +232,12 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         m_continueRepaint = true;
     }
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
-        if (!bentoMotionRect(it->window)) {
+        if (const char *ended = bentoMotionEnd(*it)) {
+            reportBentoMotionEnd(*it, ended);
             if (it->window && !it->window->isDeleted()) unredirect(it->window);
             it = m_bentoMotions.erase(it);
         } else {
+            if (it->output == data.screen) ++it->frames;
             // An arrival moves once its client draws the pane's shape or has
             // had long enough to; this frame draws it at its start, and its
             // clock runs from when the frame is done (postPaintScreen).
@@ -1571,7 +1573,23 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         // pointer and tilts 1.5 degrees about its centre.
         const double lean = window == m_carriedWindow && !drawnAt ? stackLean() : 0.0;
         const QRectF leaned = leanedIntoStack(plan->target, lean);
-        const KWin::Rect target = KWin::RectF(leaned).toRect();
+        // §11, Connected: a pane a layout resizes keeps its own scale in its
+        // travelling box (PaneResizePicture.h); the backing fills what its
+        // client has not drawn yet.
+        const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
+            ? bentoMotionOf(window) : nullptr;
+        QRectF placed = leaned;
+        if (layoutMotion && !layoutMotion->arrival && logicalRegion.width() > 0 && logicalRegion.height() > 0) {
+            const PaneResizeRect box{leaned.x(), leaned.y(), leaned.width(), leaned.height()};
+            const PaneResizeRect picture = paneResizePicture(box, logicalRegion.width(), logicalRegion.height());
+            placed = QRectF(picture.x, picture.y, picture.width, picture.height);
+            if (paneResizeLeavesRoom(box, picture))
+                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                    deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(
+                        KWin::RectF(leaned.intersected(plan->clip)))),
+                    leaned, 0.0, float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
+        }
+        const KWin::Rect target = KWin::RectF(placed).toRect();
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
         if (lean > 0.0 && data.xScale() > 0 && data.yScale() > 0) {
             data.setRotationAngle(1.5 * lean);
