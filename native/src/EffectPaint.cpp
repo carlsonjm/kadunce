@@ -234,7 +234,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (const char *ended = bentoMotionEnd(*it)) {
             reportBentoMotionEnd(*it, ended);
-            if (it->window && !it->window->isDeleted()) unredirect(it->window);
+            releaseBentoMotion(*it);
             it = m_bentoMotions.erase(it);
         } else {
             if (it->output == data.screen) ++it->frames;
@@ -942,6 +942,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     m_signInGlassDrawnOn = nullptr;
     if (screen) m_frostDrawn.remove(screen->name());
     if (!m_heldPictures.empty()) captureHeldPictures();
+    if (!m_bentoMotions.isEmpty()) captureMotionPictures(screen);
     if (screen && screen == tabletOutput()) {
         // Only this display's: another's are read until it paints again.
         for (auto it = m_cardLabelTargets.begin(); it != m_cardLabelTargets.end();) {
@@ -1313,6 +1314,15 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
     if (window == m_capturingHeld)
         return paintResult(painted([&] { m_drawnAs.insert(window, QStringLiteral("kept picture taken")); return KWin::Effect::drawWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); }));
+    // A shrinking layout pane's kept picture, cropped by its box.
+    if (window == m_drawingKeptMotion) {
+        const BentoMotion *motion = bentoMotionOf(window);
+        if (motion && motion->kept
+            && motion->kept->drawAt(viewport, renderTarget, window, deviceRegion, data, motion->keptOffset)) {
+            m_drawnAs.insert(window, QStringLiteral("kept layout picture"));
+            return paintResult(true);
+        }
+    }
     if (m_shadowTraces.contains(window) && window != m_fanApertureWindow && castsShadow(window))
         paintCardShadow(renderTarget, viewport, window, deviceRegion, data);
     if (const auto offered = m_offerPictures.find(window);
@@ -1582,14 +1592,35 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const KWin::Rect target = KWin::RectF(leaned).toRect();
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();
-        if (fitted && frameSize.width() > 0.0 && frameSize.height() > 0.0) {
-            // Its frame's edges on the box's, each way on its own. Only a
-            // layout's pane is fitted so; a fan card keeps its aspect.
-            data.setXScale(target.width() / frameSize.width());
-            data.setYScale(target.height() / frameSize.height());
+        // A shrinking pane draws the picture it kept from before its client
+        // drew the new size, cropped by its box, until the box has reached
+        // the size its client now draws.
+        const bool keptShown = fitted && layoutMotion->kept
+            && (std::abs(target.width() - frameSize.width()) > 2.0
+                || std::abs(target.height() - frameSize.height()) > 2.0);
+        if (keptShown) {
+            data.setXScale(1.0);
+            data.setYScale(1.0);
             data.setXTranslation(target.x() - frameRect.x());
             data.setYTranslation(target.y() - frameRect.y());
             logicalRegion = target;
+        } else if (fitted && frameSize.width() > 0.0 && frameSize.height() > 0.0) {
+            // Otherwise the picture its client draws now, at its own size,
+            // its frame's top-left corner on the box's: never stretched or
+            // squeezed. The box crops what reaches past it, as a window
+            // resized by hand is cropped, and room the picture does not
+            // reach yet is the card backing's. Only a layout's pane is drawn
+            // so; a fan card keeps its aspect.
+            data.setXScale(1.0);
+            data.setYScale(1.0);
+            data.setXTranslation(target.x() - frameRect.x());
+            data.setYTranslation(target.y() - frameRect.y());
+            logicalRegion = target;
+            if (frameSize.width() < target.width() - 0.5 || frameSize.height() < target.height() - 0.5)
+                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
+                    deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(
+                        KWin::RectF(leaned.intersected(plan->clip)))),
+                    leaned, 0.0, float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
         } else {
             setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
         }
@@ -1611,7 +1642,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const int tiltReach = lean > 0.0
             ? int(std::ceil(std::sin(1.5 * lean * M_PI / 180.0) * std::max(target.width(), target.height()))) + 2 : 0;
         const auto deviceTarget = viewport.mapToDeviceCoordinatesAligned(target);
-        const bool rounded = m_fanApertureShader && data.xScale() > 0 && data.yScale() > 0;
+        const bool rounded = m_fanApertureShader && !keptShown && data.xScale() > 0 && data.yScale() > 0;
         m_fanApertureWindow = rounded ? window : nullptr;
         m_fanPaintSize = QSizeF(data.xScale(), data.yScale());
         m_fanApertureOrigin = QPointF((target.x() - logicalRegion.x()) * viewport.scale(),
@@ -1628,7 +1659,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             & (tiltReach > 0 ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
                : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
+        m_drawingKeptMotion = keptShown ? window : nullptr;
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
+        m_drawingKeptMotion = nullptr;
         if (fitted && !layoutMotion->trace.isEmpty())
             layoutMotion->trace.last() += QStringLiteral(" drawn %1%2").arg(m_drawnAs.value(window), drawn ? QString() : QStringLiteral(" (failed)"));
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};

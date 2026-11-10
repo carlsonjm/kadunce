@@ -1545,10 +1545,21 @@ QRectF Effect::bentoPresentationRect(KWin::EffectWindow *window) const
 void Effect::clearBentoMotions()
 {
     if (m_bentoMotions.isEmpty()) return;
-    for (const auto &m : std::as_const(m_bentoMotions))
-        if (m.window && !m.window->isDeleted()) unredirect(m.window);
+    for (const auto &m : std::as_const(m_bentoMotions)) releaseBentoMotion(m);
     m_bentoMotions.clear();
     KWin::effects->addRepaintFull();
+}
+
+void Effect::releaseBentoMotion(const BentoMotion &motion)
+{
+    if (!motion.window || motion.window->isDeleted()) return;
+    unredirect(motion.window);
+    if (!motion.elevated) return;
+    KWin::effects->setElevatedWindow(motion.window, false);
+    // Whatever the stage lifts for itself is lifted again.
+    QTimer::singleShot(0, this, [this] {
+        if (!m_releasing && m_cardStage) m_cardStage->syncSelectedElevation();
+    });
 }
 
 void Effect::animateBentoLayout(KWin::LogicalOutput *output,
@@ -1568,7 +1579,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     // each output's changed panes share one clock and retain interrupted poses.
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (it->output != output) { ++it; continue; }
-        if (it->window && !it->window->isDeleted()) unredirect(it->window);
+        releaseBentoMotion(*it);
         if (!bentoMotionEnd(*it)) reportBentoMotionEnd(*it, "replaced by a new layout");
         it = m_bentoMotions.erase(it);
     }
@@ -1597,6 +1608,13 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
         }
         m_bentoMotions.append({w,output,standsInPlace ? to[i] : from[i],to[i],QRectF(output->geometry()),clock});
         m_bentoMotions.last().startFrame = w->frameGeometry().size();
+        m_bentoMotions.last().keepsPicture = !standsInPlace
+            && (to[i].width() < from[i].width() - 2.0 || to[i].height() < from[i].height() - 2.0);
+        if (!standsInPlace && from[i].isValid() && !m_bentoMotions.last().keepsPicture
+            && (to[i].width() > from[i].width() + 2.0 || to[i].height() > from[i].height() + 2.0)) {
+            KWin::effects->setElevatedWindow(w, true);
+            m_bentoMotions.last().elevated = true;
+        }
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }

@@ -89,7 +89,25 @@ public:
         if (box.isEmpty()) return false;
         const double fit = std::min(box.width() / m_size.width(), box.height() / m_size.height());
         const QSizeF fitted = m_size * fit;
-        const QRectF place(box.center() - QPointF(fitted.width() / 2, fitted.height() / 2), fitted);
+        return drawPlaced(viewport, renderTarget, window, deviceRegion, data,
+            QRectF(box.center() - QPointF(fitted.width() / 2, fitted.height() / 2), fitted));
+    }
+
+    // The kept picture at its own size, its top-left corner `offset` from
+    // the window's, cropped by the region given rather than fitted.
+    bool drawAt(const KWin::RenderViewport &viewport, const KWin::RenderTarget &renderTarget,
+                KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                const KWin::WindowPaintData &data, QPointF offset) const
+    {
+        if (!taken() || !window) return false;
+        return drawPlaced(viewport, renderTarget, window, deviceRegion, data, QRectF(offset, m_size));
+    }
+
+private:
+    bool drawPlaced(const KWin::RenderViewport &viewport, const KWin::RenderTarget &renderTarget,
+                    KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                    const KWin::WindowPaintData &data, const QRectF &place) const
+    {
         const double scale = viewport.scale();
         const QRectF device(place.topLeft() * scale, place.size() * scale);
 
@@ -146,7 +164,6 @@ public:
         return true;
     }
 
-private:
     std::unique_ptr<KWin::GLTexture> m_texture;
     QSizeF m_size;
 };

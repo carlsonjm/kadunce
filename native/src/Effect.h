@@ -410,7 +410,21 @@ private:
         // The frame's size when the move began, to tell when its client has
         // drawn the new place (PaneResizePicture.h).
         QSizeF startFrame;
+        // A pane growing smaller keeps its picture from before its client
+        // drew the new size, and its box crops that picture as it shrinks
+        // rather than squeezing a newer, smaller one into it.
+        bool keepsPicture = false;
+        std::shared_ptr<KeptPicture> kept;
+        QPointF keptOffset;
+        QSizeF keptFrame;
+        // A pane growing larger is drawn above the rest while it moves, so a
+        // window closing beside it, still fading, never covers its growth.
+        bool elevated = false;
     };
+    // Lets a layout motion's window go: its own drawing and any lift.
+    void releaseBentoMotion(const BentoMotion &motion);
+    KWin::EffectWindow *m_drawingKeptMotion = nullptr;
+    void captureMotionPictures(KWin::LogicalOutput *screen);
     QList<BentoMotion> m_bentoMotions;
     // Why a layout motion no longer draws, or none while it still does.
     [[nodiscard]] const char *bentoMotionEnd(const BentoMotion &motion) const;
