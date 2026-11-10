@@ -1591,6 +1591,17 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         }
         const KWin::Rect target = KWin::RectF(placed).toRect();
         setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
+        // What each frame of a layout motion drew, against what the client
+        // had committed, reported with the motion's end.
+        if (layoutMotion && !layoutMotion->arrival && layoutMotion->trace.size() < 24)
+            layoutMotion->trace.append(QStringLiteral("%1ms box %2,%3 %4x%5 picture %6x%7 scale %8x%9 frame %10x%11 buffer %12x%13")
+                .arg(layoutMotion->timer.isValid() ? layoutMotion->timer.elapsed() : -1)
+                .arg(leaned.x(), 0, 'f', 0).arg(leaned.y(), 0, 'f', 0)
+                .arg(leaned.width(), 0, 'f', 0).arg(leaned.height(), 0, 'f', 0)
+                .arg(placed.width(), 0, 'f', 0).arg(placed.height(), 0, 'f', 0)
+                .arg(data.xScale(), 0, 'f', 2).arg(data.yScale(), 0, 'f', 2)
+                .arg(window->frameGeometry().width(), 0, 'f', 0).arg(window->frameGeometry().height(), 0, 'f', 0)
+                .arg(window->bufferGeometry().width(), 0, 'f', 0).arg(window->bufferGeometry().height(), 0, 'f', 0));
         if (lean > 0.0 && data.xScale() > 0 && data.yScale() > 0) {
             data.setRotationAngle(1.5 * lean);
             data.setRotationOrigin(QVector3D((target.x() + target.width() / 2.0 - logicalRegion.x()) / data.xScale(),
@@ -1617,6 +1628,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
                : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
+        if (layoutMotion && !layoutMotion->arrival && !layoutMotion->trace.isEmpty())
+            layoutMotion->trace.last() += QStringLiteral(" drawn %1%2").arg(m_drawnAs.value(window), drawn ? QString() : QStringLiteral(" (failed)"));
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
         if (!drawn) return paintResult(false);

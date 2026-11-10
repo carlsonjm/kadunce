@@ -405,6 +405,8 @@ private:
         QElapsedTimer asked;
         // Frames that drew it moving, for the line that reports its end.
         int frames = 0;
+        // What the frames that drew it drew, for that line too.
+        mutable QStringList trace;
     };
     QList<BentoMotion> m_bentoMotions;
     // Why a layout motion no longer draws, or none while it still does.

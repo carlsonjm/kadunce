@@ -1442,7 +1442,9 @@ void Effect::reportBentoMotionEnd(const BentoMotion &m, const char *reason) cons
     qInfo().nospace() << "Kadunce " << Revision << " layout motion of " << logNameOf(m.window.data())
                       << " ended (" << reason << ") after "
                       << (m.timer.isValid() ? m.timer.elapsed() : -1) << " ms, " << m.frames
-                      << " frames, " << m.from << " to " << m.to;
+                      << " frames, " << m.from << " to " << m.to << ", painted " << m.trace.size() << " times";
+    for (const QString &line : m.trace)
+        qInfo().noquote() << "Kadunce" << Revision << "  layout motion frame" << line;
 }
 
 void Effect::appearInPlace(KWin::EffectWindow *window)
