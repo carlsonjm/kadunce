@@ -1573,32 +1573,22 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         // pointer and tilts 1.5 degrees about its centre.
         const double lean = window == m_carriedWindow && !drawnAt ? stackLean() : 0.0;
         const QRectF leaned = leanedIntoStack(plan->target, lean);
-        // §11, Connected: a pane a layout resizes keeps its own scale in its
-        // travelling box (PaneResizePicture.h); the backing fills what its
-        // client has not drawn yet.
+        // §11, Connected: a pane a layout moves or resizes is fitted to its
+        // travelling box exactly, whichever picture its client has drawn
+        // (PaneResizePicture.h).
         const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
             ? bentoMotionOf(window) : nullptr;
-        QRectF placed = leaned;
-        if (layoutMotion && !layoutMotion->arrival && logicalRegion.width() > 0 && logicalRegion.height() > 0) {
-            const PaneResizeRect box{leaned.x(), leaned.y(), leaned.width(), leaned.height()};
-            const PaneResizeRect picture = paneResizePicture(box, logicalRegion.width(), logicalRegion.height());
-            placed = QRectF(picture.x, picture.y, picture.width, picture.height);
-            if (paneResizeLeavesRoom(box, picture))
-                paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
-                    deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(
-                        KWin::RectF(leaned.intersected(plan->clip)))),
-                    leaned, 0.0, float(data.opacity()), 0.0f, SurfaceTone::current().cardBacking(), 1.0F);
-        }
-        const KWin::Rect target = KWin::RectF(placed).toRect();
-        setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
+        const bool fitted = layoutMotion && !layoutMotion->arrival;
+        const KWin::Rect target = KWin::RectF(leaned).toRect();
+        setPositionTransformations(data, logicalRegion, window, target,
+            fitted ? Qt::IgnoreAspectRatio : Qt::KeepAspectRatioByExpanding);
         // What each frame of a layout motion drew, against what the client
         // had committed, reported with the motion's end.
-        if (layoutMotion && !layoutMotion->arrival && layoutMotion->trace.size() < 24)
-            layoutMotion->trace.append(QStringLiteral("%1ms box %2,%3 %4x%5 picture %6x%7 scale %8x%9 frame %10x%11 buffer %12x%13")
+        if (fitted && layoutMotion->trace.size() < 24)
+            layoutMotion->trace.append(QStringLiteral("%1ms box %2,%3 %4x%5 scale %6x%7 frame %8x%9 buffer %10x%11")
                 .arg(layoutMotion->timer.isValid() ? layoutMotion->timer.elapsed() : -1)
                 .arg(leaned.x(), 0, 'f', 0).arg(leaned.y(), 0, 'f', 0)
                 .arg(leaned.width(), 0, 'f', 0).arg(leaned.height(), 0, 'f', 0)
-                .arg(placed.width(), 0, 'f', 0).arg(placed.height(), 0, 'f', 0)
                 .arg(data.xScale(), 0, 'f', 2).arg(data.yScale(), 0, 'f', 2)
                 .arg(window->frameGeometry().width(), 0, 'f', 0).arg(window->frameGeometry().height(), 0, 'f', 0)
                 .arg(window->bufferGeometry().width(), 0, 'f', 0).arg(window->bufferGeometry().height(), 0, 'f', 0));
@@ -1628,7 +1618,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
                : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
         const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
-        if (layoutMotion && !layoutMotion->arrival && !layoutMotion->trace.isEmpty())
+        if (fitted && !layoutMotion->trace.isEmpty())
             layoutMotion->trace.last() += QStringLiteral(" drawn %1%2").arg(m_drawnAs.value(window), drawn ? QString() : QStringLiteral(" (failed)"));
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;

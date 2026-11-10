@@ -1,33 +1,30 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
-#include <algorithm>
+#include <cmath>
 
 namespace Kadunce {
 
 // A pane a layout moves or resizes (CARD-LIFECYCLE.md §11, Connected) is
-// drawn in a box that travels from its old place to its new one, while its
-// client draws the old size or the new one at any moment. Its picture keeps
-// the window's own scale, its top-left corner at the box's, and the box
-// crops it, as a window being resized by hand is. It shrinks to cover a box
-// smaller than it both ways, and never grows: a picture smaller than the box
-// leaves the rest of the box to the card backing rather than being blown up.
-struct PaneResizeRect {
-    double x = 0.0, y = 0.0, width = 0.0, height = 0.0;
-};
+// drawn in a box that travels from its old place to its new one. Its client
+// draws the new size about 40 ms into the 220 ms move, long before the box
+// arrives, so whichever picture is current is fitted to the box exactly:
+// its frame's edges are the box's edges every frame. The picture is
+// stretched a little for the length of the move, and never shown larger or
+// smaller than its box, so the pane can neither flash magnified nor jump.
+//
+// The box stands in its place until the client has drawn there: a client
+// that has not yet drawn the new size by the end of the move would
+// otherwise jump the moment the move ends.
 
-inline PaneResizeRect paneResizePicture(const PaneResizeRect &box, double pictureWidth, double pictureHeight)
+// Whether a client has drawn a pane's new place: its frame has the size the
+// pane goes to, or another size than it had when the move began (a terminal
+// keeping whole rows stops short of its place, and that is its answer).
+inline bool paneResizeCaughtUp(double startWidth, double startHeight, double frameWidth,
+                               double frameHeight, double toWidth, double toHeight)
 {
-    if (box.width <= 0.0 || box.height <= 0.0 || pictureWidth <= 0.0 || pictureHeight <= 0.0)
-        return box;
-    const double cover = std::max(box.width / pictureWidth, box.height / pictureHeight);
-    const double scale = std::min(1.0, cover);
-    return {box.x, box.y, pictureWidth * scale, pictureHeight * scale};
-}
-
-// Whether a picture leaves part of its box uncovered, a pixel's fraction aside.
-inline bool paneResizeLeavesRoom(const PaneResizeRect &box, const PaneResizeRect &picture)
-{
-    return picture.width < box.width - 0.5 || picture.height < box.height - 0.5;
+    const auto same = [](double a, double b) { return std::abs(a - b) < 1.0; };
+    if (same(frameWidth, toWidth) && same(frameHeight, toHeight)) return true;
+    return !same(frameWidth, startWidth) || !same(frameHeight, startHeight);
 }
 
 } // namespace Kadunce

@@ -1398,9 +1398,17 @@ const char *Effect::bentoMotionEnd(const BentoMotion &m) const
     const bool started = m.timer.isValid();
     const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
     if (!window || window->isDeleted() || !window->window() || !m.output) return "window gone";
-    if (started ? m.timer.elapsed() >= duration
-                : !m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon)
-        return started ? "finished" : "never drawn";
+    if (!started && (!m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon))
+        return "never drawn";
+    // A layout's pane stands in its place once there until its client has
+    // drawn that place, a second at most (PaneResizePicture.h).
+    if (started && m.timer.elapsed() >= duration) {
+        const QSizeF frame = window->frameGeometry().size();
+        if (m.arrival || m.timer.elapsed() >= PaneArrivalAbandon
+            || paneResizeCaughtUp(m.startFrame.width(), m.startFrame.height(), frame.width(),
+                                  frame.height(), m.to.width(), m.to.height()))
+            return "finished";
+    }
     if (window->isUserMove() || window->isUserResize()) return "held by a move";
     if (window->isMinimized()) return "minimized";
     if (QRectF(m.output->geometry()) != m.outputGeometry) return "display changed";
@@ -1550,12 +1558,20 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
             : w->window()->moveResizeOutput() != output ? "on another display"
             : QRectF(w->window()->moveResizeGeometry()) != to[i] ? "KWin asked elsewhere"
             : justOpened(w) ? "just opened" : nullptr;
+        // A card that was not a pane before, as one Spread hands back on
+        // closing, still has its card's size: it stands in its place, its
+        // picture fitted there, until its client draws that place.
+        const bool standsInPlace = still && w != m_carriedWindow && w != m_settlingWindow
+            && !from[i].isValid() && w->window()->moveResizeOutput() == output
+            && QRectF(w->window()->moveResizeGeometry()) == to[i] && to[i].isValid();
         if (still) {
             qInfo().nospace() << "Kadunce " << Revision << " layout places " << logNameOf(w)
-                              << " without motion (" << still << "): " << from[i] << " to " << to[i];
-            continue;
+                              << " without motion (" << still << ")" << (standsInPlace ? ", standing in its place" : "")
+                              << ": " << from[i] << " to " << to[i];
+            if (!standsInPlace) continue;
         }
-        m_bentoMotions.append({w,output,from[i],to[i],QRectF(output->geometry()),clock});
+        m_bentoMotions.append({w,output,standsInPlace ? to[i] : from[i],to[i],QRectF(output->geometry()),clock});
+        m_bentoMotions.last().startFrame = w->frameGeometry().size();
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }

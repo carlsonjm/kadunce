@@ -407,6 +407,9 @@ private:
         int frames = 0;
         // What the frames that drew it drew, for that line too.
         mutable QStringList trace;
+        // The frame's size when the move began, to tell when its client has
+        // drawn the new place (PaneResizePicture.h).
+        QSizeF startFrame;
     };
     QList<BentoMotion> m_bentoMotions;
     // Why a layout motion no longer draws, or none while it still does.
