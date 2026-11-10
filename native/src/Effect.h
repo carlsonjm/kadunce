@@ -432,6 +432,7 @@ private:
         const QList<QPointer<KWin::EffectWindow>> &windows,
         const QList<QRectF> &from, const QList<QRectF> &to) override;
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
+    bool nothingHoldsTheMove() const;
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.

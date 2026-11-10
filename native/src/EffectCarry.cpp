@@ -368,6 +368,13 @@ bool Effect::drawnWithCarriedCard(const KWin::EffectWindow *window) const
         || bentoMotionRect(lead);
 }
 
+bool Effect::nothingHoldsTheMove() const
+{
+    const auto *in = KWin::input();
+    if (!in || !in->pointer() || in->pointer()->areButtonsPressed()) return false;
+    return !in->touch() || in->touch()->touchPointCount() == 0;
+}
+
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
     // Answered by the stage holding the window, else its display's.
@@ -380,6 +387,24 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                 << (window->isUserMove() || window->isUserResize() ? "by hand" : "by itself")
                 << "at" << window->window()->frameGeometry();
         if (m_touchWitness) m_touchWitness->moveStarted();
+    }
+    // An X11 app that draws its own title bar, such as Steam, asks KWin for a
+    // move itself, and its ask can arrive after the button that pressed it
+    // has come up: KWin then moves the window under a pointer nothing holds,
+    // until the next click. A move no button or contact drives is ended as
+    // soon as KWin has published it, and is never a carry, so a click on such
+    // a title bar is a click. Wayland apps cannot ask so: their ask names a
+    // press still held.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && nothingHoldsTheMove()) {
+        qInfo() << "Kadunce" << Revision << "ends a move of" << applicationIdentity(window)
+                << "that no button or contact holds";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove() || !nothingHoldsTheMove()) return;
+            StaleTouchRelease::cancel(guarded->window(), false);
+        });
+        return;
     }
     // A card does not become an ordinary window through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
