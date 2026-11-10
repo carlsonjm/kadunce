@@ -1663,6 +1663,23 @@ void Effect::handleManagedStateChanged()
 void Effect::handleWindowMoveResizeStepped(
     KWin::EffectWindow *window, const KWin::RectF &geometry)
 {
+    // An X11 app's own title bar asks KWin for the move as it is pressed,
+    // and a card carried from it can leave KWin's move without the button
+    // coming up: the window then follows a pointer nothing holds. The first
+    // step no button or contact drives ends the move where it began, and
+    // the cards stay.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && nothingHoldsTheMove()) {
+        if (window == m_heldActiveMove) m_heldActiveMove.clear();
+        qInfo() << "Kadunce" << Revision << "ends a move of" << applicationIdentity(window)
+                << "that no button or contact holds";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove() || !nothingHoldsTheMove()) return;
+            StaleTouchRelease::cancel(guarded->window(), false);
+        });
+        return;
+    }
     // §11, Every display: the Active card may be on its way to another
     // display holding its own cards, so where it lands decides.
     SessionScope scope(this, m_scopedSession, stageKeyOf(window));
