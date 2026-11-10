@@ -63,6 +63,19 @@ QString Effect::applicationDisplayName(KWin::EffectWindow *window) const
             if (service) serviceName = service->name();
         }
         resourceClass = window->window()->resourceClass();
+        // An X11 window names no desktop file, only its class, which is often
+        // the desktop file's own name in lower case ("firefox"): the
+        // application's name comes from that desktop file when there is one.
+        if (serviceName.isEmpty()) {
+            for (const QString &candidate : {resourceClass, window->windowClass().section(QLatin1Char(' '), -1)}) {
+                const QString desktopName = candidate.trimmed().toLower();
+                if (desktopName.isEmpty()) continue;
+                if (const auto service = KService::serviceByDesktopName(desktopName)) {
+                    serviceName = service->name();
+                    break;
+                }
+            }
+        }
     }
     const QString name = humanApplicationName(serviceName, resourceClass,
         window->windowClass().section(QLatin1Char(' '), -1),
