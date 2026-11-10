@@ -6,6 +6,7 @@
 // Carrying a window: the native move, where it lands and how it settles, and
 // the dialogs that travel with their card.
 #include "EffectInternal.h"
+#include "PanePlaces.h"
 
 namespace Kadunce
 {
@@ -481,6 +482,7 @@ void Effect::endNativeCarryPresentation()
     m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear();
     endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
@@ -645,6 +647,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryPreview.reset();
     m_carryRefusal.reset();
     m_carryStackOnto.clear();
+    // The place named over a pane before, so a hand resting on a boundary
+    // keeps it; read again below.
+    const QPointer<KWin::EffectWindow> previousPlacePane = m_carryPlacePane;
+    const std::optional<PanePlace> previousPanePlace = m_carryPanePlace;
+    m_carryPlacePane.clear();
+    m_carryPanePlace.reset();
+    m_carryMapOutput.clear();
     m_lastCarryContact = contact;
     // The aim is read again below only where a pane can be stacked on.
     bool aimingPane = false;
@@ -1127,9 +1136,41 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         }
         if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
             over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
+        // §11, Connected: over a pane of a Connected layout, the map of places
+        // shows and the contact names one of the pane's five (PanePlaces.h).
+        // Its middle joins the pane's Stack at once; any side places the card
+        // by the pane, which the layout solve below reserves.
+        if (over && connectedOutputForDesktopStage(target) && m_desktopStage->managesWindow(over)) {
+            m_carryMapOutput = target;
+            const QRectF frame(over->frameGeometry());
+            const auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
+                contact.x(), contact.y(), previousPlacePane == over ? previousPanePlace : std::nullopt);
+            if (place) {
+                m_carryPlacePane = over;
+                m_carryPanePlace = place;
+                if (*place != PanePlace::Middle) {
+                    const QRectF whole(target->geometry());
+                    BentoSidePlacement byPane;
+                    byPane.right = *place == PanePlace::Right
+                        || (*place != PanePlace::Left && frame.center().x() > whole.center().x());
+                    byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
+                    byPane.over = *place == PanePlace::Top;
+                    byPane.connected = true;
+                    byPane.place = place;
+                    byPane.pane = reinterpret_cast<std::uintptr_t>(over);
+                    side = byPane;
+                    over = nullptr;
+                } else {
+                    m_paneStackDwell.stop();
+                    m_carryStackOnto = over;
+                }
+            }
+        }
     }
     QPointer<KWin::EffectWindow> stackAfter;
-    if (over) {
+    if (over && !local && m_carryPanePlace == PanePlace::Middle && m_carryPlacePane == over) {
+        stackAfter = over;
+    } else if (over) {
         aimingPane = true;
         if (!m_paneStackClock.isValid()) m_paneStackClock.start();
         const long long now = m_paneStackClock.elapsed();

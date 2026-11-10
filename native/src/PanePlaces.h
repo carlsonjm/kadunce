@@ -11,7 +11,6 @@ namespace Kadunce {
 // CARD-LIFECYCLE.md §11, Connected: a card carried in from another display
 // over a pane names one of that pane's five places: its middle joins its
 // Stack, and each of its four sides places the card beside it there.
-enum class PanePlace { Left, Right, Top, Bottom, Middle };
 
 // The middle is this share of the pane each way, centred: large enough to be
 // found by touch, small enough to leave each side a band to aim at.

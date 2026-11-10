@@ -1483,6 +1483,14 @@ private:
     // carry be resting still.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
     QPointer<KWin::EffectWindow> m_carryStackOnto;
+    // §11, Connected: carried in from another display over a pane, the pane
+    // and the place by it the contact names (PanePlaces.h), on the display
+    // whose map of places is drawn.
+    QPointer<KWin::EffectWindow> m_carryPlacePane;
+    std::optional<PanePlace> m_carryPanePlace;
+    QPointer<KWin::LogicalOutput> m_carryMapOutput;
+    void drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                      const KWin::Region &deviceRegion, KWin::LogicalOutput *screen);
     // How far the carried window leans into the Stack it would join, 0 to 1,
     // easing from where it stood when it last turned toward or away.
     QElapsedTimer m_stackLeanClock;

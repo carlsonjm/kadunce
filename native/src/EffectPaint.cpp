@@ -522,6 +522,46 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
     return std::nullopt;
 }
 
+void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                          const KWin::Region &deviceRegion, KWin::LogicalOutput *screen)
+{
+    // §11, Connected: carried in from another display, each pane of the
+    // layout shows faintly, and the pane under the card its five places
+    // (PanePlaces.h): its middle, and a bar along each side. The place named
+    // is drawn stronger; where the card would land is the frosted box.
+    if (!m_carriedWindow || !screen || m_carryMapOutput != screen || !m_destinationShader) return;
+    const auto partsOf = [&](const QRectF &box) {
+        QList<QRectF> parts;
+        for (const auto &dirty : deviceRegion.rects()) {
+            const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(box);
+            if (!part.isEmpty()) parts.append(part);
+        }
+        return parts;
+    };
+    const auto fill = [&](const QRectF &box, float surface, float ring) {
+        if (box.width() > 0 && box.height() > 0)
+            fillDestinationParts(renderTarget, viewport, partsOf(box), box, surface, ring);
+    };
+    for (KWin::EffectWindow *pane : m_desktopStage->panesOn(screen))
+        if (pane != m_carriedWindow) fill(QRectF(pane->frameGeometry()), 0.03f, 0.35f);
+    if (!m_carryPlacePane || m_carryPlacePane->isDeleted() || !m_carryPanePlace) return;
+    const QRectF f(m_carryPlacePane->frameGeometry());
+    const auto named = [this](PanePlace place) { return m_carryPanePlace == place; };
+    const double share = PanePlaceMiddleShare;
+    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
+                        f.width() * share, f.height() * share);
+    fill(middle, named(PanePlace::Middle) ? 0.10f : 0.03f, named(PanePlace::Middle) ? 0.9f : 0.5f);
+    // A bar along each side, inset from its edge, as long as the middle is.
+    const double inset = 14.0, thick = 8.0;
+    const QRectF bars[4] = {
+        QRectF(f.left() + inset, middle.top(), thick, middle.height()),
+        QRectF(f.right() - inset - thick, middle.top(), thick, middle.height()),
+        QRectF(middle.left(), f.top() + inset, middle.width(), thick),
+        QRectF(middle.left(), f.bottom() - inset - thick, middle.width(), thick)};
+    const PanePlace places[4] = {PanePlace::Left, PanePlace::Right, PanePlace::Top, PanePlace::Bottom};
+    for (int i = 0; i < 4; ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
+}
+
 void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
 {
     // The box sits under the window in hand, so the glass frosts the windows
@@ -1038,6 +1078,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (screen && detachShown != (m_detachShownOn == screen))
         m_detachShownOn = detachShown ? screen : nullptr;
     drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
+    drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
     drawRoomOffer(renderTarget, viewport, deviceRegion, screen, overlaid);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {

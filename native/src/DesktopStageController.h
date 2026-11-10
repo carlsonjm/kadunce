@@ -297,6 +297,8 @@ public:
                                      KWin::EffectWindow *next,
                                      const std::function<bool()> &commitSource);
     // The pane of `output`'s layout under `position`, other than `except`.
+    // The panes the layout on `output` shows, in its order.
+    [[nodiscard]] QList<KWin::EffectWindow *> panesOn(const KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::EffectWindow *paneAt(const KWin::LogicalOutput *output, QPointF position,
                                              const KWin::EffectWindow *except = nullptr) const;
 

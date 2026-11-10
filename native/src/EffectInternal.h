@@ -20,6 +20,7 @@
 #include "DisplayHandoffPolicy.h"
 #include "CarryPaintPlan.h"
 #include "PaneArrival.h"
+#include "PanePlaces.h"
 #include "NativeLanding.h"
 #include "MonitorDropIntent.h"
 #include "DeliberateEdgeEntry.h"
