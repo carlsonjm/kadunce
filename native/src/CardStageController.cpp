@@ -695,11 +695,30 @@ void CardStageController::standStackWhole(const KWin::EffectWindow *member)
             << narrowed << "narrowed by the wheel";
     if (m_presentation == CardPresentation::Active && m_activeRestore.window
         && stack.contains(m_activeRestore.window.data())) (void)refitActive(m_activeRestore.window);
+    // §11, Connected: cards waiting behind a layout's pane stand at that
+    // pane's place, so each comes forward at the size it is shown, without
+    // its application drawing itself again.
+    KWin::EffectWindow *pane = paneHolding(member);
+    if (pane && !pane->isDeleted() && pane->window() && pane->screen()) {
+        QList<QPointer<KWin::EffectWindow>> behind;
+        for (auto *card : stack) if (card != pane) behind.append(card);
+        settleCardsInActivePlace(behind, pane->screen(), pane->window()->moveResizeGeometry());
+        return;
+    }
     for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
 }
 
+KWin::EffectWindow *CardStageController::paneHolding(const KWin::EffectWindow *card) const
+{
+    if (!card) return nullptr;
+    for (auto it = m_paneStacks.cbegin(); it != m_paneStacks.cend(); ++it)
+        for (const auto &member : it.value())
+            if (member == card) return const_cast<KWin::EffectWindow *>(it.key());
+    return nullptr;
+}
+
 void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
-    KWin::LogicalOutput *output)
+    KWin::LogicalOutput *output, std::optional<KWin::RectF> place)
 {
     // §3: a card behind the one presented stands where it would as Active. A
     // window taken maximized would otherwise still reach the bottom of the
@@ -708,7 +727,7 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
     // already in its restore record, so release gives it back.
     KWin::LogicalOutput *tablet = output ? output : m_host->tabletOutputForCardStage();
     if (!tablet) return;
-    const KWin::RectF target(activeTarget(tablet));
+    const KWin::RectF target = place ? *place : KWin::RectF(activeTarget(tablet));
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     int settled = 0;
     for (const auto &window : cards) {
@@ -739,7 +758,8 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         ++settled;
     }
     if (settled > 0)
-        qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
+        qInfo() << "Kadunce" << Revision << "stood" << settled
+                << (place ? "cards behind their pane, at its place" : "cards in the Active card's place");
 }
 
 void CardStageController::keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target)

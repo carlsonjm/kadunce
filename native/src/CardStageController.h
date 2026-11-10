@@ -649,8 +649,12 @@ private:
     // the wheel gave one alone and stand in the Active place.
     void standStackWhole(const KWin::EffectWindow *member);
     // On `output`'s Active place, the tablet's when none is named.
+    // Cards waiting behind a layout's pane stand at `place`, that pane's.
     void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
-                                  KWin::LogicalOutput *output = nullptr);
+                                  KWin::LogicalOutput *output = nullptr,
+                                  std::optional<KWin::RectF> place = std::nullopt);
+    // The layout's pane `card` waits behind, if it waits behind one.
+    KWin::EffectWindow *paneHolding(const KWin::EffectWindow *card) const;
     // A card behind the Active one that its application maximized, or that
     // otherwise reaches past the Active place, goes back to that place.
     void holdCardInActivePlace(KWin::EffectWindow *window);
