@@ -403,8 +403,33 @@ private:
         bool arrival = false;
         bool drawnMoving = false;
         QElapsedTimer asked;
+        // Frames that drew it moving, for the line that reports its end.
+        int frames = 0;
+        // What the frames that drew it drew, for that line too.
+        mutable QStringList trace;
+        // The frame's size when the move began, to tell when its client has
+        // drawn the new place (PaneResizePicture.h).
+        QSizeF startFrame;
+        // A pane growing smaller keeps its picture from before its client
+        // drew the new size, and its box crops that picture as it shrinks
+        // rather than squeezing a newer, smaller one into it.
+        bool keepsPicture = false;
+        std::shared_ptr<KeptPicture> kept;
+        QPointF keptOffset;
+        QSizeF keptFrame;
+        // A pane growing larger is drawn above the rest while it moves, so a
+        // window closing beside it, still fading, never covers its growth.
+        bool elevated = false;
     };
+    // Lets a layout motion's window go: its own drawing and any lift.
+    void releaseBentoMotion(const BentoMotion &motion);
+    KWin::EffectWindow *m_drawingKeptMotion = nullptr;
+    void captureMotionPictures(KWin::LogicalOutput *screen);
     QList<BentoMotion> m_bentoMotions;
+    // Why a layout motion no longer draws, or none while it still does.
+    [[nodiscard]] const char *bentoMotionEnd(const BentoMotion &motion) const;
+    [[nodiscard]] const BentoMotion *bentoMotionOf(const KWin::EffectWindow *window) const;
+    void reportBentoMotionEnd(const BentoMotion &motion, const char *reason) const;
     // Windows opened in the last moment: placed in their panes without motion.
     static constexpr qint64 OpenedStill = 2000;
     QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_justOpened;
@@ -421,6 +446,7 @@ private:
         const QList<QPointer<KWin::EffectWindow>> &windows,
         const QList<QRectF> &from, const QList<QRectF> &to) override;
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
+    bool nothingHoldsTheMove() const;
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.
@@ -1467,6 +1493,9 @@ private:
     // cards go; travel does.
     QPointer<KWin::EffectWindow> m_heldActiveMove;
     QPointF m_heldActiveMoveOrigin;
+    // An application's repeated move of the window Kadunce already carries,
+    // while Kadunce ends it; its finish is not a drop.
+    QPointer<KWin::EffectWindow> m_repeatedNativeMove;
     // A display's own card let go at its bottom edge is an ordinary window
     // there until it is carried again, never taken back as a card (§10).
     QPointer<KWin::EffectWindow> m_letGoOnDisplay;
