@@ -583,6 +583,10 @@ private:
     // It gives up once anything is carried again or another desktop is shown.
     void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                          const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
+    // §11, Connected: carried onto a side of the card a display shows alone,
+    // the two are laid out there once it has landed, as stackWhenLanded waits.
+    void pairWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> lone,
+                        BentoSidePlacement side, const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
     // CARD-LIFECYCLE.md §11: every display holding cards has a card stage of
     // its own on each desktop, with its own Spread, Active card and Stacks.
     // Its host names it, and its display, for each call it makes.
@@ -1519,9 +1523,15 @@ private:
     QPointer<KWin::EffectWindow> m_carryPlacePane;
     std::optional<PanePlace> m_carryPanePlace;
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
+    // Carried over another pane of its own layout, the whole pane is the
+    // place: it joins that pane's Stack once rested on, anywhere on it.
+    bool m_carryPlaceWhole = false;
     // How full the middle's ring is, 0 to 1, for the pane under the card.
     [[nodiscard]] double stackHoldFilled() const;
     StackHoldLabel m_stackHoldLabel;
+    // The pane a pane of its own layout rests on, outlined, its ring filling.
+    void drawWholePaneHold(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                           const QList<QRectF> &parts, const QRectF &pane);
     // §11, Connected: a card let go on a pane's middle is seen going behind
     // it. It shrinks into the pane and fades, then joins the Stack; the pane
     // then fans for a moment, the edges of the cards behind it showing.
@@ -1635,6 +1645,9 @@ private:
     // drawn under it this frame.
     KWin::Region m_paintingRegion;
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
+    // The place map drawn under the card in hand; the hold ring, drawn last.
+    QPointer<KWin::LogicalOutput> m_placeMapDrawnOn;
+    std::optional<QPointF> m_stackHoldCentre;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     // Shuffle Settings stands over the work on a display: everything under

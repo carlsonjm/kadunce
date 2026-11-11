@@ -241,7 +241,9 @@ template<class Handle>
                 })) continue;
             std::erase(order, c);
             order.push_back(c);
-            given[c] = std::clamp(share, .05, .95);
+            // A lone column may be given the whole width: two cards paired
+            // over and under each other (DesktopStageLayouts.cpp).
+            given[c] = std::clamp(share, .05, count == 1 ? 1.0 : .95);
         }
     }
     if (count == 1) return {given[0] > 0.0 ? given[0] : 0.5};
