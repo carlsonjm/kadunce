@@ -73,7 +73,7 @@ bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Drag a window by its title bar to the left or right edge of a display | Within 32 px on a monitor, it pairs on your side with the Active card, or for the Active card the one used before, the upper half larger; with none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
+| Drag a window by its title bar to the left or right edge of a display | Within 96 px on a monitor, it pairs on your side with the Active card, or for the Active card the one used before, the upper half larger; with none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, it on your side. |

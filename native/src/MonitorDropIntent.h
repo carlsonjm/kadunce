@@ -6,11 +6,14 @@
 namespace Kadunce {
 // Recognize placement during motion, never infer a new intent at release.
 // The bottom band belongs to the dock, including its side corners.
-// A touchscreen's edges answer within 12 px of the bezel. A display sized
-// Connected, worked with a pointer, answers within 32 px, as COSMIC does:
-// KWin's own 10 to 15 px is easy to overshoot onto a neighbouring display.
-inline constexpr double CarryEdgeBand = 12.0;
-inline constexpr double PointerCarryEdgeBand = 32.0;
+// A touchscreen's edges answer within 64 px of the bezel, about a
+// fingertip and a half, so a card need not be pushed off the glass. A
+// display sized Connected, worked with a pointer, answers within 96 px:
+// KWin's own 10 to 15 px is easy to miss or overshoot onto a neighbouring
+// display. Both stay well short of a pane's own sides, which answer for
+// themselves (PanePlaces.h).
+inline constexpr double CarryEdgeBand = 64.0;
+inline constexpr double PointerCarryEdgeBand = 96.0;
 inline std::optional<CarryEdge> monitorCarryEdge(QRectF output, QPointF contact,
                                                  double band = CarryEdgeBand)
 {
