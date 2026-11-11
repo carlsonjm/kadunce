@@ -207,6 +207,11 @@ public Q_SLOTS:
     Q_SCRIPTABLE QString nativeCarryState() const;
     Q_SCRIPTABLE QStringList nativeMoveTrace() const { return m_nativeMoveTrace; }
     Q_SCRIPTABLE bool activateApplicationWindow(const QString &windowId);
+    // TETTEGOUCHE-CONTEXT.md § Stack requests: a Stack's card comes to its
+    // front in place, as Meta+Tab steps it there, the ring's order kept; and
+    // the card in front leaves its Stack, as Meta+Shift+Down takes it out.
+    Q_SCRIPTABLE bool stepStackTo(const QString &windowId);
+    Q_SCRIPTABLE bool takeOutOfStack(const QString &windowId);
     Q_SCRIPTABLE void raiseKeyboard();
     // The keys' own word on where they are going: they come to rest `height`
     // logical pixels tall above their screen's bottom edge, 0 when leaving,
@@ -951,8 +956,11 @@ private:
     void carryToward(KeyDirection direction);
     void stepKeyLadder(int delta);
     void commitKeyLadder();
-    void letPaneGo();
+    // The pane given, else the window in use.
+    void letPaneGo(KWin::EffectWindow *pane = nullptr);
     void letActiveCardGo();
+    // The application window with this KWin identity, if one is open.
+    [[nodiscard]] KWin::EffectWindow *applicationWindowWithIdentity(const QString &windowId) const;
     void moveDividerByKey(int delta);
     void keyReleased(int key);
     // The windows the arrows reach: every display's panes, and the Active card.

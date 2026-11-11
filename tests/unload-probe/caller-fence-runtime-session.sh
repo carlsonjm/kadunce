@@ -48,6 +48,8 @@ sleep .3
 check "the window in front stays in front" is "$(active_caption)" Two
 check "a stranger cannot raise the keys" refused kad raiseKeyboard
 check "a stranger cannot open Table" refused kad toggleTable
+check "a stranger cannot step a Stack" refused kad stepStackTo "$(id_of 'One')"
+check "a stranger cannot take a card out of its Stack" refused kad takeOutOfStack "$(id_of 'One')"
 check "a stranger cannot aim a placement" refused kad aimPlacement 600 400
 
 # One of the suite's programs, by its own name in the person's programs folder.
