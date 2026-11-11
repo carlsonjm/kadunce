@@ -527,7 +527,7 @@ void Effect::endNativeCarryPresentation()
     m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
-    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear();
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear(); m_carryPlaceWhole = false;
     endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
@@ -699,6 +699,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryPlacePane.clear();
     m_carryPanePlace.reset();
     m_carryMapOutput.clear();
+    m_carryPlaceWhole = false;
     m_lastCarryContact = contact;
     // The aim is read again below only where a pane can be stacked on.
     bool aimingPane = false;
@@ -1168,6 +1169,14 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
         && connectedOutputForDesktopStage(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+    // The pane it would join shows outlined, its ring filling as the hand
+    // rests, as a pane's middle does for a card from another display.
+    if (over) {
+        m_carryMapOutput = target;
+        m_carryPlacePane = over;
+        m_carryPanePlace = PanePlace::Middle;
+        m_carryPlaceWhole = true;
+    }
     // Carried in from another display and rested on Spread's Active card, or
     // on a pane there however that display is sized, as the card another
     // display shows alone is one, it lands as it would and then joins that

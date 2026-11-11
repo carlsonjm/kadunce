@@ -1237,4 +1237,11 @@ double Effect::drawStackJoinFan(const KWin::RenderTarget &renderTarget, const KW
     return reach * 0.5;
 }
 
+void Effect::drawWholePaneHold(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                               const QList<QRectF> &parts, const QRectF &pane)
+{
+    fillDestinationParts(renderTarget, viewport, parts, pane, 0.08f, 0.9f);
+    m_stackHoldLabel.render(renderTarget, viewport, pane.center(), stackHoldFilled());
+}
+
 } // namespace Kadunce

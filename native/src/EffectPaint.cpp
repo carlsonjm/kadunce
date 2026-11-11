@@ -561,12 +561,12 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
         if (pane != m_carriedWindow) fill(QRectF(pane->frameGeometry()), 0.03f, 0.35f);
     if (!m_carryPlacePane || m_carryPlacePane->isDeleted() || !m_carryPanePlace) return;
     const QRectF f(m_carryPlacePane->frameGeometry());
+    if (m_carryPlaceWhole) return drawWholePaneHold(renderTarget, viewport, partsOf(f), f);
     const auto named = [this](PanePlace place) { return m_carryPanePlace == place; };
     const double share = PanePlaceMiddleShare;
     const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
                         f.width() * share, f.height() * share);
-    // The middle shows only with the card over it: resting fills its ring,
-    // and once full, a let go stacks.
+    // The middle shows only with the card over it; resting fills its ring.
     if (named(PanePlace::Middle)) {
         fill(middle, 0.10f, 0.9f);
         m_stackHoldLabel.render(renderTarget, viewport, middle.center(), stackHoldFilled());

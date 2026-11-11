@@ -1519,9 +1519,15 @@ private:
     QPointer<KWin::EffectWindow> m_carryPlacePane;
     std::optional<PanePlace> m_carryPanePlace;
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
+    // Carried over another pane of its own layout, the whole pane is the
+    // place: it joins that pane's Stack once rested on, anywhere on it.
+    bool m_carryPlaceWhole = false;
     // How full the middle's ring is, 0 to 1, for the pane under the card.
     [[nodiscard]] double stackHoldFilled() const;
     StackHoldLabel m_stackHoldLabel;
+    // The pane a pane of its own layout rests on, outlined, its ring filling.
+    void drawWholePaneHold(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                           const QList<QRectF> &parts, const QRectF &pane);
     // §11, Connected: a card let go on a pane's middle is seen going behind
     // it. It shrinks into the pane and fades, then joins the Stack; the pane
     // then fans for a moment, the edges of the cards behind it showing.
