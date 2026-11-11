@@ -281,30 +281,6 @@ double CardStageController::carryRowAt(double x, const CarryFrame &frame) const
     return m_carry.position + (x - frame.centreX) / std::max(m_carry.scale, 0.05);
 }
 
-std::optional<CardStageController::CarryJoinHint>
-CardStageController::carryJoinHint(KWin::LogicalOutput *output) const
-{
-    if (!m_cardGrabActive || !m_carry.moved || m_carry.inStack || m_carry.sliding) return std::nullopt;
-    const bool joins = m_carry.aim.kind == CarryAim::Kind::Card;
-    const int item = joins ? m_carry.aim.index
-        : m_carry.candidate.kind == CarryAim::Kind::Card ? m_carry.candidate.index : -1;
-    const auto frame = carryFrame(output);
-    if (item < 0 || std::size_t(item) >= m_carry.shifts.size() || !frame) return std::nullopt;
-    const double centreX = frame->centreX
-        + (carryItemPosition(item, frame->pitch) - m_carry.position) * m_carry.scale;
-    double scale = m_carry.scale, lift = 0.0;
-    if (item == m_carry.riseIndex) {
-        scale *= 1.0 + (CarryJoinRise - 1.0) * m_carry.rise;
-        lift = 0.04 * frame->height * m_carry.scale * m_carry.rise;
-    }
-    const double width = frame->width * scale, height = frame->height * scale;
-    const long long dwell = std::max(1LL, carryJoinDwell());
-    const double filled = joins ? 1.0
-        : std::clamp(double(m_carry.candidateSince.elapsed()) / double(dwell), 0.0, 1.0);
-    return CarryJoinHint{QRectF(centreX - width / 2.0, frame->centreY - height / 2.0 - lift, width, height),
-                         filled};
-}
-
 KWin::Rect CardStageController::carryTarget(KWin::LogicalOutput *output,
                                             const KWin::EffectWindow *window) const
 {

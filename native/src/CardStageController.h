@@ -635,15 +635,6 @@ public:
     bool admitBentoStack(const BentoProjectionSession &projection,
                          const std::function<bool()> &commitSource);
 
-    // §5: a card held over another in Spread, the card it rests on as drawn
-    // and how full the rest is, 0 to 1, as a pane's middle shows it
-    // (StackHoldLabel.h); none over a gap.
-    struct CarryJoinHint {
-        QRectF card;
-        double filled = 0.0;
-    };
-    [[nodiscard]] std::optional<CarryJoinHint> carryJoinHint(KWin::LogicalOutput *output) const;
-
 private:
     // The card stage's restore record: the place, and whether it was taken.
     struct ActiveRestoreSnapshot : WindowPlace {
