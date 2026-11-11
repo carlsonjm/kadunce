@@ -1641,6 +1641,9 @@ private:
     // drawn under it this frame.
     KWin::Region m_paintingRegion;
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
+    // The place map drawn under the card in hand; the hold ring, drawn last.
+    QPointer<KWin::LogicalOutput> m_placeMapDrawnOn;
+    std::optional<QPointF> m_stackHoldCentre;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     // Shuffle Settings stands over the work on a display: everything under

@@ -1241,7 +1241,22 @@ void Effect::drawWholePaneHold(const KWin::RenderTarget &renderTarget, const KWi
                                const QList<QRectF> &parts, const QRectF &pane)
 {
     fillDestinationParts(renderTarget, viewport, parts, pane, 0.08f, 0.9f);
-    m_stackHoldLabel.render(renderTarget, viewport, pane.center(), stackHoldFilled());
+    m_stackHoldCentre = pane.center();
+}
+
+void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
+{
+    // The box sits under the window in hand, so the glass frosts the windows
+    // and wallpaper beneath it and never the window itself.
+    KWin::LogicalOutput *screen = m_paintingOutput;
+    if (!screen) return;
+    // The place map too, so the card in hand is never cut by a pane's outline.
+    if (std::exchange(m_placeMapDrawnOn, screen) != screen) drawPlaceMap(renderTarget, viewport, m_paintingRegion, screen);
+    if (m_heldBoxDrawnOn == screen) return;
+    if (const auto box = heldDestinationOn(screen)) {
+        drawDestinationOutline(renderTarget, viewport, m_paintingRegion, screen, *box);
+        m_heldBoxDrawnOn = screen;
+    }
 }
 
 } // namespace Kadunce

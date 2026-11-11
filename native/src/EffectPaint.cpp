@@ -569,7 +569,7 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     // The middle shows only with the card over it; resting fills its ring.
     if (named(PanePlace::Middle)) {
         fill(middle, 0.10f, 0.9f);
-        m_stackHoldLabel.render(renderTarget, viewport, middle.center(), stackHoldFilled());
+        m_stackHoldCentre = middle.center();
     }
     // A bar along each side, inset from its edge, as long as the middle is.
     const double inset = 14.0, thick = 8.0;
@@ -580,18 +580,6 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
         QRectF(middle.left(), f.bottom() - inset - thick, middle.width(), thick)};
     const PanePlace places[4] = {PanePlace::Left, PanePlace::Right, PanePlace::Top, PanePlace::Bottom};
     for (int i = 0; i < 4; ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
-}
-
-void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
-{
-    // The box sits under the window in hand, so the glass frosts the windows
-    // and wallpaper beneath it and never the window itself.
-    KWin::LogicalOutput *screen = m_paintingOutput;
-    if (!screen || m_heldBoxDrawnOn == screen) return;
-    if (const auto box = heldDestinationOn(screen)) {
-        drawDestinationOutline(renderTarget, viewport, m_paintingRegion, screen, *box);
-        m_heldBoxDrawnOn = screen;
-    }
 }
 
 // The paint path's own test: a window Card Stage does not draw as a card.
@@ -995,7 +983,8 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         if (!m_spreadPaintOrderDrawing.isEmpty())
             m_spreadPaintOrder = std::exchange(m_spreadPaintOrderDrawing, {});
     }
-    m_heldBoxDrawnOn = nullptr;
+    m_heldBoxDrawnOn = m_placeMapDrawnOn = nullptr;
+    m_stackHoldCentre.reset();
     m_settingsFrostDrawnOn = nullptr;
     m_signInGlassDrawnOn = nullptr;
     if (screen) m_frostDrawn.remove(screen->name());
@@ -1099,7 +1088,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (screen && detachShown != (m_detachShownOn == screen))
         m_detachShownOn = detachShown ? screen : nullptr;
     drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
-    drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
+    if (m_placeMapDrawnOn != screen) drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
+    // The hold ring reads above the card in hand, which covers the pane's middle.
+    if (const auto centre = std::exchange(m_stackHoldCentre, std::nullopt))
+        m_stackHoldLabel.render(renderTarget, viewport, *centre, stackHoldFilled());
     drawRoomOffer(renderTarget, viewport, deviceRegion, screen, overlaid);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
