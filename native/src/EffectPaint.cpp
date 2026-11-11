@@ -565,11 +565,12 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     const double share = PanePlaceMiddleShare;
     const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
                         f.width() * share, f.height() * share);
-    fill(middle, named(PanePlace::Middle) ? 0.10f : 0.03f, named(PanePlace::Middle) ? 0.9f : 0.5f);
-    // The middle says what it does: resting there fills its ring, and once
-    // full the card stacks when let go.
-    m_stackHoldLabel.render(renderTarget, viewport, middle.center(),
-                            named(PanePlace::Middle) ? stackHoldFilled() : 0.0);
+    // The middle shows only with the card over it: resting fills its ring,
+    // and once full, a let go stacks.
+    if (named(PanePlace::Middle)) {
+        fill(middle, 0.10f, 0.9f);
+        m_stackHoldLabel.render(renderTarget, viewport, middle.center(), stackHoldFilled());
+    }
     // A bar along each side, inset from its edge, as long as the middle is.
     const double inset = 14.0, thick = 8.0;
     const QRectF bars[4] = {
