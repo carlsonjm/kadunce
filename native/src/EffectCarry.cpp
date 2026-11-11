@@ -527,7 +527,7 @@ void Effect::endNativeCarryPresentation()
     m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
-    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear();
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear(); m_carryPlaceWhole = false;
     endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
@@ -699,6 +699,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryPlacePane.clear();
     m_carryPanePlace.reset();
     m_carryMapOutput.clear();
+    m_carryPlaceWhole = false;
     m_lastCarryContact = contact;
     // The aim is read again below only where a pane can be stacked on.
     bool aimingPane = false;
@@ -1168,16 +1169,30 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
         && connectedOutputForDesktopStage(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+    // The pane it would join shows outlined, its ring filling as the hand
+    // rests, as a pane's middle does for a card from another display.
+    if (over) {
+        m_carryMapOutput = target;
+        m_carryPlacePane = over;
+        m_carryPanePlace = PanePlace::Middle;
+        m_carryPlaceWhole = true;
+    }
     // Carried in from another display and rested on Spread's Active card, or
     // on a pane there however that display is sized, as the card another
     // display shows alone is one, it lands as it would and then joins that
     // Stack.
+    // §11, Connected: the card a display shows alone is mapped as a pane is,
+    // and a side of it lays the two out there once the arrival has landed.
+    KWin::EffectWindow *lone = nullptr;
+    QPointer<KWin::EffectWindow> pairAfter;
+    BentoSidePlacement pairSide;
+    QRectF pairPreview;
     if (!over && !local && !desktopWindow && !edge) {
         if (tablet && m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::Active) {
             KWin::EffectWindow *card = m_cardStage->selectedWindow();
             if (card && card != m_carriedWindow && !card->isDeleted()
-                && QRectF(card->frameGeometry()).contains(contact)) over = card;
+                && QRectF(card->frameGeometry()).contains(contact)) over = lone = card;
         }
         if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
             over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
@@ -1187,7 +1202,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         // pane rested on another does, so a quick let go never makes a Stack;
         // any side places the card by the pane, which the layout solve below
         // reserves.
-        if (over && connectedOutputForDesktopStage(target) && m_desktopStage->managesWindow(over)) {
+        if (over && connectedOutputForDesktopStage(target) && (over == lone || m_desktopStage->managesWindow(over))) {
             m_carryMapOutput = target;
             const QRectF frame(over->frameGeometry());
             const auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
@@ -1203,9 +1218,26 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                     byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
                     byPane.over = *place == PanePlace::Top;
                     byPane.connected = true;
-                    byPane.place = place;
-                    byPane.pane = reinterpret_cast<std::uintptr_t>(over);
-                    side = byPane;
+                    if (over == lone) {
+                        // The half of the card the named side keeps for it.
+                        pairAfter = lone;
+                        pairSide = byPane;
+                        // Over or under names a place by that card, so the
+                        // two share its column rather than stand side by side.
+                        if (*place == PanePlace::Top || *place == PanePlace::Bottom) {
+                            pairSide.place = place;
+                            pairSide.pane = reinterpret_cast<std::uintptr_t>(lone);
+                        }
+                        const bool across = *place == PanePlace::Left || *place == PanePlace::Right;
+                        const QSizeF half(across ? frame.width() / 2 : frame.width(), across ? frame.height() : frame.height() / 2);
+                        pairPreview = QRectF(*place == PanePlace::Right ? frame.center().x() : frame.left(),
+                                             *place == PanePlace::Bottom ? frame.center().y() : frame.top(),
+                                             half.width(), half.height());
+                    } else {
+                        byPane.place = place;
+                        byPane.pane = reinterpret_cast<std::uintptr_t>(over);
+                        side = byPane;
+                    }
                     over = nullptr;
                 }
             }
@@ -1271,6 +1303,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             existing ? std::optional<MonitorLayoutTarget>{{target->name(), 0, 0}} : std::nullopt, edge);
     if (!destination) return;
     if (stackAfter) m_carryPreview = KWin::RectF(stackAfter->frameGeometry());
+    if (pairAfter) m_carryPreview = KWin::RectF(pairPreview);
     // §11, Connected: carried in from another display with the wheel turned,
     // it stands as this display's Active card at that width, kept centred.
     const double arrivalWidth = !local && !existing && !stackAfter && !stayNative && isCardDisplay(target)
@@ -1290,7 +1323,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
             return m_desktopStage->cardDropValid(*reserved) && (!aimed || (stackAfter && !stackAfter->isDeleted()));
         },
         [this, reserved, bento, output, geometry, stackAfter, targetRect = stackAfter ? std::optional<KWin::RectF>{} : m_carryPreview,
-         arrival = m_carriedWindow, arrivalWidth, taught](const PreparedCarrySource &source) {
+         arrival = m_carriedWindow, arrivalWidth, taught, pairAfter, pairSide](const PreparedCarrySource &source) {
             if (arrivalWidth > 0.0 && arrival) m_cardStage->setActiveWidth(arrival, arrivalWidth);
             const bool committed = bento
                 ? m_desktopStage->transferNativeCarryToDesktop(source, *reserved)
@@ -1305,6 +1338,14 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 const quint64 begun = m_carriesBegun;
                 QTimer::singleShot(0, this, [this, carried, onto, landedIn, begun] {
                     stackWhenLanded(carried, onto, landedIn, begun);
+                });
+            }
+            if (committed && pairAfter) {
+                QPointer<KWin::EffectWindow> carried = arrival;
+                const DesktopSession *landedIn = m_currentSession;
+                const quint64 begun = m_carriesBegun;
+                QTimer::singleShot(0, this, [this, carried, pairAfter, pairSide, landedIn, begun] {
+                    pairWhenLanded(carried, pairAfter, pairSide, landedIn, begun);
                 });
             }
             return committed;

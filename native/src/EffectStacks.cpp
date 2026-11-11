@@ -1307,4 +1307,55 @@ double Effect::drawStackJoinFan(const KWin::RenderTarget &renderTarget, const KW
     return reach * 0.5;
 }
 
+void Effect::drawWholePaneHold(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                               const QList<QRectF> &parts, const QRectF &pane)
+{
+    fillDestinationParts(renderTarget, viewport, parts, pane, 0.08f, 0.9f);
+    m_stackHoldCentre = pane.center();
+}
+
+void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
+{
+    // The box sits under the window in hand, so the glass frosts the windows
+    // and wallpaper beneath it and never the window itself.
+    KWin::LogicalOutput *screen = m_paintingOutput;
+    if (!screen) return;
+    // The place map too, so the card in hand is never cut by a pane's outline.
+    if (std::exchange(m_placeMapDrawnOn, screen) != screen) drawPlaceMap(renderTarget, viewport, m_paintingRegion, screen);
+    if (m_heldBoxDrawnOn == screen) return;
+    if (const auto box = heldDestinationOn(screen)) {
+        drawDestinationOutline(renderTarget, viewport, m_paintingRegion, screen, *box);
+        m_heldBoxDrawnOn = screen;
+    }
+}
+
+void Effect::pairWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> lone,
+                            BentoSidePlacement side, const DesktopSession *landedIn, quint64 carriesBegun, int tries)
+{
+    if (!carried || !lone || carried->isDeleted() || lone->isDeleted() || m_releasing) return;
+    if (m_carriesBegun != carriesBegun || m_currentSession != landedIn || !m_currentSession) {
+        qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(carried) << "unpaired; it moved on";
+        return;
+    }
+    SessionScope scope(this, m_currentSession, stageKeyOf(lone));
+    KWin::LogicalOutput *output = lone->screen();
+    if (output && carried->screen() == output && m_cardStage->liveCardIndex(carried) >= 0
+        && m_cardStage->liveCardIndex(lone) >= 0 && pairCardsIntoBento(output, carried, lone, side)) {
+        qInfo() << "Kadunce" << Revision << "paired" << logNameOf(carried) << "beside" << logNameOf(lone)
+                << "on" << output->name();
+        if (connectedOutputForDesktopStage(output))
+            QTimer::singleShot(0, this, [this, output = QPointer(output)] { fillLayoutWithCards(output); });
+        observeCardOwnership();
+        return;
+    }
+    if (tries <= 0) {
+        qInfo() << "Kadunce" << Revision << "could not pair" << logNameOf(carried) << "with"
+                << logNameOf(lone) << "after it landed";
+        return;
+    }
+    QTimer::singleShot(100, this, [this, carried, lone, side, landedIn, carriesBegun, tries] {
+        pairWhenLanded(carried, lone, side, landedIn, carriesBegun, tries - 1);
+    });
+}
+
 } // namespace Kadunce

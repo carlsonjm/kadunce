@@ -24,12 +24,17 @@ public:
         const int step = int(std::round(std::clamp(filled, 0.0, 1.0) * Steps));
         const SurfaceTone &tone = SurfaceTone::current();
         const QColor words = tone.labelText();
-        if (!m_texture || m_step != step || m_words != words) {
-            // Drawn at twice its size, so it stays sharp at any display scale.
-            QImage label(Width * 2, Height * 2, QImage::Format_ARGB32_Premultiplied);
+        const double scale = viewport.scale();
+        if (!m_texture || m_step != step || m_words != words || m_scale != scale) {
+            // Drawn one texel to a screen pixel at this display's scale, and
+            // smoothed, so the ring's edge is never stepped. Its shapes are
+            // laid out at twice the logical size.
+            QImage label(QSize(std::ceil(Width * scale), std::ceil(Height * scale)),
+                         QImage::Format_ARGB32_Premultiplied);
             label.fill(Qt::transparent);
             QPainter painter(&label);
-            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+            painter.scale(scale / 2.0, scale / 2.0);
             const QRectF ring(Width - 26, 8, 52, 52);
             QColor track = words; track.setAlphaF(0.22);
             painter.setPen(QPen(track, 6)); painter.setBrush(Qt::NoBrush);
@@ -44,7 +49,9 @@ public:
                              step >= Steps ? i18n("Stack") : i18n("Hold to stack"));
             painter.end();
             m_texture = KWin::GLTexture::upload(label);
+            if (m_texture) m_texture->setFilter(GL_LINEAR);
             m_step = step;
+            m_scale = scale;
             m_words = words;
         }
         if (!m_texture) return;
@@ -68,6 +75,7 @@ public:
 private:
     static constexpr int Width = 160, Height = 60, Steps = 40;
     int m_step = -1;
+    double m_scale = 0.0;
     QColor m_words;
     std::unique_ptr<KWin::GLTexture> m_texture;
 };

@@ -902,9 +902,19 @@ std::optional<DesktopStageController::Session> DesktopStageController::prepareCa
         const BentoColumnSlot<QPointer<KWin::EffectWindow>> arriving{window, false};
         const BentoColumnSlot<QPointer<KWin::EffectWindow>> partner{pairPartner, false};
         pair = BentoPlacedColumns{};
-        pair->columns = {{partner}, {arriving}};
-        pair->paired = true;
-        if (!side->right) std::swap(pair->columns.front(), pair->columns.back());
+        if (side->place && side->pane == reinterpret_cast<std::uintptr_t>(pairPartner)
+            && (*side->place == PanePlace::Top || *side->place == PanePlace::Bottom)) {
+            // Over or under the partner, carried in from another display: the
+            // two share one column across the whole display, the arrival in
+            // the half it named.
+            pair->columns = {*side->place == PanePlace::Top
+                ? std::vector{arriving, partner} : std::vector{partner, arriving}};
+            pair->shares.push_back({pairPartner, 1.0});
+        } else {
+            pair->columns = {{partner}, {arriving}};
+            pair->paired = true;
+            if (!side->right) std::swap(pair->columns.front(), pair->columns.back());
+        }
     }
     const auto planner = [this, side, window, alone, pair](Session &plan,
                                                            const auto &preferred, bool required) {
