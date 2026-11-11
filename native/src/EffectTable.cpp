@@ -1283,6 +1283,31 @@ void Effect::setShowsKeyboardOutline(bool shows)
     KWin::effects->addRepaintFull();
 }
 
+// The soft rim: 1.5 px of the scheme's text at 26%.
+static constexpr double KeyboardOutlineSoftWidth = 1.5;
+static constexpr double KeyboardOutlineSoftStrength = 0.26;
+
+QColor Effect::keyboardOutlineInk() const
+{
+    const SurfaceTone &tone = SurfaceTone::current();
+    // Soft: the scheme's own text, faint, so the rim reads a little brighter
+    // than a window's edge in Dark and a little darker in Light.
+    if (!m_keyboardOutlineAccent) {
+        QColor ink = tone.text;
+        ink.setAlphaF(KeyboardOutlineSoftStrength);
+        return ink;
+    }
+    // Accent: the accent, or the scheme's text where the accent would vanish
+    // into its ground.
+    const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
+    return std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
+}
+
+double Effect::keyboardOutlineWidth() const
+{
+    return m_keyboardOutlineAccent ? 2.0 : KeyboardOutlineSoftWidth;
+}
+
 void Effect::setKeyboardOutlineStyle(const QString &style)
 {
     const bool accent = style == QLatin1String("Accent");

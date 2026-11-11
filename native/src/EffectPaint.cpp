@@ -28,9 +28,6 @@ QRectF shadowExtent(const QRectF &card)
 constexpr qint64 FrameStallMs = 50;
 // The keyboard outline fades in over the Visual sheet's micro transition.
 constexpr int KeyboardOutlineFadeMs = 140;
-// The soft rim: 1.5 px of the scheme's text at 26%.
-constexpr double KeyboardOutlineSoftWidth = 1.5;
-constexpr double KeyboardOutlineSoftStrength = 0.26;
 // The frost behind Shuffle Settings fades in over the same step.
 constexpr int SettingsFrostFadeMs = 140;
 constexpr int SettingsFrostDissolveMs = 300;
@@ -640,27 +637,6 @@ float Effect::keyboardOutlineOpacity(KWin::EffectWindow *window, const KWin::Win
     const int duration = motionDuration(KeyboardOutlineFadeMs, KWin::effects->animationTimeFactor());
     const double progress = std::clamp(double(found->since.elapsed()) / duration, 0.0, 1.0);
     return float((1.0 - std::pow(1.0 - progress, 3.0)) * data.opacity());
-}
-
-QColor Effect::keyboardOutlineInk() const
-{
-    const SurfaceTone &tone = SurfaceTone::current();
-    // Soft: the scheme's own text, faint, so the rim reads a little brighter
-    // than a window's edge in Dark and a little darker in Light.
-    if (!m_keyboardOutlineAccent) {
-        QColor ink = tone.text;
-        ink.setAlphaF(KeyboardOutlineSoftStrength);
-        return ink;
-    }
-    // Accent: the accent, or the scheme's text where the accent would vanish
-    // into its ground.
-    const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
-    return std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
-}
-
-double Effect::keyboardOutlineWidth() const
-{
-    return m_keyboardOutlineAccent ? 2.0 : KeyboardOutlineSoftWidth;
 }
 
 void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
