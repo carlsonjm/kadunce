@@ -226,6 +226,19 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 
     // Each frame looks again for Gooseberry's surface over the Active card.
     if (m_notesHandover) m_continueRepaint = true;
+    // The middle's ring fills while the card rests there.
+    if (m_carriedWindow && m_carryPanePlace == PanePlace::Middle && m_carryStackOnto != m_carryPlacePane)
+        m_continueRepaint = true;
+    if (m_stackJoin) {
+        data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+        // A join left waiting, as by a carry begun meanwhile, gives the card back.
+        const bool over = m_stackJoin->joined ? (!m_stackJoin->onto || m_stackJoin->onto->isDeleted()
+            || m_stackJoin->clock.elapsed() >= motion(StackJoinFanMs))
+            : (!m_stackJoin->carried || m_stackJoin->carried == m_carriedWindow
+               || m_stackJoin->clock.elapsed() >= motion(StackJoinShrinkMs) + 1000);
+        if (over) m_stackJoin.reset();
+        m_continueRepaint = true;
+    }
     if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
         && m_guestNeighborMotion.elapsed() < motion(220)) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -467,7 +480,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
         || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)
-        || m_roomOfferShown.contains(window)) {
+        || m_roomOfferShown.contains(window) || stackJoinShrink(window) || stackJoinFan(window)) {
         data.setTransformed(); data.setTranslucent();
     }
     // Left undrawn, so it must not hide what is under it from the scene.
@@ -522,6 +535,51 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
             && m_desktopStage->cardDropValid(*reservation)))
         return QRectF(*preview);
     return std::nullopt;
+}
+
+void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                          const KWin::Region &deviceRegion, KWin::LogicalOutput *screen)
+{
+    // §11, Connected: carried in from another display, each pane of the
+    // layout shows faintly, and the pane under the card its five places
+    // (PanePlaces.h): its middle, and a bar along each side. The place named
+    // is drawn stronger; where the card would land is the frosted box.
+    if (!m_carriedWindow || !screen || m_carryMapOutput != screen || !m_destinationShader) return;
+    const auto partsOf = [&](const QRectF &box) {
+        QList<QRectF> parts;
+        for (const auto &dirty : deviceRegion.rects()) {
+            const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(box);
+            if (!part.isEmpty()) parts.append(part);
+        }
+        return parts;
+    };
+    const auto fill = [&](const QRectF &box, float surface, float ring) {
+        if (box.width() > 0 && box.height() > 0)
+            fillDestinationParts(renderTarget, viewport, partsOf(box), box, surface, ring);
+    };
+    for (KWin::EffectWindow *pane : m_desktopStage->panesOn(screen))
+        if (pane != m_carriedWindow) fill(QRectF(pane->frameGeometry()), 0.03f, 0.35f);
+    if (!m_carryPlacePane || m_carryPlacePane->isDeleted() || !m_carryPanePlace) return;
+    const QRectF f(m_carryPlacePane->frameGeometry());
+    const auto named = [this](PanePlace place) { return m_carryPanePlace == place; };
+    const double share = PanePlaceMiddleShare;
+    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
+                        f.width() * share, f.height() * share);
+    // The middle shows only with the card over it: resting fills its ring,
+    // and once full, a let go stacks.
+    if (named(PanePlace::Middle)) {
+        fill(middle, 0.10f, 0.9f);
+        m_stackHoldLabel.render(renderTarget, viewport, middle.center(), stackHoldFilled());
+    }
+    // A bar along each side, inset from its edge, as long as the middle is.
+    const double inset = 14.0, thick = 8.0;
+    const QRectF bars[4] = {
+        QRectF(f.left() + inset, middle.top(), thick, middle.height()),
+        QRectF(f.right() - inset - thick, middle.top(), thick, middle.height()),
+        QRectF(middle.left(), f.top() + inset, middle.width(), thick),
+        QRectF(middle.left(), f.bottom() - inset - thick, middle.width(), thick)};
+    const PanePlace places[4] = {PanePlace::Left, PanePlace::Right, PanePlace::Top, PanePlace::Bottom};
+    for (int i = 0; i < 4; ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
 }
 
 void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport)
@@ -1041,6 +1099,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (screen && detachShown != (m_detachShownOn == screen))
         m_detachShownOn = detachShown ? screen : nullptr;
     drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
+    drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
     drawRoomOffer(renderTarget, viewport, deviceRegion, screen, overlaid);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
@@ -1558,6 +1617,21 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
+    // §11: a card let go on a pane's middle shrinks into the pane and fades;
+    // the pane then fans, the edges of the cards behind it showing to its
+    // right and settling back as it eases into place.
+    if (const auto t = stackJoinShrink(window)) {
+        const double e = 1.0 - std::pow(1.0 - *t, 3.0);
+        const double s = 1.0 - 0.08 * e;
+        const QRectF f(window->frameGeometry());
+        data.multiplyOpacity(1.0 - e);
+        data.setXScale(data.xScale() * s);
+        data.setYScale(data.yScale() * s);
+        data.setXTranslation(data.xTranslation() + f.width() * (1.0 - s) / 2.0);
+        data.setYTranslation(data.yTranslation() + f.height() * (1.0 - s) / 2.0);
+    } else if (const auto t = stackJoinFan(window); t && m_paintingOutput) {
+        data.setXTranslation(data.xTranslation() - drawStackJoinFan(renderTarget, viewport, window, *t));
+    }
     const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
         && window->window()->moveResizeOutput() != m_paintingOutput) return paintResult(true);

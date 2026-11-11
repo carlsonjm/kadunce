@@ -5,6 +5,7 @@
 
 // Planning a display's layout, settling it, and putting it back.
 #include "DesktopStageInternal.h"
+#include "PanePlaces.h"
 
 namespace Kadunce
 {
@@ -366,7 +367,17 @@ bool DesktopStageController::planSession(Session &session,
         if (columns) {
             if (flowBegan) columns->paired = true;
             if (snapped) {
-                bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
+                // Carried in over a pane, the card takes the place it named
+                // by that pane; a pane gone since stands for no place, and
+                // the side the card would land on names one instead.
+                QPointer<KWin::EffectWindow> byPane;
+                if (session.side->place && session.side->pane)
+                    for (const auto &window : std::as_const(owned))
+                        if (window && reinterpret_cast<std::uintptr_t>(window.data()) == session.side->pane)
+                            byPane = window;
+                if (!byPane || !bentoColumnsPlaceBy(*columns, byPane, *session.side->place,
+                                                    QPointer(session.sideWindow)))
+                    bentoColumnsPlace(*columns, QPointer(session.sideWindow), *session.side);
                 columns->paired = false;
                 // Each column stands at the width its cards want, not an even
                 // share; a width the wheel gave the snapped card stays.

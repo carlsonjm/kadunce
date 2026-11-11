@@ -3,9 +3,14 @@
 #include "BentoLayout.h"
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <optional>
 #include <cmath>
 
 namespace Kadunce {
+// The five places a pane offers a card carried over it (PanePlaces.h).
+enum class PanePlace { Left, Right, Top, Bottom, Middle };
+
 struct BentoSidePlacement {
     bool right = false;
     bool large = true;
@@ -24,6 +29,12 @@ struct BentoSidePlacement {
     // Connected only: the share of the display's width a wheel turned while
     // holding the card at the edge gave its column; nothing turned, none.
     double share = 0.0;
+    // Connected only: the card was carried in from another display over a
+    // pane and names a place by it (PanePlaces.h): `place` beside the pane
+    // whose window is `pane`, an identity only compared, never followed.
+    // `right` then says which half of the display the card lands in.
+    std::optional<PanePlace> place;
+    std::uintptr_t pane = 0;
 };
 
 // Contact chooses intent; geometry is solved separately with native minimums.
