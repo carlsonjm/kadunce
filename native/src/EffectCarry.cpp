@@ -6,6 +6,7 @@
 // Carrying a window: the native move, where it lands and how it settles, and
 // the dialogs that travel with their card.
 #include "EffectInternal.h"
+#include "PanePlaces.h"
 
 namespace Kadunce
 {
@@ -526,6 +527,7 @@ void Effect::endNativeCarryPresentation()
     m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear();
     endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
@@ -690,6 +692,13 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryPreview.reset();
     m_carryRefusal.reset();
     m_carryStackOnto.clear();
+    // The place named over a pane before, so a hand resting on a boundary
+    // keeps it; read again below.
+    const QPointer<KWin::EffectWindow> previousPlacePane = m_carryPlacePane;
+    const std::optional<PanePlace> previousPanePlace = m_carryPanePlace;
+    m_carryPlacePane.clear();
+    m_carryPanePlace.reset();
+    m_carryMapOutput.clear();
     m_lastCarryContact = contact;
     // The aim is read again below only where a pane can be stacked on.
     bool aimingPane = false;
@@ -1172,6 +1181,35 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         }
         if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
             over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
+        // §11, Connected: over a pane of a Connected layout, the map of places
+        // shows and the contact names one of the pane's five (PanePlaces.h).
+        // Its middle joins the pane's Stack once the card rests there, as a
+        // pane rested on another does, so a quick let go never makes a Stack;
+        // any side places the card by the pane, which the layout solve below
+        // reserves.
+        if (over && connectedOutputForDesktopStage(target) && m_desktopStage->managesWindow(over)) {
+            m_carryMapOutput = target;
+            const QRectF frame(over->frameGeometry());
+            const auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
+                contact.x(), contact.y(), previousPlacePane == over ? previousPanePlace : std::nullopt);
+            if (place) {
+                m_carryPlacePane = over;
+                m_carryPanePlace = place;
+                if (*place != PanePlace::Middle) {
+                    const QRectF whole(target->geometry());
+                    BentoSidePlacement byPane;
+                    byPane.right = *place == PanePlace::Right
+                        || (*place != PanePlace::Left && frame.center().x() > whole.center().x());
+                    byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
+                    byPane.over = *place == PanePlace::Top;
+                    byPane.connected = true;
+                    byPane.place = place;
+                    byPane.pane = reinterpret_cast<std::uintptr_t>(over);
+                    side = byPane;
+                    over = nullptr;
+                }
+            }
+        }
     }
     QPointer<KWin::EffectWindow> stackAfter;
     if (over) {
@@ -1276,9 +1314,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
 void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                              const DesktopSession *landedIn, quint64 carriesBegun, int tries)
 {
-    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) return;
+    // A join seen going behind the pane that cannot finish shows the card again.
+    const auto dropJoin = [this, carried] {
+        if (m_stackJoin && !m_stackJoin->joined && m_stackJoin->carried == carried) {
+            m_stackJoin.reset();
+            KWin::effects->addRepaintFull();
+        }
+    };
+    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) { dropJoin(); return; }
     // A carry since, or another desktop shown, leaves where it rested behind.
     if (m_carriesBegun != carriesBegun || m_currentSession != landedIn || !m_currentSession) {
+        dropJoin();
         qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(carried) << "unstacked; it moved on";
         return;
     }
@@ -1288,7 +1334,25 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
     // of that layout or as the display's card, it joins the Stack it rested on.
     bool stacked = false;
     if (m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto)) {
+        // §11: it is first seen going behind the pane, then joins its Stack,
+        // and the pane fans to show it (EffectPaint.cpp).
+        if (!m_stackJoin || m_stackJoin->carried != carried) {
+            m_stackJoin = StackJoin{carried, onto, {}, false};
+            m_stackJoin->clock.start();
+            KWin::effects->addRepaintFull();
+            QTimer::singleShot(motion(StackJoinShrinkMs), this, [this, carried, onto, landedIn, carriesBegun, tries] {
+                stackWhenLanded(carried, onto, landedIn, carriesBegun, tries);
+            });
+            return;
+        }
         stacked = stackPaneOnto(carried, onto);
+        if (stacked) {
+            m_stackJoin->joined = true;
+            m_stackJoin->clock.restart();
+        } else {
+            m_stackJoin.reset();
+        }
+        KWin::effects->addRepaintFull();
     } else if (KWin::LogicalOutput *there = carried->screen();
                m_desktopStage->managesWindow(carried) && m_cardStage->liveCardIndex(onto) >= 0
                && isTabletOutput(there)) {

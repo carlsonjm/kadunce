@@ -510,6 +510,16 @@ bool DesktopStageController::stackPaneOnto(KWin::EffectWindow *pane, KWin::Effec
     return true;
 }
 
+QList<KWin::EffectWindow *> DesktopStageController::panesOn(const KWin::LogicalOutput *output) const
+{
+    QList<KWin::EffectWindow *> panes;
+    const auto *session = sessionForOutput(output);
+    if (!session) return panes;
+    for (const auto &window : session->windows)
+        if (window && !window->isDeleted() && !window->isMinimized()) panes.append(window.data());
+    return panes;
+}
+
 KWin::EffectWindow *DesktopStageController::paneAt(const KWin::LogicalOutput *output,
     QPointF position, const KWin::EffectWindow *except) const
 {
