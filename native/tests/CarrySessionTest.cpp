@@ -19,9 +19,11 @@ int main()
     require(!monitorCarryEdge(output, {1281, 799}), "Bottom corner stolen");
     require(!monitorCarryEdge(output, {2559, 760}), "Dock band stolen");
     require(!monitorCarryEdge(output, {1279, 400}), "Foreign output edge admitted");
-    require(!monitorCarryEdge(output, {1300, 400}) && monitorCarryEdge(output, {1300, 400},
-            PointerCarryEdgeBand) == CarryEdge::Left && !monitorCarryEdge(output, {1320, 400},
-            PointerCarryEdgeBand), "A pointer's wider edge band was not 32 px");
+    require(monitorCarryEdge(output, {1340, 400}) == CarryEdge::Left
+            && !monitorCarryEdge(output, {1350, 400}), "A touch edge band was not 64 px");
+    require(monitorCarryEdge(output, {1370, 400}, PointerCarryEdgeBand) == CarryEdge::Left
+            && !monitorCarryEdge(output, {1380, 400}, PointerCarryEdgeBand),
+            "A pointer's wider edge band was not 96 px");
     const CarryOrigin origin{QStringLiteral("card-a"), QStringLiteral("tablet"), 42, 3};
     const CarryDestination stack{CarryDestinationKind::StackGap, QStringLiteral("tablet"), QStringLiteral("stack-b"), 7, 2};
     const CarryDestination layout{CarryDestinationKind::LayoutSlot, QStringLiteral("monitor"), QStringLiteral("layout-c"), 9, 0};

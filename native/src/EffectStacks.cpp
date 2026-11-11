@@ -1190,4 +1190,51 @@ void Effect::activateShownPane(KWin::EffectWindow *pane)
     });
 }
 
+double Effect::stackHoldFilled() const
+{
+    if (!m_carryPlacePane || m_carryPanePlace != PanePlace::Middle) return 0.0;
+    if (m_carryStackOnto == m_carryPlacePane) return 1.0;
+    if (!(m_paneStackAim.pane == m_carryPlacePane) || !m_paneStackClock.isValid()) return 0.0;
+    const long long left = m_paneStackAim.remaining(m_paneStackClock.elapsed());
+    const long long whole = paneStackDwell();
+    if (left < 0 || whole <= 0) return 0.0;
+    return std::clamp(1.0 - double(left) / double(whole), 0.0, 1.0);
+}
+
+std::optional<double> Effect::stackJoinShrink(const KWin::EffectWindow *window) const
+{
+    if (!m_stackJoin || m_stackJoin->joined || !window || m_stackJoin->carried != window) return std::nullopt;
+    const int whole = std::max(1, motion(StackJoinShrinkMs));
+    return std::clamp(double(m_stackJoin->clock.elapsed()) / whole, 0.0, 1.0);
+}
+
+std::optional<double> Effect::stackJoinFan(const KWin::EffectWindow *window) const
+{
+    if (!m_stackJoin || !m_stackJoin->joined || !window || m_stackJoin->onto != window) return std::nullopt;
+    const int whole = motion(StackJoinFanMs);
+    if (whole <= 0 || m_stackJoin->clock.elapsed() >= whole) return std::nullopt;
+    return std::clamp(double(m_stackJoin->clock.elapsed()) / whole, 0.0, 1.0);
+}
+
+double Effect::drawStackJoinFan(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                                KWin::EffectWindow *window, double t)
+{
+    // Out over the first third, back over the rest.
+    const double out = t < 1.0 / 3.0 ? t * 3.0 : 1.0 - (t - 1.0 / 3.0) * 1.5;
+    const double spread = std::sin(std::clamp(out, 0.0, 1.0) * M_PI / 2.0);
+    const QRectF f(window->frameGeometry());
+    const double reach = std::min(28.0, f.width() * 0.04) * spread;
+    QList<QRectF> parts;
+    for (int i = 2; i >= 1; --i) {
+        const QRectF edge = f.translated(reach * i, 0.0).adjusted(0.0, 6.0 * i, 0.0, -6.0 * i);
+        for (const auto &dirty : m_paintingRegion.rects()) {
+            const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(edge);
+            if (!part.isEmpty()) parts.append(part);
+        }
+        fillDestinationParts(renderTarget, viewport, parts, edge, 0.10f * i, 0.45f);
+        parts.clear();
+    }
+    return reach * 0.5;
+}
+
 } // namespace Kadunce
