@@ -226,6 +226,19 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
 
     // Each frame looks again for Gooseberry's surface over the Active card.
     if (m_notesHandover) m_continueRepaint = true;
+    // The middle's ring fills while the card rests there.
+    if (m_carriedWindow && m_carryPanePlace == PanePlace::Middle && m_carryStackOnto != m_carryPlacePane)
+        m_continueRepaint = true;
+    if (m_stackJoin) {
+        data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+        // A join left waiting, as by a carry begun meanwhile, gives the card back.
+        const bool over = m_stackJoin->joined ? (!m_stackJoin->onto || m_stackJoin->onto->isDeleted()
+            || m_stackJoin->clock.elapsed() >= motion(StackJoinFanMs))
+            : (!m_stackJoin->carried || m_stackJoin->carried == m_carriedWindow
+               || m_stackJoin->clock.elapsed() >= motion(StackJoinShrinkMs) + 1000);
+        if (over) m_stackJoin.reset();
+        m_continueRepaint = true;
+    }
     if (m_cardStage->launcherGuestActive() && m_guestNeighborMotion.isValid()
         && m_guestNeighborMotion.elapsed() < motion(220)) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -467,7 +480,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
         || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)
-        || m_roomOfferShown.contains(window)) {
+        || m_roomOfferShown.contains(window) || stackJoinShrink(window) || stackJoinFan(window)) {
         data.setTransformed(); data.setTranslucent();
     }
     // Left undrawn, so it must not hide what is under it from the scene.
@@ -553,6 +566,10 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
                         f.width() * share, f.height() * share);
     fill(middle, named(PanePlace::Middle) ? 0.10f : 0.03f, named(PanePlace::Middle) ? 0.9f : 0.5f);
+    // The middle says what it does: resting there fills its ring, and once
+    // full the card stacks when let go.
+    m_stackHoldLabel.render(renderTarget, viewport, middle.center(),
+                            named(PanePlace::Middle) ? stackHoldFilled() : 0.0);
     // A bar along each side, inset from its edge, as long as the middle is.
     const double inset = 14.0, thick = 8.0;
     const QRectF bars[4] = {
@@ -1599,6 +1616,21 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (guestNeighborOpacity() <= 0.0 && m_cardStage->launcherGuestActive()
         && m_paintingOutput == tabletOutput() && isCardWindow(window)
         && m_cardStage->paintSlot(window) != 99) return paintResult(true);
+    // §11: a card let go on a pane's middle shrinks into the pane and fades;
+    // the pane then fans, the edges of the cards behind it showing to its
+    // right and settling back as it eases into place.
+    if (const auto t = stackJoinShrink(window)) {
+        const double e = 1.0 - std::pow(1.0 - *t, 3.0);
+        const double s = 1.0 - 0.08 * e;
+        const QRectF f(window->frameGeometry());
+        data.multiplyOpacity(1.0 - e);
+        data.setXScale(data.xScale() * s);
+        data.setYScale(data.yScale() * s);
+        data.setXTranslation(data.xTranslation() + f.width() * (1.0 - s) / 2.0);
+        data.setYTranslation(data.yTranslation() + f.height() * (1.0 - s) / 2.0);
+    } else if (const auto t = stackJoinFan(window); t && m_paintingOutput) {
+        data.setXTranslation(data.xTranslation() - drawStackJoinFan(renderTarget, viewport, window, *t));
+    }
     const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
         && window->window()->moveResizeOutput() != m_paintingOutput) return paintResult(true);

@@ -1314,9 +1314,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
 void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                              const DesktopSession *landedIn, quint64 carriesBegun, int tries)
 {
-    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) return;
+    // A join seen going behind the pane that cannot finish shows the card again.
+    const auto dropJoin = [this, carried] {
+        if (m_stackJoin && !m_stackJoin->joined && m_stackJoin->carried == carried) {
+            m_stackJoin.reset();
+            KWin::effects->addRepaintFull();
+        }
+    };
+    if (!carried || !onto || carried->isDeleted() || onto->isDeleted() || m_releasing) { dropJoin(); return; }
     // A carry since, or another desktop shown, leaves where it rested behind.
     if (m_carriesBegun != carriesBegun || m_currentSession != landedIn || !m_currentSession) {
+        dropJoin();
         qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(carried) << "unstacked; it moved on";
         return;
     }
@@ -1326,7 +1334,25 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
     // of that layout or as the display's card, it joins the Stack it rested on.
     bool stacked = false;
     if (m_desktopStage->managesWindow(carried) && m_desktopStage->managesWindow(onto)) {
+        // §11: it is first seen going behind the pane, then joins its Stack,
+        // and the pane fans to show it (EffectPaint.cpp).
+        if (!m_stackJoin || m_stackJoin->carried != carried) {
+            m_stackJoin = StackJoin{carried, onto, {}, false};
+            m_stackJoin->clock.start();
+            KWin::effects->addRepaintFull();
+            QTimer::singleShot(motion(StackJoinShrinkMs), this, [this, carried, onto, landedIn, carriesBegun, tries] {
+                stackWhenLanded(carried, onto, landedIn, carriesBegun, tries);
+            });
+            return;
+        }
         stacked = stackPaneOnto(carried, onto);
+        if (stacked) {
+            m_stackJoin->joined = true;
+            m_stackJoin->clock.restart();
+        } else {
+            m_stackJoin.reset();
+        }
+        KWin::effects->addRepaintFull();
     } else if (KWin::LogicalOutput *there = carried->screen();
                m_desktopStage->managesWindow(carried) && m_cardStage->liveCardIndex(onto) >= 0
                && isTabletOutput(there)) {

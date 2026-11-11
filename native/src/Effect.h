@@ -13,6 +13,7 @@
 #include "DeferredCommandGuard.h"
 #include "NativeCarryRuntime.h"
 #include "PaneStackAim.h"
+#include "StackHoldLabel.h"
 #include "StackScrub.h"
 #include "WheelWidth.h"
 #include "RoomOffer.h"
@@ -1518,6 +1519,26 @@ private:
     QPointer<KWin::EffectWindow> m_carryPlacePane;
     std::optional<PanePlace> m_carryPanePlace;
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
+    // How full the middle's ring is, 0 to 1, for the pane under the card.
+    [[nodiscard]] double stackHoldFilled() const;
+    StackHoldLabel m_stackHoldLabel;
+    // §11, Connected: a card let go on a pane's middle is seen going behind
+    // it. It shrinks into the pane and fades, then joins the Stack; the pane
+    // then fans for a moment, the edges of the cards behind it showing.
+    struct StackJoin {
+        QPointer<KWin::EffectWindow> carried;
+        QPointer<KWin::EffectWindow> onto;
+        QElapsedTimer clock;
+        bool joined = false;
+    };
+    std::optional<StackJoin> m_stackJoin;
+    // 0 to 1 through each half, or none outside it.
+    [[nodiscard]] std::optional<double> stackJoinShrink(const KWin::EffectWindow *window) const;
+    [[nodiscard]] std::optional<double> stackJoinFan(const KWin::EffectWindow *window) const;
+    // Draws the edges of the cards behind a pane fanning, `t` 0 to 1 through
+    // it, and answers how far the pane leans away from them.
+    double drawStackJoinFan(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                            KWin::EffectWindow *window, double t);
     void drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                       const KWin::Region &deviceRegion, KWin::LogicalOutput *screen);
     // How far the carried window leans into the Stack it would join, 0 to 1,

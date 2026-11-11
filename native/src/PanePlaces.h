@@ -18,6 +18,11 @@ inline constexpr double PanePlaceMiddleShare = 0.4;
 // A contact within this many pixels of a boundary keeps the place it named
 // before, so a hand resting there does not flicker between two.
 inline constexpr double PanePlaceSettle = 12.0;
+// A card let go on the middle shrinks into the pane and fades for this long
+// before it joins the Stack, and the pane then fans for this long, so the
+// join is seen.
+inline constexpr int StackJoinShrinkMs = 240;
+inline constexpr int StackJoinFanMs = 360;
 
 // The place a contact at (x, y) names over a pane at `pane`, or none outside
 // it. Outside the middle, the nearest side wins: the pane is read as four
