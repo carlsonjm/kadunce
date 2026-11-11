@@ -369,6 +369,13 @@ bool Effect::drawnWithCarriedCard(const KWin::EffectWindow *window) const
         || bentoMotionRect(lead);
 }
 
+bool Effect::nothingHoldsTheMove() const
+{
+    const auto *in = KWin::input();
+    if (!in || !in->pointer() || in->pointer()->areButtonsPressed()) return false;
+    return !in->touch() || in->touch()->touchPointCount() == 0;
+}
+
 void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
 {
     // Answered by the stage holding the window, else its display's.
@@ -382,6 +389,24 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                 << "at" << window->window()->frameGeometry();
         if (m_touchWitness) m_touchWitness->moveStarted();
     }
+    // An X11 app that draws its own title bar, such as Steam, asks KWin for a
+    // move itself, and its ask can arrive after the button that pressed it
+    // has come up: KWin then moves the window under a pointer nothing holds,
+    // until the next click. A move no button or contact drives is ended as
+    // soon as KWin has published it, and is never a carry, so a click on such
+    // a title bar is a click. Wayland apps cannot ask so: their ask names a
+    // press still held.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && nothingHoldsTheMove()) {
+        qInfo() << "Kadunce" << Revision << "ends a move of" << applicationIdentity(window)
+                << "that no button or contact holds";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove() || !nothingHoldsTheMove()) return;
+            StaleTouchRelease::cancel(guarded->window(), false);
+        });
+        return;
+    }
     // A card does not become an ordinary window through a resize grip.
     // Defer cancellation until KWin has finished publishing native-start; never
     // tear down its transaction recursively inside that signal.
@@ -394,6 +419,26 @@ void Effect::handleWindowMoveResizeStarted(KWin::EffectWindow *window)
                 || !cards || !cards->managedRestore(guarded)) return;
             const auto *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             StaleTouchRelease::cancel(guarded->window(), touch && touch->touchPointCount() > 0);
+        });
+        return;
+    }
+    // An X11 app that draws its own title bar, such as Steam, asks KWin for
+    // the move twice on one press, the second time after Kadunce has taken
+    // the first over as a carry. The carry keeps the press: ending it for the
+    // repeat would leave KWin's move under input the carry still holds, so
+    // the window would neither follow the held button nor stop at its
+    // release. The repeat is ended as soon as KWin has published it.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && m_carryRuntime && m_carryRuntime->route.busy() && m_carriedWindow == window) {
+        traceNativeMove(window, "native-repeat");
+        qInfo() << "Kadunce" << Revision << "keeps carrying" << applicationIdentity(window)
+                << "while its application asks for the same move again";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove()) return;
+            m_repeatedNativeMove = guarded;
+            StaleTouchRelease::cancel(guarded->window(), false);
+            m_repeatedNativeMove.clear();
         });
         return;
     }
@@ -1428,33 +1473,69 @@ void Effect::clearYieldingPanes()
     KWin::effects->addRepaintFull();
 }
 
+const char *Effect::bentoMotionEnd(const BentoMotion &m) const
+{
+    KWin::EffectWindow *window = m.window.data();
+    // An arrival not yet drawn moving stands where the card was let go,
+    // and is dropped if no frame draws it at all.
+    const bool started = m.timer.isValid();
+    const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
+    if (!window || window->isDeleted() || !window->window() || !m.output) return "window gone";
+    if (!started && (!m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon))
+        return "never drawn";
+    // A layout's pane stands in its place once there until its client has
+    // drawn that place, a second at most (PaneResizePicture.h).
+    if (started && m.timer.elapsed() >= duration) {
+        const QSizeF frame = window->frameGeometry().size();
+        if (m.arrival || m.timer.elapsed() >= PaneArrivalAbandon
+            || paneResizeCaughtUp(m.startFrame.width(), m.startFrame.height(), frame.width(),
+                                  frame.height(), m.to.width(), m.to.height()))
+            return "finished";
+    }
+    if (window->isUserMove() || window->isUserResize()) return "held by a move";
+    if (window->isMinimized()) return "minimized";
+    if (QRectF(m.output->geometry()) != m.outputGeometry) return "display changed";
+    if (window->window()->moveResizeOutput() != m.output) return "left the display";
+    if (!landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)) return "asked elsewhere";
+    // A pane is drawn moving only while its layout is what the display
+    // presents; one that left it, or a layout gone into Spread, is drawn as
+    // what it is now.
+    if (!m_desktopStage->managesWindow(window)) return "left the layout";
+    if (isTabletOutput(m.output) && m_cardStage->isActive() && !m_cardStage->presentsBento())
+        return "layout not presented";
+    return nullptr;
+}
+
+const Effect::BentoMotion *Effect::bentoMotionOf(const KWin::EffectWindow *window) const
+{
+    for (const auto &m : m_bentoMotions)
+        if (m.window == window) return &m;
+    return nullptr;
+}
+
 std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
 {
-    for (const auto &m : m_bentoMotions) {
-        if (m.window != window) continue;
-        // An arrival not yet drawn moving stands where the card was let go,
-        // and is dropped if no frame draws it at all.
-        const bool started = m.timer.isValid();
-        const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
-        if (!window || window->isDeleted() || !window->window() || !m.output
-            || (started ? m.timer.elapsed() >= duration
-                        : !m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon)
-            || window->isUserMove() || window->isUserResize() || window->isMinimized()
-            || QRectF(m.output->geometry()) != m.outputGeometry
-            || window->window()->moveResizeOutput() != m.output
-            || !landsAt(QRectF(window->window()->moveResizeGeometry()), m.to)
-            // A pane is drawn moving only while its layout is what the display
-            // presents; one that left it, or a layout gone into Spread, is
-            // drawn as what it is now.
-            || !m_desktopStage->managesWindow(window)
-            || (isTabletOutput(m.output) && m_cardStage->isActive()
-                && !m_cardStage->presentsBento())) return std::nullopt;
-        const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
-            paneArrivalProgress(started, started ? m.timer.elapsed() : 0, duration));
-        return QRectF(m.from.topLeft()+(m.to.topLeft()-m.from.topLeft())*t,
-            m.from.size()+(m.to.size()-m.from.size())*t);
-    }
-    return std::nullopt;
+    const BentoMotion *m = bentoMotionOf(window);
+    if (!m || bentoMotionEnd(*m)) return std::nullopt;
+    const int duration = motion(m->arrival ? PaneArrivalDuration : 220);
+    const bool started = m->timer.isValid();
+    const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        paneArrivalProgress(started, started ? m->timer.elapsed() : 0, duration));
+    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t,
+        m->from.size()+(m->to.size()-m->from.size())*t);
+}
+
+void Effect::reportBentoMotionEnd(const BentoMotion &m, const char *reason) const
+{
+    // One line per layout motion, so a pane that jumps instead of moving
+    // names why: how long it ran, how many frames drew it, and what ended it.
+    if (m.arrival) return;
+    qInfo().nospace() << "Kadunce " << Revision << " layout motion of " << logNameOf(m.window.data())
+                      << " ended (" << reason << ") after "
+                      << (m.timer.isValid() ? m.timer.elapsed() : -1) << " ms, " << m.frames
+                      << " frames, " << m.from << " to " << m.to << ", painted " << m.trace.size() << " times";
+    for (const QString &line : m.trace)
+        qInfo().noquote() << "Kadunce" << Revision << "  layout motion frame" << line;
 }
 
 void Effect::appearInPlace(KWin::EffectWindow *window)
@@ -1522,10 +1603,21 @@ QRectF Effect::bentoPresentationRect(KWin::EffectWindow *window) const
 void Effect::clearBentoMotions()
 {
     if (m_bentoMotions.isEmpty()) return;
-    for (const auto &m : std::as_const(m_bentoMotions))
-        if (m.window && !m.window->isDeleted()) unredirect(m.window);
+    for (const auto &m : std::as_const(m_bentoMotions)) releaseBentoMotion(m);
     m_bentoMotions.clear();
     KWin::effects->addRepaintFull();
+}
+
+void Effect::releaseBentoMotion(const BentoMotion &motion)
+{
+    if (!motion.window || motion.window->isDeleted()) return;
+    unredirect(motion.window);
+    if (!motion.elevated) return;
+    KWin::effects->setElevatedWindow(motion.window, false);
+    // Whatever the stage lifts for itself is lifted again.
+    QTimer::singleShot(0, this, [this] {
+        if (!m_releasing && m_cardStage) m_cardStage->syncSelectedElevation();
+    });
 }
 
 void Effect::animateBentoLayout(KWin::LogicalOutput *output,
@@ -1545,18 +1637,42 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     // each output's changed panes share one clock and retain interrupted poses.
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (it->output != output) { ++it; continue; }
-        if (it->window && !it->window->isDeleted()) unredirect(it->window);
+        releaseBentoMotion(*it);
+        if (!bentoMotionEnd(*it)) reportBentoMotionEnd(*it, "replaced by a new layout");
         it = m_bentoMotions.erase(it);
     }
     if (!output) return;
     QElapsedTimer clock; clock.start();
     for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
         auto *w = windows[i].data();
-        if (!w || w->isDeleted() || !w->window() || w->isMinimized()
-            || w == m_carriedWindow || w == m_settlingWindow || !from[i].isValid()
-            || from[i] == to[i] || w->window()->moveResizeOutput() != output
-            || QRectF(w->window()->moveResizeGeometry()) != to[i] || justOpened(w)) continue;
-        m_bentoMotions.append({w,output,from[i],to[i],QRectF(output->geometry()),clock});
+        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || from[i] == to[i]) continue;
+        const char *still = w == m_carriedWindow ? "carried"
+            : w == m_settlingWindow ? "settling from a drop"
+            : !from[i].isValid() ? "not drawn before"
+            : w->window()->moveResizeOutput() != output ? "on another display"
+            : QRectF(w->window()->moveResizeGeometry()) != to[i] ? "KWin asked elsewhere"
+            : justOpened(w) ? "just opened" : nullptr;
+        // A card that was not a pane before, as one Spread hands back on
+        // closing, still has its card's size: it stands in its place, its
+        // picture fitted there, until its client draws that place.
+        const bool standsInPlace = still && w != m_carriedWindow && w != m_settlingWindow
+            && !from[i].isValid() && w->window()->moveResizeOutput() == output
+            && QRectF(w->window()->moveResizeGeometry()) == to[i] && to[i].isValid();
+        if (still) {
+            qInfo().nospace() << "Kadunce " << Revision << " layout places " << logNameOf(w)
+                              << " without motion (" << still << ")" << (standsInPlace ? ", standing in its place" : "")
+                              << ": " << from[i] << " to " << to[i];
+            if (!standsInPlace) continue;
+        }
+        m_bentoMotions.append({w,output,standsInPlace ? to[i] : from[i],to[i],QRectF(output->geometry()),clock});
+        m_bentoMotions.last().startFrame = w->frameGeometry().size();
+        m_bentoMotions.last().keepsPicture = !standsInPlace
+            && (to[i].width() < from[i].width() - 2.0 || to[i].height() < from[i].height() - 2.0);
+        if (!standsInPlace && from[i].isValid() && !m_bentoMotions.last().keepsPicture
+            && (to[i].width() > from[i].width() + 2.0 || to[i].height() > from[i].height() + 2.0)) {
+            KWin::effects->setElevatedWindow(w, true);
+            m_bentoMotions.last().elevated = true;
+        }
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }
@@ -1623,6 +1739,23 @@ void Effect::handleManagedStateChanged()
 void Effect::handleWindowMoveResizeStepped(
     KWin::EffectWindow *window, const KWin::RectF &geometry)
 {
+    // An X11 app's own title bar asks KWin for the move as it is pressed,
+    // and a card carried from it can leave KWin's move without the button
+    // coming up: the window then follows a pointer nothing holds. The first
+    // step no button or contact drives ends the move where it began, and
+    // the cards stay.
+    if (window && window->window() && window->isUserMove() && window->isX11Client()
+        && nothingHoldsTheMove()) {
+        if (window == m_heldActiveMove) m_heldActiveMove.clear();
+        qInfo() << "Kadunce" << Revision << "ends a move of" << applicationIdentity(window)
+                << "that no button or contact holds";
+        QPointer<KWin::EffectWindow> guarded = window;
+        QTimer::singleShot(0, this, [this, guarded] {
+            if (!guarded || !guarded->window() || !guarded->isUserMove() || !nothingHoldsTheMove()) return;
+            StaleTouchRelease::cancel(guarded->window(), false);
+        });
+        return;
+    }
     // §11, Every display: the Active card may be on its way to another
     // display holding its own cards, so where it lands decides.
     SessionScope scope(this, m_scopedSession, stageKeyOf(window));
@@ -1637,6 +1770,7 @@ void Effect::handleWindowMoveResizeStepped(
 
 void Effect::handleWindowMoveResizeFinished(KWin::EffectWindow *window)
 {
+    if (window && window == m_repeatedNativeMove) return;
     if (m_carryRuntime && m_carryRuntime->handoff.ownsNativeFinish(window->window())) return;
     if (m_carryRuntime && m_carryRuntime->deferredFor(window->window())) m_carryRuntime->clearDeferred();
     traceNativeMove(window, "native-finished");

@@ -181,6 +181,11 @@ public:
    moveArmed = false;
    if (e->type()==QEvent::TouchBegin && qGuiApp->platformName()=="xcb") x11Request(8,1);
    else if (windowHandle()) windowHandle()->startSystemMove();
+   // Some X11 applications, such as Steam, ask for the same move again on
+   // one press, after the compositor has already begun the first.
+   if (e->type()==QEvent::MouseButtonPress && qGuiApp->platformName()=="xcb"
+       && qEnvironmentVariableIsSet("KADUNCE_TEST_REPEAT_MOVE"))
+    QTimer::singleShot(30, this, [this] { x11Request(8,1); });
   }
   if(e->type()==QEvent::TouchBegin) { ++downs; e->accept(); return true; }
   if(e->type()==QEvent::TouchEnd) { ++ups; e->accept(); return true; }

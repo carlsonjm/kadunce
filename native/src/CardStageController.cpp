@@ -695,11 +695,22 @@ void CardStageController::standStackWhole(const KWin::EffectWindow *member)
             << narrowed << "narrowed by the wheel";
     if (m_presentation == CardPresentation::Active && m_activeRestore.window
         && stack.contains(m_activeRestore.window.data())) (void)refitActive(m_activeRestore.window);
+    // §11, Connected: cards waiting behind a layout's pane stand at that
+    // pane's place, so each comes forward at the size it is shown, without
+    // its application drawing itself again.
+    KWin::EffectWindow *pane = paneHolding(member);
+    if (pane && !pane->isDeleted() && pane->window() && pane->screen()) {
+        QList<QPointer<KWin::EffectWindow>> behind;
+        for (auto *card : stack) if (card != pane) behind.append(card);
+        settleCardsInActivePlace(behind, pane->screen(), pane->window()->moveResizeGeometry());
+        return;
+    }
     for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
 }
 
+
 void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
-    KWin::LogicalOutput *output)
+    KWin::LogicalOutput *output, std::optional<KWin::RectF> place)
 {
     // §3: a card behind the one presented stands where it would as Active. A
     // window taken maximized would otherwise still reach the bottom of the
@@ -708,7 +719,7 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
     // already in its restore record, so release gives it back.
     KWin::LogicalOutput *tablet = output ? output : m_host->tabletOutputForCardStage();
     if (!tablet) return;
-    const KWin::RectF target(activeTarget(tablet));
+    const KWin::RectF target = place ? *place : KWin::RectF(activeTarget(tablet));
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     int settled = 0;
     for (const auto &window : cards) {
@@ -739,7 +750,8 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
         ++settled;
     }
     if (settled > 0)
-        qInfo() << "Kadunce" << Revision << "stood" << settled << "cards in the Active card's place";
+        qInfo() << "Kadunce" << Revision << "stood" << settled
+                << (place ? "cards behind their pane, at its place" : "cards in the Active card's place");
 }
 
 void CardStageController::keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target)
@@ -1296,6 +1308,7 @@ void CardStageController::handleWindowClosed(KWin::EffectWindow *window)
     m_aside.removeAll(window);
     QObject::disconnect(m_asideListed.take(window));
     m_returnedToDesktop.removeAll(window);
+    m_filledFromCards.removeAll(window);
     const int closedIndex = liveCardIndex(window);
     if (!m_active || closedIndex < 0) {
         return;
@@ -1481,6 +1494,7 @@ void CardStageController::handleActiveGeometryChanged(
     KWin::EffectWindow *window)
 {
     noteKeyboardRoomDrawn(window);
+    if (takeBackFilledCard(window)) return;
     if (m_active && window && m_activeRestore.window != window) {
         holdCardInActivePlace(window);
         return;
@@ -1599,10 +1613,37 @@ void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
             << (window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     (void)releaseCard(window, false);
+    m_filledFromCards.removeIf([window](const auto &w) { return !w || w->isDeleted() || w == window; });
+    m_filledFromCards.append(window);
     // §2, Desktop: it is a window returned to the desktop like one let go at
     // the bottom edge, so asking for it under a card opened later shows the
     // desktop again rather than leave it behind that card.
     if (m_active && m_presentation == CardPresentation::Active) returnWindowToDesktop(window);
+}
+
+bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
+{
+    // §2, Desktop: a card let go to fill the screen is the Active card again
+    // once it is restored, as by its own button or a double click on its
+    // title bar, so filling the screen always has a way back.
+    m_filledFromCards.removeIf([](const auto &w) { return !w || w->isDeleted(); });
+    if (m_applyingWindowState || !window || !m_filledFromCards.contains(window)) return false;
+    KWin::Window *client = window->window();
+    if (!client) return false;
+    if (client->isInteractiveMove() || client->isInteractiveResize() || client->isMinimized()
+        || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeRestore
+        || client->requestedQuickTileMode() != KWin::QuickTileMode{}) return false;
+    m_filledFromCards.removeAll(window);
+    if (!m_active || liveCardIndex(window) >= 0) return false;
+    const QPointer<KWin::EffectWindow> restored = window;
+    // Taken in once this notification has returned, never inside it.
+    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] {
+        if (!restored || restored->isDeleted() || liveCardIndex(restored) >= 0) return;
+        if (handleWindowAdded(restored))
+            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
+                    << "back as the Active card: it no longer fills the screen";
+    });
+    return true;
 }
 
 } // namespace Kadunce
