@@ -1237,4 +1237,27 @@ double Effect::drawStackJoinFan(const KWin::RenderTarget &renderTarget, const KW
     return reach * 0.5;
 }
 
+void Effect::drawCardJoinHint(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                              const KWin::Region &deviceRegion, KWin::LogicalOutput *screen)
+{
+    if (!screen || screen != tabletOutput() || !m_destinationShader || !m_cardStage->isActive()
+        || m_cardStage->presentation() != CardPresentation::Spread) return;
+    const auto hint = m_cardStage->carryJoinHint(screen);
+    if (!hint || hint->card.isEmpty()) return;
+    QList<QRectF> parts;
+    for (const auto &dirty : deviceRegion.rects()) {
+        const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(hint->card);
+        if (!part.isEmpty()) parts.append(part);
+    }
+    fillDestinationParts(renderTarget, viewport, parts, hint->card, 0.10f, 0.9f);
+    m_stackHoldLabel.render(renderTarget, viewport, hint->card.center(), hint->filled);
+}
+
+void Effect::drawStackHints(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                            const KWin::Region &deviceRegion, KWin::LogicalOutput *screen)
+{
+    drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
+    drawCardJoinHint(renderTarget, viewport, deviceRegion, screen);
+}
+
 } // namespace Kadunce

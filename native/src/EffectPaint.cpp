@@ -1099,7 +1099,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (screen && detachShown != (m_detachShownOn == screen))
         m_detachShownOn = detachShown ? screen : nullptr;
     drawStackLadderOutline(renderTarget, viewport, deviceRegion, screen);
-    drawPlaceMap(renderTarget, viewport, deviceRegion, screen);
+    drawStackHints(renderTarget, viewport, deviceRegion, screen);
     drawRoomOffer(renderTarget, viewport, deviceRegion, screen, overlaid);
     // Where a placement request is aimed, as a carried card's destination is.
     if (m_destinationShader && screen && m_placementPreview && m_placementPreviewOutput == screen) {
