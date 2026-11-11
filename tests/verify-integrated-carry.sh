@@ -150,6 +150,7 @@ scenes=(
     placement-runtime tablet
     placement-display-runtime tablet
     x11-tablet-runtime tablet
+    x11-repeat-move-runtime tablet
 )
 
 selected=()

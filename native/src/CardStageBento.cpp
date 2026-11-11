@@ -460,6 +460,7 @@ void CardStageController::release()
     bringCardsBack();
     m_returnToDesktop = false;
     m_returnedToDesktop.clear();
+    m_filledFromCards.clear();
     stopOpeningSpread();
     m_transferGuard.invalidate();
     m_host->cancelInputForCardStage();

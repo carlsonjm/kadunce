@@ -181,6 +181,38 @@ void Effect::captureHeldPictures()
     }
 }
 
+void Effect::captureMotionPictures(KWin::LogicalOutput *screen)
+{
+    // A shrinking pane's picture is kept on the first frame of its motion,
+    // before its client has drawn the new size; one already drawn smaller
+    // keeps none and is drawn as it is.
+    if (!KWin::effects->isOpenGLCompositing()) return;
+    for (auto &m : m_bentoMotions) {
+        if (!m.keepsPicture || m.kept || m.output != screen || !m.window || m.window->isDeleted()) continue;
+        KWin::EffectWindow *window = m.window.data();
+        const QRectF frame(window->frameGeometry());
+        if (std::abs(frame.width() - m.startFrame.width()) >= 1.0
+            || std::abs(frame.height() - m.startFrame.height()) >= 1.0) {
+            m.keepsPicture = false;
+            continue;
+        }
+        auto picture = std::make_shared<KeptPicture>();
+        m_capturingHeld = window;
+        const bool taken = picture->take(window,
+            [&](const KWin::RenderTarget &target, const KWin::RenderViewport &viewport) {
+                KWin::WindowPaintData data;
+                data.setOpacity(1.0);
+                (void)painted([&] { return KWin::effects->drawWindow(target, viewport, window,
+                    PAINT_WINDOW_TRANSFORMED | PAINT_WINDOW_TRANSLUCENT, KWin::Region::infinite(), data); });
+            });
+        m_capturingHeld = nullptr;
+        if (!taken) { m.keepsPicture = false; continue; }
+        m.kept = std::move(picture);
+        m.keptFrame = frame.size();
+        m.keptOffset = QRectF(window->expandedGeometry()).topLeft() - frame.topLeft();
+    }
+}
+
 void Effect::unredirectForCardStage(KWin::EffectWindow *window)
 {
     unredirect(window);
@@ -593,7 +625,7 @@ void Effect::startPaneArrival(KWin::EffectWindow *window, KWin::LogicalOutput *o
     // then moves the whole way (PaneArrival.h).
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (it->window != window) { ++it; continue; }
-        unredirect(window);
+        releaseBentoMotion(*it);
         it = m_bentoMotions.erase(it);
     }
     BentoMotion arrival{window, output, from, to, QRectF(output->geometry())};
