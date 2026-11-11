@@ -1222,6 +1222,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         // The half of the card the named side keeps for it.
                         pairAfter = lone;
                         pairSide = byPane;
+                        // Over or under names a place by that card, so the
+                        // two share its column rather than stand side by side.
+                        if (*place == PanePlace::Top || *place == PanePlace::Bottom) {
+                            pairSide.place = place;
+                            pairSide.pane = reinterpret_cast<std::uintptr_t>(lone);
+                        }
                         const bool across = *place == PanePlace::Left || *place == PanePlace::Right;
                         const QSizeF half(across ? frame.width() / 2 : frame.width(), across ? frame.height() : frame.height() / 2);
                         pairPreview = QRectF(*place == PanePlace::Right ? frame.center().x() : frame.left(),

@@ -35,26 +35,20 @@ int main()
     aim.clear();
     expect(!aim.ready(5000), "a cleared aim is not ready");
 
-    // A steady drag across a wide pane, 1100 px in half a second, never rests.
-    PaneStackAim<int> crossing;
-    bool stacked = false;
-    for (int ms = 0; ms <= 1000; ms += 16)
-        stacked = crossing.aim(7, ms, QPointF(1600 - ms * 1.1, 400)) || stacked;
-    expect(!stacked, "a carry crossing a pane without stopping does not stack");
-    // Stopped within the slack, a small drift still rests.
-    expect(!crossing.aim(7, 2000, QPointF(300, 400)), "stopping starts the rest");
-    expect(!crossing.aim(7, 2000 + PaneStackDwell / 2, QPointF(300 + PaneRestSlack - 1, 401)),
-           "a drift inside the slack keeps resting");
-    expect(crossing.aim(7, 2000 + PaneStackDwell, QPointF(304, 398)), "rested the dwell, it stacks");
-    // Moved past the slack, the rest begins again where it stopped.
-    PaneStackAim<int> moved;
-    expect(!moved.aim(7, 0, here), "a rest begins");
-    expect(!moved.aim(7, PaneStackDwell - 50, here + QPointF(PaneRestSlack + 1, 0)),
-           "moving past the slack starts the rest again");
-    expect(!moved.aim(7, PaneStackDwell + 10, here + QPointF(PaneRestSlack + 1, 0)),
-           "so the first stop's time does not count");
-    expect(moved.aim(7, 2 * PaneStackDwell - 50, here + QPointF(PaneRestSlack + 1, 0)),
-           "the new rest stacks after its own dwell");
+    // Held over one pane, the hand may move anywhere inside it: the time runs on.
+    PaneStackAim<int> moving;
+    bool early = false;
+    for (int ms = 0; ms < PaneStackDwell; ms += 16)
+        early = moving.aim(7, ms, QPointF(1600 - ms * 1.1, 400 + ms % 50)) || early;
+    expect(!early, "moving over a pane is not ready before the dwell");
+    expect(moving.aim(7, PaneStackDwell, QPointF(200, 900)), "kept over it the dwell, it stacks however it moved");
+    // Leaving for another pane, even briefly, starts it again.
+    PaneStackAim<int> left;
+    expect(!left.aim(7, 0, here), "a wait begins");
+    expect(!left.aim(8, PaneStackDwell / 2, here), "another pane starts it again");
+    expect(!left.aim(7, PaneStackDwell / 2 + 10, here), "and coming back starts it once more");
+    expect(!left.aim(7, PaneStackDwell + 10, here), "so the first pane's time does not count");
+    expect(left.aim(7, PaneStackDwell * 3 / 2 + 10, here), "the new wait stacks after its own dwell");
     if (failures) return EXIT_FAILURE;
     std::cout << "PASS: pane stack aim\n";
     return EXIT_SUCCESS;
