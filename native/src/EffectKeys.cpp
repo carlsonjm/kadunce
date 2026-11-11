@@ -631,9 +631,9 @@ void Effect::keyReleased(int key)
         QTimer::singleShot(0, this, &Effect::commitKeyLadder);
 }
 
-void Effect::letPaneGo()
+void Effect::letPaneGo(KWin::EffectWindow *pane)
 {
-    KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    if (!pane) pane = KWin::effects->activeWindow();
     if (!pane || !m_desktopStage->managesWindow(pane)) return;
     // Its Stack is kept by the stage of the display it stands on.
     SessionScope scope(this, m_scopedSession, stageKeyOf(pane));

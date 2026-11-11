@@ -1190,6 +1190,76 @@ void Effect::activateShownPane(KWin::EffectWindow *pane)
     });
 }
 
+KWin::EffectWindow *Effect::applicationWindowWithIdentity(const QString &windowId) const
+{
+    const QString wanted = windowId.trimmed();
+    if (wanted.isEmpty()) return nullptr;
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder())
+        if (window && !window->isDeleted() && isApplicationWindow(window) && windowIdentity(window) == wanted)
+            return window;
+    return nullptr;
+}
+
+bool Effect::stepStackTo(const QString &windowId)
+{
+    // TETTEGOUCHE-CONTEXT.md § Stack requests: what a context line's Stack
+    // tabs ask as a finger passes over them, so each step is the one Meta+Tab
+    // takes and the ring keeps its order.
+    if (!callerMayDrive()) return false;
+    KWin::EffectWindow *card = applicationWindowWithIdentity(windowId);
+    if (!card) return false;
+    if (m_cardStage->launcherGuestActive()) dismissLauncherGuestFromInput();
+    SessionScope scope(this, m_scopedSession, stageKeyOf(card));
+    // A pane's own window is its Stack's front already.
+    if (m_desktopStage->managesWindow(card)) return true;
+    // A card waiting behind a pane: the pane shows it, in place.
+    if (KWin::EffectWindow *pane = m_cardStage->paneHolding(card);
+        pane && m_desktopStage->managesWindow(pane)) {
+        if (!callPaneStackCard(pane, card)) return false;
+        activateShownPane(card);
+        return true;
+    }
+    // The Active card's Stack: stepped by how far along the ring the card
+    // stands from the front, forward or back as the tabs lie.
+    KWin::EffectWindow *front = m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active ? m_cardStage->activeCardIdentity() : nullptr;
+    if (!front) return false;
+    if (front == card) return true;
+    if (!m_cardStage->stackFrontToBack(front).contains(card)) return false;
+    const SpreadModel &model = m_cardStage->model();
+    const int delta = model.stackPositionForId(m_cardStage->liveCardIndex(card) + 1)
+        - model.stackPositionForId(m_cardStage->liveCardIndex(front) + 1);
+    if (delta == 0 || !m_cardStage->stepActiveStack(delta)) return false;
+    if (auto *shown = m_cardStage->activeCardIdentity()) {
+        appearInPlace(shown);
+        stepInUnseen(shown);
+        KWin::effects->activateWindow(shown);
+    }
+    qInfo() << "Kadunce" << Revision << "stepped the Active card's Stack to" << logNameOf(card) << "as asked";
+    return true;
+}
+
+bool Effect::takeOutOfStack(const QString &windowId)
+{
+    // The card in front leaves its Stack as Meta+Shift+Down takes it out:
+    // a pane's, for a pane of its own beside the Stack; the Active card's,
+    // as a card of its own.
+    if (!callerMayDrive()) return false;
+    KWin::EffectWindow *window = applicationWindowWithIdentity(windowId);
+    if (!window) return false;
+    SessionScope scope(this, m_scopedSession, stageKeyOf(window));
+    if (m_desktopStage->managesWindow(window)) {
+        if (m_cardStage->paneStack(window).isEmpty()) return false;
+        letPaneGo(window);
+        return true;
+    }
+    if (!m_cardStage->isActive() || m_cardStage->presentation() != CardPresentation::Active
+        || m_cardStage->activeCardIdentity() != window || m_cardStage->stackFrontToBack(window).size() < 2)
+        return false;
+    letActiveCardGo();
+    return true;
+}
+
 double Effect::stackHoldFilled() const
 {
     if (!m_carryPlacePane || m_carryPanePlace != PanePlace::Middle) return 0.0;

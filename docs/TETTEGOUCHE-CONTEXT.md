@@ -44,7 +44,8 @@ membership and presentation.
 Anything on the session bus may ask what Kadunce shows, claim a top edge or
 the context line for itself, and change the settings. Only the programs the
 suite's surfaces live in may bring anything forward: `activateApplicationWindow`,
-`raiseKeyboard`, `keyboardHeading`, `showCardLine`, `showActive`, `toggleTable`,
+`stepStackTo`, `takeOutOfStack`, `raiseKeyboard`, `keyboardHeading`, `showCardLine`,
+`showActive`, `toggleTable`,
 `previewDesktop`, `commitDesktopPreview`, the placement calls,
 `toggleBentoOnOutput`, `handoffBentoLeadToOutput` and every call of
 `REQUESTS.md` § Bringing apps back and § Saved layouts. Those are `plasmashell`,
@@ -243,6 +244,34 @@ companion opened as Search closes can still take the center.
 
 A companion is a layer-shell surface, as the launcher is. An ordinary window
 is a card, so it cannot hold the center.
+
+## Stack requests
+
+A context line that shows a Stack's cards can step the Stack and take its
+front card out:
+
+```text
+stepStackTo(windowId) -> bool
+takeOutOfStack(windowId) -> bool
+```
+
+`stepStackTo` brings that card of a Stack to the front in place, as `Meta+Tab`
+steps it there (`INPUT.md` § Stacks): the Active card's Stack by as many
+places along its ring as the card stands from the front, forward or back,
+and a pane's Stack by calling the card to the pane. The card then has the
+keys. It answers `true` for a card already in front, and `false` for a window
+in no Stack shown in place. Stepping back to the card that was in front
+undoes it, since the ring keeps its order.
+
+`takeOutOfStack` takes the card in front out of its Stack, as
+`Meta+Shift+Down` does: the Active card stands alone and the Stack waits
+beside it, and a pane's card takes a pane of its own beside the Stack, which
+shows its next card. It answers `false` for a window that is not a Stack's
+front.
+
+A Stack's cards, in ring order, are the cards of `applications` sharing its
+`stage` and `stackId`, ordered by `stackPosition`; a pane's are the pane and
+its `paneStack`.
 
 ## Top-edge claims
 
