@@ -931,6 +931,12 @@ Effect::~Effect()
 {
     m_releasing = true;
     dropSignInGlassSpy();
+    // Windows the session reopened and Kadunce kept out of sight until the
+    // sign-in settled are shown again as they stand, so an unload inside
+    // that time never leaves an app running with no window anywhere.
+    for (const auto &held : std::exchange(m_signInHeld, {}))
+        if (held.window && !held.window->isDeleted() && held.window->window())
+            held.window->window()->setHidden(false);
     delete std::exchange(m_stuckNotesWatcher, nullptr);
     if (m_gapHeld) KWin::effects->stopMouseInterception(this);
     m_table.close();
