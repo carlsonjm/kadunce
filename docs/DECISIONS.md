@@ -629,11 +629,3 @@ it on.
 The lock shows the time, the credential field and the
 Keyboard's handle, and nothing from the session. The contract is
 `../shuffle/docs/LOCK-CONTRACT.md`.
-
-### The keyboard's window has a soft neutral rim
-
-The window you type into is marked by a faint rim in the scheme's own text,
-not the accent, so the mark stays calm beside other windows and the accent is
-left for what a hand is doing. The accent outline stays a choice in Settings.
-Rejected: no outline, with other windows dimmed and the active one given a
-deeper shadow. See `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
