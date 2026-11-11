@@ -583,6 +583,10 @@ private:
     // It gives up once anything is carried again or another desktop is shown.
     void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                          const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
+    // §11, Connected: carried onto a side of the card a display shows alone,
+    // the two are laid out there once it has landed, as stackWhenLanded waits.
+    void pairWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> lone,
+                        BentoSidePlacement side, const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
     // CARD-LIFECYCLE.md §11: every display holding cards has a card stage of
     // its own on each desktop, with its own Spread, Active card and Stacks.
     // Its host names it, and its display, for each call it makes.
