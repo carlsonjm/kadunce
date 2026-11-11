@@ -1212,6 +1212,13 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
         && (window->isFullScreen() || window->keepAbove() || !window->hasDecoration())) {
         return false;
     }
+    // The desktop portal asks on an application's behalf, what to share or
+    // which file to open, in a dialog of its own. It names the application it
+    // asks for only when that application gives it a window to name, which a
+    // browser sharing its screen often does not, so it is known by the
+    // portal's own name and floats over cards as a dialog (§4).
+    if (identity.startsWith(QStringLiteral("org.freedesktop.impl.portal."), Qt::CaseInsensitive)
+        || identity.startsWith(QStringLiteral("xdg-desktop-portal"), Qt::CaseInsensitive)) return false;
     if (floatsAtItsOwnSize(window)) return false;
     // A dialog that names its application follows that application's card
     // (§4), including one that names it only after it is shown
