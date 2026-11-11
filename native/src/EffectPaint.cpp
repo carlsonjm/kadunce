@@ -28,6 +28,9 @@ QRectF shadowExtent(const QRectF &card)
 constexpr qint64 FrameStallMs = 50;
 // The keyboard outline fades in over the Visual sheet's micro transition.
 constexpr int KeyboardOutlineFadeMs = 140;
+// The soft rim: 1.5 px of the scheme's text at 26%.
+constexpr double KeyboardOutlineSoftWidth = 1.5;
+constexpr double KeyboardOutlineSoftStrength = 0.26;
 // The frost behind Shuffle Settings fades in over the same step.
 constexpr int SettingsFrostFadeMs = 140;
 constexpr int SettingsFrostDissolveMs = 300;
@@ -639,13 +642,25 @@ float Effect::keyboardOutlineOpacity(KWin::EffectWindow *window, const KWin::Win
     return float((1.0 - std::pow(1.0 - progress, 3.0)) * data.opacity());
 }
 
-QColor Effect::keyboardOutlineInk()
+QColor Effect::keyboardOutlineInk() const
 {
-    // The accent, or the scheme's text where the accent would vanish into its
-    // ground.
     const SurfaceTone &tone = SurfaceTone::current();
+    // Soft: the scheme's own text, faint, so the rim reads a little brighter
+    // than a window's edge in Dark and a little darker in Light.
+    if (!m_keyboardOutlineAccent) {
+        QColor ink = tone.text;
+        ink.setAlphaF(KeyboardOutlineSoftStrength);
+        return ink;
+    }
+    // Accent: the accent, or the scheme's text where the accent would vanish
+    // into its ground.
     const auto luma = [](const QColor &c) { return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF(); };
     return std::abs(luma(tone.accent) - luma(tone.ground)) < 0.2 ? tone.text : tone.accent;
+}
+
+double Effect::keyboardOutlineWidth() const
+{
+    return m_keyboardOutlineAccent ? 2.0 : KeyboardOutlineSoftWidth;
 }
 
 void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -676,7 +691,8 @@ void Effect::paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const 
     m_keyboardOutlineShader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
     m_keyboardOutlineShader->setUniform("outlineRadius", float(cardCornerRadius()));
     m_keyboardOutlineShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
-    m_keyboardOutlineShader->setUniform("outlineOpacity", opacity);
+    m_keyboardOutlineShader->setUniform("outlineOpacity", float(opacity * ink.alphaF()));
+    m_keyboardOutlineShader->setUniform("outlineWidth", float(keyboardOutlineWidth()));
     m_keyboardOutlineShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
         renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
     const bool blended = glIsEnabled(GL_BLEND);
@@ -1412,8 +1428,8 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
             KWin::ShaderManager::instance()->pushShader(m_keyboardEdgeShader.get());
             const QColor ink = keyboardOutlineInk();
             m_keyboardEdgeShader->setUniform("outlineInk", QVector3D(ink.redF(), ink.greenF(), ink.blueF()));
-            m_keyboardEdgeShader->setUniform("outlineOpacity", outline);
-            m_keyboardEdgeShader->setUniform("bandTexels", float(2.0 * viewport.scale()));
+            m_keyboardEdgeShader->setUniform("outlineOpacity", float(outline * ink.alphaF()));
+            m_keyboardEdgeShader->setUniform("bandTexels", float(keyboardOutlineWidth() * viewport.scale()));
             // How far the picture reaches past the frame, for its shadow, and
             // how far an application's own corner reaches in from it.
             const QRectF frame(window->frameGeometry());

@@ -1283,6 +1283,18 @@ void Effect::setShowsKeyboardOutline(bool shows)
     KWin::effects->addRepaintFull();
 }
 
+void Effect::setKeyboardOutlineStyle(const QString &style)
+{
+    const bool accent = style == QLatin1String("Accent");
+    if (!accent && style != QLatin1String("Soft")) return;
+    if (accent == m_keyboardOutlineAccent) return;
+    m_keyboardOutlineAccent = accent;
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Windows"));
+    group.writeEntry(QStringLiteral("KeyboardOutlineStyle"), keyboardOutlineStyle());
+    group.sync();
+    KWin::effects->addRepaintFull();
+}
+
 // Meta+Shift+B says which arrangement the monitors now take, as Plasma's own
 // switches do.
 void Effect::switchZoneMode()

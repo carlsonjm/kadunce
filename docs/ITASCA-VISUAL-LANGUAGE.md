@@ -276,11 +276,13 @@ they preserve these relationships and respect the user's animation settings.
   If the session goes on instead, the glass dissolves and the windows go
   back into cards.
 - While another window shows beside it on its display, the window the
-  keyboard types into is outlined: 2 px of the accent just inside its edge,
-  following the corner it has, the paper corner or the application's own,
-  and fading in over 140 ms. The scheme's text
-  stands in for an accent too close to its ground. A lone window, Spread and
-  a window in hand show none, and Settings can switch it off.
+  keyboard types into is outlined just inside its edge, following the corner
+  it has, the paper corner or the application's own, and fading in over
+  140 ms. The outline is a soft neutral rim, 1.5 px of the scheme's text at
+  26%, a little brighter than a window's edge in Dark and a little darker in
+  Light. Settings can make it 2 px of the accent instead, where the scheme's
+  text stands in for an accent too close to its ground, or switch it off. A
+  lone window, Spread and a window in hand show none.
 - A wheel turned while a window is held on a monitor changes
   that box's width notch by notch, with no motion of its own, so the
   box always shows exactly where the window will land.

@@ -274,11 +274,17 @@ public Q_SLOTS:
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
-    // The window the keyboard types into is outlined in the accent while
-    // another window shows beside it on its display; kept in kaduncerc's
-    // [Windows] group, on unless switched off.
+    // The window the keyboard types into is outlined while another window
+    // shows beside it on its display; kept in kaduncerc's [Windows] group, on
+    // unless switched off. Its style is "Soft", a faint neutral rim, unless
+    // set to "Accent".
     Q_SCRIPTABLE bool showsKeyboardOutline() const { return m_showsKeyboardOutline; }
     Q_SCRIPTABLE void setShowsKeyboardOutline(bool shows);
+    Q_SCRIPTABLE QString keyboardOutlineStyle() const
+    {
+        return m_keyboardOutlineAccent ? QStringLiteral("Accent") : QStringLiteral("Soft");
+    }
+    Q_SCRIPTABLE void setKeyboardOutlineStyle(const QString &style);
     // The display Spread lives on, by name; empty while Kadunce chooses
     // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
@@ -1148,6 +1154,7 @@ private:
     bool m_usesDrawnZones = false;
     void switchZoneMode();
     bool m_showsKeyboardOutline = true;
+    bool m_keyboardOutlineAccent = false;
     // The window outlined on each display, by name, and since when, so a new
     // one fades in.
     struct KeyboardOutline {
@@ -1160,7 +1167,9 @@ private:
     [[nodiscard]] bool paintedAsItStands(KWin::EffectWindow *window);
     [[nodiscard]] KWin::EffectWindow *keyboardOutlineWindow(KWin::LogicalOutput *screen);
     [[nodiscard]] float keyboardOutlineOpacity(KWin::EffectWindow *window, const KWin::WindowPaintData &data) const;
-    [[nodiscard]] static QColor keyboardOutlineInk();
+    // The outline's colour, with its strength, and its width in logical px.
+    [[nodiscard]] QColor keyboardOutlineInk() const;
+    [[nodiscard]] double keyboardOutlineWidth() const;
     void paintKeyboardOutline(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               KWin::EffectWindow *window, const KWin::Region &deviceRegion,
                               const KWin::WindowPaintData &data);
