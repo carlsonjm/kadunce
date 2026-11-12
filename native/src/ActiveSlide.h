@@ -30,7 +30,8 @@ inline constexpr double ActiveSlideGive = 0.06;
 }
 
 struct ActiveSlideMotion {
-    enum class Shape { InOut, Out, Give };
+    // Linear: the clock itself, for a motion that eases each part its own way.
+    enum class Shape { InOut, Out, Give, Linear };
     double from = 0.0;
     double to = 0.0;
     int durationMs = 1;
@@ -46,7 +47,8 @@ struct ActiveSlideMotion {
         const double out = t < 0.5 ? easeOutCubic(t * 2.0) : 1.0 - easeInOutCubic((t - 0.5) * 2.0);
         return motion.from + (motion.to - motion.from) * out;
     }
-    const double eased = motion.shape == ActiveSlideMotion::Shape::Out ? easeOutCubic(t) : easeInOutCubic(t);
+    const double eased = motion.shape == ActiveSlideMotion::Shape::Linear ? t
+        : motion.shape == ActiveSlideMotion::Shape::Out ? easeOutCubic(t) : easeInOutCubic(t);
     return motion.from + (motion.to - motion.from) * eased;
 }
 
