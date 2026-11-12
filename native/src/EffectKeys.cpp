@@ -267,7 +267,19 @@ void Effect::keepUnaskedKeyboardDown()
         releaseLeavingKeys();
         m_keysForPerson = false;
         m_keysAsked = false;
+        m_keysTypedAway = false;
         return;
+    }
+    // Keys a real keyboard sent away stay away while they go. The application
+    // enables its field again with each keystroke, and KWin shows the keys
+    // again for it; only the person asking brings them back.
+    if (m_keysTypedAway) {
+        if (!keyboardJustAsked()) {
+            method->hide();
+            return;
+        }
+        m_keysTypedAway = false;
+        m_keysAsked = true;
     }
     // Back before they were out: the same keys, still the person's.
     if (m_leavingKeys) {
@@ -369,12 +381,13 @@ void Effect::keyboardTypedOn(quintptr device, quint32 code)
     // instead. Keys asked for from the tray or Control Center stay: the
     // person wanted both. So do the lock screen's.
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
-    if (!method || !method->isVisible() || !m_keysForPerson || m_keysAsked
+    if (!method || !method->isVisible() || !m_keysForPerson || m_keysAsked || m_keysTypedAway
         || KWin::effects->isScreenLocked()) return;
     qInfo() << "Kadunce puts the keyboard away: a real keyboard typed";
     // The tap that brought them is answered, so the field still holding the
     // focus cannot bring them straight back.
     if (m_inputRouter) m_answeredTouchEvents = m_inputRouter->touchEvents();
+    m_keysTypedAway = true;
     method->hide();
 }
 
@@ -421,6 +434,7 @@ void Effect::releaseLeavingKeys()
     if (!method || !method->isVisible()) {
         m_keysForPerson = false;
         m_keysAsked = false;
+        m_keysTypedAway = false;
     }
     m_cardStage->refreshKeyboardRoom();
     forEachDisplayStage([](CardStageController &stage) { stage.refreshKeyboardRoom(); });

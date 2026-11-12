@@ -1399,16 +1399,16 @@ private:
     // Until then they are not drawn, so keys raised for nobody are never seen
     // for the frame the compositor can paint before the decision reaches it.
     bool m_keysForPerson = false;
-    // Whether the keys on screen came up through raiseKeyboard, the person's
-    // own request, rather than for a tap on a field.
+    // Whether the keys on screen came through raiseKeyboard, the person's own
+    // request; and whether a real keyboard typing sent them away, until gone.
     bool m_keysAsked = false;
+    bool m_keysTypedAway = false;
     // The real keyboards typed on while they stay attached (TypedKeyboards.h).
     // While any is, a tap on a field asks for no keys; the tray, Control
     // Center and the lock screen still bring them.
     TypedKeyboards m_typedKeyboards;
     struct TypedKeyboardSpy;
-    // Shared, so the effect's own destructor need not see the spy's type.
-    std::shared_ptr<TypedKeyboardSpy> m_typedKeyboardSpy;
+    std::shared_ptr<TypedKeyboardSpy> m_typedKeyboardSpy; // shared: see m_signInGlassSpy
     void watchTypedKeyboards();
     void dropTypedKeyboardSpy();
     void keyboardTypedOn(quintptr device, quint32 code);
