@@ -292,15 +292,15 @@ int main(int argc, char **argv)
     int changes = 0;
     settings.onGutterChanged([&changes] { ++changes; });
     QTest::qWait(50);
-    for (int value : {36, 0, 200, 10}) {
+    for (int value : {36, 0, 200, -5, 10}) {
         const int before = changes;
         require(QProcess::execute(app.applicationFilePath(),
             {QStringLiteral("--write"), path, QString::number(value)}) == 0);
-        for (int attempt = 0; attempt < 100 && settings.gutter() != std::clamp(value, 4, 48); ++attempt)
+        for (int attempt = 0; attempt < 100 && settings.gutter() != std::clamp(value, 0, 48); ++attempt)
             QTest::qWait(10);
-        require(settings.gutter() == std::clamp(value, 4, 48));
+        require(settings.gutter() == std::clamp(value, 0, 48));
         // Set, it is the space between Bento's panes too, and announced.
-        require(Kadunce::bentoPaneGap() == std::clamp(value, 4, 48));
+        require(Kadunce::bentoPaneGap() == std::clamp(value, 0, 48));
         for (int attempt = 0; attempt < 100 && changes == before; ++attempt) QTest::qWait(10);
         require(changes > before);
     }
