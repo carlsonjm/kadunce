@@ -43,6 +43,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/StuckNotes.h
         src/StuckNotesWatcher.cpp
         src/StuckNotesWatcher.h
+        src/SearchTyping.cpp
+        src/SearchTyping.h
         src/NoteStackRenderer.h
         src/KeptPicture.h
         src/FrostedBox.h

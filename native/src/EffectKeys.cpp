@@ -347,7 +347,7 @@ QString Effect::keyStageKey() const
     return isCardDisplay(active) ? active->name() : m_cardOutputName;
 }
 
-bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
+bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, const QString &text)
 {
     const QString stage = keyStageKey();
     SessionScope scope(this, m_scopedSession, stage);
@@ -375,6 +375,18 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat)
     context.spreadShown = context.cardsShown && !KWin::effects->hasKeyboardGrab()
         && m_cardStage->presentation() == CardPresentation::Spread
         && !m_cardStage->launcherGuestActive() && !m_cardStage->cardGrabActive();
+    // Typing in Spread opens Search beside the centred card with what was
+    // typed, as Meta opens it there (INPUT.md § Spread). What follows before
+    // Search has the keys goes after it, never to the card behind Spread.
+    if (m_searchTyping && m_searchTyping->present() && !repeat && !m_table.isOpen()) {
+        if (isSearchSurface(focused)) m_searchTyping->settle();
+        const bool begun = m_searchTyping->carrying();
+        if ((context.spreadShown || begun) && keyStartsSearch(text, modifiers, begun)) {
+            noteDisplayInUse(screenNamed(m_scopedKey));
+            m_searchTyping->type(text);
+            return true;
+        }
+    }
     const KeyAction action = keyActionFor(key, modifiers, context);
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.

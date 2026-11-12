@@ -129,5 +129,26 @@ int main() {
               && !keyActionRepeats(KeyAction::CarryLeft) && !keyActionRepeats(KeyAction::LetGo)
               && !keyActionRepeats(KeyAction::Spread) && !keyActionRepeats(KeyAction::Release),
           "A held key repeated what should happen once");
+    // In Spread, typing opens Search; Shift only chooses the character, and
+    // Ctrl, Alt and Meta keep their keys. A space starts nothing, but once a
+    // search has begun it is part of it. Keys that type nothing are left.
+    check(keyStartsSearch(QStringLiteral("f"), Qt::NoModifier)
+              && keyStartsSearch(QStringLiteral("F"), Qt::ShiftModifier)
+              && keyStartsSearch(QStringLiteral("7"), Qt::KeypadModifier)
+              && keyStartsSearch(QString(QChar(0x00e9)), Qt::NoModifier),
+          "Typing in Spread did not open Search");
+    check(!keyStartsSearch(QStringLiteral("f"), Qt::ControlModifier)
+              && !keyStartsSearch(QStringLiteral("f"), Qt::AltModifier)
+              && !keyStartsSearch(QStringLiteral("f"), Qt::MetaModifier),
+          "A held Ctrl, Alt or Meta key opened Search");
+    check(!keyStartsSearch(QString(), Qt::NoModifier)
+              && !keyStartsSearch(QStringLiteral("\r"), Qt::NoModifier)
+              && !keyStartsSearch(QString(QChar(0x1b)), Qt::NoModifier)
+              && !keyStartsSearch(QStringLiteral("\t"), Qt::NoModifier)
+              && !keyStartsSearch(QString(QChar(0x08)), Qt::NoModifier),
+          "A key that types nothing opened Search");
+    check(!keyStartsSearch(QStringLiteral(" "), Qt::NoModifier)
+              && keyStartsSearch(QStringLiteral(" "), Qt::NoModifier, true),
+          "A space did not wait for a search to begin");
     std::cout << "Kadunce's keys sit on Meta and in Spread, and leave Ctrl, Alt+Tab and Tettegouche's keys alone\n";
 }

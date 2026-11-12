@@ -317,6 +317,26 @@ claim under the same key replacing the old, all of a caller's going when it
 leaves the bus. Kadunce refuses a claim with no key or display. With no claim,
 Kadunce draws the words itself, and the context carries the same fields.
 
+## Typing in Spread
+
+While Spread is shown and nothing else has the keys, a key that types text
+without `Ctrl`, `Alt` or `Meta` held is Kadunce's (`INPUT.md` § Spread). Kadunce
+sends its text to Tettegouche, which opens Search in Spread as its own key
+opens it, ready to type, with that text in the field:
+
+```text
+service:   io.github.carlsonjm.Tettegouche
+path:      /Launcher
+method:    typeToSearch(text)
+```
+
+Until Search's surface has the keys, for at most a second and a half after the
+last text sent, Kadunce sends what follows the same way, in order, so nothing
+typed reaches the card behind Spread. Kadunce watches for the service and never
+starts it: while Tettegouche is absent, Spread takes no typing. A Tettegouche
+without `typeToSearch` answers with an error, and Kadunce then calls its
+`toggleToType`, which opens Search without the text.
+
 ## Stuck notes from Gooseberry
 
 Kadunce also reads from Gooseberry, the optional notes application, which can

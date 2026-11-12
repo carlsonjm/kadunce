@@ -28,6 +28,7 @@ Apps and Files.
 | `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |
 | `Meta+Left`, `Meta+Right` in Spread | The row moves to the card before or after. |
 | Tap or click empty space, or `Escape` | You go back to where you opened Spread. |
+| Type | Search opens holding what you typed. |
 | Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. |
 | Pull down on a pane's card | That pane leaves its layout as a card of its own. |
 | Hold a card | It rises to be carried; Spread stays three across. Held off the middle, the row slides under it. |
@@ -35,7 +36,7 @@ Apps and Files.
 | Let a held card go in a gap | It lands there as the row grows back to three across. |
 | Let a held card go on another card, once it has risen | They become a Stack; on a pane's card, it fills that pane. |
 | Let a held card go on another display | It becomes that display's card, or joins its layout. |
-| Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type on the window; hold a note, or the stack, and let go on another card to stick it. |
+| Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type; hold a note, or the stack, and let go on another card to stick it. |
 | Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke leaves it open; the keys type into it. |
 | Plasma's bottom or top touch edge, where no touchscreen drives a display | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
@@ -49,7 +50,7 @@ bottom edge is theirs.
 | --- | --- |
 | A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick one moves the row. |
 | Wheel over the centred Stack | Steps through its cards. |
-| Tap or click a card fanned behind the centred Stack's front | It comes to the front, and Spread stays open. |
+| Tap or click a card fanned behind the centred Stack's front | It comes to the front; Spread stays open. |
 | Pull a Stack's card down, or `Meta+Shift+Down` on the centred or Active one | It leaves the Stack as a card after it; the Stack keeps its place and order. |
 | Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go, it goes there, the front card showing; where it began, nothing changes. |
 
@@ -60,7 +61,7 @@ bottom edge is theirs.
 | Tap or click a card in Spread | It grows into the Active card; a pane's card opens its layout on that pane. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
-| Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every other window there becomes a card too. |
+| Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every other window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
 | Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in as one strip, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
@@ -75,7 +76,7 @@ bottom edge is theirs.
 | --- | --- |
 | Drag a window by its title bar to the left or right edge of a display | Within 96 px on a monitor, it pairs on your side with the Active card, or for the Active card the one used before, the upper half larger; with none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
-| `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones, as the tray's switch does. |
+| `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, it on your side. |
 | Hold a divider briefly, or click it, then drag | Both panes resize. |
 | Drag a Bento pane onto another pane of its layout | They swap. Connected, held until it leans in, it joins that pane's Stack. |
