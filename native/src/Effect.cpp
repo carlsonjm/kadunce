@@ -68,8 +68,7 @@ void main() {
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(vec4(0.0, 0.0, 0.0, alpha)));
 }
 )GLSL";
-// The keyboard's window outlined: 2 px of the accent just inside the window's
-// own edge, so its contents stay where they are and nothing is left behind as
+// The keyboard's window outlined: a band just inside the window's own edge, so its contents stay where they are and nothing is left behind as
 // it moves. This one follows the paper corner Kadunce trims a window to.
 constexpr auto KeyboardOutlineFragment = R"GLSL(#version 140
 in vec2 point;
@@ -78,6 +77,7 @@ uniform vec4 destinationBox;
 uniform float outlineRadius;
 uniform vec3 outlineInk;
 uniform float outlineOpacity;
+uniform float outlineWidth;
 #include "colormanagement.glsl"
 void main() {
     vec2 halfSize = destinationBox.zw * 0.5;
@@ -86,16 +86,16 @@ void main() {
     float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
     float feather = max(fwidth(d), 0.5);
     float inside = 1.0 - smoothstep(-feather, 0.0, d);
-    float accent = smoothstep(-2.0 - feather, -2.0, d) * inside;
-    vec4 color = vec4(outlineInk, 1.0) * accent * outlineOpacity;
+    float band = smoothstep(-outlineWidth - feather, -outlineWidth, d) * inside;
+    vec4 color = vec4(outlineInk, 1.0) * band * outlineOpacity;
     fragColor = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(color));
 }
 )GLSL";
 // The same outline on a window that keeps its own corners, or none: drawn
 // with the window's own picture, along the edge of what it paints, so it
 // follows whatever corner the application draws. A pixel is on the band when
-// the picture ends within 2 px of it; translucency the window has throughout
-// is not an edge.
+// the picture ends within the band's width of it; translucency the window has
+// throughout is not an edge.
 constexpr auto KeyboardEdgeVertex = R"GLSL(#version 140
 in vec4 position;
 in vec4 texcoord;
@@ -317,6 +317,8 @@ Effect::Effect()
         .readEntry(QStringLiteral("UseDrawnZones"), false);
     m_showsKeyboardOutline = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Windows"))
         .readEntry(QStringLiteral("KeyboardOutline"), true);
+    m_keyboardOutlineAccent = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Windows"))
+        .readEntry(QStringLiteral("KeyboardOutlineStyle"), QStringLiteral("Soft")) == QLatin1String("Accent");
     // A window coming to the keyboard repaints, so its outline moves with it.
     connect(KWin::effects, &KWin::EffectsHandler::windowActivated, this, [this] {
         if (m_showsKeyboardOutline) KWin::effects->addRepaintFull();
