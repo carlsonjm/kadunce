@@ -349,6 +349,9 @@ QString Effect::keyStageKey() const
 
 bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, const QString &text)
 {
+    // A window recording a new shortcut asks for the keyboard's shortcuts to
+    // rest, as KWin's own do: Meta+S then reaches it as Meta+S.
+    if (KWin::waylandServer() && KWin::waylandServer()->isKeyboardShortcutsInhibited()) return false;
     const QString stage = keyStageKey();
     SessionScope scope(this, m_scopedSession, stage);
     KeyContext context;
