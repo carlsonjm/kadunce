@@ -23,11 +23,11 @@ Apps and Files.
 | Swipe up from the bottom edge | Spread follows your finger; a quick flick opens it fully. |
 | Three fingers down on the touchscreen, or four on a touchpad | Spread opens, the Active card shrinking into the row under your fingers. |
 | `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout shrinks into the row as its panes' cards. |
-| Drag the row sideways, by finger or mouse | The row follows, coasts after a flick and springs back at either end. |
+| Drag the row sideways | The row follows, coasts after a flick and springs back at either end. |
 | Wheel over the row | The row moves one card. |
 | `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |
-| `Meta+Left`, `Meta+Right` in Spread | The row moves to the card before or after. |
-| Tap or click empty space, or `Escape` | You go back to where you opened Spread. |
+| `Meta+Left`, `Meta+Right` in Spread | The row moves one card. |
+| Tap or click empty space, or `Escape` | Back to where Spread opened. |
 | Type | Search opens holding what you typed. |
 | Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. |
 | Pull down on a pane's card | That pane leaves its layout as a card of its own. |
@@ -61,13 +61,13 @@ bottom edge is theirs.
 | Tap or click a card in Spread | It grows into the Active card; a pane's card opens its layout on that pane. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
-| Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every other window there becomes a card. |
+| Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
 | Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in as one strip, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
-| Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. |
+| Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. After typing on an attached keyboard, taps bring none until it goes. |
 | Point in any other gutter | An arrow; nothing resizes there. |
 
 ## Bento

@@ -811,6 +811,7 @@ Effect::Effect()
             static_cast<WorkspaceInputTarget *>(this),
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
+        watchTypedKeyboards();
         // After the carry filter, so that it sees every contact first.
         m_touchWitness = std::make_unique<TouchWitness>();
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
@@ -935,6 +936,7 @@ Effect::~Effect()
 {
     m_releasing = true;
     dropSignInGlassSpy();
+    dropTypedKeyboardSpy();
     // Windows the session reopened and Kadunce kept out of sight until the
     // sign-in settled are shown again as they stand, so an unload inside
     // that time never leaves an app running with no window anywhere.

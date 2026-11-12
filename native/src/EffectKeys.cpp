@@ -5,6 +5,8 @@
 
 // The on-screen keyboard's room and Kadunce's own keys (docs/INPUT.md).
 #include "EffectInternal.h"
+#include <input_event.h>
+#include <input_event_spy.h>
 
 namespace Kadunce
 {
@@ -160,8 +162,9 @@ void Effect::tapEndedForInput(const KWin::Window *window)
 void Effect::raiseKeysForTerminalTap(QPointer<KWin::Window> window, quint64 touchEvents)
 {
     // Another touch since belongs to whatever that touch does.
+    // Nor does it ask for keys while a real keyboard typed on is attached.
     if (!window || !m_inputRouter || m_inputRouter->touchEvents() != touchEvents
-        || m_inputRouter->latestTouchKept()) return;
+        || m_inputRouter->latestTouchKept() || m_typedKeyboards.any()) return;
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
     if (!method || !method->isEnabled() || method->isVisible()) return;
     KWin::TextInputV3Interface *input = KWin::waylandServer()->seat()->textInputV3();
@@ -172,17 +175,27 @@ void Effect::raiseKeysForTerminalTap(QPointer<KWin::Window> window, quint64 touc
     raiseKeyboard();
 }
 
+bool Effect::keyboardJustAsked() const
+{
+    // A request through raiseKeyboard is the person's own, from the tray,
+    // Control Center, a swipe up from the bottom bezel or the precision
+    // surface. It is honoured for the moment the raise takes.
+    constexpr qint64 AskedMs = 1500;
+    return m_keyboardAskedSince.isValid() && m_keyboardAskedSince.elapsed() < AskedMs;
+}
+
 const char *Effect::keyboardRefusal(const KWin::InputMethod &method) const
 {
-    // A request through raiseKeyboard is the person's own, from a swipe up
-    // from the bottom bezel or the precision surface. It is honoured for the
-    // moment the raise takes.
-    constexpr qint64 AskedMs = 1500;
-    if (m_keyboardAskedSince.isValid() && m_keyboardAskedSince.elapsed() < AskedMs)
-        return nullptr;
+    // A request through raiseKeyboard is the person's own.
+    if (keyboardJustAsked()) return nullptr;
     // The lock screen's only field is the password, and nothing behind the
-    // lock can take the focus from it: keys raised there are always wanted.
+    // lock can take the focus from it: keys raised there are always wanted,
+    // even with a keyboard attached, since that keyboard may have gone quiet
+    // without going away and the person must never be locked out.
     if (KWin::effects->isScreenLocked()) return nullptr;
+    // Someone who has typed on a real keyboard still attached is using it: a
+    // tap on a field chooses where to type, it does not ask for keys.
+    if (m_typedKeyboards.any()) return "a keyboard attached has been typed on";
     // Otherwise the compositor raised the keys because a field was enabled
     // soon after a touch, which is also true when the application focused
     // the field itself after a touch somewhere else in it. A tap on a field
@@ -253,6 +266,7 @@ void Effect::keepUnaskedKeyboardDown()
         if (m_keysForPerson && !m_leavingKeys) answerTouches();
         releaseLeavingKeys();
         m_keysForPerson = false;
+        m_keysAsked = false;
         return;
     }
     // Back before they were out: the same keys, still the person's.
@@ -266,6 +280,7 @@ void Effect::keepUnaskedKeyboardDown()
     const char *refusal = keyboardRefusal(*method);
     if (!refusal) {
         m_keysForPerson = true;
+        m_keysAsked = keyboardJustAsked();
         if (KWin::EffectWindow *panel = KWin::effects->inputPanel())
             KWin::effects->addRepaint(panel->expandedGeometry().toAlignedRect());
         return;
@@ -275,6 +290,92 @@ void Effect::keepUnaskedKeyboardDown()
     qInfo().nospace() << "Kadunce kept the keyboard down for "
                       << (target ? logNameOf(target) : QStringLiteral("no window"))
                       << ": " << refusal;
+}
+
+namespace
+{
+// A keyboard a person types on (TypedKeyboards::isRealKeyboardPath).
+bool isRealKeyboard(const KWin::InputDevice *device)
+{
+    return device && device->isKeyboard() && TypedKeyboards::isRealKeyboardPath(device->sysPath());
+}
+} // namespace
+
+// Hears every key and switch before anything acts on it, and acts on none:
+// what it learns is handled on the next turn, outside KWin's input handling.
+struct Effect::TypedKeyboardSpy final : KWin::InputEventSpy {
+    Effect *effect;
+    explicit TypedKeyboardSpy(Effect *e) : effect(e) {}
+    void keyboardKey(KWin::KeyboardKeyEvent *event) override
+    {
+        if (event->state != KWin::KeyboardKeyState::Pressed
+            || !TypedKeyboards::typesText(event->nativeScanCode) || !isRealKeyboard(event->device)) return;
+        const auto device = quintptr(event->device);
+        const quint32 code = event->nativeScanCode;
+        QMetaObject::invokeMethod(effect, [e = QPointer<Effect>(effect), device, code] {
+            if (e) e->keyboardTypedOn(device, code);
+        }, Qt::QueuedConnection);
+    }
+    void switchEvent(KWin::SwitchEvent *event) override
+    {
+        // The tablet's cover folded back or taken off: a tablet in the hand.
+        if (!event->device || !event->device->isTabletModeSwitch()
+            || event->state != KWin::SwitchState::On) return;
+        QMetaObject::invokeMethod(effect, [e = QPointer<Effect>(effect)] {
+            if (e) e->typedKeyboardsForgotten("the tablet left its cover");
+        }, Qt::QueuedConnection);
+    }
+};
+
+void Effect::watchTypedKeyboards()
+{
+    if (!KWin::input() || m_typedKeyboardSpy) return;
+    m_typedKeyboardSpy = std::make_shared<TypedKeyboardSpy>(this);
+    KWin::input()->installInputEventSpy(m_typedKeyboardSpy.get());
+    connect(KWin::input(), &KWin::InputRedirection::deviceRemoved, this, [this](KWin::InputDevice *device) {
+        const bool last = m_typedKeyboards.removed(quintptr(device));
+        if (last)
+            qInfo() << "Kadunce lets taps bring the keys again:" << (device ? device->name() : QString())
+                    << "went away";
+    });
+}
+
+void Effect::dropTypedKeyboardSpy()
+{
+    if (!m_typedKeyboardSpy) return;
+    if (KWin::input()) KWin::input()->uninstallInputEventSpy(m_typedKeyboardSpy.get());
+    m_typedKeyboardSpy.reset();
+}
+
+void Effect::typedKeyboardsForgotten(const char *why)
+{
+    if (!m_typedKeyboards.any()) return;
+    m_typedKeyboards.forget();
+    qInfo() << "Kadunce lets taps bring the keys again:" << why;
+}
+
+void Effect::keyboardTypedOn(quintptr device, quint32 code)
+{
+    // A keyboard unplugged between its key and this turn is already gone, and
+    // counting it would keep the keys from taps with nothing to free them.
+    const KWin::InputDevice *typedOn = nullptr;
+    if (KWin::input())
+        for (const KWin::InputDevice *each : KWin::input()->devices())
+            if (quintptr(each) == device) typedOn = each;
+    if (!typedOn) return;
+    if (m_typedKeyboards.keyPressed(device, code))
+        qInfo() << "Kadunce keeps taps from bringing the keys while" << typedOn->name() << "stays attached";
+    // Keys a tap brought go once the person types on a real keyboard
+    // instead. Keys asked for from the tray or Control Center stay: the
+    // person wanted both. So do the lock screen's.
+    KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
+    if (!method || !method->isVisible() || !m_keysForPerson || m_keysAsked
+        || KWin::effects->isScreenLocked()) return;
+    qInfo() << "Kadunce puts the keyboard away: a real keyboard typed";
+    // The tap that brought them is answered, so the field still holding the
+    // focus cannot bring them straight back.
+    if (m_inputRouter) m_answeredTouchEvents = m_inputRouter->touchEvents();
+    method->hide();
 }
 
 void Effect::putKeysAwayForSpread()
@@ -317,7 +418,10 @@ void Effect::releaseLeavingKeys()
     m_leavingKeys.reset();
     m_leavingPanel.clear();
     KWin::InputMethod *method = KWin::kwinApp()->inputMethod();
-    if (!method || !method->isVisible()) m_keysForPerson = false;
+    if (!method || !method->isVisible()) {
+        m_keysForPerson = false;
+        m_keysAsked = false;
+    }
     m_cardStage->refreshKeyboardRoom();
     forEachDisplayStage([](CardStageController &stage) { stage.refreshKeyboardRoom(); });
     followKeysWorkArea();

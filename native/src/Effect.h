@@ -26,6 +26,7 @@
 #include "PendingLaunch.h"
 #include "SessionEndHold.h"
 #include "SignInBurst.h"
+#include "TypedKeyboards.h"
 #include "WorkspaceMemory.h"
 #include "SavedLayout.h"
 #include "PlacementAim.h"
@@ -1398,6 +1399,22 @@ private:
     // Until then they are not drawn, so keys raised for nobody are never seen
     // for the frame the compositor can paint before the decision reaches it.
     bool m_keysForPerson = false;
+    // Whether the keys on screen came up through raiseKeyboard, the person's
+    // own request, rather than for a tap on a field.
+    bool m_keysAsked = false;
+    // The real keyboards typed on while they stay attached (TypedKeyboards.h).
+    // While any is, a tap on a field asks for no keys; the tray, Control
+    // Center and the lock screen still bring them.
+    TypedKeyboards m_typedKeyboards;
+    struct TypedKeyboardSpy;
+    // Shared, so the effect's own destructor need not see the spy's type.
+    std::shared_ptr<TypedKeyboardSpy> m_typedKeyboardSpy;
+    void watchTypedKeyboards();
+    void dropTypedKeyboardSpy();
+    void keyboardTypedOn(quintptr device, quint32 code);
+    void typedKeyboardsForgotten(const char *why);
+    // Whether raiseKeyboard asked for the keys a moment ago.
+    [[nodiscard]] bool keyboardJustAsked() const;
     // How many touch events there had been when keys the person had up last
     // began to go, unless a touch had only just ended. Those keys answered
     // every one of them.
