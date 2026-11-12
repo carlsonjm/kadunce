@@ -82,6 +82,13 @@ int main()
             && close(work.right() - area.right(), 10)
             && close(work.bottom() - area.bottom(), 10),
             "Bento stage gutter is not the same on every edge");
+        // It follows the card gutter, down to none at all.
+        Kadunce::setBentoPaneGap(0);
+        const auto edge = Kadunce::makeBentoStageArea(work);
+        require(close(edge.x, work.x) && close(edge.y, work.y)
+            && close(edge.width, work.width) && close(edge.height, work.height),
+            "A zero gutter left the Bento stage short of the screen's edges");
+        Kadunce::setBentoPaneGap(Kadunce::DefaultBentoPaneGap);
     }
 
     const Kadunce::BentoRect wideRect{0, 0, 2.0 / 3.0, 1};
