@@ -12,7 +12,7 @@ result does to a window.
 | Table | Pull down from the top edge | `Meta+W` |
 | Plasma desktop | Switch Cards off in the tray | `Meta+Esc` |
 
-Kadunce's keys sit on `Meta`. `Ctrl` stays with
+Kadunce's keys sit on `Meta`, resting while a shortcut is recorded. `Ctrl` stays with
 applications, `Alt+Tab` with KDE; `Meta+G` and `Meta+E` open Tettegouche's
 Apps and Files.
 
@@ -30,10 +30,10 @@ Apps and Files.
 | Tap or click empty space, or `Escape` | Back to where Spread opened. |
 | Type | Search opens holding what you typed. |
 | Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. |
-| Pull down on a pane's card | That pane leaves its layout as a card of its own. |
+| Pull down on a pane's card | That pane leaves its layout as its own card. |
 | Hold a card | It rises to be carried; Spread stays three across. Held off the middle, the row slides under it. |
 | Pull a held card down | The row zooms out to one set view until pushed up. |
-| Let a held card go in a gap | It lands there as the row grows back to three across. |
+| Let a held card go in a gap | It lands there as the row regrows to three across. |
 | Let a held card go on another card, once it has risen | They become a Stack; on a pane's card, it fills that pane. |
 | Let a held card go on another display | It becomes that display's card, or joins its layout. |
 | Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type; hold a note, or the stack, and let go on another card to stick it. |
@@ -58,7 +58,7 @@ bottom edge is theirs.
 
 | Input | What happens |
 | --- | --- |
-| Tap or click a card in Spread | It grows into the Active card; a pane's card opens its layout on that pane. |
+| Tap or click a card in Spread | It grows into the Active card; a pane's card opens its layout there. |
 | `Enter` in Spread | The centred card opens. |
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every window there becomes a card. |
@@ -114,7 +114,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Let a lifted card go on `+` | A new workspace, named for the application, takes it. |
 | Let a lifted card go on its own place | It opens. |
 | Push back to the edge and lift | Table closes; nothing changes. |
-| Flick down quickly | The tabs stay open as a menu bar, nothing chosen. |
+| Flick down | The tabs stay open as a menu bar, nothing chosen. |
 | In the menu bar: tap a tab twice | One tap previews it, a second enters. |
 | In the menu bar: tap a card, or the preview | What it shows opens. |
 | In the menu bar: drag a card | It is carried like a lifted card. |
