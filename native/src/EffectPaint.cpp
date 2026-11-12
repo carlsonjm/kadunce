@@ -1778,6 +1778,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                 deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data); })) return paintResult(false);
             return paintResult(true);
         }
+        // A narrowed Stack steps in place; its strip then stands still.
+        if (const auto step = m_cardStage->activeStackStepPose(window)) applyStackStepPose(window, data, *step);
         if (const auto shift = m_cardStage->activeSlideShift(window)) {
             // The strip: each card moves with it, and stops at the display's
             // edge rather than reaching the next display.

@@ -17,6 +17,7 @@
 #include "RowTravel.h"
 #include "CarryRow.h"
 #include "ActiveSlide.h"
+#include "StackStepMotion.h"
 
 #include <effect/effectwindow.h>
 
@@ -402,6 +403,8 @@ public:
     void releaseActiveSlide(int side, double travel, double speed);
     // How far a card of the strip stands from its place, while the strip moves.
     [[nodiscard]] std::optional<double> activeSlideShift(const KWin::EffectWindow *window) const;
+    // A narrowed Stack stepping in place: where each of its two cards stands.
+    [[nodiscard]] std::optional<StackStepPose> activeStackStepPose(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool activeSlideRunning() const;
 
     // The row as something a hand moves. Travel is the finger's distance since
@@ -790,6 +793,10 @@ private:
         double position = 0.0;
         ActiveSlideMotion motion;
         QElapsedTimer clock;
+        // A Stack narrowed in the middle steps in place as a deck rather
+        // than as a strip; `side` is then 1 stepping on, -1 stepping back.
+        bool deck = false;
+        double cardWidth = 0.0;
     } m_activeSlide;
     [[nodiscard]] double activeSlidePosition() const;
     [[nodiscard]] double activeSlidePitch() const;
@@ -797,6 +804,8 @@ private:
                           double from, double to, ActiveSlideMotion::Shape shape, int baseMs);
     void endActiveSlide();
     void continueActiveSlide(KWin::EffectWindow *leaving, int side);
+    // The Active card's Stack, narrowed by the wheel, steps in place.
+    void startStackStep(KWin::EffectWindow *leaving, int side);
     // The card a step of the Active card would bring, without taking it.
     [[nodiscard]] KWin::EffectWindow *activeStepPeek(int delta) const;
     bool m_scrubbing = false;

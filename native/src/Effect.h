@@ -931,6 +931,8 @@ private:
     void layOutFromSpread(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);
+    // A card of a narrowed Stack stepping in place, as StackStepMotion.h stands it.
+    static void applyStackStepPose(KWin::EffectWindow *window, KWin::WindowPaintData &data, const StackStepPose &step);
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
     bool restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);

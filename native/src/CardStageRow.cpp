@@ -254,7 +254,13 @@ bool CardStageController::stepActiveStack(int delta)
         m_presentation = CardPresentation::Spread;
         return false;
     }
-    continueActiveSlide(leaving, delta > 0 ? 1 : -1);
+    // Narrowed in the middle, the Stack steps in place: a strip a whole
+    // display wide would carry its cards across the room beside it.
+    auto *tablet = m_host->tabletOutputForCardStage();
+    KWin::EffectWindow *arriving = selectedWindow();
+    if (tablet && arriving && activeTargetFor(tablet, arriving).width() < activeTarget(tablet).width())
+        startStackStep(leaving, delta > 0 ? 1 : -1);
+    else continueActiveSlide(leaving, delta > 0 ? 1 : -1);
     syncSelectedElevation();
     KWin::effects->addRepaintFull();
     qInfo() << "Kadunce stepped the Active card's Stack to position"
@@ -881,10 +887,41 @@ std::optional<double> CardStageController::activeSlideShift(const KWin::EffectWi
 {
     if (!window || !activeSlideRunning()) return std::nullopt;
     const auto &slide = m_activeSlide;
+    // A deck step draws both cards in place; activeStackStepPose moves them.
+    if (slide.deck) return window == slide.leaving || window == slide.arriving ? std::optional<double>(0.0) : std::nullopt;
     const double position = activeSlidePosition();
     if (window == slide.leaving) return activeSlideLeavingShift(position, slide.side, slide.pitch);
     if (window == slide.arriving) return activeSlideArrivingShift(position, slide.side, slide.pitch);
     return std::nullopt;
+}
+
+std::optional<StackStepPose> CardStageController::activeStackStepPose(const KWin::EffectWindow *window) const
+{
+    if (!window || !activeSlideRunning()) return std::nullopt;
+    const auto &slide = m_activeSlide;
+    if (!slide.deck || (window != slide.leaving && window != slide.arriving)) return std::nullopt;
+    return stackStepPose(activeSlidePosition(), slide.side > 0, window == slide.arriving, slide.cardWidth);
+}
+
+void CardStageController::startStackStep(KWin::EffectWindow *leaving, int side)
+{
+    KWin::EffectWindow *arriving = selectedWindow();
+    if (!leaving || !arriving || leaving == arriving || side == 0 || motionIsInstant()) {
+        endActiveSlide();
+        return;
+    }
+    // A step during a step starts afresh from the cards' places: each is
+    // short, and the deck never carries a card far from its place.
+    m_activeSlide = {};
+    m_activeSlide.leaving = leaving;
+    m_activeSlide.arriving = arriving;
+    m_activeSlide.side = side;
+    m_activeSlide.deck = true;
+    m_activeSlide.cardWidth = arriving->frameGeometry().width();
+    m_activeSlide.motion = {0.0, 1.0, motion(StackStepDuration), ActiveSlideMotion::Shape::Linear};
+    m_activeSlide.clock.start();
+    m_motionClock.start();
+    KWin::effects->addRepaintFull();
 }
 
 void CardStageController::startActiveSlide(KWin::EffectWindow *leaving, KWin::EffectWindow *arriving,
@@ -895,6 +932,7 @@ void CardStageController::startActiveSlide(KWin::EffectWindow *leaving, KWin::Ef
         endActiveSlide();
         return;
     }
+    m_activeSlide.deck = false;
     m_activeSlide.leaving = leaving;
     m_activeSlide.arriving = arriving;
     m_activeSlide.side = side;
@@ -926,7 +964,7 @@ void CardStageController::continueActiveSlide(KWin::EffectWindow *leaving, int s
     // reverses the strip where it stands; any other starts from its card.
     double from = 0.0;
     auto &slide = m_activeSlide;
-    if (activeSlideRunning()) {
+    if (activeSlideRunning() && !slide.deck) {
         const double now = activeSlidePosition();
         if (slide.tracking) from = now;
         else if (slide.leaving == arriving && slide.arriving == leaving) from = 1.0 - now;
@@ -952,6 +990,7 @@ void CardStageController::dragActiveSlide(int side, double travel)
     slide.side = arrivingSide;
     slide.pitch = pitch;
     slide.tracking = true;
+    slide.deck = false;
     slide.position = activeSlideTracked(toward, pitch, arriving != nullptr);
     slide.clock.invalidate();
     KWin::effects->addRepaintFull();

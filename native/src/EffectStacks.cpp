@@ -1358,4 +1358,23 @@ void Effect::pairWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin:
     });
 }
 
+void Effect::applyStackStepPose(KWin::EffectWindow *window, KWin::WindowPaintData &data, const StackStepPose &step)
+{
+    // Each card scales about its middle; the one going round the deck also
+    // slides a little and turns about its middle.
+    const QRectF f(window->frameGeometry());
+    const QRectF e(window->expandedGeometry());
+    const double s = std::max(0.01, step.scale);
+    data.multiplyOpacity(step.opacity);
+    data.multiplyBrightness(step.brightness);
+    data.setXScale(data.xScale() * s);
+    data.setYScale(data.yScale() * s);
+    data.setXTranslation(data.xTranslation() + f.width() * (1.0 - s) / 2.0 + step.dx);
+    data.setYTranslation(data.yTranslation() + f.height() * (1.0 - s) / 2.0 + step.dy);
+    if (step.rotation == 0.0) return;
+    data.setRotationAngle(step.rotation);
+    data.setRotationOrigin(QVector3D((f.center().x() - e.x()) / data.xScale(),
+        (f.center().y() - e.y()) / data.yScale(), 0.0));
+}
+
 } // namespace Kadunce
