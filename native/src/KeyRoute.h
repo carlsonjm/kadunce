@@ -4,6 +4,7 @@
 #include <input.h>
 #include <input_event.h>
 #include <QSet>
+#include <QString>
 #include <functional>
 
 namespace Kadunce {
@@ -17,9 +18,11 @@ namespace Kadunce {
 class KeyRoute
 {
 public:
-    // `answer` acts on a key and says whether it did. `released` hears every
-    // key let go, Kadunce's or not, and changes nothing about it.
-    using Answer = std::function<bool(int key, Qt::KeyboardModifiers modifiers, bool repeat)>;
+    // `answer` acts on a key, given the text it types, and says whether it
+    // did. `released` hears every key let go, Kadunce's or not, and changes
+    // nothing about it.
+    using Answer = std::function<bool(int key, Qt::KeyboardModifiers modifiers, bool repeat,
+                                      const QString &text)>;
     using Released = std::function<void(int key)>;
 
     explicit KeyRoute(Answer answer, Released released = {})
@@ -53,7 +56,8 @@ private:
             }
             const bool repeat = event->state == KWin::KeyboardKeyState::Repeated;
             if (repeat && !taken.contains(event->nativeScanCode)) return false;
-            if (!m_route->m_answer(event->key, event->modifiersRelevantForGlobalShortcuts, repeat)) {
+            if (!m_route->m_answer(event->key, event->modifiersRelevantForGlobalShortcuts, repeat,
+                                  event->text)) {
                 // A key held down that no longer means anything here is still
                 // Kadunce's until it is let go.
                 if (repeat) event->key = Qt::Key_unknown;

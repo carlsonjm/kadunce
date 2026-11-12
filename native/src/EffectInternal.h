@@ -28,6 +28,7 @@
 #include "TouchDisplay.h"
 #include "DesktopRemoval.h"
 #include "StuckNotesWatcher.h"
+#include "SearchTyping.h"
 #include "SurfaceTone.h"
 #include "KWinMatch.h"
 #include "DisplayBounds.h"

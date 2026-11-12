@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
+#include <QString>
 #include <Qt>
 
 namespace Kadunce {
@@ -118,6 +119,19 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         }
     }
     return KeyAction::None;
+}
+
+// In Spread, a key that types text without Ctrl, Alt or Meta held opens
+// Search there with that text; Shift only chooses the character. Space alone
+// and keys that type nothing, such as the arrows, Enter and Escape, keep their
+// meaning. Once a search has begun, a space is part of it.
+inline bool keyStartsSearch(const QString &text, Qt::KeyboardModifiers modifiers, bool begun = false)
+{
+    if (modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) return false;
+    if (text.isEmpty() || (!begun && text.trimmed().isEmpty())) return false;
+    for (const QChar character : text)
+        if (!character.isPrint()) return false;
+    return true;
 }
 
 // Held down, moving the focus, along the row or round a Stack, a card deeper
