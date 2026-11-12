@@ -1091,8 +1091,9 @@ void Effect::beginTableRename(int workspace, bool touch)
         refreshTable();
     });
     // A finger held the tab, so the keys come up, as the person asked for
-    // them; a mouse or the keyboard has keys already.
-    if (touch) raiseKeyboard();
+    // them; a mouse or the keyboard has keys already, as has anyone who has
+    // typed on a real keyboard still attached.
+    if (touch && !m_typedKeyboards.any()) raiseKeyboard();
     quietCardGap(KWin::effects->cursorPos());
 }
 

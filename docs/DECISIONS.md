@@ -410,12 +410,13 @@ Active card again.
 ### The keyboard comes up for the text, not for focus
 
 The keys come up only when you ask for them,
-by tapping a text field or Keyboard in Control Center or the tray. The Keyboard
-entry leaves the focus where it was; only a cold start, with no text box ready,
-borrows it. An application focusing a field on its own is not a request to type,
-so keys KWin raises for it are put back down and the dock stays. The tap that
-opens a card in Spread is Kadunce's own, and a tap is answered once its keys
-begin to go. Rejected: a time limit on a tap, which refused slow applications.
+by tapping a text field or Keyboard in Control Center or the tray. An
+application focusing a field on its own is not a request to type, so keys KWin
+raises for it are put back down and the dock stays. The tap that opens a card in
+Spread is Kadunce's own, and a tap is answered once its keys begin to go. After
+typing on an attached keyboard, taps bring none until it goes or the tablet
+leaves its cover. Rejected: a time limit on a tap, which refused slow
+applications, and any keyboard connected, which mouse receivers hold forever.
 
 ### The dock steps aside for the keys
 
