@@ -32,6 +32,20 @@ int main()
                              KeySpace, KeyF1, KeyUp, KeyVolumeUp, KeyLeftMeta})
             require(!TypedKeyboards::typesText(code), "a control, modifier or media key types nothing");
     }
+    // Keyboards a person types on, by where udev finds them.
+    {
+        require(TypedKeyboards::isRealKeyboardPath(QStringLiteral(
+                    "/sys/devices/pci0000:00/0000:00:08.1/0000:c4:00.3/usb1/1-1/1-1:1.0/0003:0B05:1A30.0001/input/input5/event5")),
+                "a USB keyboard counts");
+        require(TypedKeyboards::isRealKeyboardPath(QStringLiteral(
+                    "/sys/devices/virtual/misc/uhid/0005:0B05:1B08.0010/input/input53/event20")),
+                "a Bluetooth keyboard, through uhid, counts");
+        require(TypedKeyboards::isRealKeyboardPath(QStringLiteral("/sys/devices/platform/i8042/serio0/input/input3/event3")),
+                "a built-in keyboard counts");
+        require(!TypedKeyboards::isRealKeyboardPath(QStringLiteral("/sys/devices/virtual/input/input60/event25")),
+                "a program's uinput keyboard does not");
+        require(!TypedKeyboards::isRealKeyboardPath(QString()), "KWin's own devices, with no path, do not");
+    }
     // Nothing typed yet: taps bring the keys.
     {
         TypedKeyboards typed;

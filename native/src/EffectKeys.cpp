@@ -294,15 +294,10 @@ void Effect::keepUnaskedKeyboardDown()
 
 namespace
 {
-// A keyboard a person types on: one the kernel found on a bus. KWin's own
-// devices, which carry the keys from Shuffle Keyboard, a remote desktop or a
-// fake input client, have no place in /sys, and a program's keyboard made
-// with uinput sits under /sys/devices/virtual.
+// A keyboard a person types on (TypedKeyboards::isRealKeyboardPath).
 bool isRealKeyboard(const KWin::InputDevice *device)
 {
-    if (!device || !device->isKeyboard()) return false;
-    const QString path = device->sysPath();
-    return !path.isEmpty() && !path.contains(QLatin1String("/virtual/"));
+    return device && device->isKeyboard() && TypedKeyboards::isRealKeyboardPath(device->sysPath());
 }
 } // namespace
 

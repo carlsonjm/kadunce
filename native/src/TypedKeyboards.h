@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QSet>
+#include <QString>
 #include <QtGlobal>
 
 namespace Kadunce
@@ -34,6 +35,19 @@ public:
             || (code >= 30 && code <= 41) // A to L, semicolon, quote, grave
             || (code >= 43 && code <= 53) // backslash, Z to M, comma, dot, slash
             || code == 86; // the extra key beside left Shift on ISO keyboards
+    }
+
+    // Whether a keyboard at the udev path `sysPath` is one a person types on.
+    // KWin's own devices, which carry the keys from Shuffle Keyboard, a remote
+    // desktop or a fake input client, have no path. A program's keyboard made
+    // with uinput sits under /sys/devices/virtual/input. A Bluetooth keyboard
+    // also sits under /sys/devices/virtual, but beneath uhid, through which
+    // BlueZ hands the kernel its keys, so it counts.
+    [[nodiscard]] static bool isRealKeyboardPath(const QString &sysPath)
+    {
+        if (sysPath.isEmpty()) return false;
+        if (!sysPath.contains(QLatin1String("/devices/virtual/"))) return true;
+        return sysPath.contains(QLatin1String("/devices/virtual/misc/uhid/"));
     }
 
     // A key `code` went down on `device`. True when this makes the device
