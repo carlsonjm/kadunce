@@ -181,6 +181,7 @@ uniform vec4 modulation;
 uniform vec2 apertureSize;
 uniform float apertureRadius;
 uniform float tiltedSampling;
+uniform float settledEdges;
 
 float roundedRectangleDistance(vec2 point, vec2 size, float radius)
 {
@@ -218,6 +219,12 @@ void main(void)
     float feather = max(fwidth(distanceToEdge), 1.0);
     float coverage = 1.0
         - smoothstep(-feather, 0.0, distanceToEdge);
+    // A window standing upright at its own place keeps its last pixel
+    // whole: its straight edges already lie on the quad's, and fading them
+    // would show what is behind as a line where it meets the screen's edge
+    // or a neighbour. Only its corners are smoothed, outward of the curve.
+    if (settledEdges > 0.5)
+        coverage = clamp(1.0 - distanceToEdge / feather, 0.0, 1.0);
 
     tex = sourceEncodingToNitsInDestinationColorspace(tex);
     tex = adjustSaturation(tex);

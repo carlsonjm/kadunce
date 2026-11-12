@@ -801,8 +801,16 @@ KWin::Rect CardStageController::activeTarget(KWin::LogicalOutput *output) const
     // for the keys is made from this target, in updateKeyboardRoom.
     const CardRect target = makeActiveTarget(
         work.x(), work.y(), work.width(), work.height(), m_settings.gutter());
-    return KWin::Rect(qRound(target.x), qRound(target.y),
-                      qRound(target.width), qRound(target.height));
+    // Edges, not sizes, are rounded, so the card ends where its edge does.
+    // With no gutter they are rounded outward: a work area that ends between
+    // whole points, as it does at a fractional scale, is still met, and no
+    // line of the screen beside it is left uncovered.
+    const bool flush = m_settings.gutter() <= 0;
+    const auto inward = [flush](double edge) { return flush ? int(std::floor(edge + 1e-6)) : qRound(edge); };
+    const auto outward = [flush](double edge) { return flush ? int(std::ceil(edge - 1e-6)) : qRound(edge); };
+    const int left = inward(target.x), top = inward(target.y);
+    return KWin::Rect(left, top, std::max(1, outward(target.x + target.width) - left),
+                      std::max(1, outward(target.y + target.height) - top));
 }
 
 KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,

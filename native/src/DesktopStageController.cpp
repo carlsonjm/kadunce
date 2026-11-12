@@ -308,6 +308,15 @@ KWin::Rect DesktopStageController::workspaceArea(KWin::LogicalOutput *output) co
 {
     if (!output) return {};
     const KWin::RectF work = KWin::effects->clientArea(KWin::MaximizeArea, output);
+    // With no gap the panes meet the work area's edges, so they are rounded
+    // outward: at a fractional scale the area ends between whole points, and
+    // rounding it in would leave a line of the screen beside it uncovered.
+    if (bentoPaneGap() <= 0) {
+        const int left = int(std::floor(work.x() + 1e-6)), top = int(std::floor(work.y() + 1e-6));
+        return KWin::Rect(left, top,
+            std::max(1, int(std::ceil(work.x() + work.width() - 1e-6)) - left),
+            std::max(1, int(std::ceil(work.y() + work.height() - 1e-6)) - top));
+    }
     return KWin::Rect(qRound(work.x()), qRound(work.y()),
         std::max(1, qRound(work.width())), std::max(1, qRound(work.height())));
 }
