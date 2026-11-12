@@ -289,7 +289,7 @@ bool CardStageController::restack(KWin::EffectWindow *face, const QList<KWin::Ef
     for (int i = 1; i < members.size(); ++i) rest.append(members.at(i));
     if (!m_workspace.stackBehind(face, rest)) return false;
     syncSelectedStackingOrder();
-    standStackWhole(face);
+    standStackAsOne(face);
     return true;
 }
 

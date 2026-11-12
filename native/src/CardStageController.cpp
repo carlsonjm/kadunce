@@ -340,7 +340,7 @@ bool CardStageController::stackBehind(KWin::EffectWindow *face, const QList<KWin
     for (auto *window : behind) members.append(window);
     if (!m_workspace.stackBehind(face, members)) return false;
     syncSelectedStackingOrder();
-    standStackWhole(face);
+    standStackAsOne(face);
     KWin::effects->addRepaintFull();
     return true;
 }
@@ -402,7 +402,7 @@ bool CardStageController::arrangeEntries(const QList<QList<KWin::EffectWindow *>
     }
     if (!changed) return false;
     syncSelectedStackingOrder();
-    if (KWin::EffectWindow *selected = selectedWindow()) standStackWhole(selected);
+    if (KWin::EffectWindow *selected = selectedWindow()) standStackAsOne(selected);
     KWin::effects->addRepaintFull();
     return true;
 }
@@ -679,33 +679,48 @@ bool CardStageController::enterActive()
     return true;
 }
 
-void CardStageController::standStackWhole(const KWin::EffectWindow *member)
+void CardStageController::standStackAsOne(const KWin::EffectWindow *member)
 {
     const QList<KWin::EffectWindow *> stack = stackFrontToBack(member);
     if (stack.size() < 2) return;
-    // Every card of it, on whichever display holds it, stands at that
-    // display's whole Active place: one size, the Stack's.
-    QHash<KWin::LogicalOutput *, QList<QPointer<KWin::EffectWindow>>> byDisplay;
-    int narrowed = 0;
+    // One size, the Stack's: the centred width of the card nearest the front
+    // that stands narrowed by the wheel, else the whole Active width.
+    std::optional<double> width;
     for (auto *card : stack) {
-        if (m_activeWidths.remove(card)) ++narrowed;
+        const auto share = m_activeWidths.constFind(card);
+        if (share != m_activeWidths.cend() && *share < 1.0) { width = *share; break; }
+    }
+    standStackAt(stack, width);
+}
+
+void CardStageController::standStackAt(const QList<KWin::EffectWindow *> &stack, std::optional<double> width)
+{
+    // Every card of it, on whichever display holds it, stands at that
+    // display's Active place at the Stack's width.
+    QHash<KWin::LogicalOutput *, QList<QPointer<KWin::EffectWindow>>> byDisplay;
+    for (auto *card : stack) {
+        if (width) m_activeWidths.insert(card, std::min(*width, 1.0));
+        else m_activeWidths.remove(card);
         if (card && card->screen() && canOwnCards(card->screen())) byDisplay[card->screen()].append(card);
     }
-    qInfo() << "Kadunce" << Revision << "stands a Stack of" << stack.size() << "at the whole width;"
-            << narrowed << "narrowed by the wheel";
+    qInfo() << "Kadunce" << Revision << "stands a Stack of" << stack.size() << "at"
+            << (width ? QString::number(*width, 'f', 3) + QStringLiteral(" of the width") : QStringLiteral("the whole width"));
     if (m_presentation == CardPresentation::Active && m_activeRestore.window
         && stack.contains(m_activeRestore.window.data())) (void)refitActive(m_activeRestore.window);
     // §11, Connected: cards waiting behind a layout's pane stand at that
     // pane's place, so each comes forward at the size it is shown, without
     // its application drawing itself again.
-    KWin::EffectWindow *pane = paneHolding(member);
+    KWin::EffectWindow *pane = paneHolding(stack.first());
     if (pane && !pane->isDeleted() && pane->window() && pane->screen()) {
         QList<QPointer<KWin::EffectWindow>> behind;
         for (auto *card : stack) if (card != pane) behind.append(card);
         settleCardsInActivePlace(behind, pane->screen(), pane->window()->moveResizeGeometry());
         return;
     }
-    for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it) settleCardsInActivePlace(it.value(), it.key());
+    // Each card comes forward already at the Stack's width.
+    for (auto it = byDisplay.cbegin(); it != byDisplay.cend(); ++it)
+        settleCardsInActivePlace(it.value(), it.key(),
+            width ? std::optional<KWin::RectF>(KWin::RectF(activeTargetFor(it.key(), stack.first()))) : std::nullopt);
 }
 
 
@@ -751,7 +766,7 @@ void CardStageController::settleCardsInActivePlace(const QList<QPointer<KWin::Ef
     }
     if (settled > 0)
         qInfo() << "Kadunce" << Revision << "stood" << settled
-                << (place ? "cards behind their pane, at its place" : "cards in the Active card's place");
+                << (place ? "cards at the place given" : "cards in the Active card's place");
 }
 
 void CardStageController::keepTooBigInPlace(KWin::EffectWindow *window, const KWin::RectF &target)

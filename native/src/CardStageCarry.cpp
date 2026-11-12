@@ -715,7 +715,7 @@ void CardStageController::finishCardGrab(bool commit)
         outcome = movement != 0 ? "moved" : "stayed";
     }
     resetCardGrabState(grabbed, stacked);
-    if (stacked) standStackWhole(selectedWindow());
+    if (stacked) standStackAsOne(selectedWindow());
     qInfo() << "Kadunce" << Revision << "released Spread card"
             << m_workspace.selectedId() << outcome << "at entry" << m_workspace.selectedIndex() + 1;
 }

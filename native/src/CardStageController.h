@@ -370,6 +370,7 @@ public:
     [[nodiscard]] static KWin::Rect narrowedActive(const KWin::Rect &whole, double share,
                                                    double minimumWidth);
     // The share a card stands at when it is Active; the whole width forgets it.
+    // Given a card of a Stack, the whole Stack takes it.
     void setActiveWidth(const KWin::EffectWindow *window, double share);
     // The Active card `window` moved to its place again, as its width now
     // gives it. False when it is not this stage's Active card.
@@ -645,9 +646,12 @@ private:
     void rebuildLiveCards();
     // Every awake card stands in the Active card's place; each keeps its own
     // in its restore record.
-    // A Stack stands at the whole Active width: its cards forget any width
-    // the wheel gave one alone and stand in the Active place.
-    void standStackWhole(const KWin::EffectWindow *member);
+    // A Stack stands at one width: that of the card nearest its front the
+    // wheel narrowed, else the whole Active width; every card of it takes it.
+    void standStackAsOne(const KWin::EffectWindow *member);
+    // Every card of `stack` takes `width`, the whole Active width when none,
+    // and stands in the Active place at it.
+    void standStackAt(const QList<KWin::EffectWindow *> &stack, std::optional<double> width);
     // On `output`'s Active place, the tablet's when none is named.
     // Cards waiting behind a layout's pane stand at `place`, that pane's.
     void settleCardsInActivePlace(const QList<QPointer<KWin::EffectWindow>> &cards,
