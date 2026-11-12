@@ -612,9 +612,10 @@ rg -q 'window == m_fanApertureWindow' "${effect_cpp}" "${card_cpp}"
 rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
-# must not change this behavior.
+# must not change this behavior. Updated deliberately when the Active card's
+# gutter floor went from 4 to 0 px (SpreadLayoutTest covers the 0 px edge).
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
-    "b6d8743405bd79c671445e233be40a35c9612b39ba0ca4239d06dced46b1615a"
+    "bb3deef158fe4ae6cdd6092107486c6c87f5cad3c02f02ab4cea23341353542b"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
@@ -687,7 +688,7 @@ rg -q 'EffectsHandler::windowActivated' "${effect_cpp}"
 rg -q 'handleWindowActivated' "${effect_cpp}" "${effect_header}" \
     "${card_cpp}" "${card_header}"
 rg -q 'promoted externally activated card' "${card_cpp}"
-rg -Fq 'std::clamp(requestedGutter, 4.0, 48.0)' \
+rg -Fq 'std::clamp(requestedGutter, 0.0, 48.0)' \
     "${native_dir}/src/SpreadLayout.cpp"
 if rg -q 'renderSyntheticLine|SYNTHETIC SPREAD|GLTexture' "${effect_cpp}" "${card_cpp}" "${effect_header}" "${card_header}"; then
     echo "Synthetic cards must never appear in the live effect" >&2
