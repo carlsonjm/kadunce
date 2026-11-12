@@ -56,9 +56,9 @@ private:
 
         const CardTuning tuningBefore = cardTuning();
         CardTuning tuning;
-        tuning.cornerRadius = std::clamp(group.readEntry("CardCornerRadius", CardTuning::DefaultCornerRadius), 2.0, 15.0);
+        tuning.cornerRadius = std::clamp(group.readEntry("CardCornerRadius", CardTuning::DefaultCornerRadius), 0.0, 30.0);
         if (group.hasKey("SleepingDimmed")) tuning.sleepingDimmed = group.readEntry("SleepingDimmed", false);
-        tuning.stackPauseMs = std::clamp(group.readEntry("StackPauseMs", CardTuning::DefaultStackPauseMs), 200, 800);
+        tuning.stackPauseMs = std::clamp(group.readEntry("StackPauseMs", CardTuning::DefaultStackPauseMs), 100, 2000);
         tuning.stackBehindShown = group.readEntry("StackBehind", QStringLiteral("hairline")).trimmed().toLower()
             != QStringLiteral("none");
         tuning.spreadPeek = std::clamp(group.readEntry("SpreadPeek", CardTuning::DefaultSpreadPeek), 0.0, 1.0);

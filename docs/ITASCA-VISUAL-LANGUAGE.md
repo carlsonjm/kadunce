@@ -230,9 +230,9 @@ they preserve these relationships and respect the user's animation settings.
   every display, so they stand 10 px apart by default.
 - kwinrc `[Effect-kadunce]` tunes the cards, each key read as it changes and
   listed in the installed `kadunce/settings-keys`: `ActiveCardGutter`;
-  `CardCornerRadius`, the paper tier at 2–15 px; `SleepingDimmed`, true to
+  `CardCornerRadius`, the paper tier at 0–30 px; `SleepingDimmed`, true to
   dim every sleeping card in Spread and false to draw each at full strength;
-  `StackPauseMs`, 200–800 ms (450 unset), how long a carried pane rests on
+  `StackPauseMs`, 100–2000 ms (450 unset), how long a carried pane rests on
   another before they stack, Spread's shorter rest keeping its share;
   `StackBehind`, `hairline` or `none`, whether Spread shows the cards behind a
   Stack's front; `SpreadPeek`, 0–1 (0.5 unset), how far Spread's neighbours

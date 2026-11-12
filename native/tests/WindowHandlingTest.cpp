@@ -323,9 +323,13 @@ int main(int argc, char **argv)
         require(tunings > before);
     };
     tune("CardCornerRadius", "12", [] { return Kadunce::cardTuning().cornerRadius == 12.0; });
-    tune("CardCornerRadius", "40", [] { return Kadunce::cardTuning().cornerRadius == 15.0; });
+    tune("CardCornerRadius", "40", [] { return Kadunce::cardTuning().cornerRadius == 30.0; });
+    tune("CardCornerRadius", "0", [] { return Kadunce::cardTuning().cornerRadius == 0.0; });
+    tune("CardCornerRadius", "12", [] { return Kadunce::cardTuning().cornerRadius == 12.0; });
     tune("SleepingDimmed", "false", [] { return Kadunce::cardTuning().sleepingDimmed == std::optional<bool>(false); });
-    tune("StackPauseMs", "900", [] { return Kadunce::cardTuning().stackPauseMs == 800; });
+    tune("StackPauseMs", "50", [] { return Kadunce::cardTuning().stackPauseMs == 100; });
+    tune("StackPauseMs", "2500", [] { return Kadunce::cardTuning().stackPauseMs == 2000; });
+    tune("StackPauseMs", "800", [] { return Kadunce::cardTuning().stackPauseMs == 800; });
     // Spread's own shorter rest keeps its share of the pause.
     require(Kadunce::paneStackDwell() == 800);
     require(Kadunce::carryJoinDwell() == std::lround(Kadunce::CarryJoinDwell * 800.0 / 450.0));

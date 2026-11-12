@@ -13,13 +13,14 @@ struct CardTuning {
     static constexpr int DefaultStackPauseMs = 450;
     static constexpr double DefaultSpreadPeek = 0.5;
 
-    // CardCornerRadius: the paper tier every window is cut to, 2 to 15 px.
+    // CardCornerRadius: the paper tier every window is cut to, from 0, square,
+    // to 30 px.
     double cornerRadius = DefaultCornerRadius;
     // SleepingDimmed: whether Spread dims a sleeping card. Unset, it is dimmed
     // unless a context line says it sleeps (CARD-LIFECYCLE.md § Sleeping).
     std::optional<bool> sleepingDimmed;
     // StackPauseMs: how long a carried card rests on another before they
-    // stack, 200 to 800 ms. Spread's own shorter pause keeps its proportion.
+    // stack, 100 to 2000 ms. Spread's own shorter pause keeps its proportion.
     int stackPauseMs = DefaultStackPauseMs;
     // StackBehind: "hairline" shows the cards behind a Stack's front card at
     // their edges in Spread; "none" shows its front card alone.
