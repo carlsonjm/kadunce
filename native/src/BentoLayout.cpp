@@ -334,10 +334,12 @@ std::vector<BentoPixelRect> makePixelBentoLayout(
             - (rect.x + rect.width < 0.999 ? gap / 2.0 : 0.0);
         const double bottom = areaY + (rect.y + rect.height) * areaHeight
             - (rect.y + rect.height < 0.999 ? gap / 2.0 : 0.0);
-        pixels.push_back({static_cast<int>(std::lround(left)),
-                          static_cast<int>(std::lround(top)),
-                          std::max(1, static_cast<int>(std::lround(right - left))),
-                          std::max(1, static_cast<int>(std::lround(bottom - top)))});
+        // Each edge is rounded once, so two panes that share an edge land
+        // on the same point and no line opens between them.
+        const long x = std::lround(left), y = std::lround(top);
+        pixels.push_back({static_cast<int>(x), static_cast<int>(y),
+                          std::max(1, static_cast<int>(std::lround(right) - x)),
+                          std::max(1, static_cast<int>(std::lround(bottom) - y))});
     }
     return pixels;
 }

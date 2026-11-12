@@ -112,7 +112,7 @@ int main()
     // not just the current tablet's geometry or a few sample gutter values.
     for (const auto origin : {std::array<double, 2>{0, 0},
                               std::array<double, 2>{-1920, 240}}) {
-        for (int gutter = 4; gutter <= 48; ++gutter) {
+        for (int gutter = 0; gutter <= 48; ++gutter) {
             const auto bounds = Kadunce::makeActiveTarget(origin[0], origin[1], 1280, 800, gutter, 10);
             require(close(bounds.x - origin[0], gutter)
                         && close(bounds.y - origin[1], gutter)
@@ -412,20 +412,20 @@ int main()
     require(close(noDock.y - 241, 10) && close(241 + 915 - noDock.bottom(), 10),
             "Dock-free tablet must retain symmetric margins");
     const auto edge = Kadunce::makeActiveTarget(20, 30, width, height, 0, 10);
-    require(close(edge.x, 24) && close(edge.y, 34) && close(edge.width, width - 8)
-                && close(edge.height, height - 18), "Saved zero gutter must clamp to 4 px plus dock clearance");
+    require(close(edge.x, 20) && close(edge.y, 30) && close(edge.width, width)
+                && close(edge.height, height - 10), "A zero gutter meets every edge, keeping only the dock clearance");
     const auto maximum = Kadunce::makeActiveTarget(0, 0, width, height, 200);
     require(close(maximum.x, 48) && close(maximum.width, width - 96),
             "Oversized gutter must clamp to 48 px");
     const auto minimum = Kadunce::makeActiveTarget(0, 0, width, height, 4);
-    require(close(minimum.x, 4), "Minimum gutter must remain 4 px");
+    require(close(minimum.x, 4), "A 4 px gutter stays 4 px");
     const auto custom = Kadunce::makeActiveTarget(20, 30, width, height, 36);
     require(close(custom.x, 56) && close(custom.y, 66)
                 && close(custom.width, width - 72), "Custom gutter was not applied");
     const auto tiny = Kadunce::makeActiveTarget(0, 0, 100, 80, 200);
     require(tiny.width > 0 && tiny.height >= 1, "Gutter produced invalid small-screen bounds");
     const auto negative = Kadunce::makeActiveTarget(0, 0, width, height, -5);
-    require(close(negative.x, 4), "Negative gutter must clamp to 4 px");
+    require(close(negative.x, 0) && close(negative.width, width), "Negative gutter must clamp to 0 px");
     std::cout << "Spread anchors and Active bounds are deterministic\n";
     return EXIT_SUCCESS;
 }

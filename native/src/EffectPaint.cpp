@@ -1339,6 +1339,8 @@ PaintResult Effect::drawTrimmedWindow(const KWin::RenderTarget &renderTarget,
         static_cast<float>(cardCornerRadius() * scale));
     m_fanApertureShader->setUniform("tiltedSampling",
         qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
+    m_fanApertureShader->setUniform("settledEdges",
+        qFuzzyIsNull(data.rotationAngle()) ? 1.0F : 0.0F);
     glActiveTexture(GL_TEXTURE0);
     const bool drawn = painted([&] { return KWin::OffscreenEffect::drawWindow(
         renderTarget, viewport, window, mask, deviceRegion, data); });
@@ -1452,6 +1454,7 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         m_fanApertureRadiusLocation, m_fanApertureRadius);
     m_fanApertureShader->setUniform("tiltedSampling",
         qFuzzyIsNull(data.rotationAngle()) ? 0.0F : 1.0F);
+    m_fanApertureShader->setUniform("settledEdges", 0.0F);
     glActiveTexture(GL_TEXTURE0);
 
     const bool drawn = painted([&] { return KWin::OffscreenEffect::drawWindow(

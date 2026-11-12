@@ -49,7 +49,7 @@ private:
         const int before = m_gutter;
         const int paneGapBefore = bentoPaneGap();
         const KConfigGroup group(m_config, QStringLiteral("Effect-kadunce"));
-        m_gutter = std::clamp(group.readEntry("ActiveCardGutter", 10), 4, 48);
+        m_gutter = std::clamp(group.readEntry("ActiveCardGutter", 10), 0, 48);
         // Bento's panes stand as far apart as the gutter, set or not.
         setBentoPaneGap(m_gutter);
         if ((m_gutter != before || bentoPaneGap() != paneGapBefore) && m_changed) m_changed();

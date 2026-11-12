@@ -11,11 +11,12 @@
 namespace Kadunce
 {
 
-constexpr double BentoStageSideInset = 10.0;
-constexpr double BentoStageTopInset = 10.0;
-// The same as every other edge. It was once twice that, to leave room for a
-// dock that floated above the work area; the dock now reserves its own space.
-constexpr double BentoStageBottomInset = 10.0;
+// The stage stands the card gutter in from every edge, as the Active card
+// does: 10 px by default, and none at all when the gutter is set to 0. The
+// bottom is the same as every other edge. It was once twice that, to leave
+// room for a dock that floated above the work area; the dock now reserves its
+// own space.
+[[nodiscard]] inline double bentoStageInset() { return double(bentoPaneGap()); }
 
 struct BentoCompositeGeometry {
     CardRect sourceUnion;
@@ -39,12 +40,11 @@ struct BentoProjectedPaneGeometry {
 
 [[nodiscard]] inline CardRect makeBentoStageArea(const CardRect &workspace)
 {
-    if (workspace.width <= BentoStageSideInset * 2.0
-        || workspace.height <= BentoStageTopInset + BentoStageBottomInset) return {};
-    return {workspace.x + BentoStageSideInset,
-        workspace.y + BentoStageTopInset,
-        workspace.width - BentoStageSideInset * 2.0,
-        workspace.height - BentoStageTopInset - BentoStageBottomInset};
+    const double inset = bentoStageInset();
+    if (workspace.width <= inset * 2.0 || workspace.height <= inset * 2.0
+        || workspace.width <= 0.0 || workspace.height <= 0.0) return {};
+    return {workspace.x + inset, workspace.y + inset,
+        workspace.width - inset * 2.0, workspace.height - inset * 2.0};
 }
 
 [[nodiscard]] inline BentoCompositeGeometry makeBentoCompositeGeometry(

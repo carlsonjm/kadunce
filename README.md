@@ -237,7 +237,7 @@ Click the **Cards** icon in the system tray to turn Kadunce on or off.
   rebuilds it after a KWin update.
 - **Monitors use my zones (Meta+T)**, which switches a display kept as ordinary
   windows between filling itself and your zones, like `Meta+Shift+B`.
-- **Settings…**, where you set the gutter around the Active card, 4 to 48 px,
+- **Settings…**, where you set the gutter around the Active card, 0 to 48 px,
   10 px by default. Bento's panes stand that far apart too.
 
 Every word the menu shows can be translated, and comes in German, French, Spanish and Brazilian Portuguese as well as English.
