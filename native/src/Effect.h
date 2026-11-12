@@ -82,6 +82,7 @@ namespace Kadunce
 {
 
 class StuckNotesWatcher;
+class SearchTyping;
 
 class Effect final : public KWin::OffscreenEffect,
                      protected QDBusContext,
@@ -1090,7 +1091,7 @@ private:
     void setPagingShortcutsActive(bool active);
     // The stage key the keys act on (CARD-LIFECYCLE.md §11).
     [[nodiscard]] QString keyStageKey() const;
-    bool answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat);
+    bool answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, const QString &text);
     void runKeyAction(KeyAction action);
     // KWin's gesture recogniser calls these; they are invokable, never on the
     // bus, so a private compositor's probe can drive them where its virtual
@@ -1225,6 +1226,8 @@ private:
                          const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
                          const QRectF &heldRect, QList<QRectF> &drawn);
     StuckNotesWatcher *m_stuckNotesWatcher = nullptr;
+    // Typing in Spread opens Search there, while Tettegouche runs.
+    SearchTyping *m_searchTyping = nullptr;
     StuckNotesSpread m_stuckNotes;
     NoteStackRenderer m_noteStackRenderer;
     // Spread was shown on the last frame, and whether Gooseberry was last

@@ -373,8 +373,8 @@ Effect::Effect()
     // § Keyboard shortcuts), so Ctrl stays with applications and nothing is
     // written to the person's shortcut settings.
     m_keyRoute = std::make_unique<KeyRoute>(
-        [this](int key, Qt::KeyboardModifiers modifiers, bool repeat) {
-            return answerKey(key, modifiers, repeat);
+        [this](int key, Qt::KeyboardModifiers modifiers, bool repeat, const QString &text) {
+            return answerKey(key, modifiers, repeat, text);
         },
         [this](int key) { keyReleased(key); });
 
@@ -791,6 +791,8 @@ Effect::Effect()
     // hand starts the gathering of apps opened together.
     startWorkspaceMemory();
 
+    // Search, while Tettegouche runs; without it Spread takes no typing.
+    m_searchTyping = new SearchTyping(this);
     // Gooseberry's notes, while it runs; without it Spread draws none.
     m_stuckNotesWatcher = new StuckNotesWatcher(this);
     connect(m_stuckNotesWatcher, &StuckNotesWatcher::windowsChanged, this, [this](const QVariantList &windows) {
