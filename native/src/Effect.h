@@ -1402,6 +1402,9 @@ private:
     // Whether the keys on screen came up through raiseKeyboard, the person's
     // own request, rather than for a tap on a field.
     bool m_keysAsked = false;
+    // Set when typing on a real keyboard sent the keys away, until they have
+    // gone or the person asks for them again.
+    bool m_keysTypedAway = false;
     // The real keyboards typed on while they stay attached (TypedKeyboards.h).
     // While any is, a tap on a field asks for no keys; the tray, Control
     // Center and the lock screen still bring them.
