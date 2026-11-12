@@ -1066,7 +1066,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 // turned, stays the Active card at its new width.
                 const double width = m_carryWidthEdge == CarryWidthEdge::Top ? m_carryWidth : 0.0;
                 if (width <= 0.0 || m_cardStage->activeCardIdentity() != carried
-                    || !m_carriedWindow->window()) return;
+                    || !m_carriedWindow->window()) {
+                    if (width > 0.0)
+                        qInfo() << "Kadunce" << Revision << "cannot narrow" << logNameOf(carried.data())
+                                << "in place: it is not this display's Active card";
+                    return;
+                }
                 refusal.reset();
                 m_carryCardEntryOutput = target;
                 const KWin::Rect whole = m_cardStage->activeTarget(target);
@@ -1143,6 +1148,9 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         ? !m_desktopStage->extractPaneToCards(carried, sourceValid)
                         : !admitTransferredWindowToTablet(carried, output, sourceValid)) return false;
                     (void)m_cardStage->promoteToActive(carried);
+                    // §11, Connected: a pane that is a card again stands in
+                    // front of its Stack, which comes with it at its width.
+                    if (extractingPane) m_cardStage->settlePaneStacks();
                     glideIntoActive(carried, output, drawn);
                     // §10: taken out of a layout to stand alone, it is called
                     // back alone too, until Meta+B or an edge lays it out.

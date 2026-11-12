@@ -470,6 +470,9 @@ bool Effect::turnCarryWidth(int notches)
     m_carryWidthClock.restart();
     m_carryKnob.turn(notches, crank, least, top ? 1.0 : WheelWidthSideMost, stops);
     m_carryWidth = m_carryKnob.width;
+    qInfo() << "Kadunce" << Revision << "wheel gives" << logNameOf(m_carriedWindow.data())
+            << QString::number(m_carryWidth, 'f', 3) << "of the width at the" << (top ? "top" : "side")
+            << "edge;" << m_cardStage->stackFrontToBack(m_carriedWindow).size() << "in its Stack";
     updateNativeCarryDestination(m_lastCarryContact);
     KWin::effects->addRepaintFull();
     return true;
