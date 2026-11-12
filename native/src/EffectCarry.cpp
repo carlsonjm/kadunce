@@ -1035,6 +1035,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                 [this, reserved, carried, output, bento](const PreparedCarrySource &source) {
                     // Read before commit, which can retire the carry's pose.
                     const QRectF drawn = carriedPose();
+                    // §4: the Active card's Stack waits behind the pane it
+                    // becomes, as placeActiveCardAlone keeps it, and is never
+                    // dealt out as single cards in the room left open.
+                    QList<KWin::EffectWindow *> behind = carried ? m_cardStage->stackFrontToBack(carried)
+                                                                 : QList<KWin::EffectWindow *>{};
+                    behind.removeAll(carried.data());
                     const bool committed = (bento ? m_desktopStage->nativeCarrySourceValid(source)
                                   : cardCarrySourceValid(source))
                         && m_desktopStage->activatePreparedTabletDrop(*reserved,
@@ -1042,6 +1048,12 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                             [this, carried] {
                                 return m_cardStage->releasePairToBento(carried, nullptr);
                             });
+                    if (committed && carried && !behind.isEmpty()) {
+                        m_cardStage->notePaneStack(carried, behind);
+                        m_cardStage->settlePaneStacks();
+                        qInfo() << "Kadunce" << Revision << "placed" << logNameOf(carried.data())
+                                << "alone at the edge with" << behind.size() << "behind it";
+                    }
                     if (committed) {
                         startPaneArrival(carried, output, drawn);
                         // The room left open shows the desktop, not the cards.
