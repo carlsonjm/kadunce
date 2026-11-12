@@ -79,10 +79,10 @@ msgstr "Margem do cartão ativo"
 #: control/src/main.cpp
 msgid ""
 "Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
-"4–48 px. The gutter preserves room for edge swipes."
+"0–48 px. The gutter preserves room for edge swipes."
 msgstr ""
 "Padrão: 10 px. Aplica-se na hora, e os painéis do Bento ficam à mesma distância.\n"
-"4–48 px. A margem preserva espaço para os gestos a partir da borda."
+"0–48 px. A margem preserva espaço para os gestos a partir da borda."
 
 #: control/src/main.cpp
 msgid "KWin %1 → %2: rebuild needed"

@@ -79,10 +79,10 @@ msgstr "Margen de la tarjeta activa"
 #: control/src/main.cpp
 msgid ""
 "Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
-"4–48 px. The gutter preserves room for edge swipes."
+"0–48 px. The gutter preserves room for edge swipes."
 msgstr ""
 "Predeterminado: 10 px. Se aplica al momento, y los paneles de Bento quedan igual de separados.\n"
-"4–48 px. El margen deja espacio para deslizar desde el borde."
+"0–48 px. El margen deja espacio para deslizar desde el borde."
 
 #: control/src/main.cpp
 msgid "KWin %1 → %2: rebuild needed"

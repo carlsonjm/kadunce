@@ -79,10 +79,10 @@ msgstr "Abstand der aktiven Karte"
 #: control/src/main.cpp
 msgid ""
 "Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
-"4–48 px. The gutter preserves room for edge swipes."
+"0–48 px. The gutter preserves room for edge swipes."
 msgstr ""
 "Standard: 10 px. Gilt sofort, und Bentos Bereiche stehen genauso weit auseinander.\n"
-"4–48 px. Der Abstand lässt Platz für Wischgesten vom Rand."
+"0–48 px. Der Abstand lässt Platz für Wischgesten vom Rand."
 
 #: control/src/main.cpp
 msgid "KWin %1 → %2: rebuild needed"

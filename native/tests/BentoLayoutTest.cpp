@@ -841,14 +841,25 @@ int main()
         require(at(pair, 1, {10, 34, 945, 980}) && at(pair, 2, {965, 34, 945, 980}),
             "A Connected pair did not share the width evenly");
         pair.columns.push_back({{3, false}});
-        require(at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 623, 980})
+        require(at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 624, 980})
                 && at(pair, 3, {1282, 34, 628, 980}),
             "A third column did not share the width in thirds");
         bentoColumnsJoin(pair, 4);
         require(shape(pair) == std::vector<std::vector<int>>{{1}, {2}, {3, 4}}
-                && at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 623, 980})
+                && at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 624, 980})
                 && at(pair, 3, {1282, 34, 628, 485}) && at(pair, 4, {1282, 529, 628, 485}),
             "A fourth card moved the first two, or did not join the rightmost column");
+        // With no gap, panes that share an edge meet on it exactly, at any
+        // width the thirds fall between whole points of.
+        for (int width = 2190; width <= 2199; ++width) {
+            const auto thirds = makePixelBentoLayout(
+                {{0.0, 0.0, 1.0 / 3.0, 1.0}, {1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0},
+                 {2.0 / 3.0, 0.0, 1.0 / 3.0, 1.0}}, 0, 31, width, 1432, 0);
+            require(thirds[0].x == 0 && thirds[0].x + thirds[0].width == thirds[1].x
+                    && thirds[1].x + thirds[1].width == thirds[2].x
+                    && thirds[2].x + thirds[2].width == width,
+                "Panes with no gap between them left a line open or overlapped");
+        }
         // Columns a pair began stay so through arrivals and leavings.
         bentoColumnsRemove(pair, 2);
         require(pair.paired && shape(pair) == std::vector<std::vector<int>>{{1}, {3, 4}},

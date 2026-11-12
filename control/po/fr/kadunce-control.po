@@ -79,10 +79,10 @@ msgstr "Marge de la carte active"
 #: control/src/main.cpp
 msgid ""
 "Default: 10 px. Applies at once, and Bento's panes stand as far apart.\n"
-"4–48 px. The gutter preserves room for edge swipes."
+"0–48 px. The gutter preserves room for edge swipes."
 msgstr ""
 "Par défaut : 10 px. S'applique aussitôt, et les volets de Bento sont espacés d'autant.\n"
-"4–48 px. La marge laisse de la place aux balayages depuis le bord."
+"0–48 px. La marge laisse de la place aux balayages depuis le bord."
 
 #: control/src/main.cpp
 msgid "KWin %1 → %2: rebuild needed"

@@ -226,8 +226,11 @@ they preserve these relationships and respect the user's animation settings.
   shadow, or is maximized or full screen, keeps its corners, and Kadunce trims
   nothing while the separately installed Rounded Corners effect runs.
 - The Active card's gutter is output-relative, 10 px by default and bounded to
-  4–48 px, the same on every edge. Bento's panes stand that far apart too, on
-  every display, so they stand 10 px apart by default.
+  0–48 px, the same on every edge. Bento's panes stand that far apart and that
+  far in from the screen's edges too, on every display, so they stand 10 px
+  apart by default. At 0 the card and the panes meet the
+  screen's edges: nothing is kept for the tap or swipe beside it, or for a
+  hidden panel's strip, which then lies over the card's edge.
 - kwinrc `[Effect-kadunce]` tunes the cards, each key read as it changes and
   listed in the installed `kadunce/settings-keys`: `ActiveCardGutter`;
   `CardCornerRadius`, the paper tier at 0–30 px; `SleepingDimmed`, true to

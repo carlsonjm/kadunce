@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The space between Bento's panes is the card gutter, 10 by default; a change
-# to it moves the standing panes at once, never closer than 4, and the layout
+# to it moves the standing panes at once, down to none at all, and the layout
 # stands through every change.
 #
 # Needs the tablet fixture: only a display that can own cards holds cards.
@@ -52,11 +52,12 @@ check "a layout of two panes" twoPanes
 echo "panes before: $(frames)"
 check "with no gutter set the panes stand 10 apart" spacing "" 10
 check "a gutter of 4 brings them 4 apart at once" spacing 4 4
-check "a gutter under 4 keeps them 4 apart" spacing 2 4
+check "a gutter of 2 brings them 2 apart" spacing 2 2
+check "a gutter of 0 has them meet" spacing 0 0
 check "a gutter of 24 moves them 24 apart" spacing 24 24
 check "a gutter of 10 moves them 10 apart" spacing 10 10
 echo "panes after: $(frames)"
 check "the layout stands through every change" twoPanes
 
 if ((failures)); then echo "FAIL: bento gap: $failures checks failed" >&2; exit 1; fi
-echo 'PASS: Bento panes stand the card gutter apart, 10 by default, at once, never under 4'
+echo 'PASS: Bento panes stand the card gutter apart, 10 by default, at once, down to 0'
