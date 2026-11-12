@@ -1778,29 +1778,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                 deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(above)), data); })) return paintResult(false);
             return paintResult(true);
         }
-        if (const auto step = m_cardStage->activeStackStepPose(window)) {
-            // A narrowed Stack steps in place: each card scales about its
-            // middle, the one going round the deck sliding a little and
-            // turning about its middle too.
-            const QRectF f(window->frameGeometry());
-            const QRectF e(window->expandedGeometry());
-            const double s = std::max(0.01, step->scale);
-            data.multiplyOpacity(step->opacity);
-            data.multiplyBrightness(step->brightness);
-            data.setXScale(data.xScale() * s);
-            data.setYScale(data.yScale() * s);
-            data.setXTranslation(data.xTranslation() + f.width() * (1.0 - s) / 2.0 + step->dx);
-            data.setYTranslation(data.yTranslation() + f.height() * (1.0 - s) / 2.0 + step->dy);
-            if (step->rotation != 0.0) {
-                data.setRotationAngle(step->rotation);
-                data.setRotationOrigin(QVector3D((f.center().x() - e.x()) / data.xScale(),
-                    (f.center().y() - e.y()) / data.yScale(), 0.0));
-            }
-            const auto outputClip = viewport.mapToDeviceCoordinatesAligned(m_paintingOutput->geometry());
-            if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window,
-                mask | PAINT_WINDOW_TRANSFORMED, deviceRegion & KWin::Region(outputClip), data); })) return paintResult(false);
-            return paintResult(true);
-        }
+        // A narrowed Stack steps in place; its strip then stands still.
+        if (const auto step = m_cardStage->activeStackStepPose(window)) applyStackStepPose(window, data, *step);
         if (const auto shift = m_cardStage->activeSlideShift(window)) {
             // The strip: each card moves with it, and stops at the display's
             // edge rather than reaching the next display.
