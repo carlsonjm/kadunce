@@ -53,7 +53,9 @@ echo "panes before: $(frames)"
 check "with no gutter set the panes stand 10 apart" spacing "" 10
 check "a gutter of 4 brings them 4 apart at once" spacing 4 4
 check "a gutter of 2 brings them 2 apart" spacing 2 2
-check "a gutter of 0 has them meet" spacing 0 0
+# With none, the first reaches one point under the second, so no line of
+# screen pixels opens between them at a fractional scale.
+check "a gutter of 0 has them meet, one point under" spacing 0 -1
 check "a gutter of 24 moves them 24 apart" spacing 24 24
 check "a gutter of 10 moves them 10 apart" spacing 10 10
 echo "panes after: $(frames)"
