@@ -1184,10 +1184,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
     if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
-    // §11, Connected: a pane carried over another pane and rested there joins
-    // that pane's Stack in front; let go sooner, the two swap below.
+    // §11: a pane carried over another pane and rested there joins that
+    // pane's Stack in front, however the display is sized; let go sooner, the
+    // two swap below.
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
-        && connectedOutputForDesktopStage(target)
+        && isCardDisplay(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
     // The pane it would join shows outlined, its ring filling as the hand
     // rests, as a pane's middle does for a card from another display.
