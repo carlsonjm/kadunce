@@ -414,9 +414,10 @@ check 'title swap: and the other'"'"'s too' behind_count "${w[9]}" 2
 check 'title swap: no window is left ordinary' all_held
 title_drag "${w[9]}" "${w[11]}" .1 .9
 report title-stacked
-check 'title stack: rested on a pane, it joins its Stack in front' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
-check 'title stack: its own next card keeps its slot' is_pane "${w[8]}"
-check 'title stack: still four panes' panes 4
+check 'title stack: rested on a pane, it joins its Stack in front, its own Stack with it' \
+    behind_is "${w[9]}" "[\"${w[8]}\",\"${w[7]}\",\"${w[11]}\",\"${w[10]}\"]"
+check 'title stack: its own next card goes with it' is_card "${w[8]}"
+check 'title stack: the slot it left closes, three panes' panes 3
 check 'title stack: no window is left ordinary' all_held
 # A card waiting behind a pane, called from the dock or the task switcher,
 # comes to the front of its pane; its Stack stays whole and no pane is added.
@@ -424,8 +425,9 @@ probe activateWindowId "${w[10]}" >/dev/null
 sleep 1.2
 report called
 check 'called: the card called fills its pane' is_pane "${w[10]}"
-check 'called: the rest of its Stack waits behind it, in turn' behind_is "${w[10]}" "[\"${w[9]}\",\"${w[11]}\"]"
-check 'called: still four panes' panes 4
+check 'called: the rest of its Stack waits behind it, in turn' \
+    behind_is "${w[10]}" "[\"${w[9]}\",\"${w[8]}\",\"${w[7]}\",\"${w[11]}\"]"
+check 'called: still three panes' panes 3
 check 'called: no window is left ordinary' all_held
 book_clean() { [[ -z $(kad cardBookMismatches | tr -d '[:space:][]') ]]; }
 check 'called: the card book holds every card' book_clean
@@ -435,14 +437,15 @@ step_key() { probe activateWindowId "$1" >/dev/null; sleep .4; probe key 15 125 
 step_key "${w[10]}"
 report stepped
 check 'step: the next card of the Stack fills the pane' is_pane "${w[9]}"
-check 'step: the card it covered goes round to the back' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
+check 'step: the card it covered goes round to the back' \
+    behind_is "${w[9]}" "[\"${w[8]}\",\"${w[7]}\",\"${w[11]}\",\"${w[10]}\"]"
 step_key "${w[2]}"
 report stepped-other
 check 'step other: the other Stack steps on its own' is_pane "${w[6]}"
 check 'step other: in turn' behind_is "${w[6]}" "[\"${w[3]}\",\"${w[2]}\"]"
 check 'step other: the first Stack kept its front' is_pane "${w[9]}"
-check 'step other: and its order' behind_is "${w[9]}" "[\"${w[11]}\",\"${w[10]}\"]"
-check 'step: still four panes' panes 4
+check 'step other: and its order' behind_is "${w[9]}" "[\"${w[8]}\",\"${w[7]}\",\"${w[11]}\",\"${w[10]}\"]"
+check 'step: still three panes' panes 3
 check 'step: the card book holds every card' book_clean
 # A window that keeps its own size, as Shuffle Settings does, floats centred
 # over the layout; it takes no pane and is no card.
@@ -451,7 +454,7 @@ sleep 1.2
 fixed=$(idOf 'Fixed probe')
 report fixed
 check 'fixed: it is no card' context --arg id "$fixed" 'first(.applications[] | select(.windowId == $id)) // {} | (.hasCard // false) | not'
-check 'fixed: it takes no pane' panes 4
+check 'fixed: it takes no pane' panes 3
 check 'fixed: it floats centred, at its own size' bash -c "qdbus6 org.kde.KWin /UnloadProbe windowGeometry $fixed | jq -e '.width == 900 and .height >= 600 and ((.x + 450) - 1280 | fabs) < 8'"
 client closeCompanion 'Fixed probe'
 sleep .8
@@ -471,7 +474,7 @@ probe contactButton false >/dev/null
 sleep 1.5
 report bottom
 check 'bottom: the pane went to the desktop' context --arg id "${w[9]}" 'first(.applications[] | select(.windowId == $id)) | (.hasCard | not) and (.pane | not)'
-check 'bottom: the cards behind it stay one Stack' one_stack "[\"${w[11]}\",\"${w[10]}\"]"
+check 'bottom: the cards behind it stay one Stack' one_stack "[\"${w[8]}\",\"${w[7]}\",\"${w[11]}\",\"${w[10]}\"]"
 check 'bottom: the card book holds every card' book_clean
 
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
