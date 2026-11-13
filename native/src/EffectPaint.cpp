@@ -564,10 +564,13 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     if (m_carryPlaceWhole) return drawWholePaneHold(renderTarget, viewport, partsOf(f), f);
     const auto named = [this](PanePlace place) { return m_carryPanePlace == place; };
     const double share = PanePlaceMiddleShare;
-    const double tall = m_carryPlaceAcross ? f.height() - 28.0 : f.height() * share;
-    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - tall / 2, f.width() * share, tall);
+    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
+                        f.width() * share, f.height() * share);
+    // On a Solo display everything but the two sides stacks, so the card
+    // there is outlined whole, its frame and no other.
+    if (m_carryPlaceAcross && named(PanePlace::Middle)) drawWholePaneHold(renderTarget, viewport, partsOf(f), f);
     // The middle shows only with the card over it; resting fills its ring.
-    if (named(PanePlace::Middle)) {
+    else if (named(PanePlace::Middle)) {
         fill(middle, 0.10f, 0.9f);
         m_stackHoldCentre = middle.center();
     }
