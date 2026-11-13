@@ -335,11 +335,16 @@ std::vector<BentoPixelRect> makePixelBentoLayout(
         const double bottom = areaY + (rect.y + rect.height) * areaHeight
             - (rect.y + rect.height < 0.999 ? gap / 2.0 : 0.0);
         // Each edge is rounded once, so two panes that share an edge land
-        // on the same point and no line opens between them.
+        // on the same point. With no gap a pane reaches one point under the
+        // neighbour after it: at a fractional scale a shared edge can fall on
+        // the middle of a screen pixel, and each window rounds its own side
+        // of it apart, leaving that row of pixels to whatever is behind.
         const long x = std::lround(left), y = std::lround(top);
+        const long overlapRight = gap <= 0 && rect.x + rect.width < 0.999 ? 1 : 0;
+        const long overlapBottom = gap <= 0 && rect.y + rect.height < 0.999 ? 1 : 0;
         pixels.push_back({static_cast<int>(x), static_cast<int>(y),
-                          std::max(1, static_cast<int>(std::lround(right) - x)),
-                          std::max(1, static_cast<int>(std::lround(bottom) - y))});
+                          std::max(1, static_cast<int>(std::lround(right) + overlapRight - x)),
+                          std::max(1, static_cast<int>(std::lround(bottom) + overlapBottom - y))});
     }
     return pixels;
 }
