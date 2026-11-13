@@ -688,6 +688,11 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
         .intersected(QRectF(screen->geometry()));
     clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
+    // A half of the card it is placed beside is drawn whole, its own rounded
+    // corners too, though that card reaches into the band kept at the bottom.
+    if (m_carriedWindow && m_carryPlacePane && m_carryPanePlace != PanePlace::Middle
+        && !m_desktopStage->managesWindow(m_carryPlacePane) && QRectF(m_carryPlacePane->frameGeometry()).contains(box))
+        clip = clip.united(box);
     QList<QRectF> parts;
     for (const auto &dirty : deviceRegion.rects()) {
         const auto whole = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
