@@ -564,8 +564,8 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     if (m_carryPlaceWhole) return drawWholePaneHold(renderTarget, viewport, partsOf(f), f);
     const auto named = [this](PanePlace place) { return m_carryPanePlace == place; };
     const double share = PanePlaceMiddleShare;
-    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
-                        f.width() * share, f.height() * share);
+    const double tall = m_carryPlaceAcross ? f.height() - 28.0 : f.height() * share;
+    const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - tall / 2, f.width() * share, tall);
     // The middle shows only with the card over it; resting fills its ring.
     if (named(PanePlace::Middle)) {
         fill(middle, 0.10f, 0.9f);
@@ -579,7 +579,7 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
         QRectF(middle.left(), f.top() + inset, middle.width(), thick),
         QRectF(middle.left(), f.bottom() - inset - thick, middle.width(), thick)};
     const PanePlace places[4] = {PanePlace::Left, PanePlace::Right, PanePlace::Top, PanePlace::Bottom};
-    for (int i = 0; i < 4; ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
+    for (int i = 0; i < (m_carryPlaceAcross ? 2 : 4); ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
 }
 
 // The paint path's own test: a window Card Stage does not draw as a card.
