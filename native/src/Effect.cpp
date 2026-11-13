@@ -476,10 +476,7 @@ Effect::Effect()
             });
     connect(KWin::effects, &KWin::EffectsHandler::sessionStateChanged,
             this, &Effect::handleSessionStateChanged);
-    m_sessionGoesOn.setSingleShot(true);
-    connect(&m_sessionGoesOn, &QTimer::timeout, this, [this] {
-        if (KWin::effects->sessionState() == KWin::SessionState::Normal) endSessionEndGlass();
-    });
+    watchSessionEnd();
     connect(KWin::effects, &KWin::EffectsHandler::screenRemoved,
             this, &Effect::handleScreenRemoved);
     connect(KWin::effects, &KWin::EffectsHandler::screenAdded, this,
@@ -1459,6 +1456,11 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
 
 void Effect::handleWindowClosed(KWin::EffectWindow *window)
 {
+    // A sign-out that still closes windows is not waiting on anyone.
+    if (m_memoryEndWritten && window && (window->isNormalWindow() || window->isDialog())) {
+        m_sessionHold.noteWindowClosed(steadyMs());
+        awaitSessionGoingOn();
+    }
     // Nor does a closing one fade where it stood once Spread draws the notes.
     if ((m_notesSpreadShown || m_notesHandover) && isNotesSurface(window))
         window->setData(KWin::WindowClosedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
@@ -1879,13 +1881,6 @@ void Effect::handleSessionStateChanged()
         rememberWorkspaceAtSessionEnd();
     }
     m_sessionHold.noteState(!ending, steadyMs());
-    if (!ending && m_sessionHold.ending())
-        QTimer::singleShot(SessionEndHold::GoesOnMs + 50, this, [this] {
-            if (!m_sessionHold.holds(steadyMs())) {
-                resumeWorkspaceMemory();
-                scheduleDissolve();
-            }
-        });
     // The power question just answered: the session ends behind its glass.
     if (ending && (m_powerQuestionSeen.isValid() && m_powerQuestionSeen.elapsed() < 2000))
         beginSessionEndGlass(owning);
@@ -1894,8 +1889,56 @@ void Effect::handleSessionStateChanged()
                 << "restoring managed windows before session save or shutdown";
         release();
     }
-    if (ending) m_sessionGoesOn.stop();
-    else if (m_sessionEnd.on && !m_sessionGoesOn.isActive()) m_sessionGoesOn.start(SessionGoesOnMs);
+    awaitSessionGoingOn();
+}
+
+void Effect::watchSessionEnd()
+{
+    m_sessionGoesOn.setSingleShot(true);
+    m_sessionGoesOn.setTimerType(Qt::PreciseTimer);
+    connect(&m_sessionGoesOn, &QTimer::timeout, this, [this] {
+        if (m_sessionHold.holds(steadyMs())) {
+            awaitSessionGoingOn();
+            return;
+        }
+        resumeWorkspaceMemory();
+        scheduleDissolve();
+        endSessionEndGlass();
+    });
+    // Plasma's sign-out program is on the session bus from the answer until
+    // the sign-out is done or cancelled, and the session's own services
+    // leave it as the session is stopped; KWin's states say neither.
+    const QString program = QStringLiteral("org.kde.Shutdown");
+    auto *watcher = new QDBusServiceWatcher(this);
+    watcher->setConnection(QDBusConnection::sessionBus());
+    watcher->setWatchMode(QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration);
+    watcher->setWatchedServices({program, QStringLiteral("org.kde.kded6"),
+                                 QStringLiteral("org.kde.ActivityManager"), QStringLiteral("org.kde.plasmashell")});
+    connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this, program](const QString &service) {
+        if (service != program) return;
+        m_sessionHold.noteSignOutProgram(true, steadyMs());
+        awaitSessionGoingOn();
+    });
+    connect(watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this, program](const QString &service) {
+        if (service == program) m_sessionHold.noteSignOutProgram(false, steadyMs());
+        else m_sessionHold.noteSessionStopping(steadyMs());
+        awaitSessionGoingOn();
+    });
+}
+
+// Sets the wait again after whatever may have moved it: a state, the sign-out
+// program, a window closing or asking, a service of the session leaving.
+void Effect::awaitSessionGoingOn()
+{
+    // Only an end that was begun and not yet outlived is waited on.
+    if (!m_memoryEndWritten) return;
+    const qint64 now = steadyMs();
+    const qint64 at = m_sessionHold.ending() ? m_sessionHold.goesOnAt(now) : now;
+    if (at < 0) {
+        m_sessionGoesOn.stop();
+        return;
+    }
+    m_sessionGoesOn.start(int(std::max<qint64>(0, at - now)) + 1);
 }
 
 } // namespace Kadunce

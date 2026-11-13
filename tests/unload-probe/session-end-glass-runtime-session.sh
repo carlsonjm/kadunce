@@ -4,8 +4,9 @@
 # cards are given back; a window asking something clears it; ended without
 # going, the glass dissolves and the cards come back; and once the session
 # has nothing left to show, the glass darkens to black. KDE's question is
-# played by the client under the name of KDE's program for it, and the
-# session's end by KWin's own session calls, as Plasma makes them.
+# played by the client under the name of KDE's program for it, the session's
+# end by KWin's own session calls, as Plasma makes them, and Plasma's sign-out
+# program and a service of the session by their names on the bus.
 #
 # Needs the tablet fixture. Every check is reported.
 set -uo pipefail
@@ -47,10 +48,15 @@ log="$(dirname "$XDG_RUNTIME_DIR")/session.log"
 in_cards() { kad workspaceContext | jq -e '.cardStage.presentation == "active"'; }
 check "the windows are cards before the question" in_cards
 said() { rg -c "^Kadunce .* $1" "$log" || echo 0; }
-# The session's log can trail what was asked by a moment; wait for a line.
-seen() { local tries; for (( tries = 0; tries < ${2:-60}; tries++ )); do rg -q "$1" "$log" && return 0; sleep .1; done; return 1; }
 # Lines said since the session began ending the last time.
 since_end() { awk '/^Kadunce .* keeps the glass up while the session ends/ { n = NR } END { print n + 0 }' "$log"; }
+# Said since then; the session's log can trail what was asked by a moment,
+# so a line is waited for.
+said_since() { local lines; lines=$(tail -n +"$(since_end)" "$log"); rg -q "^Kadunce .* $1" <<<"$lines"; }
+seen_since() { local tries; for (( tries = 0; tries < 60; tries++ )); do said_since "$1" && return 0; sleep .1; done; return 1; }
+not_gone_on() { ! said_since 'the session goes on'; }
+goes_on() { seen_since 'the session goes on: the glass dissolves'; }
+glass_up_past() { local tries; for (( tries = 0; tries < 60; tries++ )); do (( $(said 'keeps the glass up while the session ends') > $1 )) && return 0; sleep .1; done; return 1; }
 band() { python3 "$here/capture-band.py" 100 100 400 200 "$1" 2>/dev/null; }
 question() {
     cp "${KADUNCE_UNLOAD_PROBE_BUILD}/bin/unload-client" "$XDG_RUNTIME_DIR/ksmserver-logout-greeter"
@@ -61,13 +67,31 @@ question() {
 # Answered: the question goes, and the session begins to end at once.
 answer() { kill "$surface_pid" 2>/dev/null; wait "$surface_pid" 2>/dev/null; surface_pid=; session setState "$1"; }
 
-# Plasma saves the session, steps back to normal, then quits.
+# Under systemd Plasma never says quitting: its sign-out program comes to the
+# bus, the session saves and steps back to normal for good, and the windows
+# close seconds later. Normal for all that time is no cancel.
+ends=$(said 'keeps the glass up while the session ends')
+check "Plasma's sign-out program takes its name" client ownName org.kde.Shutdown
+question 'Sign out'
+answer $saving
+session setState $normal
+check "the glass stays up for the sign-out" glass_up_past "$ends"
+sleep 2.6
+check "normal while the sign-out program runs is no cancel" not_gone_on
+# Cancelled: the program leaves and no service of the session stops.
+client dropName org.kde.Shutdown >/dev/null
+check "the program gone and nothing stopped, the session goes on" goes_on
+sleep 1.2
+check "the cards come back after it" in_cards
+
+# Without systemd Plasma saves the session, steps back to normal, then quits.
+ends=$(said 'keeps the glass up while the session ends')
 question 'Shut down'
 answer $saving
 session setState $normal
 session setState $quitting
-check "the glass stays up while the session ends" seen '^Kadunce .* keeps the glass up while the session ends'
-check "the cards are given back under it" seen '^Kadunce .* lets every window go'
+check "the glass stays up while the session ends" glass_up_past "$ends"
+check "the cards are given back under it" seen_since 'lets every window go'
 sleep .8
 # The question's own glass begins to dissolve the frame it goes, before the
 # session says it is ending; from then on nothing dissolves.
@@ -81,24 +105,33 @@ check "the glass does not dissolve once the session is ending" \
 session closeWaylandWindows >/dev/null 2>&1 &
 sleep 1
 check "a window asking something clears the glass" \
-    seen '^Kadunce .* clears the glass for a window asking something'
+    seen_since 'clears the glass for a window asking something'
 check "the asking window is shown" \
     bash -c "qdbus6 org.kde.KWin /UnloadProbe windowFacts | jq -e 'any(.[]; .caption == \"Unsaved probe\")'"
 
 # Cancelled: the session goes on, the glass dissolves, the cards come back.
 session setState $normal
-check "ended without going, the session goes on" seen '^Kadunce .* the session goes on: the glass dissolves'
+check "ended without going, the session goes on" goes_on
 sleep 1.2
 check "the cards come back" in_cards
 
 # Ended for good: with nothing it can wait for, the glass darkens to black.
+# The windows closed, a service of the session leaves the bus as Plasma stops
+# it and the sign-out program leaves; that is no cancel, however long the
+# compositor is then left running.
 ends=$(said 'keeps the glass up while the session ends')
+client ownName org.kde.Shutdown >/dev/null
+client ownName org.kde.kded6 >/dev/null
 question 'Restart'
 answer $saving
-check "the glass stays up again" bash -c "for t in {1..60}; do (( \$(rg -c 'keeps the glass up while the session ends' '$log') > $ends )) && exit 0; sleep .1; done; exit 1"
+check "the glass stays up again" glass_up_past "$ends"
+session setState $normal
+client dropName org.kde.kded6 >/dev/null
+client dropName org.kde.Shutdown >/dev/null
 sleep 1.5
-check "the glass darkens to black" seen '^Kadunce .* darkens the glass to black'
+check "the glass darkens to black" seen_since 'darkens the glass to black'
 sleep 1.5
+check "a session being stopped does not go on" not_gone_on
 black=$(band 000000)
 if [[ $black =~ ^[0-9.]+$ ]]; then
     echo "black share: $black"
