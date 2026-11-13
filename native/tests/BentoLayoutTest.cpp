@@ -849,16 +849,25 @@ int main()
                 && at(pair, 1, {10, 34, 628, 980}) && at(pair, 2, {648, 34, 624, 980})
                 && at(pair, 3, {1282, 34, 628, 485}) && at(pair, 4, {1282, 529, 628, 485}),
             "A fourth card moved the first two, or did not join the rightmost column");
-        // With no gap, panes that share an edge meet on it exactly, at any
-        // width the thirds fall between whole points of.
+        // With no gap, each pane reaches one point under the neighbour after
+        // it, at any width the thirds fall between whole points of, and the
+        // last still ends at the area's edge.
         for (int width = 2190; width <= 2199; ++width) {
             const auto thirds = makePixelBentoLayout(
                 {{0.0, 0.0, 1.0 / 3.0, 1.0}, {1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0},
                  {2.0 / 3.0, 0.0, 1.0 / 3.0, 1.0}}, 0, 31, width, 1432, 0);
-            require(thirds[0].x == 0 && thirds[0].x + thirds[0].width == thirds[1].x
-                    && thirds[1].x + thirds[1].width == thirds[2].x
-                    && thirds[2].x + thirds[2].width == width,
-                "Panes with no gap between them left a line open or overlapped");
+            require(thirds[0].x == 0 && thirds[0].x + thirds[0].width == thirds[1].x + 1
+                    && thirds[1].x + thirds[1].width == thirds[2].x + 1
+                    && thirds[2].x + thirds[2].width == width
+                    && thirds[0].height == 1432,
+                "Panes with no gap between them left a line open, or overlapped past one point");
+        }
+        {
+            const auto rows = makePixelBentoLayout(
+                {{0.0, 0.0, 1.0, 0.5}, {0.0, 0.5, 1.0, 0.5}}, 1463, 24, 2195, 1387, 0);
+            require(rows[0].y + rows[0].height == rows[1].y + 1
+                    && rows[1].y + rows[1].height == 24 + 1387 && rows[0].width == 2195,
+                "Stacked panes with no gap left a row open between them");
         }
         // Columns a pair began stay so through arrivals and leavings.
         bentoColumnsRemove(pair, 2);

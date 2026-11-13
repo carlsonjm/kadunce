@@ -70,8 +70,22 @@ bool CardStageController::admitBentoStack(const BentoProjectionSession &projecti
     if (m_cardGrabActive || m_launcherGuestActive
         || !tablet || projection.output != tablet
         || projection.outputName != tablet->name()
-        || !tablet->geometry().contains(projection.workspaceArea)
         || !validBentoProjectionShape(projectionShape(projection))) return false;
+    // At a fractional scale the display ends between whole points. With no
+    // gutter the work area is rounded outward to meet that edge, so it is
+    // held to the display rounded outward the same way.
+    const QRectF display(tablet->geometryF());
+    const int displayLeft = int(std::floor(display.left() + 1e-6));
+    const int displayTop = int(std::floor(display.top() + 1e-6));
+    const KWin::Rect bounds(displayLeft, displayTop,
+        int(std::ceil(display.right() - 1e-6)) - displayLeft,
+        int(std::ceil(display.bottom() - 1e-6)) - displayTop);
+    if (!bounds.contains(projection.workspaceArea)) {
+        qInfo() << "Kadunce" << Revision << "kept the layout on" << projection.outputName
+                << "out of Spread: its room for windows" << projection.workspaceArea
+                << "reaches past the display" << display;
+        return false;
+    }
     QList<QPointer<KWin::EffectWindow>> windows;
     QList<ActiveRestoreSnapshot> snapshots;
     const auto append = [&](const BentoProjectionMember &member, bool visible) {
