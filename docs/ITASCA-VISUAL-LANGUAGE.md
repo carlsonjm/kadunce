@@ -277,7 +277,9 @@ they preserve these relationships and respect the user's animation settings.
   it goes. Meanwhile the glass darkens to black over a second (instant
   motion: 150 ms), so power-off is never seen.
   If the session goes on instead, the glass dissolves and the windows go
-  back into cards.
+  back into cards: the sign-out is cancelled, a window's question is left
+  standing, or four seconds pass with nothing closing. Plasma stopping the
+  session is never read as going on (`SessionEndHold.h`).
 - While another window shows beside it on its display, the window the
   keyboard types into is outlined just inside its edge, following the corner
   it has, the paper corner or the application's own, and fading in over

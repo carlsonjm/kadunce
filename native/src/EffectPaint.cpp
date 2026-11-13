@@ -867,12 +867,16 @@ void Effect::stepSessionEndGlass()
     // asking something, a save question or KDE's word that something did not
     // close; the glass clears while it stands.
     bool asking = false;
+    bool asked = false;
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         if (!window || window->isDeleted() || !window->isVisible() || m_sessionEnd.known.contains(window)) continue;
-        if (window->isNormalWindow() || window->isDialog() || window->isNotification()
-            || window->isCriticalNotification())
-            asking = true;
+        if (window->isNormalWindow() || window->isDialog()) asking = asked = true;
+        else if (window->isNotification() || window->isCriticalNotification()) asking = true;
     }
+    // An application asking has the sign-out wait on its answer; a notice
+    // may be about anything.
+    if (asked && m_sessionHold.noteAsked(steadyMs()))
+        QTimer::singleShot(0, this, &Effect::awaitSessionGoingOn);
     if (asking != m_sessionEnd.asking) {
         m_sessionEnd.asking = asking;
         qInfo() << "Kadunce" << Revision
