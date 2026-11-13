@@ -566,11 +566,9 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
     const double share = PanePlaceMiddleShare;
     const QRectF middle(f.center().x() - f.width() * share / 2, f.center().y() - f.height() * share / 2,
                         f.width() * share, f.height() * share);
-    // The middle shows only with the card over it; resting fills its ring.
-    if (named(PanePlace::Middle)) {
-        fill(middle, 0.10f, 0.9f);
-        m_stackHoldCentre = middle.center();
-    }
+    // Named, the middle outlines the pane whole, its own frame and rounded
+    // corners, the ring at its centre: resting there joins its Stack.
+    if (named(PanePlace::Middle)) drawWholePaneHold(renderTarget, viewport, partsOf(f), f);
     // A bar along each side, inset from its edge, as long as the middle is.
     const double inset = 14.0, thick = 8.0;
     const QRectF bars[4] = {
@@ -579,7 +577,7 @@ void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::Re
         QRectF(middle.left(), f.top() + inset, middle.width(), thick),
         QRectF(middle.left(), f.bottom() - inset - thick, middle.width(), thick)};
     const PanePlace places[4] = {PanePlace::Left, PanePlace::Right, PanePlace::Top, PanePlace::Bottom};
-    for (int i = 0; i < 4; ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
+    for (int i = 0; i < (m_carryPlaceAcross ? 2 : 4); ++i) fill(bars[i], named(places[i]) ? 0.85f : 0.25f, 0.f);
 }
 
 // The paint path's own test: a window Card Stage does not draw as a card.
@@ -690,6 +688,11 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     QRectF clip = QRectF(KWin::effects->clientArea(KWin::MaximizeArea, screen))
         .intersected(QRectF(screen->geometry()));
     clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
+    // A half of the card it is placed beside is drawn whole, its own rounded
+    // corners too, though that card reaches into the band kept at the bottom.
+    if (m_carriedWindow && m_carryPlacePane && m_carryPanePlace != PanePlace::Middle
+        && !m_desktopStage->managesWindow(m_carryPlacePane) && QRectF(m_carryPlacePane->frameGeometry()).contains(box))
+        clip = clip.united(box);
     QList<QRectF> parts;
     for (const auto &dirty : deviceRegion.rects()) {
         const auto whole = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))

@@ -527,7 +527,7 @@ void Effect::endNativeCarryPresentation()
     m_carryWidthHeld = false;
     m_carryCardEntryOutput.clear(); m_carryCardExitOutput.clear();
     m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
-    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear(); m_carryPlaceWhole = false;
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear(); m_carryPlaceWhole = m_carryPlaceAcross = false;
     endStackScrub();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
     syncSelectedElevation();
@@ -699,7 +699,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     m_carryPlacePane.clear();
     m_carryPanePlace.reset();
     m_carryMapOutput.clear();
-    m_carryPlaceWhole = false;
+    m_carryPlaceWhole = m_carryPlaceAcross = false;
     m_lastCarryContact = contact;
     // The aim is read again below only where a pane can be stacked on.
     bool aimingPane = false;
@@ -1184,10 +1184,11 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         && (local || (!tablet && !m_desktopStage->hasSessionOnOutput(target->name())));
     if (local && (!bento || (!stayNative && (isPanelPoint(contact)
         || contact.y() >= target->geometry().bottom() - 48)))) return;
-    // §11, Connected: a pane carried over another pane and rested there joins
-    // that pane's Stack in front; let go sooner, the two swap below.
+    // §11: a pane carried over another pane and rested there joins that
+    // pane's Stack in front, however the display is sized; let go sooner, the
+    // two swap below.
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
-        && connectedOutputForDesktopStage(target)
+        && isCardDisplay(target)
         ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
     // The pane it would join shows outlined, its ring filling as the hand
     // rests, as a pane's middle does for a card from another display.
@@ -1222,11 +1223,24 @@ void Effect::updateNativeCarryDestination(QPointF contact)
         // pane rested on another does, so a quick let go never makes a Stack;
         // any side places the card by the pane, which the layout solve below
         // reserves.
-        if (over && connectedOutputForDesktopStage(target) && (over == lone || m_desktopStage->managesWindow(over))) {
+        // A display sized Solo shows the map too. Its layouts hold two panes
+        // side by side, so a pane of one offers only its Stack, outlined
+        // whole, and the card it shows alone only its middle and two sides.
+        const bool connectedHere = connectedOutputForDesktopStage(target);
+        const bool soloHere = !connectedHere && isCardDisplay(target);
+        if (over && soloHere && over != lone && m_desktopStage->managesWindow(over)) {
             m_carryMapOutput = target;
+            m_carryPlacePane = over;
+            m_carryPanePlace = PanePlace::Middle;
+            m_carryPlaceWhole = true;
+        } else if (over && (connectedHere || soloHere) && (over == lone || m_desktopStage->managesWindow(over))) {
+            m_carryMapOutput = target;
+            m_carryPlaceAcross = soloHere;
             const QRectF frame(over->frameGeometry());
-            const auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
+            auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
                 contact.x(), contact.y(), previousPlacePane == over ? previousPanePlace : std::nullopt);
+            if (soloHere && place && (*place == PanePlace::Top || *place == PanePlace::Bottom))
+                place = PanePlace::Middle;
             if (place) {
                 m_carryPlacePane = over;
                 m_carryPanePlace = place;
@@ -1237,7 +1251,7 @@ void Effect::updateNativeCarryDestination(QPointF contact)
                         || (*place != PanePlace::Left && frame.center().x() > whole.center().x());
                     byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
                     byPane.over = *place == PanePlace::Top;
-                    byPane.connected = true;
+                    byPane.connected = connectedHere;
                     if (over == lone) {
                         // The half of the card the named side keeps for it.
                         pairAfter = lone;
