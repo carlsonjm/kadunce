@@ -782,21 +782,17 @@ bool Effect::stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto)
     SessionScope scope(this, m_scopedSession, stageKeyOf(onto));
     const QList<KWin::EffectWindow *> paneBehind = m_cardStage->paneStack(pane);
     const QList<KWin::EffectWindow *> ontoBehind = m_cardStage->paneStack(onto);
-    KWin::EffectWindow *next = paneBehind.isEmpty() ? nullptr : paneBehind.first();
-    if (!m_desktopStage->stackPaneOnto(pane, onto, next,
-            [this, next] {
-                return !next || m_cardStage->releaseCardToLiveBento(next);
-            })) return false;
-    // The pane is the Stack's front, the one it covered next, and that one's
-    // Stack after it; its own Stack stays with the slot it left.
-    QList<KWin::EffectWindow *> stack{onto};
+    // A Stack moves as one: the cards behind the pane come with it, and the
+    // slot it left closes, as after a closure.
+    if (!m_desktopStage->stackPaneOnto(pane, onto, nullptr, [] { return true; })) return false;
+    // The pane is the Stack's front, its own cards next, then the one it
+    // covered and that one's Stack.
+    QList<KWin::EffectWindow *> stack = paneBehind;
+    stack.append(onto);
     stack.append(ontoBehind);
     m_cardStage->forgetPaneStack(pane);
     m_cardStage->forgetPaneStack(onto);
     m_cardStage->notePaneStack(pane, stack);
-    if (next) {
-        m_cardStage->notePaneStack(next, paneBehind.mid(1));
-    }
     m_cardStage->settlePaneStacks();
     observeCardOwnership();
     KWin::effects->activateWindow(pane);
