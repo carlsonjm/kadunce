@@ -385,6 +385,9 @@ public Q_SLOTS:
  // A tooltip over this window: a popup that no layout ever holds.
  void tooltip() { auto *w = new QWidget(this, Qt::ToolTip); w->setAttribute(Qt::WA_DeleteOnClose); w->setObjectName("tooltip"); w->setGeometry(40,40,160,32); w->show(); }
  void closeTooltip() { for (auto *w : findChildren<QWidget *>("tooltip", Qt::FindDirectChildrenOnly)) w->close(); }
+ // A name on the session bus, as a program of the session holds one.
+ bool ownName(const QString &name) { return QDBusConnection::sessionBus().registerService(name); }
+ bool dropName(const QString &name) { return QDBusConnection::sessionBus().unregisterService(name); }
  void closeCompanion(const QString &title) {
   for (auto *w : QApplication::topLevelWidgets())
    if (w->isWindow() && w->windowTitle().contains(title)) w->close();
