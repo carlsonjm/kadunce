@@ -1564,7 +1564,7 @@ private:
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
     // Carried over another pane of its own layout, the whole pane is the
     // place: it joins that pane's Stack once rested on, anywhere on it.
-    bool m_carryPlaceWhole = false;
+    bool m_carryPlaceWhole = false, m_carryPlaceAcross = false; // Across: Solo, middle and two sides only.
     // How full the middle's ring is, 0 to 1, for the pane under the card.
     [[nodiscard]] double stackHoldFilled() const;
     StackHoldLabel m_stackHoldLabel;

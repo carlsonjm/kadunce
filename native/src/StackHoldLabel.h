@@ -34,8 +34,12 @@ public:
             label.fill(Qt::transparent);
             QPainter painter(&label);
             painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-            painter.scale(scale / 2.0, scale / 2.0);
-            const QRectF ring(Width - 26, 8, 52, 52);
+            painter.scale(scale / 2.0 * Grow, scale / 2.0 * Grow);
+            // A plate behind ring and words, so they read over any window.
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(tone.pillFill(210));
+            painter.drawRoundedRect(QRectF(Laid / 2 - 110, 0, 220, LaidHeight), 28, 28);
+            const QRectF ring(Laid / 2 - 26, 8, 52, 52);
             QColor track = words; track.setAlphaF(0.22);
             painter.setPen(QPen(track, 6)); painter.setBrush(Qt::NoBrush);
             painter.drawEllipse(ring);
@@ -45,7 +49,7 @@ public:
             }
             QFont font; font.setPixelSize(26); font.setWeight(QFont::DemiBold);
             painter.setFont(font); painter.setPen(words);
-            painter.drawText(QRectF(0, 72, Width * 2, 40), Qt::AlignCenter,
+            painter.drawText(QRectF(0, 72, Laid, 40), Qt::AlignCenter,
                              step >= Steps ? i18n("Stack") : i18n("Hold to stack"));
             painter.end();
             m_texture = KWin::GLTexture::upload(label);
@@ -73,7 +77,9 @@ public:
         if (!blended) glDisable(GL_BLEND);
     }
 private:
-    static constexpr int Width = 160, Height = 60, Steps = 40;
+    // Laid out at twice a 160 by 60 label, drawn a quarter larger.
+    static constexpr double Grow = 1.25, Laid = 320.0, LaidHeight = 120.0;
+    static constexpr int Width = 200, Height = 76, Steps = 40;
     int m_step = -1;
     double m_scale = 0.0;
     QColor m_words;
