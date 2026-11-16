@@ -6,6 +6,8 @@
 // Every display's stages: the desktop and display a card stage belongs to,
 // the card book, cards moving between displays, and displays coming and going.
 #include "EffectInternal.h"
+#include "SizesItself.h"
+#include <QFile>
 
 namespace Kadunce
 {
