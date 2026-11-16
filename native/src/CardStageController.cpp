@@ -1655,21 +1655,6 @@ void CardStageController::letFillingCardGo(KWin::EffectWindow *window)
     // the bottom edge, so asking for it under a card opened later shows the
     // desktop again rather than leave it behind that card.
     if (m_active && m_presentation == CardPresentation::Active) returnWindowToDesktop(window);
-    // An application can keep the card's size through its first maximize,
-    // marked maximized but short of the edges; once, it is given the whole
-    // work area its state asks for.
-    const QPointer<KWin::EffectWindow> filled(window);
-    QTimer::singleShot(300, &m_arrivalTimer, [this, filled] {
-        if (!filled || filled->isDeleted() || !filled->window() || liveCardIndex(filled) >= 0) return;
-        KWin::Window *client = filled->window();
-        KWin::LogicalOutput *output = filled->screen();
-        if (!output || client->isInteractiveMove() || client->isInteractiveResize()
-            || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeFull
-            || fillsWorkArea(filled, output)) return;
-        client->moveResize(m_host->workAreaForCardStage(output));
-        qInfo() << "Kadunce" << Revision << logNameOf(filled)
-                << "kept its card size when maximized; given the whole work area";
-    });
 }
 
 bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
