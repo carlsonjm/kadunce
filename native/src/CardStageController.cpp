@@ -1692,9 +1692,12 @@ bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
     // Taken in once this notification has returned, never inside it.
     QTimer::singleShot(0, &m_arrivalTimer, [this, restored] {
         if (!restored || restored->isDeleted() || liveCardIndex(restored) >= 0) return;
-        if (handleWindowAdded(restored))
-            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
-                    << "back as the Active card: it no longer fills the screen";
+        if (!handleWindowAdded(restored)) return;
+        // It was open long before: a maximize it asks for next is the person
+        // pressing it, not the application opening as it was left.
+        m_openedAt.remove(restored);
+        qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
+                << "back as the Active card: it no longer fills the screen";
     });
     return true;
 }
