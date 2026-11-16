@@ -78,7 +78,7 @@ bottom edge is theirs.
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, it on your side. |
-| Hold or click a divider, then drag | Both panes resize; where four meet, both ways. |
+| Hold or click a divider, then drag | Both panes resize, rows per column; where lines meet, both ways. |
 | Drag a Bento pane onto another pane of its layout | They swap. Connected, held until it leans in, it joins that pane's Stack. |
 | Minimize a pane | It leaves the layout as a sleeping card; a one-pane layout ends. |
 | `Escape`, or another finger, while dragging a window | The drag cancels. |
@@ -92,7 +92,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Tap a card, or `Enter` | It joins the layout beside the card in use; full, the pane used longest ago leaves. A pane opens the layout. |
 | `Meta`'s arrows on a pane | The focus goes that way, past the edge to that display. |
 | `Meta+Shift+Left`, `Right` on a pane or lone card | It swaps with the pane there, or takes the room, or goes to that display. |
-| `Meta+[`, `Meta+]` | The divider beside the pane moves. |
+| `Meta+[`, `Meta+]` | The pane's divider moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
 | `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
 | `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
@@ -113,7 +113,7 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Let a lifted card go on a tab | Its window moves to that workspace. |
 | Let a lifted card go on `+` | A new workspace, named for the application, takes it. |
 | Let a lifted card go on its own place | It opens. |
-| Push back to the edge and lift | Table closes; nothing changes. |
+| Push back to the edge and lift | Table closes, unchanged. |
 | Flick down | The tabs stay open as a menu bar, nothing chosen. |
 | In the menu bar: tap a tab twice | One tap previews it, a second enters. |
 | In the menu bar: tap a card, or the preview | What it shows opens. |
