@@ -872,7 +872,7 @@ void Effect::moveDividerByKey(int delta)
     std::optional<DesktopStageController::GrabRail> chosen;
     double best = 0.0;
     for (const auto &rail : m_desktopStage->grabRails()) {
-        if (rail.output != output || !rail.vertical) continue;
+        if (rail.output != output || !rail.vertical || rail.both) continue;
         if (rail.hitArea.bottom() < frame.top() || rail.hitArea.top() > frame.bottom()) continue;
         const double x = rail.pill.center().x();
         const double distance = std::min(std::abs(x - frame.right()), std::abs(x - frame.left()) + 1.0);

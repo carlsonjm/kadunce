@@ -78,10 +78,10 @@ bottom edge is theirs.
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones. |
 | Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, it on your side. |
-| Hold a divider briefly, or click it, then drag | Both panes resize. |
+| Hold or click a divider, then drag | Both panes resize; where four meet, both ways. |
 | Drag a Bento pane onto another pane of its layout | They swap. Connected, held until it leans in, it joins that pane's Stack. |
-| Minimize a pane | It leaves the layout as a sleeping card. A layout left with one pane ends. |
-| `Escape`, or another finger, while dragging a window | The drag is cancelled. |
+| Minimize a pane | It leaves the layout as a sleeping card; a one-pane layout ends. |
+| `Escape`, or another finger, while dragging a window | The drag cancels. |
 
 ## Connected
 

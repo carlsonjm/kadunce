@@ -237,7 +237,10 @@ public:
 
     [[nodiscard]] QStringList outputStageState() const;
     bool toggleOnOutput(const QString &outputName);
-    struct GrabRail { QString output; int index; bool vertical; QRectF pill; QRectF hitArea; };
+    // `both`: the middle grab where four panes meet, moving the line between
+    // columns and the line between rows together; `index` is the pane above
+    // and left of it, and `pill` its round plate.
+    struct GrabRail { QString output; int index; bool vertical; QRectF pill; QRectF hitArea; bool both = false; };
     QList<GrabRail> grabRails() const;
     // Why the layout on `output` draws no dividers, for the workspace
     // context; empty when nothing withholds them.
@@ -249,6 +252,10 @@ public:
     // on a display without cards is laid out again under it.
     void zoneModeChanged();
     QList<QRectF> railPreview(const QString &output) const;
+    // What a held divider draws on `output` beside its preview: each line's
+    // pill, and the middle grab's plus on its round plate, plates first.
+    struct RailMark { QRectF box; float radius; float fill; };
+    QList<RailMark> railMarks(const QString &output) const;
     bool handoffLeadToOutput(const QString &sourceName,
                              const QString &destinationName);
 
