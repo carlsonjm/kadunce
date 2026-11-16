@@ -846,6 +846,8 @@ private:
     // sign-in several open at once, and any of them can be the Active card
     // when its own state arrives.
     QHash<const KWin::EffectWindow *, qint64> m_openedAt;
+    // Whether the window's frame covers the whole of `output`'s work area.
+    bool fillsWorkArea(const KWin::EffectWindow *window, const KWin::LogicalOutput *output) const;
     QHash<const KWin::EffectWindow *, double> m_activeWidths;
     QPointer<KWin::EffectWindow> m_heldActiveWindow;
     std::optional<KWin::Rect> m_heldActivePlace;

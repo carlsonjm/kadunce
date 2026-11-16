@@ -1561,6 +1561,19 @@ void CardStageController::handleActiveGeometryChanged(
         if (!keepOpeningStateInActivePlace(window)) letFillingCardGo(window);
         return;
     }
+    // §2, Desktop: an application drawing its own title bar maximizes by
+    // growing itself over the whole work area rather than asking KWin; past
+    // its opening, that is the same wish, and it goes as a maximized card does.
+    // Where the Active place is the whole work area already, as at no gutter,
+    // the card stays.
+    if (tablet && fillsWorkArea(window, tablet)
+        && !QRectF(activePlacement(tablet)).contains(QRectF(m_host->workAreaForCardStage(tablet)).adjusted(2, 2, -2, -2))
+        && !(m_openedAt.contains(window)
+             && m_openingClock.elapsed() - m_openedAt.value(window) <= OpeningStateGrace)) {
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "grew itself over the whole work area";
+        letFillingCardGo(window);
+        return;
+    }
     if (tablet) {
         const KWin::RectF place(activePlacement(tablet));
         const QSizeF minimum = client->minSize();
@@ -1583,6 +1596,14 @@ void CardStageController::handleManualWindowChange(KWin::EffectWindow *window)
             << (window && window->window() ? window->window()->resourceClass() : QString());
     m_activeRestore = ActiveRestoreSnapshot{};
     release();
+}
+
+bool CardStageController::fillsWorkArea(const KWin::EffectWindow *window, const KWin::LogicalOutput *output) const
+{
+    const QRectF work(m_host->workAreaForCardStage(output));
+    const QRectF frame(window->frameGeometry());
+    return !work.isEmpty() && frame.left() <= work.left() + 2 && frame.top() <= work.top() + 2
+        && frame.right() >= work.right() - 2 && frame.bottom() >= work.bottom() - 2;
 }
 
 bool CardStageController::keepOpeningStateInActivePlace(KWin::EffectWindow *window)
@@ -1648,6 +1669,8 @@ bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
     if (client->isInteractiveMove() || client->isInteractiveResize() || client->isMinimized()
         || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) return false;
+    // One that grew itself still fills the work area until it is made smaller.
+    if (KWin::LogicalOutput *output = window->screen(); output && fillsWorkArea(window, output)) return false;
     m_filledFromCards.removeAll(window);
     if (!m_active || liveCardIndex(window) >= 0) return false;
     const QPointer<KWin::EffectWindow> restored = window;
