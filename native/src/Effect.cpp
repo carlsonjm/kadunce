@@ -1475,6 +1475,7 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_dialogsLead) releaseCarriedDialogs();
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
+    m_sizesItself.remove(window);
     m_cardFaceRects.remove(window);
     m_previewRefs.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer

@@ -1108,19 +1108,21 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         const QRectF heldRect = held ? m_cardLabelTargets.value(held) : QRectF();
         // The names, and a Stack's place, are said on a claimed context line.
         const bool namesSaid = contextLineClaimed(screen);
-        for (int index = 0; !namesSaid && index < windows.size(); ++index) {
+        for (int index = 0; index < windows.size(); ++index) {
             auto *window = windows.at(index).data();
             if (!window || window->isDeleted() || m_cardStage->paintSlot(window) == 99)
                 continue;
             const int cardId = index + 1;
-            if (model.stackPositionForId(cardId)
-                != model.stackActivePositionForId(cardId)) continue;
+            if (model.stackPositionForId(cardId) != model.stackActivePositionForId(cardId)) continue;
             const QString applicationName = spreadCardName(window, cardId);
             const int count = model.stackSizeForId(cardId);
             const auto target = m_cardLabelTargets.constFind(window);
             if (target == m_cardLabelTargets.cend()) continue;
             if (window != held && !heldRect.isEmpty()
                 && CardLabelRenderer::labelRect(*target).intersects(heldRect)) continue;
+            if (sizesItselfForCardStage(window))
+                m_cardLabelRenderer.renderMark(renderTarget, viewport, m_cardFaceRects.value(window, *target));
+            if (namesSaid) continue;
             m_cardLabelRenderer.render(renderTarget, viewport,
                 *target,
                 {applicationName, stackPositionLabel(

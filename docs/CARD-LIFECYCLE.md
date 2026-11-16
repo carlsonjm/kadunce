@@ -37,6 +37,13 @@ Ownership and presentation are separate.
 
 One individual card is shown; other cards stay owned and hidden.
 
+### A card that sizes itself
+
+Apps a launcher starts (Steam, Lutris, Heroic, Prism, Bolt, Waydroid) and
+RuneLite keep their own size and maximize; launchers stay ordinary cards.
+Spread marks them with four corners; `kaduncerc` `[SizesItself]` overrides
+per app.
+
 ### Bento
 
 The display's current Bento pane combination is shown; individual cards stay
@@ -171,17 +178,13 @@ Kadunce does not create independent cards for:
 - Screenshot captures and desktop portal dialogs
 - Windows that keep their own size, floating centred; Shuffle Settings at the tablet's card size
 
-A dependent dialog follows its owning application card. Over that card, or
-over the pane its application holds, it floats at its own size. When that card
-is not in front, the dialog waits with it, hidden, and
-the application is marked as wanting attention; bringing the application
-forward shows the dialog on top. In Spread a waiting dialog is drawn on its
-application's card. A card carried away
-takes its dialogs along, each landing in the same place on its application, or
-on its middle when wider than it, and wholly on the display.
-Switching Kadunce off gives every waiting dialog back. A dialog that names its
-application only once it is shown, as Electron's message boxes do, follows it
-from then on, even if Kadunce first took it for a card.
+A dependent dialog follows its application's card. Over that card, or its
+pane, it floats at its own size. Behind, it waits hidden with that card and the
+application wants attention; brought forward, it shows on top. In Spread a
+waiting dialog is drawn on its application's card. A carried card takes its dialogs, each landing in the same
+place on it, or its middle when wider, wholly on the display. Switching
+Kadunce off gives every waiting dialog back. A dialog that names its
+application late, as Electron's do, follows it from then on.
 
 ### Eligible as a Bento partner
 

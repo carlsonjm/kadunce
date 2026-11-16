@@ -752,6 +752,59 @@ std::optional<double> Effect::naturalActiveShareForCardStage(const KWin::EffectW
     return need->width;
 }
 
+namespace
+{
+// A process's name and the process that started it, read from the process
+// table; none once it has gone.
+QString processName(qint64 pid)
+{
+    QFile comm(QStringLiteral("/proc/%1/comm").arg(pid));
+    return comm.open(QIODevice::ReadOnly) ? QString::fromUtf8(comm.readAll()).trimmed() : QString();
+}
+
+qint64 processParent(qint64 pid)
+{
+    QFile stat(QStringLiteral("/proc/%1/stat").arg(pid));
+    if (!stat.open(QIODevice::ReadOnly)) return 0;
+    // The name, in brackets, may hold spaces and brackets of its own.
+    const QByteArray line = stat.readAll();
+    const QList<QByteArray> fields = line.mid(line.lastIndexOf(')') + 1).simplified().split(' ');
+    return fields.size() > 1 ? fields.at(1).toLongLong() : 0;
+}
+}
+
+bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
+{
+    if (!window || !window->window()) return false;
+    const auto known = m_sizesItself.constFind(window);
+    if (known != m_sizesItself.cend()) return *known;
+    KWin::Window *client = window->window();
+    WindowOrigin origin{naturalAppOf(window).toLower(), client->resourceClass().toLower(), {}, {}};
+    // A window that has not named itself yet is asked again once it has.
+    if (origin.app.isEmpty() && origin.windowClass.isEmpty()) return false;
+    const qint64 pid = client->pid();
+    if (pid > 1) {
+        origin.program = processName(pid);
+        // Up to the session's own processes; a launcher sits a few steps above
+        // what it started, behind its wrappers.
+        for (qint64 parent = processParent(pid), steps = 0; parent > 1 && steps < 16;
+             parent = processParent(parent), ++steps)
+            origin.ancestors.append(programName(processName(parent)));
+    }
+    // A choice made for the application: kaduncerc [SizesItself], true or false.
+    const KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))
+        ->group(QStringLiteral("SizesItself"));
+    const QString app = origin.app.isEmpty() ? origin.windowClass : origin.app;
+    const std::optional<bool> choice = !app.isEmpty() && chosen.hasKey(app)
+        ? std::optional<bool>(chosen.readEntry(app, false)) : std::nullopt;
+    const bool sizes = sizesItself(origin, choice);
+    m_sizesItself.insert(window, sizes);
+    if (sizes)
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "sizes itself: Cards places it at its own size"
+                << (choice ? "as chosen" : "as an app a launcher starts");
+    return sizes;
+}
+
 void Effect::teachNaturalWidth(const KWin::EffectWindow *window, const KWin::LogicalOutput *output,
                                double share)
 {

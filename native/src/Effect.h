@@ -888,17 +888,13 @@ private:
     void handleTransientChanged();
     void handleWindowOutputChanged();
     KWin::LogicalOutput *tabletOutput() const;
-    [[nodiscard]] bool isTabletOutputForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isTabletOutputForDesktopStage(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool usesDrawnZonesForDesktopStage() const override { return m_usesDrawnZones; }
-    [[nodiscard]] bool allowsDesktopStageOnOutput(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool isManagedWindowForDesktopStage(
-        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isManagedWindowForDesktopStage(const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForDesktopStage()
         const override;
-    [[nodiscard]] bool connectedOutputForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool connectedOutputForDesktopStage(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool holdsOwnCardsForDesktopStage(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool showsOneCardForDesktopStage(
@@ -1027,6 +1023,9 @@ private:
     mutable QHash<QString, AppKind> m_appKinds;
     mutable QHash<QString, double> m_naturalWidths;
     mutable bool m_naturalWidthsRead = false;
+    // CARD-LIFECYCLE.md §2, A card that sizes itself (SizesItself.h).
+    [[nodiscard]] bool sizesItselfForCardStage(const KWin::EffectWindow *window) const override;
+    mutable QHash<const KWin::EffectWindow *, bool> m_sizesItself;
     [[nodiscard]] bool outputCanOwnCards(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(

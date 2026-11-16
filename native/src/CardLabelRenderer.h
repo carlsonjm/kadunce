@@ -17,6 +17,7 @@
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 namespace Kadunce
 {
@@ -107,9 +108,69 @@ public:
         if (!blended) glDisable(GL_BLEND);
     }
 
+    // CARD-LIFECYCLE.md §2, A card that sizes itself: four open corners on a
+    // dark disc, at the top right of the card's face.
+    void renderMark(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+                    const QRectF &face)
+    {
+        if (face.width() < MarkSize * 3 || face.height() < MarkSize * 2) return;
+        const double ratio = std::max(1.0, viewport.scale());
+        if (!m_mark || m_markRatio != ratio) {
+            QImage image(qCeil(MarkSize * ratio), qCeil(MarkSize * ratio), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            image.setDevicePixelRatio(ratio);
+            QPainter painter(&image);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor(20, 20, 20, 225));
+            painter.drawEllipse(QRectF(0, 0, MarkSize, MarkSize));
+            QPen pen(QColor(248, 248, 255), 1.6);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter.setPen(pen);
+            painter.setBrush(Qt::NoBrush);
+            // A 16 point square of corners in the middle of the disc.
+            const double a = (MarkSize - 16) / 2.0 + 2, b = a + 12, arm = 4;
+            for (const QPointF &corner : {QPointF(a, a), QPointF(b, a), QPointF(a, b), QPointF(b, b)}) {
+                const double across = corner.x() == a ? arm : -arm, down = corner.y() == a ? arm : -arm;
+                painter.drawPolyline(QPolygonF{corner + QPointF(0, down), corner, corner + QPointF(across, 0)});
+            }
+            painter.end();
+            auto uploaded = KWin::GLTexture::upload(image);
+            if (uploaded) uploaded->setFilter(GL_LINEAR);
+            m_mark = std::move(uploaded);
+            m_markRatio = ratio;
+        }
+        if (!m_mark) return;
+        KWin::ShaderBinder binder(KWin::ShaderTrait::MapTexture);
+        auto *shader = KWin::ShaderManager::instance()->getBoundShader();
+        auto matrix = viewport.projectionMatrix();
+        const double scale = viewport.scale();
+        matrix.scale(scale, scale);
+        matrix.translate(std::round((face.right() - MarkInset - MarkSize) * scale) / scale,
+                         std::round((face.top() + MarkInset) * scale) / scale);
+        shader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
+        shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
+            renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
+        const bool blended = glIsEnabled(GL_BLEND);
+        GLint sr, dr, sa, da;
+        glGetIntegerv(GL_BLEND_SRC_RGB, &sr); glGetIntegerv(GL_BLEND_DST_RGB, &dr);
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, &sa); glGetIntegerv(GL_BLEND_DST_ALPHA, &da);
+        glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        m_mark->bind();
+        m_mark->render(QSizeF(MarkSize, MarkSize));
+        m_mark->unbind();
+        glBlendFuncSeparate(sr, dr, sa, da);
+        if (!blended) glDisable(GL_BLEND);
+    }
+
 private:
     static constexpr int RowHeight = 24;
     static constexpr int LabelGap = 7;
+    static constexpr int MarkSize = 28;
+    static constexpr int MarkInset = 8;
+    std::unique_ptr<KWin::GLTexture> m_mark;
+    double m_markRatio = 0.0;
     QCache<QString, KWin::GLTexture> m_textures{48};
 };
 

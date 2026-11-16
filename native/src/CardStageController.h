@@ -89,6 +89,9 @@ public:
     // none; none where it stands at the whole width.
     [[nodiscard]] virtual std::optional<double> naturalActiveShareForCardStage(
         const KWin::EffectWindow *, const KWin::LogicalOutput *) const { return std::nullopt; }
+    // CARD-LIFECYCLE.md §2, A card that sizes itself: Cards places the window
+    // but never changes its size or its maximize.
+    [[nodiscard]] virtual bool sizesItselfForCardStage(const KWin::EffectWindow *) const { return false; }
     // Where the visible virtual keyboard's top edge sits on this display, if
     // one is up. A keyboard is a compositor fact and reaches every effect, so
     // reading it here costs no dependency on a downstream surface. A host with
@@ -631,6 +634,8 @@ public:
     // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     bool takeBackFilledCard(KWin::EffectWindow *window);
+    // §2, A card that sizes itself: back in the middle of the place, at its own size.
+    void keepOwnSizeInPlace(KWin::EffectWindow *window);
     // The window that has just opened, maximizing or tiling itself as its
     // application restores its saved state, stays the Active card.
     bool keepOpeningStateInActivePlace(KWin::EffectWindow *window);
