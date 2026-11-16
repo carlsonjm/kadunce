@@ -524,7 +524,10 @@ void DesktopStageController::adjustRail(Session &session,
     double upper = 1.0;
     for (const int index : before) {
         const BentoRect &rect = next.at(index);
-        const QSizeF minimum = session.windows.at(index)->window()->minSize();
+        // An application states its least size without KWin's title bar and
+        // edges; its pane holds those too.
+        const auto *client = session.windows.at(index)->window();
+        const QSizeF minimum = client->clientSizeToFrameSize(client->minSize());
         const double advertised = vertical
             ? (minimum.width() + bentoPaneGap()) / area.width()
             : (minimum.height() + bentoPaneGap()) / area.height();
@@ -533,7 +536,8 @@ void DesktopStageController::adjustRail(Session &session,
     }
     for (const int index : after) {
         const BentoRect &rect = next.at(index);
-        const QSizeF minimum = session.windows.at(index)->window()->minSize();
+        const auto *client = session.windows.at(index)->window();
+        const QSizeF minimum = client->clientSizeToFrameSize(client->minSize());
         const double advertised = vertical
             ? (minimum.width() + bentoPaneGap()) / area.width()
             : (minimum.height() + bentoPaneGap()) / area.height();
