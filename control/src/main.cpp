@@ -10,6 +10,10 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusServiceWatcher>
+#include <QEventLoop>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -548,6 +552,24 @@ private:
 
 } // namespace
 
+// The tray and Control Centre show Cards only once it has joined the
+// tray's host. Started before the host, the item never joins it, so the
+// control waits for the host first, a minute at most; without one, as off
+// Plasma, it starts all the same.
+static void waitForTrayHost()
+{
+    const QString host = QStringLiteral("org.kde.StatusNotifierWatcher");
+    auto bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected() || !bus.interface() || bus.interface()->isServiceRegistered(host)) return;
+    QEventLoop loop;
+    QDBusServiceWatcher watcher(host, bus, QDBusServiceWatcher::WatchForRegistration);
+    QObject::connect(&watcher, &QDBusServiceWatcher::serviceRegistered, &loop, &QEventLoop::quit);
+    QTimer::singleShot(60000, &loop, &QEventLoop::quit);
+    // Asked again once watching, so a host that arrived in between is not missed.
+    if (bus.interface()->isServiceRegistered(host)) return;
+    loop.exec();
+}
+
 int main(int argc, char **argv)
 {
     if (!prepareWaylandEnvironment()) {
@@ -572,6 +594,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    waitForTrayHost();
     ControlMenu control;
     return application.exec();
 }
