@@ -6,8 +6,11 @@ using namespace Kadunce;
 void check(bool ok, const char *message) {
     if (!ok) { std::cerr << message << '\n'; std::exit(1); }
 }
-WindowOrigin origin(const char *app, const char *windowClass, const char *program, QStringList ancestors = {}) {
-    return {QString::fromLatin1(app), QString::fromLatin1(windowClass), QString::fromLatin1(program), ancestors};
+WindowOrigin origin(const char *app, const char *windowClass, const char *program,
+                    std::initializer_list<const char *> ancestors = {}) {
+    QStringList started;
+    for (const char *name : ancestors) started.append(QString::fromLatin1(name));
+    return {QString::fromLatin1(app), QString::fromLatin1(windowClass), QString::fromLatin1(program), started};
 }
 int main() {
     // A game Steam started, found by its class or by who started it.
