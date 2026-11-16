@@ -6,11 +6,18 @@
 // Moving a placed window and the dividers between panes.
 #include "DesktopStageInternal.h"
 
+#include "BentoCrossings.h"
+
 namespace Kadunce
 {
 
 namespace
 {
+// Half the middle grab's round plate, which is also its reach.
+constexpr double MiddleGrabRadius = 18.0;
+// How near, in pixels, a line between rows clicks level with another column's.
+constexpr double RowSnapReach = 16.0;
+
 // A surface laid over one pane at its size, as Gooseberry's notes are over
 // the window they belong to, covers that pane and nothing beside it, so no
 // divider of the layout is hidden behind it.
@@ -195,16 +202,51 @@ QList<DesktopStageController::GrabRail> DesktopStageController::grabRails() cons
                 }
             }
         }
+        // Where lines between rows and columns meet, the middle grab comes
+        // first, so its press is taken before either line's reach around it.
+        // A single line held leaves the meeting, so the grab waits until it is
+        // let go.
+        int first = 0;
+        if (!m_railDrag || m_railDrag->rail.both) for (const auto &crossing : bentoCrossings(session.rects)) {
+            const QPointF center(area.x() + crossing.x*area.width(), area.y() + crossing.y*area.height());
+            const QRectF plate(center.x()-MiddleGrabRadius, center.y()-MiddleGrabRadius,
+                2*MiddleGrabRadius, 2*MiddleGrabRadius);
+            bool covered = false;
+            const auto stacking = KWin::effects->stackingOrder();
+            for (auto it = stacking.crbegin(); it != stacking.crend(); ++it) {
+                auto *w = *it;
+                if (session.windows.contains(w)) break;
+                if (w->isVisible() && !w->isDesktop() && !liesOverPane(w, session.windows)
+                    && QRectF(w->frameGeometry()).intersects(plate)) { covered = true; break; }
+            }
+            if (covered) continue;
+            rails.insert(first++, GrabRail{session.outputName, crossing.left, true, plate, plate.intersected(area),
+                true, crossing.above, crossing.full});
+        }
     }
     if (railValid()) for (auto &rail : rails) {
         const auto &drag = *m_railDrag;
+        // Held by the middle grab, every pill rides with its lines.
+        if (drag.rail.both && rail.output == drag.rail.output && !rail.both
+            && rail.index < int(drag.preview.rects.size()) && rail.index < int(drag.original.rects.size())) {
+            const auto &was = drag.original.rects[rail.index];
+            const auto &now = drag.preview.rects[rail.index];
+            const QPointF shift = rail.vertical
+                ? QPointF((now.x+now.width-was.x-was.width)*drag.area.width(),
+                    (now.y+now.height/2-was.y-was.height/2)*drag.area.height())
+                : QPointF((now.x+now.width/2-was.x-was.width/2)*drag.area.width(),
+                    (now.y+now.height-was.y-was.height)*drag.area.height());
+            rail.pill.translate(shift);
+            continue;
+        }
         if (rail.output != drag.rail.output || rail.index != drag.rail.index
-            || rail.vertical != drag.rail.vertical) continue;
+            || rail.vertical != drag.rail.vertical || rail.both != drag.rail.both) continue;
         const auto &rect = drag.preview.rects[rail.index];
+        const auto &row = drag.preview.rects[rail.both ? rail.rowIndex : rail.index];
         QPointF center = rail.pill.center();
         if (rail.vertical) center.setX(drag.area.x()+(rect.x+rect.width)*drag.area.width());
-        else center.setY(drag.area.y()+(rect.y+rect.height)*drag.area.height());
-        rail.pill.setSize(rail.vertical ? QSizeF(4,48) : QSizeF(48,4));
+        if (!rail.vertical || rail.both) center.setY(drag.area.y()+(row.y+row.height)*drag.area.height());
+        if (!rail.both) rail.pill.setSize(rail.vertical ? QSizeF(4,48) : QSizeF(48,4));
         rail.pill.moveCenter(center);
     }
     return rails;
@@ -284,10 +326,47 @@ void DesktopStageController::updateRail(QPointF position)
     if (drag.rail.index >= static_cast<int>(pixels.size())) { finishRail(false); return; }
     const auto &place = pixels.at(std::size_t(drag.rail.index));
     const KWin::RectF start(place.x, place.y, place.width, place.height);
-    QRectF finish(start);
-    if (drag.rail.vertical) finish.setRight(finish.right()+position.x()-drag.contact.x());
-    else finish.setBottom(finish.bottom()+position.y()-drag.contact.y());
-    adjustRail(drag.preview, window, start, KWin::RectF(finish));
+    // The middle grab moves the line between columns, then the line between
+    // rows, each from the pane's place, so one move does both.
+    if (drag.rail.vertical || drag.rail.both) {
+        QRectF finish(start);
+        finish.setRight(finish.right()+position.x()-drag.contact.x());
+        adjustRail(drag.preview, window, start, KWin::RectF(finish));
+    }
+    if (!drag.rail.vertical || drag.rail.both) {
+        // The line between rows is the bottom of the row pane the middle
+        // grab names, else of the pane above the line held.
+        const int rowIndex = drag.rail.both ? drag.rail.rowIndex : drag.rail.index;
+        if (rowIndex < 0 || rowIndex >= int(pixels.size())) { finishRail(false); return; }
+        const auto rowWindow = drag.original.windows[rowIndex];
+        const auto &rowPlace = pixels.at(std::size_t(rowIndex));
+        const KWin::RectF rowStart(rowPlace.x, rowPlace.y, rowPlace.width, rowPlace.height);
+        QRectF finish(rowStart);
+        finish.setBottom(finish.bottom()+position.y()-drag.contact.y());
+        const Session moved = drag.preview;
+        const bool wholeRow = drag.rail.both && drag.rail.wholeRow;
+        adjustRail(drag.preview, rowWindow, rowStart, KWin::RectF(finish), wholeRow);
+        // In its own column, the line clicks level with a line between rows
+        // in another column once within reach of it, so four panes meet
+        // again; dragged further, it comes free.
+        const auto &rect = drag.preview.rects[rowIndex];
+        const double boundary = rect.y + rect.height;
+        std::optional<double> level;
+        if (!wholeRow) for (const auto &other : drag.preview.rects) {
+            const double edge = other.y + other.height;
+            const bool ownColumn = other.x < rect.x + rect.width - .002 && other.x + other.width > rect.x + .002;
+            if (ownColumn || edge > .998 || std::abs(edge - boundary)*drag.area.height() > RowSnapReach
+                || (level && std::abs(edge - boundary) >= std::abs(*level - boundary))) continue;
+            level = edge;
+        }
+        if (level && std::abs(*level - boundary) > 1e-9) {
+            Session snapped = moved;
+            finish.setBottom(drag.area.y() + *level*drag.area.height());
+            adjustRail(snapped, rowWindow, rowStart, KWin::RectF(finish), false);
+            const auto &held = snapped.rects[rowIndex];
+            if (std::abs(held.y + held.height - *level) < .002) drag.preview = std::move(snapped);
+        }
+    }
     KWin::effects->addRepaintFull();
 }
 
@@ -299,6 +378,21 @@ QList<QRectF> DesktopStageController::railPreview(const QString &output) const
     for (const auto &r : makePixelBentoLayout(m_railDrag->preview.rects, a.x(), a.y(), a.width(), a.height()))
         boxes.append(QRectF(r.x,r.y,r.width,r.height));
     return boxes;
+}
+
+QList<DesktopStageController::RailMark> DesktopStageController::railMarks(const QString &output) const
+{
+    QList<RailMark> plates, pills;
+    for (const auto &rail : grabRails()) {
+        if (rail.output != output) continue;
+        if (!rail.both) { pills.append({rail.pill, 2.f, .85f}); continue; }
+        // The middle grab: a small plus on a soft round plate.
+        const QPointF center = rail.pill.center();
+        plates.append({rail.pill, float(rail.pill.width()/2), .16f});
+        pills.append({QRectF(center.x()-2, center.y()-10, 4, 20), 2.f, .92f});
+        pills.append({QRectF(center.x()-10, center.y()-2, 20, 4), 2.f, .92f});
+    }
+    return plates + pills;
 }
 
 void DesktopStageController::finishRail(bool commit)
@@ -325,7 +419,8 @@ void DesktopStageController::finishRail(bool commit)
 void DesktopStageController::adjustRail(Session &session,
                              KWin::EffectWindow *window,
                              const KWin::RectF &start,
-                             const KWin::RectF &finish)
+                             const KWin::RectF &finish,
+                             bool wholeLine)
 {
     const int resizedIndex = session.windows.indexOf(window);
     KWin::LogicalOutput *output = outputForKey(session.outputName);
@@ -366,7 +461,9 @@ void DesktopStageController::adjustRail(Session &session,
     std::vector<BentoRect> next = session.rects;
     double connectedStart = segmentStart;
     double connectedEnd = segmentEnd;
-    bool expanded = true;
+    // A line between rows held alone moves in its own column only.
+    const bool ownColumn = !vertical && !wholeLine;
+    bool expanded = !ownColumn;
     while (expanded) {
         expanded = false;
         for (const BentoRect &rect : next) {
@@ -402,6 +499,9 @@ void DesktopStageController::adjustRail(Session &session,
             ? rect.y + rect.height : rect.x + rect.width;
         if (crossEnd < connectedStart - Epsilon
             || crossStart > connectedEnd + Epsilon) {
+            continue;
+        }
+        if (ownColumn && (crossEnd <= connectedStart + Epsilon || crossStart >= connectedEnd - Epsilon)) {
             continue;
         }
         const double startEdge = vertical ? rect.x : rect.y;

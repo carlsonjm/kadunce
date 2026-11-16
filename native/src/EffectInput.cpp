@@ -313,7 +313,11 @@ void Effect::quietCardGap(const QPointF &position)
             const bool panel = isPanelPoint(position);
             if (!panel)
                 for (const auto &rail : m_desktopStage->grabRails())
-                    if (rail.hitArea.contains(position)) place.divider = rail.vertical ? 1 : 2;
+                    if (rail.hitArea.contains(position)) {
+                        place.divider = rail.both ? 3 : rail.vertical ? 1 : 2;
+                        // The middle grab comes first and keeps its point.
+                        if (rail.both) break;
+                    }
             // The dock, the keys and Search beside the Active card keep their
             // own pointer.
             if (!panel && !inputPanelContainsForInput(position)
@@ -343,6 +347,7 @@ void Effect::showHeldPointer(HeldPointer held, bool wasHeld)
 {
     const Qt::CursorShape shape = held == HeldPointer::ResizeColumns ? Qt::SplitHCursor
         : held == HeldPointer::ResizeRows ? Qt::SplitVCursor
+        : held == HeldPointer::ResizeBoth ? Qt::SizeAllCursor
         : held == HeldPointer::Carrying ? Qt::ClosedHandCursor
         : Qt::ArrowCursor;
     if (wasHeld) KWin::effects->defineCursor(shape);

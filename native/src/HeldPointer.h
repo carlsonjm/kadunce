@@ -16,13 +16,15 @@ enum class HeldPointer {
     PageRight,
     ResizeColumns,
     ResizeRows,
+    ResizeBoth,
     Carrying,
 };
 
 struct HeldPointerPlace {
     bool tableOpen = false;
     bool tableCarrying = false;
-    // 1 on a divider between side-by-side panes, 2 between stacked ones.
+    // 1 on a divider between side-by-side panes, 2 between stacked ones, 3 on
+    // the middle grab where four panes meet.
     int divider = 0;
     // -1 or 1 in the gap left or right of the Active card.
     int activeSide = 0;
@@ -34,6 +36,7 @@ inline HeldPointer heldPointer(const HeldPointerPlace &place)
     if (place.tableOpen) return place.tableCarrying ? HeldPointer::Carrying : HeldPointer::Arrow;
     if (place.divider == 1) return HeldPointer::ResizeColumns;
     if (place.divider == 2) return HeldPointer::ResizeRows;
+    if (place.divider == 3) return HeldPointer::ResizeBoth;
     if (place.activeSide < 0) return HeldPointer::PageLeft;
     if (place.activeSide > 0) return HeldPointer::PageRight;
     return place.cardGap ? HeldPointer::Arrow : HeldPointer::None;
@@ -48,6 +51,7 @@ inline QByteArray heldPointerName(HeldPointer pointer)
     case HeldPointer::PageRight: return QByteArrayLiteral("kadunce-page-right");
     case HeldPointer::ResizeColumns: return QByteArrayLiteral("col-resize");
     case HeldPointer::ResizeRows: return QByteArrayLiteral("row-resize");
+    case HeldPointer::ResizeBoth: return QByteArrayLiteral("all-scroll");
     case HeldPointer::Carrying: return QByteArrayLiteral("grabbing");
     case HeldPointer::Arrow:
     case HeldPointer::None: break;

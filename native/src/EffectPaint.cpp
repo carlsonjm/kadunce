@@ -1022,11 +1022,8 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (m_destinationShader && screen
         && (screen != tabletOutput() || !m_cardStage->isActive() || m_cardStage->presentsBento())
         && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
-        QList<QRectF> pills;
-        for (const auto &rail : m_desktopStage->grabRails())
-            if (rail.output == screen->name()) pills.append(rail.pill);
         const auto previews = m_desktopStage->railPreview(screen->name());
-        const auto drawRailShape = [&](const QRectF &box, bool pill) {
+        const auto drawRailShape = [&](const QRectF &box, float radius, float fill, float outline) {
             QList<QVector2D> vertices;
             for (const auto &dirty : deviceRegion.rects()) {
                 const auto part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
@@ -1041,10 +1038,10 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             matrix.scale(viewport.scale(), viewport.scale());
             m_destinationShader->setUniform(KWin::GLShader::Mat4Uniform::ModelViewProjectionMatrix, matrix);
             m_destinationShader->setUniform("destinationBox", QVector4D(box.x(),box.y(),box.width(),box.height()));
-            m_destinationShader->setUniform("outlineRadius", pill ? 2.f : float(cardCornerRadius()));
+            m_destinationShader->setUniform("outlineRadius", radius);
             const QVector3D ink = SurfaceTone::current().lineInk();
-            m_destinationShader->setUniform("surfaceFill", QVector4D(ink, pill ? .85f : .035f));
-            m_destinationShader->setUniform("outlineOpacity", pill ? 0.f : .8f);
+            m_destinationShader->setUniform("surfaceFill", QVector4D(ink, fill));
+            m_destinationShader->setUniform("outlineOpacity", outline);
             m_destinationShader->setUniform("outlineInk", ink);
             m_destinationShader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
                 renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
@@ -1058,9 +1055,14 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             glBlendFuncSeparate(sr,dr,sa,da);
             if (!blended) glDisable(GL_BLEND);
         };
-        for (const auto &box : previews) drawRailShape(box,false);
-        if (!previews.isEmpty()) for (const auto &pill : pills) drawRailShape(pill,true);
-        if (!previews.isEmpty()) overlaid << previews << pills;
+        for (const auto &box : previews) drawRailShape(box, float(cardCornerRadius()), .035f, .8f);
+        if (!previews.isEmpty()) {
+            overlaid << previews;
+            for (const auto &mark : m_desktopStage->railMarks(screen->name())) {
+                drawRailShape(mark.box, mark.radius, mark.fill, 0.f);
+                overlaid << mark.box;
+            }
+        }
     }
     // Draw only from a still-owned reservation. No layout solve, timers, native
     // outline window, or input grab belongs in the paint pass.

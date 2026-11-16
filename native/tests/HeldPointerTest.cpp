@@ -20,6 +20,8 @@ int main() {
           "a divider between side-by-side panes is not a column resize");
     check(heldPointer({.divider = 2}) == HeldPointer::ResizeRows, "a divider between stacked panes is not a row resize");
     check(heldPointerName(HeldPointer::ResizeColumns) == "col-resize", "a column resize lost its name");
+    check(heldPointer({.divider = 3, .cardGap = true}) == HeldPointer::ResizeBoth, "the middle grab is not a resize both ways");
+    check(heldPointerName(HeldPointer::ResizeBoth) == "all-scroll", "a resize both ways lost its name");
     // Any other gutter is an arrow.
     check(heldPointer({.cardGap = true}) == HeldPointer::Arrow, "a gutter is not an arrow");
     // An open Table holds the pointer everywhere, grabbing while a card is carried.
