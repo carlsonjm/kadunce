@@ -261,6 +261,10 @@ public:
     {
         return m_effect->sessionHolding(window) != nullptr;
     }
+    bool sizesItselfForCardStage(const KWin::EffectWindow *window) const override
+    {
+        return cards().sizesItselfForCardStage(window);
+    }
     std::optional<double> inputPanelTopForCardStage(KWin::LogicalOutput *output) const override
     {
         SessionScope scope(m_effect, m_session, m_key);
