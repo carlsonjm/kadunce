@@ -76,7 +76,9 @@ must reject unknown major versions instead of guessing at fields.
   none does. Every display holding cards has its own stage, so a card's
   `stage` is the display its window stands on; its `cardIndex`, Stack fields,
   `entry` and `spreadRect` are places in that display's Spread. A pane's
-  `paneStack` lists the cards waiting behind it.
+  `paneStack` lists the cards waiting behind it. `sizesItself` says whether
+  Cards leaves it at its own size; `setSizesItselfForWindow(windowId, sizes)`
+  chooses that for its app.
 - `cardStage`: the stage of the display in use (the one last touched or
   focused): whether Card Stage is active, its presentation, the selected
   card UUID, and ordered selected-stack member UUIDs. The presentation is one

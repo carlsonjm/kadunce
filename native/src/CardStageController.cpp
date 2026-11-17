@@ -16,6 +16,13 @@ namespace
 constexpr int WorkAreaGrowWait = 6000;
 // The keyboard's handover hides and shows its keys within 150 ms.
 constexpr int KeyboardRoomGraceMs = 250;
+// §2, A card that sizes itself: the size it had before Cards placed it, kept
+// in its restore record, else the size it has now.
+KWin::RectF ownBeforeCards(const WindowPlace &place, const KWin::RectF &frame)
+{
+    const KWin::RectF own = place.floating() ? place.geometry : place.floatingGeometry;
+    return own.width() > 0 && own.height() > 0 ? own : frame;
+}
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -655,7 +662,10 @@ bool CardStageController::enterActive()
         // it is still answering a maximize or a restore.
         if (!m_openingClock.isValid()) m_openingClock.start();
         OwnSizeRecord &record = m_ownSizes[effectWindow];
-        const KWin::RectF frame = client->frameGeometry();
+        // One not looked at yet, as one just switched to size itself, starts
+        // from the size it had before Cards placed it.
+        const KWin::RectF frame = record.seen ? client->frameGeometry()
+                                              : ownBeforeCards(m_activeRestore, client->frameGeometry());
         noteOwnSize(record, ownFillOf(client), {frame.x(), frame.y(), frame.width(), frame.height()},
                     m_openingClock.elapsed());
         record.asserts = 0;
@@ -1700,6 +1710,41 @@ void CardStageController::settleOwnSize(const QPointer<KWin::EffectWindow> &wind
     qInfo() << "Kadunce" << Revision << logNameOf(window) << "sizes itself; Cards holds it to"
             << (fill == OwnFill::WorkArea ? "the whole work area" : "its own size in the Active place")
             << wanted->toRect() << "from" << placed.toRect() << "time" << attempt;
+}
+
+void CardStageController::sizingChanged(KWin::EffectWindow *window)
+{
+    // §2, A card that sizes itself, switched on or off from its card or from
+    // Settings: the Active card is placed anew at once, any other card as it
+    // is next shown.
+    m_ownSizes.remove(window);
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!window || window->isDeleted() || !window->window() || !tablet || !m_active
+        || m_presentation != CardPresentation::Active || !m_activeRestore.valid
+        || m_activeRestore.window != window || window->screen() != tablet) return;
+    KWin::Window *client = window->window();
+    const bool sizes = m_host->sizesItselfForCardStage(window);
+    if (sizes) {
+        if (!m_openingClock.isValid()) m_openingClock.start();
+        noteOwnSize(m_ownSizes[window], ownFillOf(client),
+                    ownRectOf(ownBeforeCards(m_activeRestore, client->frameGeometry())), m_openingClock.elapsed());
+        if (const auto wanted = ownPlaceOf(tablet, window)) {
+            QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+            client->moveResize(*wanted);
+        }
+        lookAtOwnSize(window);
+    } else {
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore) client->maximize(KWin::MaximizeRestore);
+        client->moveResize(KWin::RectF(activePlacement(tablet)));
+        m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
+        m_activeSettleTimer.start();
+    }
+    refreshKeyboardRoom();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << logNameOf(window)
+            << (sizes ? "now sizes itself: Cards gives it back its own size" : "no longer sizes itself: Cards places it");
 }
 
 bool CardStageController::keepOpeningStateInActivePlace(KWin::EffectWindow *window)

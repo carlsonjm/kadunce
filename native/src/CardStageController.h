@@ -380,6 +380,9 @@ public:
     // The Active card `window` moved to its place again, as its width now
     // gives it. False when it is not this stage's Active card.
     bool refitActive(KWin::EffectWindow *window);
+    // §2, A card that sizes itself: the window's answer changed, by a choice
+    // made for it or its launcher; placed anew if it is the Active card.
+    void sizingChanged(KWin::EffectWindow *window);
     // §11, Solo: the place the Active card `window` holds while the half
     // beside it offers sleeping cards; none gives it its own place back.
     // Whether that changed what it holds.

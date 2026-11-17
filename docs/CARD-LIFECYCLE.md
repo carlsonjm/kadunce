@@ -39,10 +39,10 @@ One individual card is shown; others stay owned and hidden.
 
 ### A card that sizes itself
 
-Apps a launcher starts (Steam, Lutris, Heroic, Prism, Bolt, Waydroid) and
-RuneLite size themselves, opening where launched; launchers stay cards.
-Maximized, one fills the work area; restored, it regains its size. Spread
-marks them; `kaduncerc` `[SizesItself]` overrides.
+Apps Steam, Lutris, Heroic, Prism, Bolt or Waydroid start, and RuneLite, size
+themselves where launched. Maximized, one fills the work area, restored, its
+own size. Spread marks them. Choices per app or launcher override at once
+(`sizingChoices`).
 
 ### Bento
 

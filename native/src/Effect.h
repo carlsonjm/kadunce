@@ -226,8 +226,7 @@ public Q_SLOTS:
     // Any application may hold Spread's centre while Spread is shown, answered
     // on its own object (TETTEGOUCHE-CONTEXT.md § Companion guests).
     Q_SCRIPTABLE int companionGuestProtocolVersion() const;
-    Q_SCRIPTABLE QString beginCompanionGuest(const QString &ownerService,
-        const QString &objectPath, const QString &interfaceName);
+    Q_SCRIPTABLE QString beginCompanionGuest(const QString &ownerService, const QString &objectPath, const QString &interfaceName);
     Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
     Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
@@ -283,11 +282,14 @@ public Q_SLOTS:
     // set to "Accent".
     Q_SCRIPTABLE bool showsKeyboardOutline() const { return m_showsKeyboardOutline; }
     Q_SCRIPTABLE void setShowsKeyboardOutline(bool shows);
-    Q_SCRIPTABLE QString keyboardOutlineStyle() const
-    {
-        return m_keyboardOutlineAccent ? QStringLiteral("Accent") : QStringLiteral("Soft");
-    }
+    Q_SCRIPTABLE QString keyboardOutlineStyle() const { return QLatin1String(m_keyboardOutlineAccent ? "Accent" : "Soft"); }
     Q_SCRIPTABLE void setKeyboardOutlineStyle(const QString &style);
+    // CARD-LIFECYCLE.md §2, A card that sizes itself: the choices kept in
+    // kaduncerc's [SizesItself], an app's by its id and a launcher's as
+    // "launcher:<name>", true or false; -1 forgets one. Followed at once.
+    Q_SCRIPTABLE QVariantMap sizingChoices() const;
+    Q_SCRIPTABLE void setSizingChoice(const QString &key, int choice);
+    Q_SCRIPTABLE bool setSizesItselfForWindow(const QString &windowId, bool sizes);
     // The display Spread lives on, by name; empty while Kadunce chooses
     // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
@@ -298,8 +300,7 @@ public Q_SLOTS:
     // Kadunce choose by room.
     Q_SCRIPTABLE QString displaySizing(const QString &outputName) const;
     Q_SCRIPTABLE void setDisplaySizing(const QString &outputName, const QString &sizing);
-    Q_SCRIPTABLE bool handoffBentoLeadToOutput(
-        const QString &sourceName, const QString &destinationName);
+    Q_SCRIPTABLE bool handoffBentoLeadToOutput(const QString &sourceName, const QString &destinationName);
     // Table's preview: another desktop drawn on every display in place of the
     // current one, as it stands, without switching to it. An empty id, or the
     // current desktop's, ends the preview and changes nothing.
@@ -1025,6 +1026,7 @@ private:
     [[nodiscard]] bool sizesItselfForCardStage(const KWin::EffectWindow *window) const override;
     mutable QHash<const KWin::EffectWindow *, SizingAnswer> m_sizesItself;
     mutable QSet<qint64> m_sizesItselfProcesses;
+    void applySizingChoices();
     // Where an app that sizes itself was opened, its windows closed a moment ago
     // included, so a window it builds again opens there (keepWhereLaunched).
     QList<ClosedSizer> m_closedSizers;

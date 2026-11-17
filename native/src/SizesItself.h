@@ -50,19 +50,37 @@ struct WindowOrigin {
         || programName(origin.program) == QStringLiteral("steamwebhelper");
 }
 
+// The launcher a window's app belongs to, by the name its choice is kept
+// under: a Steam game, an Android app and RuneLite say so themselves, else
+// the nearest launcher that started its program. Empty for a launcher's own
+// windows and for any app no launcher started.
+[[nodiscard]] inline QString launcherFamily(const WindowOrigin &origin)
+{
+    if (origin.windowClass.startsWith(QStringLiteral("steam_app_"))) return QStringLiteral("steam");
+    if (origin.app.startsWith(QStringLiteral("waydroid."))) return QStringLiteral("waydroid");
+    if (origin.windowClass.contains(QStringLiteral("runelite")) || origin.app.contains(QStringLiteral("runelite")))
+        return QStringLiteral("bolt");
+    if (isLauncherWindow(origin)) return {};
+    for (const QString &ancestor : origin.ancestors) {
+        if (!isLauncherProgram(ancestor)) continue;
+        const QString name = programName(ancestor);
+        return name == QStringLiteral("bolt-launcher") ? QStringLiteral("bolt") : name;
+    }
+    return {};
+}
+
 // Whether a launcher started the window's program, or the window says it is
-// one a launcher starts: a Steam game, an Android app, RuneLite.
+// one a launcher starts.
 [[nodiscard]] inline bool startedByLauncher(const WindowOrigin &origin)
 {
-    if (origin.windowClass.startsWith(QStringLiteral("steam_app_"))
-        || origin.app.startsWith(QStringLiteral("waydroid."))
-        || origin.windowClass.contains(QStringLiteral("runelite"))
-        || origin.app.contains(QStringLiteral("runelite")))
-        return true;
-    if (isLauncherWindow(origin)) return false;
-    for (const QString &ancestor : origin.ancestors)
-        if (isLauncherProgram(ancestor)) return true;
-    return false;
+    return !launcherFamily(origin).isEmpty();
+}
+
+// The key a launcher's choice is kept under in kaduncerc [SizesItself], beside
+// each app's own by its id.
+[[nodiscard]] inline QString launcherChoiceKey(const QString &family)
+{
+    return family.isEmpty() ? QString() : QStringLiteral("launcher:") + family;
 }
 
 // What was found for one window: under which names, whether it sizes
@@ -103,9 +121,13 @@ template<typename Standing>
 }
 
 // Whether Cards leaves the window at the size it gives itself. A choice made
-// for its application stands over what Kadunce expects of it.
-[[nodiscard]] inline bool sizesItself(const WindowOrigin &origin, std::optional<bool> chosen)
+// for its application stands over one made for its launcher, and either over
+// what Kadunce expects of it.
+[[nodiscard]] inline bool sizesItself(const WindowOrigin &origin, std::optional<bool> chosen,
+                                      std::optional<bool> launcherChosen = std::nullopt)
 {
-    return chosen.value_or(startedByLauncher(origin));
+    if (chosen) return *chosen;
+    if (launcherChosen && startedByLauncher(origin)) return *launcherChosen;
+    return startedByLauncher(origin);
 }
 }
