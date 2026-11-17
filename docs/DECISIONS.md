@@ -483,14 +483,12 @@ over drawn zones; dividers fighting KWin's; deleting zones to fill again.
 
 KWin moves windows itself when a display is plugged in, unplugged or moved, and
 Kadunce answers once it has finished: a card KWin moved off Spread's display
-goes back, because §14 returns a card to the desktop only by release or disable,
-and a window KWin moved onto it becomes a card. The
-arrival you used last becomes the Active card, so you pick up where you were on
-the monitor; the other arrivals and the previous Active card wait behind it.
-Rejected: letting KWin's move stand and dropping the card, which returns a
-managed window to the desktop without a release. A client's late answer can take
-a card back to the other display, so the return is checked again after that
-round trip.
+goes back, since §14 returns a card to the desktop only by release or disable,
+and a window KWin moved onto it becomes a card. The arrival you used last
+becomes the Active card; the others and the previous Active card wait behind
+it. Rejected: letting KWin's move stand and dropping the card. A client's late
+answer can take a card back, so the return is checked again after that round
+trip.
 
 ### A placement that does not settle sheds; it does not go back to Plasma
 
@@ -614,19 +612,24 @@ boxes.
 ### Kadunce trims window corners itself
 
 The effect that cuts cards cuts windows. Rejected: a second corner effect,
-which KWin updates break. See `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
+which KWin updates break: `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
 
 ### Files is the file manager
 
 With Shuffle installed, Files opens every folder,
 Plasma's drive pop-up and "Show in folder" included; Dolphin keeps what Files
-does not browse. Rejected: Dolphin staying the file manager, which keeps a
-folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
+does not browse. Rejected: Dolphin, a folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
 Answering as the file manager, and `../shuffle/install-file-manager.sh` switches
 it on.
 
 ### Shuffle Lock shows nothing from the session
 
-The lock shows the time, the credential field and the
-Keyboard's handle, and nothing from the session. The contract is
+The lock shows only the time, the credential field and the
+Keyboard's handle. The contract is
 `../shuffle/docs/LOCK-CONTRACT.md`.
+
+### Apps a launcher starts size themselves
+
+Games and Android apps size themselves; guessing fights them, as does taking
+a size asked in answer to a maximize. Rejected: both. See
+`CARD-LIFECYCLE.md` § A card that sizes itself.

@@ -24,6 +24,7 @@
 #include "KeyboardOverlayPolicy.h"
 #include "PaintResult.h"
 #include "PendingLaunch.h"
+#include "SizesItself.h"
 #include "SessionEndHold.h"
 #include "SignInBurst.h"
 #include "TypedKeyboards.h"
@@ -888,23 +889,16 @@ private:
     void handleTransientChanged();
     void handleWindowOutputChanged();
     KWin::LogicalOutput *tabletOutput() const;
-    [[nodiscard]] bool isTabletOutputForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isTabletOutputForDesktopStage(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool usesDrawnZonesForDesktopStage() const override { return m_usesDrawnZones; }
-    [[nodiscard]] bool allowsDesktopStageOnOutput(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool isManagedWindowForDesktopStage(
-        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool allowsDesktopStageOnOutput(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isManagedWindowForDesktopStage(const KWin::EffectWindow *window) const override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForDesktopStage()
         const override;
-    [[nodiscard]] bool connectedOutputForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool holdsOwnCardsForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool showsOneCardForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(
-        const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool connectedOutputForDesktopStage(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool showsOneCardForDesktopStage(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *output) const override;
     // CARD-LIFECYCLE.md §11: a display holding cards other than the one the
     // stage named now is kept for.
     [[nodiscard]] bool isOtherCardDisplay(const KWin::LogicalOutput *output) const;
@@ -1027,8 +1021,15 @@ private:
     mutable QHash<QString, AppKind> m_appKinds;
     mutable QHash<QString, double> m_naturalWidths;
     mutable bool m_naturalWidthsRead = false;
-    [[nodiscard]] bool outputCanOwnCards(
-        const KWin::LogicalOutput *output) const override;
+    // CARD-LIFECYCLE.md §2, A card that sizes itself (SizesItself.h).
+    [[nodiscard]] bool sizesItselfForCardStage(const KWin::EffectWindow *window) const override;
+    mutable QHash<const KWin::EffectWindow *, SizingAnswer> m_sizesItself;
+    mutable QSet<qint64> m_sizesItselfProcesses;
+    // Where an app that sizes itself was opened, its windows closed a moment ago
+    // included, so a window it builds again opens there (keepWhereLaunched).
+    QList<ClosedSizer> m_closedSizers;
+    void keepWhereLaunched(KWin::EffectWindow *window);
+    [[nodiscard]] bool outputCanOwnCards(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(
         KWin::LogicalOutput *output) const override;
     void retireOutputFromDesktopStage(KWin::LogicalOutput *output) override;
@@ -1046,12 +1047,9 @@ private:
         const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore = nullptr) override;
     [[nodiscard]] KWin::LogicalOutput *tabletOutputForCardStage()
         const override;
-    [[nodiscard]] bool isTabletOutputForCardStage(
-        const KWin::LogicalOutput *output) const override;
-    [[nodiscard]] bool isManagedWindowForCardStage(
-        const KWin::EffectWindow *window) const override;
-    [[nodiscard]] bool mayHoldWindowForCardStage(
-        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool isTabletOutputForCardStage(const KWin::LogicalOutput *output) const override;
+    [[nodiscard]] bool isManagedWindowForCardStage(const KWin::EffectWindow *window) const override;
+    [[nodiscard]] bool mayHoldWindowForCardStage(const KWin::EffectWindow *window) const override;
     [[nodiscard]] std::optional<double> inputPanelTopForCardStage(
         KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool keyboardTypesIntoForCardStage(

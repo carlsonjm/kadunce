@@ -241,9 +241,11 @@ void CardStageController::updateKeyboardRoom(bool resting)
         return;
     }
     auto *client = window->window();
+    // §2, A card that sizes itself is given no room: its size is its own.
     if (client->isInteractiveMove() || client->isInteractiveResize()
         || client->isFullScreen() || client->maximizeMode() != KWin::MaximizeRestore
-        || client->quickTileMode() != KWin::QuickTileMode{}) {
+        || client->quickTileMode() != KWin::QuickTileMode{}
+        || m_host->sizesItselfForCardStage(window)) {
         return;
     }
     // Room is made for keys typing into this card, never for keys another

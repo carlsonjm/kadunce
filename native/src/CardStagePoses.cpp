@@ -818,6 +818,12 @@ KWin::Rect CardStageController::activeTargetFor(KWin::LogicalOutput *output,
 {
     const KWin::Rect whole = activeTarget(output);
     if (!window || !window->window()) return whole;
+    // §2, A card that sizes itself stands where ownPlaceOf says; one filling
+    // the screen some other way stays as it is.
+    if (m_host->sizesItselfForCardStage(window)) {
+        const auto own = ownPlaceOf(output, window);
+        return (own ? *own : window->window()->moveResizeGeometry()).toRect();
+    }
     // A card in a Stack stands at the Stack's width, which every card of it
     // shares (standStackAt); with none given, the whole Active width.
     const auto share = m_activeWidths.constFind(window);

@@ -27,15 +27,22 @@ Each eligible application window has one of three owners:
    - In Spread it is a card of its own, beside the layout's other panes
      (§6, Spread order).
 
-A window is never an individual card and a Bento pane at once.
+A window is never both a card and a Bento pane.
 
 ## 2. Presentation states
 
-Ownership and presentation are separate.
+Ownership and presentation differ.
 
 ### Active
 
-One individual card is shown; other cards stay owned and hidden.
+One individual card is shown; others stay owned and hidden.
+
+### A card that sizes itself
+
+Apps a launcher starts (Steam, Lutris, Heroic, Prism, Bolt, Waydroid) and
+RuneLite size themselves, opening where launched; launchers stay cards.
+Maximized, one fills the work area; restored, it regains its size. Spread
+marks them; `kaduncerc` `[SizesItself]` overrides.
 
 ### Bento
 
@@ -171,17 +178,13 @@ Kadunce does not create independent cards for:
 - Screenshot captures and desktop portal dialogs
 - Windows that keep their own size, floating centred; Shuffle Settings at the tablet's card size
 
-A dependent dialog follows its owning application card. Over that card, or
-over the pane its application holds, it floats at its own size. When that card
-is not in front, the dialog waits with it, hidden, and
-the application is marked as wanting attention; bringing the application
-forward shows the dialog on top. In Spread a waiting dialog is drawn on its
-application's card. A card carried away
-takes its dialogs along, each landing in the same place on its application, or
-on its middle when wider than it, and wholly on the display.
-Switching Kadunce off gives every waiting dialog back. A dialog that names its
-application only once it is shown, as Electron's message boxes do, follows it
-from then on, even if Kadunce first took it for a card.
+A dependent dialog follows its application's card. Over that card, or its
+pane, it floats at its own size. Behind, it waits hidden with that card and the
+application wants attention; brought forward, it shows on top. In Spread a
+waiting dialog is drawn on its application's card. A carried card takes its dialogs, each landing in the same
+place on it, or its middle when wider, wholly on the display. Switching
+Kadunce off gives every waiting dialog back. A dialog that names its
+application late, as Electron's do, follows it from then on.
 
 ### Eligible as a Bento partner
 
