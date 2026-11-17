@@ -1025,7 +1025,8 @@ private:
     mutable bool m_naturalWidthsRead = false;
     // CARD-LIFECYCLE.md §2, A card that sizes itself (SizesItself.h).
     [[nodiscard]] bool sizesItselfForCardStage(const KWin::EffectWindow *window) const override;
-    mutable QHash<const KWin::EffectWindow *, bool> m_sizesItself;
+    mutable QHash<const KWin::EffectWindow *, std::pair<QString, bool>> m_sizesItself;
+    mutable QSet<qint64> m_sizesItselfProcesses;
     [[nodiscard]] bool outputCanOwnCards(
         const KWin::LogicalOutput *output) const override;
     [[nodiscard]] KWin::Rect activeTargetForDesktopStage(

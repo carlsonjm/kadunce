@@ -1475,7 +1475,13 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_dialogsLead) releaseCarriedDialogs();
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
-    m_sizesItself.remove(window);
+    if (m_sizesItself.remove(window) && window->window()) {
+        // A process's id is given again once it has gone: kept only while a window of it is open.
+        const qint64 pid = window->window()->pid();
+        if (std::none_of(m_sizesItself.keyBegin(), m_sizesItself.keyEnd(), [pid](const KWin::EffectWindow *other) {
+                return other->window() && other->window()->pid() == pid; }))
+            m_sizesItselfProcesses.remove(pid);
+    }
     m_cardFaceRects.remove(window);
     m_previewRefs.remove(window);
     // A destroyed window leaves ownership without a transition: it no longer

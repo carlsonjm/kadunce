@@ -778,13 +778,24 @@ qint64 processParent(qint64 pid)
 bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
 {
     if (!window || !window->window()) return false;
-    const auto known = m_sizesItself.constFind(window);
-    if (known != m_sizesItself.cend()) return *known;
     KWin::Window *client = window->window();
     WindowOrigin origin{naturalAppOf(window).toLower(), client->resourceClass().toLower(), {}, {}};
-    // A window that has not named itself yet is asked again once it has.
+    // A window that has not named itself yet is asked again once it has, and
+    // one that renames itself, as a Java app does once its frame is built, is
+    // asked again under its new name.
     if (origin.app.isEmpty() && origin.windowClass.isEmpty()) return false;
+    const QString named = origin.app + QLatin1Char('|') + origin.windowClass;
+    const auto known = m_sizesItself.constFind(window);
+    if (known != m_sizesItself.cend() && known->first == named) return known->second;
+    if (known != m_sizesItself.cend())
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "renamed itself from" << known->first;
     const qint64 pid = client->pid();
+    // Every window of a process found sizing itself does too: an app that
+    // builds its window again keeps what its first one was.
+    if (pid > 1 && m_sizesItselfProcesses.contains(pid)) {
+        m_sizesItself.insert(window, {named, true});
+        return true;
+    }
     if (pid > 1) {
         origin.program = processName(pid);
         // Up to the session's own processes; a launcher sits a few steps above
@@ -800,7 +811,8 @@ bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
     const std::optional<bool> choice = !app.isEmpty() && chosen.hasKey(app)
         ? std::optional<bool>(chosen.readEntry(app, false)) : std::nullopt;
     const bool sizes = sizesItself(origin, choice);
-    m_sizesItself.insert(window, sizes);
+    m_sizesItself.insert(window, {named, sizes});
+    if (sizes && pid > 1) m_sizesItselfProcesses.insert(pid);
     if (sizes)
         qInfo() << "Kadunce" << Revision << logNameOf(window) << "sizes itself: Cards places it at its own size"
                 << (choice ? "as chosen" : "as an app a launcher starts");
