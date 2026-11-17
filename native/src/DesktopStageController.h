@@ -16,6 +16,7 @@
 
 #include <effect/effectwindow.h>
 
+#include <QElapsedTimer>
 #include <QHash>
 #include <QList>
 #include <QPointer>
@@ -277,6 +278,10 @@ public:
     void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
                                        const KWin::RectF &geometry);
     void handleWindowMoveResizeFinished(KWin::EffectWindow *window);
+    // §5: a pane that stops filling the screen is held to its place for a
+    // moment, so an application that asks again for the size it had while it
+    // filled the screen, as RuneLite does, stays in its pane.
+    void keepPaneInPlace(KWin::EffectWindow *window);
 
     // Card Stage has already committed removal before asking Desktop Stage to
     // accept this physical client. False means leave it as an ordinary window.
@@ -691,6 +696,11 @@ private:
     QString m_interactionOutput;
     QString m_pendingDropOutput;
     bool m_interactionResize = false;
+    // keepPaneInPlace: whether each pane last filled the screen, and when it
+    // stopped and how often it has been put back since.
+    struct PaneUnfilled { qint64 at = -1; int asserts = 0; bool filling = false; };
+    QHash<const KWin::EffectWindow *, PaneUnfilled> m_paneUnfilled;
+    QElapsedTimer m_paneClock;
 };
 
 } // namespace Kadunce

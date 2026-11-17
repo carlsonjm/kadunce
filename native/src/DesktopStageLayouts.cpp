@@ -1676,3 +1676,56 @@ void DesktopStageController::cancelRestoredMinimizations()
 }
 
 } // namespace Kadunce
+
+namespace Kadunce
+{
+namespace
+{
+// How long after a pane stops filling the screen a size it asks for is an
+// answer to that, and how often it is put back.
+constexpr qint64 PaneUnfillSettleMs = 1000;
+constexpr int PaneUnfillAsserts = 3;
+}
+
+void DesktopStageController::keepPaneInPlace(KWin::EffectWindow *window)
+{
+    const QString key = outputHoldingPane(window);
+    if (key.isEmpty() || !window->window() || window->isDeleted()) {
+        m_paneUnfilled.remove(window);
+        return;
+    }
+    if (m_restoring || window == m_interactionWindow || window->isUserMove() || window->isUserResize()) return;
+    KWin::Window *client = window->window();
+    const bool filling = client->isFullScreen() || client->isRequestedFullScreen()
+        || client->maximizeMode() != KWin::MaximizeRestore || client->requestedMaximizeMode() != KWin::MaximizeRestore;
+    if (!m_paneClock.isValid()) m_paneClock.start();
+    PaneUnfilled &state = m_paneUnfilled[window];
+    const bool stopped = state.filling && !filling;
+    state.filling = filling;
+    if (filling) {
+        state.at = -1;
+        return;
+    }
+    if (stopped) state = {m_paneClock.elapsed(), 0, false};
+    if (state.at < 0 || m_paneClock.elapsed() - state.at > PaneUnfillSettleMs) return;
+    // Looked at once the application has finished answering the restore.
+    const QPointer<KWin::EffectWindow> guarded = window;
+    QTimer::singleShot(60, &m_settleTimer, [this, guarded, key] {
+        if (!guarded || guarded->isDeleted() || !guarded->window() || outputHoldingPane(guarded) != key) return;
+        const auto session = m_sessions.constFind(key);
+        auto found = m_paneUnfilled.find(guarded.data());
+        KWin::LogicalOutput *output = outputForKey(key);
+        if (session == m_sessions.cend() || session->applying || !output || found == m_paneUnfilled.end()
+            || found->filling || found->at < 0 || found->asserts >= PaneUnfillAsserts
+            || guarded == m_interactionWindow || guarded->isUserMove() || guarded->isUserResize()) return;
+        const int index = session->windows.indexOf(guarded.data());
+        const auto pixels = sessionPixels(session.value(), stageArea(output));
+        if (index < 0 || index >= int(pixels.size()) || onPixel(guarded->frameGeometry(), pixels[index])) return;
+        ++found->asserts;
+        const BentoPixelRect &pane = pixels[index];
+        qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(guarded) << "in its pane: it asked for"
+                << guarded->frameGeometry().toRect() << "just after it stopped filling the screen, time" << found->asserts;
+        guarded->window()->moveResize(KWin::RectF(pane.x, pane.y, pane.width, pane.height));
+    });
+}
+}
