@@ -612,24 +612,24 @@ boxes.
 ### Kadunce trims window corners itself
 
 The effect that cuts cards cuts windows. Rejected: a second corner effect,
-which KWin updates break. See `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
+which KWin updates break: `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
 
 ### Files is the file manager
 
 With Shuffle installed, Files opens every folder,
 Plasma's drive pop-up and "Show in folder" included; Dolphin keeps what Files
-does not browse. Rejected: Dolphin staying the file manager, which keeps a
-folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
+does not browse. Rejected: Dolphin, a folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
 Answering as the file manager, and `../shuffle/install-file-manager.sh` switches
 it on.
 
 ### Shuffle Lock shows nothing from the session
 
-The lock shows the time, the credential field and the
-Keyboard's handle, and nothing from the session. The contract is
+The lock shows only the time, the credential field and the
+Keyboard's handle. The contract is
 `../shuffle/docs/LOCK-CONTRACT.md`.
 
 ### Apps a launcher starts size themselves
 
-Games and Android apps size themselves; guessing fights them. Rejected:
-guessing. See `CARD-LIFECYCLE.md` § A card that sizes itself.
+Games and Android apps size themselves; guessing fights them, as does taking
+a size asked in answer to a maximize. Rejected: both. See
+`CARD-LIFECYCLE.md` § A card that sizes itself.

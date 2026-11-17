@@ -27,21 +27,22 @@ Each eligible application window has one of three owners:
    - In Spread it is a card of its own, beside the layout's other panes
      (§6, Spread order).
 
-A window is never an individual card and a Bento pane at once.
+A window is never both a card and a Bento pane.
 
 ## 2. Presentation states
 
-Ownership and presentation are separate.
+Ownership and presentation differ.
 
 ### Active
 
-One individual card is shown; other cards stay owned and hidden.
+One individual card is shown; others stay owned and hidden.
 
 ### A card that sizes itself
 
 Apps a launcher starts (Steam, Lutris, Heroic, Prism, Bolt, Waydroid) and
-RuneLite keep their size and maximize, and open where launched; launchers stay
-cards. Spread marks them; `kaduncerc` `[SizesItself]` overrides per app.
+RuneLite size themselves, opening where launched; launchers stay cards.
+Maximized, one fills the work area; restored, it regains its size. Spread
+marks them; `kaduncerc` `[SizesItself]` overrides.
 
 ### Bento
 

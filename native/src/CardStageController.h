@@ -18,6 +18,7 @@
 #include "CarryRow.h"
 #include "ActiveSlide.h"
 #include "StackStepMotion.h"
+#include "OwnSize.h"
 
 #include <effect/effectwindow.h>
 
@@ -634,8 +635,16 @@ public:
     // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     bool takeBackFilledCard(KWin::EffectWindow *window);
-    // §2, A card that sizes itself: back in the middle of the place, at its own size.
+    // §2, A card that sizes itself (OwnSize.h): each change of its size or of
+    // how it fills the screen is noted, and once the application has finished
+    // answering it the card is held to the work area while it fills it, else
+    // to its own size in the middle of the place.
     void keepOwnSizeInPlace(KWin::EffectWindow *window);
+    void lookAtOwnSize(KWin::EffectWindow *window);
+    void settleOwnSize(const QPointer<KWin::EffectWindow> &window);
+    [[nodiscard]] static OwnFill ownFillOf(const KWin::Window *client);
+    [[nodiscard]] std::optional<KWin::RectF> ownPlaceOf(KWin::LogicalOutput *output,
+                                                        const KWin::EffectWindow *window) const;
     // The window that has just opened, maximizing or tiling itself as its
     // application restores its saved state, stays the Active card.
     bool keepOpeningStateInActivePlace(KWin::EffectWindow *window);
@@ -865,6 +874,10 @@ private:
     QHash<const KWin::EffectWindow *, QElapsedTimer> m_heldInPlace;
     // How often a window too big for the Active place was put back inside it.
     QHash<const KWin::EffectWindow *, int> m_liftedInPlace;
+    // §2, A card that sizes itself: the size each has when it does not fill
+    // the screen, and those waiting to be looked at.
+    QHash<const KWin::EffectWindow *, OwnSizeRecord> m_ownSizes;
+    QHash<const KWin::EffectWindow *, bool> m_ownSizeLooks;
     QList<QPointer<KWin::EffectWindow>> m_bentoProjectionPaneWindows;
     std::optional<BentoProjectionSession> m_bentoProjectionSession;
     QHash<const KWin::EffectWindow *, QList<QPointer<KWin::EffectWindow>>> m_paneStacks;
