@@ -860,7 +860,9 @@ void Effect::setSizingChoice(const QString &key, int choice)
 
 bool Effect::setSizesItselfForWindow(const QString &windowId, bool sizes)
 {
-    const QString requested = windowId.trimmed();
+    // The dock names a window as Plasma's task list does, in braces.
+    QString requested = windowId.trimmed();
+    requested.remove(QLatin1Char('{')).remove(QLatin1Char('}'));
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
         if (requested.isEmpty() || !isApplicationWindow(window) || windowIdentity(window) != requested
             || !window->window()) continue;
