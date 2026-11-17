@@ -638,6 +638,9 @@ public:
     // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     bool takeBackFilledCard(KWin::EffectWindow *window);
+    // The card let go to fill the screen is the Active card again, the display
+    // adopted with it if it was left holding no cards.
+    void takeCardBack(const QPointer<KWin::EffectWindow> &window, const char *why);
     // §2, A card that sizes itself (OwnSize.h): each change of its size or of
     // how it fills the screen is noted, and once the application has finished
     // answering it the card is held to the work area while it fills it, else

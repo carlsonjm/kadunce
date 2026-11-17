@@ -1718,6 +1718,15 @@ void CardStageController::sizingChanged(KWin::EffectWindow *window)
     // Settings: the Active card is placed anew at once, any other card as it
     // is next shown.
     m_ownSizes.remove(window);
+    // One let go to fill the screen while Cards sized it keeps its maximize as
+    // a card once it sizes itself, so it is taken back at once.
+    if (window && m_filledFromCards.contains(window) && m_host->sizesItselfForCardStage(window)) {
+        m_filledFromCards.removeAll(window);
+        QTimer::singleShot(0, &m_arrivalTimer, [this, kept = QPointer<KWin::EffectWindow>(window)] {
+            takeCardBack(kept, "it sizes itself, so it keeps filling the screen as a card");
+        });
+        return;
+    }
     KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
     if (!window || window->isDeleted() || !window->window() || !tablet || !m_active
         || m_presentation != CardPresentation::Active || !m_activeRestore.valid
@@ -1811,16 +1820,21 @@ bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
         || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) return false;
     m_filledFromCards.removeAll(window);
-    if (!m_active || liveCardIndex(window) >= 0) return false;
+    if (liveCardIndex(window) >= 0) return false;
     const QPointer<KWin::EffectWindow> restored = window;
     // Taken in once this notification has returned, never inside it.
-    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] {
-        if (!restored || restored->isDeleted() || liveCardIndex(restored) >= 0) return;
-        if (handleWindowAdded(restored))
-            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
-                    << "back as the Active card: it no longer fills the screen";
-    });
+    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] { takeCardBack(restored, "it no longer fills the screen"); });
     return true;
+}
+
+void CardStageController::takeCardBack(const QPointer<KWin::EffectWindow> &window, const char *why)
+{
+    if (!window || window->isDeleted() || liveCardIndex(window) >= 0) return;
+    // A display its last card left to fill the screen holds no cards; it
+    // takes the card back as it takes a window that opens there (§3), the
+    // display adopted with it Active.
+    const bool taken = m_active ? handleWindowAdded(window) : adoptDisplayWithActive(window, [] { return true; });
+    if (taken) qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "back as the Active card:" << why;
 }
 
 } // namespace Kadunce
