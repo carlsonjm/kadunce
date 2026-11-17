@@ -39,5 +39,26 @@ int main() {
     check(sizesItself(firefox, true), "a chosen app does not size itself");
     check(!sizesItself(origin("", "steam_app_1", "game"), false), "a game switched off sizes itself");
     check(programName(QStringLiteral("/usr/bin/Steam.sh")) == QStringLiteral("steam"), "a program's name keeps its path");
+    // Where a new window of an app that sizes itself opens. RuneLite's
+    // process 30 was started by its launcher, 20, under Bolt, 10.
+    const QList<qint64> client{30, 20, 10, 2};
+    const auto standing = [](std::initializer_list<std::pair<qint64, const char *>> open) {
+        return [open](qint64 pid) {
+            for (const auto &[at, display] : open) if (at == pid) return QString::fromLatin1(display);
+            return QString();
+        };
+    };
+    check(launchDisplay(client, {}, 0, 15000, standing({{10, "DP-2"}})) == QStringLiteral("DP-2"),
+          "a window does not open where its launcher stands");
+    check(launchDisplay(client, {}, 0, 15000, standing({{10, "DP-2"}, {30, "eDP-1"}})) == QStringLiteral("eDP-1"),
+          "a window does not open beside its own process's other window");
+    const QList<ClosedSizer> closed{{{30, 20, 10, 2}, QStringLiteral("DP-2"), 1000}};
+    check(launchDisplay(client, closed, 5000, 15000, standing({{10, "eDP-1"}})) == QStringLiteral("DP-2"),
+          "a window built again does not open where its last one closed");
+    check(launchDisplay(client, closed, 30000, 15000, standing({})).isEmpty(), "a long-closed window still decides");
+    const QList<ClosedSizer> splash{{{20, 10, 2}, QStringLiteral("DP-2"), 1000}};
+    check(launchDisplay(client, splash, 2000, 15000, standing({})) == QStringLiteral("DP-2"),
+          "the client does not open where its launcher's window closed");
+    check(launchDisplay({}, closed, 2000, 15000, standing({})).isEmpty(), "a window of no process has a display");
     return 0;
 }

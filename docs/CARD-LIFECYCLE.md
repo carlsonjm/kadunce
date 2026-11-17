@@ -40,9 +40,8 @@ One individual card is shown; other cards stay owned and hidden.
 ### A card that sizes itself
 
 Apps a launcher starts (Steam, Lutris, Heroic, Prism, Bolt, Waydroid) and
-RuneLite keep their own size and maximize; launchers stay ordinary cards.
-Spread marks them with four corners; `kaduncerc` `[SizesItself]` overrides
-per app.
+RuneLite keep their size and maximize, and open where launched; launchers stay
+cards. Spread marks them; `kaduncerc` `[SizesItself]` overrides per app.
 
 ### Bento
 

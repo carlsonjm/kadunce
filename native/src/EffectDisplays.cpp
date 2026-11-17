@@ -786,23 +786,27 @@ bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
     if (origin.app.isEmpty() && origin.windowClass.isEmpty()) return false;
     const QString named = origin.app + QLatin1Char('|') + origin.windowClass;
     const auto known = m_sizesItself.constFind(window);
-    if (known != m_sizesItself.cend() && known->first == named) return known->second;
+    if (known != m_sizesItself.cend() && known->named == named) return known->sizes;
     if (known != m_sizesItself.cend())
-        qInfo() << "Kadunce" << Revision << logNameOf(window) << "renamed itself from" << known->first;
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "renamed itself from" << known->named;
     const qint64 pid = client->pid();
-    // Every window of a process found sizing itself does too: an app that
-    // builds its window again keeps what its first one was.
-    if (pid > 1 && m_sizesItselfProcesses.contains(pid)) {
-        m_sizesItself.insert(window, {named, true});
-        return true;
-    }
+    QList<qint64> lineage;
     if (pid > 1) {
+        lineage.append(pid);
         origin.program = processName(pid);
         // Up to the session's own processes; a launcher sits a few steps above
         // what it started, behind its wrappers.
         for (qint64 parent = processParent(pid), steps = 0; parent > 1 && steps < 16;
-             parent = processParent(parent), ++steps)
+             parent = processParent(parent), ++steps) {
+            lineage.append(parent);
             origin.ancestors.append(programName(processName(parent)));
+        }
+    }
+    // Every window of a process found sizing itself does too: an app that
+    // builds its window again keeps what its first one was.
+    if (pid > 1 && m_sizesItselfProcesses.contains(pid)) {
+        m_sizesItself.insert(window, {named, true, lineage});
+        return true;
     }
     // A choice made for the application: kaduncerc [SizesItself], true or false.
     const KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))
@@ -811,12 +815,44 @@ bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
     const std::optional<bool> choice = !app.isEmpty() && chosen.hasKey(app)
         ? std::optional<bool>(chosen.readEntry(app, false)) : std::nullopt;
     const bool sizes = sizesItself(origin, choice);
-    m_sizesItself.insert(window, {named, sizes});
+    m_sizesItself.insert(window, {named, sizes, lineage});
     if (sizes && pid > 1) m_sizesItselfProcesses.insert(pid);
     if (sizes)
         qInfo() << "Kadunce" << Revision << logNameOf(window) << "sizes itself: Cards places it at its own size"
                 << (choice ? "as chosen" : "as an app a launcher starts");
     return sizes;
+}
+
+void Effect::keepWhereLaunched(KWin::EffectWindow *window)
+{
+    // §2, A card that sizes itself: an app that sizes itself opens on the
+    // display it was opened from, its launcher's or its last window's, not
+    // where its own saved place would put it. An X11 app places itself; KWin
+    // places a Wayland one where it was asked for. A dock launch names its own
+    // place.
+    if (!window || !window->window() || !window->isX11Client() || m_placementLaunch
+        || !sizesItselfForCardStage(window)) return;
+    const auto answer = m_sizesItself.constFind(window);
+    if (answer == m_sizesItself.cend()) return;
+    constexpr qint64 Recent = 15000;
+    m_closedSizers.removeIf([now = steadyMs()](const ClosedSizer &closed) { return now - closed.at > Recent; });
+    const QString display = launchDisplay(answer->lineage, m_closedSizers, steadyMs(), Recent,
+        [window](qint64 pid) -> QString {
+            for (KWin::EffectWindow *other : KWin::effects->stackingOrder())
+                if (other != window && !other->isDeleted() && other->window() && other->isNormalWindow()
+                    && !other->isMinimized() && qint64(other->window()->pid()) == pid && other->screen())
+                    return other->screen()->name();
+            return {};
+        });
+    KWin::LogicalOutput *there = display.isEmpty() ? nullptr : screenNamed(display);
+    if (!there || there == window->screen()) return;
+    const KWin::RectF area = workAreaForCardStage(there);
+    const QSizeF size = QRectF(window->frameGeometry()).size().boundedTo(area.size());
+    window->window()->moveResize(KWin::RectF(area.x() + (area.width() - size.width()) / 2,
+                                             area.y() + (area.height() - size.height()) / 2,
+                                             size.width(), size.height()));
+    qInfo() << "Kadunce" << Revision << logNameOf(window) << "opens on" << display
+            << "where it was opened from, not where it last stood";
 }
 
 void Effect::teachNaturalWidth(const KWin::EffectWindow *window, const KWin::LogicalOutput *output,

@@ -1371,6 +1371,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     }
     // A window a saved layout or a bring-back waits for is claimed before it
     // is admitted.
+    keepWhereLaunched(window);
     if (!claimLayoutWindow(window)) claimBroughtBackWindow(window);
     connectManagedWindow(window);
     const QPointer<KWin::EffectWindow> candidate(window);
@@ -1475,6 +1476,10 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
     if (window == m_dialogsLead) releaseCarriedDialogs();
     m_applicationDisplayNames.remove(window);
     m_cardLabelTargets.remove(window);
+    if (const auto answer = m_sizesItself.constFind(window);
+        answer != m_sizesItself.cend() && answer->sizes && window->screen())
+        m_closedSizers.append({answer->lineage, window->screen()->name(), steadyMs()});
+    if (m_closedSizers.size() > 16) m_closedSizers.removeFirst();
     if (m_sizesItself.remove(window) && window->window()) {
         // A process's id is given again once it has gone: kept only while a window of it is open.
         const qint64 pid = window->window()->pid();

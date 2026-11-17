@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QString>
+#include <QList>
 #include <QStringList>
 
 #include <optional>
@@ -62,6 +63,43 @@ struct WindowOrigin {
     for (const QString &ancestor : origin.ancestors)
         if (isLauncherProgram(ancestor)) return true;
     return false;
+}
+
+// What was found for one window: under which names, whether it sizes
+// itself, and the processes from its own to the session's, nearest first.
+struct SizingAnswer {
+    QString named;
+    bool sizes = false;
+    QList<qint64> lineage;
+};
+
+// A window of an app that sizes itself, closed: the processes it came from,
+// the display it stood on, and when, in milliseconds of a steady clock.
+struct ClosedSizer {
+    QList<qint64> lineage;
+    QString display;
+    qint64 at = 0;
+};
+
+// The display a new window of an app that sizes itself opens on: where a
+// window of its own process stands, else where one of its process or of the
+// ones that started it closed within `recent` milliseconds, else where a
+// window of the nearest process that started it stands. `standing` names the
+// display of an open window of a process, if one has one.
+template<typename Standing>
+[[nodiscard]] inline QString launchDisplay(const QList<qint64> &lineage, const QList<ClosedSizer> &closed,
+                                           qint64 now, qint64 recent, Standing standing)
+{
+    if (lineage.isEmpty()) return {};
+    if (const QString own = standing(lineage.first()); !own.isEmpty()) return own;
+    for (auto it = closed.crbegin(); it != closed.crend(); ++it) {
+        if (now - it->at > recent) continue;
+        for (const qint64 pid : lineage)
+            if (it->lineage.value(0) == pid) return it->display;
+    }
+    for (int index = 1; index < lineage.size(); ++index)
+        if (const QString there = standing(lineage.at(index)); !there.isEmpty()) return there;
+    return {};
 }
 
 // Whether Cards leaves the window at the size it gives itself. A choice made
