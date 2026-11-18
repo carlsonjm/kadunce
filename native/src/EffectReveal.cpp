@@ -6,6 +6,8 @@
 // A window opening into a layout: unseen until it has drawn its pane, then
 // shown where the panes that made room have drawn back (PaneReveal.h).
 #include "EffectInternal.h"
+#include <cxxabi.h>
+#include <execinfo.h>
 #include <utility>
 
 namespace Kadunce
@@ -16,6 +18,29 @@ namespace
 RevealBox revealBox(const QRectF &rect)
 {
     return RevealBox{rect.x(), rect.y(), rect.width(), rect.height()};
+}
+
+// The calls that led here, nearest first, each as its library and function,
+// so a line about the keys names what moved them.
+QString callersNamed()
+{
+    void *frames[40];
+    const int count = backtrace(frames, 40);
+    char **symbols = backtrace_symbols(frames, count);
+    QStringList named;
+    for (int i = 1; symbols && i < count; ++i) {
+        const QString symbol = QString::fromLocal8Bit(symbols[i]);
+        const int open = symbol.indexOf(QLatin1Char('(')), plus = symbol.indexOf(QLatin1Char('+'), open);
+        const QString library = symbol.left(open).section(QLatin1Char('/'), -1);
+        const QByteArray mangled = open >= 0 && plus > open ? symbol.mid(open + 1, plus - open - 1).toLocal8Bit() : QByteArray();
+        int status = -1;
+        char *plain = mangled.isEmpty() ? nullptr : abi::__cxa_demangle(mangled.constData(), nullptr, nullptr, &status);
+        named.append(library + QLatin1Char(' ') + (status == 0 && plain ? QString::fromLocal8Bit(plain)
+            : mangled.isEmpty() ? symbol.mid(open) : QString::fromLocal8Bit(mangled)));
+        free(plain);
+    }
+    free(symbols);
+    return named.join(QStringLiteral(" < "));
 }
 }
 
@@ -87,9 +112,12 @@ KWin::EffectWindow *Effect::openingKeepsKeys(KWin::EffectWindow *activated)
             opening.keys = true;
             continue;
         }
-        if (!opening.keys || !opening.asked || opening.kept >= 3 || window->isMinimized()
+        if (!opening.keys || !opening.asked || window->isMinimized()
             || opening.since.elapsed() >= OpenedUnseenCap + OpenedKeepsKeys
             || (opening.seenAt >= 0 && opening.since.elapsed() - opening.seenAt >= OpenedKeepsKeys)) continue;
+        qInfo().nospace() << "Kadunce " << Revision << " the keys left opened " << logNameOf(window) << " for "
+                                    << logNameOf(activated) << " by way of: " << qPrintable(callersNamed());
+        if (opening.kept >= 3) continue;
         ++opening.kept;
         qInfo().nospace() << "Kadunce " << Revision << " kept the keys on opened " << logNameOf(window) << ", not "
                           << logNameOf(activated) << ", " << opening.since.elapsed() << " ms after it was placed ("
