@@ -40,6 +40,20 @@ int main() {
     check(openedAloneOpacity(OpenedAloneFade / 2) > 0.7 && openedAloneOpacity(OpenedAloneFade / 2) < 1.0,
           "a window opening alone did not come up quickly at first");
 
+    // Opening as the card a display shows, it comes up from nothing and a
+    // touch small to whole and its own size, quickly at first.
+    check(openedCardRise(0) == 0.0 && openedCardRise(OpenedCardRise) == 1.0 && openedCardRise(5000) == 1.0,
+          "a card opening did not come up from nothing to whole");
+    check(openedCardRise(OpenedCardRise / 2) > 0.8 && openedCardRise(OpenedCardRise / 2) < 1.0,
+          "a card opening did not come up quickly at first");
+    check(openedCardScale(0.0) > 0.98 && openedCardScale(0.0) < 1.0 && openedCardScale(1.0) == 1.0
+          && openedCardScale(2.0) == 1.0, "a card opening did not grow from a touch small to its own size");
+    check(OpenedCardRise <= 200, "a card opening took longer to come up than a pane takes to move");
+
+    // Its keys are watched for as long as it takes to come into view.
+    check(OpenedKeysWatched >= 220 && OpenedKeysWatched >= OpenedCardRise,
+          "an opened window's keys were watched for less than its coming into view");
+
     // The pane that filled the display draws back to the left column. While
     // it still covers the right column nothing of the new window shows; then
     // the window shows from a gutter past the box's edge.

@@ -40,8 +40,7 @@ constexpr int SessionEndDarkenInstantMs = 150;
 constexpr double ChosenRingWidth = 2.0;
 constexpr float ChosenRingOpacity = 0.55f;
 
-// The renderer that draws a view's scene. From KWin 6.8 each render device
-// has its own; earlier KWin has one.
+// The renderer that draws a view's scene. From KWin 6.8 each render device has its own; earlier KWin has one.
 template<typename SceneT, typename View>
 KWin::ItemRenderer *sceneRenderer(SceneT *scene, View *view)
 {
@@ -490,7 +489,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_previewDesktop ? hiddenByDesktopPreview(window) : hiddenOnOtherDesktop(window)) data.setTranslucent();
     // Left undrawn while Spread draws its notes on the card.
     if (notesSurfaceStepsAside(window)) data.setTranslucent();
-    if (steppingInUnseen(window) || openingUnseen(window)) data.setTranslucent();
+    if (steppingInUnseen(window) || openingUnseen(window) || openingCardDrawn(window)) { data.setTransformed(); data.setTranslucent(); }
     // Drawn with its card, not where it stands, so it hides nothing there.
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     // Its trimmed corners show what is under them, so that must be drawn.
@@ -1548,6 +1547,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // A card a Stack steps to waits unseen until it stands in its place, and
     // a window opened into a layout until it has drawn its pane.
     if (steppingInUnseen(window) || openingUnseen(window)) return paintResult(true);
+    if (const auto card = paintOpeningCard(renderTarget, viewport, window, mask, deviceRegion, data)) return paintResult(*card);
     // A previewed desktop is drawn as it stands, with nothing of the current
     // desktop's presentation over or under it.
     if (m_previewDesktop) {

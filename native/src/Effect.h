@@ -302,8 +302,7 @@ public Q_SLOTS:
     // current one, as it stands, without switching to it. An empty id, or the
     // current desktop's, ends the preview and changes nothing.
     Q_SCRIPTABLE bool previewDesktop(const QString &desktopId);
-    // Makes the previewed desktop current, with KWin's switching effects
-    // standing aside, and ends the preview.
+    // Makes the previewed desktop current, with KWin's switching effects standing aside, and ends the preview.
     Q_SCRIPTABLE bool commitDesktopPreview();
     // Table as it stands, for a test: whether it is open, which level, which
     // workspace and card the finger is on, and every workspace's cards.
@@ -313,8 +312,7 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
-    // Every card book mismatch observed since load, in words: each place the
-    // records of a card's status disagree.
+    // Every card book mismatch observed since load, in words: each place the records of a card's status disagree.
     Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
@@ -450,11 +448,11 @@ private:
     // unseen until it has drawn that pane, and then shows where the panes
     // that made room have drawn back (PaneReveal.h).
     struct Opening {
-        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::EffectWindow> window, over;
         QElapsedTimer since;
         QSizeF size;
-        bool asked = false, reported = false;
-        qint64 seenAt = -1;
+        bool asked = false, reported = false, card = false, keys = false;
+        qint64 seenAt = -1, kept = 0;
     };
     QList<Opening> m_opening;
     void noteOpened(KWin::EffectWindow *window);
@@ -462,6 +460,13 @@ private:
     [[nodiscard]] bool openingsWait();
     [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
+    // One that opens as the card its display shows comes up `over` the card shown before, which stays until then.
+    void openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over);
+    // Names in the journal what moved the keys to `activated` from a window coming into view.
+    void keysLeftOpening(KWin::EffectWindow *activated);
+    [[nodiscard]] bool openingCardDrawn(const KWin::EffectWindow *window) const;
+    [[nodiscard]] std::optional<bool> paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+        KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);
     struct LeftLayout {
         bool right = false;
         QList<QPointer<KWin::EffectWindow>> partners;
@@ -943,16 +948,14 @@ private:
     // §11, Every display: the other panes of that display wait in Spread for
     // it, and this one is the card it shows alone.
     // §11, Connected: a pane's face held by its title bar and drawn up passes
-    // the cards behind it, shown as a ladder of title bars, and goes in where
-    // it is let go.
+    // the cards behind it, shown as a ladder of title bars, and goes in where it is let go.
     bool followStackScrub(QPointF contact);
     bool stackScrubHeldStillGoesOn();
     void beginStackScrub(double y);
     double stackScrubHand(double pointerY) const;
     void endStackScrub();
     void refreshStackScrubShown();
-    // Where the ladder draws `window`: the card's box, and the part of it
-    // that shows.
+    // Where the ladder draws `window`: the card's box, and the part of it that shows.
     [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
     bool reorderPaneStack(KWin::EffectWindow *pane, int place);
     // INPUT.md § Connected, by the keys: Meta's arrows move the focus to the
@@ -1159,8 +1162,7 @@ private:
     void switchZoneMode();
     bool m_showsKeyboardOutline = true;
     bool m_keyboardOutlineAccent = false;
-    // The window outlined on each display, by name, and since when, so a new
-    // one fades in.
+    // The window outlined on each display, by name, and since when, so a new one fades in.
     struct KeyboardOutline {
         QPointer<KWin::EffectWindow> window;
         QElapsedTimer since;
@@ -1221,8 +1223,7 @@ private:
     [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
-    // Spread's cards as notes see them, nearest the eye first, where they
-    // were last drawn.
+    // Spread's cards as notes see them, nearest the eye first, where they were last drawn.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -1245,8 +1246,7 @@ private:
     struct NotesHandover {
         QPointer<KWin::EffectWindow> card;
         QElapsedTimer since;
-        // Its notes were asked up from Spread, so they come up even before
-        // Gooseberry says they are.
+        // Its notes were asked up from Spread, so they come up even before Gooseberry says they are.
         bool asked = false;
     };
     std::optional<NotesHandover> m_notesHandover;

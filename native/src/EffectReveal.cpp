@@ -6,6 +6,8 @@
 // A window opening into a layout: unseen until it has drawn its pane, then
 // shown where the panes that made room have drawn back (PaneReveal.h).
 #include "EffectInternal.h"
+#include <cxxabi.h>
+#include <execinfo.h>
 #include <utility>
 
 namespace Kadunce
@@ -16,6 +18,29 @@ namespace
 RevealBox revealBox(const QRectF &rect)
 {
     return RevealBox{rect.x(), rect.y(), rect.width(), rect.height()};
+}
+
+// The calls that led here, nearest first, each as its library and function,
+// so a line about the keys names what moved them.
+QString callersNamed()
+{
+    void *frames[40];
+    const int count = backtrace(frames, 40);
+    char **symbols = backtrace_symbols(frames, count);
+    QStringList named;
+    for (int i = 1; symbols && i < count; ++i) {
+        const QString symbol = QString::fromLocal8Bit(symbols[i]);
+        const int open = symbol.indexOf(QLatin1Char('(')), plus = symbol.indexOf(QLatin1Char('+'), open);
+        const QString library = symbol.left(open).section(QLatin1Char('/'), -1);
+        const QByteArray mangled = open >= 0 && plus > open ? symbol.mid(open + 1, plus - open - 1).toLocal8Bit() : QByteArray();
+        int status = -1;
+        char *plain = mangled.isEmpty() ? nullptr : abi::__cxa_demangle(mangled.constData(), nullptr, nullptr, &status);
+        named.append(library + QLatin1Char(' ') + (status == 0 && plain ? QString::fromLocal8Bit(plain)
+            : mangled.isEmpty() ? symbol.mid(open) : QString::fromLocal8Bit(mangled)));
+        free(plain);
+    }
+    free(symbols);
+    return named.join(QStringLiteral(" < "));
 }
 }
 
@@ -41,12 +66,106 @@ KWin::EffectWindow *Effect::openingAmong(const QList<QPointer<KWin::EffectWindow
         if (!window || window->isDeleted() || opening.seenAt >= 0 || !windows.contains(opening.window)) continue;
         if (!opening.asked) {
             opening.asked = true;
+            opening.keys = opening.keys || KWin::effects->activeWindow() == window;
             opening.size = window->frameGeometry().size();
             opening.since.restart();
         }
         return window;
     }
     return nullptr;
+}
+
+void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
+{
+    // Only as the one card its display shows: a card that joined a layout
+    // or Spread's row arrives as those do.
+    if (!window || window->isDeleted() || !m_cardStage->isActive() || m_cardStage->presentsBento()
+        || m_cardStage->presentation() != CardPresentation::Active || m_cardStage->selectedWindow() != window
+        || m_desktopStage->managesWindow(window) || !isTabletOutput(window->screen())) return;
+    for (Opening &opening : m_opening) {
+        if (opening.window != window || opening.asked) continue;
+        opening.asked = true;
+        opening.card = true;
+        opening.keys = opening.keys || KWin::effects->activeWindow() == window;
+        opening.size = window->frameGeometry().size();
+        opening.since.restart();
+        if (over && over != window && !over->isDeleted() && !over->isMinimized() && over->screen() == window->screen()
+            && !m_desktopStage->managesWindow(over)) opening.over = over;
+        qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window) << " comes up as a card over "
+                          << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"));
+        KWin::effects->addRepaintFull();
+    }
+}
+
+void Effect::keysLeftOpening(KWin::EffectWindow *activated)
+{
+    // A window that opens is given the keys. Where they go to another window
+    // before it is in view, or as it comes into view, the journal names the
+    // calls that moved them: a client asking, the compositor handing them
+    // on, or this effect. A few lines an opening at most.
+    if (!isApplicationWindow(activated)) return;
+    for (Opening &opening : m_opening) {
+        KWin::EffectWindow *window = opening.window.data();
+        if (!window || window->isDeleted()) continue;
+        if (window == activated) {
+            opening.keys = true;
+            continue;
+        }
+        if (!opening.keys || !opening.asked || opening.kept >= 4 || window->isMinimized()
+            || opening.since.elapsed() >= OpenedUnseenCap + OpenedKeysWatched
+            || (opening.seenAt >= 0 && opening.since.elapsed() - opening.seenAt >= OpenedKeysWatched)) continue;
+        ++opening.kept;
+        qInfo().nospace() << "Kadunce " << Revision << " the keys left opened " << logNameOf(window) << " for "
+                          << logNameOf(activated) << ", " << opening.since.elapsed() << " ms after it was placed ("
+                          << (opening.seenAt < 0 ? "still unseen" : "coming into view") << "), by way of: "
+                          << qPrintable(callersNamed());
+    }
+}
+
+bool Effect::openingCardDrawn(const KWin::EffectWindow *window) const
+{
+    return window && std::any_of(m_opening.cbegin(), m_opening.cend(), [window](const Opening &opening) {
+        return opening.card && (opening.window == window || opening.over == window)
+            && (opening.seenAt < 0 || opening.since.elapsed() - opening.seenAt < OpenedCardRise);
+    });
+}
+
+std::optional<bool> Effect::paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+    KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data)
+{
+    for (Opening &opening : m_opening) {
+        if (!opening.card || (window != opening.window && window != opening.over)) continue;
+        const qint64 risen = opening.seenAt < 0 ? -1 : opening.since.elapsed() - opening.seenAt;
+        // Only while its display still shows it as its one card, where it
+        // stands, with no keys up that it must end above.
+        if (risen >= OpenedCardRise || m_previewDesktop || !opening.window || opening.window->isDeleted()
+            || !m_paintingOutput || window->screen() != m_paintingOutput || hiddenOnOtherDesktop(window)
+            || !m_cardStage->isActive() || m_cardStage->presentsBento()
+            || m_cardStage->presentation() != CardPresentation::Active
+            || m_cardStage->selectedWindow() != opening.window
+            || m_cardStage->keyboardRoomEdge(opening.window.data())) return std::nullopt;
+        // The card shown before stays as it stood until the new one is whole.
+        if (window == opening.over)
+            return painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); });
+        if (risen < 0) return true;
+        if (!std::exchange(opening.reported, true))
+            qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window)
+                              << " is first drawn as a card, with scale " << data.xScale() << "x" << data.yScale()
+                              << " and opacity " << data.opacity() << " from the effects before this one";
+        // Drawn past the effects after this one: the desktop's opening
+        // animation would grow it from its middle a second time.
+        const double rise = openedCardRise(risen);
+        const double scale = openedCardScale(rise);
+        const QSizeF frame = window->frameGeometry().size();
+        data.setOpacity(rise);
+        data.setXScale(scale);
+        data.setYScale(scale);
+        data.setXTranslation(frame.width() * (1.0 - scale) / 2.0);
+        data.setYTranslation(frame.height() * (1.0 - scale) / 2.0);
+        return painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, window,
+            mask | PAINT_WINDOW_TRANSFORMED, deviceRegion, data); });
+    }
+    return std::nullopt;
 }
 
 bool Effect::openingsWait()
@@ -58,6 +177,8 @@ bool Effect::openingsWait()
             it = m_opening.erase(it);
             continue;
         }
+        // Frames come while a card that opened is coming up, too.
+        if (it->card && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < OpenedCardRise) waits = true;
         if (it->asked && it->seenAt < 0) {
             const QRectF frame(window->frameGeometry());
             const QRectF asked(window->window()->moveResizeGeometry());
