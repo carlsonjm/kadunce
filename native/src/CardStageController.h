@@ -93,6 +93,10 @@ public:
     // CARD-LIFECYCLE.md §2, A card that sizes itself: Cards places the window
     // but never changes its size or its maximize.
     [[nodiscard]] virtual bool sizesItselfForCardStage(const KWin::EffectWindow *) const { return false; }
+    // §2, Desktop: a window let go to fill the screen that this stage could
+    // not take back is taken by whatever holds the display it stands on now,
+    // as a window left loose there. Whether anything took it.
+    virtual bool takeLooseWindowForCardStage(KWin::EffectWindow *) { return false; }
     // Where the visible virtual keyboard's top edge sits on this display, if
     // one is up. A keyboard is a compositor fact and reaches every effect, so
     // reading it here costs no dependency on a downstream surface. A host with
@@ -380,6 +384,9 @@ public:
     // The Active card `window` moved to its place again, as its width now
     // gives it. False when it is not this stage's Active card.
     bool refitActive(KWin::EffectWindow *window);
+    // §2, A card that sizes itself: the window's answer changed, by a choice
+    // made for it or its launcher; placed anew if it is the Active card.
+    void sizingChanged(KWin::EffectWindow *window);
     // §11, Solo: the place the Active card `window` holds while the half
     // beside it offers sleeping cards; none gives it its own place back.
     // Whether that changed what it holds.
@@ -635,6 +642,9 @@ public:
     // desktop as at the bottom edge, and the rest wait aside.
     void letFillingCardGo(KWin::EffectWindow *window);
     bool takeBackFilledCard(KWin::EffectWindow *window);
+    // The card let go to fill the screen is the Active card again, the display
+    // adopted with it if it was left holding no cards.
+    void takeCardBack(const QPointer<KWin::EffectWindow> &window, const char *why);
     // §2, A card that sizes itself (OwnSize.h): each change of its size or of
     // how it fills the screen is noted, and once the application has finished
     // answering it the card is held to the work area while it fills it, else

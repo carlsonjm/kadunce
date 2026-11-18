@@ -1676,3 +1676,82 @@ void DesktopStageController::cancelRestoredMinimizations()
 }
 
 } // namespace Kadunce
+
+namespace Kadunce
+{
+namespace
+{
+// How long after a change a pane in its moment is looked at, so the
+// application has answered by then.
+constexpr int PaneHoldLookMs = 40;
+
+OwnRect paneRectOf(const KWin::RectF &rect)
+{
+    return {rect.x(), rect.y(), rect.width(), rect.height()};
+}
+
+OwnFill paneFillOf(const KWin::Window *client)
+{
+    const KWin::MaximizeMode has = client->maximizeMode(), asked = client->requestedMaximizeMode();
+    return ownFill(client->isFullScreen() || client->isRequestedFullScreen(),
+                   has == KWin::MaximizeRestore, asked == KWin::MaximizeRestore,
+                   has == KWin::MaximizeFull, asked == KWin::MaximizeFull);
+}
+}
+
+void DesktopStageController::keepPaneInPlace(KWin::EffectWindow *window)
+{
+    if (!window) return;
+    if (window->isDeleted() || !window->window() || outputHoldingPane(window).isEmpty()) {
+        m_paneHolds.remove(window);
+        return;
+    }
+    if (!m_paneClock.isValid()) m_paneClock.start();
+    PaneHoldRecord &record = m_paneHolds[window];
+    const qint64 now = m_paneClock.elapsed();
+    notePaneFill(record, paneFillOf(window->window()), now);
+    if (!record.settling(now) || m_paneLooks.contains(window)) return;
+    m_paneLooks.insert(window);
+    const QPointer<KWin::EffectWindow> guarded = window;
+    QTimer::singleShot(PaneHoldLookMs, &m_settleTimer,
+                       [this, guarded, looked = static_cast<const KWin::EffectWindow *>(window)] {
+        m_paneLooks.remove(looked);
+        settlePaneInPlace(guarded);
+    });
+}
+
+void DesktopStageController::settlePaneInPlace(const QPointer<KWin::EffectWindow> &window)
+{
+    if (!window || window->isDeleted() || !window->window()) return;
+    const QString key = outputHoldingPane(window);
+    const auto found = m_paneHolds.find(window.data());
+    const auto session = m_sessions.constFind(key);
+    KWin::LogicalOutput *output = outputForKey(key);
+    // A pane a person is moving or sizing, one Cards is placing, and every
+    // pane while a divider is dragged, is where it is meant to be.
+    if (key.isEmpty() || found == m_paneHolds.end() || session == m_sessions.cend() || !output
+        || session->applying || m_restoring || m_parking || m_interactionWindow || m_railDrag
+        || window->isUserMove() || window->isUserResize() || window->isMinimized()
+        || window->screen() != output
+        || session->windows.size() != static_cast<int>(session->rects.size())) return;
+    KWin::Window *client = window->window();
+    const qint64 now = m_paneClock.elapsed();
+    // Changed with nothing said: its moment begins now.
+    notePaneFill(*found, paneFillOf(client), now);
+    const int index = session->windows.indexOf(window.data());
+    const auto pixels = sessionPixels(session.value(), stageArea(output));
+    if (index < 0 || index >= static_cast<int>(pixels.size())) return;
+    const BentoPixelRect &pixel = pixels[std::size_t(index)];
+    const KWin::RectF placed = client->moveResizeGeometry();
+    const auto wanted = paneHoldPlace(*found, paneRectOf(placed), paneRectOf(KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height)),
+                                      paneRectOf(KWin::RectF(KWin::effects->clientArea(KWin::MaximizeArea, window.data()))), now);
+    if (!wanted) return;
+    qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(window)
+            << (found->fill == OwnFill::WorkArea ? "filling the screen" : "in its pane") << "at"
+            << KWin::RectF(wanted->x, wanted->y, wanted->width, wanted->height).toRect() << "from" << placed.toRect()
+            << "just after it" << (found->fill == OwnFill::WorkArea ? "started" : "stopped")
+            << "filling the screen or was placed, time" << found->asserts;
+    client->moveResize(KWin::RectF(wanted->x, wanted->y, wanted->width, wanted->height));
+    KWin::effects->addRepaintFull();
+}
+}

@@ -16,6 +16,13 @@ namespace
 constexpr int WorkAreaGrowWait = 6000;
 // The keyboard's handover hides and shows its keys within 150 ms.
 constexpr int KeyboardRoomGraceMs = 250;
+// §2, A card that sizes itself: the size it had before Cards placed it, kept
+// in its restore record, else the size it has now.
+KWin::RectF ownBeforeCards(const WindowPlace &place, const KWin::RectF &frame)
+{
+    const KWin::RectF own = place.floating() ? place.geometry : place.floatingGeometry;
+    return own.width() > 0 && own.height() > 0 ? own : frame;
+}
 }
 
 KWin::RectF CardStageHost::workAreaForCardStage(const KWin::LogicalOutput *output) const
@@ -655,7 +662,10 @@ bool CardStageController::enterActive()
         // it is still answering a maximize or a restore.
         if (!m_openingClock.isValid()) m_openingClock.start();
         OwnSizeRecord &record = m_ownSizes[effectWindow];
-        const KWin::RectF frame = client->frameGeometry();
+        // One not looked at yet, as one just switched to size itself, starts
+        // from the size it had before Cards placed it.
+        const KWin::RectF frame = record.seen ? client->frameGeometry()
+                                              : ownBeforeCards(m_activeRestore, client->frameGeometry());
         noteOwnSize(record, ownFillOf(client), {frame.x(), frame.y(), frame.width(), frame.height()},
                     m_openingClock.elapsed());
         record.asserts = 0;
@@ -1625,11 +1635,10 @@ OwnRect ownRectOf(const KWin::RectF &rect)
 
 OwnFill CardStageController::ownFillOf(const KWin::Window *client)
 {
-    if (client->isFullScreen() || client->isRequestedFullScreen()) return OwnFill::Other;
     const KWin::MaximizeMode has = client->maximizeMode(), asked = client->requestedMaximizeMode();
-    if (has == KWin::MaximizeRestore && asked == KWin::MaximizeRestore) return OwnFill::None;
-    // On its way into or out of filling the screen, or filling one direction.
-    return has == KWin::MaximizeFull && asked == KWin::MaximizeFull ? OwnFill::WorkArea : OwnFill::Other;
+    return ownFill(client->isFullScreen() || client->isRequestedFullScreen(),
+                   has == KWin::MaximizeRestore, asked == KWin::MaximizeRestore,
+                   has == KWin::MaximizeFull, asked == KWin::MaximizeFull);
 }
 
 std::optional<KWin::RectF> CardStageController::ownPlaceOf(KWin::LogicalOutput *output,
@@ -1702,6 +1711,50 @@ void CardStageController::settleOwnSize(const QPointer<KWin::EffectWindow> &wind
             << wanted->toRect() << "from" << placed.toRect() << "time" << attempt;
 }
 
+void CardStageController::sizingChanged(KWin::EffectWindow *window)
+{
+    // §2, A card that sizes itself, switched on or off from its card or from
+    // Settings: the Active card is placed anew at once, any other card as it
+    // is next shown.
+    m_ownSizes.remove(window);
+    // One let go to fill the screen while Cards sized it keeps its maximize as
+    // a card once it sizes itself, so it is taken back at once.
+    if (window && m_filledFromCards.contains(window) && m_host->sizesItselfForCardStage(window)) {
+        m_filledFromCards.removeAll(window);
+        QTimer::singleShot(0, &m_arrivalTimer, [this, kept = QPointer<KWin::EffectWindow>(window)] {
+            takeCardBack(kept, "it sizes itself, so it keeps filling the screen as a card");
+        });
+        return;
+    }
+    KWin::LogicalOutput *tablet = m_host->tabletOutputForCardStage();
+    if (!window || window->isDeleted() || !window->window() || !tablet || !m_active
+        || m_presentation != CardPresentation::Active || !m_activeRestore.valid
+        || m_activeRestore.window != window || window->screen() != tablet) return;
+    KWin::Window *client = window->window();
+    const bool sizes = m_host->sizesItselfForCardStage(window);
+    if (sizes) {
+        if (!m_openingClock.isValid()) m_openingClock.start();
+        noteOwnSize(m_ownSizes[window], ownFillOf(client),
+                    ownRectOf(ownBeforeCards(m_activeRestore, client->frameGeometry())), m_openingClock.elapsed());
+        if (const auto wanted = ownPlaceOf(tablet, window)) {
+            QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+            client->moveResize(*wanted);
+        }
+        lookAtOwnSize(window);
+    } else {
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        if (client->isFullScreen()) client->setFullScreen(false);
+        if (client->maximizeMode() != KWin::MaximizeRestore) client->maximize(KWin::MaximizeRestore);
+        client->moveResize(KWin::RectF(activePlacement(tablet)));
+        m_activeSettleRemaining = std::max(m_activeSettleRemaining, 2);
+        m_activeSettleTimer.start();
+    }
+    refreshKeyboardRoom();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << logNameOf(window)
+            << (sizes ? "now sizes itself: Cards gives it back its own size" : "no longer sizes itself: Cards places it");
+}
+
 bool CardStageController::keepOpeningStateInActivePlace(KWin::EffectWindow *window)
 {
     // §3: an application restoring its saved state maximizes or tiles its
@@ -1766,16 +1819,28 @@ bool CardStageController::takeBackFilledCard(KWin::EffectWindow *window)
         || client->isRequestedFullScreen() || client->requestedMaximizeMode() != KWin::MaximizeRestore
         || client->requestedQuickTileMode() != KWin::QuickTileMode{}) return false;
     m_filledFromCards.removeAll(window);
-    if (!m_active || liveCardIndex(window) >= 0) return false;
+    if (liveCardIndex(window) >= 0) return false;
     const QPointer<KWin::EffectWindow> restored = window;
     // Taken in once this notification has returned, never inside it.
-    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] {
-        if (!restored || restored->isDeleted() || liveCardIndex(restored) >= 0) return;
-        if (handleWindowAdded(restored))
-            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(restored)
-                    << "back as the Active card: it no longer fills the screen";
-    });
+    QTimer::singleShot(0, &m_arrivalTimer, [this, restored] { takeCardBack(restored, "it no longer fills the screen"); });
     return true;
+}
+
+void CardStageController::takeCardBack(const QPointer<KWin::EffectWindow> &window, const char *why)
+{
+    if (!window || window->isDeleted() || liveCardIndex(window) >= 0) return;
+    // A display its last card left to fill the screen holds no cards; it
+    // takes the card back as it takes a window that opens there (§3), the
+    // display adopted with it Active.
+    if (m_active ? handleWindowAdded(window) : adoptDisplayWithActive(window, [] { return true; })) {
+        qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "back as the Active card:" << why;
+        return;
+    }
+    // A display showing a layout by now, or another display it was sent to
+    // while it filled the screen, takes it as one left loose there (§11).
+    if (m_host->takeLooseWindowForCardStage(window)) return;
+    qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(window) << "on the desktop, though" << why
+            << ": nothing here could take it back";
 }
 
 } // namespace Kadunce

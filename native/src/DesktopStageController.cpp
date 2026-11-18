@@ -593,6 +593,7 @@ void DesktopStageController::removeWindow(KWin::EffectWindow *window,
         m_applicationGuard.invalidate();
         return;
     }
+    m_paneHolds.remove(window);
     QString sourceKey;
     RestoreSnapshot removedSnapshot;
     bool wasShown = false;

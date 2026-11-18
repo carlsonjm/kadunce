@@ -775,6 +775,16 @@ qint64 processParent(qint64 pid)
 }
 }
 
+namespace
+{
+// The key an app's own choice is kept under: its desktop file or Wayland
+// application id, else its window class.
+QString sizingKey(const QString &app, const QString &windowClass)
+{
+    return app.isEmpty() ? windowClass : app;
+}
+}
+
 bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
 {
     if (!window || !window->window()) return false;
@@ -802,25 +812,85 @@ bool Effect::sizesItselfForCardStage(const KWin::EffectWindow *window) const
             origin.ancestors.append(programName(processName(parent)));
         }
     }
-    // Every window of a process found sizing itself does too: an app that
-    // builds its window again keeps what its first one was.
-    if (pid > 1 && m_sizesItselfProcesses.contains(pid)) {
+    // A choice made for the application stands first, then one made for the
+    // launcher that started it: kaduncerc [SizesItself], true or false.
+    const KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))
+        ->group(QStringLiteral("SizesItself"));
+    const auto choiceOf = [&chosen](const QString &key) {
+        return !key.isEmpty() && chosen.hasKey(key) ? std::optional<bool>(chosen.readEntry(key, false)) : std::nullopt;
+    };
+    const std::optional<bool> choice = choiceOf(sizingKey(origin.app, origin.windowClass));
+    const std::optional<bool> launcherChoice = choiceOf(launcherChoiceKey(launcherFamily(origin)));
+    // Every window of a process found sizing itself does too, unless a choice
+    // names it: an app that builds its window again keeps what its first one
+    // was.
+    if (!choice && !launcherChoice && pid > 1 && m_sizesItselfProcesses.contains(pid)) {
         m_sizesItself.insert(window, {named, true, lineage});
         return true;
     }
-    // A choice made for the application: kaduncerc [SizesItself], true or false.
-    const KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))
-        ->group(QStringLiteral("SizesItself"));
-    const QString app = origin.app.isEmpty() ? origin.windowClass : origin.app;
-    const std::optional<bool> choice = !app.isEmpty() && chosen.hasKey(app)
-        ? std::optional<bool>(chosen.readEntry(app, false)) : std::nullopt;
-    const bool sizes = sizesItself(origin, choice);
+    const bool sizes = sizesItself(origin, choice, launcherChoice);
     m_sizesItself.insert(window, {named, sizes, lineage});
     if (sizes && pid > 1) m_sizesItselfProcesses.insert(pid);
     if (sizes)
         qInfo() << "Kadunce" << Revision << logNameOf(window) << "sizes itself: Cards places it at its own size"
-                << (choice ? "as chosen" : "as an app a launcher starts");
+                << (choice ? "as chosen for it" : launcherChoice ? "as chosen for its launcher" : "as an app a launcher starts");
     return sizes;
+}
+
+QVariantMap Effect::sizingChoices() const
+{
+    QVariantMap choices;
+    const KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("SizesItself"));
+    for (const QString &key : chosen.keyList()) choices.insert(key, chosen.readEntry(key, false));
+    return choices;
+}
+
+void Effect::setSizingChoice(const QString &key, int choice)
+{
+    const QString named = key.trimmed().toLower();
+    if (named.isEmpty() || named.contains(QLatin1Char('|'))) return;
+    KConfigGroup chosen = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("SizesItself"));
+    if (choice < 0) chosen.deleteEntry(named);
+    else chosen.writeEntry(named, choice > 0);
+    chosen.sync();
+    qInfo() << "Kadunce" << Revision << named
+            << (choice < 0 ? "sizes itself as Kadunce expects" : choice > 0 ? "chosen to size itself" : "chosen to be sized by Cards");
+    applySizingChoices();
+}
+
+bool Effect::setSizesItselfForWindow(const QString &windowId, bool sizes)
+{
+    // The dock names a window as Plasma's task list does, in braces.
+    QString requested = windowId.trimmed();
+    requested.remove(QLatin1Char('{')).remove(QLatin1Char('}'));
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (requested.isEmpty() || !isApplicationWindow(window) || windowIdentity(window) != requested
+            || !window->window()) continue;
+        const QString key = sizingKey(naturalAppOf(window).toLower(), window->window()->resourceClass().toLower());
+        if (key.isEmpty()) return false;
+        setSizingChoice(key, sizes ? 1 : 0);
+        return true;
+    }
+    return false;
+}
+
+void Effect::applySizingChoices()
+{
+    // Every open window is asked again, and each whose answer changed is
+    // placed anew on whichever stage shows it, at once.
+    QHash<const KWin::EffectWindow *, bool> before;
+    for (auto known = m_sizesItself.cbegin(); known != m_sizesItself.cend(); ++known)
+        before.insert(known.key(), known->sizes);
+    m_sizesItself.clear();
+    m_sizesItselfProcesses.clear();
+    for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
+        if (!isApplicationWindow(window) || !window->window()) continue;
+        const bool sizes = sizesItselfForCardStage(window);
+        if (sizes == before.value(window, false)) continue;
+        forEachStage([this, window] { m_cardStage->sizingChanged(window); });
+    }
+    KWin::effects->addRepaintFull();
+    Q_EMIT workspaceContextChanged();
 }
 
 void Effect::keepWhereLaunched(KWin::EffectWindow *window)
@@ -1047,6 +1117,12 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window, const QString 
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     }
+}
+
+bool Effect::takeLooseWindowForCardStage(KWin::EffectWindow *window)
+{
+    claimWindowForItsDisplay(window);
+    return window && !window->isDeleted() && (sessionHolding(window) || m_desktopStage->managesWindow(window));
 }
 
 bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window, KWin::LogicalOutput *output,

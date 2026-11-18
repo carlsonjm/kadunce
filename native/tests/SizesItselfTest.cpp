@@ -38,6 +38,21 @@ int main() {
     check(!sizesItself(firefox, std::nullopt), "Firefox sizes itself");
     check(sizesItself(firefox, true), "a chosen app does not size itself");
     check(!sizesItself(origin("", "steam_app_1", "game"), false), "a game switched off sizes itself");
+    // A launcher's choice: every app it starts, unless the app has its own.
+    const auto lutrisGame = origin("", "game.exe", "game.exe", {"wineserver", "lutris-wrapper", "lutris"});
+    check(!sizesItself(lutrisGame, std::nullopt, false), "a launcher switched off still sizes its games");
+    check(sizesItself(lutrisGame, true, false), "an app's own choice does not stand over its launcher's");
+    check(!sizesItself(firefox, std::nullopt, true), "a launcher's choice reaches an app it did not start");
+    check(launcherFamily(lutrisGame) == QStringLiteral("lutris"), "a Lutris game is not Lutris's");
+    check(launcherFamily(origin("", "net-runelite-client-runelite", "java", {"bolt-launcher"})) == QStringLiteral("bolt"),
+          "RuneLite is not Bolt's");
+    check(launcherFamily(origin("", "runelite", "runelite")) == QStringLiteral("bolt"), "RuneLite alone is not Bolt's");
+    check(launcherFamily(origin("", "steam_app_9", "game")) == QStringLiteral("steam"), "a Steam game is not Steam's");
+    check(launcherFamily(origin("waydroid.org.fdroid.fdroid", "", "lxc-start")) == QStringLiteral("waydroid"),
+          "an Android app is not Waydroid's");
+    check(launcherFamily(origin("steam", "steam", "steamwebhelper", {"steam"})).isEmpty(), "Steam's library has a launcher");
+    check(launcherFamily(firefox).isEmpty(), "Firefox has a launcher");
+    check(launcherChoiceKey(QStringLiteral("steam")) == QStringLiteral("launcher:steam"), "a launcher's key is wrong");
     check(programName(QStringLiteral("/usr/bin/Steam.sh")) == QStringLiteral("steam"), "a program's name keeps its path");
     // Where a new window of an app that sizes itself opens. RuneLite's
     // process 30 was started by its launcher, 20, under Bolt, 10.

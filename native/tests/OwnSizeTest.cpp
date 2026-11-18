@@ -106,4 +106,47 @@ int main() {
     noteOwnSize(card, OwnFill::None, {1290, 34, 1200, 800}, 130100, true);
     check(card.width == 1200 && card.height == 800, "a size set by hand was not taken");
     return 0;
+    // A pane has no size of its own: its pane is its place. RuneLite beside
+    // another pane, as it was seen: maximized it fills the work area, and
+    // restored KWin gives it its pane back, then 7 ms on it asks for the
+    // size it filled the screen at, over the pane beside it.
+    const OwnRect Pane{1290, 34, 1082, 1367};
+    PaneHoldRecord pane;
+    check(notePaneFill(pane, OwnFill::None, 0), "a pane first seen began no moment");
+    check(!paneHoldPlace(pane, Pane, Pane, Area, 40), "a pane in its place was moved");
+    check(!notePaneFill(pane, OwnFill::None, 5000), "a pane that changed nothing began a moment");
+    check(notePaneFill(pane, OwnFill::WorkArea, 22000), "a maximize began no moment");
+    check(!paneHoldPlace(pane, Area, Pane, Area, 22040), "a pane filling the work area was moved");
+    // Its answer to the maximize, the size it had before: held to the work area.
+    auto held = paneHoldPlace(pane, OwnRect{1280, 24, 1082, 1367}, Pane, Area, 22050);
+    check(held && ownRectsMatch(*held, Area), "a maximized pane kept its pane's size");
+    check(notePaneFill(pane, OwnFill::None, 23640), "a restore began no moment");
+    check(!paneHoldPlace(pane, Pane, Pane, Area, 23641), "a restored pane in its place was moved");
+    held = paneHoldPlace(pane, Area, Pane, Area, 23680);
+    check(held && ownRectsMatch(*held, Pane), "a restored pane was left over the pane beside it");
+    check(!paneHoldPlace(pane, Pane, Pane, Area, 23720), "a pane put back was moved again");
+    // One that insists is put back three times in the moment, no more.
+    check(paneHoldPlace(pane, Area, Pane, Area, 23760) && paneHoldPlace(pane, Area, Pane, Area, 23800),
+          "an insisting pane was given up on early");
+    check(!paneHoldPlace(pane, Area, Pane, Area, 23840), "an insisting pane is fought in a loop");
+    // Outside the moment a size it takes is left to the layout's own settle.
+    check(notePaneFill(pane, OwnFill::WorkArea, 30000) && notePaneFill(pane, OwnFill::None, 31000),
+          "a later maximize and restore began no moment");
+    check(!paneHoldPlace(pane, Area, Pane, Area, 31000 + OwnSizeSettleMs + 1), "a pane was held after its moment");
+    // A pane short of its place covers nothing and is left alone; one a
+    // layout has just placed, first seen then, is held as one restored is.
+    PaneHoldRecord placed;
+    notePaneFill(placed, OwnFill::None, 100);
+    check(!paneHoldPlace(placed, OwnRect{1290, 34, 1082, 1340}, Pane, Area, 140), "a pane short of its place was moved");
+    held = paneHoldPlace(placed, Area, Pane, Area, 150);
+    check(held && ownRectsMatch(*held, Pane), "a pane just placed was left over the pane beside it");
+    // Full screen, or on its way into or out of a maximize: left as it is.
+    PaneHoldRecord full;
+    notePaneFill(full, OwnFill::Other, 0);
+    check(!paneHoldPlace(full, OwnRect{0, 0, 3840, 2560}, Pane, Area, 10), "a full screen pane was moved");
+    check(ownFill(true, false, false, true, true) == OwnFill::Other, "full screen was read as a maximize");
+    check(ownFill(false, true, true, false, false) == OwnFill::None, "a restored window was read as filling");
+    check(ownFill(false, false, false, true, true) == OwnFill::WorkArea, "a maximized window was not read as one");
+    check(ownFill(false, false, true, true, false) == OwnFill::Other, "a window being restored was read as settled");
+    check(ownFill(false, true, false, false, true) == OwnFill::Other, "a window being maximized was read as settled");
 }

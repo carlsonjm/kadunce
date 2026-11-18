@@ -31,6 +31,16 @@ struct OwnRect {
 // other way (full screen, one direction only) that is left as it is.
 enum class OwnFill { None, WorkArea, Other };
 
+// From what KWin says of a window, what it has and what was asked of it: one
+// on its way into or out of filling the screen, or filling one direction only,
+// fills it some other way.
+[[nodiscard]] constexpr OwnFill ownFill(bool fullScreen, bool restored, bool restoreAsked, bool whole, bool wholeAsked)
+{
+    if (fullScreen) return OwnFill::Other;
+    if (restored && restoreAsked) return OwnFill::None;
+    return whole && wholeAsked ? OwnFill::WorkArea : OwnFill::Other;
+}
+
 // The moment, in milliseconds, after a card starts or stops filling the
 // screen in which a size it asks for is an answer to that change.
 constexpr long long OwnSizeSettleMs = 700;
@@ -122,5 +132,48 @@ inline void noteOwnSize(OwnSizeRecord &record, OwnFill fill, const OwnRect &fram
     if (ownRectsMatch(frame, wanted) || record.asserts >= OwnSizeAsserts) return false;
     ++record.asserts;
     return true;
+}
+
+// CARD-LIFECYCLE.md §5, a pane that fills the screen: a pane has no size of
+// its own, so in the same moment it is held to the work area while it fills
+// it, and to its pane once it does not. A pane first seen is one just placed,
+// and is held the same way.
+struct PaneHoldRecord {
+    OwnFill fill = OwnFill::None;
+    bool seen = false;
+    long long changedAt = 0;
+    int asserts = 0;
+
+    [[nodiscard]] bool settling(long long now) const { return seen && now - changedAt <= OwnSizeSettleMs; }
+};
+
+// One reading of how the pane fills the screen. Whether the moment began.
+inline bool notePaneFill(PaneHoldRecord &record, OwnFill fill, long long now)
+{
+    if (record.seen && fill == record.fill) return false;
+    record = {fill, true, now, 0};
+    return true;
+}
+
+// Whether `frame` reaches past `place` on any side, and so over what stands
+// beside it; one short of its place covers nothing.
+[[nodiscard]] inline bool ownRectReachesPast(const OwnRect &frame, const OwnRect &place)
+{
+    return frame.x < place.x - 1.5 || frame.y < place.y - 1.5
+        || frame.x + frame.width > place.x + place.width + 1.5
+        || frame.y + frame.height > place.y + place.height + 1.5;
+}
+
+// Where the pane is put now, if anywhere: the work area while it fills it and
+// stands elsewhere, its pane while it does not and reaches past it. Nothing
+// outside the moment, or once it has been put back too often in it.
+[[nodiscard]] inline std::optional<OwnRect> paneHoldPlace(PaneHoldRecord &record, const OwnRect &frame,
+                                                          const OwnRect &pane, const OwnRect &workArea, long long now)
+{
+    if (!record.settling(now) || record.fill == OwnFill::Other || record.asserts >= OwnSizeAsserts) return std::nullopt;
+    const bool fills = record.fill == OwnFill::WorkArea;
+    if (fills ? ownRectsMatch(frame, workArea) : !ownRectReachesPast(frame, pane)) return std::nullopt;
+    ++record.asserts;
+    return fills ? workArea : pane;
 }
 }

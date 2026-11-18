@@ -1832,6 +1832,7 @@ void Effect::handleManagedStateChanged()
             SessionScope scope(this, holder ? holder : m_currentSession);
             SessionScope own(this, m_scopedSession, stageKeyOf(window));
             m_cardStage->handleActiveGeometryChanged(window);
+            m_desktopStage->keepPaneInPlace(window);
             return;
         }
     }

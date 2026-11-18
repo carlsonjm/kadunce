@@ -469,6 +469,8 @@ QString Effect::workspaceContext() const
             {QStringLiteral("minimized"), window->isMinimized()},
             {QStringLiteral("hasCard"), card != nullptr},
             {QStringLiteral("pane"), m_desktopStage->managesWindow(window)},
+            // §2, A card that sizes itself: Cards leaves it at its own size.
+            {QStringLiteral("sizesItself"), sizesItselfForCardStage(window)},
             // The display whose card stage holds it as a card; empty when none does.
             {QStringLiteral("stage"), card ? view->display : QString()},
             // Whether Kadunce rounds its corners, and what would keep it from it.

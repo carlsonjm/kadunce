@@ -350,6 +350,10 @@ public:
         SessionScope scope(m_effect, m_session, m_key);
         return cards().moveCardToDisplayForCardStage(card, to);
     }
+    bool takeLooseWindowForCardStage(KWin::EffectWindow *window) override
+    {
+        return cards().takeLooseWindowForCardStage(window);
+    }
     KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *window) const override
     {
         SessionScope scope(m_effect, m_session, m_key);
