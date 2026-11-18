@@ -51,6 +51,7 @@
 #include "KeptPicture.h"
 #include "FrostedBox.h"
 #include "StuckNotes.h"
+#include "OpenedFrom.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -1412,6 +1413,25 @@ private:
     void watchTypedKeyboards();
     void dropTypedKeyboardSpy();
     void keyboardTypedOn(quintptr device, quint32 code);
+    // Where a new window opened from (OpenedFrom.h): the window the person's
+    // latest press, tap or key landed on, how it was made and when, and the
+    // newest launch ticket seen. Written in the journal as each window opens;
+    // nothing is placed by it.
+    struct OpenedFromSpy;
+    std::shared_ptr<OpenedFromSpy> m_openedFromSpy; // shared: see m_signInGlassSpy
+    QPointer<KWin::Window> m_lastPressed;
+    const char *m_lastPressedHow = nullptr;
+    qint64 m_lastPressedAt = 0;
+    int m_newestTicket = -1;
+    QPointer<KWin::EffectWindow> m_lastOpened;
+    qint64 m_lastOpenedAt = 0;
+    void watchOpenedFrom();
+    void dropOpenedFromSpy();
+    void notePressed(KWin::Window *window, const char *how);
+    [[nodiscard]] OpenedFrom::Pressed lastPressedFor(const KWin::EffectWindow *opening) const;
+    [[nodiscard]] QString lastPressedWords(const KWin::EffectWindow *opening) const;
+    void ticketPresented(KWin::SurfaceInterface *surface, const QString &ticket);
+    void logOpenedFrom(KWin::EffectWindow *window);
     void typedKeyboardsForgotten(const char *why);
     // Whether raiseKeyboard asked for the keys a moment ago.
     [[nodiscard]] bool keyboardJustAsked() const;

@@ -816,6 +816,7 @@ Effect::Effect()
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
         watchTypedKeyboards();
+        watchOpenedFrom();
         // After the carry filter, so that it sees every contact first.
         m_touchWitness = std::make_unique<TouchWitness>();
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
@@ -941,6 +942,7 @@ Effect::~Effect()
     m_releasing = true;
     dropSignInGlassSpy();
     dropTypedKeyboardSpy();
+    dropOpenedFromSpy();
     // Windows the session reopened and Kadunce kept out of sight until the
     // sign-in settled are shown again as they stand, so an unload inside
     // that time never leaves an app running with no window anywhere.
@@ -1369,6 +1371,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         centreFloatingWindow(window);
         return;
     }
+    // Read before a layout or a bring-back claims it, while each still waits.
+    logOpenedFrom(window);
     // A window a saved layout or a bring-back waits for is claimed before it
     // is admitted.
     keepWhereLaunched(window);
