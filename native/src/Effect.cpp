@@ -5,6 +5,7 @@
 
 #include <KLocalizedString>
 #include "EffectInternal.h"
+#include "OpenedFromWatch.h"
 
 namespace Kadunce
 {
@@ -458,6 +459,23 @@ Effect::Effect()
             KWin::ElectricTop, m_showActiveAction);
     }
 
+    // Before the arrival below is connected, so each window's origin is read
+    // while a layout or a bring-back still waits for it. Owned as a child.
+    auto *openedFrom = new OpenedFromWatch(this);
+    openedFrom->isCard = [this](KWin::EffectWindow *pressed) {
+        // A press on a dialog is a press on the card it belongs to.
+        KWin::EffectWindow *lead = dependentLead(pressed);
+        return isApplicationWindow(lead ? lead : pressed);
+    };
+    openedFrom->askers = [this](KWin::EffectWindow *window) {
+        QStringList askers;
+        if (m_placementLaunch && m_placementLaunch->matches(applicationIdentity(window)))
+            askers.append(QStringLiteral("a placement request"));
+        if (m_launcherGuestLaunchPending) askers.append(QStringLiteral("Search"));
+        if (m_layoutRun) askers.append(QStringLiteral("a saved layout"));
+        if (m_bringBack) askers.append(QStringLiteral("a bring-back"));
+        return askers;
+    };
     connect(KWin::effects, &KWin::EffectsHandler::windowAdded,
             this, &Effect::handleWindowAdded);
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed,
@@ -816,7 +834,6 @@ Effect::Effect()
             m_usesDirectSystemEdges);
         KWin::input()->installInputEventFilter(m_inputRouter.get());
         watchTypedKeyboards();
-        watchOpenedFrom();
         // After the carry filter, so that it sees every contact first.
         m_touchWitness = std::make_unique<TouchWitness>();
         m_touchWitness->inBottomBezel = [this](const QPointF &position) {
@@ -942,7 +959,6 @@ Effect::~Effect()
     m_releasing = true;
     dropSignInGlassSpy();
     dropTypedKeyboardSpy();
-    dropOpenedFromSpy();
     // Windows the session reopened and Kadunce kept out of sight until the
     // sign-in settled are shown again as they stand, so an unload inside
     // that time never leaves an app running with no window anywhere.
@@ -1371,8 +1387,6 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         centreFloatingWindow(window);
         return;
     }
-    // Read before a layout or a bring-back claims it, while each still waits.
-    logOpenedFrom(window);
     // A window a saved layout or a bring-back waits for is claimed before it
     // is admitted.
     keepWhereLaunched(window);

@@ -89,8 +89,8 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectMemory.cpp
         src/EffectSignInGlass.cpp
         src/EffectSavedLayouts.cpp
-        src/EffectOpenedFrom.cpp
         src/OpenedFrom.h
+        src/OpenedFromWatch.h
         src/SavedLayout.h
         src/SessionEndHold.h
         src/SignInBurst.h
