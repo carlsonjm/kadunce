@@ -21,10 +21,12 @@ enum class Pressed {
     Card, // an application window other than the one opening
     Itself, // the window opening
     Elsewhere, // a panel, the desktop, Search or any other surface
+    Shortcut, // a key no window received: a shortcut of the desktop's took it
 };
 
 struct Evidence {
-    // The window presented a launch ticket.
+    // The window presented a launch ticket the compositor gave. One it
+    // refused to give is no ticket (ticketNumber).
     bool ticket = false;
     Pressed pressed = Pressed::Nothing;
     // A program asked Kadunce for this window by name: a placement request,
@@ -64,6 +66,7 @@ enum class Finding {
     case Pressed::Card: return "a card";
     case Pressed::Itself: return "the window itself";
     case Pressed::Elsewhere: return "no card";
+    case Pressed::Shortcut: return "a shortcut";
     }
     return "";
 }

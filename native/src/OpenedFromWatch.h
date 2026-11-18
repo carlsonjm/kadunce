@@ -21,7 +21,7 @@ public:
     std::function<bool(KWin::EffectWindow *)> isCard;
     std::function<QStringList(KWin::EffectWindow *)> askers;
 
-    explicit OpenedFromWatch(QObject *parent) : QObject(parent), m_spy(this)
+    explicit OpenedFromWatch(QObject *parent) : QObject(parent), m_spy(this), m_received(this)
     {
         if (KWin::input()) KWin::input()->installInputEventSpy(&m_spy);
         connect(KWin::effects, &KWin::EffectsHandler::windowAdded, this,
@@ -66,9 +66,27 @@ private:
         }
         void keyboardKey(KWin::KeyboardKeyEvent *event) override
         {
-            // A key lands on the window that holds the keys.
-            if (event->state != KWin::KeyboardKeyState::Pressed || !KWin::workspace()) return;
-            watch->pressed(KWin::workspace()->activeWindow(), "a key");
+            // A key is a shortcut's until a window is seen to receive it
+            // (Received), which follows in the same turn when one does.
+            if (event->state != KWin::KeyboardKeyState::Pressed) return;
+            watch->pressed(nullptr, "a key");
+            watch->m_shortcut = true;
+        }
+    };
+    // After the desktop's shortcuts and every effect in KWin's filter order,
+    // so a key that reaches it is on its way to the window that holds the
+    // keys. It takes nothing.
+    struct Received final : KWin::InputEventFilter {
+        OpenedFromWatch *watch;
+        explicit Received(OpenedFromWatch *w) : InputEventFilter(KWin::InputFilterOrder::Popup), watch(w)
+        {
+            if (KWin::input()) KWin::input()->installInputEventFilter(this);
+        }
+        bool keyboardKey(KWin::KeyboardKeyEvent *event) override
+        {
+            if (event->state == KWin::KeyboardKeyState::Pressed && KWin::workspace())
+                watch->pressed(KWin::workspace()->activeWindow(), "a key");
+            return false;
         }
     };
 
@@ -77,6 +95,7 @@ private:
         m_pressed = window;
         m_pressedHow = how;
         m_pressedAt = steadyMs();
+        m_shortcut = false;
     }
     void seen(const QString &ticket)
     {
@@ -85,6 +104,7 @@ private:
     [[nodiscard]] OpenedFrom::Pressed pressedFor(const KWin::EffectWindow *opening) const
     {
         if (!m_pressedHow) return OpenedFrom::Pressed::Nothing;
+        if (m_shortcut) return OpenedFrom::Pressed::Shortcut;
         KWin::EffectWindow *window = m_pressed ? m_pressed->effectWindow() : nullptr;
         if (!window || window->isDeleted()) return OpenedFrom::Pressed::Elsewhere;
         if (opening && window == opening) return OpenedFrom::Pressed::Itself;
@@ -92,6 +112,7 @@ private:
     }
     [[nodiscard]] QString pressedName() const
     {
+        if (m_shortcut) return QStringLiteral("no window, a shortcut took it");
         return m_pressed ? logNameOf(m_pressed.data()) : QStringLiteral("no window");
     }
     [[nodiscard]] QString pressedWords(const KWin::EffectWindow *opening) const
@@ -111,10 +132,27 @@ private:
         // so the line says how long it has been open.
         if (!window || !window->readyForPainting()) return;
         KWin::EffectWindow *presenting = window->effectWindow();
-        const QString since = presenting && presenting == m_opened
+        const bool justOpened = presenting && presenting == m_opened && steadyMs() - m_openedAt <= LateTicketMs;
+        const QString since = justOpened
             ? QStringLiteral("opened %1 ms before,").arg(steadyMs() - m_openedAt) : QStringLiteral("already open,");
-        qInfo().noquote() << "Kadunce" << Revision << "window origin:" << logNameOf(window) << since
-                          << "called forward with ticket" << ticket << ';' << pressedWords(presenting);
+        QDebug line = qInfo().noquote();
+        line << "Kadunce" << Revision << "window origin:" << logNameOf(window) << since << "called forward with"
+             << ticketWords(ticket) << ';' << pressedWords(presenting);
+        // A ticket that follows its window by a moment is that window's own,
+        // read as it would have been had it come first.
+        if (!justOpened || m_openedWithTicket) return;
+        const QStringList asked = askers ? askers(presenting) : QStringList();
+        const OpenedFrom::Finding finding = OpenedFrom::find(
+            {OpenedFrom::ticketNumber(ticket.toStdString()) >= 0, pressedFor(presenting), !asked.isEmpty()});
+        m_openedWithTicket = true;
+        line << "; finding with its late ticket:" << OpenedFrom::words(finding)
+             << (finding == OpenedFrom::Finding::Card ? QStringLiteral("(%1)").arg(pressedName()) : QString());
+    }
+    [[nodiscard]] static QString ticketWords(const QString &ticket)
+    {
+        if (ticket.isEmpty()) return QStringLiteral("no ticket");
+        return (OpenedFrom::ticketNumber(ticket.toStdString()) >= 0 ? QStringLiteral("ticket ")
+                                                                    : QStringLiteral("a refused ticket ")) + ticket;
     }
 
     void opened(KWin::EffectWindow *window)
@@ -124,10 +162,11 @@ private:
         m_openedAt = steadyMs();
         const QString ticket = window->window()->activationToken();
         const QStringList asked = askers ? askers(window) : QStringList();
-        const OpenedFrom::Finding finding = OpenedFrom::find({!ticket.isEmpty(), pressedFor(window), !asked.isEmpty()});
+        m_openedWithTicket = OpenedFrom::ticketNumber(ticket.toStdString()) >= 0;
+        const OpenedFrom::Finding finding = OpenedFrom::find({m_openedWithTicket, pressedFor(window), !asked.isEmpty()});
         qInfo().noquote() << "Kadunce" << Revision << "window origin:" << logNameOf(window) << "opened,"
                           << (window->isX11Client() ? "X11," : "Wayland,")
-                          << (ticket.isEmpty() ? QStringLiteral("no ticket") : QStringLiteral("ticket ") + ticket)
+                          << ticketWords(ticket)
                           << QStringLiteral("(newest seen %1);").arg(m_newestTicket)
                           << pressedWords(window) << ';'
                           << (asked.isEmpty() ? QStringLiteral("asked for by nothing")
@@ -136,7 +175,13 @@ private:
                           << (finding == OpenedFrom::Finding::Card ? QStringLiteral("(%1)").arg(pressedName()) : QString());
     }
 
+    // How long after a window opens a ticket it presents is still its own.
+    static constexpr qint64 LateTicketMs = 1000;
     Spy m_spy;
+    Received m_received;
+    // The latest press was a key no window has been seen to receive.
+    bool m_shortcut = false;
+    bool m_openedWithTicket = false;
     // The window the person's latest press, tap or key landed on, how it was
     // made and when; the newest ticket seen; the window that opened last.
     QPointer<KWin::Window> m_pressed;

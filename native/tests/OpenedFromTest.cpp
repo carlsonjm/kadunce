@@ -28,6 +28,10 @@ int main()
         "a ticket with no press seen names no card");
     require(find({true, Pressed::Itself, false}) == Finding::NotACard,
         "a window is never opened from itself");
+    // A shortcut of the desktop's opens a window while a card holds the keys:
+    // the key never reached that card.
+    require(find({true, Pressed::Shortcut, false}) == Finding::NotACard,
+        "a ticket for a key a shortcut took names no card");
     // An application that passes no ticket on says nothing, whatever was pressed.
     require(find({false, Pressed::Card, false}) == Finding::NoTicket,
         "a press on a card without a ticket names no card");
@@ -41,7 +45,8 @@ int main()
 
     for (const Finding finding : {Finding::Card, Finding::AskedFor, Finding::NoTicket, Finding::NotACard})
         require(!std::string_view(words(finding)).empty(), "every finding has its words");
-    for (const Pressed pressed : {Pressed::Nothing, Pressed::Card, Pressed::Itself, Pressed::Elsewhere})
+    for (const Pressed pressed : {Pressed::Nothing, Pressed::Card, Pressed::Itself, Pressed::Elsewhere,
+             Pressed::Shortcut})
         require(!std::string_view(words(pressed)).empty(), "every press has its words");
 
     require(ticketNumber("kwin-1") == 1, "the first ticket is read");
