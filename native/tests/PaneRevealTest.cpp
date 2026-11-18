@@ -50,6 +50,10 @@ int main() {
           && openedCardScale(2.0) == 1.0, "a card opening did not grow from a touch small to its own size");
     check(OpenedCardRise <= 200, "a card opening took longer to come up than a pane takes to move");
 
+    // It keeps the keys for as long as it takes to come into view.
+    check(OpenedKeepsKeys >= 220 && OpenedKeepsKeys >= OpenedCardRise && OpenedKeepsKeys <= 300,
+          "an opened window kept the keys for less than its coming into view, or long enough to refuse a pick");
+
     // The pane that filled the display draws back to the left column. While
     // it still covers the right column nothing of the new window shows; then
     // the window shows from a gutter past the box's edge.

@@ -302,8 +302,7 @@ public Q_SLOTS:
     // current one, as it stands, without switching to it. An empty id, or the
     // current desktop's, ends the preview and changes nothing.
     Q_SCRIPTABLE bool previewDesktop(const QString &desktopId);
-    // Makes the previewed desktop current, with KWin's switching effects
-    // standing aside, and ends the preview.
+    // Makes the previewed desktop current, with KWin's switching effects standing aside, and ends the preview.
     Q_SCRIPTABLE bool commitDesktopPreview();
     // Table as it stands, for a test: whether it is open, which level, which
     // workspace and card the finger is on, and every workspace's cards.
@@ -313,8 +312,7 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
-    // Every card book mismatch observed since load, in words: each place the
-    // records of a card's status disagree.
+    // Every card book mismatch observed since load, in words: each place the records of a card's status disagree.
     Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
@@ -453,8 +451,8 @@ private:
         QPointer<KWin::EffectWindow> window, over;
         QElapsedTimer since;
         QSizeF size;
-        bool asked = false, reported = false, card = false;
-        qint64 seenAt = -1;
+        bool asked = false, reported = false, card = false, keys = false;
+        qint64 seenAt = -1, kept = 0;
     };
     QList<Opening> m_opening;
     void noteOpened(KWin::EffectWindow *window);
@@ -464,6 +462,8 @@ private:
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
     // One that opens as the card its display shows comes up `over` the card shown before, which stays until then.
     void openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over);
+    // The opened window that keeps the keys `activated` took from it as it came into view, or none.
+    [[nodiscard]] KWin::EffectWindow *openingKeepsKeys(KWin::EffectWindow *activated);
     [[nodiscard]] bool openingCardDrawn(const KWin::EffectWindow *window) const;
     [[nodiscard]] std::optional<bool> paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
         KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);

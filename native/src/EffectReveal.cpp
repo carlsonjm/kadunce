@@ -41,6 +41,7 @@ KWin::EffectWindow *Effect::openingAmong(const QList<QPointer<KWin::EffectWindow
         if (!window || window->isDeleted() || opening.seenAt >= 0 || !windows.contains(opening.window)) continue;
         if (!opening.asked) {
             opening.asked = true;
+            opening.keys = opening.keys || KWin::effects->activeWindow() == window;
             opening.size = window->frameGeometry().size();
             opening.since.restart();
         }
@@ -60,6 +61,7 @@ void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
         if (opening.window != window || opening.asked) continue;
         opening.asked = true;
         opening.card = true;
+        opening.keys = opening.keys || KWin::effects->activeWindow() == window;
         opening.size = window->frameGeometry().size();
         opening.since.restart();
         if (over && over != window && !over->isDeleted() && !over->isMinimized() && over->screen() == window->screen()
@@ -68,6 +70,33 @@ void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
                           << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"));
         KWin::effects->addRepaintFull();
     }
+}
+
+KWin::EffectWindow *Effect::openingKeepsKeys(KWin::EffectWindow *activated)
+{
+    // A window that opens is given the keys, and is then out of sight for a
+    // moment. The keys going to another window in that moment, or as it
+    // comes into view, is nobody's pick: the window used before is the only
+    // one in sight to take them. A few times at most, so two windows that
+    // each insist cannot pass the keys back and forth.
+    if (!isApplicationWindow(activated)) return nullptr;
+    for (Opening &opening : m_opening) {
+        KWin::EffectWindow *window = opening.window.data();
+        if (!window || window->isDeleted()) continue;
+        if (window == activated) {
+            opening.keys = true;
+            continue;
+        }
+        if (!opening.keys || !opening.asked || opening.kept >= 3 || window->isMinimized()
+            || opening.since.elapsed() >= OpenedUnseenCap + OpenedKeepsKeys
+            || (opening.seenAt >= 0 && opening.since.elapsed() - opening.seenAt >= OpenedKeepsKeys)) continue;
+        ++opening.kept;
+        qInfo().nospace() << "Kadunce " << Revision << " kept the keys on opened " << logNameOf(window) << ", not "
+                          << logNameOf(activated) << ", " << opening.since.elapsed() << " ms after it was placed ("
+                          << (opening.seenAt < 0 ? "still unseen" : "coming into view") << ")";
+        return window;
+    }
+    return nullptr;
 }
 
 bool Effect::openingCardDrawn(const KWin::EffectWindow *window) const
