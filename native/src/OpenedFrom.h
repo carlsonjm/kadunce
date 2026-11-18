@@ -2,6 +2,7 @@
 #pragma once
 
 #include <charconv>
+#include <optional>
 #include <string_view>
 
 namespace Kadunce::OpenedFrom
@@ -19,8 +20,10 @@ namespace Kadunce::OpenedFrom
 // that, and otherwise as the window opens, unless a ticket given later was
 // seen before that press: then the ticket is for an earlier one.
 //
-// Switched on, a window opened from a card joins that card's Stack, in front
-// (joinFor); a window of the card's own application never does.
+// Switched on, a window opened from a card lands where the pair of the two
+// applications says (landsFor): in front of that card's Stack (joinFor),
+// beside the card, or on its own. A window of the card's own application is
+// never placed by it.
 
 // What the person's latest press, tap or key landed on.
 enum class Pressed {
@@ -129,5 +132,77 @@ enum class Join {
     if (opener == Place::Card)
         return opened == Place::Window ? Join::Waits : opened == Place::Pane ? Join::CardBehindPane : Join::CardOnCard;
     return Join::None;
+}
+
+// Which windows opened from a card are placed by where they opened from:
+// none, those of the pairs kept, or every one.
+enum class Follows { None, Pairs, Every };
+
+// Where such a window lands: as any window does, in front of the card's
+// Stack, beside the card, or on its own with nothing standing beside it.
+enum class Lands { AsBefore, InFront, Beside, Alone };
+
+// One pair: the application of the card, the application of the window it
+// opens, AnyApp for whichever, and where that window lands.
+inline constexpr std::string_view AnyApp = "*";
+struct Pair {
+    std::string_view from;
+    std::string_view to;
+    Lands lands = Lands::InFront;
+};
+
+[[nodiscard]] constexpr const char *words(Follows follows)
+{
+    return follows == Follows::Every ? "every" : follows == Follows::Pairs ? "pairs" : "off";
+}
+[[nodiscard]] constexpr Follows followsFrom(std::string_view text)
+{
+    return text == "every" ? Follows::Every : text == "pairs" ? Follows::Pairs : Follows::None;
+}
+[[nodiscard]] constexpr const char *words(Lands lands)
+{
+    switch (lands) {
+    case Lands::AsBefore: return "";
+    case Lands::InFront: return "front";
+    case Lands::Beside: return "beside";
+    case Lands::Alone: return "alone";
+    }
+    return "";
+}
+
+// A pair as it is kept, "org.kde.dolphin>org.gnome.Loupe=front": nothing for
+// text that names no application on either side, the same one on both, or no
+// place. The views are into `text`.
+[[nodiscard]] constexpr std::optional<Pair> pairFrom(std::string_view text)
+{
+    const auto arrow = text.find('>');
+    const auto equals = text.rfind('=');
+    if (arrow == std::string_view::npos || equals == std::string_view::npos || equals < arrow) return std::nullopt;
+    const Pair pair{text.substr(0, arrow), text.substr(arrow + 1, equals - arrow - 1),
+        text.substr(equals + 1) == "front" ? Lands::InFront : text.substr(equals + 1) == "beside" ? Lands::Beside
+            : text.substr(equals + 1) == "alone" ? Lands::Alone : Lands::AsBefore};
+    if (pair.from.empty() || pair.to.empty() || pair.from == AnyApp || pair.from == pair.to
+        || pair.lands == Lands::AsBefore) return std::nullopt;
+    return pair;
+}
+
+// Where a window of `to` opened from a card of `from` lands. The pair naming
+// both wins over the pair naming the card's application with any other; with
+// neither, every window stands in front where every one is followed.
+template<typename Pairs>
+[[nodiscard]] constexpr Lands landsFor(Follows follows, const Pairs &pairs, std::string_view from, std::string_view to)
+{
+    if (follows == Follows::None) return Lands::AsBefore;
+    Lands any = follows == Follows::Every ? Lands::InFront : Lands::AsBefore;
+    bool anyFound = false;
+    for (const Pair &pair : pairs) {
+        if (pair.from != from) continue;
+        if (pair.to == to) return pair.lands;
+        if (pair.to == AnyApp && !anyFound) {
+            any = pair.lands;
+            anyFound = true;
+        }
+    }
+    return any;
 }
 } // namespace Kadunce::OpenedFrom

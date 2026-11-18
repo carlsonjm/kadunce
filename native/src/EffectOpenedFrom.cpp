@@ -10,18 +10,39 @@ namespace Kadunce
 
 bool Effect::stacksOpenedWindows() const
 {
-    return m_openedFrom && m_openedFrom->joins;
+    return m_openedFrom && m_openedFrom->follows != OpenedFrom::Follows::None;
 }
 
 void Effect::setStacksOpenedWindows(bool stacks)
 {
-    if (!m_openedFrom || stacks == m_openedFrom->joins) return;
-    m_openedFrom->joins = stacks;
+    if (!m_openedFrom || stacks == stacksOpenedWindows()) return;
+    setOpenedWindows(stacks ? QStringLiteral("every") : QStringLiteral("off"), m_openedFrom->pairs());
+}
+
+QVariantMap Effect::openedWindows() const
+{
+    if (!m_openedFrom) return {};
+    QVariantMap answer;
+    answer.insert(QStringLiteral("follows"), QString::fromLatin1(OpenedFrom::words(m_openedFrom->follows)));
+    answer.insert(QStringLiteral("pairs"), m_openedFrom->pairs());
+    return answer;
+}
+
+void Effect::setOpenedWindows(const QString &follows, const QStringList &pairs)
+{
+    if (!m_openedFrom) return;
+    m_openedFrom->follows = OpenedFrom::followsFrom(follows.trimmed().toStdString());
+    m_openedFrom->setPairs(pairs);
+    const QString kept = QString::fromLatin1(OpenedFrom::words(m_openedFrom->follows));
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Stacks"));
-    group.writeEntry(QStringLiteral("JoinOpener"), stacks);
+    group.writeEntry(QStringLiteral("Opened"), kept);
+    group.writeEntry(QStringLiteral("Pairs"), m_openedFrom->pairs());
+    // Read by a Kadunce from before there were pairs.
+    group.writeEntry(QStringLiteral("JoinOpener"), m_openedFrom->follows == OpenedFrom::Follows::Every);
     group.sync();
-    qInfo() << "Kadunce" << Revision << "window origin: a window opened from a card"
-            << (stacks ? "joins that card's Stack from now on" : "opens on its own from now on");
+    qInfo().noquote() << "Kadunce" << Revision << "window origin: windows opened from a card follow" << kept
+                      << "from now on, with" << m_openedFrom->pairs().size() << "pairs:"
+                      << m_openedFrom->pairs().join(QStringLiteral(", "));
 }
 
 bool Effect::joinStackOpenedFrom(KWin::EffectWindow *opened, bool late)
@@ -36,13 +57,22 @@ bool Effect::joinStackOpenedFrom(KWin::EffectWindow *opened, bool late)
         m_openedFrom->forget(opened);
         return false;
     };
-    if (!m_openedFrom->joins) return leaves("joining is switched off");
+    if (m_openedFrom->follows == OpenedFrom::Follows::None) return leaves("joining is switched off");
     if (opener == opened || opener->isMinimized() || !isCardWindow(opened))
         return leaves("one of the two is no longer a card shown");
     // A second window of an application is that application's own business.
     if (applicationIdentity(opened) == applicationIdentity(opener)
         || (opened->window() && opener->window() && opened->window()->pid() == opener->window()->pid()))
         return leaves("both belong to one application");
+    // Where the pair of the two applications says it lands.
+    const OpenedFrom::Lands lands = m_openedFrom->landsFor(applicationIdentity(opener), applicationIdentity(opened));
+    if (lands == OpenedFrom::Lands::AsBefore) return leaves("no pair names these two applications");
+    if (lands == OpenedFrom::Lands::Alone) {
+        // Nothing stands it beside the card either (handleWindowAdded).
+        m_openedFrom->keepApart(opened);
+        return leaves("their pair opens it on its own");
+    }
+    const bool beside = lands == OpenedFrom::Lands::Beside;
     if (opened->screen() != opener->screen()) return leaves("it opened on another display");
     if (m_carriedWindow || m_nativeCarry || m_releasing) return leaves("a window is being carried");
 
@@ -64,6 +94,8 @@ bool Effect::joinStackOpenedFrom(KWin::EffectWindow *opened, bool late)
         // Asked again once it is a card; a late ticket finds it one already.
         return late ? leaves("it has no place in Cards") : false;
     case OpenedFrom::Join::TakesPane: {
+        // Beside a pane is where its layout stands any window (§8).
+        if (beside) return leaves("their pair stands it beside, as the layout does with any window");
         if (late) return false;
         if (!holdsCards) return leaves("its display keeps no Stack behind a pane");
         // As a Stack steps (stepPane): the new window is the pane, and the
@@ -82,10 +114,12 @@ bool Effect::joinStackOpenedFrom(KWin::EffectWindow *opened, bool late)
         break;
     }
     case OpenedFrom::Join::PaneOnPane:
+        if (beside) return leaves("it stands beside that card already");
         // Its ticket followed it, so it had a pane of its own for a moment.
         joined = holdsCards && stackPaneOnto(opened, opener);
         break;
     case OpenedFrom::Join::CardBehindPane: {
+        if (beside) return leaves("the card it opened from left the layout for it");
         if (!holdsCards) return leaves("its display keeps no Stack behind a pane");
         // The card left the layout as the window opened; it waits behind the
         // window's pane with its own Stack (stackWhenLanded).
@@ -102,13 +136,23 @@ bool Effect::joinStackOpenedFrom(KWin::EffectWindow *opened, bool late)
         // A card of a layout that left the screen stays in that layout.
         if (m_cardStage->inProjectedLayout(opener) || m_cardStage->inProjectedLayout(opened))
             return leaves("one of the two belongs to a layout waiting in Spread");
+        if (beside) {
+            // §11, Connected: a window opening beside the one card shown is
+            // paired with it as it opens (handleWindowAdded). Anywhere else,
+            // and for a ticket that came late, the two are paired here, the
+            // new window at the right and in use, as a pick from Spread is.
+            if (holdsCards && !late) return leaves("their pair stands it beside, as a Connected display does");
+            joined = pairCardsIntoBento(opener->screen(), opened, opener, BentoSidePlacement{true, true, holdsCards, false});
+            if (joined) KWin::effects->activateWindow(opened);
+            break;
+        }
         joined = m_cardStage->stackCardOnto(opened, opener);
         break;
     }
-    if (!joined) return leaves("Cards could not stack the two as they stand");
+    if (!joined) return leaves(beside ? "there is no room beside that card" : "Cards could not stack the two as they stand");
     m_openedFrom->forget(opened);
-    qInfo() << "Kadunce" << Revision << "window origin: stacked" << logNameOf(opened)
-            << "in front of" << logNameOf(opener) << "which it opened from"
+    qInfo() << "Kadunce" << Revision << "window origin:" << (beside ? "stood" : "stacked") << logNameOf(opened)
+            << (beside ? "beside" : "in front of") << logNameOf(opener) << "which it opened from"
             << (late ? "once its ticket came" : "as it opened");
     observeCardOwnership();
     Q_EMIT workspaceContextChanged();
