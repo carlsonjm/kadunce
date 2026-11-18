@@ -104,8 +104,8 @@ becomes carries the record it had before Bento placed it, not the pane rectangle
 ### A layout ends into card ownership, never into Plasma
 
 When Bento falls to one visible pane, that pane becomes an individual card
-(`CARD-LIFECYCLE.md` §5). Rejected: restoring it to the desktop, the smaller
-change, because §13 reserves the native desktop for explicit release and
+(`CARD-LIFECYCLE.md` §5). Rejected: restoring it to the desktop, because
+§13 reserves the native desktop for explicit release and
 disable. The remaining pane leaves by the same eviction a window the layout
 cannot show uses, which gives it its pre-Bento record. Where no display can own
 cards, §5's destination does not exist and the session keeps its single pane.
@@ -114,8 +114,8 @@ cards, §5's destination does not exist and the session keeps its single pane.
 
 §5 sends a pane carried to the top edge out of Bento, and §10 makes a window
 carried there one independent Active card. They are one answer, so the edge
-decision reads the same for a live layout as for an owned display and only the
-source differs. Rejected: separate rules per edge.
+decision reads the same for a live layout as for an owned display.
+Rejected: separate rules per edge.
 
 ### Two cases the contract does not answer
 
@@ -129,9 +129,8 @@ produces.
 ### A display presenting a layout answers every arrival with the layout
 
 A window is never shown on top of live panes (`CARD-LIFECYCLE.md` §8). Rejected:
-growth-only admission, which answered a full layout by drawing the arrival in
-front of it, the one state §2 does not name: a card over live panes, the layout
-running underneath.
+growth-only admission, which drew the arrival over a full layout, the one state
+§2 does not name.
 Both arrival paths, launch and activation, retire the layout into a Spread group
 before an arrival no slot holds becomes a card, and the card stage refuses a new
 window while its display presents Bento, so code, not each caller, keeps the
@@ -141,6 +140,10 @@ The accepted cost: a window that opens on its own can take a pane. With room the
 layout grows; on a two-pane display the exchange is visible, and the displaced
 window is one Spread entry away. Hiding a
 called window behind a layout was judged worse.
+
+It is unseen until it has drawn its pane, 150 ms at most; the panes wait, then
+draw back. Rejected: moving at once, the arrival mid-display at its own
+size.
 
 ### The arrival claims one slot, and only its occupant leaves
 
@@ -494,7 +497,7 @@ trip.
 
 A layout asks for its rects once and reads what arrived. Rejected: returning the
 whole session to the desktop when the reading disagreed, which §13 reserves for
-release and disable and a person reads as the layout vanishing. A client that
+release and disable. A client that
 moved itself while the placement arrived has refused nothing, so the layout asks
 once more; one that will not fit its rect however often it is asked is a window
 the layout cannot show, and leaves for card ownership while the settled panes

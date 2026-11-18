@@ -1374,6 +1374,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     keepWhereLaunched(window);
     if (!claimLayoutWindow(window)) claimBroughtBackWindow(window);
     connectManagedWindow(window);
+    // Should a layout take it, it is unseen until it has drawn its pane.
+    noteOpened(window);
     const QPointer<KWin::EffectWindow> candidate(window);
     // §11, Every display: the display it opens on takes it.
     SessionScope scope(this, m_scopedSession, stageKeyFor(window->screen()));

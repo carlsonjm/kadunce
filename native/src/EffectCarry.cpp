@@ -1577,12 +1577,13 @@ void Effect::clearYieldingPanes()
 const char *Effect::bentoMotionEnd(const BentoMotion &m) const
 {
     KWin::EffectWindow *window = m.window.data();
-    // An arrival not yet drawn moving stands where the card was let go,
+    // An arrival not yet drawn moving stands where the card was let go, as a
+    // pane does while the window opening beside it has yet to draw its own,
     // and is dropped if no frame draws it at all.
     const bool started = m.timer.isValid();
     const int duration = motion(m.arrival ? PaneArrivalDuration : 220);
     if (!window || window->isDeleted() || !window->window() || !m.output) return "window gone";
-    if (!started && (!m.arrival || !m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon))
+    if (!started && (!m.asked.isValid() || m.asked.elapsed() >= PaneArrivalAbandon))
         return "never drawn";
     // A layout's pane stands in its place once there until its client has
     // drawn that place, a second at most (PaneResizePicture.h).
@@ -1744,6 +1745,10 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     }
     if (!output) return;
     QElapsedTimer clock; clock.start();
+    // A window just opened into this layout is unseen until it has drawn its
+    // pane, and every pane waits where it stands until then: they then draw
+    // back from over a window already in its place (PaneReveal.h).
+    KWin::EffectWindow *opening = openingAmong(windows);
     for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
         auto *w = windows[i].data();
         if (!w || w->isDeleted() || !w->window() || w->isMinimized() || from[i] == to[i]) continue;
@@ -1752,12 +1757,13 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
             : !from[i].isValid() ? "not drawn before"
             : w->window()->moveResizeOutput() != output ? "on another display"
             : QRectF(w->window()->moveResizeGeometry()) != to[i] ? "KWin asked elsewhere"
-            : justOpened(w) ? "just opened" : nullptr;
+            : justOpened(w) || w == opening ? "just opened" : nullptr;
         // A card that was not a pane before, as one Spread hands back on
         // closing, still has its card's size: it stands in its place, its
-        // picture fitted there, until its client draws that place.
+        // picture fitted there, until its client draws that place. So does
+        // the window just opened.
         const bool standsInPlace = still && w != m_carriedWindow && w != m_settlingWindow
-            && !from[i].isValid() && w->window()->moveResizeOutput() == output
+            && (!from[i].isValid() || w == opening) && w->window()->moveResizeOutput() == output
             && QRectF(w->window()->moveResizeGeometry()) == to[i] && to[i].isValid();
         if (still) {
             qInfo().nospace() << "Kadunce " << Revision << " layout places " << logNameOf(w)
@@ -1773,6 +1779,11 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
             && (to[i].width() > from[i].width() + 2.0 || to[i].height() > from[i].height() + 2.0)) {
             KWin::effects->setElevatedWindow(w, true);
             m_bentoMotions.last().elevated = true;
+        }
+        if (opening) {
+            m_bentoMotions.last().waitsFor = opening;
+            m_bentoMotions.last().timer.invalidate();
+            m_bentoMotions.last().asked.start();
         }
     }
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
