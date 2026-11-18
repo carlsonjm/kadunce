@@ -69,7 +69,6 @@
 #include <map>
 #include <memory>
 #include <array>
-#include <map>
 #include <optional>
 
 class QAction;
@@ -275,6 +274,9 @@ public Q_SLOTS:
     // Monitors fill themselves unless asked to take the zones drawn with Meta+T.
     Q_SCRIPTABLE bool usesDrawnZones() const { return m_usesDrawnZones; }
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
+    // A window opened from a card joins that card's Stack, in front (OpenedFrom.h); kaduncerc [Stacks], off.
+    Q_SCRIPTABLE bool stacksOpenedWindows() const;
+    Q_SCRIPTABLE void setStacksOpenedWindows(bool stacks);
     // The window the keyboard types into is outlined while another window
     // shows beside it on its display; kept in kaduncerc's [Windows] group, on
     // unless switched off. Its style is "Soft", a faint neutral rim, unless set to "Accent".
@@ -912,8 +914,7 @@ private:
     // §11: the card goes, with its Stack, to the stage of another display
     // holding cards, shown there when `show`, else waiting in its Spread.
     bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show);
-    // Runs f after `ms` with the stage named now named again, while its
-    // desktop's session is still kept.
+    // Runs f after `ms` with the stage named now named again, while its desktop's session is still kept.
     void onThisStageLater(int ms, const std::function<void()> &f);
     // Shows a card sent to the stage named now there, once it stands there.
     void showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, int tries = 20);
@@ -940,6 +941,8 @@ private:
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    bool joinStackOpenedFrom(KWin::EffectWindow *opened, bool late);
+    class OpenedFromWatch *m_openedFrom = nullptr;
     // §11, Every display: the other panes of that display wait in Spread for
     // it, and this one is the card it shows alone.
     // §11, Connected: a pane's face held by its title bar and drawn up passes
@@ -1280,8 +1283,7 @@ private:
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
     // A side snap of the Active card brings back the layout Spread holds,
     // with the card in the place the snap named.
-    // A card let go out of its Stack on a Solo display joins the layout on
-    // Spread's display beside it.
+    // A card let go out of its Stack on a Solo display joins the layout on Spread's display beside it.
     void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
                                 BentoSidePlacement side, const QRectF &drawn);
     // The two named cards become a Bento pair, `active` placed by `side`.
@@ -1446,8 +1448,7 @@ private:
     void releaseKeysWorkArea();
     std::unique_ptr<NativeCarryRuntime> m_carryRuntime;
     std::unique_ptr<TouchWitness> m_touchWitness;
-    // Kadunce is giving windows back: one returning from minimized then was
-    // not picked by the person.
+    // Kadunce is giving windows back: one returning from minimized then was not picked by the person.
     bool m_releasing = false;
     // §13: windows given back stay plain windows until a window opens or the
     // person asks for cards again; nothing takes them back on its own.
@@ -1462,8 +1463,7 @@ private:
     [[nodiscard]] QString inUseKey() const;
     [[nodiscard]] bool isInUseDisplay(const KWin::LogicalOutput *output) const;
     QPointer<KWin::EffectWindow> m_carriedWindow;
-    // Counts carries as they begin, so work a drop left waiting knows whether
-    // anything has been carried since.
+    // Counts carries as they begin, so work a drop left waiting knows whether anything has been carried since.
     quint64 m_carriesBegun = 0;
     QRectF m_carryPickup;
     // Where the carried window is drawn under the hand, and whether its

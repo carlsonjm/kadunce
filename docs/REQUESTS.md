@@ -115,6 +115,56 @@ how often it has been seen. A set needs two applications. Kadunce switched on
 with windows already open gathers nothing, and applications brought back are
 not counted. The 32 most recently seen sets are kept.
 
+## Opened from a card
+
+Switched on, a window that one application's card opens in another
+application joins that card's Stack in front and is the card in use; the card
+it opened from waits behind it. It is off unless switched on, and kept in
+`kaduncerc` `[Stacks] JoinOpener`.
+
+| Call | Result |
+| --- | --- |
+| `stacksOpenedWindows()` | whether it is switched on |
+| `setStacksOpenedWindows(stacks)` | switches it, kept and followed from the next window |
+
+Kadunce reads where a window opened from only from what the desktop knows. An
+application that opens another asks the compositor for a launch ticket (an
+xdg-activation token), which the compositor gives only for your latest press,
+tap or key, and the window that opens presents it. A window joins when it
+presents a ticket the compositor gave, and the press that ticket was given
+for landed on a card: read as the ticket is given where the compositor
+announces that, and otherwise as the window opens. A ticket a later one was
+seen before that press is for an earlier press, and names no card. How soon a
+window opens after another never counts, nor which process started it.
+
+A window does not join when:
+
+- it presents no ticket, or one the compositor refused, as a command typed in a
+  terminal gets;
+- the press landed on a panel, the dock, Search or the desktop, or was a key
+  one of the desktop's shortcuts took;
+- a program asked for it by name: a placement request, Search's launch, a
+  saved layout or a bring-back, each of which names its own place;
+- it belongs to the application of the card it opened from;
+- it opened on another display than that card;
+- it does not fit the card's pane, or a window is being carried.
+
+Where it stands (`CARD-LIFECYCLE.md` §9, §11):
+
+- From the Active card, it is the Active card in front of that card's Stack,
+  on a Connected display too, where it would otherwise stand beside the card.
+- From a pane of a Connected layout, it takes that pane and the card waits
+  behind it with the rest of the pane's Stack; no other pane moves. Closing
+  it brings the card back to the pane.
+- From a pane of any other layout it opens as any window does (§8).
+
+A window whose ticket follows it by up to a second joins once the ticket
+comes; it has stood as its own card or pane until then. Taking it out of the
+Stack (`INPUT.md`) undoes the join, and nothing joins it again. An
+application already open that shows the link in a window it has opens no
+window, so nothing joins. Each window's origin is written in the journal on a
+line beginning `window origin:`, switched on or off.
+
 ## Saved layouts
 
 A driving program keeps named desks: groups of applications on one workspace,

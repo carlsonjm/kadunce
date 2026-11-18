@@ -14,6 +14,11 @@ What Kadunce does not do yet, and what it will not do.
 - Arranging a saved layout forms a Stack whose first application is a pane
   only around that pane, not one led by a card, and arranges a layout on a
   display that holds no cards only by bringing its windows there.
+- A window joins the card it opened from (`REQUESTS.md` § Opened from a card)
+  only where the application that opened it passes a launch ticket on. One
+  that passes none, as some do for files they hand to another application and
+  X11 applications do, opens on its own, as does a window opened from a pane
+  of a layout that is not Connected.
 - Nobody has measured whether switching Kadunce off returns a window to the
   right place after its display has moved in the desktop layout.
 - A Wayland dialog that names no parent window becomes a card. No application

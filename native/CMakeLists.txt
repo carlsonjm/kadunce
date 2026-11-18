@@ -83,12 +83,15 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectContext.cpp
         src/EffectNotes.cpp
         src/EffectOffers.cpp
+        src/EffectOpenedFrom.cpp
         src/EffectReveal.cpp
         src/EffectPaint.cpp
         src/EffectGuest.cpp
         src/EffectMemory.cpp
         src/EffectSignInGlass.cpp
         src/EffectSavedLayouts.cpp
+        src/OpenedFrom.h
+        src/OpenedFromWatch.h
         src/SavedLayout.h
         src/SessionEndHold.h
         src/SignInBurst.h
@@ -309,6 +312,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-sign-in-burst-test PRIVATE src)
     target_link_libraries(kadunce-sign-in-burst-test PRIVATE Qt6::Core)
     add_test(NAME sign-in-burst COMMAND kadunce-sign-in-burst-test)
+    add_executable(kadunce-opened-from-test tests/OpenedFromTest.cpp)
+    target_include_directories(kadunce-opened-from-test PRIVATE src)
+    target_link_libraries(kadunce-opened-from-test PRIVATE Qt6::Core)
+    add_test(NAME opened-from COMMAND kadunce-opened-from-test)
     add_executable(kadunce-desktop-removal-test tests/DesktopRemovalTest.cpp)
     target_include_directories(kadunce-desktop-removal-test PRIVATE src)
     target_link_libraries(kadunce-desktop-removal-test PRIVATE Qt6::Core)

@@ -5,6 +5,7 @@
 
 #include <KLocalizedString>
 #include "EffectInternal.h"
+#include "OpenedFromWatch.h"
 
 namespace Kadunce
 {
@@ -458,6 +459,29 @@ Effect::Effect()
             KWin::ElectricTop, m_showActiveAction);
     }
 
+    // Before the arrival below is connected, so each window's origin is read
+    // while a layout or a bring-back still waits for it. Owned as a child.
+    m_openedFrom = new OpenedFromWatch(this);
+    m_openedFrom->cardOf = [this](KWin::EffectWindow *pressed) {
+        // A press on a dialog is a press on the card it belongs to.
+        KWin::EffectWindow *lead = dependentLead(pressed);
+        return isApplicationWindow(lead ? lead : pressed) ? (lead ? lead : pressed) : nullptr;
+    };
+    // A ticket that follows its window: it joins the turn after, as it stands.
+    m_openedFrom->lateCard = [this](KWin::EffectWindow *window) {
+        QTimer::singleShot(0, this, [this, late = QPointer<KWin::EffectWindow>(window)] {
+            if (late) (void)joinStackOpenedFrom(late, true);
+        });
+    };
+    m_openedFrom->askers = [this](KWin::EffectWindow *window) {
+        QStringList askers;
+        if (m_placementLaunch && m_placementLaunch->matches(applicationIdentity(window)))
+            askers.append(QStringLiteral("a placement request"));
+        if (m_launcherGuestLaunchPending) askers.append(QStringLiteral("Search"));
+        if (m_layoutRun) askers.append(QStringLiteral("a saved layout"));
+        if (m_bringBack) askers.append(QStringLiteral("a bring-back"));
+        return askers;
+    };
     connect(KWin::effects, &KWin::EffectsHandler::windowAdded,
             this, &Effect::handleWindowAdded);
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed,
@@ -1402,7 +1426,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
-        if (m_desktopStage->handleWindowAdded(candidate)) {
+        // §9: opened from a pane, it takes that pane, the pane's card behind it.
+        if (joinStackOpenedFrom(candidate, false) || m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
@@ -1412,6 +1437,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
+            (void)joinStackOpenedFrom(candidate, false);
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
             completeLayoutForWindow(candidate);
@@ -1434,7 +1460,10 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // state §2 does not name.
         (void)retireLayoutIntoSpreadGroup(candidate->screen());
         (void)m_cardStage->handleWindowAdded(candidate);
-        if (shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
+        // §9: opened from a card, it stands in front of that card's Stack
+        // rather than beside the card.
+        if (!joinStackOpenedFrom(candidate, false)
+            && shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
             && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
             && m_cardStage->liveCardIndex(candidate) >= 0
             && pairCardsIntoBento(spread, candidate, shown,

@@ -108,8 +108,7 @@ card; arrival adopts nothing else.
 On a display Kadunce does not yet own, a top, left or right snap gives the same
 result:
 
-- The carried window becomes an individual card.
-- It becomes Active.
+- The carried window becomes an individual Active card.
 - Every other eligible window becomes an individual nonselected card.
 
 ### Pairing into Bento
@@ -200,8 +199,8 @@ partners.
 
 The Active card is a partner whether it stands alone in the Spread or is the
 selected member of an ordinary stack. Pairing takes a named stack member out of its
-stack and leaves the rest of the stack unchanged, whether that member is the
-partner or the carried window.
+stack and leaves the rest unchanged, whether it is the partner or the carried
+window.
 
 A partner search passes over every Spread entry that fails this test, and over
 every ordinary stack. A card leaves a stack for Bento only when you named it
@@ -395,7 +394,8 @@ A stack:
 - Becomes an individual card when one member remains
 - Shows its active position in the label row
 - Takes no arrival from the native desktop: a carried window becomes a card
-  under §8, and joining a stack is a separate act
+  under §8, and joining a stack is a separate act, or `REQUESTS.md` § Opened
+  from a card
 
 ### Releasing a member
 

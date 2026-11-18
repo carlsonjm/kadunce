@@ -15,7 +15,7 @@ not a card or a Bento pane; when that application is not in front, the dialog
 waits hidden and unfocused and the application is marked as wanting attention
 (`CARD-LIFECYCLE.md` §4). Rejected: bringing the application forward on its own,
 which lets any application interrupt whatever you are doing. The cost is a
-dialog that can go unnoticed, which is why the mark matters.
+dialog that can go unnoticed; hence the mark.
 
 The mark is Plasma's standard attention flag, so Kadunce and whatever shows it
 never depend on each other. A waiting application shows in Ambient, not as
@@ -28,7 +28,7 @@ events.
 While Kadunce is on, the display that can own cards
 holds its windows as cards, and switching on shows the window in use as the
 Active card. Rejected: opening Spread instead, which costs a tap after every
-sign-in and every toggle.
+sign-in and toggle.
 
 A display with no card left starts again
 with the next window to open, so no state exists that §2 does not name.
@@ -46,7 +46,7 @@ one partner (`CARD-LIFECYCLE.md` §3). Rejected: letting one side snap fill ever
 remaining pane from whatever else was eligible. That made the solver, not the
 person, decide membership, and every window it could not place became retained
 overflow that §14 gives to the card stage while the implementation kept it
-inside the session. Requiring a deliberate pair removes that class of defect at
+inside the session. Requiring a deliberate pair removes that defect at
 its source. A side snap that pairs with nothing presents its window as an
 ordinary Active card, because a one-window Bento must not exist.
 
@@ -60,7 +60,7 @@ carried window takes its release edge and the partner the other. Rejected: the
 partner keeping its Spread side, so a window dragged right could land left.
 
 Partner eligibility (`CARD-LIFECYCLE.md` §4) is one question asked in one place,
-by both pairing cases, so neither can drift into its own idea of who may be
+by both pairing cases, so neither drifts into its own idea of who may be
 paired. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
 
@@ -577,6 +577,11 @@ A display with room for more than two panes is Connected
 (`CARD-LIFECYCLE.md` §11): one card, then halves, then under a half.
 Full, the pane used longest ago yields. Rejected: three strips.
 
+### Opened windows join by ticket
+
+By launch ticket only (`REQUESTS.md` § Opened from a card). Rejected: timing,
+which guesses.
+
 ### Shuffle Keyboard is required and uses system input plumbing
 
 The Shuffle Keyboard owns layout, resizing, editing gestures and the keyboard to
@@ -595,21 +600,20 @@ palette.
 
 Title bars, toolbars and sidebars sit one step above
 content, one frame around it. Rejected: a black title bar over lifted toolbars.
-The rule is `../shuffle/docs/APPEARANCE.md`.
+Rule: `../shuffle/docs/APPEARANCE.md`.
 
 ### Ghost White is the highlight out of the box
 
 Shuffle highlights in Ghost White, as Control Center
 does, and an accent you set takes its place, keeping the suite
-monochrome until they ask for color. Rejected: the first appearance's teal. The
-rule is `../shuffle/docs/APPEARANCE.md`.
+monochrome until they ask for color. Rejected: the first appearance's teal. Rule: `../shuffle/docs/APPEARANCE.md`.
 
 ### Corners come in three tiers
 
 10 px paper, 12 px floating notes, pills for actions.
 The 10 px cut reads modern and cuts little content by accident; notes stay a
-step softer so they read as temporary. Rejected: one corner everywhere, 8 px
-paper, and the earlier 14 to 18 px boxes. The rule is `ITASCA-VISUAL-LANGUAGE.md` § Rounded
+step softer, reading as temporary. Rejected: one corner everywhere, 8 px
+paper, the earlier 14 to 18 px boxes. Rule: `ITASCA-VISUAL-LANGUAGE.md` § Rounded
 boxes.
 
 ### Kadunce trims window corners itself
@@ -621,14 +625,14 @@ which KWin updates break: `ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry.
 
 With Shuffle installed, Files opens every folder,
 Plasma's drive pop-up and "Show in folder" included; Dolphin keeps what Files
-does not browse. Rejected: Dolphin, a folder window beside work. The rule is `../tettegouche/docs/FILES-CONTRACT.md` §
-Answering as the file manager, and `../shuffle/install-file-manager.sh` switches
+does not browse. Rejected: Dolphin, a folder window beside work. Rule: `../tettegouche/docs/FILES-CONTRACT.md` §
+Answering as the file manager; `../shuffle/install-file-manager.sh` switches
 it on.
 
 ### Shuffle Lock shows nothing from the session
 
 The lock shows only the time, the credential field and the
-Keyboard's handle. The contract is
+Keyboard's handle. Contract:
 `../shuffle/docs/LOCK-CONTRACT.md`.
 
 ### Apps a launcher starts size themselves
