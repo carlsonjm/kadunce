@@ -55,6 +55,23 @@ inline double openedAloneOpacity(long long sinceSeen)
     return 1.0 - left * left;
 }
 
+// A window that opens as the one card a display shows is unseen in the same
+// way, and the card shown before it stays until then. It then comes up over
+// that card in `OpenedCardRise` milliseconds, quickly at first, from a touch
+// smaller than it stands, and the card under it leaves once it is whole.
+inline constexpr int OpenedCardRise = 180;
+
+inline double openedCardRise(long long sinceSeen)
+{
+    const double left = 1.0 - std::clamp(double(sinceSeen) / OpenedCardRise, 0.0, 1.0);
+    return 1.0 - left * left * left;
+}
+
+inline double openedCardScale(double rise)
+{
+    return 0.985 + 0.015 * std::clamp(rise, 0.0, 1.0);
+}
+
 // What shows of a window standing in `pane` behind a box drawing back from
 // over it: the pane, less the side the box still covers and a gutter beside
 // it, so the two stay a gutter apart all the way. A box that covers the pane

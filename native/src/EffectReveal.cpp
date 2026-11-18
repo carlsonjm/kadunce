@@ -49,6 +49,73 @@ KWin::EffectWindow *Effect::openingAmong(const QList<QPointer<KWin::EffectWindow
     return nullptr;
 }
 
+void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
+{
+    // Only as the one card its display shows: a card that joined a layout
+    // or Spread's row arrives as those do.
+    if (!window || window->isDeleted() || !m_cardStage->isActive() || m_cardStage->presentsBento()
+        || m_cardStage->presentation() != CardPresentation::Active || m_cardStage->selectedWindow() != window
+        || m_desktopStage->managesWindow(window) || !isTabletOutput(window->screen())) return;
+    for (Opening &opening : m_opening) {
+        if (opening.window != window || opening.asked) continue;
+        opening.asked = true;
+        opening.card = true;
+        opening.size = window->frameGeometry().size();
+        opening.since.restart();
+        if (over && over != window && !over->isDeleted() && !over->isMinimized() && over->screen() == window->screen()
+            && !m_desktopStage->managesWindow(over)) opening.over = over;
+        qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window) << " comes up as a card over "
+                          << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"));
+        KWin::effects->addRepaintFull();
+    }
+}
+
+bool Effect::openingCardDrawn(const KWin::EffectWindow *window) const
+{
+    return window && std::any_of(m_opening.cbegin(), m_opening.cend(), [window](const Opening &opening) {
+        return opening.card && (opening.window == window || opening.over == window)
+            && (opening.seenAt < 0 || opening.since.elapsed() - opening.seenAt < OpenedCardRise);
+    });
+}
+
+std::optional<bool> Effect::paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+    KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data)
+{
+    for (Opening &opening : m_opening) {
+        if (!opening.card || (window != opening.window && window != opening.over)) continue;
+        const qint64 risen = opening.seenAt < 0 ? -1 : opening.since.elapsed() - opening.seenAt;
+        // Only while its display still shows it as its one card, where it
+        // stands, with no keys up that it must end above.
+        if (risen >= OpenedCardRise || m_previewDesktop || !opening.window || opening.window->isDeleted()
+            || !m_paintingOutput || window->screen() != m_paintingOutput || hiddenOnOtherDesktop(window)
+            || !m_cardStage->isActive() || m_cardStage->presentsBento()
+            || m_cardStage->presentation() != CardPresentation::Active
+            || m_cardStage->selectedWindow() != opening.window
+            || m_cardStage->keyboardRoomEdge(opening.window.data())) return std::nullopt;
+        // The card shown before stays as it stood until the new one is whole.
+        if (window == opening.over)
+            return painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); });
+        if (risen < 0) return true;
+        if (!std::exchange(opening.reported, true))
+            qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window)
+                              << " is first drawn as a card, with scale " << data.xScale() << "x" << data.yScale()
+                              << " and opacity " << data.opacity() << " from the effects before this one";
+        // Drawn past the effects after this one: the desktop's opening
+        // animation would grow it from its middle a second time.
+        const double rise = openedCardRise(risen);
+        const double scale = openedCardScale(rise);
+        const QSizeF frame = window->frameGeometry().size();
+        data.setOpacity(rise);
+        data.setXScale(scale);
+        data.setYScale(scale);
+        data.setXTranslation(frame.width() * (1.0 - scale) / 2.0);
+        data.setYTranslation(frame.height() * (1.0 - scale) / 2.0);
+        return painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, window,
+            mask | PAINT_WINDOW_TRANSFORMED, deviceRegion, data); });
+    }
+    return std::nullopt;
+}
+
 bool Effect::openingsWait()
 {
     bool waits = false;
@@ -58,6 +125,8 @@ bool Effect::openingsWait()
             it = m_opening.erase(it);
             continue;
         }
+        // Frames come while a card that opened is coming up, too.
+        if (it->card && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < OpenedCardRise) waits = true;
         if (it->asked && it->seenAt < 0) {
             const QRectF frame(window->frameGeometry());
             const QRectF asked(window->window()->moveResizeGeometry());

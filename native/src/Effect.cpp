@@ -1402,6 +1402,10 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
+        // The card its display shows now, which it may come up over.
+        const QPointer<KWin::EffectWindow> shownBefore = m_cardStage->isActive()
+                && m_cardStage->presentation() == CardPresentation::Active && !m_cardStage->presentsBento()
+            ? m_cardStage->selectedWindow() : nullptr;
         if (m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
             completePlacementForWindow(candidate);
@@ -1412,6 +1416,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
+            openedAsCard(candidate, nullptr);
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
             completeLayoutForWindow(candidate);
@@ -1446,6 +1451,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             KWin::effects->activateWindow(candidate);
         }
         completeLauncherGuestForWindow(candidate);
+        openedAsCard(candidate, shownBefore);
         observeCardOwnership();
         completePlacementForWindow(candidate);
         completeBringBackForWindow(candidate);
