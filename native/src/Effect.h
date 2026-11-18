@@ -133,8 +133,7 @@ public:
     // and every window must be drawn into the frame: a window KWin hands
     // straight to the display, or lays on a plane of its own, is missing
     // from what the glass reads, and the glass shows black in its place on
-    // the frames KWin does so. With no cards on, as on a new account, nothing
-    // else here held that off.
+    // the frames KWin does so. With no cards on, as on a new account, nothing else here held that off.
     [[nodiscard]] bool glassStands() const
     {
         if (!m_frostBehind.isEmpty() || !m_settingsFrostSince.isEmpty() || !m_settingsFrostLeaving.isEmpty()
@@ -278,8 +277,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE void setUsesDrawnZones(bool uses);
     // The window the keyboard types into is outlined while another window
     // shows beside it on its display; kept in kaduncerc's [Windows] group, on
-    // unless switched off. Its style is "Soft", a faint neutral rim, unless
-    // set to "Accent".
+    // unless switched off. Its style is "Soft", a faint neutral rim, unless set to "Accent".
     Q_SCRIPTABLE bool showsKeyboardOutline() const { return m_showsKeyboardOutline; }
     Q_SCRIPTABLE void setShowsKeyboardOutline(bool shows);
     Q_SCRIPTABLE QString keyboardOutlineStyle() const { return QLatin1String(m_keyboardOutlineAccent ? "Accent" : "Soft"); }
@@ -296,8 +294,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE void setSpreadDisplay(const QString &outputName);
     // How a display plays cards: "solo" or "connected" (DisplaySizing.h).
     // "active", Solo's earlier name, is accepted and kept as "solo". The choice is kept per display in
-    // kaduncerc's [Sizing] group and followed at once; an empty choice lets
-    // Kadunce choose by room.
+    // kaduncerc's [Sizing] group and followed at once; an empty choice lets Kadunce choose by room.
     Q_SCRIPTABLE QString displaySizing(const QString &outputName) const;
     Q_SCRIPTABLE void setDisplaySizing(const QString &outputName, const QString &sizing);
     Q_SCRIPTABLE bool handoffBentoLeadToOutput(const QString &sourceName, const QString &destinationName);
@@ -311,8 +308,7 @@ public Q_SLOTS:
     // Table as it stands, for a test: whether it is open, which level, which
     // workspace and card the finger is on, and every workspace's cards.
     Q_SCRIPTABLE QString tableState() const;
-    // Opens Table on the display under the pointer, as its shortcut does, or
-    // closes it.
+    // Opens Table on the display under the pointer, as its shortcut does, or closes it.
     Q_SCRIPTABLE void toggleTable();
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
@@ -334,8 +330,7 @@ Q_SIGNALS:
 private:
     // A touchscreen driving a display decides which backend owns the top and
     // bottom edges, and it can appear after the effect loads. This moves the
-    // session onto the direct router then instead of leaving the constructor's
-    // answer final.
+    // session onto the direct router then instead of leaving the constructor's answer final.
     void adoptDirectSystemEdges();
     // Source-local bounds only: ordinary window movement does not recapture.
     QHash<KWin::EffectWindow *, std::array<QRectF, 3>> m_previewSourceBounds;
@@ -358,8 +353,7 @@ private:
     [[nodiscard]] QString applicationDisplayName(KWin::EffectWindow *window) const;
     // The cards Spread shows behind a Stack's face, nearest first.
     [[nodiscard]] QStringList namesBehindInSpread(int cardId) const;
-    // A card's name in Spread: a Stack names the cards behind its face, a
-    // pane alone the panes beside it.
+    // A card's name in Spread: a Stack names the cards behind its face, a pane alone the panes beside it.
     [[nodiscard]] QString spreadCardName(KWin::EffectWindow *window, int cardId) const;
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
@@ -414,8 +408,7 @@ private:
         QRectF from, to, outputGeometry;
         QElapsedTimer timer;
         // A card let go on a pane waits at `from` from when its move was
-        // `asked` for, and its `timer` starts once a frame has drawn it
-        // moving (PaneArrival.h).
+        // `asked` for, and its `timer` starts once a frame has drawn it moving (PaneArrival.h).
         bool arrival = false;
         bool drawnMoving = false;
         QElapsedTimer asked;
@@ -436,6 +429,8 @@ private:
         // A pane growing larger is drawn above the rest while it moves, so a
         // window closing beside it, still fading, never covers its growth.
         bool elevated = false;
+        // Held at `from` until this window, just opened, has drawn its pane.
+        QPointer<KWin::EffectWindow> waitsFor;
     };
     // Lets a layout motion's window go: its own drawing and any lift.
     void releaseBentoMotion(const BentoMotion &motion);
@@ -451,6 +446,22 @@ private:
     QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_justOpened;
     static constexpr qint64 StepInUnseen = 400;
     mutable QList<QPair<QPointer<KWin::EffectWindow>, QElapsedTimer>> m_steppingIn;
+    // Windows just opened: once a layout has `asked` one for its pane it is
+    // unseen until it has drawn that pane, and then shows where the panes
+    // that made room have drawn back (PaneReveal.h).
+    struct Opening {
+        QPointer<KWin::EffectWindow> window;
+        QElapsedTimer since;
+        QSizeF size;
+        bool asked = false, reported = false;
+        qint64 seenAt = -1;
+    };
+    QList<Opening> m_opening;
+    void noteOpened(KWin::EffectWindow *window);
+    [[nodiscard]] KWin::EffectWindow *openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows);
+    [[nodiscard]] bool openingsWait();
+    [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
+    bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
     struct LeftLayout {
         bool right = false;
         QList<QPointer<KWin::EffectWindow>> partners;
@@ -484,8 +495,7 @@ private:
                                            const QRectF &drawn) override;
     // §11: a display its layout's last pane left for another shows its desktop.
     void layoutLeftForOtherDisplayForDesktopStage(KWin::LogicalOutput *output) override;
-    // §5: a card a pane became for an arrival takes its place again once the
-    // arrival has left the layout.
+    // §5: a card a pane became for an arrival takes its place again once the arrival has left the layout.
     void displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWin::LogicalOutput *output) override;
     // On the card display a divider is Bento's only while Bento is what the
     // display presents; the cards it hides behind the layout do not take it.
@@ -549,8 +559,7 @@ private:
     bool m_spreadKeysAnswered = false;
     void putKeysAwayForSpread();
     // Whether the call being answered may steer Spread's guest: one Kadunce
-    // makes itself, or one over D-Bus from the guest's own connection
-    // (GuestCaller.h).
+    // makes itself, or one over D-Bus from the guest's own connection (GuestCaller.h).
     [[nodiscard]] bool callerIsGuest() const;
     // Whether the call being answered may bring anything forward: one Kadunce
     // makes itself, or one over D-Bus from a program of the suite's
@@ -588,8 +597,7 @@ private:
     // and is never a card or a pane. Null for a window that belongs to none.
     static KWin::EffectWindow *dependentLead(const KWin::EffectWindow *window);
     // CARD-LIFECYCLE.md gives every virtual desktop its own ownership
-    // session: its own cards and its own layouts, which carry on unseen while
-    // another desktop is shown.
+    // session: its own cards and its own layouts, which carry on unseen while another desktop is shown.
     struct DesktopSession;
     class SessionHost;
     class SessionScope;
@@ -749,8 +757,7 @@ private:
     // Table came down over Spread, which its tabs leave showing.
     bool m_tableOverSpread = false;
     bool m_tableKeyboard = false;
-    // Three fingers up, or four on a touchpad, and whether this swipe has
-    // already opened or closed Table.
+    // Three fingers up, or four on a touchpad, and whether this swipe has already opened or closed Table.
     QAction *m_tableGestureAction = nullptr;
     QAction *m_tablePadGestureAction = nullptr;
     bool m_tableGestureDone = false;
@@ -765,8 +772,7 @@ private:
     QSet<QString> m_unenteredDesktops;
     void loadNamedDesktops();
     void saveNamedDesktops();
-    // The tab being renamed, what has been typed into it, and whether a
-    // press landed while it was.
+    // The tab being renamed, what has been typed into it, and whether a press landed while it was.
     int m_tableRenaming = -1;
     QString m_tableRenameText;
     bool m_tableRenamePress = false;
@@ -786,8 +792,7 @@ private:
     void endTableRename(bool commit);
     void removeTableWorkspace(int workspace);
     void scheduleDissolve();
-    // The workspace shown is empty, unnamed and not the only one, so leaving
-    // it dissolves it.
+    // The workspace shown is empty, unnamed and not the only one, so leaving it dissolves it.
     [[nodiscard]] bool currentWorkspaceDissolves() const;
     void dissolveEmptyWorkspaces();
     bool m_dissolveQueued = false;
@@ -802,8 +807,7 @@ private:
     Memory::OpenTogetherLog m_openTogether;
     Memory::SignInGathering m_signInGathering;
     QTimer m_memorySave;
-    // Written once as the session began to end; a session that goes on
-    // writes again at the next one.
+    // Written once as the session began to end; a session that goes on writes again at the next one.
     bool m_memoryEndWritten = false;
     static constexpr int MemorySaveMs = 60000;
     static constexpr int BringBackWaitMs = 60000;
@@ -850,8 +854,7 @@ private:
     std::optional<SavedLayouts::LayoutRun> m_layoutRun;
     QString m_layoutDesktop;
     QString m_layoutOutput;
-    // When each window became ready, and the windows already sent to their
-    // place once, by window id.
+    // When each window became ready, and the windows already sent to their place once, by window id.
     QHash<QString, qint64> m_layoutReadySince;
     QSet<QString> m_layoutSent;
     quint64 m_layoutGeneration = 0;
@@ -900,12 +903,10 @@ private:
     [[nodiscard]] bool holdsOwnCardsForDesktopStage(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool showsOneCardForDesktopStage(const KWin::LogicalOutput *output) const override;
     [[nodiscard]] bool releasesOnOwnDisplayForDesktopStage(const KWin::LogicalOutput *output) const override;
-    // CARD-LIFECYCLE.md §11: a display holding cards other than the one the
-    // stage named now is kept for.
+    // CARD-LIFECYCLE.md §11: a display holding cards other than the one the stage named now is kept for.
     [[nodiscard]] bool isOtherCardDisplay(const KWin::LogicalOutput *output) const;
     void settleStacksOfArrival();
-    // The card stage a title-bar carry was prepared by; none once that carry
-    // no longer holds.
+    // The card stage a title-bar carry was prepared by; none once that carry no longer holds.
     [[nodiscard]] CardStageController *carrySourceStage(const PreparedCarrySource &source) const;
     [[nodiscard]] bool cardCarrySourceValid(const PreparedCarrySource &source) const;
     // §11: the card goes, with its Stack, to the stage of another display
@@ -922,8 +923,7 @@ private:
     // Cards the top edge took out of a layout, called back alone (§10).
     QList<QPointer<KWin::EffectWindow>> m_aloneOnPurpose;
     void fillLayoutWithCards(KWin::LogicalOutput *output);
-    // §11, Connected: Meta+B in Spread opens what is centred and lays every
-    // card out with it.
+    // §11, Connected: Meta+B in Spread opens what is centred and lays every card out with it.
     void layOutFromSpread(KWin::LogicalOutput *output);
     void appearInPlace(KWin::EffectWindow *window);
     void stepInUnseen(KWin::EffectWindow *window);

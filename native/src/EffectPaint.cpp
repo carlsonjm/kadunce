@@ -3,8 +3,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-// Painting: each frame's preparation, the screen, and every window drawn as a
-// card.
+// Painting: each frame's preparation, the screen, and every window drawn as a card.
 #include "EffectInternal.h"
 #include "CardTuning.h"
 
@@ -182,8 +181,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     if (m_framingTablet) noteTabletFrameStart();
     // A released row, a returning card or a thrown one moves once per frame.
     if (isTabletOutput(data.screen)) m_cardStage->advanceMotion();
-    // Notes and Search follow the Spread of the display in use, the one a
-    // person reaches for last.
+    // Notes and Search follow the Spread of the display in use, the one a person reaches for last.
     if (isTabletOutput(data.screen) && isInUseDisplay(data.screen)) {
         const bool wasShown = std::exchange(m_notesSpreadShown, m_cardStage->isActive()
             && m_cardStage->presentation() == CardPresentation::Spread);
@@ -244,6 +242,8 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
         m_continueRepaint = true;
     }
+    // Frames come while a window just opened has yet to draw its pane.
+    if (openingsWait()) m_continueRepaint = true;
     for (auto it = m_bentoMotions.begin(); it != m_bentoMotions.end();) {
         if (const char *ended = bentoMotionEnd(*it)) {
             reportBentoMotionEnd(*it, ended);
@@ -260,6 +260,10 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
                     paneArrivalShaped(frame.width(), frame.height(), it->to.width(), it->to.height()),
                     it->asked.elapsed());
             }
+            // A pane held for a window opening beside it moves once that
+            // window has drawn its pane or has had long enough to.
+            if (!it->arrival && !it->timer.isValid() && !it->drawnMoving && it->output == data.screen)
+                it->drawnMoving = !openingUnseen(it->waitsFor.data());
             data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
             m_continueRepaint = true;
             ++it;
@@ -400,8 +404,7 @@ void Effect::postPaintScreen()
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
     // Spread, Bento and the rest open and close along many paths, and every
     // one ends in a frame, so the context is announced here whenever the
-    // presentation it reports changes: the dock's Spread button and the
-    // Context Bar follow at once.
+    // presentation it reports changes: the dock's Spread button and the Context Bar follow at once.
     QString presentation;
     eachCardDisplay([&](KWin::LogicalOutput *output) {
         presentation += output->name() + QLatin1Char(' ')
@@ -487,7 +490,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     if (m_previewDesktop ? hiddenByDesktopPreview(window) : hiddenOnOtherDesktop(window)) data.setTranslucent();
     // Left undrawn while Spread draws its notes on the card.
     if (notesSurfaceStepsAside(window)) data.setTranslucent();
-    if (steppingInUnseen(window)) data.setTranslucent();
+    if (steppingInUnseen(window) || openingUnseen(window)) data.setTranslucent();
     // Drawn with its card, not where it stands, so it hides nothing there.
     if (m_drawnDialogs.contains(window) || drawnWithCarriedCard(window)) data.setTranslucent();
     // Its trimmed corners show what is under them, so that must be drawn.
@@ -611,8 +614,7 @@ KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
     if (!active || active->isDeleted() || active->isMinimized() || active->isFullScreen()
         || !(active->isNormalWindow() || active->isDialog()) || active->screen() != screen
         || !active->isOnCurrentDesktop() || !paintedAsItStands(active)) return nullptr;
-    // A lone window needs no marker: it is outlined only while another shows
-    // beside it on the display.
+    // A lone window needs no marker: it is outlined only while another shows beside it on the display.
     const QRectF frame(active->frameGeometry());
     const auto order = KWin::effects->stackingOrder();
     for (KWin::EffectWindow *other : order) {
@@ -698,8 +700,7 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
         const auto whole = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty)))
             .intersected(clip).intersected(box);
         if (whole.isEmpty()) continue;
-        // Whatever of `hole` the box covers is left undrawn: the bands above,
-        // below and beside it.
+        // Whatever of `hole` the box covers is left undrawn: the bands above, below and beside it.
         const QRectF cut = whole.intersected(hole);
         if (cut.isEmpty()) {
             parts.append(whole);
@@ -876,8 +877,7 @@ void Effect::stepSessionEndGlass()
         if (window->isNormalWindow() || window->isDialog()) asking = asked = true;
         else if (window->isNotification() || window->isCriticalNotification()) asking = true;
     }
-    // An application asking has the sign-out wait on its answer; a notice
-    // may be about anything.
+    // An application asking has the sign-out wait on its answer; a notice may be about anything.
     if (asked && m_sessionHold.noteAsked(steadyMs()))
         QTimer::singleShot(0, this, &Effect::awaitSessionGoingOn);
     if (asking != m_sessionEnd.asking) {
@@ -1003,8 +1003,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
-    // A display with no panel or splash drawn over it takes the sign-in
-    // glass over everything.
+    // A display with no panel or splash drawn over it takes the sign-in glass over everything.
     drawSignInGlass(renderTarget, viewport, nullptr);
     drawSignInBlack(renderTarget, viewport, screen);
     if (m_sessionEnd.on) drawSessionEndGlass(renderTarget, viewport, screen);
@@ -1213,8 +1212,7 @@ void Effect::traceShadows(KWin::ScreenPrePaintData &data)
             if (!m_shadowTraces.contains(window) && castsShadow(window)) m_shadowTraces.insert(window, {});
     }
     // KWin redraws where a window moved to and from, and a shadow reaches
-    // past both: the frame that moves it redraws where its shadow was drawn
-    // and where it now falls.
+    // past both: the frame that moves it redraws where its shadow was drawn and where it now falls.
     KWin::Region changed;
     for (auto it = m_shadowTraces.begin(); it != m_shadowTraces.end();) {
         const QRectF now = castsShadow(it.key()) ? shadowExtent(QRectF(it.key()->frameGeometry())) : QRectF();
@@ -1547,8 +1545,9 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
     // A card flicked closed stays out of sight while its app closes.
     if (m_cardStage->thrownAway(window)) return paintResult(true);
-    // A card a Stack steps to waits unseen until it stands in its place.
-    if (steppingInUnseen(window)) return paintResult(true);
+    // A card a Stack steps to waits unseen until it stands in its place, and
+    // a window opened into a layout until it has drawn its pane.
+    if (steppingInUnseen(window) || openingUnseen(window)) return paintResult(true);
     // A previewed desktop is drawn as it stands, with nothing of the current
     // desktop's presentation over or under it.
     if (m_previewDesktop) {
@@ -1556,8 +1555,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
         return paintResult(true);
     }
-    // §11, Connected: a Stack scrubbed draws its ladder over its pane, and
-    // the cards on it nowhere else.
+    // §11, Connected: a Stack scrubbed draws its ladder over its pane, and the cards on it nowhere else.
     if (m_stackScrub.active() && (window == m_stackScrubPane || m_stackScrubShown.contains(window))) {
         const auto rung = stackScrubRung(window);
         if (!rung || !m_paintingOutput || m_stackScrubPane->screen() != m_paintingOutput)
@@ -1578,8 +1576,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             mask | PAINT_WINDOW_TRANSFORMED, clip, data); })) return paintResult(false);
         return paintResult(true);
     }
-    // §11, Connected: a card the open room offers is drawn as its picture
-    // there, and nowhere else.
+    // §11, Connected: a card the open room offers is drawn as its picture there, and nowhere else.
     if (m_roomOffer && m_roomOfferShown.contains(window)) {
         const int index = m_roomOffer->cards.indexOf(window);
         if (index < 0 || index >= m_roomOffer->tiles.size() || !m_paintingOutput
@@ -1645,10 +1642,12 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     if (((window == m_carriedWindow && m_carryRuntime) || settle || yieldingRect) && m_paintingOutput) {
         const auto drawnAt = settle ? settle : yieldingRect;
         if (window == m_carriedWindow && !drawnAt) drawHeldBoxUnder(renderTarget, viewport);
-        const auto plan = drawnAt
+        auto plan = drawnAt
             ? carryPaintPlan(*drawnAt, drawnAt->topLeft(), QRectF(m_paintingOutput->geometry()))
             : carryPaintPlan(m_carryPickup, m_carryRuntime->handoff.carry().position(),
                              QRectF(m_paintingOutput->geometry()));
+        // A window just opened shows only where the panes have drawn back.
+        const bool opening = plan && settle && revealOpening(window, plan->clip, data);
         if (!plan || plan->clip.isEmpty()) return paintResult(true);
         KWin::Rect logicalRegion = window->expandedGeometry().toRect();
         // Leaning into a Stack it would join, it shrinks to 80% about the
@@ -1656,8 +1655,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const double lean = window == m_carriedWindow && !drawnAt ? stackLean() : 0.0;
         const QRectF leaned = leanedIntoStack(plan->target, lean);
         // §11, Connected: a pane a layout moves or resizes is fitted to its
-        // travelling box exactly, whichever picture its client has drawn
-        // (PaneResizePicture.h).
+        // travelling box exactly, whichever picture its client has drawn (PaneResizePicture.h).
         const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
             ? bentoMotionOf(window) : nullptr;
         const bool fitted = layoutMotion && !layoutMotion->arrival;
@@ -1665,8 +1663,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();
         // A shrinking pane draws the picture it kept from before its client
-        // drew the new size, cropped by its box, until the box has reached
-        // the size its client now draws.
+        // drew the new size, cropped by its box, until the box has reached the size its client now draws.
         const bool keptShown = fitted && layoutMotion->kept
             && (std::abs(target.width() - frameSize.width()) > 2.0
                 || std::abs(target.height() - frameSize.height()) > 2.0);
@@ -1696,9 +1693,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         } else {
             setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
         }
-        // What each frame of a layout motion drew, against what the client
-        // had committed, reported with the motion's end.
-        if (fitted && layoutMotion->trace.size() < 24)
+        // What each frame of a layout motion drew, against what the client had committed, reported with its end.
+        const bool traced = fitted && layoutMotion->trace.size() < 32
+            && (layoutMotion->timer.isValid() || layoutMotion->trace.isEmpty());
+        if (traced)
             layoutMotion->trace.append(QStringLiteral("%1ms box %2,%3 %4x%5 scale %6x%7 frame %8x%9 buffer %10x%11")
                 .arg(layoutMotion->timer.isValid() ? layoutMotion->timer.elapsed() : -1)
                 .arg(leaned.x(), 0, 'f', 0).arg(leaned.y(), 0, 'f', 0)
@@ -1730,11 +1728,15 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(bounds)))
             & (tiltReach > 0 ? KWin::Region(viewport.mapToDeviceCoordinatesAligned(
                                    KWin::RectF(leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach))))
-               : rounded ? KWin::Region(deviceTarget) : roundedClip(deviceTarget, cardCornerRadius() * viewport.scale()));
+               : rounded && !opening ? KWin::Region(deviceTarget)
+               : roundedClip(opening ? viewport.mapToDeviceCoordinatesAligned(KWin::RectF(bounds)) : deviceTarget, cardCornerRadius() * viewport.scale()));
         m_drawingKeptMotion = keptShown ? window : nullptr;
-        const bool drawn = painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
+        // The opened window is drawn past the later effects, whose opening animation would grow it from its middle.
+        const bool drawn = painted([&] { return opening
+            ? KWin::effects->drawWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data)
+            : KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_drawingKeptMotion = nullptr;
-        if (fitted && !layoutMotion->trace.isEmpty())
+        if (traced)
             layoutMotion->trace.last() += QStringLiteral(" drawn %1%2").arg(m_drawnAs.value(window), drawn ? QString() : QStringLiteral(" (failed)"));
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
         m_fanApertureSize = {}; m_fanApertureRadius = 0;
@@ -1898,8 +1900,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // The card is the window's frame exactly as KWin draws it this frame,
     // which it fits to whole points and may leave a fraction short of the
     // slot. The cut, its corners and the backing all follow that edge, so
-    // neither the backing nor anything the window paints past its frame
-    // shows beside it.
+    // neither the backing nor anything the window paints past its frame shows beside it.
     const QRectF face = QRectF(logicalRegion.x(), logicalRegion.y(),
         window->width() * data.xScale(), window->height() * data.yScale())
         .intersected(QRectF(visualTarget));
@@ -1982,8 +1983,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         && slot != 99 && !face.isEmpty()) {
         // Around the card as it stands, a Stack's front turned with its fan
         // about the same corner, so the ring keeps its shape. Its inner edge
-        // sits one device pixel inside the window's, over the soft edge a
-        // scaled window ends on.
+        // sits one device pixel inside the window's, over the soft edge a scaled window ends on.
         const double outset = ChosenRingWidth - 1.0 / viewport.scale();
         const QRectF box = face.adjusted(-outset, -outset, outset, outset);
         traceSpreadPaint(QJsonObject{{QStringLiteral("ring"), window->caption()}});

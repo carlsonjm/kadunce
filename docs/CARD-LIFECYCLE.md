@@ -346,8 +346,7 @@ shown on top of live panes.
 
 ### Admitting an arrival
 
-- If the layout can grow to show it, Bento recomposes and the arrival becomes a
-  pane.
+- If the layout can grow to show it, the arrival becomes a pane.
 - If the layout is full, a pane yields and becomes an individual card, and the
   arrival takes its place.
 - If no pane the layout can offer satisfies the arrival's minimum size, the
@@ -356,6 +355,8 @@ shown on top of live panes.
 
 An arrival is never parked.
 
+A new window shows once it has drawn its pane, as the panes draw back.
+
 ### Which pane yields
 
 The arrival claims one slot, and only that slot's occupant leaves. Every other
@@ -363,10 +364,10 @@ pane keeps its window, its size and its place.
 
 The slot is the smallest one whose size the arrival's minimum size permits. A
 window that fits only the wide pane takes the wide pane; one that fits either
-takes the narrower and leaves the wide pane alone (§11, A full layout).
+takes the narrower (§11, A full layout).
 
 The layout does not reshape to make room. Where no slot can hold the arrival,
-the rule above for one that fits nothing applies.
+the rule above applies.
 
 A stated intent comes first: when you release a card into a side edge, §5
 gives the yielding pane to that side.

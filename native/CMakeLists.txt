@@ -83,6 +83,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectContext.cpp
         src/EffectNotes.cpp
         src/EffectOffers.cpp
+        src/EffectReveal.cpp
         src/EffectPaint.cpp
         src/EffectGuest.cpp
         src/EffectMemory.cpp
@@ -200,6 +201,10 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-pane-resize-picture-test PRIVATE src)
     target_compile_options(kadunce-pane-resize-picture-test PRIVATE -UNDEBUG)
     add_test(NAME pane-resize-picture COMMAND kadunce-pane-resize-picture-test)
+    add_executable(kadunce-pane-reveal-test tests/PaneRevealTest.cpp)
+    target_include_directories(kadunce-pane-reveal-test PRIVATE src)
+    target_compile_options(kadunce-pane-reveal-test PRIVATE -UNDEBUG)
+    add_test(NAME pane-reveal COMMAND kadunce-pane-reveal-test)
     add_executable(kadunce-carry-row-test tests/CarryRowTest.cpp)
     target_include_directories(kadunce-carry-row-test PRIVATE src)
     target_compile_options(kadunce-carry-row-test PRIVATE -UNDEBUG)
