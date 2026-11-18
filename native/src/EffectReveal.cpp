@@ -97,14 +97,13 @@ void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
     }
 }
 
-KWin::EffectWindow *Effect::openingKeepsKeys(KWin::EffectWindow *activated)
+void Effect::keysLeftOpening(KWin::EffectWindow *activated)
 {
-    // A window that opens is given the keys, and is then out of sight for a
-    // moment. The keys going to another window in that moment, or as it
-    // comes into view, is nobody's pick: the window used before is the only
-    // one in sight to take them. A few times at most, so two windows that
-    // each insist cannot pass the keys back and forth.
-    if (!isApplicationWindow(activated)) return nullptr;
+    // A window that opens is given the keys. Where they go to another window
+    // before it is in view, or as it comes into view, the journal names the
+    // calls that moved them: a client asking, the compositor handing them
+    // on, or this effect. A few lines an opening at most.
+    if (!isApplicationWindow(activated)) return;
     for (Opening &opening : m_opening) {
         KWin::EffectWindow *window = opening.window.data();
         if (!window || window->isDeleted()) continue;
@@ -112,19 +111,15 @@ KWin::EffectWindow *Effect::openingKeepsKeys(KWin::EffectWindow *activated)
             opening.keys = true;
             continue;
         }
-        if (!opening.keys || !opening.asked || window->isMinimized()
-            || opening.since.elapsed() >= OpenedUnseenCap + OpenedKeepsKeys
-            || (opening.seenAt >= 0 && opening.since.elapsed() - opening.seenAt >= OpenedKeepsKeys)) continue;
-        qInfo().nospace() << "Kadunce " << Revision << " the keys left opened " << logNameOf(window) << " for "
-                                    << logNameOf(activated) << " by way of: " << qPrintable(callersNamed());
-        if (opening.kept >= 3) continue;
+        if (!opening.keys || !opening.asked || opening.kept >= 4 || window->isMinimized()
+            || opening.since.elapsed() >= OpenedUnseenCap + OpenedKeysWatched
+            || (opening.seenAt >= 0 && opening.since.elapsed() - opening.seenAt >= OpenedKeysWatched)) continue;
         ++opening.kept;
-        qInfo().nospace() << "Kadunce " << Revision << " kept the keys on opened " << logNameOf(window) << ", not "
+        qInfo().nospace() << "Kadunce " << Revision << " the keys left opened " << logNameOf(window) << " for "
                           << logNameOf(activated) << ", " << opening.since.elapsed() << " ms after it was placed ("
-                          << (opening.seenAt < 0 ? "still unseen" : "coming into view") << ")";
-        return window;
+                          << (opening.seenAt < 0 ? "still unseen" : "coming into view") << "), by way of: "
+                          << qPrintable(callersNamed());
     }
-    return nullptr;
 }
 
 bool Effect::openingCardDrawn(const KWin::EffectWindow *window) const

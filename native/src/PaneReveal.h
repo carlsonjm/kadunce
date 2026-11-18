@@ -72,10 +72,10 @@ inline double openedCardScale(double rise)
     return 0.985 + 0.015 * std::clamp(rise, 0.0, 1.0);
 }
 
-// An opened window is given the keys as it opens. They stay with it while
-// it is unseen and for `OpenedKeepsKeys` milliseconds after it shows, as long
-// as its coming into view takes: nothing a person does lands in that time.
-inline constexpr int OpenedKeepsKeys = 250;
+// An opened window is given the keys as it opens. The keys leaving it while
+// it is unseen, or within `OpenedKeysWatched` milliseconds of its showing,
+// as long as its coming into view takes, are named in the journal.
+inline constexpr int OpenedKeysWatched = 250;
 
 // What shows of a window standing in `pane` behind a box drawing back from
 // over it: the pane, less the side the box still covers and a gutter beside

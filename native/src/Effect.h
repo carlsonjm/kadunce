@@ -462,8 +462,8 @@ private:
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
     // One that opens as the card its display shows comes up `over` the card shown before, which stays until then.
     void openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over);
-    // The opened window that keeps the keys `activated` took from it as it came into view, or none.
-    [[nodiscard]] KWin::EffectWindow *openingKeepsKeys(KWin::EffectWindow *activated);
+    // Names in the journal what moved the keys to `activated` from a window coming into view.
+    void keysLeftOpening(KWin::EffectWindow *activated);
     [[nodiscard]] bool openingCardDrawn(const KWin::EffectWindow *window) const;
     [[nodiscard]] std::optional<bool> paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
         KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);

@@ -1595,11 +1595,7 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         scheduleDependentSync();
         return;
     }
-    // A window just opened keeps the keys while it comes into view.
-    if (KWin::EffectWindow *opened = openingKeepsKeys(window)) {
-        KWin::effects->activateWindow(opened);
-        return;
-    }
+    keysLeftOpening(window);
     // A closing pane's next card keeps the focus KWin handed elsewhere.
     if (m_closeFocusTo && window != m_closeFocusTo && isApplicationWindow(window)
         && !m_closeFocusTo->isDeleted() && m_desktopStage->managesWindow(m_closeFocusTo)) {
