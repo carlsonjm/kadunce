@@ -1462,7 +1462,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         (void)m_cardStage->handleWindowAdded(candidate);
         // §9: opened from a card, it stands in front of that card's Stack
         // rather than beside the card.
-        if (!joinStackOpenedFrom(candidate, false)
+        if (!joinStackOpenedFrom(candidate, false) && !m_openedFrom->standsAlone(candidate)
             && shown && shown != candidate && !shown->isDeleted() && !shown->isMinimized()
             && shown->screen() == spread && m_cardStage->liveCardIndex(shown) >= 0
             && m_cardStage->liveCardIndex(candidate) >= 0

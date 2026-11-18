@@ -117,15 +117,31 @@ not counted. The 32 most recently seen sets are kept.
 
 ## Opened from a card
 
-Switched on, a window that one application's card opens in another
-application joins that card's Stack in front and is the card in use; the card
-it opened from waits behind it. It is off unless switched on, and kept in
-`kaduncerc` `[Stacks] JoinOpener`.
+A window that one application's card opens in another application can land
+where the person chose: in front of that card's Stack, beside the card, or on
+its own. Nothing is followed unless set. What is followed, and the pairs, are
+kept in `kaduncerc` `[Stacks]` as `Opened` and `Pairs`.
 
 | Call | Result |
 | --- | --- |
-| `stacksOpenedWindows()` | whether it is switched on |
-| `setStacksOpenedWindows(stacks)` | switches it, kept and followed from the next window |
+| `openedWindows()` | `follows`: `off`, `pairs` or `every`; and `pairs`, the pairs kept |
+| `setOpenedWindows(follows, pairs)` | keeps both, followed from the next window; a pair that does not read is dropped |
+| `stacksOpenedWindows()` | whether anything is followed |
+| `setStacksOpenedWindows(stacks)` | follows `every` or `off`, keeping the pairs |
+
+A pair is text, `from>to=place`: the application of the card, the application
+of the window it opens or `*` for any, each a desktop file id, and `front`,
+`beside` or `alone`. `org.kde.dolphin>org.gnome.Loupe=front` stands Loupe in
+front of Files. The pair naming both applications wins over the pair naming
+any. With `pairs`, applications in no pair open as any window does; with
+`every`, they stand in front, and a pair still says otherwise.
+
+- `front`: it joins the card's Stack in front and is the card in use; the
+  card waits behind it.
+- `beside`: the two share the screen, the new window at the right and in use.
+  Beside a pane, the layout takes it as it takes any window (§8).
+- `alone`: it opens as its own card and nothing stands it beside the card, on
+  a Connected display too. From a pane it opens as any window does.
 
 Kadunce reads where a window opened from only from what the desktop knows. An
 application that opens another asks the compositor for a launch ticket (an
@@ -137,7 +153,7 @@ announces that, and otherwise as the window opens. A ticket a later one was
 seen before that press is for an earlier press, and names no card. How soon a
 window opens after another never counts, nor which process started it.
 
-A window does not join when:
+A window is not placed by its pair when:
 
 - it presents no ticket, or one the compositor refused, as a command typed in a
   terminal gets;
@@ -149,7 +165,7 @@ A window does not join when:
 - it opened on another display than that card;
 - it does not fit the card's pane, or a window is being carried.
 
-Where it stands (`CARD-LIFECYCLE.md` §9, §11):
+Where a window in front stands (`CARD-LIFECYCLE.md` §9, §11):
 
 - From the Active card, it is the Active card in front of that card's Stack,
   on a Connected display too, where it would otherwise stand beside the card.

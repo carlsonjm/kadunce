@@ -19,6 +19,8 @@ What Kadunce does not do yet, and what it will not do.
   that passes none, as some do for files they hand to another application and
   X11 applications do, opens on its own, as does a window opened from a pane
   of a layout that is not Connected.
+- A pair that opens a window on its own does so from a card. From a pane, the
+  layout takes the window as it takes any other.
 - Nobody has measured whether switching Kadunce off returns a window to the
   right place after its display has moved in the desktop layout.
 - A Wayland dialog that names no parent window becomes a card. No application

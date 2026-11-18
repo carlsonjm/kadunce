@@ -2,6 +2,7 @@
 #pragma once
 
 #include "EffectInternal.h"
+#include "LaunchIdentity.h"
 #include "OpenedFrom.h"
 #include <input_event.h>
 #include <input_event_spy.h>
@@ -23,10 +24,56 @@ public:
     std::function<QStringList(KWin::EffectWindow *)> askers;
     // Told when a ticket that follows its window names a card for it.
     std::function<void(KWin::EffectWindow *)> lateCard;
-    // Whether a window opened from a card joins that card's Stack: kept in
-    // kaduncerc's [Stacks] group, off unless switched on.
-    bool joins = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Stacks"))
-        .readEntry(QStringLiteral("JoinOpener"), false);
+    // Which windows opened from a card are placed by where they opened from,
+    // and the pairs that say where: kept in kaduncerc's [Stacks] group as
+    // Opened and Pairs. Off unless set; JoinOpener, from before there were
+    // pairs, reads as every application.
+    OpenedFrom::Follows follows = OpenedFrom::Follows::None;
+    [[nodiscard]] QStringList pairs() const
+    {
+        QStringList kept;
+        for (const Kept &pair : m_pairs)
+            kept.append(QStringLiteral("%1>%2=%3").arg(pair.from, pair.to, QString::fromLatin1(OpenedFrom::words(pair.lands))));
+        return kept;
+    }
+    // Keeps the pairs that read whole, each application as Cards compares
+    // them (LaunchIdentity), a later pair of the same two replacing an earlier.
+    void setPairs(const QStringList &pairs)
+    {
+        m_pairs.clear();
+        for (const QString &text : pairs) {
+            const std::string plain = text.trimmed().toStdString();
+            const auto pair = OpenedFrom::pairFrom(plain);
+            if (!pair) continue;
+            const auto id = [](std::string_view app) {
+                return app == OpenedFrom::AnyApp ? QStringLiteral("*")
+                    : LaunchIdentity::normalized(QString::fromUtf8(app.data(), qsizetype(app.size())));
+            };
+            const Kept kept{id(pair->from), id(pair->to), pair->lands};
+            if (kept.from.isEmpty() || kept.to.isEmpty() || kept.from == kept.to) continue;
+            m_pairs.removeIf([&kept](const Kept &other) { return other.from == kept.from && other.to == kept.to; });
+            m_pairs.append(kept);
+        }
+    }
+    // Where a window of one application opened from a card of another lands.
+    [[nodiscard]] OpenedFrom::Lands landsFor(const QString &from, const QString &to) const
+    {
+        const std::string card = LaunchIdentity::normalized(from).toStdString();
+        const std::string window = LaunchIdentity::normalized(to).toStdString();
+        QList<std::pair<std::string, std::string>> ids;
+        for (const Kept &pair : m_pairs) ids.append({pair.from.toStdString(), pair.to.toStdString()});
+        QList<OpenedFrom::Pair> views;
+        for (qsizetype i = 0; i < m_pairs.size(); ++i)
+            views.append(OpenedFrom::Pair{ids.at(i).first, ids.at(i).second, m_pairs.at(i).lands});
+        return OpenedFrom::landsFor(follows, views, card, window);
+    }
+    // A window its pair opens on its own: nothing is stood beside it.
+    void keepApart(KWin::EffectWindow *window) { m_apart.append(window); }
+    [[nodiscard]] bool standsAlone(const KWin::EffectWindow *window)
+    {
+        m_apart.removeIf([](const QPointer<KWin::EffectWindow> &kept) { return !kept || kept->isDeleted(); });
+        return std::any_of(m_apart.cbegin(), m_apart.cend(), [window](const auto &kept) { return kept.data() == window; });
+    }
 
     // The card a window was found to be opened from, until it is forgotten.
     [[nodiscard]] KWin::EffectWindow *openerOf(const KWin::EffectWindow *opened) const
@@ -45,6 +92,10 @@ public:
     explicit OpenedFromWatch(QObject *parent) : QObject(parent), m_spy(this), m_received(this)
     {
         if (KWin::input()) KWin::input()->installInputEventSpy(&m_spy);
+        const KConfigGroup kept = KSharedConfig::openConfig(QStringLiteral("kaduncerc"))->group(QStringLiteral("Stacks"));
+        follows = OpenedFrom::followsFrom(kept.readEntry(QStringLiteral("Opened"),
+            kept.readEntry(QStringLiteral("JoinOpener"), false) ? QStringLiteral("every") : QStringLiteral("off")).toStdString());
+        setPairs(kept.readEntry(QStringLiteral("Pairs"), QStringList()));
         connect(KWin::effects, &KWin::EffectsHandler::windowAdded, this,
                 [this](KWin::EffectWindow *window) { opened(window); });
         // A ticket presented: by a window not yet shown, which keeps it until
@@ -283,5 +334,14 @@ private:
     QList<OpenedFrom::TicketSeen> m_seen;
     QList<std::pair<int, Press>> m_given;
     QList<std::pair<QPointer<KWin::EffectWindow>, QPointer<KWin::EffectWindow>>> m_openers;
+    // The pairs kept, each application as Cards compares them, and the
+    // windows a pair opened on their own.
+    struct Kept {
+        QString from;
+        QString to;
+        OpenedFrom::Lands lands = OpenedFrom::Lands::InFront;
+    };
+    QList<Kept> m_pairs;
+    QList<QPointer<KWin::EffectWindow>> m_apart;
 };
 } // namespace Kadunce

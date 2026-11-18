@@ -277,6 +277,8 @@ public Q_SLOTS:
     // A window opened from a card joins that card's Stack, in front (OpenedFrom.h); kaduncerc [Stacks], off.
     Q_SCRIPTABLE bool stacksOpenedWindows() const;
     Q_SCRIPTABLE void setStacksOpenedWindows(bool stacks);
+    Q_SCRIPTABLE QVariantMap openedWindows() const;
+    Q_SCRIPTABLE void setOpenedWindows(const QString &follows, const QStringList &pairs);
     // The window the keyboard types into is outlined while another window
     // shows beside it on its display; kept in kaduncerc's [Windows] group, on
     // unless switched off. Its style is "Soft", a faint neutral rim, unless set to "Accent".
@@ -290,8 +292,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE QVariantMap sizingChoices() const;
     Q_SCRIPTABLE void setSizingChoice(const QString &key, int choice);
     Q_SCRIPTABLE bool setSizesItselfForWindow(const QString &windowId, bool sizes);
-    // The display Spread lives on, by name; empty while Kadunce chooses
-    // (TouchDisplay.h). Kept in kaduncerc, and followed at once.
+    // The display Spread lives on, by name; empty while Kadunce chooses (TouchDisplay.h). Kept in kaduncerc, and followed at once.
     Q_SCRIPTABLE QString spreadDisplay() const { return m_spreadChoice.display; }
     Q_SCRIPTABLE void setSpreadDisplay(const QString &outputName);
     // How a display plays cards: "solo" or "connected" (DisplaySizing.h).
@@ -304,8 +305,7 @@ public Q_SLOTS:
     // current one, as it stands, without switching to it. An empty id, or the
     // current desktop's, ends the preview and changes nothing.
     Q_SCRIPTABLE bool previewDesktop(const QString &desktopId);
-    // Makes the previewed desktop current, with KWin's switching effects
-    // standing aside, and ends the preview.
+    // Makes the previewed desktop current, with KWin's switching effects standing aside, and ends the preview.
     Q_SCRIPTABLE bool commitDesktopPreview();
     // Table as it stands, for a test: whether it is open, which level, which
     // workspace and card the finger is on, and every workspace's cards.

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 // Behavioral coverage of where a new window opened from: a ticket and a press
-// on a card name that card, and anything less names none; and of how a window
-// joins the Stack of the card it names.
+// on a card name that card, and anything less names none; of how a window
+// joins the Stack of the card it names; and of where the pair of the two
+// applications says it lands.
 #include "OpenedFrom.h"
 
 #include <array>
@@ -84,5 +85,32 @@ int main()
     // A window that is no card holds no Stack to join.
     for (const Place opened : {Place::Window, Place::Pane, Place::Card})
         require(joinFor(opened, Place::Window) == Join::None, "nothing joins a window that is no card");
+
+    // Pairs as they are kept.
+    const auto link = pairFrom("mail>zen=front");
+    require(link && link->from == "mail" && link->to == "zen" && link->lands == Lands::InFront, "a pair reads back whole");
+    require(pairFrom("files>*=beside")->to == AnyApp, "a pair may name any application it opens");
+    require(!pairFrom("mail>zen"), "a pair with no place is none");
+    require(!pairFrom("mail>zen=sideways"), "a pair with a place Cards does not know is none");
+    require(!pairFrom(">zen=front") && !pairFrom("mail>=front"), "a pair names an application on both sides");
+    require(!pairFrom("mail>mail=front"), "an application is no pair with itself");
+    require(!pairFrom("*>zen=front"), "a pair names the application of the card");
+    require(followsFrom("pairs") == Follows::Pairs && followsFrom("every") == Follows::Every, "the choice reads back");
+    require(followsFrom("") == Follows::None && followsFrom("anything") == Follows::None, "any other word follows none");
+
+    const std::array<Pair, 4> pairs{Pair{"mail", "zen", Lands::InFront}, Pair{"files", "*", Lands::Beside},
+        Pair{"files", "loupe", Lands::InFront}, Pair{"zen", "spotify", Lands::Alone}};
+    // Followed for none, nothing is placed by where it opened from.
+    require(landsFor(Follows::None, pairs, "mail", "zen") == Lands::AsBefore, "switched off, a pair is not followed");
+    // Only the pairs: a pair lands where it says, any other as before.
+    require(landsFor(Follows::Pairs, pairs, "mail", "zen") == Lands::InFront, "a pair stands in front where it says so");
+    require(landsFor(Follows::Pairs, pairs, "zen", "mail") == Lands::AsBefore, "a pair is not followed the other way round");
+    require(landsFor(Follows::Pairs, pairs, "mail", "notes") == Lands::AsBefore, "applications in no pair open as before");
+    require(landsFor(Follows::Pairs, pairs, "files", "loupe") == Lands::InFront, "the pair naming both wins over any");
+    require(landsFor(Follows::Pairs, pairs, "files", "okular") == Lands::Beside, "the pair naming any covers the rest");
+    // Every application: in front unless a pair says otherwise.
+    require(landsFor(Follows::Every, pairs, "mail", "notes") == Lands::InFront, "every application stands in front");
+    require(landsFor(Follows::Every, pairs, "zen", "spotify") == Lands::Alone, "a pair set apart stays apart");
+    require(landsFor(Follows::Every, pairs, "files", "okular") == Lands::Beside, "a pair still says where");
     return 0;
 }
