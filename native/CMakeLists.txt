@@ -83,6 +83,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectContext.cpp
         src/EffectNotes.cpp
         src/EffectOffers.cpp
+        src/EffectOpenedFrom.cpp
         src/EffectReveal.cpp
         src/EffectPaint.cpp
         src/EffectGuest.cpp
