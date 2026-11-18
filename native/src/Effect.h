@@ -527,8 +527,8 @@ private:
     {
         return moveCardToDisplay(card, to, true);
     }
-    [[nodiscard]] KWin::LogicalOutput *releaseDisplayForCardStage(
-        const KWin::EffectWindow *window) const override;
+    [[nodiscard]] KWin::LogicalOutput *releaseDisplayForCardStage(const KWin::EffectWindow *window) const override;
+    bool takeLooseWindowForCardStage(KWin::EffectWindow *window) override;
     void traceNativeMove(KWin::EffectWindow *window, const char *event);
     QStringList m_nativeMoveTrace;
     QString m_lastCarryDestinationTrace;

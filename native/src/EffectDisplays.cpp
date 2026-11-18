@@ -1119,6 +1119,12 @@ void Effect::claimWindowForItsDisplay(KWin::EffectWindow *window, const QString 
     }
 }
 
+bool Effect::takeLooseWindowForCardStage(KWin::EffectWindow *window)
+{
+    claimWindowForItsDisplay(window);
+    return window && !window->isDeleted() && (sessionHolding(window) || m_desktopStage->managesWindow(window));
+}
+
 bool Effect::admitTransferredWindowToTablet(KWin::EffectWindow *window, KWin::LogicalOutput *output,
     const std::function<bool()> &commitSource, const NativeMoveSnapshot *restore)
 {

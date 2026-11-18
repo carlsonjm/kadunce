@@ -1635,11 +1635,10 @@ OwnRect ownRectOf(const KWin::RectF &rect)
 
 OwnFill CardStageController::ownFillOf(const KWin::Window *client)
 {
-    if (client->isFullScreen() || client->isRequestedFullScreen()) return OwnFill::Other;
     const KWin::MaximizeMode has = client->maximizeMode(), asked = client->requestedMaximizeMode();
-    if (has == KWin::MaximizeRestore && asked == KWin::MaximizeRestore) return OwnFill::None;
-    // On its way into or out of filling the screen, or filling one direction.
-    return has == KWin::MaximizeFull && asked == KWin::MaximizeFull ? OwnFill::WorkArea : OwnFill::Other;
+    return ownFill(client->isFullScreen() || client->isRequestedFullScreen(),
+                   has == KWin::MaximizeRestore, asked == KWin::MaximizeRestore,
+                   has == KWin::MaximizeFull, asked == KWin::MaximizeFull);
 }
 
 std::optional<KWin::RectF> CardStageController::ownPlaceOf(KWin::LogicalOutput *output,
@@ -1833,8 +1832,15 @@ void CardStageController::takeCardBack(const QPointer<KWin::EffectWindow> &windo
     // A display its last card left to fill the screen holds no cards; it
     // takes the card back as it takes a window that opens there (§3), the
     // display adopted with it Active.
-    const bool taken = m_active ? handleWindowAdded(window) : adoptDisplayWithActive(window, [] { return true; });
-    if (taken) qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "back as the Active card:" << why;
+    if (m_active ? handleWindowAdded(window) : adoptDisplayWithActive(window, [] { return true; })) {
+        qInfo() << "Kadunce" << Revision << "takes" << logNameOf(window) << "back as the Active card:" << why;
+        return;
+    }
+    // A display showing a layout by now, or another display it was sent to
+    // while it filled the screen, takes it as one left loose there (§11).
+    if (m_host->takeLooseWindowForCardStage(window)) return;
+    qInfo() << "Kadunce" << Revision << "leaves" << logNameOf(window) << "on the desktop, though" << why
+            << ": nothing here could take it back";
 }
 
 } // namespace Kadunce

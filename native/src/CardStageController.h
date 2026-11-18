@@ -93,6 +93,10 @@ public:
     // CARD-LIFECYCLE.md §2, A card that sizes itself: Cards places the window
     // but never changes its size or its maximize.
     [[nodiscard]] virtual bool sizesItselfForCardStage(const KWin::EffectWindow *) const { return false; }
+    // §2, Desktop: a window let go to fill the screen that this stage could
+    // not take back is taken by whatever holds the display it stands on now,
+    // as a window left loose there. Whether anything took it.
+    virtual bool takeLooseWindowForCardStage(KWin::EffectWindow *) { return false; }
     // Where the visible virtual keyboard's top edge sits on this display, if
     // one is up. A keyboard is a compositor fact and reaches every effect, so
     // reading it here costs no dependency on a downstream surface. A host with

@@ -8,6 +8,7 @@
 #include "BentoLayout.h"
 #include "BentoSidePlacement.h"
 #include "NaturalSize.h"
+#include "OwnSize.h"
 #include "BentoProjectionSession.h"
 #include "CardOwnership.h"
 #include "DeferredCommandGuard.h"
@@ -278,9 +279,11 @@ public:
     void handleWindowMoveResizeStepped(KWin::EffectWindow *window,
                                        const KWin::RectF &geometry);
     void handleWindowMoveResizeFinished(KWin::EffectWindow *window);
-    // §5: a pane that stops filling the screen is held to its place for a
-    // moment, so an application that asks again for the size it had while it
-    // filled the screen, as RuneLite does, stays in its pane.
+    // §5, a pane that fills the screen: each change of a pane's size or of
+    // how it fills the screen is noted, and in the moment after it starts or
+    // stops filling it, or is first placed, it is held to the work area or to
+    // its pane (OwnSize.h), so an application that asks again for the size it
+    // had a moment before, as RuneLite does, covers no pane beside it.
     void keepPaneInPlace(KWin::EffectWindow *window);
 
     // Card Stage has already committed removal before asking Desktop Stage to
@@ -696,10 +699,11 @@ private:
     QString m_interactionOutput;
     QString m_pendingDropOutput;
     bool m_interactionResize = false;
-    // keepPaneInPlace: whether each pane last filled the screen, and when it
-    // stopped and how often it has been put back since.
-    struct PaneUnfilled { qint64 at = -1; int asserts = 0; bool filling = false; };
-    QHash<const KWin::EffectWindow *, PaneUnfilled> m_paneUnfilled;
+    // keepPaneInPlace: how each pane was last seen to fill the screen, and
+    // which are about to be looked at.
+    QHash<const KWin::EffectWindow *, PaneHoldRecord> m_paneHolds;
+    QSet<const KWin::EffectWindow *> m_paneLooks;
+    void settlePaneInPlace(const QPointer<KWin::EffectWindow> &window);
     QElapsedTimer m_paneClock;
 };
 
