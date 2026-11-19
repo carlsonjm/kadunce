@@ -209,6 +209,16 @@ public:
     bool holdOutput(KWin::LogicalOutput *output, KWin::EffectWindow *preferred = nullptr);
     // The panes a display shows, in layout order; empty with no layout there.
     [[nodiscard]] QList<QPointer<KWin::EffectWindow>> panesOn(const QString &outputName) const;
+    // Their shapes in the same order, in shares of the room the display
+    // gives panes; empty with no layout there.
+    [[nodiscard]] std::vector<BentoRect> paneShapesOn(const QString &outputName) const;
+    // Saved layouts (docs/REQUESTS.md § Arranging): the panes a display shows
+    // take the shapes kept for them, `shapes` in the order of `windows`, as
+    // a divider let go leaves them. Only when the display shows exactly
+    // those windows as panes and each shape leaves its window its minimum
+    // size; otherwise nothing moves and `false` says so in the log.
+    bool standPanesAt(KWin::LogicalOutput *output, const QList<KWin::EffectWindow *> &windows,
+        const std::vector<BentoRect> &shapes);
     // §5: a layout down to one pane ends into card ownership where its display
     // holds Spread, as after Spread moves onto a display that showed one card.
     void endLonePanes();

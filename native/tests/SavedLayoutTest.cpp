@@ -145,6 +145,62 @@ int main()
                 "a claimed window not yet admitted is missed too");
     }
 
+    // Places: a desk read with them keeps each group's display, and a
+    // pane's shape; a pane with no shape it can stand in reads as a card.
+    {
+        const auto groups = deskGroups(QList<Entry>{
+            {{s("claude")}, s("DP-1"), true, {0.0, 0.0, 0.5, 0.5}, {0.01, 0.02, 0.49, 0.46}},
+            {{s("settings"), s("notes")}, s("DP-1"), true, {0.0, 0.5, 0.5, 0.5}, {}},
+            {{s("ghostty")}, s("DP-1"), true, {0.5, 0.0, 0.5, 1.0}, {}},
+            {{s("zen")}, s("eDP-1"), false, {}, {0.01, 0.04, 0.98, 0.94}},
+            {{s("kate")}, s("DP-1"), true, {0.5, 0.0, 0.7, 1.0}, {}},
+        });
+        require(groups.size() == 5, "every entry with an app is a group");
+        require(groups.at(0).display == s("DP-1") && groups.at(0).pane
+                    && groups.at(0).shape == Shape{0.0, 0.0, 0.5, 0.5}, "a pane keeps its display and shape");
+        require(groups.at(1).stack && groups.at(1).pane, "a pane with cards behind it is a Stack and a pane");
+        require(groups.at(3).display == s("eDP-1") && !groups.at(3).pane, "a card keeps its display");
+        require(groups.at(3).picture == Shape{0.01, 0.04, 0.98, 0.94} && groups.at(1).picture == Shape{},
+                "where a front window was drawn is kept for the picture, when it is known");
+        require(!groups.at(4).pane, "a shape that runs off its display is no pane's");
+
+        // What is read is what a requester sends back.
+        QList<QVariantMap> sent;
+        for (const auto &group : groups) sent.append(toVariant(group));
+        require(!sent.at(3).contains(s("pane")) && sent.at(3).value(s("display")).toString() == s("eDP-1"),
+                "a card is sent with its display and no shape");
+        const auto back = groupsFrom(sent);
+        require(back == groups, "groups come back as they were read");
+
+        // A group kept before places were stands as before.
+        const auto old = groupsFrom({requested({s("zen")}, false), requested({s("a"), s("b")}, false)});
+        require(old.size() == 3 && old.at(0).display.isEmpty() && !old.at(0).pane, "no place is no place");
+
+        // The shapes a display's panes take, once their windows came.
+        const QSet<int> monitor{0, 1, 2};
+        const QHash<int, QString> all{{0, s("w-claude")}, {1, s("w-settings")}, {2, s("w-ghostty")}, {3, s("w-zen")}};
+        const auto shapes = paneShapes(groups, monitor, all);
+        require(shapes.size() == 3 && shapes.at(2) == PaneShape{s("w-ghostty"), {0.5, 0.0, 0.5, 1.0}},
+                "each pane of the display with its shape, in order");
+        require(paneShapes(groups, QSet<int>{3}, all).isEmpty(), "a display of cards has no shapes");
+        require(paneShapes(groups, monitor, {{0, s("w-claude")}, {2, s("w-ghostty")}}).isEmpty(),
+                "a pane that never came leaves the layout as its display laid it out");
+        auto over = groups;
+        over[2].shape = {0.25, 0.0, 0.75, 1.0};
+        require(paneShapes(over, monitor, all).isEmpty(), "shapes lying over each other are not stood");
+
+        // A run answers each group's front window, and one display's entries.
+        Plan plan = planArrangement(groups, {{s("claude"), s("w1")}, {s("notes"), s("w2")}, {s("settings"), s("w3")},
+                                             {s("zen"), s("w4")}});
+        LayoutRun run(s("t"), plan);
+        for (const auto &slot : run.ready()) (void)run.settle(slot.windowId, true);
+        require(run.frontOf(0) == s("w1") && run.frontOf(1) == s("w3") && run.frontOf(2).isEmpty(),
+                "the front of a group is its first application placed");
+        const QSet<int> tablet{3};
+        require(run.entries(&tablet) == QList<QStringList>{{s("w4")}}, "one display's entries");
+        require(run.entries().size() == 3, "every entry without a display named");
+    }
+
     std::cout << "saved layout checks passed\n";
     return 0;
 }
