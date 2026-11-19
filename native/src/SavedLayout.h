@@ -53,6 +53,9 @@ struct Group {
     // Where its front window was drawn, in shares of its display: for a
     // picture of the desk only, and no part of where anything is put.
     Shape picture;
+    // Whether it was the one seen on its display: a pane, the card in use
+    // where the display showed a card, a window in view anywhere else.
+    bool shown = false;
 
     bool operator==(const Group &) const = default;
 };
@@ -65,6 +68,7 @@ struct Entry {
     bool pane = false;
     Shape shape;
     Shape picture;
+    bool shown = false;
 };
 
 // No desk has more applications than this; a longer request is cut.
@@ -85,6 +89,7 @@ inline QList<Group> deskGroups(const QList<Entry> &entries)
         group.pane = entry.pane && entry.shape.stands();
         if (group.pane) group.shape = entry.shape;
         if (entry.picture.width > 0.0 && entry.picture.height > 0.0) group.picture = entry.picture;
+        group.shown = entry.shown;
         for (const auto &app : entry.apps) {
             const QString key = LaunchIdentity::normalized(app);
             if (key.isEmpty() || seen.contains(key)) continue;
@@ -122,6 +127,7 @@ inline QVariantMap toVariant(const Group &group)
         map.insert(QStringLiteral("pictureWidth"), group.picture.width);
         map.insert(QStringLiteral("pictureHeight"), group.picture.height);
     }
+    if (group.shown) map.insert(QStringLiteral("shown"), true);
     return map;
 }
 
@@ -156,6 +162,7 @@ inline QList<Group> groupsFrom(const QList<QVariantMap> &requested)
                             value.value(QStringLiteral("pictureWidth")).toDouble(),
                             value.value(QStringLiteral("pictureHeight")).toDouble()};
         if (picture.width > 0.0 && picture.height > 0.0) group.picture = picture;
+        group.shown = value.value(QStringLiteral("shown")).toBool();
         if (group.apps.size() == 1 || (value.value(QStringLiteral("stack")).toBool() && group.apps.size() > 1)) {
             group.stack = group.apps.size() > 1;
             groups.append(group);

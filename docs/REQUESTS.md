@@ -204,7 +204,8 @@ A group read from the desk has its place: `display`, the display's name; for
 a pane, `pane` with `x`, `y`, `width` and `height`, its shape in shares of the
 room its display gives panes; and `pictureX`, `pictureY`, `pictureWidth` and
 `pictureHeight`, where its front window was drawn in shares of the display,
-for a picture only. A group sent without a place goes to the display in use.
+for a picture only; and `shown` for a pane, the card in use, or a window
+in view. A group sent without a place goes to the display in use.
 
 ### Reading the desk
 
@@ -227,15 +228,14 @@ A Stack forms in the listed order as its applications come; on a display
 showing its layout, its first pane stays in front, its other panes join it in
 order, and its cards wait behind them. Once every
 application has come, or after 60 seconds, the groups lead the row in order,
-the first one in use, and the cards outside the layout follow as they stood;
+the card `shown` in use, else the first, and the cards outside the layout follow as they stood;
 each display's row is put in order, the display in use last. Then a display
 with two or more of the layout's panes is stood whole: a pane the layout does
 not name waits in Spread, and the layout's panes take their kept shapes as a
 divider let go leaves them. Where that cannot be done whole, the panes stay
 as the display laid them out and the log says why.
-A window that does not reach its place within 5 seconds is reported not
-placed. A Stack Cards cannot form at once, as while Search is still closing,
-is tried again for six seconds, and the log names what kept it apart. Applications a layout opens are not counted as opened by hand.
+A window not in place within 5 seconds is reported not placed. A Stack Cards cannot form at once, as while Search is still closing,
+is tried again for six seconds; the log names why. Applications a layout opens are not counted as opened by hand.
 
 One arrangement runs at a time, and never with a bring-back: either answers
 `busy` while the other runs. An empty token or no applications answers

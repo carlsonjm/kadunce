@@ -92,6 +92,7 @@ QVariantMap Effect::currentLayout()
                     const BentoRect &shape = shapes[std::size_t(index)];
                     entry.pane = true;
                     entry.shape = {shape.x, shape.y, shape.width, shape.height};
+                    entry.shown = true;
                 }
                 paneEntries.append(entry);
             }
@@ -99,11 +100,16 @@ QVariantMap Effect::currentLayout()
             // first; those waiting behind a pane went with it.
             {
                 SessionScope scope(this, m_currentSession, stageKeyFor(output));
+                // The card in use is the one seen, where no pane covers it.
+                KWin::EffectWindow *inUseCard = paneEntries.isEmpty() ? m_cardStage->activeCardIdentity() : nullptr;
                 for (const auto &members : m_cardStage->rowEntries()) {
                     QList<KWin::EffectWindow *> here;
                     for (KWin::EffectWindow *member : members)
                         if (onDesk(member, output)) here.append(member);
-                    if (const auto entry = entryOf(here, output); !entry.apps.isEmpty()) entries.append(entry);
+                    auto entry = entryOf(here, output);
+                    if (entry.apps.isEmpty()) continue;
+                    entry.shown = inUseCard && here.contains(inUseCard);
+                    entries.append(entry);
                 }
             }
             // Then any card that row did not hold, with its Stack, from the
@@ -122,7 +128,9 @@ QVariantMap Effect::currentLayout()
         for (auto it = stack.crbegin(); output && it != stack.crend(); ++it) {
             KWin::EffectWindow *window = *it;
             if (!onDesk(window, output) || counted.contains(window)) continue;
-            entries.append(entryOf({window}, output));
+            auto entry = entryOf({window}, output);
+            entry.shown = !window->isMinimized();
+            entries.append(entry);
         }
         return entries;
     };
@@ -347,9 +355,15 @@ void Effect::arrangeLayoutCards(bool order)
         groupsOn[name].insert(group);
     }
     if (names.removeAll(m_layoutOutput) > 0) names.append(m_layoutOutput);
-    for (const QString &name : std::as_const(names))
+    for (const QString &name : std::as_const(names)) {
+        // The card that was seen on the display is the one in use there.
+        QString seen;
+        for (int group = 0; seen.isEmpty() && group < m_layoutRun->groups().size(); ++group)
+            if (const auto &kept = m_layoutRun->groups().at(group); groupsOn[name].contains(group) && kept.shown && !kept.pane)
+                seen = m_layoutRun->frontOf(group);
         standLayout(m_layoutRun->entries(&groupsOn[name]), name, m_layoutDesktop, order,
-                    order ? LayoutStandTries : 0, generation);
+                    order ? LayoutStandTries : 0, generation, seen);
+    }
     if (!order) return;
     // Then each display's panes take the shapes kept for them. A display is
     // stood whole: every pane of the layout there, and no other.
@@ -414,7 +428,7 @@ QString Effect::layoutRoleOf(KWin::EffectWindow *window)
 }
 
 void Effect::standLayout(const QList<QStringList> &ids, const QString &outputName, const QString &desktopId,
-                         bool order, int tries, quint64 generation)
+                         bool order, int tries, quint64 generation, const QString &seen)
 {
     if (generation != m_layoutStandGeneration || !m_currentSession) return;
     // A hand moving a window since leaves the desk to it.
@@ -506,6 +520,9 @@ void Effect::standLayout(const QList<QStringList> &ids, const QString &outputNam
             windows.removeIf([this](KWin::EffectWindow *window) { return m_cardStage->liveCardIndex(window) < 0; });
         entries.removeIf([](const auto &windows) { return windows.isEmpty(); });
         if (!entries.isEmpty() && m_cardStage->arrangeEntries(entries, order)) first = entries.first().first();
+        // The card seen when the layout was kept, when it is a card here.
+        for (const auto &windows : std::as_const(entries))
+            if (first && !seen.isEmpty() && windowIdentity(windows.first()) == seen) first = windows.first();
         // A Stack of cards stands when its front holds every one of them.
         for (const auto &windows : std::as_const(cardStacks)) {
             const auto stood = m_cardStage->stackFrontToBack(windows.first());
@@ -539,8 +556,8 @@ void Effect::standLayout(const QList<QStringList> &ids, const QString &outputNam
     if (tries == LayoutStandTries)
         qInfo() << "Kadunce" << Revision << "waits to stand a layout's Stack on" << output->name() << ":" << unformed
                 << (busy.isEmpty() ? QString() : QStringLiteral("while ") + busy);
-    QTimer::singleShot(LayoutStandRetryMs, this, [this, ids, outputName, desktopId, order, tries, generation] {
-        standLayout(ids, outputName, desktopId, order, tries - 1, generation);
+    QTimer::singleShot(LayoutStandRetryMs, this, [this, ids, outputName, desktopId, order, tries, generation, seen] {
+        standLayout(ids, outputName, desktopId, order, tries - 1, generation, seen);
     });
 }
 

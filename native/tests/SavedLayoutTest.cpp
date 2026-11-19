@@ -152,7 +152,7 @@ int main()
             {{s("claude")}, s("DP-1"), true, {0.0, 0.0, 0.5, 0.5}, {0.01, 0.02, 0.49, 0.46}},
             {{s("settings"), s("notes")}, s("DP-1"), true, {0.0, 0.5, 0.5, 0.5}, {}},
             {{s("ghostty")}, s("DP-1"), true, {0.5, 0.0, 0.5, 1.0}, {}},
-            {{s("zen")}, s("eDP-1"), false, {}, {0.01, 0.04, 0.98, 0.94}},
+            {{s("zen")}, s("eDP-1"), false, {}, {0.01, 0.04, 0.98, 0.94}, true},
             {{s("kate")}, s("DP-1"), true, {0.5, 0.0, 0.7, 1.0}, {}},
         });
         require(groups.size() == 5, "every entry with an app is a group");
@@ -163,12 +163,14 @@ int main()
         require(groups.at(3).picture == Shape{0.01, 0.04, 0.98, 0.94} && groups.at(1).picture == Shape{},
                 "where a front window was drawn is kept for the picture, when it is known");
         require(!groups.at(4).pane, "a shape that runs off its display is no pane's");
+        require(groups.at(3).shown && !groups.at(4).shown, "the one seen on its display is kept as seen");
 
         // What is read is what a requester sends back.
         QList<QVariantMap> sent;
         for (const auto &group : groups) sent.append(toVariant(group));
         require(!sent.at(3).contains(s("pane")) && sent.at(3).value(s("display")).toString() == s("eDP-1"),
                 "a card is sent with its display and no shape");
+        require(sent.at(3).value(s("shown")).toBool() && !sent.at(4).contains(s("shown")), "seen is sent only when so");
         const auto back = groupsFrom(sent);
         require(back == groups, "groups come back as they were read");
 
