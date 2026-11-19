@@ -237,6 +237,6 @@ as the display laid them out and the log says why.
 A window not in place within 5 seconds is reported not placed. A Stack Cards cannot form at once, as while Search is still closing,
 is tried again for six seconds; the log names why. Applications a layout opens are not counted as opened by hand.
 
-One arrangement runs at a time, and never with a bring-back: either answers
+One arrangement runs at a time, never with a bring-back: either answers
 `busy` while the other runs. An empty token or no applications answers
 `empty`. Nothing is closed.
