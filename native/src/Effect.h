@@ -870,7 +870,7 @@ private:
     // Forms the layout's Stacks and puts its row in order; a Stack that does
     // not stand yet is tried again `tries` more times.
     void standLayout(const QList<QStringList> &ids, const QString &outputName, const QString &desktopId, bool order,
-                     int tries, quint64 generation);
+                     int tries, quint64 generation, const QString &seen = {});
     // pane, card, window or gone, as the stage holding it sees it, for the log.
     [[nodiscard]] QString layoutRoleOf(KWin::EffectWindow *window);
     quint64 m_layoutStandGeneration = 0;

@@ -1640,6 +1640,67 @@ QList<QPointer<KWin::EffectWindow>> DesktopStageController::panesOn(const QStrin
     return session == m_sessions.cend() ? QList<QPointer<KWin::EffectWindow>>{} : session->windows;
 }
 
+std::vector<BentoRect> DesktopStageController::paneShapesOn(const QString &outputName) const
+{
+    const auto session = m_sessions.constFind(outputName);
+    return session == m_sessions.cend() ? std::vector<BentoRect>{} : session->rects;
+}
+
+bool DesktopStageController::standPanesAt(KWin::LogicalOutput *output,
+    const QList<KWin::EffectWindow *> &windows, const std::vector<BentoRect> &shapes)
+{
+    const QString key = outputKey(output);
+    const auto refuse = [&key](const char *why) {
+        qInfo() << "Kadunce" << Revision << "left the layout on" << key << "as it laid itself out:" << why;
+        return false;
+    };
+    if (m_restoring || m_interactionWindow || m_railDrag) return refuse("a pane is being moved or resized");
+    auto found = m_sessions.find(key);
+    if (!output || found == m_sessions.end()) return refuse("the display shows no layout");
+    Session &session = found.value();
+    if (session.applying) return refuse("the layout is being placed");
+    if (!session.zones.isEmpty()) return refuse("the display lays out in drawn zones");
+    if (windows.isEmpty() || std::size_t(windows.size()) != shapes.size()
+        || session.windows.size() != windows.size()
+        || session.rects.size() != std::size_t(session.windows.size()))
+        return refuse("it shows other panes than the saved layout keeps");
+    std::vector<BentoRect> rects(session.rects.size());
+    bool moved = false;
+    for (int index = 0; index < session.windows.size(); ++index) {
+        const int kept = windows.indexOf(session.windows.at(index).data());
+        if (kept < 0) return refuse("it shows a pane the saved layout does not keep");
+        rects[std::size_t(index)] = shapes[std::size_t(kept)];
+        const BentoRect &now = session.rects[std::size_t(index)];
+        const BentoRect &then = rects[std::size_t(index)];
+        moved = moved || std::abs(now.x - then.x) > .002 || std::abs(now.y - then.y) > .002
+            || std::abs(now.width - then.width) > .002 || std::abs(now.height - then.height) > .002;
+    }
+    if (!moved) return true;
+    const KWin::Rect area = stageArea(output);
+    const auto pixels = makePixelBentoLayout(rects, area.x(), area.y(), area.width(), area.height());
+    if (pixels.size() != rects.size()) return refuse("its panes do not fit the saved shapes");
+    for (int index = 0; index < session.windows.size(); ++index) {
+        const auto &window = session.windows.at(index);
+        if (!window || window->isDeleted() || !window->window() || window->isUserMove() || window->isUserResize())
+            return refuse("a pane is gone or held");
+        const QSizeF least = window->window()->minSize();
+        const auto &pixel = pixels[std::size_t(index)];
+        if (pixel.width + 1 < least.width() || pixel.height + 1 < least.height())
+            return refuse("a saved shape is smaller than its window allows");
+    }
+    // As a divider let go (finishRail): the shapes change, and the layout is
+    // placed again on them.
+    m_applicationGuard.invalidate();
+    session.rects = std::move(rects);
+    if (!settleAfterInteraction(key)) {
+        auto current = m_sessions.find(key);
+        if (current != m_sessions.end() && applySession(current.value(), false)) scheduleSettle();
+    }
+    qInfo() << "Kadunce" << Revision << "stood" << windows.size() << "panes on" << key << "in their saved shapes";
+    KWin::effects->addRepaintFull();
+    return true;
+}
+
 void DesktopStageController::endLonePanes()
 {
     const QStringList keys = m_sessions.keys();

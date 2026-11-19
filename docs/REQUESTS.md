@@ -184,14 +184,15 @@ line beginning `window origin:`, switched on or off.
 ## Saved layouts
 
 A driving program keeps named desks: groups of applications on one workspace,
-each a lone card or one Stack. Kadunce reads the desk shown and arranges a
+each a lone card or one Stack, with the display it stood on and, for a pane
+of a layout, its shape there. Kadunce reads the desk shown and arranges a
 desk from groups; it never launches an application. Shuffle Core keeps the
 layouts, launches what is not running and asks Kadunce for the rest.
 
 | Call | Result |
 | --- | --- |
 | `layoutProtocolVersion()` | `1` |
-| `currentLayout()` | `workspace`, and `groups`, each `apps` and `stack` |
+| `currentLayout()` | `workspace`, `groups`, `everywhere` and `displays` |
 | `arrangeLayout(requestToken, groups)` | `accepted`, `launch` and `alreadyOpen`, or `reason`: `busy` or `empty` |
 | `cancelLayout(requestToken)` | applications not yet come are missed |
 | signal `layoutAppPlaced(requestToken, appId, placed)` | one application's window went to its place, or could not |
@@ -199,12 +200,20 @@ layouts, launches what is not running and asks Kadunce for the rest.
 
 `groups` is an array of dictionaries (`aa{sv}`), `apps` desktop ids, a Stack's
 front first, and `stack` true for two or more applications sharing a Stack.
+A group read from the desk has its place: `display`, the display's name; for
+a pane, `pane` with `x`, `y`, `width` and `height`, its shape in shares of the
+room its display gives panes; and `pictureX`, `pictureY`, `pictureWidth` and
+`pictureHeight`, where its front window was drawn in shares of the display,
+for a picture only; and `shown` for a pane, the card in use, or a window
+in view. A group sent without a place goes to the display in use.
 
 ### Reading the desk
 
-`currentLayout` reads the workspace shown on the display in use: its cards left
-to right, each Stack front first, then its panes, each with the cards waiting
-behind it as one Stack, then other windows, front-most first. A window whose application has no desktop file is left out, and an
+`currentLayout` reads the workspace shown, display by display: a display's
+cards left to right, each Stack front first, then its panes, each with the
+cards waiting behind it as one Stack, then other windows, front-most first.
+`groups` is the display in use, `everywhere` every display, the one in use
+first, and `displays` each one's `name`, `x`, `y`, `width`, `height`, `inUse`. A window whose application has no desktop file is left out, and an
 application appears once, in its first group.
 
 ### Arranging
@@ -213,16 +222,21 @@ Groups are cleaned first: blank ids and an application already named go, and a
 group that is not a Stack stands each application alone. An application
 running anywhere uses its front-most window, a shown one before a minimized
 one; every other is in `launch`, and its first window is claimed as it opens.
-Each window goes to the workspace and display in use and becomes a card there.
+Each window goes to the workspace in use and its group's display, or the
+display in use when that one is not connected, and becomes a card there.
 A Stack forms in the listed order as its applications come; on a display
 showing its layout, its first pane stays in front, its other panes join it in
 order, and its cards wait behind them. Once every
 application has come, or after 60 seconds, the groups lead the row in order,
-the first one in use, and the cards outside the layout follow as they stood.
-A window that does not reach its place within 5 seconds is reported not
-placed. A Stack Cards cannot form at once, as while Search is still closing,
-is tried again for six seconds, and the log names what kept it apart. Applications a layout opens are not counted as opened by hand.
+the card `shown` in use, else the first, and the cards outside the layout follow as they stood;
+each display's row is put in order, the display in use last. Then a display
+with two or more of the layout's panes is stood whole: a pane the layout does
+not name waits in Spread, and the layout's panes take their kept shapes as a
+divider let go leaves them. Where that cannot be done whole, the panes stay
+as the display laid them out and the log says why.
+A window not in place within 5 seconds is reported not placed. A Stack Cards cannot form at once, as while Search is still closing,
+is tried again for six seconds; the log names why. Applications a layout opens are not counted as opened by hand.
 
-One arrangement runs at a time, and never with a bring-back: either answers
+One arrangement runs at a time, never with a bring-back: either answers
 `busy` while the other runs. An empty token or no applications answers
 `empty`. Nothing is closed.
