@@ -618,13 +618,13 @@ Item {
         Rectangle {
             id: memberTray
             readonly property var members: root.model.members || []
-            readonly property real left: members.reduce((low, m) => Math.min(low, m.x || 0), members.length > 0 ? Infinity : 0)
-            readonly property real right: members.reduce((high, m) => Math.max(high, (m.x || 0) + (m.width || 0)), members.length > 0 ? -Infinity : 0)
+            readonly property real trayLeft: members.reduce((low, m) => Math.min(low, m.x || 0), members.length > 0 ? Infinity : 0)
+            readonly property real trayRight: members.reduce((high, m) => Math.max(high, (m.x || 0) + (m.width || 0)), members.length > 0 ? -Infinity : 0)
             visible: members.length > 0
             Accessible.ignored: true
-            x: left - 10
+            x: trayLeft - 10
             y: (members.length > 0 ? members[0].y || 0 : 0) - 8
-            width: right - left + 20
+            width: trayRight - trayLeft + 20
             height: (members.length > 0 ? members[0].height || 0 : 0) + 18
             radius: 14
             color: Qt.rgba(0, 0, 0, 0.18)
