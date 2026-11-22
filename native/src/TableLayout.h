@@ -36,11 +36,20 @@ struct TableTabContent {
 // holding only their numbers.
 enum class TableTabParts { All, NoColours, NamesOnly, Numbers };
 
+// One card of a Stack, as it hangs under the Stack when the Stack is rested on.
+struct TableMemberContent {
+    QString application;
+    QString title;
+};
+
 struct TableCardContent {
     QString application;
     QString title;
     // A stack's cards behind its face, whose edges show to its left.
     int stacked = 0;
+    // A Stack's cards, front first, the face among them; empty for a card
+    // standing alone.
+    QList<TableMemberContent> members = {};
 };
 
 // What Table reads of a window to decide whether it hangs in a workspace's
@@ -87,6 +96,14 @@ struct TableLayout {
     QList<QRectF> plusCards;
     QList<double> plusTextWidths;
     QList<TableCardContent> plusContents;
+    // Each Stack's cards, front first, laid out as they hang under it once
+    // it is rested on, by workspace and card; empty for a lone card. They
+    // stand on a row of their own under the cards, the line into them where
+    // the lift line stands without them, and their own lift line under them.
+    QList<QList<QList<QRectF>>> members;
+    QList<QList<QList<double>>> memberTextWidths;
+    double membersTop = 0.0;
+    double membersLift = 0.0;
 };
 
 struct TableMetrics {
@@ -249,8 +266,13 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
     const double cardHeight = layout.row + 14.0;
     layout.cardHeight = cardHeight;
     layout.lift = layout.trayTop + cardHeight + LineGap;
+    // A Stack's cards hang as the cards hang under a tab: their row stands as
+    // far under its line as the cards stand under theirs.
+    layout.membersTop = layout.lift + (StemHeight - LineGap);
+    layout.membersLift = layout.membersTop + cardHeight + LineGap;
     // A row of cards hanging centred under a tab's centre, kept on the display.
-    const auto hang = [&](const QList<TableCardContent> &own, double centre, QList<QRectF> &rects, QList<double> &texts) {
+    const auto hang = [&](const QList<TableCardContent> &own, double centre, QList<QRectF> &rects, QList<double> &texts,
+                          double top) {
         QList<double> widths;
         double trayWidth = -CardGap;
         for (const auto &card : own) {
@@ -266,7 +288,7 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
         double left = std::clamp(centre - trayWidth / 2.0, TrayEdge,
             std::max(TrayEdge, display.width() - trayWidth - TrayEdge));
         for (double width : widths) {
-            rects.append(QRectF(left, layout.trayTop, width, cardHeight));
+            rects.append(QRectF(left, top, width, cardHeight));
             left += width + CardGap;
         }
     };
@@ -274,7 +296,23 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
         const double centre = layout.tabs[w].center().x();
         QList<QRectF> rects;
         QList<double> texts;
-        hang(w < cards.size() ? cards[w] : QList<TableCardContent>{}, centre, rects, texts);
+        const QList<TableCardContent> own = w < cards.size() ? cards[w] : QList<TableCardContent>{};
+        hang(own, centre, rects, texts, layout.trayTop);
+        // Each Stack's cards, centred under the Stack, kept on the display.
+        QList<QList<QRectF>> memberRects;
+        QList<QList<double>> memberTexts;
+        for (int c = 0; c < own.size() && c < rects.size(); ++c) {
+            QList<TableCardContent> hung;
+            if (own[c].members.size() > 1)
+                for (const auto &member : own[c].members) hung.append({member.application, member.title, 0});
+            QList<QRectF> placed;
+            QList<double> placedTexts;
+            hang(hung, rects[c].center().x(), placed, placedTexts, layout.membersTop);
+            memberRects.append(placed);
+            memberTexts.append(placedTexts);
+        }
+        layout.members.append(memberRects);
+        layout.memberTextWidths.append(memberTexts);
         layout.cards.append(rects);
         layout.textWidths.append(texts);
         const double emptyWidth = metrics.measure(emptyLabel, CardTitleSize, false) + 28.0;
@@ -282,7 +320,7 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
             std::max(TrayEdge, display.width() - emptyWidth - TrayEdge)), layout.trayTop, emptyWidth, layout.row));
     }
     if (withPlus) {
-        hang(plusCards, layout.plus.center().x(), layout.plusCards, layout.plusTextWidths);
+        hang(plusCards, layout.plus.center().x(), layout.plusCards, layout.plusTextWidths, layout.trayTop);
         layout.plusContents = plusCards;
     }
     return layout;

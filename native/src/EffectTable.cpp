@@ -37,6 +37,8 @@ const char *tableActionName(TableAction::Kind kind)
     case TableAction::Kind::New: return "made an empty workspace";
     case TableAction::Kind::Rename: return "renaming a workspace";
     case TableAction::Kind::OpenLayout: return "opened a Layout in a workspace of its own";
+    case TableAction::Kind::Stack: return "stacked a card";
+    case TableAction::Kind::TakeOut: return "took a card out of its Stack";
     }
     return "nothing";
 }
@@ -381,6 +383,44 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
             for (const auto &member : std::as_const(card.windows)) taken.insert(member);
             workspace.cards.append(card);
         }
+        // A card Table stacked onto one here from another workspace stands
+        // with that Stack, in the order it will take, until the workspace is
+        // shown and they become one.
+        for (const auto &deck : pending) {
+            int into = -1;
+            for (int c = 0; c < workspace.cards.size(); ++c) {
+                const bool held = std::any_of(deck.cbegin(), deck.cend(), [&](const auto &window) {
+                    return window && workspace.cards[c].windows.contains(window); });
+                if (!held) continue;
+                if (into < 0) {
+                    into = c;
+                    continue;
+                }
+                for (const auto &window : std::as_const(workspace.cards[c].windows))
+                    if (!workspace.cards[into].windows.contains(window)) workspace.cards[into].windows.append(window);
+                workspace.cards.removeAt(c--);
+            }
+            if (into < 0) continue;
+            TableCard &card = workspace.cards[into];
+            const auto place = [&deck](const QPointer<KWin::EffectWindow> &window) {
+                const auto found = std::find(deck.cbegin(), deck.cend(), window);
+                return found == deck.cend() ? int(deck.size()) : int(found - deck.cbegin());
+            };
+            std::stable_sort(card.windows.begin(), card.windows.end(),
+                [&place](const auto &a, const auto &b) { return place(a) < place(b); });
+            if (KWin::EffectWindow *face = card.windows.first()) {
+                const TableCard shown = cardOf(face);
+                card.application = shown.application;
+                card.title = shown.title;
+                card.icon = shown.icon;
+            }
+            card.stacked = int(card.windows.size()) - 1;
+        }
+        // Each card's windows asleep, as Spread dims them.
+        for (TableCard &card : workspace.cards) {
+            card.asleep.clear();
+            for (const auto &window : std::as_const(card.windows)) card.asleep.append(window && window->isMinimized());
+        }
         // A workspace nothing has named shows the name of the application it
         // holds first, as one made by carrying a card to + does.
         // A name the person gave stays, New among them.
@@ -418,7 +458,16 @@ void Effect::relayoutTable()
         tabs.append({editing ? m_tableRenameText : workspace.name, workspace.current,
             int(std::min<qsizetype>(workspace.cards.size(), 4)), int(tabs.size()) + 1, editing});
         QList<TableCardContent> own;
-        for (const auto &card : workspace.cards) own.append({card.application, card.title, card.stacked});
+        for (const auto &card : workspace.cards) {
+            TableCardContent content{card.application, card.title, card.stacked};
+            // A Stack's cards, front first, hang under it once it is rested on.
+            if (card.windows.size() > 1)
+                for (const auto &window : card.windows) {
+                    const QString application = window ? applicationDisplayName(window) : QString();
+                    content.members.append({application, window ? titleUnderName(application, window->caption()) : QString()});
+                }
+            own.append(content);
+        }
         cards.append(own);
     }
     // KDE holds at most 25 desktops; at that, + goes.
@@ -446,8 +495,18 @@ void Effect::relayoutTable()
         for (const QRectF &card : row) centres.append(card.center().x());
         cardCentres.append(centres);
     }
+    QList<QList<QList<double>>> memberCentres;
+    for (const auto &row : std::as_const(m_tableLayout.members)) {
+        QList<QList<double>> stacks;
+        for (const auto &stack : row) {
+            QList<double> centres;
+            for (const QRectF &card : stack) centres.append(card.center().x());
+            stacks.append(centres);
+        }
+        memberCentres.append(stacks);
+    }
     m_table.setLayout(tabCentres,
-        plus ? m_tableLayout.plus.center().x() : std::numeric_limits<double>::quiet_NaN(), cardCentres);
+        plus ? m_tableLayout.plus.center().x() : std::numeric_limits<double>::quiet_NaN(), cardCentres, memberCentres);
     QList<double> plusCentres;
     for (const QRectF &card : std::as_const(m_tableLayout.plusCards)) plusCentres.append(card.center().x());
     m_table.setPlusCards(plusCentres);
@@ -455,7 +514,8 @@ void Effect::relayoutTable()
     // under the cards a card lifts, and above the tabs a lift cancels.
     const double height = tableDisplay().height();
     if (height > 0)
-        m_table.setThresholds(m_tableLayout.depth / height, m_tableLayout.tabsTop / height, m_tableLayout.lift / height);
+        m_table.setThresholds(m_tableLayout.depth / height, m_tableLayout.tabsTop / height, m_tableLayout.lift / height,
+            m_tableLayout.membersLift / height);
 }
 
 void Effect::refreshTable()
@@ -472,7 +532,8 @@ void Effect::refreshTable()
     KWin::EffectWindow *shownCard = nullptr;
     if (shownValid && m_table.shownCard() >= 0 && m_table.shownCard() < m_tableWorkspaces[shown].cards.size()) {
         const TableCard &card = m_tableWorkspaces[shown].cards[m_table.shownCard()];
-        if (!card.windows.isEmpty()) shownCard = card.windows.first();
+        // A Stack's hanging card is shown in its Stack's place.
+        if (!card.windows.isEmpty()) shownCard = card.windows.value(std::max(0, m_table.shownMember()));
     }
     // Over Spread, the tabs leave Spread showing: a pull previews once it
     // reaches a workspace's cards, and a menu bar once a tap chooses
@@ -496,6 +557,9 @@ void Effect::refreshTable()
     if (m_table.scrubbing() && !m_table.carrying()) {
         if (m_table.level() == TableLevel::Tabs) {
             approach = std::clamp((finger.y() - tabsBottom) / std::max(1.0, m_tableLayout.depth - tabsBottom), 0.0, 1.0);
+        } else if (m_table.level() == TableLevel::Members && m_table.member() >= 0) {
+            const double middle = m_tableLayout.membersTop + m_tableLayout.cardHeight / 2.0;
+            lean = std::clamp((finger.y() - middle) / std::max(1.0, m_tableLayout.membersLift - middle), 0.0, 1.0);
         } else if (m_table.card() >= 0) {
             const double middle = m_tableLayout.trayTop + m_tableLayout.cardHeight / 2.0;
             lean = std::clamp((finger.y() - middle) / std::max(1.0, m_tableLayout.lift - middle), 0.0, 1.0);
@@ -571,9 +635,43 @@ void Effect::refreshTable()
                 {QStringLiteral("textWidth"), m_tableLayout.textWidths[tray].value(i)},
                 {QStringLiteral("icon"), QVariant::fromValue(card.icon)},
                 {QStringLiteral("stacked"), std::min(card.stacked, TableSizes::SliversShown)},
-                {QStringLiteral("chosen"), m_table.level() == TableLevel::Cards && m_table.card() == i},
-                {QStringLiteral("carried"), m_table.carrying() && m_table.carryFrom() == tray && m_table.carryCard() == i},
+                {QStringLiteral("chosen"), m_table.level() != TableLevel::Tabs && m_table.card() == i},
+                // A card of a Stack carried out leaves its Stack in place.
+                {QStringLiteral("carried"), m_table.carrying() && m_table.carryFrom() == tray && m_table.carryCard() == i
+                                                && m_table.carryMember() < 0},
+                {QStringLiteral("asleep"), card.asleep.value(0)},
+                {QStringLiteral("hung"), m_table.membersOf() == i},
+                {QStringLiteral("aimed"), m_table.aim() == i},
+                {QStringLiteral("armed"), m_table.aim() == i && m_table.aimArmed()},
             });
+        }
+        // A Stack rested on: its cards hang under it, front first.
+        const int stack = m_table.membersOf();
+        if (stack >= 0 && stack < m_tableWorkspaces[tray].cards.size() && tray < m_tableLayout.members.size()
+            && stack < m_tableLayout.members[tray].size()) {
+            const TableCard &card = m_tableWorkspaces[tray].cards[stack];
+            const auto &rects = m_tableLayout.members[tray][stack];
+            QVariantList members;
+            for (int j = 0; j < rects.size() && j < card.windows.size(); ++j) {
+                KWin::EffectWindow *window = card.windows[j];
+                if (!window) continue;
+                const QString application = applicationDisplayName(window);
+                members.append(QVariantMap{
+                    {QStringLiteral("x"), rects[j].x()}, {QStringLiteral("y"), rects[j].y()},
+                    {QStringLiteral("width"), rects[j].width()}, {QStringLiteral("height"), rects[j].height()},
+                    {QStringLiteral("application"), application},
+                    {QStringLiteral("title"), titleUnderName(application, window->caption())},
+                    {QStringLiteral("textWidth"), m_tableLayout.memberTextWidths[tray][stack].value(j)},
+                    {QStringLiteral("icon"), QVariant::fromValue(window->icon())},
+                    {QStringLiteral("place"), j + 1}, {QStringLiteral("count"), int(card.windows.size())},
+                    {QStringLiteral("front"), j == 0},
+                    {QStringLiteral("asleep"), card.asleep.value(j)},
+                    {QStringLiteral("chosen"), m_table.member() == j},
+                    {QStringLiteral("carried"), m_table.carrying() && m_table.carryFrom() == tray
+                                                    && m_table.carryCard() == stack && m_table.carryMember() == j},
+                });
+            }
+            model[QStringLiteral("members")] = members;
         }
         if (m_tableWorkspaces[tray].cards.isEmpty()) {
             const QRectF empty = m_tableLayout.empty.value(tray);
@@ -625,6 +723,8 @@ void Effect::refreshTable()
         }
     }
     model[QStringLiteral("cards")] = cards;
+    // Spread's hold to stack, as long as it takes there.
+    model[QStringLiteral("aimMs")] = int(carryJoinDwell());
     // The card in hand is the card itself, hanging from the finger by its top
     // edge and never higher than just under the tabs, so the tab it is carried
     // to stays in view.
@@ -632,8 +732,22 @@ void Effect::refreshTable()
     const int held = m_table.carryCard();
     if (m_table.carrying() && from >= 0 && from < m_tableWorkspaces.size() && from < m_tableLayout.cards.size()
         && held >= 0 && held < m_tableWorkspaces[from].cards.size() && held < m_tableLayout.cards[from].size()) {
-        const TableCard &card = m_tableWorkspaces[from].cards[held];
-        const QRectF rect = m_tableLayout.cards[from][held];
+        const TableCard &stack = m_tableWorkspaces[from].cards[held];
+        // A card of a Stack carried out is that card alone.
+        const int member = m_table.carryMember();
+        const bool out = member >= 0 && member < stack.windows.size() && stack.windows[member]
+            && from < m_tableLayout.members.size() && held < m_tableLayout.members[from].size()
+            && member < m_tableLayout.members[from][held].size();
+        TableCard card = stack;
+        if (out) {
+            KWin::EffectWindow *window = stack.windows[member];
+            card.windows = {window};
+            card.application = applicationDisplayName(window);
+            card.title = titleUnderName(card.application, window->caption());
+            card.icon = window->icon();
+            card.stacked = 0;
+        }
+        const QRectF rect = out ? m_tableLayout.members[from][held][member] : m_tableLayout.cards[from][held];
         // The keys hang it under the tab or + it is over.
         QPointF hand = finger;
         if (m_table.keyCarrying()) {
@@ -647,7 +761,8 @@ void Effect::refreshTable()
             {QStringLiteral("y"), std::max(hand.y() - 12.0, tabsBottom + 8.0)},
             {QStringLiteral("keys"), m_table.keyCarrying()},
             {QStringLiteral("width"), rect.width()}, {QStringLiteral("height"), rect.height()},
-            {QStringLiteral("textWidth"), m_tableLayout.textWidths[from].value(held)},
+            {QStringLiteral("textWidth"), out ? m_tableLayout.memberTextWidths[from][held].value(member)
+                                              : m_tableLayout.textWidths[from].value(held)},
             {QStringLiteral("application"), card.application}, {QStringLiteral("title"), card.title},
             {QStringLiteral("icon"), QVariant::fromValue(card.icon)},
             {QStringLiteral("stacked"), std::min(card.stacked, TableSizes::SliversShown)},
@@ -695,6 +810,8 @@ void Effect::closeTable()
 void Effect::finishTable()
 {
     m_tableHold.stop();
+    m_tableRest.stop();
+    m_tableAim.stop();
     endTableRename(false);
     if (m_tableKeyboard) KWin::effects->ungrabKeyboard();
     m_tableKeyboard = false;
@@ -730,8 +847,12 @@ TableHit Effect::tableHitAt(const QPointF &local) const
         for (int i = 0; i < m_tableLayout.plusCards.size(); ++i)
             if (m_tableLayout.plusCards[i].contains(local)) hit.plusCard = i;
     const int tray = m_table.trayWorkspace();
+    if (const int stack = m_table.membersOf(); stack >= 0 && tray >= 0 && tray < m_tableLayout.members.size()
+        && stack < m_tableLayout.members[tray].size())
+        for (int i = 0; i < m_tableLayout.members[tray][stack].size(); ++i)
+            if (m_tableLayout.members[tray][stack][i].contains(local)) hit.member = i;
     const bool onEmpty = tray >= 0 && m_tableLayout.empty.value(tray).contains(local);
-    hit.insideRows = hit.tab >= 0 || hit.plus || hit.card >= 0 || hit.plusCard >= 0 || onEmpty
+    hit.insideRows = hit.tab >= 0 || hit.plus || hit.card >= 0 || hit.plusCard >= 0 || hit.member >= 0 || onEmpty
         || (local.y() >= m_tableLayout.tabsTop && local.y() <= m_tableLayout.tabsTop + m_tableLayout.row);
     return hit;
 }
@@ -762,9 +883,10 @@ void Effect::pressTableFromInput(const QPointF &position, bool touch)
     const QPointF local = position - tableDisplay().topLeft();
     const TableHit hit = tableHitAt(local);
     m_tablePressTouch = touch;
-    m_table.press(local, tableCardAt(local), hit.tab, tableNow(), hit.plusCard);
+    m_table.press(local, hit.member >= 0 ? -1 : tableCardAt(local), hit.tab, tableNow(), hit.plusCard, hit.member);
     if (m_table.sticky() && hit.tab >= 0) m_tableHold.start(m_table.config().holdMs);
     else m_tableHold.stop();
+    restTable();
     refreshTable();
 }
 
@@ -794,6 +916,8 @@ void Effect::moveTableFromInput(const QPointF &position)
         }
     }
     if (carrying != m_table.carrying()) relayoutTable();
+    aimTable();
+    restTable();
     refreshTable();
 }
 
@@ -801,6 +925,8 @@ void Effect::releaseTableFromInput(const QPointF &position)
 {
     if (!m_table.isOpen()) return;
     m_tableHold.stop();
+    m_tableRest.stop();
+    m_tableAim.stop();
     const QPointF local = position - tableDisplay().topLeft();
     if (m_tableRenaming >= 0) {
         // The finger that held the tab lets go and the name waits to be
@@ -841,15 +967,19 @@ void Effect::hoverTableFromInput(const QPointF &position)
 {
     if (!m_table.isOpen() || !m_table.sticky()) return;
     const TableHit hit = tableHitAt(position - tableDisplay().topLeft());
-    if (hit.tab < 0 && hit.card < 0 && !hit.plus && hit.plusCard < 0) return;
+    if (hit.tab < 0 && hit.card < 0 && !hit.plus && hit.plusCard < 0 && hit.member < 0) return;
     const int shown = m_table.shownWorkspace();
     const int card = m_table.shownCard();
     const TableLevel level = m_table.level();
     const bool onPlus = m_table.onPlus();
     const int plusCard = m_table.plusCard();
-    m_table.hover(hit.tab, hit.tab >= 0 ? -1 : hit.card, hit.plus, hit.plusCard);
+    const int member = m_table.member();
+    const int stack = m_table.membersOf();
+    m_table.hover(hit.tab, hit.tab >= 0 || hit.member >= 0 ? -1 : hit.card, hit.plus, hit.plusCard, hit.member);
+    restTable();
     if (shown != m_table.shownWorkspace() || card != m_table.shownCard() || level != m_table.level()
-        || onPlus != m_table.onPlus() || plusCard != m_table.plusCard())
+        || onPlus != m_table.onPlus() || plusCard != m_table.plusCard() || member != m_table.member()
+        || stack != m_table.membersOf())
         refreshTable();
 }
 
@@ -857,6 +987,7 @@ void Effect::wheelTableFromInput(int steps)
 {
     if (!m_table.isOpen() || m_table.down()) return;
     m_table.step(steps);
+    restTable();
     refreshTable();
 }
 
@@ -972,12 +1103,14 @@ void Effect::grabbedKeyboardEvent(QKeyEvent *event)
     }
     if (event->type() != QEvent::KeyPress) return;
     const bool shift = event->modifiers() & Qt::ShiftModifier;
+    const bool meta = event->modifiers() & Qt::MetaModifier;
     std::optional<Key> key;
     switch (event->key()) {
     case Qt::Key_Left: key = shift ? Key::CarryLeft : Key::Left; break;
     case Qt::Key_Right: key = shift ? Key::CarryRight : Key::Right; break;
     case Qt::Key_Up: key = Key::Up; break;
-    case Qt::Key_Down: key = Key::Down; break;
+    // Meta+Shift+Down takes a card out of its Stack, as it does everywhere.
+    case Qt::Key_Down: key = meta && shift ? Key::TakeOut : Key::Down; break;
     case Qt::Key_Return:
     case Qt::Key_Enter:
     case Qt::Key_Space: key = Key::Enter; break;
@@ -1001,24 +1134,81 @@ void Effect::applyTableKey(TableGesture::Key key)
             m_table.refuseCarry();
     }
     if (carrying != m_table.carrying() && m_table.isOpen()) relayoutTable();
+    restTable();
     applyTableAction(action);
 }
 
-void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination)
+void Effect::restTable()
+{
+    if (!m_table.wantsRest()) {
+        m_tableRest.stop();
+        m_tableRestFor = -1;
+        return;
+    }
+    const int resting = m_table.locked() * 1000 + m_table.card();
+    if (m_tableRest.isActive() && resting == m_tableRestFor) return;
+    m_tableRestFor = resting;
+    m_tableRest.start(motion(150));
+}
+
+void Effect::aimTable()
+{
+    // INPUT.md § Table: a card held over another card, as near its middle as
+    // Spread asks, rests there to stack; it keeps that card a little further
+    // off than it took it, as Spread's does.
+    int aim = -1;
+    const int row = m_table.trayWorkspace();
+    if (m_table.carrying() && !m_table.keyCarrying() && m_table.level() == TableLevel::Cards
+        && row >= 0 && row < m_tableLayout.cards.size()) {
+        const QPointF finger = m_table.finger();
+        const auto &rects = m_tableLayout.cards[row];
+        for (int i = 0; i < rects.size(); ++i) {
+            // Its own place, or the Stack a card of it came out of, is not one to join.
+            if (row == m_table.carryFrom() && i == m_table.carryCard()) continue;
+            const double reach = rects[i].width() * CarryJoinReach * (i == m_table.aim() ? CarryJoinKeep : 1.0);
+            if (std::abs(finger.x() - rects[i].center().x()) < reach && finger.y() > rects[i].top() - TableSizes::LineGap
+                && finger.y() < rects[i].bottom() + TableSizes::LineGap)
+                aim = i;
+        }
+    }
+    if (!m_table.aimAt(aim)) return;
+    m_tableAim.stop();
+    if (aim >= 0) {
+        m_tableAim.start(int(carryJoinDwell()));
+        m_tableAimClock.start();
+    }
+}
+
+void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination, int member)
 {
     if (!destination || workspace < 0 || workspace >= m_tableWorkspaces.size()
         || card < 0 || card >= m_tableWorkspaces[workspace].cards.size()) return;
-    const TableCard moved = m_tableWorkspaces[workspace].cards[card];
+    TableCard moved = m_tableWorkspaces[workspace].cards[card];
+    // INPUT.md § Table: a card of a Stack carried out of its members' row
+    // goes alone; the rest of its Stack stays where it was.
+    if (member >= 0 && member < moved.windows.size() && moved.windows.size() > 1) {
+        moved.windows = {moved.windows[member]};
+        moved.stacked = 0;
+    }
     // A stack goes whole and is stacked again there, as it left. Its windows
     // leave this desktop's cards as any window does;
     // they are that desktop's cards once it is shown.
-    for (auto &decks : m_pendingDecks)
+    for (auto &decks : m_pendingDecks) {
+        for (auto &deck : decks)
+            if (moved.windows.size() == 1) deck.removeAll(moved.windows.first());
         decks.removeIf([&moved](const auto &deck) {
-            return std::any_of(deck.cbegin(), deck.cend(), [&moved](const auto &window) { return moved.windows.contains(window); });
+            return deck.size() < 2 || std::any_of(deck.cbegin(), deck.cend(), [&moved](const auto &window) {
+                       return moved.windows.size() > 1 && moved.windows.contains(window); });
         });
+    }
     if (moved.stacked > 0) m_pendingDecks[destination->id()].append(moved.windows);
     for (const auto &window : moved.windows)
         if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+    landTableCard(destination, moved.windows.value(0));
+}
+
+void Effect::landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face)
+{
     readTableWorkspaces();
     int destinationIndex = -1;
     int cardIndex = -1;
@@ -1026,7 +1216,7 @@ void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destin
         if (m_tableWorkspaces[i].desktop != destination) continue;
         destinationIndex = i;
         for (int c = 0; c < m_tableWorkspaces[i].cards.size(); ++c)
-            if (!moved.windows.isEmpty() && m_tableWorkspaces[i].cards[c].windows.contains(moved.windows.first())) cardIndex = c;
+            if (face && m_tableWorkspaces[i].cards[c].windows.contains(face)) cardIndex = c;
     }
     relayoutTable();
     if (destinationIndex >= 0) m_table.showAfterMove(destinationIndex, cardIndex);
@@ -1044,6 +1234,118 @@ void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destin
     }
     m_tableCarried.clear();
     refreshTable();
+}
+
+bool Effect::stackTableCard(const TableAction &action)
+{
+    const auto valid = [this](int workspace, int card) {
+        return workspace >= 0 && workspace < m_tableWorkspaces.size()
+            && card >= 0 && card < m_tableWorkspaces[workspace].cards.size();
+    };
+    if (!valid(action.workspace, action.card) || !valid(action.destination, action.target)
+        || (action.workspace == action.destination && action.card == action.target)) return false;
+    const TableCard &from = m_tableWorkspaces[action.workspace].cards[action.card];
+    const TableCard &onto = m_tableWorkspaces[action.destination].cards[action.target];
+    KWin::VirtualDesktop *source = m_tableWorkspaces[action.workspace].desktop;
+    KWin::VirtualDesktop *destination = m_tableWorkspaces[action.destination].desktop;
+    if (!source || !destination) return false;
+    // RESTACK: the card carried goes in front, every card of both Stacks kept,
+    // as a card stacked onto a Stack in Spread is.
+    QList<QPointer<KWin::EffectWindow>> carried = from.windows;
+    if (action.member >= 0 && action.member < carried.size() && carried.size() > 1)
+        carried = {carried[action.member]};
+    QList<QPointer<KWin::EffectWindow>> deck = carried;
+    for (const auto &window : onto.windows)
+        if (!deck.contains(window)) deck.append(window);
+    deck.removeIf([](const auto &window) { return !window || window->isDeleted(); });
+    if (deck.size() < 2 || carried.isEmpty() || !carried.first()) return false;
+    KWin::EffectWindow *face = carried.first();
+    // Neither Stack waits to be stacked again anywhere else.
+    for (auto &decks : m_pendingDecks)
+        decks.removeIf([&deck](const auto &pending) {
+            return std::any_of(pending.cbegin(), pending.cend(), [&deck](const auto &window) { return deck.contains(window); });
+        });
+    KWin::VirtualDesktop *current = KWin::effects->currentDesktop();
+    if (destination != current) {
+        // A desktop not shown holds its cards for when it is: the Stack is
+        // made as that desktop is next entered, as a Stack carried there is.
+        m_pendingDecks[destination->id()].append(deck);
+        if (source != destination)
+            for (const auto &window : std::as_const(carried))
+                if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+        landTableCard(destination, face);
+        return true;
+    }
+    if (source != destination) {
+        // Coming from another desktop, the carried cards arrive here as any
+        // window does, and are stacked once each is a card here.
+        m_pendingDecks[destination->id()].append(deck);
+        for (const auto &window : std::as_const(carried))
+            if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+        restackCarriedDecks();
+        QTimer::singleShot(motion(300), this, [this] { restackCarriedDecks(); });
+        landTableCard(destination, face);
+        return true;
+    }
+    // Both on the desktop shown: one card out of a Stack leaves it first; a
+    // card on another display goes there with its Stack; then they stack on
+    // the display of the card stacked onto.
+    KWin::EffectWindow *anchor = onto.windows.value(0);
+    if (!anchor || anchor->isDeleted()) return false;
+    if (carried.size() == 1 && from.windows.size() > 1) {
+        if (CardStageController *stage = stageHolding(face)) {
+            DesktopSession *session = sessionHolding(face);
+            const auto key = session ? session->keyHolding(face) : std::nullopt;
+            if (key) {
+                SessionScope scope(this, session, *key);
+                (void)stage->releaseFromStack(face);
+            }
+        }
+    }
+    DesktopSession *session = sessionHolding(anchor);
+    const auto ontoKey = session ? session->keyHolding(anchor) : std::nullopt;
+    if (!ontoKey) return false;
+    if (stageKeyOf(face) != *ontoKey && anchor->screen())
+        (void)moveCardToDisplay(face, anchor->screen(), false);
+    bool stacked = false;
+    {
+        SessionScope scope(this, session, *ontoKey);
+        QList<KWin::EffectWindow *> behind;
+        for (int i = 1; i < deck.size(); ++i)
+            if (deck[i]) behind.append(deck[i]);
+        stacked = m_cardStage->liveCardIndex(face) >= 0 && m_cardStage->regroup(face, behind);
+    }
+    if (!stacked) qInfo() << "Kadunce could not stack the" << deck.size() << "cards Table brought together";
+    landTableCard(destination, face);
+    return stacked;
+}
+
+bool Effect::takeTableCardOut(int workspace, int card, int member)
+{
+    if (workspace < 0 || workspace >= m_tableWorkspaces.size() || card < 0
+        || card >= m_tableWorkspaces[workspace].cards.size()) return false;
+    const TableCard &held = m_tableWorkspaces[workspace].cards[card];
+    if (member < 0 || member >= held.windows.size() || held.windows.size() < 2) return false;
+    KWin::EffectWindow *window = held.windows[member];
+    if (!window || window->isDeleted()) return false;
+    KWin::VirtualDesktop *desktop = m_tableWorkspaces[workspace].desktop;
+    // A Stack still waiting to be made there loses that card from its deck.
+    bool pending = false;
+    for (auto &decks : m_pendingDecks) {
+        for (auto &deck : decks)
+            if (deck.removeAll(window) > 0) pending = true;
+        decks.removeIf([](const auto &deck) { return deck.size() < 2; });
+    }
+    bool released = pending;
+    DesktopSession *session = sessionHolding(window);
+    const auto key = session ? session->keyHolding(window) : std::nullopt;
+    if (key) {
+        SessionScope scope(this, session, *key);
+        released = m_cardStage->releaseFromStack(window) || released;
+    }
+    if (!released) qInfo() << "Kadunce could not take a card out of its Stack in Table";
+    landTableCard(desktop, window);
+    return released;
 }
 
 void Effect::applyTableAction(const TableAction &action)
@@ -1073,7 +1375,8 @@ void Effect::applyTableAction(const TableAction &action)
         QPointer<KWin::EffectWindow> window;
         if (desktop && action.card >= 0 && action.card < m_tableWorkspaces[action.workspace].cards.size()
             && !m_tableWorkspaces[action.workspace].cards[action.card].windows.isEmpty())
-            window = m_tableWorkspaces[action.workspace].cards[action.card].windows.first();
+            window = m_tableWorkspaces[action.workspace].cards[action.card].windows.value(
+                action.member >= 0 ? action.member : 0);
         if (desktop && desktop != KWin::effects->currentDesktop()) {
             showDesktopPreview(desktop, nullptr);
             commitDesktopPreview();
@@ -1084,7 +1387,20 @@ void Effect::applyTableAction(const TableAction &action)
         return;
     }
     case TableAction::Kind::Move:
-        moveTableCard(action.workspace, action.card, desktopAt(action.destination));
+        moveTableCard(action.workspace, action.card, desktopAt(action.destination), action.member);
+        return;
+    case TableAction::Kind::Stack:
+        if (!stackTableCard(action)) {
+            m_tableCarried.clear();
+            if (action.workspace >= 0) m_table.showAfterMove(action.workspace, action.card);
+            refreshTable();
+        }
+        return;
+    case TableAction::Kind::TakeOut:
+        if (!takeTableCardOut(action.workspace, action.card, action.member)) {
+            m_tableCarried.clear();
+            refreshTable();
+        }
         return;
     case TableAction::Kind::Create: {
         if (action.workspace < 0 || action.workspace >= m_tableWorkspaces.size()
@@ -1094,8 +1410,12 @@ void Effect::applyTableAction(const TableAction &action)
         }
         // Named after the application of the card that made it.
         auto *manager = KWin::VirtualDesktopManager::self();
-        KWin::VirtualDesktop *created = manager->createVirtualDesktop(
-            manager->count(), m_tableWorkspaces[action.workspace].cards[action.card].application);
+        const TableCard &making = m_tableWorkspaces[action.workspace].cards[action.card];
+        const QString application = action.member >= 0 && action.member < making.windows.size()
+                && making.windows[action.member]
+            ? applicationDisplayName(making.windows[action.member])
+            : making.application;
+        KWin::VirtualDesktop *created = manager->createVirtualDesktop(manager->count(), application);
         if (!created) {
             m_table.showAfterMove(action.workspace, action.card);
             refreshTable();
@@ -1105,7 +1425,7 @@ void Effect::applyTableAction(const TableAction &action)
         // application's name is not one the person gave.
         if (m_namedDesktops.removeAll(created->id()) > 0) saveNamedDesktops();
         m_unenteredDesktops.remove(created->id());
-        moveTableCard(action.workspace, action.card, created);
+        moveTableCard(action.workspace, action.card, created, action.member);
         return;
     }
     case TableAction::Kind::New: {
@@ -1335,7 +1655,11 @@ QString Effect::tableState() const
         {QStringLiteral("origin"), QJsonArray{tableDisplay().x(), tableDisplay().y()}},
         {QStringLiteral("keys"), m_tableKeyboard},
         {QStringLiteral("sticky"), m_table.sticky()},
-        {QStringLiteral("level"), m_table.level() == TableLevel::Cards ? QStringLiteral("cards") : QStringLiteral("tabs")},
+        {QStringLiteral("level"), m_table.level() == TableLevel::Members ? QStringLiteral("members")
+                : m_table.level() == TableLevel::Cards                  ? QStringLiteral("cards")
+                                                                        : QStringLiteral("tabs")},
+        {QStringLiteral("membersOf"), m_table.membersOf()},
+        {QStringLiteral("member"), m_table.member()},
         {QStringLiteral("hovered"), m_table.hovered()},
         {QStringLiteral("locked"), m_table.locked()},
         {QStringLiteral("card"), m_table.card()},

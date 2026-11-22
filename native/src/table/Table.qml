@@ -134,6 +134,9 @@ Item {
     function cardName(entry) {
         const parts = [entry.application || "", entry.title || ""].filter(p => p.length > 0);
         if ((entry.stacked || 0) > 0) parts.push("Stack");
+        // A card of a Stack hung under it says where in the Stack it is.
+        if ((entry.count || 0) > 1) parts.push((entry.place || 0) + " of " + entry.count);
+        if (entry.asleep === true) parts.push("asleep");
         return parts.join(", ");
     }
     function growth(width, share, side) {
@@ -549,7 +552,12 @@ Item {
                 shadow.yOffset: held * (3 + 4 * root.lean)
                 shadow.color: Qt.rgba(0, 0, 0, held * (0.3 + 0.15 * root.lean))
                 color: Qt.tint(root.surface, Qt.rgba(root.chosenCard.r, root.chosenCard.g, root.chosenCard.b, held))
-                opacity: entry.carried || arriving ? 0 : 0.45 + 0.55 * root.approach
+                // Asleep (minimized), it is dimmed, as Spread draws it.
+                opacity: entry.carried || arriving ? 0 : (0.45 + 0.55 * root.approach) * (entry.asleep === true ? 0.45 : 1)
+                // Held over to stack onto, it is the drop's destination,
+                // outlined in the accent as Spread outlines it.
+                border.width: entry.aimed === true ? 2 : 0
+                border.color: root.accent
                 Behavior on x { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
                 Slivers { count: card.stacked }
                 Item {
@@ -601,6 +609,65 @@ Item {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // A Stack rested on hangs its cards in a row under it, front card
+        // first, as saved Layouts hang under +. The front card has a dot.
+        Rectangle {
+            id: memberTray
+            readonly property var members: root.model.members || []
+            readonly property real left: members.reduce((low, m) => Math.min(low, m.x || 0), members.length > 0 ? Infinity : 0)
+            readonly property real right: members.reduce((high, m) => Math.max(high, (m.x || 0) + (m.width || 0)), members.length > 0 ? -Infinity : 0)
+            visible: members.length > 0
+            Accessible.ignored: true
+            x: left - 10
+            y: (members.length > 0 ? members[0].y || 0 : 0) - 8
+            width: right - left + 20
+            height: (members.length > 0 ? members[0].height || 0 : 0) + 18
+            radius: 14
+            color: Qt.rgba(0, 0, 0, 0.18)
+            opacity: root.approach
+        }
+        Repeater {
+            model: memberTray.members.length
+            delegate: Kirigami.ShadowedRectangle {
+                id: member
+                required property int index
+                readonly property var entry: memberTray.members[index] || ({})
+                readonly property bool chosen: entry.chosen === true
+                Accessible.role: Accessible.ListItem
+                Accessible.name: root.cardName(entry)
+                Accessible.selected: chosen
+                property real held: chosen ? 1 : 0
+                Behavior on held {
+                    id: memberLift
+                    NumberAnimation { duration: memberLift.targetValue > 0 ? root.rise : root.settle; easing.type: root.ease }
+                }
+                x: entry.x || 0
+                y: (entry.y || 0) + held * 18 * root.lean
+                width: entry.width || 0
+                height: entry.height || 0
+                radius: 14
+                scale: 1 + root.growth(width, 0.03 + 0.02 * root.lean, 8) * held
+                shadow.size: held * (12 + 10 * root.lean)
+                shadow.yOffset: held * (3 + 4 * root.lean)
+                shadow.color: Qt.rgba(0, 0, 0, held * (0.3 + 0.15 * root.lean))
+                color: Qt.tint(root.surface, Qt.rgba(root.selectedFill.r, root.selectedFill.g, root.selectedFill.b, held))
+                opacity: entry.carried === true ? 0 : root.approach * (entry.asleep === true ? 0.45 : 1)
+                CardFace { entry: member.entry }
+                Rectangle {
+                    visible: member.entry.front === true
+                    width: 6
+                    height: 6
+                    radius: 3
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.bottom
+                    anchors.topMargin: 3
+                    color: root.text
+                    opacity: 0.8
+                    Accessible.ignored: true
                 }
             }
         }
@@ -700,6 +767,70 @@ Item {
             }
             Slivers { count: ghost.stacked }
             CardFace { entry: ghost.drop }
+        }
+
+        // Spread's hold to stack (StackHoldLabel.h), over the card the one in
+        // hand rests on: its ring fills for as long as the rest takes, reading
+        // "Hold to stack", and once full, "Stack".
+        Rectangle {
+            id: hold
+            readonly property var aimed: {
+                for (let i = 0; i < root.cards.length; ++i)
+                    if (root.cards[i].aimed === true) return root.cards[i];
+                return null;
+            }
+            readonly property bool armed: aimed !== null && aimed.armed === true
+            property real filled: 0
+            visible: aimed !== null
+            onAimedChanged: {
+                filling.stop();
+                filled = 0;
+                if (aimed === null) return;
+                filling.duration = Math.max(1, root.model.aimMs || 250);
+                filling.start();
+            }
+            onArmedChanged: if (armed) { filling.stop(); filled = 1; }
+            NumberAnimation { id: filling; target: hold; property: "filled"; to: 1 }
+            Accessible.role: Accessible.StaticText
+            Accessible.name: label.text
+            width: 137.5
+            height: 75
+            radius: 17.5
+            x: aimed ? (aimed.x || 0) + (aimed.width || 0) / 2 - width / 2 : 0
+            y: aimed ? (aimed.y || 0) + (aimed.height || 0) / 2 - height / 2 : 0
+            z: 2
+            color: Qt.rgba(root.raised.r, root.raised.g, root.raised.b, 210 / 255)
+            Shape {
+                id: ring
+                x: (hold.width - 32.5) / 2
+                y: 5
+                width: 32.5
+                height: 32.5
+                preferredRendererType: Shape.CurveRenderer
+                Accessible.ignored: true
+                ShapePath {
+                    strokeColor: root.wash(0.22)
+                    strokeWidth: 3.75
+                    fillColor: "transparent"
+                    PathAngleArc { centerX: 16.25; centerY: 16.25; radiusX: 16.25; radiusY: 16.25; startAngle: 0; sweepAngle: 360 }
+                }
+                ShapePath {
+                    strokeColor: root.text
+                    strokeWidth: 3.75
+                    fillColor: "transparent"
+                    capStyle: ShapePath.RoundCap
+                    PathAngleArc { centerX: 16.25; centerY: 16.25; radiusX: 16.25; radiusY: 16.25; startAngle: -90; sweepAngle: 360 * hold.filled }
+                }
+            }
+            Text {
+                id: label
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 45
+                text: hold.armed || hold.filled >= 1 ? "Stack" : "Hold to stack"
+                color: root.text
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+            }
         }
     }
 }

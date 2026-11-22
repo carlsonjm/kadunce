@@ -106,30 +106,29 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Input | What happens |
 | --- | --- |
 | Pull down from the top edge: above the Active card, else anywhere along it | Table comes down, a tab per workspace; sliding across previews each everywhere. Panels keep their taps. |
-| Pull past the tabs, then slide sideways | That tab's cards hang below, each previewed as you slide. |
-| Lift on a tab | That workspace opens as it was left. |
-| Lift on a card | It opens as its workspace's Active card. |
+| Pull past the tabs, slide sideways | That tab's cards hang, each previewed. |
+| Lift on a tab or card | That workspace opens as left, or the card as its Active card. |
 | Pull on past the cards | The card under your finger lifts. |
 | Let a lifted card go on a tab | Its window moves to that workspace. |
-| Let a lifted card go on `+` | A new workspace, named for its application, takes it. |
+| Let a lifted card go on `+` | A new workspace takes it. |
 | Let a lifted card go on its own place | It opens. |
+| Rest on a Stack | Its cards hang beneath, front one dotted; lift on one to open it, or pull it on down out of the Stack. |
+| Hold a lifted card on another card | They stack, it in front, in any workspace. |
 | Push back to the edge and lift | Table closes, unchanged. |
-| Flick down | The tabs stay open as a menu bar. |
-| In the menu bar: tap a tab twice | One tap previews it, a second enters. |
-| In the menu bar: tap a card or the preview | It opens. |
+| Flick down | The tabs stay as a menu bar. |
+| In the menu bar: tap a tab twice, a card or the preview once | It enters, or opens. |
 | In the menu bar: drag a card | It is carried like a lifted card. |
-| In the menu bar: hold or right-click a tab | Its name can be typed. |
-| Tap or lift on `+` | Empty workspace and saved Layouts hang under it, a Layout opening in a workspace of its name; with none, New joins the tabs. |
+| Tap or lift on `+` | Empty workspace and saved Layouts hang under it; with none, New joins the tabs. |
 | Clear a workspace's name | Table offers to remove it (`TABLE.md`). |
 | `Meta+W` | Table opens as a menu bar on the pointer's display, or closes. |
-| Push the pointer into a display's top-left corner | The menu bar opens there; the rest of the edge stays the windows'. |
-| Hover or click a tab or card | It previews, or opens, a card as the Active card. |
-| Wheel | Steps across tabs, or the chosen tab's cards. |
-| Arrow keys | The tab or card beside is chosen; down enters a tab's cards, up returns. |
+| Point into a display's top-left corner | The menu bar opens there; the rest of the edge stays the windows'. |
+| Hover or click a tab or card | It previews, or opens. |
+| Wheel | Steps across tabs or the chosen tab's cards. |
+| Arrow keys | The tab or card beside is chosen; down enters a tab's cards or a Stack's, up returns; `Meta+Shift+Down` takes a Stack's card out. |
 | `Enter` or `Space` | The chosen tab or card opens. |
-| `Escape` | Table closes; a carried card, or a typed name, goes back. |
-| `F2` | The chosen workspace's name can be typed; `Enter` keeps it. |
-| `Shift`+arrows on a chosen card, then let go | It rides along the tabs and `+`, then moves there. |
+| `Escape` | Table closes; a carried card or typed name goes back. |
+| `F2`, or in the menu bar hold or right-click a tab | Its name can be typed; `Enter` keeps it. |
+| `Shift`+arrows on a chosen card, then let go | It rides the tabs and `+`, moving where let go. |
 | Three fingers up on a touchscreen, four on a touchpad | Past halfway, Table comes down there as a menu bar; again closes it. |
 
 ## Plasma desktop

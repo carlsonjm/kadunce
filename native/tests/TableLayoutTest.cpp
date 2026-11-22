@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "TableLayout.h"
 #include "TableSavedLayouts.h"
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 using namespace Kadunce;
@@ -162,6 +163,25 @@ int main()
         const auto old = tableSavedLayout(u"1"_s, u"Old"_s, {bare, stack});
         check(old.aspect == 0.0 && old.pictured.isEmpty() && old.windows == 3 && old.frontApp == u"org.kde.kate"_s,
               "a Layout kept without places has its icon and no picture");
+    }
+    {
+        // A Stack's cards hang centred under it, on a row of their own under
+        // the cards, between the lift line and their own.
+        QList<QList<TableCardContent>> stacked = cards;
+        stacked[1][0].stacked = 2;
+        stacked[1][0].members = {{u"Kate"_s, u"TableModel.cpp"_s}, {u"Kate"_s, u"notes.md"_s}, {u"Dolphin"_s, u"kadunce"_s}};
+        const auto hung = layoutTable(display, tabs, stacked, QString(), u"Empty."_s, metrics);
+        check(hung.members.size() == 3 && hung.members[1].size() == 1 && hung.members[1][0].size() == 3
+                  && hung.members[0].size() == 2 && hung.members[0][0].isEmpty(),
+              "each Stack's cards are laid out; a lone card has none");
+        const auto &row = hung.members[1][0];
+        check(row[0].top() == hung.membersTop && hung.membersTop > hung.lift && hung.membersLift > row[0].bottom(),
+              "the Stack's cards hang under the lift line, their own line under them");
+        check(hung.membersTop - hung.lift == hung.trayTop - hung.depth, "they hang under their line as the cards do");
+        check(std::abs((row.first().left() + row.last().right()) / 2.0 - hung.cards[1][0].center().x()) < 1.0
+                  || row.first().left() == TableSizes::TrayEdge || row.last().right() == display.width() - TableSizes::TrayEdge,
+              "centred under the Stack, kept on the display");
+        for (int i = 0; i + 1 < row.size(); ++i) check(row[i].right() < row[i + 1].left(), "its cards never overlap");
     }
     std::cout << "Table layout checks passed\n";
     return 0;

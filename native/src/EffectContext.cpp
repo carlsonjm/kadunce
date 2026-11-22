@@ -1018,6 +1018,11 @@ QString Effect::tableLine() const
     if (m_table.cancelling()) return i18n("Let go to cancel");
     if (m_table.carrying()) {
         if (m_table.over() == TableGesture::Over::Plus) return i18n("New workspace");
+        // Held over a card: let go, they become one Stack.
+        if (const int aim = m_table.aim(); aim >= 0 && validWorkspace(m_table.trayWorkspace())
+            && aim < m_tableWorkspaces[m_table.trayWorkspace()].cards.size())
+            return m_table.aimArmed() ? i18n("Stack with %1", cardName(m_tableWorkspaces[m_table.trayWorkspace()].cards[aim]))
+                                      : i18n("Hold to stack with %1", cardName(m_tableWorkspaces[m_table.trayWorkspace()].cards[aim]));
         if (m_table.over() == TableGesture::Over::Workspace && validWorkspace(m_table.overWorkspace()))
             return i18n("Move to %1", workspaceName(m_table.overWorkspace()));
         const int from = m_table.carryFrom();
@@ -1026,6 +1031,16 @@ QString Effect::tableLine() const
             return i18n("Moving %1", cardName(m_tableWorkspaces[from].cards[card]));
     }
     const int tray = m_table.trayWorkspace();
+    // A Stack's hanging card: its application, its title and its place.
+    if (m_table.member() >= 0 && validWorkspace(tray) && m_table.membersOf() >= 0
+        && m_table.membersOf() < m_tableWorkspaces[tray].cards.size()) {
+        const TableCard &stack = m_tableWorkspaces[tray].cards[m_table.membersOf()];
+        if (KWin::EffectWindow *window = stack.windows.value(m_table.member()); window && !window->isDeleted()) {
+            const QString application = applicationDisplayName(window);
+            return i18n("%1, %2, %3 of %4", application, titleUnderName(application, window->caption()),
+                        m_table.member() + 1, stack.windows.size());
+        }
+    }
     if (m_table.level() == TableLevel::Cards && validWorkspace(tray) && m_table.card() >= 0
         && m_table.card() < m_tableWorkspaces[tray].cards.size())
         return cardName(m_tableWorkspaces[tray].cards[m_table.card()]);

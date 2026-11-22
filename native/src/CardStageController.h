@@ -228,6 +228,14 @@ public:
     // Stacks cards that stand alone behind face, as a stack carried here from
     // another desktop left it. Not an ownership transition.
     bool stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
+    // TABLE.md § Stacks: face and the cards behind it, each already this
+    // stage's, become one Stack in that order, out of any Stack each stood
+    // in, as Table lets one card or Stack go on another. Not an ownership
+    // transition.
+    bool regroup(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind) { return restack(face, behind); }
+    // A card of a Stack stands on its own just after it, the Stack keeping
+    // its place and order; the Active card stays the card shown.
+    bool releaseFromStack(KWin::EffectWindow *window);
     // The row's entries left to right, each a lone card or a Stack front
     // first (SavedLayout.h).
     [[nodiscard]] QList<QList<KWin::EffectWindow *>> rowEntries() const;
