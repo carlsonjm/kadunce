@@ -148,7 +148,7 @@ public:
     {
         return glassStands() || anyCardStageActive()
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || !m_yieldingPanes.isEmpty() || bool(m_previewDesktop) || bool(m_gestureNote);
+            || !m_yieldingPanes.isEmpty() || !m_paneLeavers.empty() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     // Painting while any display's cards are on, and while windows are given
@@ -160,7 +160,7 @@ public:
         return glassStands() || anyCardStageActive() || roundsCorners()
             || (m_tablePresenter && m_tablePresenter->visible()) || (m_spokenLine && m_spokenLine->visible())
             || hasActiveDesktopStage() || bool(m_settlingWindow) || bool(m_carriedWindow) || !m_bentoMotions.isEmpty()
-            || !m_yieldingPanes.isEmpty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
+            || !m_yieldingPanes.isEmpty() || !m_paneLeavers.empty() || keysAwaitingPerson() || bool(m_previewDesktop) || bool(m_gestureNote);
     }
 
     // Keys on screen that are not yet known to be the person's are painted
@@ -946,16 +946,14 @@ private:
     // §11, Every display: the other panes of that display wait in Spread for
     // it, and this one is the card it shows alone.
     // §11, Connected: a pane's face held by its title bar and drawn up passes
-    // the cards behind it, shown as a ladder of title bars, and goes in where
-    // it is let go.
+    // the cards behind it, shown as a ladder of title bars, and goes in where it is let go.
     bool followStackScrub(QPointF contact);
     bool stackScrubHeldStillGoesOn();
     void beginStackScrub(double y);
     double stackScrubHand(double pointerY) const;
     void endStackScrub();
     void refreshStackScrubShown();
-    // Where the ladder draws `window`: the card's box, and the part of it
-    // that shows.
+    // Where the ladder draws `window`: the card's box, and the part of it that shows.
     [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
     bool reorderPaneStack(KWin::EffectWindow *pane, int place);
     // INPUT.md § Connected, by the keys: Meta's arrows move the focus to the
@@ -994,8 +992,7 @@ private:
     // a card there, as one opened there does. From names the display it
     // left, when known: a window still standing on it stays as it is.
     void claimWindowForItsDisplay(KWin::EffectWindow *window, const QString &from = {});
-    // Whether another display holds its own cards, so where a carried Active
-    // card lands decides what it becomes.
+    // Whether another display holds its own cards, so where a carried Active card lands decides what it becomes.
     [[nodiscard]] bool carriesToAnotherCardDisplay() const;
     // The edge of `output` a carried window's contact reaches. A panel along
     // the top edge, a status bar say, never takes that contact, so the top
@@ -1006,8 +1003,7 @@ private:
     [[nodiscard]] long long lastUsedForDesktopStage(
         const KWin::EffectWindow *window) const override;
     // §11, Connected: what a window wants of a layout and as a lone card
-    // (NaturalSize.h): a width the wheel gave its application on a display
-    // that wide, else its kind's natural size.
+    // (NaturalSize.h): a width the wheel gave its application on a display that wide, else its kind's natural size.
     [[nodiscard]] std::optional<NaturalNeed> naturalNeedForDesktopStage(
         const KWin::EffectWindow *window, const KWin::LogicalOutput *output) const override;
     [[nodiscard]] std::optional<double> naturalActiveShareForCardStage(
@@ -1162,8 +1158,7 @@ private:
     void switchZoneMode();
     bool m_showsKeyboardOutline = true;
     bool m_keyboardOutlineAccent = false;
-    // The window outlined on each display, by name, and since when, so a new
-    // one fades in.
+    // The window outlined on each display, by name, and since when, so a new one fades in.
     struct KeyboardOutline {
         QPointer<KWin::EffectWindow> window;
         QElapsedTimer since;
@@ -1208,8 +1203,7 @@ private:
     // Gooseberry's notes on Spread's cards (TETTEGOUCHE-CONTEXT.md § Stuck
     // notes from Gooseberry): each placed note where it stands on its window,
     // the rest in a stack at the card's corner. A tap on either opens the
-    // card with the notes out on the window, a tapped note ready to type; a
-    // hold carries a note to another card.
+    // card with the notes out on the window, a tapped note ready to type; a hold carries a note to another card.
     [[nodiscard]] bool pressNotesFromInput(const QPointF &position) override;
     void moveNotesFromInput(const QPointF &position) override;
     void holdNotesFromInput() override;
@@ -1224,8 +1218,7 @@ private:
     [[nodiscard]] static bool isSearchSurface(const KWin::EffectWindow *window);
     [[nodiscard]] bool notesSurfaceStepsAside(const KWin::EffectWindow *window) const;
     [[nodiscard]] KWin::EffectWindow *notesSurfaceHost(const KWin::EffectWindow *window) const;
-    // Spread's cards as notes see them, nearest the eye first, where they
-    // were last drawn.
+    // Spread's cards as notes see them, nearest the eye first, where they were last drawn.
     [[nodiscard]] QList<NotesCard> notesCards() const;
     [[nodiscard]] KWin::EffectWindow *notesCardWindow(const QUuid &id) const;
     void paintStuckNotes(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -1248,8 +1241,7 @@ private:
     struct NotesHandover {
         QPointer<KWin::EffectWindow> card;
         QElapsedTimer since;
-        // Its notes were asked up from Spread, so they come up even before
-        // Gooseberry says they are.
+        // Its notes were asked up from Spread, so they come up even before Gooseberry says they are.
         bool asked = false;
     };
     std::optional<NotesHandover> m_notesHandover;
@@ -1267,8 +1259,7 @@ private:
     void handleWindowActivated(KWin::EffectWindow *window);
     // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the
     // user calls forward joins that layout. True means the activation was
-    // answered here; false leaves it to Card Stage, which by then is no longer
-    // presenting Bento.
+    // answered here; false leaves it to Card Stage, which by then is no longer presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
     void markAloneOnPurpose(KWin::EffectWindow *card);
     [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
@@ -1418,8 +1409,7 @@ private:
     // Whether raiseKeyboard asked for the keys a moment ago.
     [[nodiscard]] bool keyboardJustAsked() const;
     // How many touch events there had been when keys the person had up last
-    // began to go, unless a touch had only just ended. Those keys answered
-    // every one of them.
+    // began to go, unless a touch had only just ended. Those keys answered every one of them.
     quint64 m_answeredTouchEvents = 0;
     void answerTouches();
     // Why keys the compositor raised are not the person's, or null when they
@@ -1829,6 +1819,16 @@ private:
     bool m_settleOnCards = false;
     bool m_settleDrawnMoving = false;
     QElapsedTimer m_settleAsked;
+    // A last pane growing into the Active card: drawn as a layout's pane is, from its left edge, over what closed.
+    bool m_settleFitted = false;
+    // Panes closing in a shown layout stay still and dim under what grows across them (PaneLeaving.h).
+    struct PaneLeaver { KWin::EffectWindowDeletedRef ref; QPointer<KWin::LogicalOutput> output; QRectF rect;
+                        QElapsedTimer timer; mutable bool covered = false; };
+    std::map<KWin::EffectWindow *, PaneLeaver> m_paneLeavers;
+    void grabPaneClosing(KWin::EffectWindow *window);
+    void holdLeavingPane(KWin::EffectWindow *window, KWin::LogicalOutput *output);
+    [[nodiscard]] std::optional<double> paneLeaverOpacity(const KWin::EffectWindow *window) const;
+    void settlePaneLeavers();
     KWin::EffectWindow *m_fanApertureWindow = nullptr;
     QSizeF m_fanPaintSize;
     QPointF m_fanApertureOrigin;

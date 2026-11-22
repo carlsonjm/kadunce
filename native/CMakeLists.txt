@@ -84,6 +84,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectNotes.cpp
         src/EffectOffers.cpp
         src/EffectOpenedFrom.cpp
+        src/EffectLeaving.cpp
         src/EffectReveal.cpp
         src/EffectPaint.cpp
         src/EffectGuest.cpp
@@ -207,6 +208,11 @@ if(BUILD_TESTING)
     target_include_directories(kadunce-pane-resize-picture-test PRIVATE src)
     target_compile_options(kadunce-pane-resize-picture-test PRIVATE -UNDEBUG)
     add_test(NAME pane-resize-picture COMMAND kadunce-pane-resize-picture-test)
+    add_executable(kadunce-pane-leaving-test tests/PaneLeavingTest.cpp)
+    target_include_directories(kadunce-pane-leaving-test PRIVATE src)
+    target_link_libraries(kadunce-pane-leaving-test PRIVATE Qt6::Core)
+    target_compile_options(kadunce-pane-leaving-test PRIVATE -UNDEBUG)
+    add_test(NAME pane-leaving COMMAND kadunce-pane-leaving-test)
     add_executable(kadunce-pane-reveal-test tests/PaneRevealTest.cpp)
     target_include_directories(kadunce-pane-reveal-test PRIVATE src)
     target_compile_options(kadunce-pane-reveal-test PRIVATE -UNDEBUG)

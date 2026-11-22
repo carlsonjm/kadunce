@@ -1484,6 +1484,8 @@ void Effect::showDesktopWithReturned(KWin::LogicalOutput *tablet, KWin::EffectWi
 void Effect::clearDropSettle()
 {
     const bool repaint = bool(m_settlingWindow);
+    if (std::exchange(m_settleFitted, false) && m_settlingWindow && !m_settlingWindow->isDeleted())
+        KWin::effects->setElevatedWindow(m_settlingWindow, false);
     if (m_settlingWindow && !m_settlingWindow->isDeleted()) unredirect(m_settlingWindow);
     m_settlingWindow.clear(); m_settlingOutput.clear();
     m_dropSettleTimer.invalidate();
@@ -1527,6 +1529,15 @@ void Effect::lastPaneLeftLayoutForDesktopStage(KWin::EffectWindow *window, KWin:
 {
     if (!scopedToCurrent()) return;
     glideIntoActive(window, output, drawn);
+    // CARD-LIFECYCLE.md §11: the last pane grows into the Active card at once,
+    // held by its left edge on its backing, above the pane that closed beside
+    // it, rather than waiting for its client and drawn held by its centre.
+    if (window != m_settlingWindow || m_settleFitted) return;
+    m_settleFitted = true;
+    m_dropSettleTimer.start();
+    KWin::effects->setElevatedWindow(window, true);
+    qInfo().nospace() << "Kadunce " << Revision << " grows " << logNameOf(window)
+                      << " into the Active card from its left edge, at once";
 }
 
 void Effect::paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
