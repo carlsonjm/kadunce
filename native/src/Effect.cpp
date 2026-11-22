@@ -338,26 +338,7 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::windowActivated, this, [this] {
         if (m_showsKeyboardOutline) KWin::effects->addRepaintFull();
     });
-    // A menu bar's tab held still becomes a rename.
-    m_tableHold.setSingleShot(true);
-    m_tableHold.setTimerType(Qt::PreciseTimer);
-    connect(&m_tableHold, &QTimer::timeout, this, [this] {
-        const TableAction action = m_table.hold(tableNow());
-        if (action.kind == TableAction::Kind::Rename) beginTableRename(action.workspace, m_tablePressTouch);
-        else if (const qint64 left = m_table.holdLeft(tableNow()); left > 0) m_tableHold.start(int(left));
-    });
-    // A Stack rested on hangs its cards; a card held over another arms to stack.
-    m_tableRest.setSingleShot(true);
-    m_tableRest.setInterval(150);
-    connect(&m_tableRest, &QTimer::timeout, this, [this] {
-        if (m_table.hangMembers()) refreshTable();
-    });
-    m_tableAim.setSingleShot(true);
-    m_tableAim.setTimerType(Qt::PreciseTimer);
-    connect(&m_tableAim, &QTimer::timeout, this, [this] {
-        m_table.armAim();
-        refreshTable();
-    });
+    connectTableTimers();
     refreshCardOutput();
     // Assertion-only §14 observation. Both stage controllers exist now, so this
     // is the first point that can see all three owners at once. It reports and

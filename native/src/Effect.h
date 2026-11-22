@@ -681,21 +681,17 @@ private:
     // display that holds cards, one stroke choosing a workspace or a card, and a card carried to a tab or to +.
     struct TableCard {
         QList<QPointer<KWin::EffectWindow>> windows;
-        QString application;
-        QString title;
+        QString application, title;
         QIcon icon;
         // A stack is one card, its face first in windows and the cards
         // behind it after; this counts those behind.
         int stacked = 0;
-        // Each of windows asleep (minimized), as Spread draws it dimmed.
-        QList<bool> asleep;
+        QList<bool> asleep; // each of windows minimized, drawn dimmed
     };
     struct TableWorkspace {
         QPointer<KWin::VirtualDesktop> desktop;
         QString name;
-        // The person named it, which keeps it.
-        bool named = false;
-        bool current = false;
+        bool named = false, current = false; // named by the person, which keeps it
         QList<TableCard> cards;
     };
     // Each workspace as Table shows it, renaming none.
@@ -708,33 +704,16 @@ private:
     [[nodiscard]] QRectF tableDisplay() const;
     [[nodiscard]] qint64 tableNow() const;
     void openTable(bool sticky, KWin::LogicalOutput *output = nullptr);
-    void closeTable();
-    void finishTable();
-    void relayoutTable();
-    void refreshTable();
+    void closeTable(), finishTable(), relayoutTable(), refreshTable();
     void applyTableAction(const TableAction &action);
-    void openTableLayout(int layout);
-    void applyTableKey(TableGesture::Key key);
+    void openTableLayout(int layout), applyTableKey(TableGesture::Key key);
     void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination, int member = -1);
-    // TABLE.md § Stacks: the card carried (or the one card of it) stacks onto
-    // a card of a workspace, in front, every card of both kept; and a card of
-    // a Stack stands on its own, just after it. Both work on the live Stacks
-    // Spread and the context line show, on whichever display and desktop
-    // hold them.
-    bool stackTableCard(const TableAction &action);
-    bool takeTableCardOut(int workspace, int card, int member);
-    // A Stack resting under the finger or pointer hangs its cards after a
-    // moment, as the context line's tabs wait before showing a card.
-    void restTable();
-    // The card a carried one is over in the row it hangs over, held there
-    // as long as Spread's hold to stack.
-    void aimTable();
-    // The card the carried one lands as, in the workspace it went to.
+    // TABLE.md: stacking, a Stack's card out, rest and aim timers, landing.
+    bool stackTableCard(const TableAction &action), takeTableCardOut(int workspace, int card, int member);
+    void connectTableTimers(), restTable(), aimTable();
     void landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face);
-    QTimer m_tableRest;
+    QTimer m_tableRest, m_tableAim;
     int m_tableRestFor = -1;
-    QTimer m_tableAim;
-    QElapsedTimer m_tableAimClock;
     [[nodiscard]] TableHit tableHitAt(const QPointF &local) const;
     [[nodiscard]] int tableCardAt(const QPointF &local) const;
     [[nodiscard]] bool tableOpenForInput() const override { return m_table.isOpen(); }
