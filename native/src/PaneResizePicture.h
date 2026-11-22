@@ -27,4 +27,18 @@ inline bool paneResizeCaughtUp(double startWidth, double startHeight, double fra
     return !same(frameWidth, startWidth) || !same(frameHeight, startHeight);
 }
 
+// A pane growing smaller shows the picture it kept from before its client
+// drew the new size, cropped by its box, and the client's new picture lays
+// its content out afresh for the smaller place. Cut from one to the other,
+// the content jumps as the move ends, so the new picture comes up over the
+// kept one through the move's last `KeptPictureBlend` ms, whole by its last
+// frame: how much of it shows, `elapsed` ms into a move of `duration`.
+inline constexpr double KeptPictureBlend = 100.0;
+inline double keptPictureBlend(double elapsed, double duration)
+{
+    if (!(duration > KeptPictureBlend + 10.0)) return 1.0;
+    const double t = std::fmin(1.0, std::fmax(0.0, (elapsed - (duration - KeptPictureBlend - 10.0)) / KeptPictureBlend));
+    return t * t * (3.0 - 2.0 * t);
+}
+
 } // namespace Kadunce

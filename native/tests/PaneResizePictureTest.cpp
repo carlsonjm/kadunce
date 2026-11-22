@@ -17,5 +17,10 @@ int main() {
     check(paneResizeCaughtUp(1098, 1156, 1098, 560, 1098, 573), "a pane short of its place waited");
     // A card that was not a pane before starts at another size than its place.
     check(!paneResizeCaughtUp(2540, 1420, 2540, 1420, 1265, 705), "a card took its old size as an answer");
+    // A shrinking pane's own picture comes up over its kept one as the move ends.
+    check(keptPictureBlend(0, 220) == 0.0 && keptPictureBlend(100, 220) == 0.0, "the kept picture shows alone at first");
+    check(keptPictureBlend(160, 220) > 0.2 && keptPictureBlend(160, 220) < 0.8, "the two blend near the end");
+    check(keptPictureBlend(210, 220) == 1.0 && keptPictureBlend(300, 220) == 1.0, "the new picture is whole by the last frame");
+    check(keptPictureBlend(0, 0) == 1.0, "animations off: the new picture at once");
     std::cout << "pane resize picture: ok\n";
 }

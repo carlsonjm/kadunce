@@ -20,8 +20,10 @@ inline constexpr double PaneLeavingCoveredOpacity = 0.55;
 {
     if (!(duration > 0.0)) return 0.0;
     const double t = std::clamp(elapsed / duration, 0.0, 1.0);
-    const double eased = 1.0 - std::pow(1.0 - t, 3.0);
-    return covered ? 1.0 - (1.0 - PaneLeavingCoveredOpacity) * eased : 1.0 - eased;
+    // Covered, it dims early, as the pane draws across it; left alone, it
+    // fades evenly, so its going is seen rather than a cut.
+    if (covered) return 1.0 - (1.0 - PaneLeavingCoveredOpacity) * (1.0 - std::pow(1.0 - t, 3.0));
+    return 1.0 - t * t * (3.0 - 2.0 * t);
 }
 
 // Whether a pane growing to any of `growing` will cover the closing window
