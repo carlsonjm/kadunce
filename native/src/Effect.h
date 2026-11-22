@@ -588,7 +588,7 @@ private:
     bool holdDisplaysInCards(KWin::EffectWindow *arrival);
     // Both answer for the desktop of the session being worked on.
     [[nodiscard]] bool isCardWindow(const KWin::EffectWindow *window) const;
-    [[nodiscard]] bool isApplicationWindow(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool isApplicationWindow(const KWin::EffectWindow *window, bool anyDesktop = false) const;
     // CARD-LIFECYCLE.md §4: a window that keeps its own size floats, centred,
     // over cards and layouts, and is never a card or a pane.
     [[nodiscard]] bool floatsAtItsOwnSize(const KWin::EffectWindow *window) const;
@@ -878,7 +878,7 @@ private:
     static constexpr int LayoutStandRetryMs = 200;
     [[nodiscard]] bool layoutWindowSettled(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                                            KWin::VirtualDesktop *desktop);
-    [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window) const;
+    [[nodiscard]] QString layoutAppIdentity(KWin::EffectWindow *window, bool anyDesktop = false) const;
     [[nodiscard]] KWin::LogicalOutput *layoutDisplay() const;
     static bool isDependentWindow(const KWin::EffectWindow *window);
     // Whether a dependent of lead may be seen: always, unless lead is a card
