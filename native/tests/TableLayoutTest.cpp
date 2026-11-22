@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "TableLayout.h"
+#include "TableSavedLayouts.h"
 #include <cstdlib>
 #include <iostream>
 using namespace Kadunce;
@@ -124,6 +125,44 @@ int main()
     check(!tableListsWindow({.skipPager = true}), "a window kept out of the pager does not");
     check(!tableListsWindow({.skipSwitcher = true, .skipTaskbar = true, .skipPager = true}),
           "a window kept out of all three does not");
+    {
+        // Cards under + hang centred under it, as a tab's do.
+        const QList<TableCardContent> under{{u"Empty workspace"_s, u"Nothing open"_s, 0}, {u"Writing"_s, u"2 windows"_s, 0}};
+        const auto plus = layoutTable(display, tabs, cards, QString(), u"Empty."_s, metrics, true, QString(), under);
+        check(plus.plusCards.size() == 2 && plus.plusTextWidths.size() == 2 && plus.plusContents.size() == 2,
+              "each card under + is laid out");
+        const double middle = (plus.plusCards.first().left() + plus.plusCards.last().right()) / 2.0;
+        check(std::abs(middle - plus.plus.center().x()) < 1.0 || plus.plusCards.last().right() <= display.width() - 11.9,
+              "the cards under + hang centred under it, or as near as the display allows");
+        check(plus.plusCards.first().top() == plus.trayTop && plus.plusCards.first().height() == plus.cardHeight,
+              "they hang where a tab's cards hang, as tall");
+        check(plus.cards == layoutTable(display, tabs, cards, QString(), u"Empty."_s, metrics).cards,
+              "the workspaces' cards stand where they did");
+        const auto none = layoutTable(display, tabs, cards, QString(), u"Empty."_s, metrics, false, QString(), under);
+        check(none.plusCards.isEmpty(), "with no + nothing hangs under it");
+    }
+    {
+        // A Layout read as Core gives it: two displays side by side.
+        const QVariantMap left{{u"apps"_s, QStringList{u"org.kde.kate"_s}}, {u"display"_s, u"eDP-1"_s}, {u"shown"_s, true},
+                               {u"pictureX"_s, 0.0}, {u"pictureY"_s, 0.0}, {u"pictureWidth"_s, 0.5}, {u"pictureHeight"_s, 1.0},
+                               {u"displayX"_s, 0.0}, {u"displayY"_s, 0.0}, {u"displayWidth"_s, 1000.0}, {u"displayHeight"_s, 500.0}};
+        const QVariantMap stack{{u"apps"_s, QStringList{u"firefox"_s, u"org.kde.dolphin"_s}}, {u"stack"_s, true},
+                                {u"display"_s, u"DP-1"_s}, {u"shown"_s, true},
+                                {u"pictureX"_s, 0.5}, {u"pictureY"_s, 0.0}, {u"pictureWidth"_s, 0.5}, {u"pictureHeight"_s, 1.0},
+                                {u"displayX"_s, 1000.0}, {u"displayY"_s, 0.0}, {u"displayWidth"_s, 1000.0}, {u"displayHeight"_s, 1000.0}};
+        const auto read = tableSavedLayout(u"3"_s, u" Writing "_s, {left, stack});
+        check(read.id == u"3"_s && read.name == u"Writing"_s && read.frontApp == u"org.kde.kate"_s && read.windows == 3,
+              "a Layout reads its name, its first app and every window in every group");
+        check(std::abs(read.aspect - 2.0) < 1e-9 && read.displays.size() == 2 && read.pictured.size() == 2,
+              "its desk is both displays, side by side");
+        check(read.displays.first() == QRectF(0, 0, 0.5, 0.5) && read.pictured.last() == QRectF(0.75, 0, 0.25, 1),
+              "each display and window stands in shares of the whole desk");
+        check(read.picturedApps == QStringList({u"org.kde.kate"_s, u"firefox"_s}), "each pictured window names its front app");
+        QVariantMap bare{{u"apps"_s, QStringList{u"org.kde.kate"_s}}};
+        const auto old = tableSavedLayout(u"1"_s, u"Old"_s, {bare, stack});
+        check(old.aspect == 0.0 && old.pictured.isEmpty() && old.windows == 3 && old.frontApp == u"org.kde.kate"_s,
+              "a Layout kept without places has its icon and no picture");
+    }
     std::cout << "Table layout checks passed\n";
     return 0;
 }

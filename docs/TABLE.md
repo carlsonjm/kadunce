@@ -25,7 +25,10 @@ window is in `CARD-LIFECYCLE.md`.
   made empty with `+` is New, in Table and on the context line, until its
   first application names it, and Table stays open on its tab. The name and
   KDE's desktop number are the whole label. A fresh install's first workspace
-  is Home, a name of its own.
+  is Home.
+- With saved Layouts, `+` hangs Empty workspace, which makes New, and each
+  Layout as a card, its desk picture rising when chosen. A Layout opens
+  through Split Rock in a new workspace of its name; refused, that goes again.
 - A name you give keeps the workspace; an application's does not. Which names
   are yours survives a restart. Clearing a name offers removal, and the
   windows go where KDE sends them: the next workspace, or the one before the
@@ -43,14 +46,12 @@ window is in `CARD-LIFECYCLE.md`.
 
 ## Presentation
 
-- The preview is the workspace itself, at full size. While you preview a tab
-  or card, every display shows that workspace as it would look, and you stay
-  where you are. Entering it switches desktop.
+- The preview is the workspace itself, at full size, on every display, while
+  you stay where you are; entering it switches desktop.
 - Over Spread, the tabs leave Spread in view: a workspace previews once a pull
-  reaches its cards, or a tap in the menu bar chooses its tab.
-- Table opens where you call it: on the touchscreen for a finger, and on the
-  display under the pointer for the mouse and the keys. A session has one
-  Table.
+  reaches its cards or a menu-bar tap chooses its tab.
+- Table opens where you call it: on the touchscreen for a finger, under the
+  pointer for the mouse and keys. A session has one Table.
 - On the display holding the tabs, the dock's band hangs from the top edge
   behind the rows. It darkens with the finger during a pull, full by the tabs,
   and otherwise fades down into place.
@@ -64,8 +65,8 @@ window is in `CARD-LIFECYCLE.md`.
   is a circle. Cards show the application icon, name and window title, less
   any repeat of the name; a Stack is one card with Spread's closed-stack edges
   behind it.
-- The rows float apart, with no lines between them. What the finger is on
-  lifts, lighter and a little larger with a soft shadow, and the tab whose cards
+- The rows float apart, unlined. What the finger is on lifts, lighter, a
+  little larger and softly shadowed, and the tab whose cards
   hang stays lifted. Cards come up to meet a finger nearing them, the chosen one
   rises toward the lift line as it is pulled, and the card in hand is the card
   itself.
@@ -80,7 +81,6 @@ window is in `CARD-LIFECYCLE.md`.
 
 - Membership comes only from KWin's virtual-desktop APIs. Kadunce keeps no
   parallel desktop model or persistence layer.
-- Window identity and prepared transfers follow Kadunce's own rules.
 - Virtual desktops and physical displays are independent dimensions.
 - Active, Spread, Bento, monitor transfer, tablet ownership, the dock,
   restoration and the tray switch behave as they do without Table, and KDE's

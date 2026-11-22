@@ -1029,6 +1029,10 @@ QString Effect::tableLine() const
     if (m_table.level() == TableLevel::Cards && validWorkspace(tray) && m_table.card() >= 0
         && m_table.card() < m_tableWorkspaces[tray].cards.size())
         return cardName(m_tableWorkspaces[tray].cards[m_table.card()]);
+    if (m_table.plusCard() >= 0 && m_table.plusCard() < m_tableLayout.plusContents.size()) {
+        const TableCardContent &card = m_tableLayout.plusContents[m_table.plusCard()];
+        return i18n("%1, %2", card.application, card.title);
+    }
     if (m_table.onPlus()) return i18n("New workspace");
     if (validWorkspace(m_table.hovered())) return workspaceName(m_table.hovered());
     if (validWorkspace(m_table.shownWorkspace())) return workspaceName(m_table.shownWorkspace());

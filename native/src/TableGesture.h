@@ -60,6 +60,9 @@ struct TableAction {
         // Rename `workspace`: its tab held in a menu bar, right-clicked, or
         // F2.
         Rename,
+        // Make a workspace named after saved Layout `card`, enter it and
+        // open the Layout there. Table closes.
+        OpenLayout,
     };
     Kind kind = Kind::None;
     int workspace = -1;
@@ -68,11 +71,12 @@ struct TableAction {
 };
 
 // What a menu bar's tap landed on: a tab, the + tab, a card of the tray's
-// workspace, or nothing of Table's.
+// workspace, a card hanging under +, or nothing of Table's.
 struct TableHit {
     int tab = -1;
     bool plus = false;
     int card = -1;
+    int plusCard = -1;
     bool insideRows = false;
 };
 
@@ -122,11 +126,20 @@ public:
         m_cards = std::move(cards);
     }
 
+    // The cards that hang under +, their centres across the display: the
+    // empty workspace first, then each saved Layout. None, and + makes a
+    // workspace at once, as it always has.
+    void setPlusCards(QList<double> centres)
+    {
+        m_plusCards = std::move(centres);
+        if (m_plusCard >= m_plusCards.size()) m_plusCard = -1;
+    }
+
     // The finger is down at position. On a sticky Table's card, the effect
     // found under it, the press previews that card, and dragged it lifts, as
     // anything is dragged on a desktop. On a sticky Table's tab, held still
     // it renames the tab (hold).
-    void press(QPointF position, int card, int tab = -1, qint64 now = 0)
+    void press(QPointF position, int card, int tab = -1, qint64 now = 0, int plusCard = -1)
     {
         m_down = true;
         m_pressAt = position;
@@ -145,6 +158,8 @@ public:
             m_card = card;
             m_pressCard = card;
         }
+        // A card under + is touched to see it; it is never carried.
+        if (m_sticky && plusCard >= 0 && plusTray()) m_plusCard = plusCard;
     }
 
     void move(QPointF position, double y)
@@ -193,8 +208,10 @@ public:
             if (m_level == TableLevel::Cards && m_card >= 0)
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
             if (m_level == TableLevel::Cards) return closeWith({TableAction::Kind::Close});
-            // Lifting on + makes a workspace, as lifting on a tab enters one.
-            if (m_onPlus) return makeNew();
+            if (plusTray() && m_plusCard >= 0) return choosePlusCard(m_plusCard);
+            // Lifting on + hangs its cards, or with none makes a workspace,
+            // as lifting on a tab enters one.
+            if (m_onPlus) return m_plusCards.isEmpty() ? makeNew() : openPlusTray();
             return closeWith({TableAction::Kind::Enter, m_hovered});
         }
         // A menu bar: a tap previews, a second tap on the same tab enters.
@@ -205,12 +222,15 @@ public:
         }
         if (hit.card >= 0 && trayWorkspace() >= 0)
             return closeWith({TableAction::Kind::Activate, trayWorkspace(), hit.card});
-        // + has nothing to preview, so one tap makes the workspace.
-        if (hit.plus) return makeNew();
+        if (hit.plusCard >= 0 && plusTray()) return choosePlusCard(hit.plusCard);
+        // + hangs the empty workspace and the saved Layouts; with no Layouts
+        // it has nothing to show, so one tap makes the workspace.
+        if (hit.plus) return m_plusCards.isEmpty() ? makeNew() : openPlusTray();
         if (hit.tab >= 0) {
             if (hit.tab == m_hovered && m_level == TableLevel::Tabs && !m_onPlus)
                 return closeWith({TableAction::Kind::Enter, hit.tab});
             m_onPlus = false;
+            m_plusCard = -1;
             m_hovered = hit.tab;
             m_level = TableLevel::Tabs;
             m_card = -1;
@@ -253,15 +273,19 @@ public:
     // A pointer resting on a menu bar's rows: over a tab it previews that
     // workspace, over a hanging card that card, and over + it shows where the
     // person is.
-    void hover(int tab, int card, bool plus = false)
+    void hover(int tab, int card, bool plus = false, int plusCard = -1)
     {
         if (!m_open || !m_sticky || m_down || m_carrying) return;
-        if (plus && hasPlus()) {
+        if (plusCard >= 0 && plusTray()) {
+            m_plusCard = plusCard;
+        } else if (plus && hasPlus()) {
+            if (!m_onPlus) m_plusCard = -1;
             m_onPlus = true;
             m_level = TableLevel::Tabs;
             m_card = -1;
         } else if (tab >= 0) {
             m_onPlus = false;
+            m_plusCard = -1;
             m_hovered = tab;
             m_level = TableLevel::Tabs;
             m_card = -1;
@@ -280,13 +304,16 @@ public:
     {
         if (!m_open || m_carrying || steps == 0) return;
         m_sticky = true;
-        if (m_level == TableLevel::Cards) {
+        if (plusTray() && m_plusCard >= 0) {
+            m_plusCard = std::clamp(m_plusCard + steps, 0, int(m_plusCards.size()) - 1);
+        } else if (m_level == TableLevel::Cards) {
             const int count = m_locked >= 0 && m_locked < m_cards.size() ? int(m_cards[m_locked].size()) : 0;
             if (count > 0) m_card = std::clamp(m_card < 0 ? (steps > 0 ? 0 : count - 1) : m_card + steps, 0, count - 1);
         } else if (!m_tabs.isEmpty()) {
             const int last = int(m_tabs.size()) - (hasPlus() ? 0 : 1);
             const int at = std::clamp((m_onPlus ? int(m_tabs.size()) : m_hovered) + steps, 0, last);
             m_onPlus = at == int(m_tabs.size());
+            m_plusCard = -1;
             if (!m_onPlus) m_hovered = at;
         }
     }
@@ -347,6 +374,7 @@ public:
             step(1);
             break;
         case Key::Down:
+            if (plusTray() && m_plusCard < 0) m_plusCard = 0;
             if (m_level == TableLevel::Tabs && !m_onPlus && m_hovered >= 0 && m_hovered < m_cards.size()
                 && !m_cards[m_hovered].isEmpty()) {
                 m_level = TableLevel::Cards;
@@ -355,6 +383,7 @@ public:
             }
             break;
         case Key::Up:
+            if (plusTray()) m_plusCard = -1;
             if (m_level == TableLevel::Cards) {
                 m_level = TableLevel::Tabs;
                 m_hovered = m_locked;
@@ -364,6 +393,12 @@ public:
         case Key::Enter:
             if (m_level == TableLevel::Cards && m_card >= 0)
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
+            if (plusTray() && m_plusCard >= 0) return choosePlusCard(m_plusCard);
+            // On + with cards hanging, Enter goes down to the first of them.
+            if (plusTray()) {
+                m_plusCard = 0;
+                break;
+            }
             if (m_onPlus) return makeNew();
             return closeWith({TableAction::Kind::Enter, m_hovered});
         case Key::Escape:
@@ -445,6 +480,10 @@ public:
     [[nodiscard]] int carryFrom() const { return m_carryFrom; }
     // The finger, pointer or keys are on + rather than a tab.
     [[nodiscard]] bool onPlus() const { return m_open && m_onPlus && !m_carrying; }
+    // The cards under + hang, as a tab's do while it is in view.
+    [[nodiscard]] bool plusTray() const { return onPlus() && !m_plusCards.isEmpty(); }
+    // The card under + the finger, pointer or keys are on, or -1.
+    [[nodiscard]] int plusCard() const { return plusTray() ? m_plusCard : -1; }
     [[nodiscard]] QPointF finger() const { return m_last; }
 
     enum class Over { Nothing, Workspace, Plus };
@@ -560,6 +599,7 @@ private:
                 m_card = -1;
                 m_refused = -1;
             }
+            m_plusCard = -1;
             const int tab = nearest(m_tabs, position.x());
             if (plusNearer(tab, position.x())) {
                 if (!m_onPlus) m_scrubbed = true;
@@ -570,7 +610,12 @@ private:
                 m_scrubbed = true;
             }
         } else if (m_onPlus && m_level == TableLevel::Tabs) {
-            // Nothing hangs under +; the finger stays on it.
+            // Under + the finger chooses among its cards, which are only
+            // ever chosen, never carried; with none it stays on +.
+            if (!m_plusCards.isEmpty()) {
+                m_plusCard = nearest(m_plusCards, position.x());
+                m_scrubbed = true;
+            }
         } else {
             if (m_level == TableLevel::Tabs) {
                 m_level = TableLevel::Cards;
@@ -679,9 +724,30 @@ private:
         m_sticky = true;
         m_down = false;
         m_onPlus = false;
+        m_plusCard = -1;
         m_level = TableLevel::Tabs;
         m_card = -1;
         return {TableAction::Kind::New};
+    }
+
+    // + is the tab in view and its cards hang under it, none chosen. Table
+    // stays open as a menu bar; nothing is made until a card is chosen.
+    TableAction openPlusTray()
+    {
+        interrupt();
+        m_onPlus = true;
+        m_level = TableLevel::Tabs;
+        m_card = -1;
+        m_plusCard = -1;
+        return {TableAction::Kind::StayOpen};
+    }
+
+    // The first card under + is the empty workspace + has always made; each
+    // after it is a saved Layout, opened in a workspace of its own.
+    TableAction choosePlusCard(int card)
+    {
+        if (card <= 0) return makeNew();
+        return closeWith({TableAction::Kind::OpenLayout, -1, card - 1});
     }
 
     TableAction closeWith(TableAction action)
@@ -714,6 +780,8 @@ private:
     // The card that lifted and could not be carried.
     int m_refused = -1;
     bool m_onPlus = false;
+    // The card under + chosen, while + is in view.
+    int m_plusCard = -1;
     bool m_carrying = false;
     bool m_keyCarry = false;
     int m_carryCard = -1;
@@ -723,6 +791,7 @@ private:
     QList<double> m_tabs;
     double m_plus = std::numeric_limits<double>::quiet_NaN();
     QList<QList<double>> m_cards;
+    QList<double> m_plusCards;
 };
 
 } // namespace Kadunce

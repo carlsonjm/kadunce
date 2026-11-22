@@ -392,6 +392,125 @@ int main()
         table.press(QPointF(300, 60), -1, 1);
         check(!table.carrying() && table.locked() == 1, "a finger on Table puts back what the keys carry");
     }
+    {
+        // + with saved Layouts: the empty workspace and two Layouts hang under it.
+        TableGesture table = opened(0, true);
+        table.setPlusCards({560, 700, 840});
+        table.press(QPointF(650, 60), -1);
+        TableHit plus;
+        plus.plus = true;
+        plus.insideRows = true;
+        auto action = table.release(QPointF(650, 60), 100, plus);
+        check(action.kind == Kind::StayOpen && table.isOpen() && table.plusTray() && table.plusCard() == -1
+                  && table.shownWorkspace() == 0 && table.trayWorkspace() == -1,
+              "a tap on + with Layouts hangs its cards and makes nothing");
+        table.hover(-1, -1, false, 2);
+        check(table.plusCard() == 2, "the pointer on a Layout card chooses it");
+        table.press(QPointF(700, 200), -1, -1, 200, 1);
+        check(table.plusCard() == 1 && !table.carrying(), "a touch on a Layout card chooses it, lifting nothing");
+        table.move(QPointF(760, 260), 0.26);
+        check(!table.carrying(), "a card under + is never carried");
+        TableHit layout;
+        layout.plusCard = 1;
+        layout.insideRows = true;
+        table.press(QPointF(700, 200), -1, -1, 300, 1);
+        action = table.release(QPointF(700, 200), 320, layout);
+        check(action.kind == Kind::OpenLayout && action.card == 0 && !table.isOpen(),
+              "a tap on the first Layout opens it, and Table closes");
+    }
+    {
+        TableGesture table = opened(0, true);
+        table.setPlusCards({560, 700});
+        TableHit plus;
+        plus.plus = true;
+        plus.insideRows = true;
+        table.press(QPointF(650, 60), -1);
+        (void)table.release(QPointF(650, 60), 100, plus);
+        TableHit empty;
+        empty.plusCard = 0;
+        empty.insideRows = true;
+        table.press(QPointF(560, 200), -1, -1, 200, 0);
+        const auto action = table.release(QPointF(560, 200), 220, empty);
+        check(action.kind == Kind::New && table.isOpen() && !table.onPlus(),
+              "Empty workspace makes the workspace + always made, Table open");
+    }
+    {
+        TableGesture table = opened(0, true);
+        table.setPlusCards({560, 700});
+        TableHit plus;
+        plus.plus = true;
+        plus.insideRows = true;
+        table.press(QPointF(650, 60), -1);
+        (void)table.release(QPointF(650, 60), 100, plus);
+        auto action = table.key(TableGesture::Key::Escape);
+        check(action.kind == Kind::Close && !table.isOpen(), "Escape from + makes nothing");
+        table = opened(0, true);
+        table.setPlusCards({560, 700});
+        table.press(QPointF(650, 60), -1);
+        (void)table.release(QPointF(650, 60), 100, plus);
+        table.press(QPointF(400, 800), -1);
+        action = table.release(QPointF(400, 800), 200, {});
+        check(action.kind == Kind::Enter && action.workspace == 0 && !table.isOpen(),
+              "a tap outside + returns to where the person was, making nothing");
+        table = opened(0, true);
+        table.setPlusCards({560, 700});
+        table.press(QPointF(650, 60), -1);
+        (void)table.release(QPointF(650, 60), 100, plus);
+        TableHit tab;
+        tab.tab = 1;
+        tab.insideRows = true;
+        table.press(QPointF(300, 60), -1);
+        action = table.release(QPointF(300, 60), 200, tab);
+        check(action.kind == Kind::StayOpen && !table.plusTray() && table.hovered() == 1,
+              "a tap on another tab puts the cards under + away");
+    }
+    {
+        // A finger pulled on to + and down to its cards opens the one it lifts on.
+        TableGesture table = opened();
+        table.setPlusCards({560, 700, 840});
+        stroke(table, 310, 0.10, 50);
+        stroke(table, 640, 0.12, 120);
+        check(table.plusTray() && table.plusCard() == -1, "the finger on + hangs its cards");
+        stroke(table, 830, 0.40, 300);
+        check(table.plusCard() == 2 && !table.carrying(), "down among them it chooses the nearest");
+        stroke(table, 830, 0.60, 350);
+        check(!table.carrying(), "past the lift line a card under + still does not lift");
+        auto action = table.release(QPointF(830, 600), 400);
+        check(action.kind == Kind::OpenLayout && action.card == 1, "lifting on a Layout card opens it");
+        table = opened();
+        table.setPlusCards({560, 700});
+        stroke(table, 310, 0.10, 50);
+        stroke(table, 640, 0.12, 120);
+        action = table.release(QPointF(640, 120), 400);
+        check(action.kind == Kind::StayOpen && table.isOpen() && table.sticky() && table.plusTray(),
+              "lifting on + with Layouts leaves its cards hanging, nothing made");
+    }
+    {
+        TableGesture table = opened();
+        table.setPlusCards({560, 700});
+        for (int i = 0; i < 3; ++i) table.key(TableGesture::Key::Right);
+        check(table.plusTray() && table.plusCard() == -1, "the keys on + hang its cards");
+        table.key(TableGesture::Key::Down);
+        check(table.plusCard() == 0, "down chooses Empty workspace");
+        table.key(TableGesture::Key::Right);
+        check(table.plusCard() == 1, "right steps to the Layout");
+        auto action = table.key(TableGesture::Key::Enter);
+        check(action.kind == Kind::OpenLayout && action.card == 0, "enter opens the chosen Layout");
+    }
+    {
+        // A card carried on to + still makes a workspace for it, Layouts or not.
+        TableGesture table = opened();
+        table.setPlusCards({560, 700});
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.40, 300);
+        stroke(table, 440, 0.60, 350);
+        check(table.carrying() && !table.plusTray(), "a lifted card is carried, nothing hangs under +");
+        stroke(table, 640, 0.10, 400);
+        check(table.over() == TableGesture::Over::Plus && !table.plusTray(), "carried on to +");
+        const auto action = table.release(QPointF(640, 100), 500);
+        check(action.kind == Kind::Create && action.workspace == 1 && action.card == 1,
+              "let go on +, it makes a workspace for the card");
+    }
     std::cout << "Table gesture checks passed\n";
     return 0;
 }
