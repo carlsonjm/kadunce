@@ -865,8 +865,7 @@ void Effect::stepSessionEndGlass()
     const qint64 step = m_sessionEnd.lastStep.restart();
     if (step <= 0) return;
     // A window that was not there when the session began ending is one
-    // asking something, a save question or KDE's word that something did not
-    // close; the glass clears while it stands.
+    // asking something, a save question or KDE's word that something did not close; the glass clears while it stands.
     bool asking = false;
     bool asked = false;
     for (KWin::EffectWindow *window : KWin::effects->stackingOrder()) {
@@ -1009,8 +1008,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     if (m_roomOffer && screen == m_roomOffer->output) captureOfferPictures();
     // Labels, rails and outlines belong to the current desktop's presentation.
     if (m_previewDesktop) return paintResult(true);
-    // Where anything below is painted over the scene, and so over the
-    // pointer when KWin composites it.
+    // Where anything below is painted over the scene, and so over the pointer when KWin composites it.
     QList<QRectF> overlaid;
     // A display's dividers are drawn while it shows its layout, its cards
     // waiting behind it, as they are taken (beginRailFromInput).
@@ -1255,8 +1253,7 @@ void Effect::paintCardShadow(const KWin::RenderTarget &renderTarget, const KWin:
         vertices << QVector2D(part.topLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomLeft())
                  << QVector2D(part.bottomLeft()) << QVector2D(part.topRight()) << QVector2D(part.bottomRight());
     };
-    // Inside its corners the card is cut away, so the band along each edge
-    // reaches in as far as the corners do.
+    // Inside its corners the card is cut away, so the band along each edge reaches in as far as the corners do.
     const double inset = std::min({cardCornerRadius(), card.width() / 2.0, card.height() / 2.0});
     const QRectF inner = card.adjusted(inset, inset, -inset, -inset);
     quad(QRectF(extent.left(), extent.top(), extent.width(), inner.top() - extent.top()));
@@ -1429,8 +1426,7 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         }
         m_drawnAs.insert(window, QStringLiteral("plain"));
         // Redirection is otherwise ephemeral. A window Kadunce does not trim,
-        // hidden deck members, and shader failure all return
-        // to KWin's exact r20 direct path.
+        // hidden deck members, and shader failure all return to KWin's exact r20 direct path.
         unredirect(window);
         m_previewSourceBounds.remove(window);
         if (!painted([&] { return KWin::OffscreenEffect::drawWindow(
@@ -1544,8 +1540,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     // A card a Stack steps to waits unseen until it stands in its place, and
     // a window opened into a layout until it has drawn its pane.
     if (steppingInUnseen(window) || openingUnseen(window)) return paintResult(true);
-    // A previewed desktop is drawn as it stands, with nothing of the current
-    // desktop's presentation over or under it.
+    // A previewed desktop is drawn as it stands, with nothing of the current desktop's presentation over or under it.
     if (m_previewDesktop) {
         if (!hiddenByDesktopPreview(window))
             if (!painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
@@ -1660,10 +1655,11 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();
         // A shrinking pane draws the picture it kept from before its client
-        // drew the new size, cropped by its box, until the box has reached the size its client now draws.
-        const bool keptShown = fitted && layoutMotion && layoutMotion->kept
-            && (std::abs(target.width() - frameSize.width()) > 2.0
-                || std::abs(target.height() - frameSize.height()) > 2.0);
+        // drew the new size, cropped by its box, its client's picture coming up over it as the move ends.
+        const double blend = layoutMotion && layoutMotion->timer.isValid()
+            ? keptPictureBlend(double(layoutMotion->timer.elapsed()), double(motion(220))) : 0.0;
+        const bool keptShown = fitted && layoutMotion && layoutMotion->kept && (blend < 1.0
+            || std::abs(target.width() - frameSize.width()) > 2.0 || std::abs(target.height() - frameSize.height()) > 2.0);
         if (keptShown) {
             data.setXScale(1.0);
             data.setYScale(1.0);
@@ -1675,8 +1671,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             // its frame's top-left corner on the box's: never stretched or
             // squeezed. The box crops what reaches past it, as a window
             // resized by hand is cropped, and room the picture does not
-            // reach yet is the card backing's. Only a layout's pane is drawn
-            // so; a fan card keeps its aspect.
+            // reach yet is the card backing's. Only a layout's pane is drawn so; a fan card keeps its aspect.
             data.setXScale(1.0);
             data.setYScale(1.0);
             data.setXTranslation(target.x() - frameRect.x());
@@ -1719,8 +1714,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                                       (target.y() - logicalRegion.y()) * viewport.scale());
         m_fanApertureSize = QSizeF(deviceTarget.size());
         m_fanApertureRadius = cardCornerRadius() * viewport.scale();
-        // Tilted, its corners reach past the box it was carried in: the
-        // display, not that box, bounds them.
+        // Tilted, its corners reach past the box it was carried in: the display, not that box, bounds them.
         const QRectF bounds = tiltReach > 0
             ? leaned.adjusted(-tiltReach, -tiltReach, tiltReach, tiltReach).intersected(QRectF(m_paintingOutput->geometry()))
             : plan->clip;
@@ -1731,11 +1725,17 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                : rounded && !opening ? KWin::Region(deviceTarget)
                : roundedClip(opening ? viewport.mapToDeviceCoordinatesAligned(KWin::RectF(bounds)) : deviceTarget, cardCornerRadius() * viewport.scale()));
         m_drawingKeptMotion = keptShown ? window : nullptr;
+        KWin::WindowPaintData live = data;
         // The opened window is drawn past the later effects, whose opening animation would grow it from its middle.
-        const bool drawn = painted([&] { return opening
+        bool drawn = painted([&] { return opening
             ? KWin::effects->drawWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data)
             : KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
         m_drawingKeptMotion = nullptr;
+        // Its client's own picture, placed as the kept one is, over it (PaneResizePicture.h).
+        if (drawn && keptShown && blend > 0.0) {
+            live.multiplyOpacity(blend);
+            drawn = painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, clip, live); });
+        }
         if (traced)
             layoutMotion->trace.last() += QStringLiteral(" drawn %1%2").arg(m_drawnAs.value(window), drawn ? QString() : QStringLiteral(" (failed)"));
         m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};

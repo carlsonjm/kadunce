@@ -19,6 +19,7 @@ int main() {
     check(near(paneLeavingOpacity(0, d, false), 1.0), "an uncovered pane starts whole");
     check(near(paneLeavingOpacity(d, d, false), 0.0), "an uncovered pane fades out");
     check(paneLeavingOpacity(d / 2, d, false) < half, "faster than a covered one");
+    check(paneLeavingOpacity(d / 4, d, false) > 0.8, "but seen going, not cut");
     // Animations off: nothing to draw.
     check(near(paneLeavingOpacity(0, 0, true), 0.0), "no duration, no picture");
 
