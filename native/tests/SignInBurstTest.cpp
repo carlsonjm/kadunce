@@ -64,5 +64,20 @@ int main()
         burst.end();
         require(!burst.arrive(2100), "an arrival after it was shown is the person's");
     }
+    {
+        using Kadunce::sessionReopens;
+        require(sessionReopens(QString()) == 0, "no settings, nothing to reopen");
+        const QString saved = QStringLiteral("[General]\nloginMode=restorePreviousLogout\n\n"
+            "[Session: saved at previous logout]\ncount=4\nprogram1=zen\n\n[Session: saved by user]\ncount=2\n");
+        require(sessionReopens(saved) == 4, "the session saved at sign-out reopens its apps");
+        QString chosen = saved;
+        chosen.replace(QStringLiteral("restorePreviousLogout"), QStringLiteral("restoreSavedSession"));
+        require(sessionReopens(chosen) == 2, "a session saved by hand reopens its own");
+        QString empty = saved;
+        empty.replace(QStringLiteral("restorePreviousLogout"), QStringLiteral("emptySession"));
+        require(sessionReopens(empty) == 0, "an empty session reopens nothing");
+        require(sessionReopens(QStringLiteral("[Session: saved at previous logout]\ncount=3\n")) == 3,
+                "the default is the session saved at sign-out");
+    }
     return 0;
 }
