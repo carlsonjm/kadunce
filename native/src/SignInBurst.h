@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <QString>
+#include <QStringList>
 #include <QtGlobal>
 
 #include <algorithm>
@@ -70,4 +72,31 @@ private:
     int m_count = 0;
     bool m_over = false;
 };
+// How many apps a session starting will reopen, from the text of KDE's
+// ksmserverrc: none when the person starts with an empty session, else the
+// count of the session saved at sign-out or, when they chose so, the one
+// they saved by hand.
+[[nodiscard]] inline int sessionReopens(const QString &ksmserverrc)
+{
+    QString group, mode = QStringLiteral("restorePreviousLogout");
+    int previous = 0, saved = 0;
+    for (const QString &raw : ksmserverrc.split(QLatin1Char('\n'))) {
+        const QString line = raw.trimmed();
+        if (line.startsWith(QLatin1Char('['))) { group = line; continue; }
+        const qsizetype eq = line.indexOf(QLatin1Char('='));
+        if (eq < 0) continue;
+        const QString key = line.left(eq).trimmed(), value = line.mid(eq + 1).trimmed();
+        if (group == QLatin1String("[General]") && key == QLatin1String("loginMode")) mode = value;
+        else if (key == QLatin1String("count") && group == QLatin1String("[Session: saved at previous logout]")) previous = value.toInt();
+        else if (key == QLatin1String("count") && group == QLatin1String("[Session: saved by user]")) saved = value.toInt();
+    }
+    if (mode == QLatin1String("emptySession")) return 0;
+    return std::max(0, mode == QLatin1String("restoreSavedSession") ? saved : previous);
+}
+
+// A session that saved apps keeps its glass until the first of them comes,
+// up to this long after the session starts: cold apps can take seconds to
+// draw their first window after the splash goes.
+inline constexpr qint64 SignInReopenAwaitMs = 8000;
+
 } // namespace Kadunce
