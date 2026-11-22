@@ -160,7 +160,28 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
             for (const auto &display : holder->displays) display.second->cards->paneLeftWithoutCard(window);
         }
     }
-    if (window->isOnCurrentDesktop()) scheduleCardDisplaySettle();
+    if (window->isOnCurrentDesktop()) {
+        scheduleCardDisplaySettle();
+        // An app brought here from another workspace, as KWin brings one asked
+        // for from the dock or Search, arrives as a window opening here does:
+        // the Active card of its display, the cards there behind it. Looked at
+        // on the next turn, so a move Kadunce makes itself, a layout's or a
+        // carry's, has admitted it first and this leaves it alone.
+        const QPointer<KWin::EffectWindow> arrived(window);
+        QTimer::singleShot(0, this, [this, arrived] {
+            if (!arrived || arrived->isDeleted() || !arrived->isOnCurrentDesktop() || arrived->isOnAllDesktops()
+                || arrived->isMinimized() || !isCardWindow(arrived) || sessionHolding(arrived)
+                || m_layoutRun || m_bringBack || m_carriedWindow || !arrived->window()
+                || !arrived->window()->readyForPainting()) return;
+            SessionScope own(this, m_currentSession, stageKeyFor(arrived->screen()));
+            if (m_desktopStage->managesWindow(arrived) || m_cardStage->liveCardIndex(arrived) >= 0) return;
+            qInfo() << "Kadunce" << Revision << "takes" << logNameOf(arrived)
+                    << "brought from another workspace onto" << (arrived->screen() ? arrived->screen()->name() : QString());
+            if (!m_cardStage->isActive() && startTabletInCards(arrived)) return;
+            (void)retireLayoutIntoSpreadGroup(arrived->screen());
+            (void)m_cardStage->handleWindowAdded(arrived);
+        });
+    }
     syncDesktopPreview();
     scheduleDissolve();
     scheduleDependentSync();
