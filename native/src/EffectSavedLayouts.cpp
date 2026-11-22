@@ -319,6 +319,20 @@ void Effect::settleLayout()
             }
         } else if (!settled && now - since > LayoutSettleMs) {
             settled = true;
+            // Which of layoutWindowSettled's conditions held it back.
+            int card = -2;
+            bool managed = false;
+            if (desktop == KWin::effects->currentDesktop() && m_currentSession) {
+                SessionScope scope(this, m_currentSession, stageKeyFor(output));
+                card = m_cardStage->canOwnCards(output) ? m_cardStage->liveCardIndex(window) : -3;
+                managed = m_desktopStage->managesWindow(window);
+            }
+            qInfo() << "Kadunce" << Revision << "layout missed" << logNameOf(window) << "on"
+                    << (window->screen() ? window->screen()->name() : QString()) << "for" << output->name()
+                    << "on its workspace" << window->isOnDesktop(desktop) << "everywhere" << window->isOnAllDesktops()
+                    << "shown" << (desktop == KWin::effects->currentDesktop()) << "card" << card << "managed" << managed
+                    << "minimized" << window->isMinimized() << "full screen" << window->isFullScreen()
+                    << "frame" << window->frameGeometry();
         }
         if (!settled || !m_layoutRun->settle(slot.windowId, placed)) continue;
         placedAny = placedAny || placed;
