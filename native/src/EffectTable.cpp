@@ -36,6 +36,7 @@ const char *tableActionName(TableAction::Kind kind)
     case TableAction::Kind::Create: return "made a workspace";
     case TableAction::Kind::New: return "made an empty workspace";
     case TableAction::Kind::Rename: return "renaming a workspace";
+    case TableAction::Kind::OpenLayout: return "opened a Layout in a workspace of its own";
     }
     return "nothing";
 }
@@ -44,6 +45,20 @@ const char *tableActionName(TableAction::Kind kind)
 QString newWorkspaceName()
 {
     return i18nc("@label a workspace Table made empty, before an application names it", "New");
+}
+
+// A saved Layout's line under its name on its card under +.
+QString layoutWindowsLine(int windows)
+{
+    return i18np("1 window", "%1 windows", windows);
+}
+
+// The icon a desktop id's app shows, by name, or none.
+QString appIconName(const QString &app)
+{
+    KService::Ptr service = app.isEmpty() ? KService::Ptr() : KService::serviceByDesktopName(app);
+    if (!service && !app.isEmpty()) service = KService::serviceByStorageId(app + QStringLiteral(".desktop"));
+    return service ? service->icon() : QString();
 }
 
 // KDE names a desktop it makes "Desktop N", and + calls one New. Table treats
@@ -412,9 +427,17 @@ void Effect::relayoutTable()
     // A name cleared while it is typed offers to remove the workspace; KDE
     // keeps at least one.
     const bool removable = m_tableRenaming >= 0 && m_tableRenameText.trimmed().isEmpty() && manager->count() > 1;
+    // With saved Layouts, + hangs the empty workspace it makes and each
+    // Layout as cards; with none it makes the workspace at once.
+    QList<TableCardContent> plusCards;
+    const QList<TableSavedLayout> layouts = m_tableLayouts ? m_tableLayouts->layouts() : QList<TableSavedLayout>();
+    if (plus && !layouts.isEmpty()) {
+        plusCards.append({i18n("Empty workspace"), i18n("Nothing open"), 0});
+        for (const TableSavedLayout &layout : layouts) plusCards.append({layout.name, layoutWindowsLine(layout.windows), 0});
+    }
     m_tableLayout = layoutTable(tableDisplay().size(), tabs, cards, m_table.carrying() ? i18n("New") : QString(),
         i18n("Empty, right click to name it"),
-        TableMetrics{&TablePresenter::measure}, plus, removable ? i18n("Remove workspace") : QString());
+        TableMetrics{&TablePresenter::measure}, plus, removable ? i18n("Remove workspace") : QString(), plusCards);
     QList<double> tabCentres;
     for (const QRectF &tab : std::as_const(m_tableLayout.tabs)) tabCentres.append(tab.center().x());
     QList<QList<double>> cardCentres;
@@ -425,6 +448,9 @@ void Effect::relayoutTable()
     }
     m_table.setLayout(tabCentres,
         plus ? m_tableLayout.plus.center().x() : std::numeric_limits<double>::quiet_NaN(), cardCentres);
+    QList<double> plusCentres;
+    for (const QRectF &card : std::as_const(m_tableLayout.plusCards)) plusCentres.append(card.center().x());
+    m_table.setPlusCards(plusCentres);
     // Past the line just under the tabs the cards hang, past the one just
     // under the cards a card lifts, and above the tabs a lift cancels.
     const double height = tableDisplay().height();
@@ -559,6 +585,45 @@ void Effect::refreshTable()
             };
         }
     }
+    // Under +, the empty workspace and each saved Layout as a card, the
+    // Layout's picture of its desk rising inside it as it is chosen.
+    if (m_table.plusTray() && m_tableLayouts) {
+        const QList<TableSavedLayout> &layouts = m_tableLayouts->layouts();
+        const auto &rects = m_tableLayout.plusCards;
+        for (int i = 0; i < rects.size() && i < m_tableLayout.plusContents.size(); ++i) {
+            const TableCardContent &content = m_tableLayout.plusContents[i];
+            const TableSavedLayout *layout = i > 0 && i - 1 < layouts.size() ? &layouts[i - 1] : nullptr;
+            QVariantMap picture;
+            if (layout && layout->aspect > 0.0) {
+                const auto box = [](const QRectF &rect) {
+                    return QVariantMap{{QStringLiteral("x"), rect.x()}, {QStringLiteral("y"), rect.y()},
+                                       {QStringLiteral("w"), rect.width()}, {QStringLiteral("h"), rect.height()}};
+                };
+                QVariantList displays;
+                for (const QRectF &display : layout->displays) displays.append(box(display));
+                QVariantList windows;
+                for (int w = 0; w < layout->pictured.size(); ++w) {
+                    QVariantMap window = box(layout->pictured[w]);
+                    window[QStringLiteral("icon")] = appIconName(layout->picturedApps.value(w));
+                    windows.append(window);
+                }
+                picture = QVariantMap{{QStringLiteral("aspect"), layout->aspect},
+                                      {QStringLiteral("displays"), displays}, {QStringLiteral("windows"), windows}};
+            }
+            cards.append(QVariantMap{
+                {QStringLiteral("x"), rects[i].x()}, {QStringLiteral("y"), rects[i].y()},
+                {QStringLiteral("width"), rects[i].width()}, {QStringLiteral("height"), rects[i].height()},
+                {QStringLiteral("application"), content.application}, {QStringLiteral("title"), content.title},
+                {QStringLiteral("textWidth"), m_tableLayout.plusTextWidths.value(i)},
+                {QStringLiteral("icon"), layout ? appIconName(layout->frontApp) : QString()},
+                {QStringLiteral("glyph"), layout ? QString() : QStringLiteral("plus")},
+                {QStringLiteral("picture"), picture},
+                {QStringLiteral("stacked"), 0},
+                {QStringLiteral("chosen"), m_table.plusCard() == i},
+                {QStringLiteral("carried"), false},
+            });
+        }
+    }
     model[QStringLiteral("cards")] = cards;
     // The card in hand is the card itself, hanging from the finger by its top
     // edge and never higher than just under the tabs, so the tab it is carried
@@ -661,9 +726,12 @@ TableHit Effect::tableHitAt(const QPointF &local) const
         if (m_tableLayout.tabs[i].contains(local)) hit.tab = i;
     hit.plus = !m_tableLayout.plus.isEmpty() && m_tableLayout.plus.contains(local);
     hit.card = tableCardAt(local);
+    if (m_table.plusTray())
+        for (int i = 0; i < m_tableLayout.plusCards.size(); ++i)
+            if (m_tableLayout.plusCards[i].contains(local)) hit.plusCard = i;
     const int tray = m_table.trayWorkspace();
     const bool onEmpty = tray >= 0 && m_tableLayout.empty.value(tray).contains(local);
-    hit.insideRows = hit.tab >= 0 || hit.plus || hit.card >= 0 || onEmpty
+    hit.insideRows = hit.tab >= 0 || hit.plus || hit.card >= 0 || hit.plusCard >= 0 || onEmpty
         || (local.y() >= m_tableLayout.tabsTop && local.y() <= m_tableLayout.tabsTop + m_tableLayout.row);
     return hit;
 }
@@ -694,7 +762,7 @@ void Effect::pressTableFromInput(const QPointF &position, bool touch)
     const QPointF local = position - tableDisplay().topLeft();
     const TableHit hit = tableHitAt(local);
     m_tablePressTouch = touch;
-    m_table.press(local, tableCardAt(local), hit.tab, tableNow());
+    m_table.press(local, tableCardAt(local), hit.tab, tableNow(), hit.plusCard);
     if (m_table.sticky() && hit.tab >= 0) m_tableHold.start(m_table.config().holdMs);
     else m_tableHold.stop();
     refreshTable();
@@ -773,14 +841,15 @@ void Effect::hoverTableFromInput(const QPointF &position)
 {
     if (!m_table.isOpen() || !m_table.sticky()) return;
     const TableHit hit = tableHitAt(position - tableDisplay().topLeft());
-    if (hit.tab < 0 && hit.card < 0 && !hit.plus) return;
+    if (hit.tab < 0 && hit.card < 0 && !hit.plus && hit.plusCard < 0) return;
     const int shown = m_table.shownWorkspace();
     const int card = m_table.shownCard();
     const TableLevel level = m_table.level();
     const bool onPlus = m_table.onPlus();
-    m_table.hover(hit.tab, hit.tab >= 0 ? -1 : hit.card, hit.plus);
+    const int plusCard = m_table.plusCard();
+    m_table.hover(hit.tab, hit.tab >= 0 ? -1 : hit.card, hit.plus, hit.plusCard);
     if (shown != m_table.shownWorkspace() || card != m_table.shownCard() || level != m_table.level()
-        || onPlus != m_table.onPlus())
+        || onPlus != m_table.onPlus() || plusCard != m_table.plusCard())
         refreshTable();
 }
 
@@ -1065,7 +1134,60 @@ void Effect::applyTableAction(const TableAction &action)
     case TableAction::Kind::Rename:
         beginTableRename(action.workspace, false);
         return;
+    case TableAction::Kind::OpenLayout:
+        openTableLayout(action.card);
+        return;
     }
+}
+
+void Effect::openTableLayout(int index)
+{
+    // TABLE.md: a Layout chosen under + opens in a workspace of its own,
+    // named after it. Nothing is closed: Core asks Cards to bring what is
+    // open to the current workspace and launches the rest.
+    const QList<TableSavedLayout> layouts = m_tableLayouts ? m_tableLayouts->layouts() : QList<TableSavedLayout>();
+    auto *manager = KWin::VirtualDesktopManager::self();
+    if (index < 0 || index >= layouts.size() || manager->count() >= manager->maximum()) {
+        finishTable();
+        return;
+    }
+    const TableSavedLayout layout = layouts[index];
+    const QPointer<KWin::VirtualDesktop> left = KWin::effects->currentDesktop();
+    const QPointer<KWin::VirtualDesktop> created = manager->createVirtualDesktop(manager->count(), layout.name);
+    if (!created) {
+        qInfo() << "Kadunce" << Revision << "could not make a workspace for the Layout" << layout.name;
+        finishTable();
+        return;
+    }
+    // It carries the Layout's name, which the person gave, so it stays.
+    if (!m_namedDesktops.contains(created->id())) m_namedDesktops.append(created->id());
+    saveNamedDesktops();
+    m_unenteredDesktops.remove(created->id());
+    showDesktopPreview(created, nullptr);
+    commitDesktopPreview();
+    finishTable();
+    // Core opens the Layout on the workspace in use, so it must be this one.
+    if (KWin::effects->currentDesktop() != created.data()) KWin::effects->setCurrentDesktop(created.data());
+    qInfo() << "Kadunce" << Revision << "made the workspace" << layout.name << "and asks Split Rock to open the Layout"
+            << layout.id << "there";
+    m_tableLayouts->open(layout.id, [this, layout, left, created](bool opened, const QString &error) {
+        qInfo() << "Kadunce" << Revision << "Split Rock" << (opened ? "opened" : "did not open") << "the Layout"
+                << layout.name << (error.isEmpty() ? QString() : QStringLiteral(": ") + error);
+        if (opened || !created) return;
+        // Refused, as while another Layout or a bring-back is under way: the
+        // empty workspace goes again and the person is where they were.
+        const QList<KWin::EffectWindow *> windows = KWin::effects->stackingOrder();
+        const bool empty = std::none_of(windows.cbegin(), windows.cend(), [&created](KWin::EffectWindow *window) {
+            return window && !window->isDeleted() && !window->isOnAllDesktops() && window->isNormalWindow()
+                && window->isOnDesktop(created.data());
+        });
+        if (!empty) return;
+        if (left && KWin::effects->currentDesktop() == created.data()) KWin::effects->setCurrentDesktop(left);
+        m_namedDesktops.removeAll(created->id());
+        saveNamedDesktops();
+        KWin::VirtualDesktopManager::self()->removeVirtualDesktop(created.data());
+        sayOnContextLine(QStringLiteral("hint"), i18n("That Layout could not open just now, so nothing changed."));
+    });
 }
 
 void Effect::beginTableRename(int workspace, bool touch)

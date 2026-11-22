@@ -294,6 +294,13 @@ Effect::Effect()
         [this](KWin::EffectWindow *window) {
             if (window == m_leavingPanel) releaseLeavingKeys();
         });
+    // Split Rock's Layouts are read ahead, so + shows them as Table opens.
+    m_tableLayouts = std::make_unique<TableLayoutSource>();
+    connect(m_tableLayouts.get(), &TableLayoutSource::changed, this, [this] {
+        if (!m_table.isOpen()) return;
+        relayoutTable();
+        refreshTable();
+    });
     m_leavingKeysLimit.setSingleShot(true);
     m_leavingKeysLimit.setInterval(1500);
     connect(&m_leavingKeysLimit, &QTimer::timeout, this, &Effect::releaseLeavingKeys);

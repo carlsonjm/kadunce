@@ -256,7 +256,8 @@ Item {
         }
     }
 
-    // An application's icon, its name and its window's title.
+    // An application's icon, its name and its window's title. The empty
+    // workspace under + shows the + on the icon's plate instead.
     component CardFace: Row {
         id: face
         property var entry: ({})
@@ -264,13 +265,29 @@ Item {
         anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
-        Kirigami.Icon {
+        Item {
             width: 24
             height: 24
             anchors.verticalCenter: parent.verticalCenter
-            source: face.entry.icon || "application-x-executable"
-            // A symbolic icon takes the text's colour, not the window colours'.
-            color: root.text
+            Kirigami.Icon {
+                anchors.fill: parent
+                visible: face.entry.glyph !== "plus"
+                source: face.entry.icon || "application-x-executable"
+                // A symbolic icon takes the text's colour, not the window colours'.
+                color: root.text
+            }
+            Rectangle {
+                anchors.fill: parent
+                visible: face.entry.glyph === "plus"
+                radius: 6
+                color: root.hoverFill
+                Glyph {
+                    anchors.centerIn: parent
+                    size: 16
+                    path: root.lucidePlus
+                    stroke: root.text
+                }
+            }
         }
         Column {
             anchors.verticalCenter: parent.verticalCenter
@@ -515,7 +532,17 @@ Item {
                 x: (entry.x || 0) + stacked * root.sliverStep
                 y: (entry.y || 0) - 10 * (1 - root.approach) + held * 18 * root.lean
                 width: (entry.width || 0) - stacked * root.sliverStep
-                height: entry.height || 0
+                // A saved Layout's picture of its desk rises inside its card
+                // under + as the card is chosen, the card growing to hold it.
+                readonly property var picture: entry.picture || ({})
+                readonly property real pictureHeight: (picture.aspect || 0) > 0
+                    ? Math.min(110, Math.max(0, width - 24) / picture.aspect) : 0
+                property real rise: chosen && pictureHeight > 0 ? 1 : 0
+                Behavior on rise {
+                    id: pictureRise
+                    NumberAnimation { duration: pictureRise.targetValue > 0 ? root.rise : root.settle; easing.type: root.ease }
+                }
+                height: (entry.height || 0) + (pictureHeight + 12) * rise
                 radius: 14
                 scale: (0.94 + 0.06 * root.approach) * (1 - held) + (1 + root.growth(entry.width || 0, 0.03 + 0.02 * root.lean, 8)) * held
                 shadow.size: held * (12 + 10 * root.lean)
@@ -525,7 +552,56 @@ Item {
                 opacity: entry.carried || arriving ? 0 : 0.45 + 0.55 * root.approach
                 Behavior on x { NumberAnimation { duration: root.ms(160); easing.type: root.ease } }
                 Slivers { count: card.stacked }
-                CardFace { entry: card.entry }
+                Item {
+                    width: parent.width
+                    height: card.entry.height || 0
+                    CardFace { entry: card.entry }
+                }
+                Item {
+                    id: desk
+                    visible: card.rise > 0
+                    opacity: card.rise
+                    x: 12
+                    y: card.entry.height || 0
+                    width: card.width - 24
+                    height: card.pictureHeight
+                    Accessible.ignored: true
+                    Repeater {
+                        model: card.picture.displays || []
+                        delegate: Rectangle {
+                            required property var modelData
+                            x: modelData.x * desk.width
+                            y: modelData.y * desk.height
+                            width: modelData.w * desk.width
+                            height: modelData.h * desk.height
+                            radius: 4
+                            color: root.surface
+                            border.width: 1
+                            border.color: root.text2
+                        }
+                    }
+                    Repeater {
+                        model: card.picture.windows || []
+                        delegate: Rectangle {
+                            required property var modelData
+                            x: modelData.x * desk.width + 1
+                            y: modelData.y * desk.height + 1
+                            width: Math.max(2, modelData.w * desk.width - 2)
+                            height: Math.max(2, modelData.h * desk.height - 2)
+                            radius: 3
+                            color: root.selectedFill
+                            Kirigami.Icon {
+                                anchors.centerIn: parent
+                                readonly property real side: Math.min(18, parent.width - 4, parent.height - 4)
+                                visible: side >= 8 && (parent.modelData.icon || "").length > 0
+                                width: side
+                                height: side
+                                source: parent.modelData.icon || ""
+                                color: root.text
+                            }
+                        }
+                    }
+                }
             }
         }
 

@@ -34,6 +34,7 @@
 #include "PerOutputDesktopsPolicy.h"
 #include "TableGesture.h"
 #include "TableLayout.h"
+#include "TableLayoutSource.h"
 #include "TablePresenter.h"
 #include "KeyFocus.h"
 #include "SpokenLine.h"
@@ -315,8 +316,7 @@ public Q_SLOTS:
     // Every ownership violation observed since load, in words, so a test can
     // require none; a warning in the journal is not something a test can read.
     Q_SCRIPTABLE QStringList ownershipViolations() const { return m_ownershipViolationLog; }
-    // Every card book mismatch observed since load, in words: each place the
-    // records of a card's status disagree.
+    // Every card book mismatch observed since load, in words: each place the records of a card's status disagree.
     Q_SCRIPTABLE QStringList cardBookMismatches() const { return m_cardBookLog; }
 
 Q_SIGNALS:
@@ -387,8 +387,7 @@ private:
                                   const KWin::Region &deviceRegion,
                                   KWin::WindowPaintData &data);
     // Whether this window casts a card shadow (CardShadow): a window Kadunce
-    // trims, while neither its display's Spread nor Table is shown, which lay
-    // their cards out their own way.
+    // trims, while neither its display's Spread nor Table is shown, which lay their cards out their own way.
     [[nodiscard]] bool castsShadow(KWin::EffectWindow *window);
     // Draws the shadow under the window as it is drawn this time, before it.
     void paintCardShadow(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
@@ -679,8 +678,7 @@ private:
     void showDesktopPreview(KWin::VirtualDesktop *desktop, KWin::EffectWindow *card);
 
     // Table (TABLE.md): every workspace as tabs under the top edge of the
-    // display that holds cards, one stroke choosing a workspace or a card, and
-    // a card carried to a tab or to +.
+    // display that holds cards, one stroke choosing a workspace or a card, and a card carried to a tab or to +.
     struct TableCard {
         QList<QPointer<KWin::EffectWindow>> windows;
         QString application;
@@ -713,6 +711,7 @@ private:
     void relayoutTable();
     void refreshTable();
     void applyTableAction(const TableAction &action);
+    void openTableLayout(int layout);
     void applyTableKey(TableGesture::Key key);
     void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination);
     [[nodiscard]] TableHit tableHitAt(const QPointF &local) const;
@@ -736,6 +735,8 @@ private:
     QList<TableWorkspace> m_tableWorkspaces;
     TableLayout m_tableLayout;
     std::unique_ptr<TablePresenter> m_tablePresenter;
+    // Split Rock's saved Layouts, which hang under + (TABLE.md).
+    std::unique_ptr<TableLayoutSource> m_tableLayouts;
     // Spread and Table said to a screen reader, made only while one listens.
     std::unique_ptr<SpokenLine> m_spokenLine;
     // What Table says now, kept as Table is drawn.
@@ -769,8 +770,7 @@ private:
     QStringList m_namedDesktops;
     // Desktops something else made while Kadunce ran that have not yet been
     // shown. Leaving is what dissolves a workspace, so one never entered
-    // waits: a script or another tool that makes a desktop and then sends a
-    // window to it finds it still there.
+    // waits: a script or another tool that makes a desktop and then sends a window to it finds it still there.
     QSet<QString> m_unenteredDesktops;
     void loadNamedDesktops();
     void saveNamedDesktops();

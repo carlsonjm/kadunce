@@ -83,6 +83,10 @@ struct TableLayout {
     QList<QList<double>> textWidths;
     // Where a workspace with no cards says so, under its tab.
     QList<QRectF> empty;
+    // The cards that hang under +, laid out as a tab's, and what they say.
+    QList<QRectF> plusCards;
+    QList<double> plusTextWidths;
+    QList<TableCardContent> plusContents;
 };
 
 struct TableMetrics {
@@ -150,7 +154,7 @@ inline double tableTabFrame(const TableTabContent &tab, TableTabParts parts)
 inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabContent> &tabs,
     const QList<QList<TableCardContent>> &cards, const QString &plusLabel,
     const QString &emptyLabel, const TableMetrics &metrics, bool withPlus = true,
-    const QString &removeLabel = QString())
+    const QString &removeLabel = QString(), const QList<TableCardContent> &plusCards = {})
 {
     using namespace TableSizes;
     TableLayout layout;
@@ -245,11 +249,10 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
     const double cardHeight = layout.row + 14.0;
     layout.cardHeight = cardHeight;
     layout.lift = layout.trayTop + cardHeight + LineGap;
-    for (int w = 0; w < tabs.size(); ++w) {
+    // A row of cards hanging centred under a tab's centre, kept on the display.
+    const auto hang = [&](const QList<TableCardContent> &own, double centre, QList<QRectF> &rects, QList<double> &texts) {
         QList<double> widths;
-        QList<double> texts;
         double trayWidth = -CardGap;
-        const auto &own = w < cards.size() ? cards[w] : QList<TableCardContent>{};
         for (const auto &card : own) {
             const double text = std::max(metrics.measure(card.application, CardAppSize, true),
                 std::min(metrics.measure(card.title, CardTitleSize, false), CardTitleMaximum));
@@ -259,21 +262,28 @@ inline TableLayout layoutTable(const QSizeF &display, const QList<TableTabConten
             texts.append(text);
             trayWidth += width + CardGap;
         }
+        if (own.isEmpty()) return;
+        double left = std::clamp(centre - trayWidth / 2.0, TrayEdge,
+            std::max(TrayEdge, display.width() - trayWidth - TrayEdge));
+        for (double width : widths) {
+            rects.append(QRectF(left, layout.trayTop, width, cardHeight));
+            left += width + CardGap;
+        }
+    };
+    for (int w = 0; w < tabs.size(); ++w) {
         const double centre = layout.tabs[w].center().x();
         QList<QRectF> rects;
-        if (!own.isEmpty()) {
-            double left = std::clamp(centre - trayWidth / 2.0, TrayEdge,
-                std::max(TrayEdge, display.width() - trayWidth - TrayEdge));
-            for (double width : widths) {
-                rects.append(QRectF(left, layout.trayTop, width, cardHeight));
-                left += width + CardGap;
-            }
-        }
+        QList<double> texts;
+        hang(w < cards.size() ? cards[w] : QList<TableCardContent>{}, centre, rects, texts);
         layout.cards.append(rects);
         layout.textWidths.append(texts);
         const double emptyWidth = metrics.measure(emptyLabel, CardTitleSize, false) + 28.0;
         layout.empty.append(QRectF(std::clamp(centre - emptyWidth / 2.0, TrayEdge,
             std::max(TrayEdge, display.width() - emptyWidth - TrayEdge)), layout.trayTop, emptyWidth, layout.row));
+    }
+    if (withPlus) {
+        hang(plusCards, layout.plus.center().x(), layout.plusCards, layout.plusTextWidths);
+        layout.plusContents = plusCards;
     }
     return layout;
 }

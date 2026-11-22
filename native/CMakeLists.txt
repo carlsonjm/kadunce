@@ -101,8 +101,11 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/PaintResult.h
         src/TableGesture.h
         src/TableLayout.h
+        src/TableLayoutSource.cpp
+        src/TableLayoutSource.h
         src/TablePresenter.cpp
         src/TablePresenter.h
+        src/TableSavedLayouts.h
         src/SpokenLine.cpp
         src/SpokenLine.h
         src/SpreadReading.h
