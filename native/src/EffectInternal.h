@@ -22,6 +22,7 @@
 #include "PaneArrival.h"
 #include "PanePlaces.h"
 #include "PaneResizePicture.h"
+#include "PaneLeaving.h"
 #include "PaneReveal.h"
 #include "NativeLanding.h"
 #include "MonitorDropIntent.h"

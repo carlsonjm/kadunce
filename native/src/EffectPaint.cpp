@@ -40,8 +40,7 @@ constexpr int SessionEndDarkenInstantMs = 150;
 constexpr double ChosenRingWidth = 2.0;
 constexpr float ChosenRingOpacity = 0.55f;
 
-// The renderer that draws a view's scene. From KWin 6.8 each render device
-// has its own; earlier KWin has one.
+// The renderer that draws a view's scene. From KWin 6.8 each render device has its own; earlier KWin has one.
 template<typename SceneT, typename View>
 KWin::ItemRenderer *sceneRenderer(SceneT *scene, View *view)
 {
@@ -55,8 +54,7 @@ KWin::ItemRenderer *sceneRenderer(SceneT *scene, View *view)
 // anything an effect paints after the scene lands on top of it. The pointer
 // is drawn again only where Kadunce painted, `overlaid` in logical pixels, and
 // only when KWin composited it into this display's scene, so a pointer on its
-// own hardware plane, or one nothing covered, is never doubled. False when
-// drawing failed and painting is to stop.
+// own hardware plane, or one nothing covered, is never doubled. False when drawing failed and painting is to stop.
 bool paintPointerAbove(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                        const KWin::Region &deviceRegion, KWin::LogicalOutput *screen,
                        const QList<QRectF> &overlaid)
@@ -193,11 +191,9 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
         syncNotesHandover(wasShown && !m_notesSpreadShown);
         syncNotesPause();
         syncSpokenLine();
-        // Every way Spread opens ends in a frame of it formed; a swipe still
-        // under the fingers may yet spring back.
+        // Every way Spread opens ends in a frame of it formed; a swipe still under the fingers may yet spring back.
         const bool spreadOpen = m_notesSpreadShown && !m_cardStage->spreadOpening();
-        // Read before Search is asked in, so keys typing into it stay; put
-        // away after the frame, not in its paint.
+        // Read before Search is asked in, so keys typing into it stay; put away after the frame, not in its paint.
         if (spreadOpen && !std::exchange(m_spreadKeysAnswered, true)) {
             const bool searchBeside = m_cardStage->launcherGuestActive() || !m_floatingLauncherOwner.isEmpty();
             if (!searchBeside) QTimer::singleShot(0, this, &Effect::putKeysAwayForSpread);
@@ -400,6 +396,7 @@ void Effect::postPaintScreen()
     for (auto &m : m_bentoMotions)
         if (m.drawnMoving && !m.timer.isValid()) m.timer.start();
     if (m_settlingWindow && m_settleDrawnMoving && !m_dropSettleTimer.isValid()) m_dropSettleTimer.start();
+    settlePaneLeavers();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
     // Spread, Bento and the rest open and close along many paths, and every
@@ -479,10 +476,11 @@ void Effect::prePaintWindow(KWin::RenderView *view,
 {
     // Asked of the stage holding the window, else its display's.
     SessionScope scope(this, m_currentSession, stageKeyOf(window));
+    grabPaneClosing(window);
     if (m_signInGlass.on && window == m_signInGlass.front) { data.setTransformed(); data.setTranslucent(); }
     else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
     if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
-        || yieldingPaneOpacity(window) || m_stackScrubShown.contains(window)
+        || yieldingPaneOpacity(window) || paneLeaverOpacity(window) || m_stackScrubShown.contains(window)
         || m_roomOfferShown.contains(window) || stackJoinShrink(window) || stackJoinFan(window)) {
         data.setTransformed(); data.setTranslucent();
     }
@@ -802,8 +800,7 @@ void Effect::drawSettingsFrostUnder(const KWin::RenderTarget &renderTarget, cons
     const bool drawn = m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength);
     if (drawn) m_frostDrawn[screen->name()].append(whole);
     // The fades a panel lays under the windows, the Context Panel's tail
-    // among them, are drawn over the glass, so the panel ends as it always
-    // does rather than at the edge of a bar.
+    // among them, are drawn over the glass, so the panel ends as it always does rather than at the edge of a bar.
     int fades = 0;
     for (KWin::EffectWindow *fade : KWin::effects->stackingOrder()) {
         if (!fadeOverSettingsFrost(fade)) continue;
@@ -921,8 +918,7 @@ void Effect::drawSessionEndGlass(const KWin::RenderTarget &renderTarget, const K
                                                  float(m_sessionEnd.frost));
         if (drawn) m_frostDrawn[screen->name()].append(whole);
     }
-    // The fill's box reaches past the display, so its rounded corners fall
-    // outside and black meets every edge.
+    // The fill's box reaches past the display, so its rounded corners fall outside and black meets every edge.
     const qreal corner = 2.0 * cardCornerRadius();
     if (m_sessionEnd.black > 0.0)
         fillDestinationParts(renderTarget, viewport, parts, whole.adjusted(-corner, -corner, corner, corner),
@@ -1602,6 +1598,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         return paintResult(true);
     }
     if (hiddenOnOtherDesktop(window)) return paintResult(true);
+    if (const auto leaving = paneLeaverOpacity(window)) data.multiplyOpacity(*leaving);
     // A sleeping card stands in Spread dimmed, so it can be found and woken,
     // unless the context line says so instead and the card stands whole, or
     // a person has chosen either for every sleeping card.
@@ -1658,13 +1655,13 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         // travelling box exactly, whichever picture its client has drawn (PaneResizePicture.h).
         const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
             ? bentoMotionOf(window) : nullptr;
-        const bool fitted = layoutMotion && !layoutMotion->arrival;
+        const bool fitted = (layoutMotion && !layoutMotion->arrival) || (window == m_settlingWindow && m_settleFitted);
         const KWin::Rect target = KWin::RectF(leaned).toRect();
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();
         // A shrinking pane draws the picture it kept from before its client
         // drew the new size, cropped by its box, until the box has reached the size its client now draws.
-        const bool keptShown = fitted && layoutMotion->kept
+        const bool keptShown = fitted && layoutMotion && layoutMotion->kept
             && (std::abs(target.width() - frameSize.width()) > 2.0
                 || std::abs(target.height() - frameSize.height()) > 2.0);
         if (keptShown) {
@@ -1685,7 +1682,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             data.setXTranslation(target.x() - frameRect.x());
             data.setYTranslation(target.y() - frameRect.y());
             logicalRegion = target;
-            if (frameSize.width() < target.width() - 0.5 || frameSize.height() < target.height() - 0.5)
+            // A growing pane stands on its backing for the whole move, as its client may
+            // take the new size before it has drawn into it.
+            if (frameSize.width() < target.width() - 0.5 || frameSize.height() < target.height() - 0.5
+                || !layoutMotion || layoutMotion->elevated)
                 paintCardSurface(m_destinationShader.get(), renderTarget, viewport,
                     deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(
                         KWin::RectF(leaned.intersected(plan->clip)))),
@@ -1694,7 +1694,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
             setPositionTransformations(data, logicalRegion, window, target, Qt::KeepAspectRatioByExpanding);
         }
         // What each frame of a layout motion drew, against what the client had committed, reported with its end.
-        const bool traced = fitted && layoutMotion->trace.size() < 32
+        const bool traced = fitted && layoutMotion && layoutMotion->trace.size() < 32
             && (layoutMotion->timer.isValid() || layoutMotion->trace.isEmpty());
         if (traced)
             layoutMotion->trace.append(QStringLiteral("%1ms box %2,%3 %4x%5 scale %6x%7 frame %8x%9 buffer %10x%11")

@@ -1574,6 +1574,7 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
         m_desktopStage->handleWindowClosed(window);
         forEachDisplayStage([&](CardStageController &stage) { stage.handleWindowClosed(window); });
     });
+    holdLeavingPane(window, paneOutput);
     // §11, Connected: a placed card keeps its place as its partner goes, and
     // the room the pane leaves offers the display's other cards, as after a
     // side snap. A layout auto layout began fills the display again instead.
