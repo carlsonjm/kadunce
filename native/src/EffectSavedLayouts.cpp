@@ -26,9 +26,9 @@ static QString displayOfGroup(const std::optional<SavedLayouts::LayoutRun> &run,
     return !kept.isEmpty() && screenNamed(kept) ? kept : asked;
 }
 
-QString Effect::layoutAppIdentity(KWin::EffectWindow *window) const
+QString Effect::layoutAppIdentity(KWin::EffectWindow *window, bool anyDesktop) const
 {
-    if (!isApplicationWindow(window) || !window->isNormalWindow() || dependentLead(window)) return {};
+    if (!isApplicationWindow(window, anyDesktop) || !window->isNormalWindow() || dependentLead(window)) return {};
     // Only an application that can be launched again has a desktop id.
     QString app = applicationIdentity(window);
     if (app.endsWith(QStringLiteral(".desktop"))) app.chop(8);
@@ -188,14 +188,16 @@ QVariantMap Effect::arrangeLayout(const QString &requestToken, const QList<QVari
     for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
         KWin::EffectWindow *window = *it;
         if (!window || window->isDeleted() || window->isMinimized()) continue;
-        const QString app = layoutAppIdentity(window);
+        // An app open on another workspace is brought over, not launched:
+        // one that keeps a single window would only raise it where it is.
+        const QString app = layoutAppIdentity(window, true);
         if (!app.isEmpty()) open.append({app, windowIdentity(window)});
     }
     // A minimized window still stands for its app, after every one shown.
     for (auto it = stack.crbegin(); it != stack.crend(); ++it) {
         KWin::EffectWindow *window = *it;
         if (!window || window->isDeleted() || !window->isMinimized()) continue;
-        const QString app = layoutAppIdentity(window);
+        const QString app = layoutAppIdentity(window, true);
         if (!app.isEmpty()) open.append({app, windowIdentity(window)});
     }
     const auto plan = SavedLayouts::planArrangement(groups, open);
@@ -237,6 +239,9 @@ bool Effect::claimLayoutWindow(KWin::EffectWindow *window)
     const QString app = layoutAppIdentity(window);
     const QString id = windowIdentity(window);
     if (app.isEmpty() || !m_layoutRun->claim(app, id)) return false;
+    const auto claimed = m_layoutRun->slotFor(id);
+    qInfo() << "Kadunce" << Revision << "layout claims" << logNameOf(window) << "on" << (window->screen() ? window->screen()->name() : QString())
+            << "for display" << displayOfGroup(m_layoutRun, claimed ? claimed->group : -1, m_layoutOutput);
     // The window goes to the layout's workspace and display before it is
     // admitted anywhere, so it arrives there as a card.
     KWin::VirtualDesktop *desktop = m_layoutDesktop.isEmpty()
@@ -246,6 +251,7 @@ bool Effect::claimLayoutWindow(KWin::EffectWindow *window)
     const auto slot = m_layoutRun->slotFor(id);
     KWin::LogicalOutput *output = screenNamed(displayOfGroup(m_layoutRun, slot ? slot->group : -1, m_layoutOutput));
     if (output && window->window() && window->screen() != output) window->window()->sendToOutput(output);
+    qInfo() << "Kadunce" << Revision << "layout sent" << logNameOf(window) << "to" << (window->screen() ? window->screen()->name() : QString());
     return true;
 }
 
@@ -298,6 +304,21 @@ void Effect::settleLayout()
             if (!window->isOnDesktop(desktop) || window->isOnAllDesktops())
                 KWin::effects->windowToDesktops(window, {desktop});
             if (window->isMinimized() && window->window()) window->window()->setMinimized(false);
+            // Held as a pane or a card on another display, as a window that
+            // opens where its app last was is taken there before it can move,
+            // it is let go there first; placed while held, it stays.
+            if (window->screen() != output && m_currentSession && desktop == KWin::effects->currentDesktop()) {
+                SessionScope there(this, m_currentSession, stageKeyFor(window->screen()));
+                if (CardStageController *own = stageHolding(window)) {
+                    (void)own->releaseCard(window);
+                } else if (m_desktopStage->managesWindow(window)) {
+                    m_desktopStage->releaseWindow(window);
+                    for (const auto &display : m_currentSession->displays)
+                        display.second->cards->paneLeftWithoutCard(window);
+                }
+                qInfo() << "Kadunce" << Revision << "layout lets" << logNameOf(window) << "go from"
+                        << (window->screen() ? window->screen()->name() : QString()) << "for" << output->name();
+            }
             if (desktop == KWin::effects->currentDesktop() && m_currentSession) {
                 bool ownsCards = false;
                 {
@@ -313,6 +334,20 @@ void Effect::settleLayout()
             }
         } else if (!settled && now - since > LayoutSettleMs) {
             settled = true;
+            // Which of layoutWindowSettled's conditions held it back.
+            int card = -2;
+            bool managed = false;
+            if (desktop == KWin::effects->currentDesktop() && m_currentSession) {
+                SessionScope scope(this, m_currentSession, stageKeyFor(output));
+                card = m_cardStage->canOwnCards(output) ? m_cardStage->liveCardIndex(window) : -3;
+                managed = m_desktopStage->managesWindow(window);
+            }
+            qInfo() << "Kadunce" << Revision << "layout missed" << logNameOf(window) << "on"
+                    << (window->screen() ? window->screen()->name() : QString()) << "for" << output->name()
+                    << "on its workspace" << window->isOnDesktop(desktop) << "everywhere" << window->isOnAllDesktops()
+                    << "shown" << (desktop == KWin::effects->currentDesktop()) << "card" << card << "managed" << managed
+                    << "minimized" << window->isMinimized() << "full screen" << window->isFullScreen()
+                    << "frame" << window->frameGeometry();
         }
         if (!settled || !m_layoutRun->settle(slot.windowId, placed)) continue;
         placedAny = placedAny || placed;

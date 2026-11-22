@@ -1221,7 +1221,7 @@ void Effect::centreFloatingWindow(KWin::EffectWindow *window, KWin::LogicalOutpu
     });
 }
 
-bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
+bool Effect::isApplicationWindow(const KWin::EffectWindow *window, bool anyDesktop) const
 {
     if (!window) {
         return false;
@@ -1273,8 +1273,9 @@ bool Effect::isApplicationWindow(const KWin::EffectWindow *window) const
     // A session holds the windows of its own desktop, whichever is shown. A
     // window on every desktop belongs to none of them, and floats over cards
     // as a panel does. A window excluded from normal task switching is no card
-    // either (§4).
-    const bool onSessionDesktop = m_scopedSession && !m_scopedSession->desktopId.isEmpty()
+    // either (§4). Asked about any desktop, as a saved layout asks, a window
+    // on another desktop is still its application's.
+    const bool onSessionDesktop = anyDesktop ? true : m_scopedSession && !m_scopedSession->desktopId.isEmpty()
         ? m_scopedSession->desktop && window->isOnDesktop(m_scopedSession->desktop)
         : window->isOnCurrentDesktop();
     return onSessionDesktop && !window->isOnAllDesktops()
