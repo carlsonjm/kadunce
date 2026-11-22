@@ -100,11 +100,21 @@ void Effect::beginSignInGlass(bool windowsOpen)
     connect(&m_signInGlassCap, &QTimer::timeout, this, [this] { clearSignInGlass("its time ran out"); });
     m_signInGlassCap.start(SignInGlassLongestMs);
     // Once the splash has gone, a sign-in with nothing coming back clears
-    // after the burst's own quiet.
+    // after the burst's own quiet. One whose session saved apps waits for
+    // the first of them a while longer, as a cold app can take seconds to
+    // draw its first window (SignInBurst.h).
+    QFile saved(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/ksmserverrc"));
+    const int reopens = saved.open(QIODevice::ReadOnly | QIODevice::Text) ? sessionReopens(QString::fromUtf8(saved.readAll())) : 0;
     m_signInGlassQuiet.setSingleShot(true);
-    connect(&m_signInGlassQuiet, &QTimer::timeout, this, [this] {
-        if (m_signInHeld.isEmpty() && !m_signInBurst.open(steadyMs() - m_sessionStartedMs))
-            clearSignInGlass("nothing was reopened");
+    connect(&m_signInGlassQuiet, &QTimer::timeout, this, [this, reopens] {
+        const qint64 now = steadyMs() - m_sessionStartedMs;
+        if (!m_signInHeld.isEmpty() || m_signInBurst.open(now)) return;
+        const bool awaited = reopens > 0 && m_signInBurst.count() == 0 && !m_signInBurst.over();
+        if (awaited && now < SignInReopenAwaitMs) {
+            m_signInGlassQuiet.start(int(std::min<qint64>(250, SignInReopenAwaitMs - now)));
+            return;
+        }
+        clearSignInGlass(awaited ? "the saved apps did not come in time" : "nothing was reopened");
     });
     connect(KWin::effects, &KWin::EffectsHandler::windowClosed, this, [this](KWin::EffectWindow *window) {
         if (!m_signInGlass.on || m_signInGlass.clearing || !isSplash(window)) return;
@@ -113,7 +123,8 @@ void Effect::beginSignInGlass(bool windowsOpen)
     });
     m_signInGlassSpy = std::make_shared<SignInGlassSpy>(this);
     KWin::input()->installInputEventSpy(m_signInGlassSpy.get());
-    qInfo() << "Kadunce" << Revision << "starts the session behind glass;" << age << "ms after the compositor";
+    qInfo() << "Kadunce" << Revision << "starts the session behind glass;" << age << "ms after the compositor;"
+            << reopens << "apps saved to reopen";
     KWin::effects->addRepaintFull();
 }
 
