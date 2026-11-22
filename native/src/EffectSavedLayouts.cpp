@@ -304,6 +304,21 @@ void Effect::settleLayout()
             if (!window->isOnDesktop(desktop) || window->isOnAllDesktops())
                 KWin::effects->windowToDesktops(window, {desktop});
             if (window->isMinimized() && window->window()) window->window()->setMinimized(false);
+            // Held as a pane or a card on another display, as a window that
+            // opens where its app last was is taken there before it can move,
+            // it is let go there first; placed while held, it stays.
+            if (window->screen() != output && m_currentSession && desktop == KWin::effects->currentDesktop()) {
+                SessionScope there(this, m_currentSession, stageKeyFor(window->screen()));
+                if (CardStageController *own = stageHolding(window)) {
+                    (void)own->releaseCard(window);
+                } else if (m_desktopStage->managesWindow(window)) {
+                    m_desktopStage->releaseWindow(window);
+                    for (const auto &display : m_currentSession->displays)
+                        display.second->cards->paneLeftWithoutCard(window);
+                }
+                qInfo() << "Kadunce" << Revision << "layout lets" << logNameOf(window) << "go from"
+                        << (window->screen() ? window->screen()->name() : QString()) << "for" << output->name();
+            }
             if (desktop == KWin::effects->currentDesktop() && m_currentSession) {
                 bool ownsCards = false;
                 {
