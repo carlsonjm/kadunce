@@ -430,11 +430,13 @@ void Effect::updateCardGrab(const QPointF &position)
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
     m_cardStage->updateCardGrab(position);
-    // A card held in its own Stack goes nowhere but its Stack, and a gathered
-    // Stack to a place in the row, onto a card, or to a display holding cards.
-    if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack() || m_cardStage->heldWholeStack()) return;
+    // A card held in its own Stack goes nowhere but its Stack. A gathered
+    // Stack goes to a place in the row or onto a card there, or, over another
+    // display holding cards, is aimed there exactly as a lone card is.
+    if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack()) return;
     for (auto *output : KWin::effects->screens()) {
         if (!QRectF(output->geometry()).contains(position)) continue;
+        if (m_cardStage->heldWholeStack() && (m_cardStage->canOwnCards(output) || !isCardDisplay(output))) break;
         const auto edge = carryEdgeAt(output, position);
         std::optional<BentoSidePlacement> side;
         if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
@@ -519,17 +521,18 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
     // A card held in its own Stack is let go into it, wherever the finger is.
     if (m_cardStage->heldInStack()) return false;
     if (m_cardStage->heldWholeStack()) {
-        // A gathered Stack let go on another display holding cards goes there
-        // whole, shown there (§11); anywhere else off this display it goes
-        // back. On this display it lands in the row.
+        // A gathered Stack lands in the row on this display. Let go on another
+        // display holding cards it takes a lone card's way there, its Stack
+        // following in the same transfer (§11, admitCardToDesktopStage);
+        // anywhere else it goes back.
         KWin::LogicalOutput *there = KWin::effects->screenAt(position.toPoint());
         if (there && QRectF(there->geometry()).contains(position) && there == tabletOutput()) return false;
-        QPointer<KWin::EffectWindow> face = selectedWindow();
-        m_cardStage->finishCardGrab(false);
-        if (face && there && QRectF(there->geometry()).contains(position) && isCardDisplay(there)
-            && !moveCardToDisplay(face, there, true))
-            qInfo() << "Kadunce" << Revision << "kept the gathered Stack of" << logNameOf(face) << "here";
-        return true;
+        if (!there || !QRectF(there->geometry()).contains(position) || !isCardDisplay(there)) {
+            finishCardGrab(false);
+            return true;
+        }
+        qInfo() << "Kadunce" << Revision << "lets the gathered Stack of" << logNameOf(selectedWindow()) << "go on"
+                << there->name() << "a lone card's way, its Stack following";
     }
     if (m_lineCardEntryOutput) {
         // §10: nothing distinct to pair with, so the carried card becomes the

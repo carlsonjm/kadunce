@@ -293,12 +293,19 @@ bool Effect::admitCardToDesktopStage(
         return m_desktopStage->transferPreparedCard(*m_placementDrop, commitSource, releaseSource);
     if (m_cardStage->cardGrabActive()) {
         if (!m_lineDestination || m_lineDestinationWindow != window) return false;
+        // A gathered Stack carried into another display's layout goes whole.
+        const QList<KWin::EffectWindow *> behind = m_cardStage->heldWholeStack() && isOtherCardDisplay(output)
+            ? cardsBehind(*m_cardStage, window) : QList<KWin::EffectWindow *>{};
         const auto reserved = *m_lineDestination;
         const auto target = m_linePreview;
         const auto from = QRectF(m_cardStage->cardGrabTarget()).translated(m_cardStage->cardGrabOffset());
         QPointer<KWin::EffectWindow> arrival = window;
         QPointer<KWin::LogicalOutput> destination = output;
         const bool committed = m_desktopStage->transferPreparedCard(reserved, commitSource, releaseSource);
+        if (committed && !behind.isEmpty() && arrival) {
+            SessionScope there(this, m_scopedSession, stageKeyFor(output));
+            rejoinStack(arrival, behind);
+        }
         if (committed && target) startDropSettle(arrival, destination, from, QRectF(*target));
         return committed;
     }

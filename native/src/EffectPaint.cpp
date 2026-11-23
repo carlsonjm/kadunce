@@ -1768,8 +1768,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
 
     const int slot = m_cardStage->paintSlot(window);
-    const bool grabbedWindow = m_cardStage->cardGrabActive()
-        && window == m_cardStage->selectedWindow();
+    const bool grabbedWindow = m_cardStage->carriedInGrab(window);
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
         grabbedWindow);

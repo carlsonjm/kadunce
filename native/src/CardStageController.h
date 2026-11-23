@@ -337,6 +337,13 @@ public:
     [[nodiscard]] bool heldInStack() const;
     // A Stack gathered under the finger, carried whole.
     [[nodiscard]] bool heldWholeStack() const { return m_cardGrabActive && m_carry.gathered; }
+    // The held card, or a card of the Stack gathered behind it: drawn wherever
+    // the finger carries them, on any display.
+    [[nodiscard]] bool carriedInGrab(const KWin::EffectWindow *window) const
+    {
+        return m_cardGrabActive && window && (window == selectedWindow()
+            || (m_carry.gathered && m_carry.gatheredCards.contains(const_cast<KWin::EffectWindow *>(window))));
+    }
     // Where a card held in its own Stack would go, drawn as an outline at the
     // Stack's seam, and how far it has been lifted out, from nothing to all
     // the way; empty when no card is held in its Stack.
