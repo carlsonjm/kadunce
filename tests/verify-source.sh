@@ -615,12 +615,12 @@ rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${car
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior. Updated deliberately when the Active card's
 # gutter floor went from 4 to 0 px (SpreadLayoutTest covers the 0 px edge),
-# and when a Spread card stopped at Search's Medium height, 415 points, on
+# and when a Spread card stopped at Search's Medium height, 416 points, on
 # large displays (the Tablet's row is unchanged).
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
     "c813500b4abe242b7fb96bc2d3efca17da2507ad01726001c93bd8c8e776ecd5"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
-    "2230b6e16252398c2ceea259cae07b0f9c3a74581871dfdb051d7310767738a5"
+    "b8d608b37aa12d080748365ff2fdeaa333afc030ad280deb0bac30604fc5e704"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
 # are covered in SpreadModelTest; fixed aperture/layout hashes above remain unchanged.
 test "$(sha256sum "${native_dir}/src/SpreadModel.cpp" | cut -d' ' -f1)" = \
