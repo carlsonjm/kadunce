@@ -41,6 +41,7 @@
 #include "SpreadReading.h"
 #include "KeyRoute.h"
 #include "HeldPointer.h"
+#include "HeldCardDraw.h"
 #include <options.h>
 
 #include <effect/effectwindow.h>
@@ -602,6 +603,7 @@ private:
     struct DesktopSession;
     class SessionHost;
     class SessionScope;
+    class HeldDrawScope;
     // A window carried to another display and rested on a pane or card there
     // joins that Stack once it has landed; it retries while the landing settles.
     // It gives up once anything is carried again or another desktop is shown.
@@ -1664,27 +1666,26 @@ private:
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               const QList<QRectF> &parts, const QRectF &box, float fill, float ring,
                               std::optional<QVector3D> ink = std::nullopt);
-    // Where a window will land is frosted glass (FrostedBox.h). What each
-    // display frosted in its last frame, by name, is drawn afresh in its
-    // next, so the glass never blurs itself.
+    // Where a window will land is frosted glass (FrostedBox.h). What each display frosted
+    // in its last frame, by name, is drawn afresh in its next, so the glass never blurs itself.
     FrostedBox m_frostedBox;
     QHash<QString, QList<QRectF>> m_frostDrawn;
-    // The region of the display being painted, for a box drawn while one of
-    // its windows paints, and the display whose held window has its box
-    // drawn under it this frame.
+    // The region of the display painted, for a box drawn while one of its
+    // windows paints, and the display whose held window has its box under it.
     KWin::Region m_paintingRegion;
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
     // The place map drawn under the card in hand; the hold ring, drawn last.
     QPointer<KWin::LogicalOutput> m_placeMapDrawnOn;
     std::optional<QPointF> m_stackHoldCentre;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
-    [[nodiscard]] bool cardGrabOnAnyDisplay() const;
+    // The stage of this desktop holding a card in its Spread, or carrying this window, by key; what became of it on each display.
+    [[nodiscard]] std::optional<QString> grabStageKey(const KWin::EffectWindow *carried = nullptr) const;
+    HeldCardDraw m_heldDraw;
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     // Shuffle Settings stands over the work on a display: everything under
     // its panels is frosted with the placement box's own glass, so it has no
     // edge of its own. A glass of its own, as it spans the whole display; the
-    // display it is laid on this frame; and since when each display has had
-    // it, by name, for it to fade in.
+    // display it is laid on this frame; and since when each has had it, to fade in.
     FrostedBox m_settingsFrost;
     QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
     QHash<QString, QElapsedTimer> m_settingsFrostSince;
@@ -1692,8 +1693,7 @@ private:
     QList<QRect> m_settingsFrostFading;
     // The displays whose frost has been said in the log since Settings came.
     QSet<QString> m_settingsFrostSaid;
-    // The programs that asked for frost behind them, by bus name, with the
-    // process their surfaces are known by.
+    // The programs that asked for frost behind them, by bus name, with the process their surfaces are known by.
     QHash<QString, qint64> m_frostBehind;
     [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
     // Whether Table frosts the desk of this display now.

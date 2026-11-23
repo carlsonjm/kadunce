@@ -415,21 +415,26 @@ bool Effect::selectedStackContains(const QPointF &position) const
     return m_cardStage->selectedStackContains(position);
 }
 
-bool Effect::cardGrabOnAnyDisplay() const
+std::optional<QString> Effect::grabStageKey(const KWin::EffectWindow *carried) const
 {
-    // Each display paints with its own stage named, yet a card carried off
-    // one display's Spread must be drawn on the display beside it too, so
-    // every stage of the desktop is asked, not only the one named.
-    if (!m_scopedSession) return m_cardStage->cardGrabActive();
-    for (const auto &display : m_scopedSession->displays)
-        if (display.second && display.second->cards && display.second->cards->cardGrabActive()) return true;
-    return false;
+    // Each display paints with its own stage named, and a stage draws only
+    // its own cards, yet a card carried off one display's Spread is drawn on
+    // the display beside it too. So every stage of the desktop is asked: the
+    // one holding a card, or the one carrying this window in its grab.
+    if (!m_scopedSession) return std::nullopt;
+    for (const auto &display : m_scopedSession->displays) {
+        if (!display.second || !display.second->cards) continue;
+        const CardStageController &stage = *display.second->cards;
+        if (carried ? stage.carriedInGrab(carried) : stage.cardGrabActive()) return display.first;
+    }
+    return std::nullopt;
 }
 
 void Effect::beginCardGrab(const QPointF &position)
 {
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
+    m_heldDraw.clear();
     m_cardStage->beginCardGrab(position);
     if (m_cardStage->cardGrabActive()) takeCarriedDialogs(m_cardStage->selectedWindow());
 }
@@ -441,6 +446,23 @@ void Effect::updateCardGrab(const QPointF &position)
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
     m_cardStage->updateCardGrab(position);
+    // The display under the held card and what it would do there are said in
+    // the journal whenever either changes.
+    const auto sayOver = qScopeGuard([this, position] {
+        if (!m_cardStage->cardGrabActive()) return;
+        KWin::LogicalOutput *under = KWin::effects->screenAt(position.toPoint());
+        KWin::LogicalOutput *layout = m_lineDestination ? m_lineDestination->destinationOutput() : nullptr;
+        const QString aim = m_lineCardEntryOutput
+            ? QStringLiteral("it would stand as the card of %1").arg(m_lineCardEntryOutput->name())
+            : layout ? QStringLiteral("it would take a place in the layout on %1").arg(layout->name())
+            : under && isTabletOutput(under) ? QStringLiteral("it stays in its own Spread")
+            : QStringLiteral("nothing there would take it");
+        const QString where = (under ? under->name() : QStringLiteral("no display")) + QStringLiteral(": ") + aim;
+        if (!m_heldDraw.over(where.toStdString())) return;
+        qInfo() << "Kadunce" << Revision << (m_cardStage->heldWholeStack() ? "held Stack of" : "held card")
+                << logNameOf(selectedWindow()) << "of" << m_scopedKey << "is over" << qPrintable(where)
+                << (m_linePreview ? QRectF(*m_linePreview) : QRectF());
+    });
     // A card held in its own Stack goes nowhere but its Stack. A gathered
     // Stack goes to a place in the row or onto a card there, or, over another
     // display holding cards, is aimed there exactly as a lone card is.

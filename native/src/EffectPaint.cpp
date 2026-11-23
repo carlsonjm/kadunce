@@ -299,13 +299,11 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_continueRepaint = true;
         }
     }
-    if (cardGrabOnAnyDisplay()) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
-    if (m_cardStage->isActive()
-        && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
+    // A card held in any display's Spread is drawn on every display it is carried over.
+    if (grabStageKey()) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
+    if (m_cardStage->isActive() && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
-        if (m_cardStage->animationsRunning()) {
-            m_continueRepaint = true;
-        }
+        if (m_cardStage->animationsRunning()) m_continueRepaint = true;
     }
     if (data.screen) {
         const auto whole = [](const QRectF &rect) { return KWin::Rect(rect.toAlignedRect()); };
@@ -530,7 +528,7 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
     // A window leaning into a Stack is its own preview; no box is drawn.
     if (!m_destinationShader || !screen || !preview || (m_carriedWindow && m_carryStackOnto)
-        || !(m_carriedWindow || cardGrabOnAnyDisplay())) return std::nullopt;
+        || !(m_carriedWindow || grabStageKey())) return std::nullopt;
     if (cardEntry == screen || (cardExit && cardExit == screen)
         || (reservation && !cardEntry && reservation->showsPlacementOutline()
             && reservation->destinationOutput() == screen
@@ -605,7 +603,7 @@ KWin::EffectWindow *Effect::keyboardOutlineWindow(KWin::LogicalOutput *screen)
         return nullptr;
     // Nothing is outlined while a window is in hand, or while Spread, Table or
     // an open room's offer stands on the display.
-    if (m_carriedWindow || m_cardStage->cardGrabActive()) return nullptr;
+    if (m_carriedWindow || grabStageKey()) return nullptr;
     if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread) return nullptr;
     if (m_tablePresenter && m_tablePresenter->visible() && m_tablePresenterOutput == screen) return nullptr;
     if (m_roomOffer && m_roomOffer->output == screen) return nullptr;
@@ -979,6 +977,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
             m_spreadPaintOrder = std::exchange(m_spreadPaintOrderDrawing, {});
     }
     m_heldBoxDrawnOn = m_placeMapDrawnOn = nullptr;
+    HeldDrawScope::beginFrame(this, screen);
     m_stackHoldCentre.reset();
     m_settingsFrostDrawnOn = nullptr;
     m_signInGlassDrawnOn = nullptr;
@@ -999,6 +998,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
         }
     }
     if (!painted([&] { return KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen); })) return paintResult(false);
+    HeldDrawScope::endFrame(this, screen);
     // A display with no panel or splash drawn over it takes the sign-in glass over everything.
     drawSignInGlass(renderTarget, viewport, nullptr);
     drawSignInBlack(renderTarget, viewport, screen);
@@ -1015,7 +1015,7 @@ PaintResult Effect::paintScreen(const KWin::RenderTarget &renderTarget,
     // waiting behind it, as they are taken (beginRailFromInput).
     if (m_destinationShader && screen
         && (screen != tabletOutput() || !m_cardStage->isActive() || m_cardStage->presentsBento())
-        && !m_carriedWindow && !m_cardStage->cardGrabActive()) {
+        && !m_carriedWindow && !grabStageKey()) {
         const auto previews = m_desktopStage->railPreview(screen->name());
         const auto drawRailShape = [&](const QRectF &box, float radius, float fill, float outline) {
             QList<QVector2D> vertices;
@@ -1499,6 +1499,8 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
                          const KWin::Region &deviceRegion,
                          KWin::WindowPaintData &data)
 {
+    // A card held in another display's Spread is drawn here by the stage carrying it (HeldDrawScope).
+    HeldDrawScope held(this, window);
     traceSpreadPaint(QJsonObject{{QStringLiteral("title"), window->caption()},
         {QStringLiteral("layer"), window->window() ? int(window->window()->layer()) : -1},
         {QStringLiteral("card"), m_cardStage->liveCardIndex(window) >= 0}});
@@ -1755,6 +1757,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         || m_desktopStage->managesWindow(window)
         || (m_cardStage->presentation() == CardPresentation::Desktop
             && m_cardStage->liveCardIndex(window) < 0)) {
+        held.note(HeldDraw::AsItStands);
         if (!painted([&] { return KWin::effects->paintWindow(
             renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
         paintKeyboardOutline(renderTarget, viewport, window, deviceRegion, data);
@@ -1762,17 +1765,15 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
 
     KWin::LogicalOutput *tablet = tabletOutput();
-    if (!tablet) {
-        if (!painted([&] { return KWin::effects->paintWindow(
-            renderTarget, viewport, window, mask, deviceRegion, data); })) return paintResult(false);
-        return paintResult(true);
-    }
+    if (!tablet) return paintResult(painted([&] { return KWin::effects->paintWindow(
+        renderTarget, viewport, window, mask, deviceRegion, data); }));
 
     const int slot = m_cardStage->paintSlot(window);
     const bool grabbedWindow = m_cardStage->cardGrabActive() && window == m_cardStage->selectedWindow();
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
         m_cardStage->carriedInGrab(window));
+    held.note(route == CardPaintRoute::Hidden ? HeldDraw::Hidden : HeldDraw::AsItStands);
     if (route == CardPaintRoute::Hidden) return paintResult(true);
     if (route == CardPaintRoute::Native) {
         // Only the carried item may cross the fence. Passive tablet neighbors
@@ -1872,9 +1873,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         target.translate(qRound(direction * (1.0 - opacity) * target.width() * 0.25), 0);
     }
     paintPose.rotation += launcherGuestRotation;
-    if (!paintPose.visible) {
-        return paintResult(true);
-    }
+    held.note(paintPose.visible ? HeldDraw::Stopped : HeldDraw::Unseen);
+    if (!paintPose.visible) return paintResult(true);
+    // Over another display its landing box is drawn first, under it, so the glass never frosts the card in hand.
+    if (held.crossed()) drawHeldBoxUnder(renderTarget, viewport);
     KWin::Rect visualTarget = target;
     // Every card is drawn whole at its window's own shape, which is seldom
     // exactly its slot's: a window standing inside the Active card's gutter
@@ -1963,14 +1965,11 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         ? static_cast<float>(apertureRadius) : 0.0F;
 
     const bool drawn = painted([&] { return KWin::effects->paintWindow(
-        renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED,
-        cardClip, data); });
+        renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, cardClip, data); });
 
-    m_fanApertureWindow = nullptr;
-    m_fanPaintSize = {};
-    m_fanApertureOrigin = {};
-    m_fanApertureSize = {};
-    m_fanApertureRadius = 0.0F;
+    m_fanApertureWindow = nullptr; m_fanPaintSize = {}; m_fanApertureOrigin = {};
+    m_fanApertureSize = {}; m_fanApertureRadius = 0.0F;
+    held.note(drawn ? HeldDraw::Drawn : HeldDraw::Failed);
     if (!drawn) return paintResult(false);
 
     // Which card a tap or Enter opens: the chosen card's ring, around the
