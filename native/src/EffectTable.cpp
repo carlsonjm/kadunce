@@ -1251,6 +1251,41 @@ void Effect::moveTableCard(int workspace, int card, KWin::VirtualDesktop *destin
     landTableCard(destination, moved.windows.value(0));
 }
 
+void Effect::sendCardToWorkspace(int step)
+{
+    // INPUT.md: Meta, Control and Shift with an arrow send the card in use to the
+    // workspace beside with its Stack, which is stacked again there as a
+    // Stack Table carries is; a pane goes alone, leaving its layout. The
+    // person stays, as with KDE's own keys for a window.
+    KWin::EffectWindow *focused = KWin::effects->activeWindow();
+    const bool pane = focused && m_desktopStage->managesWindow(focused);
+    KWin::EffectWindow *card = pane ? focused
+        : m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread
+            ? m_cardStage->selectedWindow()
+            : m_cardStage->activeCardIdentity();
+    if (!card || card->isDeleted()) return;
+    const auto desktops = KWin::effects->desktops();
+    const int there = desktops.indexOf(KWin::effects->currentDesktop()) + step;
+    if (there < 0 || there >= desktops.size() || there - step < 0) {
+        qInfo() << "Kadunce" << Revision << "keeps" << logNameOf(card) << "here; no workspace lies that way";
+        return;
+    }
+    KWin::VirtualDesktop *destination = desktops[there];
+    QList<QPointer<KWin::EffectWindow>> deck;
+    if (!pane)
+        for (KWin::EffectWindow *window : m_cardStage->stackFrontToBack(card)) deck.append(window);
+    if (deck.isEmpty()) deck = {card};
+    for (auto &decks : m_pendingDecks)
+        decks.removeIf([&deck](const auto &pending) {
+            return std::any_of(pending.cbegin(), pending.cend(), [&deck](const auto &window) { return deck.contains(window); });
+        });
+    if (deck.size() > 1) m_pendingDecks[destination->id()].append(deck);
+    for (const auto &window : std::as_const(deck))
+        if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+    qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1
+            << "cards behind it to workspace" << there + 1;
+}
+
 void Effect::landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face)
 {
     readTableWorkspaces();

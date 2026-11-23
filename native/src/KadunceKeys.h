@@ -41,6 +41,10 @@ enum class KeyAction {
     LetGo,
     DividerLeft,
     DividerRight,
+    // The card in use, with its Stack, goes to the workspace before or after;
+    // the person stays where they are, as KDE's own keys for a window do.
+    WorkspaceLeft,
+    WorkspaceRight,
 };
 
 struct KeyContext {
@@ -103,6 +107,15 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Up: return pane ? KeyAction::Deeper : KeyAction::None;
         case Qt::Key_Down: return pane || context.spreadShown || context.stacked
             ? KeyAction::LetGo : KeyAction::None;
+        default: return KeyAction::None;
+        }
+    }
+    if (relevant == (Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier)) {
+        // KDE's Window One Desktop keys, taken while cards are shown so a
+        // card's Stack goes with it; anywhere else they stay KDE's.
+        switch (key) {
+        case Qt::Key_Left: return context.cardsShown ? KeyAction::WorkspaceLeft : KeyAction::None;
+        case Qt::Key_Right: return context.cardsShown ? KeyAction::WorkspaceRight : KeyAction::None;
         default: return KeyAction::None;
         }
     }

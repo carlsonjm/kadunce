@@ -710,7 +710,7 @@ private:
     void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination, int member = -1);
     // TABLE.md: stacking, a Stack's card out, rest and aim timers, landing.
     bool stackTableCard(const TableAction &action), takeTableCardOut(int workspace, int card, int member);
-    void connectTableTimers(), restTable(), aimTable();
+    void connectTableTimers(), restTable(), aimTable(), sendCardToWorkspace(int step);
     void landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face);
     QTimer m_tableRest, m_tableAim;
     int m_tableRestFor = -1;

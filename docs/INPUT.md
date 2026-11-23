@@ -67,6 +67,7 @@ bottom edge is theirs.
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
+| `Meta+Ctrl+Shift+Left`, `Right` | It and its Stack go to the workspace beside. |
 | Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. After typing on an attached keyboard, taps bring none until it goes. |
 | Point in any other gutter | An arrow; nothing resizes there. |
 
@@ -105,14 +106,14 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 
 | Input | What happens |
 | --- | --- |
-| Pull down from the top edge: above the Active card, else anywhere along it | Table comes down, a tab per workspace; sliding across previews each everywhere. Panels keep their taps. |
+| Pull down from the top edge: above the Active card, else anywhere along it | Table comes down, a tab per workspace; sliding across previews each. Panels keep their taps. |
 | Pull past the tabs, slide sideways | That tab's cards hang, each previewed. |
-| Lift on a tab or card | That workspace opens as left, or the card as its Active card. |
+| Lift on a tab or card | It opens: a workspace as left, a card as Active. |
 | Pull on past the cards | The card under your finger lifts. |
 | Let a lifted card go on a tab | Its window moves to that workspace. |
 | Let a lifted card go on `+` | A new workspace takes it. |
 | Let a lifted card go on its own place | It opens. |
-| Rest on a Stack | Its cards hang beneath, front one dotted; lift on one to open it, or pull it on down out of the Stack. |
+| Rest on a Stack | Its cards hang, front one dotted; lift one to open it, or pull it out. |
 | Hold a lifted card on another card | They stack, it in front, in any workspace. |
 | Push back to the edge and lift | Table closes, unchanged. |
 | Flick down | The tabs stay as a menu bar. |
@@ -124,12 +125,12 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Point into a display's top-left corner | The menu bar opens there; the rest of the edge stays the windows'. |
 | Hover or click a tab or card | It previews, or opens. |
 | Wheel | Steps across tabs or the chosen tab's cards. |
-| Arrow keys | The tab or card beside is chosen; down enters a tab's cards or a Stack's, up returns; `Meta+Shift+Down` takes a Stack's card out. |
+| Arrow keys | The tab or card beside is chosen; down enters a tab's cards or a Stack's, up returns; `Meta+Shift+Down` takes one out. |
 | `Enter` or `Space` | The chosen tab or card opens. |
 | `Escape` | Table closes; a carried card or typed name goes back. |
 | `F2`, or in the menu bar hold or right-click a tab | Its name can be typed; `Enter` keeps it. |
 | `Shift`+arrows on a chosen card, then let go | It rides the tabs and `+`, moving where let go. |
-| Three fingers up on a touchscreen, four on a touchpad | Past halfway, Table comes down there as a menu bar; again closes it. |
+| Three fingers up on a touchscreen, four on a touchpad | Past halfway, the menu bar comes down there; again closes it. |
 
 ## Plasma desktop
 
