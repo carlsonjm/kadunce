@@ -346,6 +346,7 @@ public:
     }
     void moveSelected(int delta) { ++m_revision; ++m_ownershipRevision; return m_model.moveSelected(delta); }
     bool stackSelectedWith(int destinationId, int insertionIndex = -1) { ++m_revision; ++m_ownershipRevision; return m_model.stackSelectedWith(destinationId, insertionIndex); }
+    bool mergeSelectedInto(int destinationId) { ++m_revision; ++m_ownershipRevision; return m_model.mergeSelectedInto(destinationId); }
     bool releaseMember(int cardId) { ++m_revision; ++m_ownershipRevision; return m_model.releaseMember(cardId); }
     bool detachSelectedMember() { ++m_revision; ++m_ownershipRevision; return m_model.detachSelectedMember(); }
     bool restoreDetachedMember() { ++m_revision; ++m_ownershipRevision; return m_model.restoreDetachedMember(); }

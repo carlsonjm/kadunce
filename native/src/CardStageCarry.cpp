@@ -428,6 +428,55 @@ void CardStageController::pageHeldStackCard(double fingerX)
             << "of" << m_carry.stack.size() << "in its Stack";
 }
 
+void CardStageController::gatherHeldStack()
+{
+    auto *tablet = m_host->tabletOutputForCardStage();
+    const auto frame = carryFrame(tablet);
+    KWin::EffectWindow *held = selectedWindow();
+    const QList<KWin::EffectWindow *> members = stackFrontToBack(held);
+    if (!frame || !held || members.size() < 2 || !m_carry.inStack) return;
+    // The Stack's cards glide from its fan to close behind the held card,
+    // and its place's outline fades as a let-go one does.
+    const auto outline = stackOutline();
+    captureCardTransition(false, true);
+    m_stackStepTransition = m_poseTransition;
+    m_stackOutlineRect = outline.rect;
+    m_stackOutlineFrom = outline.opacity;
+    m_stackOutlineFade.start();
+    const double height = m_cardGrabTarget.width() > 0
+        ? m_carry.heldWidth * m_cardGrabTarget.height() / m_cardGrabTarget.width() : 0.0;
+    m_carry.gatherLift = m_carry.lift * CarryStackLift * height;
+    // From here it is carried as a card standing alone is: the row without
+    // its entry, parted where it was.
+    m_carry.inStack = false;
+    m_carry.gathered = true;
+    m_carry.stack.clear();
+    m_carry.items.clear();
+    m_carry.heldIndex = m_workspace.selectedIndex();
+    for (int entry = 0; entry < m_workspace.count(); ++entry)
+        if (entry != m_carry.heldIndex) m_carry.items.push_back({entry, 0});
+    m_carry.low = 0;
+    m_carry.high = int(m_carry.items.size());
+    m_carry.home = m_carry.gap = m_carry.heldIndex;
+    m_carry.shifts.assign(m_carry.items.size(), 0.0);
+    for (int k = m_carry.home; k < int(m_carry.items.size()); ++k) m_carry.shifts[std::size_t(k)] = 1.0;
+    m_carry.aim = m_carry.candidate = {CarryAim::Kind::Gap, m_carry.home};
+    m_carry.candidateSince.start();
+    m_carry.position = m_carry.heldIndex * frame->pitch;
+    // Its cards rise with it, the deepest first, the held card over them all.
+    for (auto it = members.crbegin(); it != members.crend(); ++it) {
+        if (*it == held) continue;
+        m_carry.gatheredCards.append(*it);
+        KWin::effects->setElevatedWindow(*it, true);
+    }
+    KWin::effects->setElevatedWindow(held, false);
+    KWin::effects->setElevatedWindow(held, true);
+    m_carry.animating = true;
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "gathered the Stack of Spread card" << m_workspace.selectedId()
+            << "to carry its" << members.size() << "cards whole";
+}
+
 void CardStageController::aimCarry()
 {
     auto *tablet = m_host->tabletOutputForCardStage();
@@ -507,6 +556,16 @@ void CardStageController::advanceCarry(double seconds)
         ease(m_carry.heldWidth, m_cardGrabTarget.width() * carryHeldFraction(1.0),
              seconds, 0.08, 0.3);
         ease(m_carry.lift, 1.0, seconds, 0.08, 0.002);
+        // Held still where it lifted, a little longer, it gathers its Stack.
+        KWin::EffectWindow *held = selectedWindow();
+        if (!m_carry.moved && m_carry.paging.place == m_carry.home && held && !inProjectedLayout(held)) {
+            if (m_cardGrabScaleTimer.isValid()
+                && m_cardGrabScaleTimer.elapsed() >= motion(HeldPickupDuration) + motion(CarryGatherDwell)) {
+                gatherHeldStack();
+                return;
+            }
+            moving = true;
+        }
         m_carry.animating = moving;
         return;
     }
@@ -696,6 +755,17 @@ void CardStageController::finishCardGrab(bool commit)
             restoreCarryOrigin();
         }
         outcome = stacked ? "reordered" : "stayed";
+    } else if (aim.kind == CarryAim::Kind::Card && m_carry.gathered) {
+        // RESTACK: a gathered Stack joins the one it rests on whole, its
+        // front card as it stood in front, every card of both kept.
+        const int entry = m_carry.items[std::size_t(aim.index)].entry;
+        const int destinationId = m_workspace.idAtOffset(entry - m_workspace.selectedIndex());
+        const int faceBefore = liveCardIndex(m_carry.faceBefore) + 1;
+        if (faceBefore > 0 && m_workspace.model().sameStack(faceBefore, m_workspace.selectedId()))
+            (void)m_workspace.selectCard(faceBefore);
+        stacked = m_workspace.mergeSelectedInto(destinationId);
+        if (!stacked) restoreCarryOrigin();
+        outcome = stacked ? "merged" : "stayed";
     } else if (aim.kind == CarryAim::Kind::Card) {
         const int entry = m_carry.items[std::size_t(aim.index)].entry;
         const int destinationId = m_workspace.idAtOffset(entry - m_workspace.selectedIndex());
@@ -712,6 +782,10 @@ void CardStageController::finishCardGrab(bool commit)
         const int movement = std::clamp(aim.index, 0, m_workspace.count() - 1)
             - m_workspace.selectedIndex();
         if (movement != 0) m_workspace.moveSelected(movement);
+        // A gathered Stack keeps the front card it had.
+        const int faceBefore = liveCardIndex(m_carry.faceBefore) + 1;
+        if (m_carry.gathered && faceBefore > 0 && m_workspace.model().sameStack(faceBefore, m_workspace.selectedId()))
+            (void)m_workspace.selectCard(faceBefore);
         outcome = movement != 0 ? "moved" : "stayed";
     }
     resetCardGrabState(grabbed, stacked);
@@ -729,6 +803,8 @@ void CardStageController::resetCardGrabState(
     if (grabbed && !grabbed->isDeleted() && !stacked) {
         KWin::effects->setElevatedWindow(grabbed, false);
     }
+    for (const auto &card : std::as_const(m_carry.gatheredCards))
+        if (card && !card->isDeleted()) KWin::effects->setElevatedWindow(card, false);
     m_cardGrabActive = false;
     m_cardGrabOffset = {};
     m_cardGrabStart = {};

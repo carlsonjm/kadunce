@@ -430,8 +430,9 @@ void Effect::updateCardGrab(const QPointF &position)
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
     m_cardStage->updateCardGrab(position);
-    // A card held in its own Stack goes nowhere but its Stack.
-    if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack()) return;
+    // A card held in its own Stack goes nowhere but its Stack, and a gathered
+    // Stack to a place in the row, onto a card, or to a display holding cards.
+    if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack() || m_cardStage->heldWholeStack()) return;
     for (auto *output : KWin::effects->screens()) {
         if (!QRectF(output->geometry()).contains(position)) continue;
         const auto edge = carryEdgeAt(output, position);
@@ -517,6 +518,19 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
     }
     // A card held in its own Stack is let go into it, wherever the finger is.
     if (m_cardStage->heldInStack()) return false;
+    if (m_cardStage->heldWholeStack()) {
+        // A gathered Stack let go on another display holding cards goes there
+        // whole, shown there (§11); anywhere else off this display it goes
+        // back. On this display it lands in the row.
+        KWin::LogicalOutput *there = KWin::effects->screenAt(position.toPoint());
+        if (there && QRectF(there->geometry()).contains(position) && there == tabletOutput()) return false;
+        QPointer<KWin::EffectWindow> face = selectedWindow();
+        m_cardStage->finishCardGrab(false);
+        if (face && there && QRectF(there->geometry()).contains(position) && isCardDisplay(there)
+            && !moveCardToDisplay(face, there, true))
+            qInfo() << "Kadunce" << Revision << "kept the gathered Stack of" << logNameOf(face) << "here";
+        return true;
+    }
     if (m_lineCardEntryOutput) {
         // §10: nothing distinct to pair with, so the carried card becomes the
         // Active card. Its grab is cancelled first, which returns it to the

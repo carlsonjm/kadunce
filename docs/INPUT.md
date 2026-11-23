@@ -52,7 +52,7 @@ bottom edge is theirs.
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front; Spread stays open. |
 | Pull a Stack's card down, or `Meta+Shift+Down` on the centred or Active one | It leaves the Stack as a card after it; the Stack keeps its place and order. |
-| Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward the back. Let go, it goes there, the front card showing; where it began, nothing changes. |
+| Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward back. Let go, it goes there. Held still longer, the whole Stack gathers and carries. |
 
 ## Active card
 

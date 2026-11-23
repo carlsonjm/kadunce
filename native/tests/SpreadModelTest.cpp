@@ -24,6 +24,40 @@ void require(bool condition, const char *message)
 
 int main()
 {
+    {
+        // A Stack carried whole onto a Stack: every card kept, the carried
+        // ones in front as they stood, the carried face the new face.
+        Kadunce::SpreadModel row(5);
+        require(row.stackSelectedWith(2), "Merge setup: first Stack failed");      // 1 onto 2
+        row.page(1);                                                               // card 3
+        require(row.stackSelectedWith(4), "Merge setup: second Stack failed");     // 3 onto 4
+        const int carriedFace = row.selectedId();
+        std::vector<int> carriedOrder;
+        {
+            const auto members = row.stackMembersForId(carriedFace);
+            const int count = int(members.size());
+            const int active = row.stackActivePositionForId(carriedFace);
+            for (int depth = 0; depth < count; ++depth) carriedOrder.push_back(members[std::size_t((active - depth + count) % count)]);
+        }
+        const int entries = row.count();
+        require(row.mergeSelectedInto(2), "A Stack did not merge into a Stack");
+        require(row.count() == entries - 1, "Merging left the carried entry in the row");
+        require(row.selectedId() == carriedFace, "The carried face is not the merged Stack's face");
+        const auto merged = row.stackMembersForId(carriedFace);
+        require(merged.size() == 4, "Merging dropped a card");
+        const int count = int(merged.size());
+        const int active = row.stackActivePositionForId(carriedFace);
+        for (std::size_t depth = 0; depth < carriedOrder.size(); ++depth)
+            require(merged[std::size_t((active - int(depth) + count) % count)] == carriedOrder[depth],
+                    "The carried cards are not in front as they stood");
+        require(!row.mergeSelectedInto(carriedFace), "A Stack merged into itself");
+        // A lone card merges as a card stacked in front.
+        row.page(1);
+        const int lone = row.selectedId();
+        require(row.stackSizeForId(lone) == 1, "Merge setup: lone card");
+        require(row.mergeSelectedInto(carriedFace), "A lone card did not merge");
+        require(row.selectedId() == lone && row.stackSizeForId(lone) == 5, "The lone card is not the new face");
+    }
     for (int active = 0; active < 4; ++active) {
         Kadunce::SpreadModel lifted(4);
         require(lifted.stackSelectedWith(2), "Four-face seed failed");

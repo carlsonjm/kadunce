@@ -662,6 +662,7 @@ QString Effect::nativeCarryState() const
         // What a held card would do if let go, where, and how far the row
         // under it has stepped back.
         {QStringLiteral("carryAim"), m_cardStage->carryAimName()},
+        {QStringLiteral("carryWhole"), m_cardStage->heldWholeStack()},
         {QStringLiteral("carryIndex"), m_cardStage->carryAimIndex()},
         {QStringLiteral("carryScale"), m_cardStage->carryScale()}
     }).toJson(QJsonDocument::Compact));

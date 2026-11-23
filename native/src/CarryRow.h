@@ -81,6 +81,9 @@ inline constexpr double CarrySettleTime = 0.07;
 // this fraction of its height above the place it would take.
 inline constexpr double CarryStackLeash = 40.0;
 inline constexpr double CarryStackLift = 0.16;
+// INPUT.md § Stacks: a Stack's card held still this much longer, once it has
+// lifted, gathers its whole Stack to be carried as one.
+inline constexpr int CarryGatherDwell = 500;
 
 // Row coordinate of item k, given how far it has moved aside for the gap:
 // zero before it, one after it, and in between while the gap moves, for a
