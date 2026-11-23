@@ -10,11 +10,8 @@ namespace Kadunce
 inline SpreadLayout makeFocusedPairLayout(double x, double y, double width, double height)
 {
     auto layout = makeSpreadLayout(x, y, width, height);
-    // 64% beside 54%, kept in proportion where a large display's cards
-    // stop at Search's Medium height.
-    const double grow = 0.64 / SpreadCardShare * spreadCardShare(height);
-    const double w = width * grow;
-    const double h = height * grow;
+    const double w = width * 0.64;
+    const double h = height * 0.64;
     const double cx = x + (width - w) / 2.0;
     layout.cards[1] = {cx, y + (height - h) / 2.0, w, h};
     layout.cards[0].x = cx - layout.gutter - layout.cards[0].width;

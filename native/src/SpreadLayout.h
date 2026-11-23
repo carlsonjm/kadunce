@@ -46,13 +46,6 @@ enum class SpreadAction {
     Activate,
 };
 
-// A Spread card is 54% of its work area, but never taller than Search's
-// Medium, 416 points: on a large display the cards keep that height and
-// the display's shape. Returns the share of the work area a card takes.
-inline constexpr double SpreadCardShare = 0.54;
-inline constexpr double SpreadCardMaxHeight = 416.0;
-[[nodiscard]] double spreadCardShare(double workHeight);
-
 [[nodiscard]] SpreadLayout makeSpreadLayout(
     double workX, double workY, double workWidth, double workHeight);
 

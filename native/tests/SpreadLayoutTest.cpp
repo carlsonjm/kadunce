@@ -35,14 +35,8 @@ int main()
 {
     {
         const auto ordinary = Kadunce::makeSpreadLayout(0, 0, 2560, 1440);
-        require(close(ordinary.cards[1].height, Kadunce::SpreadCardMaxHeight)
-                    && close(ordinary.cards[1].width, 2560 * Kadunce::SpreadCardMaxHeight / 1440)
-                    && close(ordinary.gutter, 2560 * 0.056),
-            "A large display's cards did not stop at Search's Medium height in its shape");
-        // The Tablet's row is exactly as it was: 54% of its work area.
-        const auto tablet = Kadunce::makeSpreadLayout(0, 32, 1280, 768);
-        require(close(tablet.cards[1].width, 1280 * 0.54) && close(tablet.cards[1].height, 768 * 0.54),
-            "The Tablet's row changed");
+        require(close(ordinary.cards[1].width, 2560 * 0.54) && close(ordinary.gutter, 2560 * 0.056),
+            "The ordinary row changed");
     }
     for (double fraction : {0.54, 0.64}) {
         const Kadunce::CardRect pickup{200, 100, 1200 * fraction, 800 * fraction};
@@ -67,19 +61,17 @@ int main()
         const auto ordinary = Kadunce::makeSpreadLayout(x, y, w, h);
         for (int neighbors : {0, 1, 2, 3}) {
             const auto guest = Kadunce::makeLauncherGuestLayout(x, y, w, h, neighbors);
-            const double share = Kadunce::spreadCardShare(h);
-            const double scale = neighbors <= 1 ? 0.64 / 0.54 * share : share;
+            const double scale = neighbors <= 1 ? 0.64 : 0.54;
             require(close(guest.cards[1].width, w * scale)
                         && close(guest.cards[1].height, h * scale)
-                        && close(guest.cards[0].width, w * share)
-                        && close(guest.cards[2].height, h * share),
+                        && close(guest.cards[0].width, w * 0.54)
+                        && close(guest.cards[2].height, h * 0.54),
                     "Launcher guest and shoulder sizes disagree with neighbor count");
         }
         require(pair.cards[1].width > ordinary.cards[1].width,
                 "Focused pair did not gain an intermediate size");
-        const double grow = 0.64 / 0.54 * Kadunce::spreadCardShare(h);
-        require(close(pair.cards[1].width, w * grow)
-                    && close(pair.cards[1].height, h * grow),
+        require(close(pair.cards[1].width, w * 0.64)
+                    && close(pair.cards[1].height, h * 0.64),
                 "Focused pair center did not use the accepted 64% size");
         for (int shoulder : {0, 2}) {
             require(close(pair.cards[shoulder].width, ordinary.cards[shoulder].width)
@@ -95,9 +87,9 @@ int main()
             const auto reservedCenter = Kadunce::makeReservedFocusedPairTarget(pair, 0, envelope);
             const auto reservedLeft = Kadunce::makeReservedFocusedPairTarget(pair, -1, envelope);
             const auto reservedRight = Kadunce::makeReservedFocusedPairTarget(pair, 1, envelope);
-            require(close(reservedLeft.width, w * Kadunce::spreadCardShare(h))
-                        && close(reservedRight.height, h * Kadunce::spreadCardShare(h))
-                        && close(reservedCenter.width, w * grow),
+            require(close(reservedLeft.width, w * 0.54)
+                        && close(reservedRight.height, h * 0.54)
+                        && close(reservedCenter.width, w * 0.64),
                     "Stack reservation replaced mixed-size pair dimensions");
             require(close(reservedCenter.x + envelope.left - reservedLeft.right(), pair.gutter)
                         && close(reservedRight.x - reservedCenter.right() - envelope.right, pair.gutter),
@@ -109,12 +101,9 @@ int main()
         require(pair.cards[1].x > x && pair.cards[1].right() < x + w
                     && pair.cards[1].y > y && pair.cards[1].bottom() < y + h,
                 "Focused pair center is not fully visible");
-        // Where cards keep 54% the shoulders reach both edges; a large
-        // display's shorter cards may stand whole inside it.
-        if (Kadunce::spreadCardShare(h) == Kadunce::SpreadCardShare)
-            require(pair.cards[0].x < x && pair.cards[0].right() > x
-                        && pair.cards[2].x < x + w && pair.cards[2].right() > x + w,
-                    "Focused pair shoulders are not exposed at both possible edges");
+        require(pair.cards[0].x < x && pair.cards[0].right() > x
+                    && pair.cards[2].x < x + w && pair.cards[2].right() > x + w,
+                "Focused pair shoulders are not exposed at both possible edges");
         require(close(pair.cards[1].width / pair.cards[1].height, w / h),
                 "Focused pair stretches the accepted aperture aspect ratio");
     }

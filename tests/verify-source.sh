@@ -614,13 +614,11 @@ rg -q 'unredirect\(window\)' "${effect_cpp}" "${card_cpp}"
 rg -q 'm_fanApertureShader \? "enabled" : "r20 fallback"' "${effect_cpp}" "${card_cpp}"
 # Fixed hashes protect output-local dock-clearance geometry; visual alignment
 # must not change this behavior. Updated deliberately when the Active card's
-# gutter floor went from 4 to 0 px (SpreadLayoutTest covers the 0 px edge),
-# and when a Spread card stopped at Search's Medium height, 416 points, on
-# large displays (the Tablet's row is unchanged).
+# gutter floor went from 4 to 0 px (SpreadLayoutTest covers the 0 px edge).
 test "$(sha256sum "${native_dir}/src/SpreadLayout.cpp" | cut -d' ' -f1)" = \
-    "c813500b4abe242b7fb96bc2d3efca17da2507ad01726001c93bd8c8e776ecd5"
+    "bb3deef158fe4ae6cdd6092107486c6c87f5cad3c02f02ab4cea23341353542b"
 test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
-    "b8d608b37aa12d080748365ff2fdeaa333afc030ad280deb0bac30604fc5e704"
+    "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
 # are covered in SpreadModelTest; fixed aperture/layout hashes above remain unchanged.
 test "$(sha256sum "${native_dir}/src/SpreadModel.cpp" | cut -d' ' -f1)" = \
@@ -673,8 +671,7 @@ rg -Fq 'workspaceArea = workspaceArea(output)' "${desktop_cpp}"
 rg -q 'const bool refreshableFirstEdge' "${desktop_cpp}"
 rg -q 'drop.intent == CardDropIntent::ActivateBento' "${desktop_cpp}"
 rg -q 'inProjectedLayout' "${card_cpp}" "${effect_cpp}"
-rg -q 'workHeight \* SpreadCardShare > SpreadCardMaxHeight' "${native_dir}/src/SpreadLayout.cpp"
-rg -q 'SpreadCardShare = 0\.54' "${native_dir}/src/SpreadLayout.h"
+rg -q 'workHeight \* 0\.54' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'workWidth \* spreadGutterShare' "${native_dir}/src/SpreadLayout.cpp"
 rg -q 'Own = 0\.056' "${native_dir}/src/CardTuning.h"
 rg -q 'restoreActiveSnapshot' "${effect_cpp}" "${card_cpp}"

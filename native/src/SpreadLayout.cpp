@@ -53,18 +53,11 @@ CardStackEnvelope bottomRightRotationEnvelope(
 }
 }
 
-double spreadCardShare(double workHeight)
-{
-    return workHeight * SpreadCardShare > SpreadCardMaxHeight
-        ? SpreadCardMaxHeight / workHeight : SpreadCardShare;
-}
-
 SpreadLayout makeSpreadLayout(double workX, double workY,
                                   double workWidth, double workHeight)
 {
-    const double share = spreadCardShare(workHeight);
-    const double cardWidth = workWidth * share;
-    const double cardHeight = workHeight * share;
+    const double cardWidth = workWidth * 0.54;
+    const double cardHeight = workHeight * 0.54;
     const double gutter = workWidth * spreadGutterShare(cardTuning().spreadPeek);
     const double centerX = workX + (workWidth - cardWidth) / 2.0;
     const double cardY = workY + (workHeight - cardHeight) / 2.0;

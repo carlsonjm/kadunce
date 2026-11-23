@@ -339,10 +339,10 @@ int main(int argc, char **argv)
     tune("SpreadPeek", "1", [] { return Kadunce::cardTuning().spreadPeek == 1.0; });
     // A wider peek narrows the space between Spread's cards, the cards
     // themselves keeping their size.
-    const auto wide = Kadunce::makeSpreadLayout(0, 0, 1000, 700);
+    const auto wide = Kadunce::makeSpreadLayout(0, 0, 1000, 800);
     require(std::abs(wide.gutter - 20.0) < 1e-9 && std::abs(wide.cards[1].width - 540.0) < 1e-9);
     tune("SpreadPeek", "0", [] { return Kadunce::cardTuning().spreadPeek == 0.0; });
-    require(std::abs(Kadunce::makeSpreadLayout(0, 0, 1000, 700).gutter - 120.0) < 1e-9);
+    require(std::abs(Kadunce::makeSpreadLayout(0, 0, 1000, 800).gutter - 120.0) < 1e-9);
     // Unset, no card casts a shadow; set, it reaches furthest below the card.
     require(!Kadunce::cardShadowShape(Kadunce::CardTuning{}.shadow).cast());
     tune("CardShadow", "3", [] { return Kadunce::cardTuning().shadow == 1.0; });
