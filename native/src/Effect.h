@@ -1678,6 +1678,7 @@ private:
     QPointer<KWin::LogicalOutput> m_placeMapDrawnOn;
     std::optional<QPointF> m_stackHoldCentre;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
+    [[nodiscard]] bool cardGrabOnAnyDisplay() const;
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     // Shuffle Settings stands over the work on a display: everything under
     // its panels is frosted with the placement box's own glass, so it has no
@@ -1996,5 +1997,4 @@ private:
     QHash<QString, quint64> m_activationOrder;
     quint64 m_activationSequence = 0;
 };
-
 } // namespace Kadunce

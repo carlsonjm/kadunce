@@ -415,6 +415,17 @@ bool Effect::selectedStackContains(const QPointF &position) const
     return m_cardStage->selectedStackContains(position);
 }
 
+bool Effect::cardGrabOnAnyDisplay() const
+{
+    // Each display paints with its own stage named, yet a card carried off
+    // one display's Spread must be drawn on the display beside it too, so
+    // every stage of the desktop is asked, not only the one named.
+    if (!m_scopedSession) return m_cardStage->cardGrabActive();
+    for (const auto &display : m_scopedSession->displays)
+        if (display.second && display.second->cards && display.second->cards->cardGrabActive()) return true;
+    return false;
+}
+
 void Effect::beginCardGrab(const QPointF &position)
 {
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
@@ -436,7 +447,18 @@ void Effect::updateCardGrab(const QPointF &position)
     if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack()) return;
     for (auto *output : KWin::effects->screens()) {
         if (!QRectF(output->geometry()).contains(position)) continue;
-        if (m_cardStage->heldWholeStack() && (m_cardStage->canOwnCards(output) || !isCardDisplay(output))) break;
+        if (m_cardStage->heldWholeStack()) {
+            if (m_cardStage->canOwnCards(output) || !isCardDisplay(output) || !m_scopedSession) break;
+            // Over a display holding cards and no layout, it will stand there
+            // as that display's Active card (moveCardToDisplay): that place shows.
+            if (!m_desktopStage->hasSessionOnOutput(output->name())) {
+                m_lineCardEntryOutput = output;
+                m_linePreview = KWin::RectF(stageOn(m_scopedSession, stageKeyFor(output)).activeTarget(output));
+                m_lineDestinationWindow = selectedWindow();
+                m_lineDestinationContact = position;
+                break;
+            }
+        }
         const auto edge = carryEdgeAt(output, position);
         std::optional<BentoSidePlacement> side;
         if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
@@ -527,12 +549,24 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
         // anywhere else it goes back.
         KWin::LogicalOutput *there = KWin::effects->screenAt(position.toPoint());
         if (there && QRectF(there->geometry()).contains(position) && there == tabletOutput()) return false;
-        if (!there || !QRectF(there->geometry()).contains(position) || !isCardDisplay(there)) {
+        if (there && m_lineCardEntryOutput == there) {
+            // A display with no layout: the Stack moves there whole in one
+            // transfer and stands as its Active card, in front.
+            QPointer<KWin::EffectWindow> face = selectedWindow();
+            finishCardGrab(false);
+            const bool moved = face && moveCardToDisplay(face, there, true);
+            qInfo() << "Kadunce" << Revision << (moved ? "moved" : "could not move") << "the gathered Stack of"
+                    << logNameOf(face) << "to" << there->name();
+            return true;
+        }
+        // Into a layout there it takes a lone card's way, its Stack following
+        // (admitCardToDesktopStage); anywhere else it goes back.
+        if (!there || !QRectF(there->geometry()).contains(position) || !isCardDisplay(there) || !m_lineDestination) {
             finishCardGrab(false);
             return true;
         }
-        qInfo() << "Kadunce" << Revision << "lets the gathered Stack of" << logNameOf(selectedWindow()) << "go on"
-                << there->name() << "a lone card's way, its Stack following";
+        qInfo() << "Kadunce" << Revision << "lets the gathered Stack of" << logNameOf(selectedWindow())
+                << "go into the layout on" << there->name();
     }
     if (m_lineCardEntryOutput) {
         // §10: nothing distinct to pair with, so the carried card becomes the

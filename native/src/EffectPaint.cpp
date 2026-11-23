@@ -299,6 +299,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             m_continueRepaint = true;
         }
     }
+    if (cardGrabOnAnyDisplay()) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
     if (m_cardStage->isActive()
         && (isTabletOutput(data.screen) || m_cardStage->cardGrabActive())) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -529,7 +530,7 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
     // A window leaning into a Stack is its own preview; no box is drawn.
     if (!m_destinationShader || !screen || !preview || (m_carriedWindow && m_carryStackOnto)
-        || !(m_carriedWindow || m_cardStage->cardGrabActive())) return std::nullopt;
+        || !(m_carriedWindow || cardGrabOnAnyDisplay())) return std::nullopt;
     if (cardEntry == screen || (cardExit && cardExit == screen)
         || (reservation && !cardEntry && reservation->showsPlacementOutline()
             && reservation->destinationOutput() == screen
@@ -1768,10 +1769,10 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     }
 
     const int slot = m_cardStage->paintSlot(window);
-    const bool grabbedWindow = m_cardStage->carriedInGrab(window);
+    const bool grabbedWindow = m_cardStage->cardGrabActive() && window == m_cardStage->selectedWindow();
     const auto route = cardPaintRoute(m_paintingOutput == tablet,
         window->screen() == tablet, slot != 99, window == m_nativeCarry,
-        grabbedWindow);
+        m_cardStage->carriedInGrab(window));
     if (route == CardPaintRoute::Hidden) return paintResult(true);
     if (route == CardPaintRoute::Native) {
         // Only the carried item may cross the fence. Passive tablet neighbors
