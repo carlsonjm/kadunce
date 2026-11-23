@@ -457,6 +457,9 @@ public:
     [[nodiscard]] bool askedInside(const KWin::EffectWindow *window) const;
     [[nodiscard]] bool beginLauncherGuest();
     void updateLauncherGuest(double horizontalDelta);
+    // Search's own width, said under protocol 4: the cards beside it stand one
+    // gutter beyond it, at their own size, and slide there once.
+    void resizeLauncherGuest(double width);
     [[nodiscard]] bool finishLauncherGuest(double horizontalDelta);
     void endLauncherGuest();
     // A tap beside Search ends it. On a card standing beside it, that card's
@@ -1048,6 +1051,7 @@ private:
     void holdCardsAside();
     void bringCardsBack();
     double m_launcherGuestOffset = 0.0;
+    double m_launcherGuestWidth = 0.0; // 0: protocol 3's footprint
     double m_launcherGuestTransitionFrom = 0.0;
     QElapsedTimer m_launcherGuestTransitionTimer;
     int m_launcherGuestPendingPage = 0;

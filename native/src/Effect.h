@@ -227,7 +227,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE int companionGuestProtocolVersion() const;
     Q_SCRIPTABLE QString beginCompanionGuest(const QString &ownerService, const QString &objectPath, const QString &interfaceName);
     Q_SCRIPTABLE bool setLauncherGuestExpanded(bool expanded);
-    Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta);
+    Q_SCRIPTABLE void updateLauncherGuest(double horizontalDelta); Q_SCRIPTABLE void resizeLauncherGuest(double width, double height);
     Q_SCRIPTABLE bool finishLauncherGuest(double horizontalDelta);
     Q_SCRIPTABLE bool prepareLauncherGuestLaunch(const QStringList &applicationIds, const QString &requestToken);
     Q_SCRIPTABLE void cancelLauncherGuestLaunch();

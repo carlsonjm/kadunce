@@ -787,7 +787,17 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
     const KWin::RectF work = workArea(output);
     const SpreadLayout layout = makeLauncherGuestLayout(work.x(), work.y(),
         work.width(), work.height(), m_launcherGuestGroupCount);
-    const auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
+    auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
+    // Protocol 4: Search said its width. It stands centred where the card
+    // in the middle stands; the cards beside it keep a Spread card's size
+    // and stand the usual gutter beyond its edges.
+    if (slot != 0 && m_launcherGuestWidth > 0.0) {
+        const SpreadLayout row = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+        const double centre = layout.cards[1].x + layout.cards[1].width / 2.0;
+        target = row.cards[slot < 0 ? 0 : 2];
+        target.x = slot < 0 ? centre - m_launcherGuestWidth / 2.0 - row.gutter - target.width
+                            : centre + m_launcherGuestWidth / 2.0 + row.gutter;
+    }
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
 }

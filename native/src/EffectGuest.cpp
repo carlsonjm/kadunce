@@ -36,7 +36,9 @@ namespace Kadunce
 
 int Effect::launcherGuestProtocolVersion() const
 {
-    return 3;
+    // 4: Search sizes itself and says its size (resizeLauncherGuest). A
+    // guest that never says it keeps protocol 3's footprint.
+    return 4;
 }
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
@@ -241,6 +243,14 @@ void Effect::updateLauncherGuest(double horizontalDelta)
 {
     if (m_launcherGuestExpanded || !callerIsGuest()) return;
     m_cardStage->updateLauncherGuest(horizontalDelta);
+}
+
+void Effect::resizeLauncherGuest(double width, double /*height*/)
+{
+    // Only the guest's width moves the cards beside it; it centres itself
+    // in the card's place, so its height is its own.
+    if (!callerIsGuest()) return;
+    m_cardStage->resizeLauncherGuest(width);
 }
 
 bool Effect::setLauncherGuestExpanded(bool expanded)
