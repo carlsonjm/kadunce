@@ -1205,78 +1205,17 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // Stack.
     // §11, Connected: the card a display shows alone is mapped as a pane is,
     // and a side of it lays the two out there once the arrival has landed.
-    KWin::EffectWindow *lone = nullptr;
     QPointer<KWin::EffectWindow> pairAfter;
     BentoSidePlacement pairSide;
     QRectF pairPreview;
     if (!over && !local && !desktopWindow && !edge) {
-        if (tablet && m_cardStage->isActive()
-            && m_cardStage->presentation() == CardPresentation::Active) {
-            KWin::EffectWindow *card = m_cardStage->selectedWindow();
-            if (card && card != m_carriedWindow && !card->isDeleted()
-                && QRectF(card->frameGeometry()).contains(contact)) over = lone = card;
-        }
-        if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
-            over = m_desktopStage->paneAt(target, contact, m_carriedWindow);
-        // §11, Connected: over a pane of a Connected layout, the map of places
-        // shows and the contact names one of the pane's five (PanePlaces.h).
-        // Its middle joins the pane's Stack once the card rests there, as a
-        // pane rested on another does, so a quick let go never makes a Stack;
-        // any side places the card by the pane, which the layout solve below
-        // reserves.
-        // A display sized Solo shows the map too. Its layouts hold two panes
-        // side by side, so a pane of one offers only its Stack, outlined
-        // whole, and the card it shows alone only its middle and two sides.
-        const bool connectedHere = connectedOutputForDesktopStage(target);
-        const bool soloHere = !connectedHere && isCardDisplay(target);
-        if (over && soloHere && over != lone && m_desktopStage->managesWindow(over)) {
-            m_carryMapOutput = target;
-            m_carryPlacePane = over;
-            m_carryPanePlace = PanePlace::Middle;
-            m_carryPlaceWhole = true;
-        } else if (over && (connectedHere || soloHere) && (over == lone || m_desktopStage->managesWindow(over))) {
-            m_carryMapOutput = target;
-            m_carryPlaceAcross = soloHere;
-            const QRectF frame(over->frameGeometry());
-            auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
-                contact.x(), contact.y(), previousPlacePane == over ? previousPanePlace : std::nullopt);
-            if (soloHere && place && (*place == PanePlace::Top || *place == PanePlace::Bottom))
-                place = PanePlace::Middle;
-            if (place) {
-                m_carryPlacePane = over;
-                m_carryPanePlace = place;
-                if (*place != PanePlace::Middle) {
-                    const QRectF whole(target->geometry());
-                    BentoSidePlacement byPane;
-                    byPane.right = *place == PanePlace::Right
-                        || (*place != PanePlace::Left && frame.center().x() > whole.center().x());
-                    byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
-                    byPane.over = *place == PanePlace::Top;
-                    byPane.connected = connectedHere;
-                    if (over == lone) {
-                        // The half of the card the named side keeps for it.
-                        pairAfter = lone;
-                        pairSide = byPane;
-                        // Over or under names a place by that card, so the
-                        // two share its column rather than stand side by side.
-                        if (*place == PanePlace::Top || *place == PanePlace::Bottom) {
-                            pairSide.place = place;
-                            pairSide.pane = reinterpret_cast<std::uintptr_t>(lone);
-                        }
-                        const bool across = *place == PanePlace::Left || *place == PanePlace::Right;
-                        const QSizeF half(across ? frame.width() / 2 : frame.width(), across ? frame.height() : frame.height() / 2);
-                        pairPreview = QRectF(*place == PanePlace::Right ? frame.center().x() : frame.left(),
-                                             *place == PanePlace::Bottom ? frame.center().y() : frame.top(),
-                                             half.width(), half.height());
-                    } else {
-                        byPane.place = place;
-                        byPane.pane = reinterpret_cast<std::uintptr_t>(over);
-                        side = byPane;
-                    }
-                    over = nullptr;
-                }
-            }
-        }
+        // Asked as a card held out of Spread asks it (aimAtPaneMap).
+        const PaneMapAim aim = aimAtPaneMap(target, contact, m_carriedWindow, previousPlacePane, previousPanePlace);
+        over = aim.over;
+        if (aim.side) side = aim.side;
+        pairAfter = aim.pairAfter;
+        pairSide = aim.pairSide;
+        pairPreview = aim.pairPreview;
     }
     QPointer<KWin::EffectWindow> stackAfter;
     if (over) {
@@ -1445,9 +1384,18 @@ void Effect::stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin
         observeCardOwnership();
         Q_EMIT workspaceContextChanged();
     } else if (m_cardStage->liveCardIndex(carried) >= 0 && m_cardStage->liveCardIndex(onto) >= 0) {
-        stacked = m_cardStage->stackCardOnto(carried, onto);
+        // A card that came with its own Stack joins whole: every card of
+        // both is kept, its own behind it and the Stack rested on behind those.
+        QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(carried);
+        behind.removeAll(carried.data());
+        QList<KWin::EffectWindow *> under = m_cardStage->stackFrontToBack(onto);
+        if (under.isEmpty()) under.append(onto);
+        behind.append(under);
+        stacked = carried != onto && m_cardStage->regroup(carried, behind);
         if (stacked) {
-            qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "on" << logNameOf(onto);
+            KWin::effects->addRepaintFull();
+            qInfo() << "Kadunce" << Revision << "stacked" << logNameOf(carried) << "and" << behind.size() - under.size()
+                    << "behind it on" << logNameOf(onto);
             observeCardOwnership();
             Q_EMIT workspaceContextChanged();
         }

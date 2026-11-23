@@ -221,7 +221,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
     // Each frame looks again for Gooseberry's surface over the Active card.
     if (m_notesHandover) m_continueRepaint = true;
     // The middle's ring fills while the card rests there.
-    if (m_carriedWindow && m_carryPanePlace == PanePlace::Middle && m_carryStackOnto != m_carryPlacePane)
+    if ((m_carriedWindow || grabStageKey()) && m_carryPanePlace == PanePlace::Middle && m_carryStackOnto != m_carryPlacePane)
         m_continueRepaint = true;
     if (m_stackJoin) {
         data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -526,8 +526,8 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
     const auto &preview = m_carriedWindow ? m_carryPreview : m_linePreview;
     const auto cardEntry = m_carriedWindow ? m_carryCardEntryOutput : m_lineCardEntryOutput;
     const auto cardExit = m_carriedWindow ? m_carryCardExitOutput : QPointer<KWin::LogicalOutput>();
-    // A window leaning into a Stack is its own preview; no box is drawn.
-    if (!m_destinationShader || !screen || !preview || (m_carriedWindow && m_carryStackOnto)
+    // A window or card rested where it would join a Stack shows that Stack outlined; no box is drawn.
+    if (!m_destinationShader || !screen || !preview || m_carryStackOnto
         || !(m_carriedWindow || grabStageKey())) return std::nullopt;
     if (cardEntry == screen || (cardExit && cardExit == screen)
         || (reservation && !cardEntry && reservation->showsPlacementOutline()
@@ -540,11 +540,11 @@ std::optional<QRectF> Effect::heldDestinationOn(KWin::LogicalOutput *screen)
 void Effect::drawPlaceMap(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                           const KWin::Region &deviceRegion, KWin::LogicalOutput *screen)
 {
-    // §11, Connected: carried in from another display, each pane of the
+    // §11, Connected: in hand from another display, each pane of the
     // layout shows faintly, and the pane under the card its five places
     // (PanePlaces.h): its middle, and a bar along each side. The place named
     // is drawn stronger; where the card would land is the frosted box.
-    if (!m_carriedWindow || !screen || m_carryMapOutput != screen || !m_destinationShader) return;
+    if (!(m_carriedWindow || grabStageKey()) || !screen || m_carryMapOutput != screen || !m_destinationShader) return;
     const auto partsOf = [&](const QRectF &box) {
         QList<QRectF> parts;
         for (const auto &dirty : deviceRegion.rects()) {
@@ -689,7 +689,7 @@ void Effect::drawDestinationOutline(const KWin::RenderTarget &renderTarget,
     clip.setBottom(std::min(clip.bottom(), double(screen->geometry().bottom()) - 48.0));
     // A half of the card it is placed beside is drawn whole, its own rounded
     // corners too, though that card reaches into the band kept at the bottom.
-    if (m_carriedWindow && m_carryPlacePane && m_carryPanePlace != PanePlace::Middle
+    if ((m_carriedWindow || grabStageKey()) && m_carryPlacePane && m_carryPanePlace != PanePlace::Middle
         && !m_desktopStage->managesWindow(m_carryPlacePane) && QRectF(m_carryPlacePane->frameGeometry()).contains(box))
         clip = clip.united(box);
     QList<QRectF> parts;

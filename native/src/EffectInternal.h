@@ -225,6 +225,22 @@ private:
     QString m_previousKey;
 };
 
+// CARD-LIFECYCLE.md §11: what a window or card in hand over another display
+// would do by the pane, or the card shown alone, under it there
+// (Effect::aimAtPaneMap). A title-bar carry and a carry out of Spread ask it
+// alike, so the map of places means one thing however the card was picked up.
+struct Effect::PaneMapAim {
+    // The pane or card it would join in a Stack, once rested on.
+    KWin::EffectWindow *over = nullptr;
+    // The place by a pane of a layout its side names.
+    std::optional<BentoSidePlacement> side;
+    // The card shown alone it would be laid out beside once landed, the side
+    // named, and the half of that card the side keeps for it.
+    QPointer<KWin::EffectWindow> pairAfter;
+    BentoSidePlacement pairSide;
+    QRectF pairPreview;
+};
+
 // A card held in a display's Spread, or one of the Stack gathered behind it,
 // is that display's stage's to draw on every display the hand carries it
 // over. Each display paints with its own stage named, and that stage holds no

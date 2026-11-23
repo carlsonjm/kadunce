@@ -602,11 +602,9 @@ private:
     // session: its own cards and its own layouts, which carry on unseen while another desktop is shown.
     struct DesktopSession;
     class SessionHost;
-    class SessionScope;
-    class HeldDrawScope;
-    // A window carried to another display and rested on a pane or card there
-    // joins that Stack once it has landed; it retries while the landing settles.
-    // It gives up once anything is carried again or another desktop is shown.
+    class SessionScope; class HeldDrawScope; struct PaneMapAim;
+    // Carried to another display and rested on a pane or card there, it joins that Stack once landed,
+    // retrying while the landing settles, until anything is carried again or another desktop is shown.
     void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                          const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
     // §11, Connected: carried onto a side of the card a display shows alone,
@@ -1542,21 +1540,23 @@ private:
     std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
     std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
-    // §11, Connected: the pane a carried pane rests over, which it joins in
-    // a Stack once it has rested there; the pane it would join, once it
-    // would; and a reading of the aim when the dwell runs out, should the
-    // carry be resting still.
+    // §11, Connected: the pane a carried pane rests over, which it joins in a Stack once rested there;
+    // the pane it would join, once it would; and the aim read again when the dwell runs out.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
-    QPointer<KWin::EffectWindow> m_carryStackOnto;
-    // §11, Connected: carried in from another display over a pane, the pane
-    // and the place by it the contact names (PanePlaces.h), on the display
-    // whose map of places is drawn.
+    // A card held out of Spread lands first: the Stack it then joins, or the lone card it is laid out by.
+    QPointer<KWin::EffectWindow> m_carryStackOnto, m_lineStackAfter, m_linePairAfter;
+    BentoSidePlacement m_linePairSide;
+    // §11, Connected: in hand over a pane of another display, the pane and the place by it the
+    // contact names (PanePlaces.h), on the display whose map of places is drawn.
     QPointer<KWin::EffectWindow> m_carryPlacePane;
     std::optional<PanePlace> m_carryPanePlace;
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
-    // Carried over another pane of its own layout, the whole pane is the
-    // place: it joins that pane's Stack once rested on, anywhere on it.
+    // Whole: over another pane of its own layout, or of a Solo layout, the pane is one place, its Stack.
     bool m_carryPlaceWhole = false, m_carryPlaceAcross = false; // Across: Solo, middle and two sides only.
+    // Read under the stage of `target`; names the map's display, pane and place. The map is put away.
+    [[nodiscard]] PaneMapAim aimAtPaneMap(KWin::LogicalOutput *target, const QPointF &contact, KWin::EffectWindow *carried,
+                                          KWin::EffectWindow *beforePane, std::optional<PanePlace> beforePlace);
+    void forgetPaneMap();
     // How full the middle's ring is, 0 to 1, for the pane under the card.
     [[nodiscard]] double stackHoldFilled() const;
     StackHoldLabel m_stackHoldLabel;
