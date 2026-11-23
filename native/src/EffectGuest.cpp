@@ -247,12 +247,12 @@ void Effect::updateLauncherGuest(double horizontalDelta)
     m_cardStage->updateLauncherGuest(horizontalDelta);
 }
 
-void Effect::resizeLauncherGuest(double width, double /*height*/)
+void Effect::resizeLauncherGuest(double width, double height)
 {
     // Only the guest's width moves the cards beside it; it centres itself
-    // in the card's place, so its height is its own.
+    // in the card's place, and its height says where a tap is its own.
     if (!callerIsGuest()) return;
-    m_cardStage->resizeLauncherGuest(width);
+    m_cardStage->resizeLauncherGuest(width, height);
 }
 
 bool Effect::setLauncherGuestExpanded(bool expanded)

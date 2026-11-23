@@ -786,6 +786,15 @@ KWin::Rect CardStageController::launcherGuestRowCard(KWin::LogicalOutput *output
     return KWin::Rect(qRound(card.x), qRound(card.y), qRound(card.width), qRound(card.height));
 }
 
+KWin::Rect CardStageController::launcherGuestInputTarget(KWin::LogicalOutput *output) const
+{
+    if (!output || m_launcherGuestWidth <= 0.0 || m_launcherGuestHeight <= 0.0) return launcherGuestTarget(output);
+    const auto card = launcherGuestRowCard(output);
+    const QPointF centre = QRectF(card.x(), card.y(), card.width(), card.height()).center();
+    return KWin::Rect(qRound(centre.x() - m_launcherGuestWidth / 2.0), qRound(centre.y() - m_launcherGuestHeight / 2.0),
+                      qRound(m_launcherGuestWidth), qRound(m_launcherGuestHeight));
+}
+
 KWin::Rect CardStageController::launcherGuestTargetForSlot(
     KWin::LogicalOutput *output, int slot) const
 {
