@@ -1544,7 +1544,7 @@ void Effect::restackCarriedDecks()
             ++it;
             continue;
         }
-        if (!m_cardStage->stackBehind(alive.first(), alive.mid(1)))
+        if (!m_cardStage->regroup(alive.first(), alive.mid(1)))
             qInfo() << "Kadunce could not stack again the" << alive.size() << "cards Table carried here";
         it = decks.erase(it);
     }

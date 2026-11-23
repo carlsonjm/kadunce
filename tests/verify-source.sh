@@ -621,10 +621,12 @@ test "$(sha256sum "${native_dir}/src/SpreadLayout.h" | cut -d' ' -f1)" = \
     "bebcd0302985c6dd4092bc5c207a0d7cfb465765aac79dc6f71a6a48ce7a83d4"
 # Explicit insertion-selection policy, and a member pulled down out of its Stack,
 # are covered in SpreadModelTest; fixed aperture/layout hashes above remain unchanged.
+# Updated deliberately when a gathered Stack learned to merge whole into another
+# (mergeSelectedInto, covered in SpreadModelTest); no existing path changed.
 test "$(sha256sum "${native_dir}/src/SpreadModel.cpp" | cut -d' ' -f1)" = \
-    "ed46f6c88b02e8e4e55810bad52a50182d8ccb2734d276ccdd3f4efb826853b5"
+    "39e0ecfaa6fdf346d0e03402ef52c482f687e389e84f86267d797d3a6942baf5"
 test "$(sha256sum "${native_dir}/src/SpreadModel.h" | cut -d' ' -f1)" = \
-    "ef7d8bcfd11e590844408ad0558302c7b4e6f34276ca8d6540f51a0cb9f94e1f"
+    "a0e2a210d66a506d958c02e398ed160d6de2361d49f8d7cd53b2aeda70021be6"
 rg -q 'appendCenteredCard' "${native_dir}/src/CardWorkspaceState.h"
 rg -q 'window == m_arrivalWindow' "${card_cpp}"
 rg -q 'ArrivalExpandDuration = 220' "${card_cpp}"

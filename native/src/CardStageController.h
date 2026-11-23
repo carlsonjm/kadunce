@@ -228,6 +228,14 @@ public:
     // Stacks cards that stand alone behind face, as a stack carried here from
     // another desktop left it. Not an ownership transition.
     bool stackBehind(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind);
+    // TABLE.md § Stacks: face and the cards behind it, each already this
+    // stage's, become one Stack in that order, out of any Stack each stood
+    // in, as Table lets one card or Stack go on another. Not an ownership
+    // transition.
+    bool regroup(KWin::EffectWindow *face, const QList<KWin::EffectWindow *> &behind) { return restack(face, behind); }
+    // A card of a Stack stands on its own just after it, the Stack keeping
+    // its place and order; the Active card stays the card shown.
+    bool releaseFromStack(KWin::EffectWindow *window);
     // The row's entries left to right, each a lone card or a Stack front
     // first (SavedLayout.h).
     [[nodiscard]] QList<QList<KWin::EffectWindow *>> rowEntries() const;
@@ -327,6 +335,15 @@ public:
     void repaintKeyboardEdge(const KWin::RectF &from, const KWin::RectF &to) const;
     // A card is held in its own Stack, which it stays over.
     [[nodiscard]] bool heldInStack() const;
+    // A Stack gathered under the finger, carried whole.
+    [[nodiscard]] bool heldWholeStack() const { return m_cardGrabActive && m_carry.gathered; }
+    // The held card, or a card of the Stack gathered behind it: drawn wherever
+    // the finger carries them, on any display.
+    [[nodiscard]] bool carriedInGrab(const KWin::EffectWindow *window) const
+    {
+        return m_cardGrabActive && window && (window == selectedWindow()
+            || (m_carry.gathered && m_carry.gatheredCards.contains(const_cast<KWin::EffectWindow *>(window))));
+    }
     // Where a card held in its own Stack would go, drawn as an outline at the
     // Stack's seam, and how far it has been lifted out, from nothing to all
     // the way; empty when no card is held in its Stack.
@@ -746,6 +763,7 @@ private:
     [[nodiscard]] double carryRowAt(double x, const CarryFrame &frame) const;
     // Sideways travel pages a card held in its own Stack through its places.
     void pageHeldStackCard(double fingerX);
+    void gatherHeldStack();
     [[nodiscard]] KWin::Rect carryTarget(KWin::LogicalOutput *output,
                                          const KWin::EffectWindow *window) const;
     void advanceCarry(double seconds);
@@ -984,6 +1002,12 @@ private:
         // its cards from front to back, and `paging` where the held one would
         // go, counted from the front.
         bool inStack = false;
+        // Held still long enough, the Stack gathered under the held card and
+        // goes whole: `gathered` its cards, raised under the held one, and
+        // `gatherLift` how far above the finger the held card stood.
+        bool gathered = false;
+        QList<QPointer<KWin::EffectWindow>> gatheredCards;
+        double gatherLift = 0.0;
         std::vector<int> stack;
         CarryStackPaging paging;
         double lift = 0.0;

@@ -47,35 +47,34 @@ window is in `CARD-LIFECYCLE.md`.
 ## Presentation
 
 - The preview is the workspace itself, at full size, on every display, while
-  you stay where you are; entering it switches desktop.
+  you stay put; entering it switches desktop.
 - Over Spread, the tabs leave Spread in view: a workspace previews once a pull
   reaches its cards or a menu-bar tap chooses its tab.
 - Table opens where you call it: on the touchscreen for a finger, under the
   pointer for the mouse and keys. A session has one Table.
 - On the display holding the tabs, the dock's band hangs from the top edge
-  behind the rows. It darkens with the finger during a pull, full by the tabs,
-  and otherwise fades down into place.
+  behind the rows, darkening with a pull, full by the tabs, else fading down
+  into place.
 - Under the band, that display is frosted with the glass behind Shuffle
   Settings (`ITASCA-VISUAL-LANGUAGE.md` § Kadunce geometry), its panels
   standing over it, whichever workspace shows. The glass clears while a card
   is previewed, and Table over Spread frosts nothing.
-- Tabs are pills carrying the desktop's number, the name and the first few
+- Tabs are pills carrying the desktop's number, name and first few
   application colours; the workspace you are in is the brightest. A crowded row
   gives up the colours, then name length, leaving circles holding numbers. `+`
   is a circle. Cards show the application icon, name and window title, less
   any repeat of the name; a Stack is one card with Spread's closed-stack edges
-  behind it.
-- The rows float apart, unlined. What the finger is on lifts, lighter, a
-  little larger and softly shadowed, and the tab whose cards
-  hang stays lifted. Cards come up to meet a finger nearing them, the chosen one
-  rises toward the lift line as it is pulled, and the card in hand is the card
-  itself.
+  behind it; rested on, its cards hang under it.
+- The rows float apart, unlined. What the finger is on lifts, lighter, larger
+  and softly shadowed, as does the tab whose cards hang. Cards rise to meet a
+  nearing finger, the chosen one toward the lift line; the card in hand is the
+  card itself; held on another, Spread's hold ring fills.
 - The depth and lift lines sit 25 px under the row above them, 5 mm on a
   tablet at 1.75 scale. Accent marks only the drop destination; the rest
   follows `ITASCA-VISUAL-LANGUAGE.md`.
 - A screen reader names each piece: a tab as its workspace's number and name,
   `+` as New workspace, a card by its application and title and whether it is
-  a Stack, and the card in hand as moving.
+  a Stack, a hung card with its place, and the card in hand as moving.
 
 ## Invariants
 

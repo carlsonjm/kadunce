@@ -41,6 +41,7 @@
 #include "SpreadReading.h"
 #include "KeyRoute.h"
 #include "HeldPointer.h"
+#include "HeldCardDraw.h"
 #include <options.h>
 
 #include <effect/effectwindow.h>
@@ -601,10 +602,9 @@ private:
     // session: its own cards and its own layouts, which carry on unseen while another desktop is shown.
     struct DesktopSession;
     class SessionHost;
-    class SessionScope;
-    // A window carried to another display and rested on a pane or card there
-    // joins that Stack once it has landed; it retries while the landing settles.
-    // It gives up once anything is carried again or another desktop is shown.
+    class SessionScope; class HeldDrawScope; struct PaneMapAim;
+    // Carried to another display and rested on a pane or card there, it joins that Stack once landed,
+    // retrying while the landing settles, until anything is carried again or another desktop is shown.
     void stackWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> onto,
                          const DesktopSession *landedIn, quint64 carriesBegun, int tries = 20);
     // §11, Connected: carried onto a side of the card a display shows alone,
@@ -681,19 +681,17 @@ private:
     // display that holds cards, one stroke choosing a workspace or a card, and a card carried to a tab or to +.
     struct TableCard {
         QList<QPointer<KWin::EffectWindow>> windows;
-        QString application;
-        QString title;
+        QString application, title;
         QIcon icon;
         // A stack is one card, its face first in windows and the cards
         // behind it after; this counts those behind.
         int stacked = 0;
+        QList<bool> asleep; // each of windows minimized, drawn dimmed
     };
     struct TableWorkspace {
         QPointer<KWin::VirtualDesktop> desktop;
         QString name;
-        // The person named it, which keeps it.
-        bool named = false;
-        bool current = false;
+        bool named = false, current = false; // named by the person, which keeps it
         QList<TableCard> cards;
     };
     // Each workspace as Table shows it, renaming none.
@@ -706,14 +704,16 @@ private:
     [[nodiscard]] QRectF tableDisplay() const;
     [[nodiscard]] qint64 tableNow() const;
     void openTable(bool sticky, KWin::LogicalOutput *output = nullptr);
-    void closeTable();
-    void finishTable();
-    void relayoutTable();
-    void refreshTable();
+    void closeTable(), finishTable(), relayoutTable(), refreshTable();
     void applyTableAction(const TableAction &action);
-    void openTableLayout(int layout);
-    void applyTableKey(TableGesture::Key key);
-    void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination);
+    void openTableLayout(int layout), applyTableKey(TableGesture::Key key);
+    void moveTableCard(int workspace, int card, KWin::VirtualDesktop *destination, int member = -1);
+    // TABLE.md: stacking, a Stack's card out, rest and aim timers, landing.
+    bool stackTableCard(const TableAction &action), takeTableCardOut(int workspace, int card, int member);
+    void connectTableTimers(), restTable(), aimTable(), sendCardToWorkspace(int step);
+    void landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face);
+    QTimer m_tableRest, m_tableAim;
+    int m_tableRestFor = -1;
     [[nodiscard]] TableHit tableHitAt(const QPointF &local) const;
     [[nodiscard]] int tableCardAt(const QPointF &local) const;
     [[nodiscard]] bool tableOpenForInput() const override { return m_table.isOpen(); }
@@ -1540,21 +1540,23 @@ private:
     std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
     std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
-    // §11, Connected: the pane a carried pane rests over, which it joins in
-    // a Stack once it has rested there; the pane it would join, once it
-    // would; and a reading of the aim when the dwell runs out, should the
-    // carry be resting still.
+    // §11, Connected: the pane a carried pane rests over, which it joins in a Stack once rested there;
+    // the pane it would join, once it would; and the aim read again when the dwell runs out.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
-    QPointer<KWin::EffectWindow> m_carryStackOnto;
-    // §11, Connected: carried in from another display over a pane, the pane
-    // and the place by it the contact names (PanePlaces.h), on the display
-    // whose map of places is drawn.
+    // A card held out of Spread lands first: the Stack it then joins, or the lone card it is laid out by.
+    QPointer<KWin::EffectWindow> m_carryStackOnto, m_lineStackAfter, m_linePairAfter;
+    BentoSidePlacement m_linePairSide;
+    // §11, Connected: in hand over a pane of another display, the pane and the place by it the
+    // contact names (PanePlaces.h), on the display whose map of places is drawn.
     QPointer<KWin::EffectWindow> m_carryPlacePane;
     std::optional<PanePlace> m_carryPanePlace;
     QPointer<KWin::LogicalOutput> m_carryMapOutput;
-    // Carried over another pane of its own layout, the whole pane is the
-    // place: it joins that pane's Stack once rested on, anywhere on it.
+    // Whole: over another pane of its own layout, or of a Solo layout, the pane is one place, its Stack.
     bool m_carryPlaceWhole = false, m_carryPlaceAcross = false; // Across: Solo, middle and two sides only.
+    // Read under the stage of `target`; names the map's display, pane and place. The map is put away.
+    [[nodiscard]] PaneMapAim aimAtPaneMap(KWin::LogicalOutput *target, const QPointF &contact, KWin::EffectWindow *carried,
+                                          KWin::EffectWindow *beforePane, std::optional<PanePlace> beforePlace);
+    void forgetPaneMap();
     // How full the middle's ring is, 0 to 1, for the pane under the card.
     [[nodiscard]] double stackHoldFilled() const;
     StackHoldLabel m_stackHoldLabel;
@@ -1664,26 +1666,26 @@ private:
     void fillDestinationParts(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                               const QList<QRectF> &parts, const QRectF &box, float fill, float ring,
                               std::optional<QVector3D> ink = std::nullopt);
-    // Where a window will land is frosted glass (FrostedBox.h). What each
-    // display frosted in its last frame, by name, is drawn afresh in its
-    // next, so the glass never blurs itself.
+    // Where a window will land is frosted glass (FrostedBox.h). What each display frosted
+    // in its last frame, by name, is drawn afresh in its next, so the glass never blurs itself.
     FrostedBox m_frostedBox;
     QHash<QString, QList<QRectF>> m_frostDrawn;
-    // The region of the display being painted, for a box drawn while one of
-    // its windows paints, and the display whose held window has its box
-    // drawn under it this frame.
+    // The region of the display painted, for a box drawn while one of its
+    // windows paints, and the display whose held window has its box under it.
     KWin::Region m_paintingRegion;
     QPointer<KWin::LogicalOutput> m_heldBoxDrawnOn;
     // The place map drawn under the card in hand; the hold ring, drawn last.
     QPointer<KWin::LogicalOutput> m_placeMapDrawnOn;
     std::optional<QPointF> m_stackHoldCentre;
     [[nodiscard]] std::optional<QRectF> heldDestinationOn(KWin::LogicalOutput *screen);
+    // The stage of this desktop holding a card in its Spread, or carrying this window, by key; what became of it on each display.
+    [[nodiscard]] std::optional<QString> grabStageKey(const KWin::EffectWindow *carried = nullptr) const;
+    HeldCardDraw m_heldDraw;
     void drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport);
     // Shuffle Settings stands over the work on a display: everything under
     // its panels is frosted with the placement box's own glass, so it has no
     // edge of its own. A glass of its own, as it spans the whole display; the
-    // display it is laid on this frame; and since when each display has had
-    // it, by name, for it to fade in.
+    // display it is laid on this frame; and since when each has had it, to fade in.
     FrostedBox m_settingsFrost;
     QPointer<KWin::LogicalOutput> m_settingsFrostDrawnOn;
     QHash<QString, QElapsedTimer> m_settingsFrostSince;
@@ -1691,8 +1693,7 @@ private:
     QList<QRect> m_settingsFrostFading;
     // The displays whose frost has been said in the log since Settings came.
     QSet<QString> m_settingsFrostSaid;
-    // The programs that asked for frost behind them, by bus name, with the
-    // process their surfaces are known by.
+    // The programs that asked for frost behind them, by bus name, with the process their surfaces are known by.
     QHash<QString, qint64> m_frostBehind;
     [[nodiscard]] KWin::EffectWindow *settingsSurfaceOn(KWin::LogicalOutput *screen) const;
     // Whether Table frosts the desk of this display now.
@@ -1996,5 +1997,4 @@ private:
     QHash<QString, quint64> m_activationOrder;
     quint64 m_activationSequence = 0;
 };
-
 } // namespace Kadunce

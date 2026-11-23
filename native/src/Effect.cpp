@@ -338,14 +338,7 @@ Effect::Effect()
     connect(KWin::effects, &KWin::EffectsHandler::windowActivated, this, [this] {
         if (m_showsKeyboardOutline) KWin::effects->addRepaintFull();
     });
-    // A menu bar's tab held still becomes a rename.
-    m_tableHold.setSingleShot(true);
-    m_tableHold.setTimerType(Qt::PreciseTimer);
-    connect(&m_tableHold, &QTimer::timeout, this, [this] {
-        const TableAction action = m_table.hold(tableNow());
-        if (action.kind == TableAction::Kind::Rename) beginTableRename(action.workspace, m_tablePressTouch);
-        else if (const qint64 left = m_table.holdLeft(tableNow()); left > 0) m_tableHold.start(int(left));
-    });
+    connectTableTimers();
     refreshCardOutput();
     // Assertion-only §14 observation. Both stage controllers exist now, so this
     // is the first point that can see all three owners at once. It reports and
@@ -533,7 +526,12 @@ Effect::Effect()
     // there and are then left where they stand.
     m_paneStackDwell.setSingleShot(true);
     connect(&m_paneStackDwell, &QTimer::timeout, this, [this] {
-        if (m_carriedWindow) updateNativeCarryDestination(m_lastCarryContact);
+        if (m_carriedWindow) return updateNativeCarryDestination(m_lastCarryContact);
+        // A card held out of Spread and rested on a middle: its stage reads the aim again.
+        const auto key = grabStageKey();
+        if (!key) return;
+        SessionScope scope(this, m_scopedSession, *key);
+        updateCardGrab(m_lastCarryContact);
     });
     m_cardBookSettle.setSingleShot(true);
     m_cardBookSettle.setInterval(250);

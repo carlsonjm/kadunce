@@ -557,6 +557,8 @@ void Effect::runKeyAction(KeyAction action)
         break;
     case KeyAction::DividerLeft: moveDividerByKey(-1); break;
     case KeyAction::DividerRight: moveDividerByKey(1); break;
+    case KeyAction::WorkspaceLeft: sendCardToWorkspace(-1); break;
+    case KeyAction::WorkspaceRight: sendCardToWorkspace(1); break;
     case KeyAction::Hold:
     case KeyAction::None: break;
     }

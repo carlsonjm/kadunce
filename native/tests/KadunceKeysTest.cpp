@@ -22,6 +22,19 @@ int main() {
         for (int key : {Qt::Key_S, Qt::Key_B, Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down, Qt::Key_Escape})
             check(keyActionFor(key, Qt::ControlModifier, context) == KeyAction::None, "A Ctrl key was taken from applications");
     }
+    // Meta+Ctrl+Shift's arrows send the card in use, with its Stack, to the
+    // workspace beside while cards are shown, and stay KDE's otherwise.
+    for (const auto &context : {active, spread}) {
+        check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, context)
+                      == KeyAction::WorkspaceLeft
+                  && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, context)
+                      == KeyAction::WorkspaceRight,
+              "Meta+Ctrl+Shift's arrows did not send the card to the workspace beside");
+        check(!keyActionRepeats(KeyAction::WorkspaceLeft), "Sending a card to a workspace repeated");
+    }
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, desktop)
+              == KeyAction::None,
+          "Meta+Ctrl+Shift+Left was taken from KDE with no cards shown");
     // The arrows are taken only while cards are shown.
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, desktop) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier, desktop) == KeyAction::None,

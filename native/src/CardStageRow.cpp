@@ -532,6 +532,23 @@ bool CardStageController::letActiveCardOutOfStack()
     return true;
 }
 
+bool CardStageController::releaseFromStack(KWin::EffectWindow *window)
+{
+    if (!window || m_cardGrabActive || m_launcherGuestActive || m_lift.phase != Lift::Phase::None) return false;
+    if (m_active && m_presentation == CardPresentation::Active && activeCardIdentity() == window)
+        return letActiveCardOutOfStack();
+    const int cardId = liveCardIndex(window) + 1;
+    if (cardId <= 0 || m_workspace.stackSizeForId(cardId) <= 1) return false;
+    forgetFromPaneStacks(window);
+    if (!m_workspace.releaseMember(cardId)) return false;
+    syncSelectedStackingOrder();
+    if (m_active) syncSelectedElevation();
+    KWin::effects->addRepaintFull();
+    qInfo() << "Kadunce" << Revision << "let card" << cardId << "out of its Stack from Table; it now stands alone at entry"
+            << m_workspace.model().entryIndexForId(cardId) + 1;
+    return true;
+}
+
 bool CardStageController::pullOut(KWin::EffectWindow *window, bool group)
 {
     const int cardId = liveCardIndex(window) + 1;

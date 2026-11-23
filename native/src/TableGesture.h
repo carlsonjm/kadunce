@@ -38,7 +38,9 @@ struct TableConfig {
     int holdMs = 500;
 };
 
-enum class TableLevel { Tabs, Cards };
+// The workspaces, one workspace's cards, or the cards of one of its Stacks,
+// which hang under the Stack once it is rested on.
+enum class TableLevel { Tabs, Cards, Members };
 
 struct TableAction {
     enum class Kind {
@@ -49,12 +51,21 @@ struct TableAction {
         Close,
         // Enter `workspace` as it was left.
         Enter,
-        // Make card `card` of `workspace` Active there.
+        // Make card `card` of `workspace` Active there; with a `member`,
+        // that card of its Stack.
         Activate,
-        // Move card `card` of `workspace` to workspace `destination`.
+        // Move card `card` of `workspace` to workspace `destination`; with a
+        // `member`, that card alone, out of its Stack.
         Move,
         // Make a workspace for card `card` of `workspace` and move it there.
         Create,
+        // Stack card `card` of `workspace` (or its `member` alone) onto card
+        // `target` of workspace `destination`: the one carried in front, every
+        // card of both kept. Table stays open.
+        Stack,
+        // Card `member` of the Stack `card` of `workspace` leaves the Stack as
+        // a card of its own, just after it. Table stays open.
+        TakeOut,
         // Make an empty workspace; Table stays open on its tab.
         New,
         // Rename `workspace`: its tab held in a menu bar, right-clicked, or
@@ -68,6 +79,8 @@ struct TableAction {
     int workspace = -1;
     int card = -1;
     int destination = -1;
+    int member = -1;
+    int target = -1;
 };
 
 // What a menu bar's tap landed on: a tab, the + tab, a card of the tray's
@@ -77,6 +90,8 @@ struct TableHit {
     bool plus = false;
     int card = -1;
     int plusCard = -1;
+    // A card of the Stack whose cards hang.
+    int member = -1;
     bool insideRows = false;
 };
 
@@ -94,11 +109,13 @@ public:
     // cards level begins just under the tabs, a card lifts just under the
     // cards, and above the tabs a lift cancels. The effect sets them from
     // where its rows stand.
-    void setThresholds(double depth, double cancel, double lift)
+    void setThresholds(double depth, double cancel, double lift,
+                       double membersLift = std::numeric_limits<double>::quiet_NaN())
     {
         m_config.depth = depth;
         m_config.cancel = cancel;
         m_config.lift = lift;
+        m_membersLift = membersLift;
     }
 
     // Opens on the current workspace. A sticky Table is the menu bar a flick
@@ -119,11 +136,16 @@ public:
 
     // Where the rows stand across the display, as the effect lays them out:
     // each tab's centre, the + tab's, and each workspace's cards' centres.
-    void setLayout(QList<double> tabs, double plus, QList<QList<double>> cards)
+    // Each Stack's cards' centres, by workspace and card, empty for a lone
+    // card: what hangs under a Stack once it is rested on.
+    void setLayout(QList<double> tabs, double plus, QList<QList<double>> cards,
+                   QList<QList<QList<double>>> members = {})
     {
         m_tabs = std::move(tabs);
         m_plus = plus;
         m_cards = std::move(cards);
+        m_members = std::move(members);
+        if (m_membersOf >= 0 && !hasMembers(m_locked, m_membersOf)) fold();
     }
 
     // The cards that hang under +, their centres across the display: the
@@ -139,7 +161,7 @@ public:
     // found under it, the press previews that card, and dragged it lifts, as
     // anything is dragged on a desktop. On a sticky Table's tab, held still
     // it renames the tab (hold).
-    void press(QPointF position, int card, int tab = -1, qint64 now = 0, int plusCard = -1)
+    void press(QPointF position, int card, int tab = -1, qint64 now = 0, int plusCard = -1, int member = -1)
     {
         m_down = true;
         m_pressAt = position;
@@ -150,11 +172,21 @@ public:
         m_pressTab = m_sticky && !m_carrying ? tab : -1;
         m_pressedAt = now;
         const int tray = trayWorkspace();
-        if (m_sticky && card >= 0 && tray >= 0) {
+        m_pressMember = -1;
+        if (m_sticky && member >= 0 && m_membersOf >= 0 && tray >= 0) {
+            // A hanging card of a Stack: pressed it shows, dragged it lifts
+            // out of its Stack.
+            m_onPlus = false;
+            m_level = TableLevel::Members;
+            m_card = m_membersOf;
+            m_member = member;
+            m_pressMember = member;
+        } else if (m_sticky && card >= 0 && tray >= 0) {
             m_onPlus = false;
             m_level = TableLevel::Cards;
             m_locked = tray;
             m_hovered = tray;
+            if (card != m_membersOf) fold();
             m_card = card;
             m_pressCard = card;
         }
@@ -170,9 +202,11 @@ public:
         if (m_pressTab >= 0 && distance(position, m_pressAt) > m_config.tapSlop) m_pressTab = -1;
         if (m_held) return;
         if (m_sticky && !m_carrying) {
-            if (m_pressCard < 0 || distance(position, m_pressAt) <= m_config.tapSlop) return;
-            liftCard(m_pressCard);
+            if ((m_pressCard < 0 && m_pressMember < 0) || distance(position, m_pressAt) <= m_config.tapSlop) return;
+            if (m_pressMember >= 0) liftMember(m_pressMember);
+            else liftCard(m_pressCard);
             m_pressCard = -1;
+            m_pressMember = -1;
         }
         scrub(position, y);
     }
@@ -185,6 +219,7 @@ public:
         m_pressTab = -1;
         if (!m_open) return {};
         m_pressCard = -1;
+        m_pressMember = -1;
         // The finger that held a tab to rename it lets go of nothing else.
         if (m_held) {
             m_held = false;
@@ -205,9 +240,11 @@ public:
                 m_onPlus = false;
                 return {TableAction::Kind::StayOpen};
             }
+            if (m_level == TableLevel::Members && m_member >= 0)
+                return closeWith(activateMember());
             if (m_level == TableLevel::Cards && m_card >= 0)
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
-            if (m_level == TableLevel::Cards) return closeWith({TableAction::Kind::Close});
+            if (m_level != TableLevel::Tabs) return closeWith({TableAction::Kind::Close});
             if (plusTray() && m_plusCard >= 0) return choosePlusCard(m_plusCard);
             // Lifting on + hangs its cards, or with none makes a workspace,
             // as lifting on a tab enters one.
@@ -219,6 +256,10 @@ public:
         if (distance(position, m_pressAt) > m_config.tapSlop) {
             if (m_lastY < m_config.cancel) return closeWith({TableAction::Kind::Close});
             return {TableAction::Kind::StayOpen};
+        }
+        if (hit.member >= 0 && m_membersOf >= 0 && trayWorkspace() >= 0) {
+            m_member = hit.member;
+            return closeWith(activateMember());
         }
         if (hit.card >= 0 && trayWorkspace() >= 0)
             return closeWith({TableAction::Kind::Activate, trayWorkspace(), hit.card});
@@ -238,6 +279,7 @@ public:
         }
         if (hit.insideRows) return {TableAction::Kind::StayOpen};
         // A tap on the preview goes to what it shows.
+        if (m_level == TableLevel::Members && m_member >= 0 && m_locked >= 0) return closeWith(activateMember());
         if (m_level == TableLevel::Cards && m_card >= 0 && m_locked >= 0)
             return closeWith({TableAction::Kind::Activate, m_locked, m_card});
         return closeWith({TableAction::Kind::Enter, shownWorkspace()});
@@ -273,27 +315,35 @@ public:
     // A pointer resting on a menu bar's rows: over a tab it previews that
     // workspace, over a hanging card that card, and over + it shows where the
     // person is.
-    void hover(int tab, int card, bool plus = false, int plusCard = -1)
+    void hover(int tab, int card, bool plus = false, int plusCard = -1, int member = -1)
     {
         if (!m_open || !m_sticky || m_down || m_carrying) return;
-        if (plusCard >= 0 && plusTray()) {
+        if (member >= 0 && m_membersOf >= 0 && trayWorkspace() >= 0) {
+            m_level = TableLevel::Members;
+            m_card = m_membersOf;
+            m_member = member;
+        } else if (plusCard >= 0 && plusTray()) {
             m_plusCard = plusCard;
         } else if (plus && hasPlus()) {
             if (!m_onPlus) m_plusCard = -1;
             m_onPlus = true;
             m_level = TableLevel::Tabs;
             m_card = -1;
+            fold();
         } else if (tab >= 0) {
             m_onPlus = false;
             m_plusCard = -1;
             m_hovered = tab;
             m_level = TableLevel::Tabs;
             m_card = -1;
+            fold();
         } else if (card >= 0 && trayWorkspace() >= 0) {
             m_locked = trayWorkspace();
             m_hovered = m_locked;
             m_level = TableLevel::Cards;
+            if (card != m_membersOf) fold();
             m_card = card;
+            m_member = -1;
         }
     }
 
@@ -306,9 +356,13 @@ public:
         m_sticky = true;
         if (plusTray() && m_plusCard >= 0) {
             m_plusCard = std::clamp(m_plusCard + steps, 0, int(m_plusCards.size()) - 1);
+        } else if (m_level == TableLevel::Members) {
+            const int count = int(memberCentres().size());
+            if (count > 0) m_member = std::clamp(m_member < 0 ? 0 : m_member + steps, 0, count - 1);
         } else if (m_level == TableLevel::Cards) {
             const int count = m_locked >= 0 && m_locked < m_cards.size() ? int(m_cards[m_locked].size()) : 0;
             if (count > 0) m_card = std::clamp(m_card < 0 ? (steps > 0 ? 0 : count - 1) : m_card + steps, 0, count - 1);
+            if (m_card != m_membersOf) fold();
         } else if (!m_tabs.isEmpty()) {
             const int last = int(m_tabs.size()) - (hasPlus() ? 0 : 1);
             const int at = std::clamp((m_onPlus ? int(m_tabs.size()) : m_hovered) + steps, 0, last);
@@ -319,7 +373,8 @@ public:
     }
 
     // CarryLeft and CarryRight are Shift's arrows, and Drop is Shift let go.
-    enum class Key { Left, Right, Up, Down, Enter, Escape, Rename, CarryLeft, CarryRight, Drop };
+    // TakeOut is Meta+Shift+Down, which takes a card out of its Stack everywhere.
+    enum class Key { Left, Right, Up, Down, Enter, Escape, Rename, CarryLeft, CarryRight, Drop, TakeOut };
 
     // The keyboard: left and right choose, down and up change level, Enter
     // goes where the displays show, F2 renames the workspace they show,
@@ -356,7 +411,11 @@ public:
         case Key::CarryLeft:
         case Key::CarryRight: {
             const int steps = key == Key::CarryLeft ? -1 : 1;
-            if (m_level == TableLevel::Cards && m_card >= 0 && m_locked >= 0) {
+            if (m_level == TableLevel::Members && m_member >= 0 && m_locked >= 0) {
+                liftMember(m_member);
+                m_keyCarry = true;
+                carryStep(steps);
+            } else if (m_level == TableLevel::Cards && m_card >= 0 && m_locked >= 0) {
                 liftCard(m_card);
                 m_keyCarry = true;
                 carryStep(steps);
@@ -375,6 +434,13 @@ public:
             break;
         case Key::Down:
             if (plusTray() && m_plusCard < 0) m_plusCard = 0;
+            // Down on a Stack hangs its cards, the front one chosen.
+            if (m_level == TableLevel::Cards && m_card >= 0 && hasMembers(m_locked, m_card)) {
+                m_membersOf = m_card;
+                m_level = TableLevel::Members;
+                m_member = 0;
+                break;
+            }
             if (m_level == TableLevel::Tabs && !m_onPlus && m_hovered >= 0 && m_hovered < m_cards.size()
                 && !m_cards[m_hovered].isEmpty()) {
                 m_level = TableLevel::Cards;
@@ -384,13 +450,22 @@ public:
             break;
         case Key::Up:
             if (plusTray()) m_plusCard = -1;
+            if (m_level == TableLevel::Members) {
+                m_level = TableLevel::Cards;
+                m_member = -1;
+                break;
+            }
             if (m_level == TableLevel::Cards) {
                 m_level = TableLevel::Tabs;
                 m_hovered = m_locked;
                 m_card = -1;
             }
             break;
+        case Key::TakeOut:
+            if (m_level == TableLevel::Members && m_member >= 0 && m_locked >= 0) return takeOut();
+            break;
         case Key::Enter:
+            if (m_level == TableLevel::Members && m_member >= 0) return closeWith(activateMember());
             if (m_level == TableLevel::Cards && m_card >= 0)
                 return closeWith({TableAction::Kind::Activate, m_locked, m_card});
             if (plusTray() && m_plusCard >= 0) return choosePlusCard(m_plusCard);
@@ -404,7 +479,7 @@ public:
         case Key::Escape:
             return closeWith({TableAction::Kind::Close});
         case Key::Rename:
-            if (m_level == TableLevel::Cards && m_locked >= 0) return renameTab(m_locked);
+            if (m_level != TableLevel::Tabs && m_locked >= 0) return renameTab(m_locked);
             if (!m_onPlus && m_hovered >= 0) return renameTab(m_hovered);
             break;
         }
@@ -419,6 +494,8 @@ public:
         m_keyCarry = false;
         m_carrying = false;
         m_carryCard = -1;
+        m_carryMember = -1;
+        dropAim();
         m_carryFrom = -1;
         m_over = Over::Nothing;
         m_overWorkspace = -1;
@@ -434,10 +511,13 @@ public:
         if (m_keyCarry) putBack();
         m_carrying = false;
         m_carryCard = -1;
+        m_carryMember = -1;
         m_carryFrom = -1;
         m_over = Over::Nothing;
         m_overWorkspace = -1;
         m_pressCard = -1;
+        m_pressMember = -1;
+        dropAim();
         m_cancelling = false;
     }
 
@@ -446,6 +526,7 @@ public:
     void showAfterMove(int destination, int card)
     {
         m_sticky = true;
+        fold();
         m_onPlus = false;
         m_level = TableLevel::Cards;
         m_locked = destination;
@@ -457,6 +538,7 @@ public:
     void showNewTab(int tab)
     {
         m_sticky = true;
+        fold();
         m_onPlus = false;
         m_level = TableLevel::Tabs;
         m_hovered = tab;
@@ -478,6 +560,50 @@ public:
     [[nodiscard]] bool keyCarrying() const { return m_carrying && m_keyCarry; }
     [[nodiscard]] int carryCard() const { return m_carryCard; }
     [[nodiscard]] int carryFrom() const { return m_carryFrom; }
+    // The card of a Stack carried out of it, or -1 when a whole card is.
+    [[nodiscard]] int carryMember() const { return m_carrying ? m_carryMember : -1; }
+
+    // The Stack whose cards hang under it, in the workspace whose cards
+    // hang, or -1; and the one of its cards the finger, pointer or keys are
+    // on.
+    [[nodiscard]] int membersOf() const { return m_open ? m_membersOf : -1; }
+    [[nodiscard]] int member() const { return m_open && m_level == TableLevel::Members ? m_member : -1; }
+    // Whether card `card` of `workspace` is a Stack, whose cards can hang.
+    [[nodiscard]] bool hasMembers(int workspace, int card) const
+    {
+        return workspace >= 0 && workspace < m_members.size() && card >= 0 && card < m_members[workspace].size()
+            && m_members[workspace][card].size() > 1;
+    }
+    // A finger or pointer resting on a Stack whose cards do not hang yet:
+    // the effect waits a moment, then calls hangMembers.
+    [[nodiscard]] bool wantsRest() const
+    {
+        return m_open && !m_carrying && m_level == TableLevel::Cards && m_card >= 0 && m_card != m_membersOf
+            && hasMembers(m_locked, m_card);
+    }
+    // The Stack rested on hangs its cards. True when they came to hang.
+    bool hangMembers()
+    {
+        if (!wantsRest()) return false;
+        m_membersOf = m_card;
+        m_member = -1;
+        return true;
+    }
+
+    // The card a carried one is over, in the row it hangs over, as the effect
+    // measures it; held there long enough, the effect arms it, and let go the
+    // carried card stacks onto it. A new aim disarms. True when it changed.
+    bool aimAt(int card)
+    {
+        if (!m_carrying || m_keyCarry || m_level != TableLevel::Cards) card = -1;
+        if (card == m_aim) return false;
+        m_aim = card;
+        m_aimArmed = false;
+        return true;
+    }
+    void armAim() { if (m_carrying && m_aim >= 0) m_aimArmed = true; }
+    [[nodiscard]] int aim() const { return m_carrying ? m_aim : -1; }
+    [[nodiscard]] bool aimArmed() const { return m_carrying && m_aim >= 0 && m_aimArmed; }
     // The finger, pointer or keys are on + rather than a tab.
     [[nodiscard]] bool onPlus() const { return m_open && m_onPlus && !m_carrying; }
     // The cards under + hang, as a tab's do while it is in view.
@@ -495,14 +621,21 @@ public:
     [[nodiscard]] int shownWorkspace() const
     {
         if (!m_open || m_cancelling || (m_onPlus && !m_carrying)) return m_current;
-        return m_level == TableLevel::Cards ? m_locked : m_hovered;
+        if (m_carrying) return m_hovered;
+        return m_level == TableLevel::Tabs ? m_hovered : m_locked;
     }
 
     // The card the displays show in front, when the finger is on one.
     [[nodiscard]] int shownCard() const
     {
-        if (!m_open || m_cancelling || m_level != TableLevel::Cards) return -1;
+        if (!m_open || m_cancelling || m_level == TableLevel::Tabs) return -1;
         return m_card;
+    }
+    // The card of a hanging Stack the displays show in its place, or -1.
+    [[nodiscard]] int shownMember() const
+    {
+        if (!m_open || m_cancelling || m_level != TableLevel::Members) return -1;
+        return m_member;
     }
 
     // Whose cards hang below the tabs: the locked workspace's on the cards,
@@ -511,7 +644,9 @@ public:
     [[nodiscard]] int trayWorkspace() const
     {
         if (!m_open || (m_onPlus && !m_carrying && m_level == TableLevel::Tabs)) return -1;
-        return m_level == TableLevel::Cards ? m_locked : m_hovered;
+        // A card in hand hangs the row it is over: the tab it last passed.
+        if (m_carrying) return m_hovered;
+        return m_level == TableLevel::Tabs ? m_hovered : m_locked;
     }
 
 private:
@@ -559,9 +694,56 @@ private:
     {
         m_carrying = true;
         m_carryCard = card;
+        m_carryMember = -1;
         m_carryFrom = m_locked;
+        m_hovered = m_locked;
         m_over = Over::Workspace;
         m_overWorkspace = m_locked;
+        dropAim();
+    }
+
+    // A hanging card of a Stack lifts out of it, to be carried.
+    void liftMember(int member)
+    {
+        liftCard(m_membersOf);
+        m_carryMember = member;
+    }
+
+    void dropAim()
+    {
+        m_aim = -1;
+        m_aimArmed = false;
+    }
+
+    // The Stack's cards no longer hang.
+    void fold()
+    {
+        m_membersOf = -1;
+        m_member = -1;
+        if (m_level == TableLevel::Members) m_level = TableLevel::Cards;
+    }
+
+    [[nodiscard]] QList<double> memberCentres() const
+    {
+        return hasMembers(m_locked, m_membersOf) ? m_members[m_locked][m_membersOf] : QList<double>{};
+    }
+
+    // Lifting on a hanging card opens it, as its Stack's card in front.
+    [[nodiscard]] TableAction activateMember() const
+    {
+        return {TableAction::Kind::Activate, m_locked, m_membersOf, -1, m_member};
+    }
+
+    // The chosen hanging card leaves its Stack; Table stays open on the
+    // workspace, the Stack's cards folded.
+    TableAction takeOut()
+    {
+        const TableAction action{TableAction::Kind::TakeOut, m_locked, m_membersOf, -1, m_member};
+        m_sticky = true;
+        fold();
+        m_level = TableLevel::Cards;
+        m_card = action.card;
+        return action;
     }
 
     void scrub(QPointF position, double y)
@@ -573,6 +755,7 @@ private:
                 m_overWorkspace = -1;
             } else if (y < m_config.depth) {
                 m_level = TableLevel::Tabs;
+                dropAim();
                 const int tab = nearest(m_tabs, position.x());
                 if (plusNearer(tab, position.x())) {
                     m_over = Over::Plus;
@@ -586,15 +769,19 @@ private:
                     m_overWorkspace = -1;
                 }
             } else {
+                // Down among the cards of the workspace it last passed over,
+                // whose row hangs; over + it goes back to its own.
+                if (m_over != Over::Workspace || m_overWorkspace < 0) m_hovered = m_carryFrom;
                 m_level = TableLevel::Cards;
                 m_over = Over::Workspace;
-                m_overWorkspace = m_locked;
+                m_overWorkspace = m_hovered;
             }
             return;
         }
         if (m_cancelling) return;
         if (y < m_config.depth) {
-            if (m_level == TableLevel::Cards) {
+            if (m_level != TableLevel::Tabs) {
+                fold();
                 m_level = TableLevel::Tabs;
                 m_card = -1;
                 m_refused = -1;
@@ -623,15 +810,34 @@ private:
                 m_card = -1;
                 m_scrubbed = true;
             }
-            const QList<double> cards = m_locked >= 0 && m_locked < m_cards.size()
-                ? m_cards[m_locked] : QList<double>{};
-            const int card = nearest(cards, position.x());
-            if (card != m_card) {
-                m_card = card;
-                m_refused = -1;
+            if (m_membersOf >= 0 && y > m_config.lift) {
+                // Under a Stack whose cards hang the finger chooses among
+                // them, and past the line under them it lifts one out.
+                m_level = TableLevel::Members;
+                m_card = m_membersOf;
+                const int member = nearest(memberCentres(), position.x());
+                if (member != m_member) {
+                    m_member = member;
+                    m_refusedMember = -1;
+                }
+                if (!std::isnan(m_membersLift) && y > m_membersLift && m_member >= 0 && m_member != m_refusedMember)
+                    liftMember(m_member);
+            } else {
+                if (m_level == TableLevel::Members) {
+                    m_level = TableLevel::Cards;
+                    m_member = -1;
+                }
+                const QList<double> cards = m_locked >= 0 && m_locked < m_cards.size()
+                    ? m_cards[m_locked] : QList<double>{};
+                const int card = nearest(cards, position.x());
+                if (card != m_card) {
+                    m_card = card;
+                    m_refused = -1;
+                    if (card != m_membersOf) fold();
+                }
+                // Past the line under the cards the finger means to move one.
+                if (y > m_config.lift && m_card >= 0 && m_card != m_refused) liftCard(m_card);
             }
-            // Past the line under the cards the finger means to move one.
-            if (y > m_config.lift && m_card >= 0 && m_card != m_refused) liftCard(m_card);
         }
         if (y > m_config.cancel + 0.03) m_scrubbed = true;
     }
@@ -662,17 +868,22 @@ private:
     {
         const int card = m_carryCard;
         const int from = m_carryFrom;
+        const int member = m_carryMember;
         m_keyCarry = false;
         m_carrying = false;
         m_carryCard = -1;
+        m_carryMember = -1;
         m_carryFrom = -1;
         m_over = Over::Nothing;
         m_overWorkspace = -1;
+        dropAim();
         m_onPlus = false;
-        m_level = TableLevel::Cards;
+        m_level = member >= 0 ? TableLevel::Members : TableLevel::Cards;
         m_locked = from;
         m_hovered = from;
         m_card = card;
+        m_membersOf = member >= 0 ? card : -1;
+        m_member = member;
     }
 
     // Shift let go: on another tab the card moves there, on + a workspace is
@@ -682,11 +893,14 @@ private:
     {
         const int card = m_carryCard;
         const int from = m_carryFrom;
+        const int member = m_carryMember;
         const Over over = m_over;
         const int destination = m_overWorkspace;
         putBack();
-        if (over == Over::Plus) return {TableAction::Kind::Create, from, card};
-        if (over == Over::Workspace && destination != from) return {TableAction::Kind::Move, from, card, destination};
+        if (over != Over::Nothing && member >= 0) fold();
+        if (over == Over::Plus) return {TableAction::Kind::Create, from, card, -1, member};
+        if (over == Over::Workspace && destination != from)
+            return {TableAction::Kind::Move, from, card, destination, member};
         return {TableAction::Kind::StayOpen};
     }
 
@@ -694,19 +908,35 @@ private:
     {
         const int card = m_carryCard;
         const int from = m_carryFrom;
+        const int member = m_carryMember;
         const Over over = m_over;
         const int destination = m_overWorkspace;
+        const int target = m_aimArmed ? m_aim : -1;
         m_carrying = false;
         m_carryCard = -1;
+        m_carryMember = -1;
         m_carryFrom = -1;
         m_over = Over::Nothing;
         m_overWorkspace = -1;
+        dropAim();
         if (m_cancelling || over == Over::Nothing) {
             m_cancelling = false;
             m_sticky = true;
             return {TableAction::Kind::StayOpen};
         }
-        if (over == Over::Plus) return {TableAction::Kind::Create, from, card};
+        if (member >= 0) fold();
+        if (over == Over::Plus) return {TableAction::Kind::Create, from, card, -1, member};
+        // Held over a card long enough: it stacks there, and Table stays open.
+        if (target >= 0 && m_level == TableLevel::Cards && destination >= 0) {
+            m_sticky = true;
+            return {TableAction::Kind::Stack, from, card, destination, member, target};
+        }
+        // A card of a Stack let go in its own workspace's row stands on its
+        // own, just after its Stack.
+        if (member >= 0 && destination == from && m_level == TableLevel::Cards) {
+            m_sticky = true;
+            return {TableAction::Kind::TakeOut, from, card, -1, member};
+        }
         // Released on its own place: it opens.
         if (destination == from && m_level == TableLevel::Cards)
             return closeWith({TableAction::Kind::Activate, from, card});
@@ -714,7 +944,7 @@ private:
             m_sticky = true;
             return {TableAction::Kind::StayOpen};
         }
-        return {TableAction::Kind::Move, from, card, destination};
+        return {TableAction::Kind::Move, from, card, destination, member};
     }
 
     // + makes an empty workspace and Table stays open as a menu bar, so a
@@ -773,6 +1003,16 @@ private:
     double m_lastY = 1.0;
     // A menu bar's card under the press, until it is dragged or let go.
     int m_pressCard = -1;
+    // A menu bar's hanging card of a Stack under the press, the same way.
+    int m_pressMember = -1;
+    // The Stack whose cards hang, and the one of them chosen.
+    int m_membersOf = -1;
+    int m_member = -1;
+    int m_refusedMember = -1;
+    double m_membersLift = std::numeric_limits<double>::quiet_NaN();
+    int m_carryMember = -1;
+    int m_aim = -1;
+    bool m_aimArmed = false;
     // The tab a menu bar's press landed on, while it may still become a hold.
     int m_pressTab = -1;
     qint64 m_pressedAt = 0;
@@ -792,6 +1032,7 @@ private:
     double m_plus = std::numeric_limits<double>::quiet_NaN();
     QList<QList<double>> m_cards;
     QList<double> m_plusCards;
+    QList<QList<QList<double>>> m_members;
 };
 
 } // namespace Kadunce

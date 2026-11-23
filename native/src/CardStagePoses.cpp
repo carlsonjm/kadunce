@@ -170,6 +170,8 @@ QPointF CardStageController::cardGrabOffset() const
         return {carryStackLeash(m_cardGrabOffset.x()),
                 carryStackLeash(m_cardGrabOffset.y()) - m_carry.lift * CarryStackLift * height};
     }
+    // A gathered Stack stays as high over the finger as its card stood.
+    if (m_cardGrabActive && m_carry.gathered) return m_cardGrabOffset - QPointF(0.0, m_carry.gatherLift);
     return m_cardGrabOffset;
 }
 
@@ -522,6 +524,14 @@ void CardStageController::captureCardTransition(bool includeGuest, bool includeG
 KWin::Rect CardStageController::previewTargetForWindow(
     KWin::LogicalOutput *output, const KWin::EffectWindow *window) const
 {
+    // A gathered Stack's cards go with the held one, closed behind it.
+    if (m_cardGrabActive && m_carry.gathered && window != selectedWindow()
+        && m_carry.gatheredCards.contains(const_cast<KWin::EffectWindow *>(window))) {
+        auto held = cardGrabTarget();
+        const QPointF offset = cardGrabOffset();
+        held.translate(qRound(offset.x()), qRound(offset.y()));
+        return held;
+    }
     // A card held in its own Stack leaves the row standing as it stood.
     if (m_cardGrabActive && !m_carry.inStack && m_presentation == CardPresentation::Spread
         && window != selectedWindow()) {
@@ -736,6 +746,12 @@ CardStackPose CardStageController::stackPoseForWindow(const KWin::EffectWindow *
             return at == order.cend() ? closed
                 : makeInsertionStackPose(last - int(std::distance(order.cbegin(), at)), int(order.size()),
                                          last - m_carry.paging.place, width);
+        }
+        if (cardGrabActive() && m_carry.gathered && spread.sameStack(cardId, spread.selectedId())) {
+            // A gathered Stack is closed behind the held card, at its size.
+            closed.x *= m_cardGrabTarget.width() > 0 ? m_carry.heldWidth / m_cardGrabTarget.width() : 1.0;
+            closed.y = 0.0;
+            return closed;
         }
         if (cardGrabActive() && !m_carry.inStack) {
             // Under a carried card every Stack is closed, at the row's size.
