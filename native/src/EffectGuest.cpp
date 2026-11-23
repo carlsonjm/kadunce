@@ -36,7 +36,9 @@ namespace Kadunce
 
 int Effect::launcherGuestProtocolVersion() const
 {
-    return 3;
+    // 4: Search sizes itself and says its size (resizeLauncherGuest). A
+    // guest that never says it keeps protocol 3's footprint.
+    return 4;
 }
 
 QString Effect::beginLauncherGuest(const QString &ownerService)
@@ -192,6 +194,8 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
                  geometryContext(m_cardStage->launcherGuestTarget(tablet)));
     reply.insert(QStringLiteral("active"),
                  geometryContext(launcherGuestExpandedTarget(tablet)));
+    reply.insert(QStringLiteral("row"),
+                 geometryContext(m_cardStage->launcherGuestRowCard(tablet)));
     reply.insert(QStringLiteral("output"), tablet->name());
     return QString::fromUtf8(
         QJsonDocument(reply).toJson(QJsonDocument::Compact));
@@ -241,6 +245,14 @@ void Effect::updateLauncherGuest(double horizontalDelta)
 {
     if (m_launcherGuestExpanded || !callerIsGuest()) return;
     m_cardStage->updateLauncherGuest(horizontalDelta);
+}
+
+void Effect::resizeLauncherGuest(double width, double height)
+{
+    // Only the guest's width moves the cards beside it; it centres itself
+    // in the card's place, and its height says where a tap is its own.
+    if (!callerIsGuest()) return;
+    m_cardStage->resizeLauncherGuest(width, height);
 }
 
 bool Effect::setLauncherGuestExpanded(bool expanded)

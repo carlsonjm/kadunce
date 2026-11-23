@@ -57,7 +57,7 @@ process names its program. Any other caller is answered
 screen is locked, `raiseKeyboard` is answered for any caller: the keys reach
 nothing but the lock, and kscreenlocker 6.8 hides its greeter's program, so the
 lock cannot be recognised by it. The guest calls
-have their own rule (§ Launcher guest protocol 3).
+have their own rule (§ Launcher guest protocol 4).
 
 The payload identifies itself with schema
 `co.goodinput.kadunce.workspace-context` and integer `version: 1`. A reader
@@ -137,27 +137,28 @@ long as the effect. Tettegouche can identify an open result from the snapshot
 and activate that exact window through the separate command above; unmatched
 results still use Plasma's normal application launch action.
 
-## Launcher guest protocol 3
+## Launcher guest protocol 4
 
 Tettegouche must first call `launcherGuestProtocolVersion`. It may request guest
-mode only when the result is exactly `3`; a missing or different result means it
-must retain its standalone surface. This prevents an older Kadunce build from
+mode only when the result is `3` or `4`; otherwise it keeps its standalone
+surface. This prevents an older Kadunce build from
 receiving a guest it cannot present.
 
 ```text
 launcherGuestProtocolVersion() -> integer
 beginLauncherGuest(uniqueOwner) -> compact JSON reply
 updateLauncherGuest(horizontalDelta)
+resizeLauncherGuest(width, height)      // protocol 4
 finishLauncherGuest(horizontalDelta) -> committed boolean
 prepareLauncherGuestLaunch(applicationIds, requestToken) -> accepted boolean
 cancelLauncherGuestLaunch()
 endLauncherGuest()
 ```
 
-An accepted begin reply contains `protocol: 3`, `accepted: true`, the target
-`output`, and `card` and `active` geometries. Kadunce reserves a centered guest
-footprint that is six percent of the work area narrower than a normal card, and
-moves both real neighbors inward by the matching three-percent inset. The
+An accepted begin reply contains `protocol: 4`, `accepted: true`, the target
+`output`, and `card`, `active` and `row` geometries. The guest centres on
+`row`, the row's middle card, at its own size, said by `resizeLauncherGuest`;
+neighbours glide to one gutter beyond its edges. The
 launcher stays out of `SpreadModel`, whose only mutable state is real cards.
 Tettegouche owns and renders the interactive center card, and Kadunce mirrors
 its horizontal drag onto the adjacent real cards.

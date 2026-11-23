@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CARD-LIFECYCLE.md §11 and TETTEGOUCHE-CONTEXT.md § Launcher guest protocol 3:
+# CARD-LIFECYCLE.md §11 and TETTEGOUCHE-CONTEXT.md § Launcher guest protocol 4:
 # Search called while Spread is not shown floats over the work. Spread then
 # opened under it, by Meta+S or by a swipe from the bottom bezel, asks it back,
 # and it takes the centre with a card standing each side, as Search opened in
@@ -57,7 +57,7 @@ class Launcher(dbus.service.Object):
     @dbus.service.signal("io.github.carlsonjm.Tettegouche", signature="b")
     def shown(self, visible): pass
 search = Launcher(bus, "/Launcher")
-assert kadunce.launcherGuestProtocolVersion() == 3
+assert kadunce.launcherGuestProtocolVersion() == 4
 begin("begin")
 if then == "hide":
     def hide():

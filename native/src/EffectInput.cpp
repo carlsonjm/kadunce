@@ -111,7 +111,7 @@ bool Effect::launcherGuestContainsForInput(const QPointF &position) const
 {
     KWin::LogicalOutput *tablet = tabletOutput();
     return m_cardStage->launcherGuestActive() && tablet
-        && (m_launcherGuestExpanded ? launcherGuestExpandedTarget(tablet) : m_cardStage->launcherGuestTarget(tablet))
+        && (m_launcherGuestExpanded ? launcherGuestExpandedTarget(tablet) : m_cardStage->launcherGuestInputTarget(tablet))
                .contains(position.toPoint());
 }
 

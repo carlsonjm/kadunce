@@ -105,6 +105,8 @@ bool CardStageController::beginLauncherGuest()
     m_launcherGuestSecondaryWindow = m_workspace.count() > 1
         ? m_workspace.windows().value(m_workspace.idAtOffset(-1) - 1) : nullptr;
     m_launcherGuestOffset = 0.0;
+    m_launcherGuestWidth = 0.0;
+    m_launcherGuestHeight = 0.0;
     m_launcherGuestTransitionFrom = 0.0;
     m_launcherGuestTransitionTimer.invalidate();
     m_launcherGuestPendingPage = 0;
@@ -129,6 +131,22 @@ void CardStageController::updateLauncherGuest(double horizontalDelta)
     const double pitch = layout.cards[1].width + layout.gutter;
     m_launcherGuestOffset = std::clamp(
         horizontalDelta, -pitch, pitch);
+    KWin::effects->addRepaintFull();
+}
+
+void CardStageController::resizeLauncherGuest(double width, double height)
+{
+    if (!m_launcherGuestActive || m_launcherGuestArrival || !std::isfinite(width)) return;
+    auto *tablet = m_host->tabletOutputForCardStage();
+    if (!tablet) return;
+    // Its height only says where a tap is Search's; the cards never move for it.
+    if (std::isfinite(height)) m_launcherGuestHeight = std::clamp(height, 0.0, workArea(tablet).height());
+    const double clamped = std::clamp(width, 0.0, workArea(tablet).width());
+    if (std::abs(clamped - m_launcherGuestWidth) < 0.5) return;
+    // The cards glide from wherever they stand, mid-glide included.
+    captureCardTransition(true);
+    m_launcherGuestWidth = clamped;
+    qInfo() << "Kadunce" << Revision << "Search in Spread is" << qRound(clamped) << "wide";
     KWin::effects->addRepaintFull();
 }
 
@@ -203,6 +221,8 @@ void CardStageController::endLauncherGuest()
     m_launcherGuestActive = false;
     m_launcherGuestArrival = false;
     m_launcherGuestOffset = 0.0;
+    m_launcherGuestWidth = 0.0;
+    m_launcherGuestHeight = 0.0;
     m_launcherGuestPrimaryWindow.clear();
     m_launcherGuestSecondaryWindow.clear();
     m_launcherGuestTransitionFrom = 0.0;

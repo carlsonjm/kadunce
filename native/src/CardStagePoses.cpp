@@ -794,6 +794,23 @@ KWin::Rect CardStageController::launcherGuestTarget(
     return launcherGuestTargetForSlot(output, 0);
 }
 
+KWin::Rect CardStageController::launcherGuestRowCard(KWin::LogicalOutput *output) const
+{
+    if (!output) return {};
+    const KWin::RectF work = workArea(output);
+    const auto card = makeSpreadLayout(work.x(), work.y(), work.width(), work.height()).cards[1];
+    return KWin::Rect(qRound(card.x), qRound(card.y), qRound(card.width), qRound(card.height));
+}
+
+KWin::Rect CardStageController::launcherGuestInputTarget(KWin::LogicalOutput *output) const
+{
+    if (!output || m_launcherGuestWidth <= 0.0 || m_launcherGuestHeight <= 0.0) return launcherGuestTarget(output);
+    const auto card = launcherGuestRowCard(output);
+    const QPointF centre = QRectF(card.x(), card.y(), card.width(), card.height()).center();
+    return KWin::Rect(qRound(centre.x() - m_launcherGuestWidth / 2.0), qRound(centre.y() - m_launcherGuestHeight / 2.0),
+                      qRound(m_launcherGuestWidth), qRound(m_launcherGuestHeight));
+}
+
 KWin::Rect CardStageController::launcherGuestTargetForSlot(
     KWin::LogicalOutput *output, int slot) const
 {
@@ -803,7 +820,17 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
     const KWin::RectF work = workArea(output);
     const SpreadLayout layout = makeLauncherGuestLayout(work.x(), work.y(),
         work.width(), work.height(), m_launcherGuestGroupCount);
-    const auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
+    auto target = layout.cards[slot < 0 ? 0 : slot > 0 ? 2 : 1];
+    // Protocol 4: Search said its width. It stands centred where the card
+    // in the middle stands; the cards beside it keep a Spread card's size
+    // and stand the usual gutter beyond its edges.
+    if (slot != 0 && m_launcherGuestWidth > 0.0) {
+        const SpreadLayout row = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
+        const double centre = row.cards[1].x + row.cards[1].width / 2.0;
+        target = row.cards[slot < 0 ? 0 : 2];
+        target.x = slot < 0 ? centre - m_launcherGuestWidth / 2.0 - row.gutter - target.width
+                            : centre + m_launcherGuestWidth / 2.0 + row.gutter;
+    }
     return KWin::Rect(qRound(target.x), qRound(target.y),
                       qRound(target.width), qRound(target.height));
 }
