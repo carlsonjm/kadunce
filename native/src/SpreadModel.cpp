@@ -357,6 +357,35 @@ bool SpreadModel::stackSelectedWith(int destinationId, int insertionIndex,
     return invariantHolds();
 }
 
+bool SpreadModel::mergeSelectedInto(int destinationId)
+{
+    const int sourceIndex = m_selectedIndex;
+    int destinationIndex = stackIndexForId(destinationId);
+    if (m_detachedMember.valid || destinationIndex < 0 || destinationIndex == sourceIndex) {
+        return false;
+    }
+    // A Stack's cards front to back: its face, then each one deeper, the
+    // deeper ones lower in `cards` (stackFrontToBack).
+    const auto frontToBack = [](const CardStack &stack) {
+        const int count = static_cast<int>(stack.cards.size());
+        std::vector<int> order;
+        for (int depth = 0; depth < count; ++depth)
+            order.push_back(stack.cards.at(static_cast<std::size_t>((stack.activeIndex - depth + count) % count)));
+        return order;
+    };
+    std::vector<int> order = frontToBack(m_stacks.at(static_cast<std::size_t>(sourceIndex)));
+    const std::vector<int> under = frontToBack(m_stacks.at(static_cast<std::size_t>(destinationIndex)));
+    order.insert(order.end(), under.cbegin(), under.cend());
+    CardStack merged;
+    merged.cards.assign(order.rbegin(), order.rend());
+    merged.activeIndex = static_cast<int>(merged.cards.size()) - 1;
+    m_stacks.at(static_cast<std::size_t>(destinationIndex)) = merged;
+    m_stacks.erase(m_stacks.begin() + sourceIndex);
+    if (sourceIndex < destinationIndex) --destinationIndex;
+    m_selectedIndex = destinationIndex;
+    return invariantHolds();
+}
+
 bool SpreadModel::releaseMember(int cardId)
 {
     const int stackIndex = stackIndexForId(cardId);

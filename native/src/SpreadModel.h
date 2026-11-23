@@ -46,6 +46,10 @@ public:
     enum class InsertionSelection { InsertedCard, DestinationCard };
     bool stackSelectedWith(int destinationId, int insertionIndex = -1,
         InsertionSelection selection = InsertionSelection::InsertedCard);
+    // The selected entry, a Stack or a card, joins the Stack of
+    // destinationId whole: its cards in front, front to back as they stood,
+    // then every card of the destination; the carried face is the new face.
+    bool mergeSelectedInto(int destinationId);
     // A member pulled down out of its Stack becomes an individual entry just
     // after it. The Stack keeps its place, its order and the selection; a
     // pulled face gives way to its nearest shoulder.

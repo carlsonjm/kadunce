@@ -225,6 +225,83 @@ private:
     QString m_previousKey;
 };
 
+// CARD-LIFECYCLE.md §11: what a window or card in hand over another display
+// would do by the pane, or the card shown alone, under it there
+// (Effect::aimAtPaneMap). A title-bar carry and a carry out of Spread ask it
+// alike, so the map of places means one thing however the card was picked up.
+struct Effect::PaneMapAim {
+    // The pane or card it would join in a Stack, once rested on.
+    KWin::EffectWindow *over = nullptr;
+    // The place by a pane of a layout its side names.
+    std::optional<BentoSidePlacement> side;
+    // The card shown alone it would be laid out beside once landed, the side
+    // named, and the half of that card the side keeps for it.
+    QPointer<KWin::EffectWindow> pairAfter;
+    BentoSidePlacement pairSide;
+    QRectF pairPreview;
+};
+
+// A card held in a display's Spread, or one of the Stack gathered behind it,
+// is that display's stage's to draw on every display the hand carries it
+// over. Each display paints with its own stage named, and that stage holds no
+// such card, so for the length of the window's paint the stage carrying it is
+// named instead. What became of the card on the display being painted is said
+// in the journal whenever it changes (HeldCardDraw.h).
+class Effect::HeldDrawScope
+{
+public:
+    HeldDrawScope(Effect *effect, KWin::EffectWindow *window)
+        : m_effect(effect)
+    {
+        if (!effect->m_paintingOutput || !effect->m_scopedSession) return;
+        const auto key = effect->grabStageKey(window);
+        if (!key) return;
+        m_window = window;
+        m_paintedKey = effect->m_scopedKey;
+        if (*key != effect->m_scopedKey) m_carrier.emplace(effect, effect->m_scopedSession, *key);
+    }
+    ~HeldDrawScope()
+    {
+        KWin::LogicalOutput *on = m_window ? m_effect->m_paintingOutput : nullptr;
+        if (!on) return;
+        const CardStageController &stage = *m_effect->m_cardStage;
+        const QRectF held = QRectF(stage.cardGrabTarget()).translated(stage.cardGrabOffset());
+        if (m_outcome == HeldDraw::Drawn && !held.intersects(QRectF(on->geometry()))) m_outcome = HeldDraw::OffDisplay;
+        if (!m_effect->m_heldDraw.note(QString::number(quintptr(m_window)).toStdString(),
+                                       on->name().toStdString(), m_outcome)) return;
+        qInfo() << "Kadunce" << Revision << "held card" << logNameOf(m_window) << "on" << on->name()
+                << heldDrawName(m_outcome) << "; held at" << held << "the display is" << QRectF(on->geometry())
+                << "its window stands on" << (m_window->screen() ? m_window->screen()->name() : QStringLiteral("none"))
+                << "carried by the stage of" << m_effect->m_scopedKey << "painting with the stage of" << m_paintedKey
+                << "slot" << stage.paintSlot(m_window) << (stage.heldWholeStack() ? "Stack gathered" : "card alone");
+    }
+    HeldDrawScope(const HeldDrawScope &) = delete;
+    HeldDrawScope &operator=(const HeldDrawScope &) = delete;
+
+    // The card is carried by a stage other than the one of the display painted.
+    [[nodiscard]] bool crossed() const { return m_carrier.has_value(); }
+    void note(HeldDraw outcome) { m_outcome = outcome; }
+
+    // A display's frame begins and ends: a frame that a held card never
+    // reached is said too, once.
+    static void beginFrame(Effect *effect, const KWin::LogicalOutput *screen)
+    {
+        if (screen) effect->m_heldDraw.beginFrame(screen->name().toStdString());
+    }
+    static void endFrame(Effect *effect, const KWin::LogicalOutput *screen)
+    {
+        if (!screen || !effect->grabStageKey() || !effect->m_heldDraw.endFrame(screen->name().toStdString())) return;
+        qInfo() << "Kadunce" << Revision << "held card" << heldDrawName(HeldDraw::NotOffered) << "on" << screen->name();
+    }
+
+private:
+    Effect *m_effect;
+    KWin::EffectWindow *m_window = nullptr;
+    QString m_paintedKey;
+    HeldDraw m_outcome = HeldDraw::Stopped;
+    std::optional<SessionScope> m_carrier;
+};
+
 // Every host call a card stage makes is answered for that stage's own desktop
 // and display, so a stage never reads another desktop's windows, or another
 // display's, as its own: inside the call, the effect's m_cardStage is this

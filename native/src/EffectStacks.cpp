@@ -293,12 +293,19 @@ bool Effect::admitCardToDesktopStage(
         return m_desktopStage->transferPreparedCard(*m_placementDrop, commitSource, releaseSource);
     if (m_cardStage->cardGrabActive()) {
         if (!m_lineDestination || m_lineDestinationWindow != window) return false;
+        // A gathered Stack carried into another display's layout goes whole.
+        const QList<KWin::EffectWindow *> behind = m_cardStage->heldWholeStack() && isOtherCardDisplay(output)
+            ? cardsBehind(*m_cardStage, window) : QList<KWin::EffectWindow *>{};
         const auto reserved = *m_lineDestination;
         const auto target = m_linePreview;
         const auto from = QRectF(m_cardStage->cardGrabTarget()).translated(m_cardStage->cardGrabOffset());
         QPointer<KWin::EffectWindow> arrival = window;
         QPointer<KWin::LogicalOutput> destination = output;
         const bool committed = m_desktopStage->transferPreparedCard(reserved, commitSource, releaseSource);
+        if (committed && !behind.isEmpty() && arrival) {
+            SessionScope there(this, m_scopedSession, stageKeyFor(output));
+            rejoinStack(arrival, behind);
+        }
         if (committed && target) startDropSettle(arrival, destination, from, QRectF(*target));
         return committed;
     }
@@ -1323,6 +1330,93 @@ void Effect::drawHeldBoxUnder(const KWin::RenderTarget &renderTarget, const KWin
         drawDestinationOutline(renderTarget, viewport, m_paintingRegion, screen, *box);
         m_heldBoxDrawnOn = screen;
     }
+}
+
+Effect::PaneMapAim Effect::aimAtPaneMap(KWin::LogicalOutput *target, const QPointF &contact, KWin::EffectWindow *carried,
+                                        KWin::EffectWindow *beforePane, std::optional<PanePlace> beforePlace)
+{
+    // In hand over another display and rested on Spread's Active card, or on
+    // a pane there however that display is sized, as the card another display
+    // shows alone is one, it lands as it would and then joins that Stack.
+    // §11, Connected: the card a display shows alone is mapped as a pane is,
+    // and a side of it lays the two out there once the arrival has landed.
+    PaneMapAim aim;
+    KWin::EffectWindow *over = nullptr, *lone = nullptr;
+    if (isTabletOutput(target) && m_cardStage->isActive()
+        && m_cardStage->presentation() == CardPresentation::Active) {
+        KWin::EffectWindow *card = m_cardStage->selectedWindow();
+        if (card && card != carried && !card->isDeleted()
+            && QRectF(card->frameGeometry()).contains(contact)) over = lone = card;
+    }
+    if (!over && m_desktopStage->hasSessionOnOutput(target->name()))
+        over = m_desktopStage->paneAt(target, contact, carried);
+    // §11, Connected: over a pane of a Connected layout, the map of places
+    // shows and the contact names one of the pane's five (PanePlaces.h).
+    // Its middle joins the pane's Stack once the card rests there, as a
+    // pane rested on another does, so a quick let go never makes a Stack;
+    // any side places the card by the pane, which the layout solve reserves.
+    // A display sized Solo shows the map too. Its layouts hold two panes
+    // side by side, so a pane of one offers only its Stack, outlined
+    // whole, and the card it shows alone only its middle and two sides.
+    const bool connectedHere = connectedOutputForDesktopStage(target);
+    const bool soloHere = !connectedHere && isCardDisplay(target);
+    if (over && soloHere && over != lone && m_desktopStage->managesWindow(over)) {
+        m_carryMapOutput = target;
+        m_carryPlacePane = over;
+        m_carryPanePlace = PanePlace::Middle;
+        m_carryPlaceWhole = true;
+    } else if (over && (connectedHere || soloHere) && (over == lone || m_desktopStage->managesWindow(over))) {
+        m_carryMapOutput = target;
+        m_carryPlaceAcross = soloHere;
+        const QRectF frame(over->frameGeometry());
+        auto place = panePlaceAt({frame.x(), frame.y(), frame.width(), frame.height()},
+            contact.x(), contact.y(), beforePane == over ? beforePlace : std::nullopt);
+        if (soloHere && place && (*place == PanePlace::Top || *place == PanePlace::Bottom))
+            place = PanePlace::Middle;
+        if (place) {
+            m_carryPlacePane = over;
+            m_carryPanePlace = place;
+            if (*place != PanePlace::Middle) {
+                const QRectF whole(target->geometry());
+                BentoSidePlacement byPane;
+                byPane.right = *place == PanePlace::Right
+                    || (*place != PanePlace::Left && frame.center().x() > whole.center().x());
+                byPane.large = *place == PanePlace::Left || *place == PanePlace::Right;
+                byPane.over = *place == PanePlace::Top;
+                byPane.connected = connectedHere;
+                if (over == lone) {
+                    // The half of the card the named side keeps for it.
+                    aim.pairAfter = lone;
+                    aim.pairSide = byPane;
+                    // Over or under names a place by that card, so the
+                    // two share its column rather than stand side by side.
+                    if (*place == PanePlace::Top || *place == PanePlace::Bottom) {
+                        aim.pairSide.place = place;
+                        aim.pairSide.pane = reinterpret_cast<std::uintptr_t>(lone);
+                    }
+                    const bool across = *place == PanePlace::Left || *place == PanePlace::Right;
+                    const QSizeF half(across ? frame.width() / 2 : frame.width(), across ? frame.height() : frame.height() / 2);
+                    aim.pairPreview = QRectF(*place == PanePlace::Right ? frame.center().x() : frame.left(),
+                                             *place == PanePlace::Bottom ? frame.center().y() : frame.top(),
+                                             half.width(), half.height());
+                } else {
+                    byPane.place = place;
+                    byPane.pane = reinterpret_cast<std::uintptr_t>(over);
+                    aim.side = byPane;
+                }
+                over = nullptr;
+            }
+        }
+    }
+    aim.over = over;
+    return aim;
+}
+
+void Effect::forgetPaneMap()
+{
+    m_carryStackOnto.clear(); m_paneStackAim.clear(); m_paneStackDwell.stop();
+    m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear(); m_carryPlaceWhole = m_carryPlaceAcross = false;
+    m_lineStackAfter.clear(); m_linePairAfter.clear();
 }
 
 void Effect::pairWhenLanded(QPointer<KWin::EffectWindow> carried, QPointer<KWin::EffectWindow> lone,

@@ -415,10 +415,29 @@ bool Effect::selectedStackContains(const QPointF &position) const
     return m_cardStage->selectedStackContains(position);
 }
 
+std::optional<QString> Effect::grabStageKey(const KWin::EffectWindow *carried) const
+{
+    // Each display paints with its own stage named, and a stage draws only
+    // its own cards, yet a card carried off one display's Spread is drawn on
+    // the display beside it too. So every stage of the desktop is asked: the
+    // one holding a card, or the one carrying this window in its grab.
+    if (!m_scopedSession) return std::nullopt;
+    for (const auto &display : m_scopedSession->displays) {
+        if (!display.second || !display.second->cards) continue;
+        const CardStageController &stage = *display.second->cards;
+        if (carried ? stage.carriedInGrab(carried) : stage.cardGrabActive()) return display.first;
+    }
+    return std::nullopt;
+}
+
 void Effect::beginCardGrab(const QPointF &position)
 {
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
+    m_heldDraw.clear();
+    // Whatever waited on the last carry to land is left behind by this one.
+    ++m_carriesBegun;
+    if (!m_carriedWindow) forgetPaneMap();
     m_cardStage->beginCardGrab(position);
     if (m_cardStage->cardGrabActive()) takeCarriedDialogs(m_cardStage->selectedWindow());
 }
@@ -429,13 +448,99 @@ void Effect::updateCardGrab(const QPointF &position)
     m_linePreview.reset();
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
+    // The place named over a pane before, so a hand resting on a boundary
+    // keeps it. A window carried by its title bar keeps the map as its own.
+    const QPointer<KWin::EffectWindow> placePaneBefore = m_carryPlacePane;
+    const std::optional<PanePlace> panePlaceBefore = m_carryPanePlace;
+    const bool mapFree = !m_carriedWindow;
+    bool aimingPane = false;
+    QRectF pairPreview;
+    if (mapFree) {
+        m_carryStackOnto.clear(); m_lineStackAfter.clear(); m_linePairAfter.clear();
+        m_carryPlacePane.clear(); m_carryPanePlace.reset(); m_carryMapOutput.clear();
+        m_carryPlaceWhole = m_carryPlaceAcross = false;
+        m_lastCarryContact = position;
+    }
+    const auto forgetPaneAim = qScopeGuard([this, &aimingPane, mapFree] {
+        if (aimingPane || !mapFree) return;
+        m_paneStackAim.clear();
+        m_paneStackDwell.stop();
+    });
     m_cardStage->updateCardGrab(position);
-    // A card held in its own Stack goes nowhere but its Stack.
+    // The display under the held card and what it would do there are said in
+    // the journal whenever either changes.
+    const auto sayOver = qScopeGuard([this, position] {
+        if (!m_cardStage->cardGrabActive()) return;
+        KWin::LogicalOutput *under = KWin::effects->screenAt(position.toPoint());
+        KWin::LogicalOutput *layout = m_lineDestination ? m_lineDestination->destinationOutput() : nullptr;
+        QString aim = m_lineCardEntryOutput
+            ? QStringLiteral("it would stand as the card of %1").arg(m_lineCardEntryOutput->name())
+            : layout ? QStringLiteral("it would take a place in the layout on %1").arg(layout->name())
+            : under && isTabletOutput(under) ? QStringLiteral("it stays in its own Spread")
+            : QStringLiteral("nothing there would take it");
+        // The place the map names, and what resting or letting go there does.
+        if (m_carryMapOutput && m_carryPlacePane && m_carryPanePlace) {
+            static const char *const places[] = {"left", "right", "top", "bottom", "middle"};
+            aim += QStringLiteral("; the map names the %1 of %2").arg(
+                QString::fromLatin1(places[int(*m_carryPanePlace)]), logNameOf(m_carryPlacePane));
+            if (m_lineStackAfter) aim += QStringLiteral(", rested on: it joins that Stack once landed");
+            else if (m_linePairAfter) aim += QStringLiteral(": the two are laid out once landed");
+        }
+        const QString where = (under ? under->name() : QStringLiteral("no display")) + QStringLiteral(": ") + aim;
+        if (!m_heldDraw.over(where.toStdString())) return;
+        qInfo() << "Kadunce" << Revision << (m_cardStage->heldWholeStack() ? "held Stack of" : "held card")
+                << logNameOf(selectedWindow()) << "of" << m_scopedKey << "is over" << qPrintable(where)
+                << (m_linePreview ? QRectF(*m_linePreview) : QRectF());
+    });
+    // A card held in its own Stack goes nowhere but its Stack. A gathered
+    // Stack goes to a place in the row or onto a card there, or, over another
+    // display holding cards, is aimed there exactly as a lone card is.
     if (!m_cardStage->cardGrabActive() || m_cardStage->heldInStack()) return;
+    KWin::EffectWindow *const held = selectedWindow();
     for (auto *output : KWin::effects->screens()) {
         if (!QRectF(output->geometry()).contains(position)) continue;
+        const bool wholeStack = m_cardStage->heldWholeStack();
+        if (wholeStack && (m_cardStage->canOwnCards(output) || !isCardDisplay(output) || !m_scopedSession)) break;
         const auto edge = carryEdgeAt(output, position);
         std::optional<BentoSidePlacement> side;
+        // §11: over another display, away from its edges, the card in hand is
+        // aimed by that display's map of places exactly as a window carried
+        // there by its title bar is: the middle of a pane, or of the card
+        // shown alone, joins its Stack once rested on, and a side places the
+        // card by it. The stage of the display under the hand answers.
+        if (mapFree && m_scopedSession && !edge && !m_cardStage->canOwnCards(output)) {
+            const PaneMapAim aim = [&] {
+                SessionScope there(this, m_scopedSession, stageKeyFor(output));
+                return aimAtPaneMap(output, position, held, placePaneBefore, panePlaceBefore);
+            }();
+            if (aim.side) side = aim.side;
+            m_linePairAfter = aim.pairAfter;
+            m_linePairSide = aim.pairSide;
+            pairPreview = aim.pairPreview;
+            if (aim.over) {
+                aimingPane = true;
+                if (!m_paneStackClock.isValid()) m_paneStackClock.start();
+                const long long now = m_paneStackClock.elapsed();
+                if (!m_paneStackAim.aim(QPointer<KWin::EffectWindow>(aim.over), now, position)) {
+                    m_paneStackDwell.start(int(std::max(1LL, m_paneStackAim.remaining(now))));
+                } else {
+                    m_paneStackDwell.stop();
+                    m_carryStackOnto = aim.over;
+                    m_lineStackAfter = aim.over;
+                }
+            }
+            KWin::effects->addRepaintFull();
+        }
+        // Over a display holding cards and no layout, a gathered Stack will
+        // stand there as that display's Active card (moveCardToDisplay): that
+        // place shows.
+        if (wholeStack && !m_desktopStage->hasSessionOnOutput(output->name())) {
+            m_lineCardEntryOutput = output;
+            m_linePreview = KWin::RectF(stageOn(m_scopedSession, stageKeyFor(output)).activeTarget(output));
+            m_lineDestinationWindow = held;
+            m_lineDestinationContact = position;
+            break;
+        }
         if (edge && (*edge == CarryEdge::Left || *edge == CarryEdge::Right))
             side = bentoSideChoice(*edge == CarryEdge::Right, position.y(),
                 QRectF(output->geometry()).center().y(), previousDestination
@@ -497,6 +602,8 @@ void Effect::updateCardGrab(const QPointF &position)
         }
         break;
     }
+    // The half of the card shown alone that the side named keeps for it.
+    if (m_linePairAfter && (m_lineDestination || m_lineCardEntryOutput)) m_linePreview = KWin::RectF(pairPreview);
 }
 
 void Effect::finishCardGrab(bool commit)
@@ -504,6 +611,7 @@ void Effect::finishCardGrab(bool commit)
     m_cardStage->finishCardGrab(commit);
     m_lineDestination.reset(); m_lineDestinationWindow.clear();
     m_lineCardEntryOutput.clear();
+    if (!m_carriedWindow) forgetPaneMap();
     if (m_dialogsLead) m_carriedDialogsRelease.start();
 }
 
@@ -515,8 +623,59 @@ bool Effect::finishCardGrabOnOutput(const QPointF &position)
         m_lineDestination.reset();
         m_lineCardEntryOutput.clear();
     }
+    // §11: what the map of another display's places named is done once the
+    // card has landed there, as it is for a window carried by its title bar,
+    // and only where the hand last read it: rested on a middle, it joins that
+    // Stack; let go on a side of the card shown alone, the two are laid out.
+    const QPointer<KWin::EffectWindow> held = selectedWindow();
+    QPointer<KWin::EffectWindow> stackAfter, pairAfter;
+    if (!m_carriedWindow && position == m_lastCarryContact) {
+        stackAfter = m_lineStackAfter;
+        pairAfter = m_linePairAfter;
+    }
+    const auto afterLanding = qScopeGuard([this, held, stackAfter, pairAfter, pairSide = m_linePairSide] {
+        if (!m_carriedWindow) forgetPaneMap();
+        // Still held, or back in the Spread it was lifted from: nothing landed.
+        if (!held || held->isDeleted() || !(stackAfter || pairAfter) || m_cardStage->cardGrabActive()
+            || m_cardStage->liveCardIndex(held) >= 0) return;
+        const DesktopSession *landedIn = m_currentSession;
+        const quint64 begun = m_carriesBegun;
+        qInfo() << "Kadunce" << Revision << "held card" << logNameOf(held) << "landed on another display;"
+                << (stackAfter ? "it joins the Stack of" : "it is laid out beside")
+                << logNameOf(stackAfter ? stackAfter : pairAfter);
+        QTimer::singleShot(0, this, [this, held, stackAfter, pairAfter, pairSide, landedIn, begun] {
+            if (stackAfter) stackWhenLanded(held, stackAfter, landedIn, begun);
+            else pairWhenLanded(held, pairAfter, pairSide, landedIn, begun);
+        });
+    });
     // A card held in its own Stack is let go into it, wherever the finger is.
     if (m_cardStage->heldInStack()) return false;
+    if (m_cardStage->heldWholeStack()) {
+        // A gathered Stack lands in the row on this display. Let go on another
+        // display holding cards it takes a lone card's way there, its Stack
+        // following in the same transfer (§11, admitCardToDesktopStage);
+        // anywhere else it goes back.
+        KWin::LogicalOutput *there = KWin::effects->screenAt(position.toPoint());
+        if (there && QRectF(there->geometry()).contains(position) && there == tabletOutput()) return false;
+        if (there && m_lineCardEntryOutput == there) {
+            // A display with no layout: the Stack moves there whole in one
+            // transfer and stands as its Active card, in front.
+            QPointer<KWin::EffectWindow> face = selectedWindow();
+            finishCardGrab(false);
+            const bool moved = face && moveCardToDisplay(face, there, true);
+            qInfo() << "Kadunce" << Revision << (moved ? "moved" : "could not move") << "the gathered Stack of"
+                    << logNameOf(face) << "to" << there->name();
+            return true;
+        }
+        // Into a layout there it takes a lone card's way, its Stack following
+        // (admitCardToDesktopStage); anywhere else it goes back.
+        if (!there || !QRectF(there->geometry()).contains(position) || !isCardDisplay(there) || !m_lineDestination) {
+            finishCardGrab(false);
+            return true;
+        }
+        qInfo() << "Kadunce" << Revision << "lets the gathered Stack of" << logNameOf(selectedWindow())
+                << "go into the layout on" << there->name();
+    }
     if (m_lineCardEntryOutput) {
         // §10: nothing distinct to pair with, so the carried card becomes the
         // Active card. Its grab is cancelled first, which returns it to the

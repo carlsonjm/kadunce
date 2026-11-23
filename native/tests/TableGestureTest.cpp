@@ -19,6 +19,17 @@ TableGesture opened(int current = 0, bool sticky = false)
     table.setLayout({100, 300, 500}, 650, {{80, 240}, {280, 440, 600}, {500}});
     return table;
 }
+// The same, workspace 1's middle card a Stack of three whose cards hang at
+// 360, 440 and 520 once it is rested on, and workspace 2's card a Stack of two.
+TableGesture withStacks(int current = 0, bool sticky = false)
+{
+    TableGesture table;
+    table.open(current, 0, sticky);
+    table.setLayout({100, 300, 500}, 650, {{80, 240}, {280, 440, 600}, {500}},
+                    {{{}, {}}, {{}, {360, 440, 520}, {}}, {{460, 540}}});
+    table.setThresholds(0.30, 0.05, 0.45, 0.65);
+    return table;
+}
 // A stroke from the top edge: y is a fraction of the display's height.
 void stroke(TableGesture &table, double x, double y, qint64)
 {
@@ -510,6 +521,164 @@ int main()
         const auto action = table.release(QPointF(640, 100), 500);
         check(action.kind == Kind::Create && action.workspace == 1 && action.card == 1,
               "let go on +, it makes a workspace for the card");
+    }
+    {
+        // A Stack rested on hangs its cards; the finger goes down among them
+        // and lifting on one opens that card.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.38, 200);
+        check(table.card() == 1 && table.wantsRest() && table.membersOf() == -1, "a Stack chosen waits to hang its cards");
+        check(table.hangMembers() && table.membersOf() == 1 && !table.wantsRest(), "rested on, its cards hang");
+        stroke(table, 440, 0.55, 300);
+        check(table.level() == TableLevel::Members && table.member() == 1 && !table.carrying(),
+              "past the line under the cards the finger is among the Stack's cards, nothing lifted");
+        stroke(table, 525, 0.56, 350);
+        check(table.member() == 2 && table.shownMember() == 2 && table.shownCard() == 1, "each is shown as it is passed");
+        const auto action = table.release(QPointF(525, 560), 500);
+        check(action.kind == Kind::Activate && action.workspace == 1 && action.card == 1 && action.member == 2,
+              "lifting on one opens that card of the Stack");
+    }
+    {
+        // Back up into the cards, or on to another card, the Stack folds.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.38, 200);
+        table.hangMembers();
+        stroke(table, 440, 0.55, 300);
+        stroke(table, 440, 0.38, 350);
+        check(table.level() == TableLevel::Cards && table.membersOf() == 1 && table.member() == -1,
+              "back among the cards the Stack is chosen again, its cards still hanging");
+        stroke(table, 600, 0.38, 400);
+        check(table.card() == 2 && table.membersOf() == -1, "on another card the Stack's cards fold");
+    }
+    {
+        // A Stack pulled past the line before it hangs lifts whole, as before.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.38, 200);
+        stroke(table, 440, 0.50, 250);
+        check(table.carrying() && table.carryCard() == 1 && table.carryMember() == -1, "a quick pull lifts the whole Stack");
+    }
+    {
+        // A hanging card pulled past its own line lifts out of the Stack; let go
+        // in its workspace's row it stands on its own.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.38, 200);
+        table.hangMembers();
+        stroke(table, 520, 0.55, 300);
+        stroke(table, 520, 0.70, 350);
+        check(table.carrying() && table.carryCard() == 1 && table.carryMember() == 2, "the hanging card lifts out");
+        stroke(table, 560, 0.50, 400);
+        check(table.trayWorkspace() == 1, "its own workspace's row hangs");
+        const auto action = table.release(QPointF(560, 500), 600);
+        check(action.kind == Kind::TakeOut && action.workspace == 1 && action.card == 1 && action.member == 2
+                  && table.isOpen() && table.membersOf() == -1,
+              "let go in its row, it leaves the Stack and Table stays open");
+    }
+    {
+        // A card of a Stack carried to another tab moves there alone.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 440, 0.38, 200);
+        table.hangMembers();
+        stroke(table, 360, 0.55, 300);
+        stroke(table, 360, 0.70, 350);
+        stroke(table, 110, 0.12, 400);
+        const auto action = table.release(QPointF(110, 120), 600);
+        check(action.kind == Kind::Move && action.workspace == 1 && action.card == 1 && action.member == 0
+                  && action.destination == 0, "on another tab it moves there, out of its Stack");
+    }
+    {
+        // A card carried over another tab, then down among that workspace's
+        // cards, hangs that row; held over a card there, let go, it stacks.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 280, 0.38, 200);
+        stroke(table, 280, 0.50, 250);
+        check(table.carrying() && table.carryCard() == 0, "lifts");
+        stroke(table, 500, 0.12, 300);
+        stroke(table, 500, 0.38, 350);
+        check(table.trayWorkspace() == 2 && table.overWorkspace() == 2, "down among the cards of the tab it passed");
+        check(table.aimAt(0) && table.aim() == 0 && !table.aimArmed(), "over a card it aims at it");
+        table.armAim();
+        check(table.aimArmed(), "held long enough it would stack");
+        const auto action = table.release(QPointF(500, 380), 700);
+        check(action.kind == Kind::Stack && action.workspace == 1 && action.card == 0 && action.destination == 2
+                  && action.target == 0 && action.member == -1 && table.isOpen(),
+              "let go, it stacks there and Table stays open");
+    }
+    {
+        // Let go there unarmed, it moves to that workspace; a new aim disarms.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 280, 0.38, 200);
+        stroke(table, 280, 0.50, 250);
+        stroke(table, 500, 0.12, 300);
+        stroke(table, 500, 0.38, 350);
+        table.aimAt(0);
+        table.armAim();
+        table.aimAt(-1);
+        check(!table.aimArmed(), "moved off the card, nothing is armed");
+        const auto action = table.release(QPointF(500, 380), 700);
+        check(action.kind == Kind::Move && action.destination == 2, "let go in another row, it moves there");
+    }
+    {
+        // Back in its own row without passing a tab, it opens as before.
+        TableGesture table = withStacks();
+        stroke(table, 300, 0.12, 50);
+        stroke(table, 280, 0.38, 200);
+        stroke(table, 280, 0.50, 250);
+        stroke(table, 300, 0.40, 300);
+        const auto action = table.release(QPointF(300, 400), 600);
+        check(action.kind == Kind::Activate && action.workspace == 1 && action.card == 0, "let go in its own place, it opens");
+    }
+    {
+        // The keys: down on a Stack hangs its cards, the arrows choose, Enter
+        // opens; Meta+Shift+Down takes one out and Table stays open.
+        TableGesture table = withStacks(1);
+        table.key(TableGesture::Key::Down);
+        table.key(TableGesture::Key::Right);
+        check(table.level() == TableLevel::Cards && table.card() == 1, "the keys choose the Stack");
+        table.key(TableGesture::Key::Down);
+        check(table.level() == TableLevel::Members && table.membersOf() == 1 && table.member() == 0,
+              "down on a Stack hangs its cards, the front one chosen");
+        table.key(TableGesture::Key::Right);
+        check(table.member() == 1, "right steps along them");
+        auto action = table.key(TableGesture::Key::TakeOut);
+        check(action.kind == Kind::TakeOut && action.card == 1 && action.member == 1 && table.isOpen()
+                  && table.level() == TableLevel::Cards, "Meta+Shift+Down takes it out");
+        table.key(TableGesture::Key::Down);
+        table.key(TableGesture::Key::Up);
+        check(table.level() == TableLevel::Cards && table.member() == -1, "up goes back to the cards");
+        table.key(TableGesture::Key::Down);
+        table.key(TableGesture::Key::Right);
+        table.key(TableGesture::Key::Right);
+        action = table.key(TableGesture::Key::Enter);
+        check(action.kind == Kind::Activate && action.card == 1 && action.member == 2, "enter opens the chosen card");
+    }
+    {
+        // A menu bar: the pointer resting on a Stack hangs its cards; a click
+        // on one opens it, and one dragged lifts out.
+        TableGesture table = withStacks(1, true);
+        table.hover(-1, 1);
+        check(table.wantsRest(), "the pointer resting on a Stack waits");
+        table.hangMembers();
+        table.hover(-1, -1, false, -1, 0);
+        check(table.level() == TableLevel::Members && table.member() == 0, "the pointer over a hanging card shows it");
+        TableHit hit;
+        hit.member = 0;
+        table.press(QPointF(360, 600), -1, -1, 100, -1, 0);
+        auto action = table.release(QPointF(361, 600), 200, hit);
+        check(action.kind == Kind::Activate && action.card == 1 && action.member == 0, "a click opens it");
+        table = withStacks(1, true);
+        table.hover(-1, 1);
+        table.hangMembers();
+        table.press(QPointF(440, 600), -1, -1, 100, -1, 1);
+        table.move(QPointF(470, 640), 0.64);
+        check(table.carrying() && table.carryMember() == 1, "dragged, it lifts out of its Stack");
+        table.hover(-1, -1);
     }
     std::cout << "Table gesture checks passed\n";
     return 0;
