@@ -367,6 +367,9 @@ public:
     [[nodiscard]] double applyPoseTransition(const KWin::EffectWindow *window, KWin::Rect &rect, CardStackPose &pose) const;
     [[nodiscard]] KWin::Rect launcherGuestTarget(
         KWin::LogicalOutput *output) const;
+    // The middle card of the row as Spread stands it, which a guest under
+    // protocol 4 centres on and Search's Medium meets top and bottom.
+    [[nodiscard]] KWin::Rect launcherGuestRowCard(KWin::LogicalOutput *output) const;
     [[nodiscard]] KWin::Rect launcherGuestTargetForSlot(
         KWin::LogicalOutput *output, int slot) const;
     [[nodiscard]] KWin::Rect activeTarget(KWin::LogicalOutput *output) const;

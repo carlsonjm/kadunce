@@ -778,6 +778,14 @@ KWin::Rect CardStageController::launcherGuestTarget(
     return launcherGuestTargetForSlot(output, 0);
 }
 
+KWin::Rect CardStageController::launcherGuestRowCard(KWin::LogicalOutput *output) const
+{
+    if (!output) return {};
+    const KWin::RectF work = workArea(output);
+    const auto card = makeSpreadLayout(work.x(), work.y(), work.width(), work.height()).cards[1];
+    return KWin::Rect(qRound(card.x), qRound(card.y), qRound(card.width), qRound(card.height));
+}
+
 KWin::Rect CardStageController::launcherGuestTargetForSlot(
     KWin::LogicalOutput *output, int slot) const
 {
@@ -793,7 +801,7 @@ KWin::Rect CardStageController::launcherGuestTargetForSlot(
     // and stand the usual gutter beyond its edges.
     if (slot != 0 && m_launcherGuestWidth > 0.0) {
         const SpreadLayout row = makeSpreadLayout(work.x(), work.y(), work.width(), work.height());
-        const double centre = layout.cards[1].x + layout.cards[1].width / 2.0;
+        const double centre = row.cards[1].x + row.cards[1].width / 2.0;
         target = row.cards[slot < 0 ? 0 : 2];
         target.x = slot < 0 ? centre - m_launcherGuestWidth / 2.0 - row.gutter - target.width
                             : centre + m_launcherGuestWidth / 2.0 + row.gutter;

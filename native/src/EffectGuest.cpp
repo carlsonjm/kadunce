@@ -194,6 +194,8 @@ QString Effect::acceptLauncherGuest(const QString &ownerService, const QString &
                  geometryContext(m_cardStage->launcherGuestTarget(tablet)));
     reply.insert(QStringLiteral("active"),
                  geometryContext(launcherGuestExpandedTarget(tablet)));
+    reply.insert(QStringLiteral("row"),
+                 geometryContext(m_cardStage->launcherGuestRowCard(tablet)));
     reply.insert(QStringLiteral("output"), tablet->name());
     return QString::fromUtf8(
         QJsonDocument(reply).toJson(QJsonDocument::Compact));

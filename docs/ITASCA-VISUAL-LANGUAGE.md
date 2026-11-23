@@ -244,7 +244,8 @@ they preserve these relationships and respect the user's animation settings.
   deep a soft shadow every window Kadunce trims casts below itself, outside
   Spread and Table, which lay their cards out their own way.
 - Spread with two entries draws its centre card at 64% of the work area and the
-  shoulders at 54%; with three or more, every card is 54%.
+  shoulders at 54%; with three or more, every card is 54%, at most 415 pt
+  tall.
 - The chosen card in Spread wears a ring on its edge: 2 px of the line ink at
   55%, meeting the window as it is drawn with no seam between them, a Stack's
   front turned with it, so it shows on a light window and a dark one alike.

@@ -156,9 +156,9 @@ endLauncherGuest()
 ```
 
 An accepted begin reply contains `protocol: 4`, `accepted: true`, the target
-`output`, and `card` and `active` geometries. The guest centres on `card` at
-its own size, said by `resizeLauncherGuest`; neighbours glide to one gutter
-beyond its edges. The
+`output`, and `card`, `active` and `row` geometries. The guest centres on
+`row`, the row's middle card, at its own size, said by `resizeLauncherGuest`;
+neighbours glide to one gutter beyond its edges. The
 launcher stays out of `SpreadModel`, whose only mutable state is real cards.
 Tettegouche owns and renders the interactive center card, and Kadunce mirrors
 its horizontal drag onto the adjacent real cards.
