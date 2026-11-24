@@ -844,7 +844,7 @@ private:
     qint64 m_sessionStartedMs = 0;
     [[nodiscard]] const Memory::RememberedWindow *rememberedAtSignOut(const KWin::EffectWindow *window) const;
     bool holdForSignIn(KWin::EffectWindow *window, const std::function<void()> &admit);
-    void settleSignIn();
+    void settleSignIn(); [[nodiscard]] bool signInStillExpected() const;
     void completeBringBackForWindow(KWin::EffectWindow *window);
     void placeBroughtBack(QList<Memory::ReadyPlacement> ready);
     void finishBringBackIfDone();

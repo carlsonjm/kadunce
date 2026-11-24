@@ -59,6 +59,15 @@ public:
     [[nodiscard]] int count() const { return m_count; }
     [[nodiscard]] bool over() const { return m_over; }
 
+    // Keeps the burst open at `nowMs` for windows still expected, as if one
+    // had just come, but never past its longest. False once it cannot wait.
+    bool wait(qint64 nowMs)
+    {
+        if (m_over || m_firstAt < 0 || nowMs - m_firstAt >= LongestMs) return false;
+        m_lastAt = std::max(m_lastAt, nowMs);
+        return true;
+    }
+
     // The burst has been shown; nothing joins it again this session.
     bool end()
     {

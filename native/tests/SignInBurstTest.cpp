@@ -57,6 +57,20 @@ int main()
         require(burst.settlesAt() == 1000 + SignInBurst::LongestMs, "it settles at its longest");
         require(!burst.arrive(1000 + SignInBurst::LongestMs + 500), "one past its longest is not in it");
     }
+    // A remembered app still on its way holds the burst open for it, as the
+    // person's Settings coming 2.4 s after the rest did, but no longer than
+    // the burst's longest.
+    {
+        SignInBurst burst;
+        require(burst.arrive(3000), "the first reopened app starts the burst");
+        require(burst.arrive(3200), "the second joins it");
+        require(burst.wait(3200 + SignInBurst::QuietMs), "the burst waits for an app still expected");
+        require(burst.arrive(5600), "the late app joins it");
+        require(burst.count() == 3, "all three are counted");
+        require(!burst.wait(3000 + SignInBurst::LongestMs), "it waits no longer than its longest");
+        burst.end();
+        require(!burst.wait(4000), "an ended burst cannot wait");
+    }
     // Ending it by hand, once shown, keeps later arrivals out.
     {
         SignInBurst burst;
