@@ -394,12 +394,10 @@ arrival into a stack would need.
 
 The keys reserve no workspace; the Active card they
 type into gives up their room, its bottom edge resting a gutter above them.
-Rejected: panning the contents to the text cursor, which left the rest of the
-box covered.
+Rejected: panning to the text cursor, which left the box covered.
 
-While the keys move, the card is drawn ending a gutter above them on every frame
-and its client is asked for a size once a motion. Rejected:
-asking every frame, which made a client trail the keys.
+While the keys move, the card is drawn a gutter above them each frame; its
+client is asked for a size once a motion, not every frame, which made it trail the keys.
 
 KWin's own lift of the focused window would be a second authority, so Kadunce
 declines `OverlayVirtualKeyboardOnWindows` while loaded, as it does edge tiling.
@@ -416,16 +414,15 @@ The keys come up only when you ask for them,
 by tapping a text field or Keyboard in Control Center or the tray. An
 application focusing a field on its own is not a request to type, so keys KWin
 raises for it are put back down and the dock stays. The tap that opens a card in
-Spread is Kadunce's own, and a tap is answered once its keys begin to go. After
+Spread is Kadunce's own; a tap is answered once its keys begin to go. After
 typing on an attached keyboard, taps bring none until it goes or the tablet
-leaves its cover. Rejected: a time limit on a tap, which refused slow
-applications, and any keyboard connected, which mouse receivers hold forever.
+leaves its cover. Rejected: a tap time limit, which refused slow apps, and any connected
+keyboard, which mouse receivers hold forever.
 
 ### The dock steps aside for the keys
 
-KWin seats the keys on the work area's bottom, so a
-dock that stays holds them up by its height. The dock gives up its room while
-keys are on screen, not merely asked for.
+KWin seats the keys on the work area's bottom, so the dock gives up its room
+while keys are on screen, not merely asked for.
 
 ### The latched trackpad is the pointer
 
@@ -640,3 +637,7 @@ Keyboard's handle. Contract:
 Games and Android apps size themselves; guessing fights them, as does taking
 a size asked in answer to a maximize. Rejected: both. See
 `CARD-LIFECYCLE.md` § A card that sizes itself.
+
+### Edge swipes type on Kadunce's own keyboard
+
+A virtual keyboard in KWin's input presses it. Rejected: a fake-input helper.

@@ -193,6 +193,10 @@ public:
     // Outside every window's frame, where only the invisible resize border of
     // a card or pane reaches.
     [[nodiscard]] virtual bool inCardGapForInput(const QPointF &) const { return false; }
+    // Edge swipes (INPUT.md): the key a swipe in from a touchscreen's side
+    // edge sends, -1 the left, 1 the right; none leaves the edge as it was.
+    [[nodiscard]] virtual bool edgeSwipeSetForInput(int) const { return false; }
+    virtual void sendEdgeSwipeKeyFromInput(int) {}
     // Between the panes of a layout the card display presents, where the cards
     // it hides lie behind; a press there is kept so it never calls one.
     [[nodiscard]] virtual bool inPaneGutterForInput(const QPointF &) const { return false; }
@@ -381,6 +385,10 @@ private:
     QSet<qint32> m_observedTouchIds;
     qint32 m_bottomCandidateId = -1;
     QPointF m_bottomCandidateStart;
+    // A contact at a bare side edge whose swipe in sends that edge's key.
+    qint32 m_sideCandidateId = -1;
+    QPointF m_sideCandidateStart;
+    int m_sideCandidateSide = 0;
     // The committed bezel swipe that is opening Spread: where it committed,
     // and its last sample and upward speed for telling a flick on release.
     struct BezelSpread {

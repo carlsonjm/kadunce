@@ -5,3 +5,5 @@ StackPauseMs
 StackBehind
 SpreadPeek
 CardShadow
+EdgeSwipeLeft
+EdgeSwipeRight

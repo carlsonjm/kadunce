@@ -34,6 +34,10 @@ constexpr std::chrono::milliseconds BezelStillAfter{80};
 // one, and claims the contact once it has pulled down this far.
 constexpr double TopBezelWidth = 20.0;
 constexpr double TablePull = 20.0;
+// Edge swipes: the side bands are as narrow as the top's, and a swipe in
+// sends its key once it has come this far across.
+constexpr double SideEdgeWidth = 20.0;
+constexpr double SidePull = 60.0;
 // One notch of a mouse wheel; a touchpad's travel adds up to the same step.
 constexpr double TableWheelStep = 15.0;
 constexpr double CardHoldMotion = 12.0;
@@ -595,7 +599,7 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         bottomNote("is KWin's: a window is being moved or resized");
         return false;
     }
-    if (m_observedTouchIds.size() > 1) m_bottomCandidateId = -1;
+    if (m_observedTouchIds.size() > 1) m_bottomCandidateId = m_sideCandidateId = -1;
     // Preserve the native bottom-edge swipe in Active/Inactive; only the
     // overview's blanket touch capture needs a panel exclusion, and the bezel,
     // whose swipe opens Spread, has nothing to do in it. Unowned IDs already
@@ -713,6 +717,20 @@ bool WorkspaceInputRouter::routeTouchDown(KWin::TouchDownEvent *event)
         return false;
     }
     if (mode == TouchMode::None) {
+        // A bare side edge of a touchscreen with a key set for it: the
+        // window keeps the contact until it swipes in. Cards' own swipes, in
+        // the gap beside the Active card, Spread and Table, never get here.
+        const int side = m_ownsSystemEdges && edges.isValid()
+            ? atTouchSideEdge(event->pos, edgeDisplay, SideEdgeWidth) : 0;
+        if (side != 0 && m_touchId < 0 && m_observedTouchIds.size() == 1
+            && m_target->presentationForInput() != WorkspacePresentation::Spread
+            && !m_target->tableOpenForInput() && !m_target->cardGrabActiveForInput()
+            && !m_target->inCardGapForInput(event->pos) && !m_target->inputPanelContainsForInput(event->pos)
+            && m_target->edgeSwipeSetForInput(side)) {
+            m_sideCandidateId = event->id;
+            m_sideCandidateStart = event->pos;
+            m_sideCandidateSide = side;
+        }
         return false;
     }
     if (mode == TouchMode::Spread && m_touchId < 0 && m_observedTouchIds.size() == 1
@@ -798,6 +816,28 @@ bool WorkspaceInputRouter::routeTouchMotion(KWin::TouchMotionEvent *event)
             m_ownedTouchIds.insert(event->id);
             m_target->beginTableFromInput(m_topCandidateStart);
             m_target->moveTableFromInput(event->pos);
+            return true;
+        }
+        return false;
+    }
+    if (event->id == m_sideCandidateId) {
+        const QPointF delta = event->pos - m_sideCandidateStart;
+        const double inward = delta.x() * -m_sideCandidateSide;
+        if (inward < -SidePull / 2.0 || std::abs(delta.y()) > SidePull) {
+            m_sideCandidateId = -1;
+            return false;
+        }
+        if (m_observedTouchIds.size() == 1 && inward > SidePull
+            && std::abs(delta.x()) > std::abs(delta.y()) * 1.2) {
+            const int side = std::exchange(m_sideCandidateSide, 0);
+            m_sideCandidateId = -1;
+            // The window under the edge loses the contact; the rest of the
+            // stroke is nobody's, and the key goes to the window in focus.
+            (void)m_target->cancelForwardedTouchForInput();
+            m_drainingTouchIds.insert(event->id);
+            qInfo() << "Kadunce side-edge swipe" << (side < 0 ? "from the left" : "from the right")
+                    << "sends its key";
+            m_target->sendEdgeSwipeKeyFromInput(side);
             return true;
         }
         return false;
@@ -945,6 +985,7 @@ bool WorkspaceInputRouter::routeTouchUp(KWin::TouchUpEvent *event)
     m_observedTouchIds.remove(event->id);
     if (m_drainingTouchIds.remove(event->id)) return true;
     if (m_bottomCandidateId == event->id) m_bottomCandidateId = -1;
+    if (m_sideCandidateId == event->id) m_sideCandidateId = -1;
     if (m_topCandidateId == event->id) {
         qInfo() << "Kadunce top-edge contact" << m_topCandidateStart << "lifted before it pulled"
                 << TablePull << "down; it moved" << (m_topCandidateLast - m_topCandidateStart);
@@ -1015,6 +1056,7 @@ bool WorkspaceInputRouter::routeTouchCancel()
     m_drainingTouchIds.clear();
     m_observedTouchIds.clear();
     m_bottomCandidateId = -1;
+    m_sideCandidateId = -1;
     m_topCandidateId = -1;
     m_topCandidateOwned = false;
     if (m_tableTouch >= 0) {
@@ -1047,7 +1089,7 @@ void WorkspaceInputRouter::forgetLiftedTouches(qint32 arriving)
     held.unite(m_ownedTouchIds).unite(m_drainingTouchIds)
         .unite(m_launcherGuestTouchIds).unite(m_launcherGuestNavigationTouchIds);
     for (qint32 id : {m_touchId, m_railTouch, m_notesTouch, m_tableTouch,
-                      m_bottomCandidateId, m_topCandidateId})
+                      m_bottomCandidateId, m_topCandidateId, m_sideCandidateId})
         if (id >= 0) held.insert(id);
     QSet<qint32> lifted = held;
     lifted.subtract(*down);
@@ -1070,6 +1112,7 @@ void WorkspaceInputRouter::forgetLiftedTouches(qint32 arriving)
         m_guestOutsideTouchStarts.remove(id);
         m_guestOutsideMovedTouches.remove(id);
         if (m_bottomCandidateId == id) m_bottomCandidateId = -1;
+        if (m_sideCandidateId == id) m_sideCandidateId = -1;
         if (m_topCandidateId == id) {
             m_topCandidateId = -1;
             m_topCandidateOwned = false;
@@ -1081,6 +1124,7 @@ bool WorkspaceInputRouter::reconcileNativeInteraction()
 {
     if (!m_target->nativeWindowInteractionForInput()) return false;
     m_bottomCandidateId = -1;
+    m_sideCandidateId = -1;
     if (m_pointerPressed || m_touchId >= 0 || m_launcherGuestNavigationPointer || notesHeld()
         || !m_launcherGuestNavigationTouchIds.isEmpty()
         || m_holdSource != HoldSource::None) {
@@ -1118,6 +1162,7 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
     m_guestOutsideTouchStarts.clear();
     m_guestOutsideMovedTouches.clear();
     m_bottomCandidateId = -1;
+    m_sideCandidateId = -1;
     // A top-edge candidate is only watched, never claimed, so it outlives the
     // cancellation its own touch can cause by activating the window under it.
     // Table's contact drains like any other; Table itself decides what an

@@ -21,12 +21,11 @@ Apps and Files.
 | Input | What happens |
 | --- | --- |
 | Swipe up from the bottom edge | Spread follows your finger; a quick flick opens it fully. |
-| Three fingers down on the touchscreen, or four on a touchpad | Spread opens, the Active card shrinking into the row under your fingers. |
+| Three fingers down on the touchscreen, or four on a touchpad | Spread opens under your fingers. |
 | `Meta+S` | Spread opens, or closes back to the Active card. A Bento layout shrinks into the row as its panes' cards. |
 | Drag the row sideways | The row follows, coasts after a flick and springs back at either end. |
 | Wheel over the row | The row moves one card. |
-| `Left`, `Right`, `Up`, `Down` in Spread | The row, or the centred Stack, moves one card. |
-| `Meta+Left`, `Meta+Right` in Spread | The row moves one card. |
+| `Left`, `Right`, `Up`, `Down`, `Meta+Left`, `Meta+Right` in Spread | The row, or the centred Stack, moves one card. |
 | Tap or click empty space, or `Escape` | Back to where Spread opened. |
 | Type | Search opens holding what you typed. |
 | Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. |
@@ -37,7 +36,6 @@ Apps and Files.
 | Let a held card go on another card, once it has risen | They become a Stack; on a pane's card, it fills that pane. |
 | Let a held card go on another display | It becomes that display's card, or joins its layout. |
 | Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type; hold a note, or the stack, and let go on another card to stick it. |
-| Right-click | Nothing: Spread has no window menu. |
 | Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke leaves it open; the keys type into it. |
 | Plasma's bottom or top touch edge, where no touchscreen drives a display | The bottom opens Spread; the top closes it. Three fingers up bring Table. |
 
@@ -63,6 +61,7 @@ bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
+| Swipe in from a touchscreen's side edge | Sends that edge's key from Settings › Shortcuts › Edge swipes; with none, the window keeps it. |
 | Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in as one strip, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |

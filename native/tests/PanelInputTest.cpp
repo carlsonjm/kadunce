@@ -70,6 +70,11 @@ struct Target : WorkspaceInputTarget {
     std::optional<QSet<qint32>> down;
     std::optional<QSet<qint32>> touchesDownForInput() const override { return down; }
     bool inputPanelContainsForInput(const QPointF &p) const override { return keys.contains(p); }
+    // Edge swipes: which side edges have a key, and the keys sent.
+    int edgeSet = 0; // -1 left, 1 right, 2 both
+    int edgeSends = 0, edgeSide = 0;
+    bool edgeSwipeSetForInput(int side) const override { return edgeSet == side || edgeSet == 2; }
+    void sendEdgeSwipeKeyFromInput(int side) override { ++edgeSends; edgeSide = side; }
     int activeSideForPoint(const QPointF &) const override { return 0; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     // The centred card and one beside it; a hold picks up either.
@@ -112,6 +117,39 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main(int argc, char **argv) {
+    // Edge swipes: a swipe in from a bare side edge sends that edge's key
+    // once, the window under it losing the contact; with no key set, in
+    // Spread, or a swipe that does not come in, the edge is as it was.
+    {
+        Target target; target.presentation = WorkspacePresentation::Inactive; target.edgeSet = 2;
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent down{301,{5,400},{}};
+        KWin::TouchMotionEvent in{301,{90,405},{}};
+        KWin::TouchUpEvent up{301,{}};
+        require(!router.touchDown(&down), "A side-edge contact was taken from the window at once");
+        require(router.touchMotion(&in) && target.edgeSends == 1 && target.edgeSide == -1
+                    && target.cancellations == 1, "A swipe in from the left did not send its key");
+        require(router.touchMotion(&in) && router.touchUp(&up) && target.edgeSends == 1,
+                "A side-edge swipe sent twice or leaked its stroke");
+        down = {302,{995,400},{}}; in = {302,{900,398},{}}; up = {302,{}};
+        require(!router.touchDown(&down) && router.touchMotion(&in) && target.edgeSends == 2
+                    && target.edgeSide == 1 && router.touchUp(&up), "A swipe in from the right did not send its key");
+        // Down the edge, not in: the window keeps it.
+        down = {303,{5,300},{}}; in = {303,{8,420},{}}; up = {303,{}};
+        require(!router.touchDown(&down) && !router.touchMotion(&in) && !router.touchUp(&up)
+                    && target.edgeSends == 2, "A stroke along the edge sent a key");
+        // No key set for the left edge.
+        target.edgeSet = 1;
+        down = {304,{5,400},{}}; in = {304,{90,405},{}}; up = {304,{}};
+        require(!router.touchDown(&down) && !router.touchMotion(&in) && !router.touchUp(&up)
+                    && target.edgeSends == 2, "An edge with no key sent one");
+        // Spread keeps its own swipes.
+        target.edgeSet = 2; target.presentation = WorkspacePresentation::Spread;
+        down = {305,{5,400},{}}; in = {305,{90,405},{}}; up = {305,{}};
+        (void)router.touchDown(&down); (void)router.touchMotion(&in); (void)router.touchUp(&up);
+        require(target.edgeSends == 2, "Spread's edge sent a key");
+    }
+
     QCoreApplication app(argc, argv);
     {
         DeferredCommandGuard guard;
