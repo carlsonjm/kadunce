@@ -40,6 +40,13 @@ public:
     // light look and a dark one.
     static constexpr float VeilGrey = 0.5F;
     static constexpr float VeilOpacity = 0.24F;
+    // A veil a caller may lay instead: its grey, how much of it covers the
+    // blur, and how much the blur's colour is lifted under it (1 leaves it).
+    struct Veil {
+        float grey = VeilGrey;
+        float opacity = VeilOpacity;
+        float saturation = 1.0F;
+    };
 
     void create()
     {
@@ -65,7 +72,7 @@ public:
     // stand in.
     bool paint(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                const QList<QRectF> &parts, const QRectF &box, double radius, const QRectF &bounds,
-               float strength = 1.0F)
+               float strength = 1.0F, const Veil &veil = Veil())
     {
         if (!ready()) return false;
         const QRect area = box.intersected(bounds).toAlignedRect().intersected(bounds.toAlignedRect());
@@ -128,7 +135,8 @@ public:
             shader->setUniform("halfpixel", QVector2D(0.5F / read->width(), 0.5F / read->height()));
             shader->setUniform("destinationBox", QVector4D(box.x(), box.y(), box.width(), box.height()));
             shader->setUniform("outlineRadius", float(radius));
-            shader->setUniform("veil", QVector4D(VeilGrey, VeilGrey, VeilGrey, VeilOpacity));
+            shader->setUniform("veil", QVector4D(veil.grey, veil.grey, veil.grey, veil.opacity));
+            shader->setUniform("saturation", veil.saturation);
             shader->setUniform("strength", strength);
             shader->setColorspaceUniforms(KWin::ColorDescription::sRGB,
                 renderTarget.colorDescription(), KWin::RenderingIntent::Perceptual);
@@ -224,6 +232,7 @@ uniform vec2 halfpixel;
 uniform vec4 destinationBox;
 uniform float outlineRadius;
 uniform vec4 veil;
+uniform float saturation;
 uniform float strength;
 in vec2 point;
 in vec2 uv;
@@ -239,6 +248,8 @@ void main() {
     sum += texture(texUnit, uv + vec2(0.0, -halfpixel.y * 2.0) * offset);
     sum += texture(texUnit, uv + vec2(-halfpixel.x, -halfpixel.y) * offset) * 2.0;
     vec3 blurred = (sum / 12.0).rgb;
+    float luma = dot(blurred, vec3(0.2126, 0.7152, 0.0722));
+    blurred = max(mix(vec3(luma), blurred, saturation), vec3(0.0));
     vec3 grey = nitsToDestinationEncoding(sourceEncodingToNitsInDestinationColorspace(vec4(veil.rgb, 1.0))).rgb;
     vec2 halfSize = destinationBox.zw * 0.5;
     float radius = min(outlineRadius, min(halfSize.x, halfSize.y));

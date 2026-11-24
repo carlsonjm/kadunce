@@ -251,7 +251,10 @@ void Effect::drawSignInGlass(const KWin::RenderTarget &renderTarget, const KWin:
         const QRectF part = QRectF(viewport.mapFromDeviceCoordinates(KWin::RectF(dirty))).intersected(whole);
         if (!part.isEmpty()) parts.append(part);
     }
-    if (m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength))
+    // The start-up glass's own veil, Piano at 30% over colour lifted a fifth,
+    // so signing in carries on the glass the splash showed.
+    static constexpr FrostedBox::Veil Deep{0.078F, 0.30F, 1.2F};
+    if (m_settingsFrost.paint(renderTarget, viewport, parts, whole, 0.0, whole, strength, Deep))
         m_frostDrawn[screen->name()].append(whole);
 }
 
