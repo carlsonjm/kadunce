@@ -72,7 +72,13 @@ public:
     // stand in.
     bool paint(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
                const QList<QRectF> &parts, const QRectF &box, double radius, const QRectF &bounds,
-               float strength = 1.0F, const Veil &veil = Veil())
+               float strength = 1.0F)
+    {
+        return paint(renderTarget, viewport, parts, box, radius, bounds, strength, Veil{});
+    }
+    bool paint(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport,
+               const QList<QRectF> &parts, const QRectF &box, double radius, const QRectF &bounds,
+               float strength, const Veil &veil)
     {
         if (!ready()) return false;
         const QRect area = box.intersected(bounds).toAlignedRect().intersected(bounds.toAlignedRect());

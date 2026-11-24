@@ -267,6 +267,20 @@ const Memory::RememberedWindow *Effect::rememberedAtSignOut(const KWin::EffectWi
     return found;
 }
 
+bool Effect::signInStillExpected() const
+{
+    if (!m_memory.hasOffer()) return false;
+    QSet<QString> arrived;
+    for (const auto &held : m_signInHeld)
+        if (held.window && !held.window->isDeleted())
+            arrived.insert(LaunchIdentity::normalized(applicationIdentity(held.window)));
+    for (const auto &remembered : m_memory.offered->windows) {
+        const QString app = LaunchIdentity::normalized(remembered.appId);
+        if (!app.isEmpty() && !arrived.contains(app)) return true;
+    }
+    return false;
+}
+
 bool Effect::holdForSignIn(KWin::EffectWindow *window, const std::function<void()> &admit)
 {
     if (std::any_of(m_signInHeld.cbegin(), m_signInHeld.cend(), [window](const auto &held) { return held.window == window; }))
@@ -286,6 +300,14 @@ bool Effect::holdForSignIn(KWin::EffectWindow *window, const std::function<void(
 
 void Effect::settleSignIn()
 {
+    // An app remembered at sign-out that has not come yet is still on its
+    // way, a cold one more slowly: the burst waits for it to its longest, so
+    // the glass clears on every app in its place, not before one joins late.
+    const qint64 now = steadyMs() - m_sessionStartedMs;
+    if (signInStillExpected() && m_signInBurst.wait(now)) {
+        m_signInSettle.start(int(std::max<qint64>(50, m_signInBurst.settlesAt() - now)));
+        return;
+    }
     m_signInBurst.end();
     QList<SignInHeld> held = std::exchange(m_signInHeld, {});
     held.removeIf([](const auto &entry) { return !entry.window || entry.window->isDeleted(); });
