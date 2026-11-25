@@ -38,6 +38,8 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         m_roomOpen = true;
         QTimer::singleShot(0, this, [this] { openRoom(); });
     }
+    // A hand held perfectly still sends no motion, so keep the clock looking.
+    if (aim && !m_roomOpen) m_continueRepaint = true;
     if (!m_carriedWindow && m_roomOpen) closeRoom();
     const int duration = motion(220);
     m_roomPreview.removeIf([this, duration](const RoomPreview &room) {
