@@ -279,7 +279,7 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true;
         }
     }
-    settleSentAway(data);
+    settleSentAway(data); aimRoom(data);
     for (auto it = m_yieldingPanes.begin(); it != m_yieldingPanes.end();) {
         if (!yieldingPaneOpacity(it->window)) {
             if (it->window && !it->window->isDeleted()) unredirect(it->window);
@@ -477,7 +477,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     grabPaneClosing(window);
     if (m_signInGlass.on && window == m_signInGlass.front) { data.setTransformed(); data.setTranslucent(); }
     else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
-    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window) || m_sentAway.contains(window)
+    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window) || m_sentAway.contains(window) || roomPreviewRect(window)
         || yieldingPaneOpacity(window) || paneLeaverOpacity(window) || m_stackScrubShown.contains(window)
         || m_roomOfferShown.contains(window) || stackJoinShrink(window) || stackJoinFan(window)) {
         data.setTransformed(); data.setTranslucent();
@@ -1623,7 +1623,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     } else if (const auto t = stackJoinFan(window); t && m_paintingOutput) {
         data.setXTranslation(data.xTranslation() - drawStackJoinFan(renderTarget, viewport, window, *t));
     }
-    const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window);
+    const auto settle = window == m_settlingWindow ? dropSettleRect() : bentoMotionRect(window).has_value() ? bentoMotionRect(window) : roomPreviewRect(window);
     if (settle && window != m_settlingWindow && m_paintingOutput
         && window->window()->moveResizeOutput() != m_paintingOutput) return paintResult(true);
     // A pane that gave way fades where it stood, wherever its window now is.
@@ -1654,7 +1654,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         // travelling box exactly, whichever picture its client has drawn (PaneResizePicture.h).
         const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
             ? bentoMotionOf(window) : nullptr;
-        const bool fitted = (layoutMotion && !layoutMotion->arrival) || (window == m_settlingWindow && m_settleFitted);
+        const bool fitted = (layoutMotion && !layoutMotion->arrival) || (window == m_settlingWindow && m_settleFitted) || (!layoutMotion && settle && roomPreviewRect(window));
         const KWin::Rect target = KWin::RectF(leaned).toRect();
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();

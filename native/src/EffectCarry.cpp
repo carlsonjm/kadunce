@@ -1744,7 +1744,9 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
                               << ": " << from[i] << " to " << to[i];
             if (!standsInPlace) continue;
         }
-        m_bentoMotions.append({w,output,standsInPlace ? to[i] : from[i],to[i],QRectF(output->geometry()),clock});
+        // A pane already drawn opening room for a drop moves on from there.
+        const QRectF start = roomPreviewRect(w).value_or(from[i]);
+        m_bentoMotions.append({w,output,standsInPlace ? to[i] : start,to[i],QRectF(output->geometry()),clock});
         m_bentoMotions.last().startFrame = w->frameGeometry().size();
         m_bentoMotions.last().keepsPicture = !standsInPlace
             && (to[i].width() < from[i].width() - 2.0 || to[i].height() < from[i].height() - 2.0);
@@ -1759,6 +1761,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
             m_bentoMotions.last().asked.start();
         }
     }
+    m_roomPreview.removeIf([&windows](const RoomPreview &room) { return windows.contains(room.window); });
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }
 

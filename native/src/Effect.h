@@ -1454,8 +1454,7 @@ private:
     // motion already under way then carries on.
     bool m_motionOutlivesInterrupt = false;
     [[nodiscard]] QRectF carriedPose() const;
-    // A carry let go as the Active card glides from the hand into its place.
-    void glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
+    void glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from); // a carry let go as the Active card glides into place
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
     std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
     // A tablet edge action that admits to Card Stage has no Bento reservation
@@ -1530,6 +1529,9 @@ private:
     std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
     std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
+    // Moment 3: held still on a place for a moment, the layout opens that room before the drop, drawn only (EffectRoom.cpp).
+    struct RoomPreview { QPointer<KWin::EffectWindow> window; QRectF from, to; QElapsedTimer timer; }; QList<RoomPreview> m_roomPreview; std::optional<KWin::RectF> m_roomAim; QElapsedTimer m_roomAimSince; bool m_roomOpen = false;
+    void aimRoom(KWin::ScreenPrePaintData &data); void openRoom(); void closeRoom(); [[nodiscard]] std::optional<QRectF> roomPreviewRect(const KWin::EffectWindow *window) const;
     // §11, Connected: the pane a carried pane rests over, which it joins in a Stack once rested there;
     // the pane it would join, once it would; and the aim read again when the dwell runs out.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;

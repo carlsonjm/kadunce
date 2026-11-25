@@ -791,7 +791,8 @@ bool DesktopStageController::transferNativeCarryToDesktop(
     return handoffWindowToOutput(drop.window, drop.output, drop.geometry, drop.intent, drop.side);
 }
 
-std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const PreparedDrop &drop)
+std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const PreparedDrop &drop,
+    QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> *others)
 {
     if (drop.intent == CardDropIntent::NativeDesktop)
         return cardDropValid(drop) ? std::optional<KWin::RectF>(drop.geometry) : std::nullopt;
@@ -811,6 +812,10 @@ std::optional<KWin::RectF> DesktopStageController::cardDropPreview(const Prepare
         const auto &pixel = pixels.at(index);
         preview = KWin::RectF(pixel.x, pixel.y, pixel.width, pixel.height);
     }
+    if (others && plan)
+        for (int i = 0; i < plan->windows.size() && i < static_cast<int>(pixels.size()); ++i)
+            if (i != index && plan->windows.at(i))
+                others->append({plan->windows.at(i), KWin::RectF(pixels.at(i).x, pixels.at(i).y, pixels.at(i).width, pixels.at(i).height)});
     // A display without cards answers a carry with its whole layout, and the
     // answer turns on minimum sizes nothing else reports. Each new answer is
     // logged with what decided it, so a drag seen on hardware can be replayed.

@@ -386,7 +386,9 @@ public:
     [[nodiscard]] bool holdsInPlacedColumns(const KWin::LogicalOutput *output,
                                             const KWin::EffectWindow *window) const;
     // Read-only layout solve: no placement, source removal or application token.
-    [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop);
+    // With `plan`, also where each other pane of that layout would stand.
+    [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop,
+        QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> *plan = nullptr);
     // §3: Bento begins by pairing the carried window with the Active card. The
     // source gives both up in `commitSource`, after the pair layout is proven
     // and before it is published.
