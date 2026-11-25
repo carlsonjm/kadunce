@@ -31,6 +31,7 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         if (m_roomOpen) closeRoom();
     } else if (aim && !m_roomOpen && m_roomAimSince.isValid() && m_roomAimSince.elapsed() >= RoomHold) {
         m_roomOpen = true;
+        m_roomContact = m_lastCarryContact;
         QTimer::singleShot(0, this, [this] { openRoom(); });
     }
     if (!m_carriedWindow && m_roomOpen) closeRoom();
@@ -91,6 +92,17 @@ std::optional<QRectF> Effect::roomPreviewRect(const KWin::EffectWindow *window) 
                       room.from.size() + (room.to.size() - room.from.size()) * t);
     }
     return std::nullopt;
+}
+
+KWin::EffectWindow *Effect::roomPaneAt(KWin::LogicalOutput *output, QPointF contact) const
+{
+    // The pane under the hand where the open room has drawn it.
+    if (!output) return nullptr;
+    for (const auto &pane : m_desktopStage->panesOn(output->name())) {
+        if (!pane || pane == m_carriedWindow || pane->isDeleted() || pane->isMinimized()) continue;
+        if (roomPreviewRect(pane).value_or(QRectF(pane->frameGeometry())).contains(contact)) return pane;
+    }
+    return nullptr;
 }
 
 } // namespace Kadunce

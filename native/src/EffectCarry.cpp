@@ -670,6 +670,11 @@ QString Effect::nativeCarryState() const
 
 void Effect::updateNativeCarryDestination(QPointF contact)
 {
+    // Moment 3: a hand over the room open for it aims as it did when the room
+    // opened, so the place stays, filled as it was and never a Stack ring;
+    // elsewhere, panes are found where the open room has drawn them.
+    const bool inRoom = m_roomOpen && m_roomAim && QRectF(*m_roomAim).contains(contact);
+    if (inRoom) contact = m_roomContact;
     // A Stack being scrubbed has no destination: it goes back in its pane.
     if (m_stackScrub.active()) return;
     const auto traceDestination = qScopeGuard([this] {
@@ -1189,8 +1194,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // pane's Stack in front, however the display is sized; let go sooner, the
     // two swap below.
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
-        && isCardDisplay(target)
-        ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+        && isCardDisplay(target) && !inRoom
+        ? (m_roomOpen ? roomPaneAt(target, contact) : m_desktopStage->paneAt(target, contact, m_carriedWindow)) : nullptr;
     // The pane it would join shows outlined, its ring filling as the hand
     // rests, as a pane's middle does for a card from another display.
     if (over) {
