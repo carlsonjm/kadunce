@@ -63,6 +63,8 @@ struct KeyContext {
     bool lone = false;
     // The Active card a display shows fronts a Stack.
     bool stacked = false;
+    // A workspace lies to that side of the one shown.
+    bool workspaceLeft = false, workspaceRight = false;
 };
 
 inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const KeyContext &context)
@@ -112,10 +114,13 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
     }
     if (relevant == (Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier)) {
         // KDE's Window One Desktop keys, taken while cards are shown so a
-        // card's Stack goes with it; anywhere else they stay KDE's.
+        // card's Stack goes with it, and on a pane when a workspace lies that
+        // way, so the pane goes alone; anywhere else they stay KDE's.
         switch (key) {
-        case Qt::Key_Left: return context.cardsShown ? KeyAction::WorkspaceLeft : KeyAction::None;
-        case Qt::Key_Right: return context.cardsShown ? KeyAction::WorkspaceRight : KeyAction::None;
+        case Qt::Key_Left: return context.cardsShown || (context.pane && context.workspaceLeft)
+            ? KeyAction::WorkspaceLeft : KeyAction::None;
+        case Qt::Key_Right: return context.cardsShown || (context.pane && context.workspaceRight)
+            ? KeyAction::WorkspaceRight : KeyAction::None;
         default: return KeyAction::None;
         }
     }

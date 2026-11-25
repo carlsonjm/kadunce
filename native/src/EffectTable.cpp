@@ -152,6 +152,13 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
 {
     if (!window || window->isDeleted()) return;
     DesktopSession *holder = sessionHolding(window);
+    // A window a workspace holds that stands on a second one too: named, so
+    // whatever put it there is found (it was KDE's own key on a pane).
+    if (holder && !window->isOnAllDesktops() && window->desktops().size() > 1)
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "held by workspace"
+                << (holder->desktop ? holder->desktop->name() : QString()) << "now stands on"
+                << window->desktops().size() << "workspaces; the focus is on"
+                << (KWin::effects->activeWindow() ? logNameOf(KWin::effects->activeWindow()) : QStringLiteral("nothing"));
     if (holder && holder->desktop
         && (!window->isOnDesktop(holder->desktop) || window->isOnAllDesktops())) {
         SessionScope scope(this, holder);

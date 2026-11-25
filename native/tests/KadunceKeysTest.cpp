@@ -35,6 +35,15 @@ int main() {
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, desktop)
               == KeyAction::None,
           "Meta+Ctrl+Shift+Left was taken from KDE with no cards shown");
+    // On a pane they send the pane alone, but only toward a workspace there is.
+    KeyContext paneBetween = desktop;
+    paneBetween.pane = true;
+    paneBetween.workspaceLeft = true;
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, paneBetween)
+              == KeyAction::WorkspaceLeft
+              && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, paneBetween)
+              == KeyAction::None,
+          "Meta+Ctrl+Shift's arrows on a pane did not send it only toward a workspace there is");
     // The arrows are taken only while cards are shown.
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, desktop) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier, desktop) == KeyAction::None,

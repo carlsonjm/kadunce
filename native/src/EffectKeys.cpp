@@ -490,6 +490,10 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, co
         && m_cardStage->activeCardIdentity()
         && (connectedForCardStage()
             || (m_cardsOnEveryDisplay && m_cardStage->activeCardIdentity() == focused));
+    const auto desktops = KWin::effects->desktops();
+    const int shown = desktops.indexOf(KWin::effects->currentDesktop());
+    context.workspaceLeft = shown > 0;
+    context.workspaceRight = shown >= 0 && shown + 1 < desktops.size();
     context.stacked = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
         && m_cardStage->stackFrontToBack(m_cardStage->activeCardIdentity()).size() > 1;
     // Plain keys go to an effect holding the keyboard, as Table does while open.

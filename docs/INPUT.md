@@ -62,7 +62,7 @@ bottom edge is theirs.
 | Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; the first time, every window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
 | Swipe in from a touchscreen's side edge | Sends that edge's key from Settings › Shortcuts › Edge swipes; with none, the window keeps it. |
-| Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in as one strip, round a Stack's ring. The pointer: a page tab. |
+| Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in, round a Stack's ring. The pointer: a page tab. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
@@ -77,11 +77,12 @@ bottom edge is theirs.
 | Drag a window by its title bar to the left or right edge of a display | Within 96 px on a monitor, it pairs on your side with the Active card, or for the Active card the one used before, the upper half larger; with none, it becomes the Active card. Connected: `CARD-LIFECYCLE.md` §11. |
 | `Meta+B` | Starts or ends Bento on the display in use. Connected, every card takes a pane, an Active card before a layout too, Spread closing first. |
 | `Meta+Shift+B` | Displays kept as windows switch between filling themselves and your `Meta+T` zones. |
-| Drag a window to an edge of a display kept as windows | Alone it takes half the display at a side, or the Active card's size on top; with more, all join one layout, it on your side. |
+| Drag a window to an edge of a display kept as windows | Alone it takes half at a side, or the Active card's size on top; with more, all join one layout. |
 | Hold or click a divider, then drag | Both panes resize, rows per column; where lines meet, both ways. |
 | Drag a Bento pane onto another pane of its layout | They swap. Connected, held until it leans in, it joins that pane's Stack. |
 | Minimize a pane | It leaves the layout as a sleeping card; a one-pane layout ends. |
-| `Escape`, or another finger, while dragging a window | The drag cancels. |
+| `Meta+Ctrl+Shift+Left`, `Right` | The pane alone goes to that workspace. |
+| `Escape` or another finger while dragging | The drag cancels. |
 
 ## Connected
 
