@@ -509,6 +509,13 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, co
         }
     }
     const KeyAction action = keyActionFor(key, modifiers, context);
+    // Every Meta key, as received, so a key that does the wrong thing names what it was taken for.
+    if ((modifiers & Qt::MetaModifier) && !repeat)
+        qInfo().nospace() << "Kadunce " << Revision << " key " << QKeySequence(key | int(modifiers)).toString()
+                          << " (" << Qt::hex << key << ", modifiers " << int(modifiers) << Qt::dec << ") is action "
+                          << int(action) << "; focused " << (focused ? logNameOf(focused) : QStringLiteral("nothing"))
+                          << " at " << (focused ? QRectF(focused->frameGeometry()) : QRectF()) << ", pane " << context.pane
+                          << ", lone " << context.lone << ", cards shown " << context.cardsShown;
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;

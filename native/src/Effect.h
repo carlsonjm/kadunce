@@ -240,6 +240,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool placeApplication(const QStringList &applicationIds, const QString &windowId,
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
+    Q_SCRIPTABLE void noteLaunchOrigin(const QStringList &applicationIds, double x, double y, double width, double height);
     // Workspace memory (docs/REQUESTS.md § Bringing apps back): the session
     // remembered at the last sign-out, bringing its apps back to their
     // places, and the sets of apps opened together after signing in.
@@ -397,23 +398,16 @@ private:
     // Where each shadow falls, in logical pixels, so the screen is redrawn
     // where one leaves or arrives: where its window stands, for the frame
     // that moves it, and where it was last drawn, for one drawn elsewhere.
-    struct ShadowTrace {
-        QRectF expected;
-        QRectF drawn;
-    };
+    struct ShadowTrace { QRectF expected, drawn; };
     QHash<KWin::EffectWindow *, ShadowTrace> m_shadowTraces;
     KWin::Region m_shadowRepaint;
     void traceShadows(KWin::ScreenPrePaintData &data);
     struct BentoMotion {
-        QPointer<KWin::EffectWindow> window;
-        QPointer<KWin::LogicalOutput> output;
-        QRectF from, to, outputGeometry;
-        QElapsedTimer timer;
+        QPointer<KWin::EffectWindow> window; QPointer<KWin::LogicalOutput> output;
+        QRectF from, to, outputGeometry; QElapsedTimer timer;
         // A card let go on a pane waits at `from` from when its move was
         // `asked` for, and its `timer` starts once a frame has drawn it moving (PaneArrival.h).
-        bool arrival = false;
-        bool drawnMoving = false;
-        QElapsedTimer asked;
+        bool arrival = false, drawnMoving = false; QElapsedTimer asked;
         // Frames that drew it moving, for the line that reports its end.
         int frames = 0;
         // What the frames that drew it drew, for that line too.
@@ -452,9 +446,11 @@ private:
     // unseen until it has drawn that pane, and then shows where the panes
     // that made room have drawn back (PaneReveal.h).
     struct Opening {
-        QPointer<KWin::EffectWindow> window, over; QElapsedTimer since; QSizeF size;
+        QPointer<KWin::EffectWindow> window, over; QElapsedTimer since; QSizeF size; QRectF from; [[nodiscard]] int rise() const;
         bool asked = false, reported = false, card = false, keys = false; qint64 seenAt = -1, kept = 0;
     };
+    struct OpeningArrival { QRectF shown; QPointF offset; QPointer<KWin::EffectWindow> over; bool opening = false, beside = false; const char *how = ""; };
+    [[nodiscard]] OpeningArrival openingArrival(const KWin::EffectWindow *window) const;
     QList<Opening> m_opening;
     void noteOpened(KWin::EffectWindow *window);
     [[nodiscard]] KWin::EffectWindow *openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows);
@@ -478,12 +474,7 @@ private:
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.
-    struct YieldingPane {
-        QPointer<KWin::EffectWindow> window;
-        QPointer<KWin::LogicalOutput> output;
-        QRectF rect, outputGeometry;
-        QElapsedTimer timer;
-    };
+    struct YieldingPane { QPointer<KWin::EffectWindow> window; QPointer<KWin::LogicalOutput> output; QRectF rect, outputGeometry; QElapsedTimer timer; };
     QList<YieldingPane> m_yieldingPanes;
     void paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                                     const QRectF &drawn) override;
@@ -1825,7 +1816,7 @@ private:
     struct PaneLeaver { KWin::EffectWindowDeletedRef ref; QPointer<KWin::LogicalOutput> output; QRectF rect;
                         QElapsedTimer timer; mutable bool covered = false; };
     std::map<KWin::EffectWindow *, PaneLeaver> m_paneLeavers;
-    void grabPaneClosing(KWin::EffectWindow *window);
+    void grabPaneClosing(KWin::EffectWindow *window); [[nodiscard]] bool closesAsOnlyCard(const KWin::EffectWindow *window) const;
     void holdLeavingPane(KWin::EffectWindow *window, KWin::LogicalOutput *output);
     [[nodiscard]] std::optional<double> paneLeaverOpacity(const KWin::EffectWindow *window) const;
     void settlePaneLeavers();
@@ -1986,6 +1977,8 @@ private:
     std::optional<KWin::RectF> m_placementPreview;
     QPointer<KWin::LogicalOutput> m_placementPreviewOutput;
     std::optional<PendingLaunch> m_placementLaunch;
+    struct LaunchOrigin { PendingLaunch launch; QRectF icon; QElapsedTimer asked; }; std::optional<LaunchOrigin> m_launchOrigin;
+    [[nodiscard]] QRectF takeLaunchOrigin(KWin::EffectWindow *window);
     PlacementAim m_placementLaunchAim;
     QPointF m_placementLaunchPoint;
     quint64 m_placementGeneration = 0;

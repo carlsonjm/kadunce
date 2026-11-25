@@ -91,8 +91,12 @@ void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
         opening.since.restart();
         if (over && over != window && !over->isDeleted() && !over->isMinimized() && over->screen() == window->screen()
             && !m_desktopStage->managesWindow(over)) opening.over = over;
+        // Opened from the dock, it grows out of the icon it was opened from.
+        opening.from = takeLaunchOrigin(window);
         qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window) << " comes up as a card over "
-                          << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"));
+                          << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"))
+                          << (opening.from.isValid() ? ", growing from its dock icon at " : ", rising from 90%")
+                          << (opening.from.isValid() ? opening.from : QRectF());
         KWin::effects->addRepaintFull();
     }
 }
@@ -122,11 +126,16 @@ void Effect::keysLeftOpening(KWin::EffectWindow *activated)
     }
 }
 
+int Effect::Opening::rise() const
+{
+    return motion(from.isValid() ? OpenedCardGrow : OpenedCardRise);
+}
+
 bool Effect::openingCardDrawn(const KWin::EffectWindow *window) const
 {
     return window && std::any_of(m_opening.cbegin(), m_opening.cend(), [window](const Opening &opening) {
         return opening.card && (opening.window == window || opening.over == window)
-            && (opening.seenAt < 0 || opening.since.elapsed() - opening.seenAt < OpenedCardRise);
+            && (opening.seenAt < 0 || opening.since.elapsed() - opening.seenAt < opening.rise());
     });
 }
 
@@ -138,7 +147,7 @@ std::optional<bool> Effect::paintOpeningCard(const KWin::RenderTarget &renderTar
         const qint64 risen = opening.seenAt < 0 ? -1 : opening.since.elapsed() - opening.seenAt;
         // Only while its display still shows it as its one card, where it
         // stands, with no keys up that it must end above.
-        if (risen >= OpenedCardRise || m_previewDesktop || !opening.window || opening.window->isDeleted()
+        if (risen >= opening.rise() || m_previewDesktop || !opening.window || opening.window->isDeleted()
             || !m_paintingOutput || window->screen() != m_paintingOutput || hiddenOnOtherDesktop(window)
             || !m_cardStage->isActive() || m_cardStage->presentsBento()
             || m_cardStage->presentation() != CardPresentation::Active
@@ -154,14 +163,24 @@ std::optional<bool> Effect::paintOpeningCard(const KWin::RenderTarget &renderTar
                               << " and opacity " << data.opacity() << " from the effects before this one";
         // Drawn past the effects after this one: the desktop's opening
         // animation would grow it from its middle a second time.
-        const double rise = openedCardRise(risen);
-        const double scale = openedCardScale(rise);
-        const QSizeF frame = window->frameGeometry().size();
-        data.setOpacity(rise);
-        data.setXScale(scale);
-        data.setYScale(scale);
-        data.setXTranslation(frame.width() * (1.0 - scale) / 2.0);
-        data.setYTranslation(frame.height() * (1.0 - scale) / 2.0);
+        const double rise = openedCardRise(risen, opening.rise());
+        const QRectF frame(window->frameGeometry());
+        if (opening.from.isValid() && frame.width() > 0.0 && frame.height() > 0.0) {
+            const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(rise);
+            const RevealBox box = openedCardFromIcon(revealBox(opening.from), revealBox(frame), t);
+            data.setOpacity(openedCardRise(risen, motion(OpenedCardGrowFade)));
+            data.setXScale(box.width / frame.width());
+            data.setYScale(box.height / frame.height());
+            data.setXTranslation(box.x - frame.x());
+            data.setYTranslation(box.y - frame.y());
+        } else {
+            const double scale = openedCardScale(rise);
+            data.setOpacity(rise);
+            data.setXScale(scale);
+            data.setYScale(scale);
+            data.setXTranslation(frame.width() * (1.0 - scale) / 2.0);
+            data.setYTranslation(frame.height() * (1.0 - scale) / 2.0);
+        }
         return painted([&] { return KWin::effects->drawWindow(renderTarget, viewport, window,
             mask | PAINT_WINDOW_TRANSFORMED, deviceRegion, data); });
     }
@@ -178,7 +197,7 @@ bool Effect::openingsWait()
             continue;
         }
         // Frames come while a card that opened is coming up, too.
-        if (it->card && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < OpenedCardRise) waits = true;
+        if (it->card && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < it->rise()) waits = true;
         if (it->asked && it->seenAt < 0) {
             const QRectF frame(window->frameGeometry());
             const QRectF asked(window->window()->moveResizeGeometry());
@@ -207,31 +226,64 @@ bool Effect::openingUnseen(const KWin::EffectWindow *window) const
     });
 }
 
-bool Effect::revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data)
+Effect::OpeningArrival Effect::openingArrival(const KWin::EffectWindow *window) const
 {
-    // The opened window stands in its pane behind the panes drawing back
-    // from over it, and shows only where they have left, a gutter from each.
+    // How a window just opened into a layout comes into its pane: pushed in
+    // beside the panes drawing back from over it, opened from the seam
+    // between them, or pushed in from the nearest screen edge over a pane
+    // that gives way to it (PaneReveal.h). Asked as each frame is drawn.
+    OpeningArrival arrival;
     const BentoMotion *own = bentoMotionOf(window);
-    if (!own || own->waitsFor != window) return false;
+    if (!own || own->waitsFor != window) return arrival;
+    arrival.opening = true;
     RevealBox shown = revealBox(own->to);
-    bool beside = false;
     for (const BentoMotion &m : std::as_const(m_bentoMotions)) {
         if (m.window == window || m.waitsFor != window || m.output != own->output) continue;
-        beside = true;
+        arrival.beside = true;
         if (const auto box = bentoMotionRect(m.window.data()))
             shown = revealedBeside(shown, revealBox(*box), double(bentoPaneGap()));
     }
-    clip = clip.intersected(QRectF(shown.x, shown.y, shown.width, shown.height));
-    // It is drawn as it stands: the desktop's opening animation, which grows
-    // a window from its middle, has no part in a pane. With no pane to draw
-    // back from over it, it comes up in its place instead.
+    arrival.shown = QRectF(shown.x, shown.y, shown.width, shown.height);
+    if (arrival.beside) {
+        const OpenedPush push = openedPushOffset(revealBox(own->to), shown);
+        arrival.offset = QPointF(push.dx, push.dy);
+        arrival.how = push.pushes ? "pushing in beside the panes" : "opening from the seam";
+        return arrival;
+    }
+    for (const auto &yielding : m_yieldingPanes) {
+        if (yielding.output != own->output || !yielding.rect.intersects(own->to)) continue;
+        const QRectF common = yielding.rect.intersected(own->to);
+        if (common.width() * common.height() < 0.5 * own->to.width() * own->to.height()) continue;
+        const double t = own->timer.isValid() ? QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+            std::clamp(double(own->timer.elapsed()) / motion(220), 0.0, 1.0)) : 0.0;
+        const OpenedPush push = openedFromNearestEdge(revealBox(own->to), revealBox(own->outputGeometry), t);
+        arrival.offset = QPointF(push.dx, push.dy);
+        arrival.over = yielding.window;
+        arrival.how = "pushing in over the pane it takes";
+        return arrival;
+    }
+    arrival.how = "alone";
+    return arrival;
+}
+
+bool Effect::revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data)
+{
+    // The opened window shows only where the panes have drawn back, a gutter
+    // from each, coming in as `openingArrival` says. It is drawn as it
+    // stands: the desktop's opening animation, which grows a window from its
+    // middle, has no part in a pane. With no pane to draw back from over it
+    // and none to take the place of, it comes up in its place instead.
+    const OpeningArrival arrival = openingArrival(window);
+    if (!arrival.opening) return false;
+    clip = clip.intersected(arrival.shown);
     double opacity = 1.0;
     for (Opening &opening : m_opening) {
         if (opening.window != window) continue;
-        if (!beside && opening.seenAt >= 0) opacity = openedAloneOpacity(opening.since.elapsed() - opening.seenAt);
+        if (!arrival.beside && !arrival.over && opening.seenAt >= 0)
+            opacity = openedAloneOpacity(opening.since.elapsed() - opening.seenAt);
         if (std::exchange(opening.reported, true)) continue;
         qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window)
-                          << " is first drawn " << (beside ? "behind the panes beside it" : "alone")
+                          << " is first drawn " << arrival.how << ", offset " << arrival.offset
                           << ", with scale " << data.xScale() << "x" << data.yScale()
                           << " and opacity " << data.opacity() << " from the effects before this one";
     }

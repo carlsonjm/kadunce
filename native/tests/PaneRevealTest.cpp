@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "PaneReveal.h"
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 using namespace Kadunce;
@@ -40,18 +41,21 @@ int main() {
     check(openedAloneOpacity(OpenedAloneFade / 2) > 0.7 && openedAloneOpacity(OpenedAloneFade / 2) < 1.0,
           "a window opening alone did not come up quickly at first");
 
-    // Opening as the card a display shows, it comes up from nothing and a
-    // touch small to whole and its own size, quickly at first.
+    // Opening as the card a display shows, it comes up from nothing and 90%
+    // to whole and its own size, its opacity rising evenly; from the dock, it
+    // grows out of its icon.
     check(openedCardRise(0) == 0.0 && openedCardRise(OpenedCardRise) == 1.0 && openedCardRise(5000) == 1.0,
           "a card opening did not come up from nothing to whole");
-    check(openedCardRise(OpenedCardRise / 2) > 0.8 && openedCardRise(OpenedCardRise / 2) < 1.0,
-          "a card opening did not come up quickly at first");
-    check(openedCardScale(0.0) > 0.98 && openedCardScale(0.0) < 1.0 && openedCardScale(1.0) == 1.0
-          && openedCardScale(2.0) == 1.0, "a card opening did not grow from a touch small to its own size");
-    check(OpenedCardRise <= 200, "a card opening took longer to come up than a pane takes to move");
+    check(std::abs(openedCardRise(OpenedCardRise / 2) - 0.5) < 0.01, "a card opening did not come up evenly");
+    check(std::abs(openedCardScale(0.0) - 0.9) < 0.001 && openedCardScale(1.0) == 1.0 && openedCardScale(2.0) == 1.0
+          && openedCardScale(0.5) > 0.95, "a card opening did not grow from 90% to its own size, quickly at first");
+    check(OpenedCardRise == 150 && OpenedCardGrow == 300 && OpenedCardGrowFade == 60, "a card opening kept other timings");
+    const RevealBox icon{1000, 1420, 64, 64};
+    check(same(openedCardFromIcon(icon, whole, 0.0), icon) && same(openedCardFromIcon(icon, whole, 1.0), whole),
+          "a card opened from the dock did not grow from its icon to its place");
 
     // Its keys are watched for as long as it takes to come into view.
-    check(OpenedKeysWatched >= 220 && OpenedKeysWatched >= OpenedCardRise,
+    check(OpenedKeysWatched >= 220 && OpenedKeysWatched >= OpenedCardRise && OpenedKeysWatched >= OpenedCardGrow - 50,
           "an opened window's keys were watched for less than its coming into view");
 
     // The pane that filled the display draws back to the left column. While
@@ -84,5 +88,28 @@ int main() {
     const RevealBox corner{1290, 34, 1300, 900};
     check(same(revealedBeside(lower, corner, gutter), RevealBox{2600, 723, 864, 678}),
           "a box over the window's corner took more of it than it covered");
+
+    // Left on one side only by the panes drawing back, the new window pushes
+    // in from the far side whole, its leading edge where they have left.
+    const OpenedPush fromRight = openedPushOffset(right, RevealBox{2900, 34, 564, 1367});
+    check(fromRight.pushes && std::abs(fromRight.dx - 518) < 0.001 && fromRight.dy == 0.0,
+          "a window opening beside a pane drawing left did not push in from the right");
+    const OpenedPush fromBottom = openedPushOffset(lower, RevealBox{2382, 1044, 1082, 357});
+    check(fromBottom.pushes && fromBottom.dx == 0.0 && std::abs(fromBottom.dy - 321) < 0.001,
+          "a window opening under a pane drawing up did not rise from the bottom");
+    const OpenedPush covered = openedPushOffset(right, revealedBeside(right, whole, gutter));
+    check(covered.pushes && std::abs(covered.dx - right.width) < 0.001, "a window still covered was not wholly past its edge");
+    check(!openedPushOffset(right, right).pushes, "a window wholly shown still pushed in");
+    // Left from both sides, it opens from the seam where it will stand.
+    const RevealBox middle{2000, 34, 700, 1367};
+    check(!openedPushOffset(middle, RevealBox{2200, 34, 300, 1367}).pushes, "a window between two panes pushed in from a side");
+    // Taking the place of a pane that gives way, it pushes in from the screen
+    // edge nearest that place.
+    const OpenedPush start = openedFromNearestEdge(right, whole, 0.0), end = openedFromNearestEdge(right, whole, 1.0);
+    check(start.pushes && std::abs(start.dx - (whole.right() - right.x)) < 0.001 && start.dy == 0.0,
+          "a window taking a pane's place did not start past the nearest edge");
+    check(end.dx == 0.0 && end.dy == 0.0, "a window taking a pane's place did not end in it");
+    const OpenedPush leftStart = openedFromNearestEdge(left, whole, 0.0);
+    check(leftStart.dx < -left.width + 0.5, "a window taking the left pane's place did not come from the left");
     std::cout << "A window opening into a layout stays unseen until it has drawn its pane, then shows where the panes have drawn back\n";
 }

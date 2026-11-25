@@ -15,11 +15,20 @@ void Effect::grabPaneClosing(KWin::EffectWindow *window)
     // KDE's effects may hear of the close before this one does.
     if (!window || window->isDeleted() || !window->window()) return;
     void *const grabbed = window->data(KWin::WindowClosedGrabRole).value<void *>();
-    const bool pane = m_desktopStage->managesWindow(window) && motion(PaneLeavingDuration) > 1;
+    const bool pane = (m_desktopStage->managesWindow(window) || closesAsOnlyCard(window))
+        && motion(PaneLeavingDuration) > 1;
     if (pane && !grabbed)
         window->setData(KWin::WindowClosedGrabRole, QVariant::fromValue(static_cast<void *>(this)));
     else if (!pane && grabbed == this)
         window->setData(KWin::WindowClosedGrabRole, QVariant());
+}
+
+bool Effect::closesAsOnlyCard(const KWin::EffectWindow *window) const
+{
+    // The one card a display shows closes as a pane left uncovered does: it
+    // stays where it stood and fades out.
+    return window && m_cardStage->isActive() && !m_cardStage->presentsBento()
+        && m_cardStage->presentation() == CardPresentation::Active && m_cardStage->selectedWindow() == window;
 }
 
 void Effect::holdLeavingPane(KWin::EffectWindow *window, KWin::LogicalOutput *output)

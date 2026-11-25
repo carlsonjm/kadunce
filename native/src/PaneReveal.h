@@ -57,19 +57,31 @@ inline double openedAloneOpacity(long long sinceSeen)
 
 // A window that opens as the one card a display shows is unseen in the same
 // way, and the card shown before it stays until then. It then comes up over
-// that card in `OpenedCardRise` milliseconds, quickly at first, from a touch
-// smaller than it stands, and the card under it leaves once it is whole.
-inline constexpr int OpenedCardRise = 180;
+// that card in `OpenedCardRise` milliseconds, from 90% of its size about its
+// middle, its opacity rising evenly; the card under it leaves once it is whole.
+// Opened from the dock, it grows out of its icon instead, in `OpenedCardGrow`
+// milliseconds, whole within the first `OpenedCardGrowFade`.
+inline constexpr int OpenedCardRise = 150;
+inline constexpr int OpenedCardGrow = 300;
+inline constexpr int OpenedCardGrowFade = 60;
 
-inline double openedCardRise(long long sinceSeen)
+inline double openedCardRise(long long sinceSeen, int duration = OpenedCardRise)
 {
-    const double left = 1.0 - std::clamp(double(sinceSeen) / OpenedCardRise, 0.0, 1.0);
-    return 1.0 - left * left * left;
+    return std::clamp(double(sinceSeen) / std::max(1, duration), 0.0, 1.0);
 }
 
 inline double openedCardScale(double rise)
 {
-    return 0.985 + 0.015 * std::clamp(rise, 0.0, 1.0);
+    const double left = 1.0 - std::clamp(rise, 0.0, 1.0);
+    return 0.9 + 0.1 * (1.0 - left * left * left);
+}
+
+// Where a card growing out of `icon` into `card` stands, `t` of the way (eased).
+inline RevealBox openedCardFromIcon(const RevealBox &icon, const RevealBox &card, double t)
+{
+    t = std::clamp(t, 0.0, 1.0);
+    const auto mix = [t](double a, double b) { return a + (b - a) * t; };
+    return RevealBox{mix(icon.x, card.x), mix(icon.y, card.y), mix(icon.width, card.width), mix(icon.height, card.height)};
 }
 
 // An opened window is given the keys as it opens. The keys leaving it while
@@ -114,6 +126,43 @@ inline RevealBox revealedBeside(RevealBox pane, const RevealBox &box, double gut
     pane.width = std::max(0.0, pane.width);
     pane.height = std::max(0.0, pane.height);
     return pane;
+}
+
+// How a window opening into a layout arrives, given what of its `pane` the
+// panes drawing back have left `shown`. Left on one side only, it is drawn
+// whole with its leading edge where they have left, so it pushes in from the
+// far side, a gutter from them all the way: the offset from its pane is
+// returned. Left from two sides, it opens from the seam between them, drawn
+// where it will stand and seen only where they have left: no offset.
+struct OpenedPush {
+    double dx = 0.0, dy = 0.0;
+    bool pushes = false;
+};
+
+inline OpenedPush openedPushOffset(const RevealBox &pane, const RevealBox &shown)
+{
+    const double left = shown.x - pane.x, right = pane.right() - shown.right();
+    const double top = shown.y - pane.y, bottom = pane.bottom() - shown.bottom();
+    const int sides = (left > 0.5) + (right > 0.5) + (top > 0.5) + (bottom > 0.5);
+    if (sides != 1) return {};
+    return OpenedPush{left > 0.5 ? left : right > 0.5 ? -right : 0.0,
+                      top > 0.5 ? top : bottom > 0.5 ? -bottom : 0.0, true};
+}
+
+// Where a window taking the place of a pane that gives way stands, `t` of the
+// way in (eased): pushed in from the screen edge nearest its place, starting
+// just past that edge.
+inline OpenedPush openedFromNearestEdge(const RevealBox &pane, const RevealBox &screen, double t)
+{
+    if (pane.empty() || screen.empty()) return {};
+    const double left = pane.x - screen.x, right = screen.right() - pane.right();
+    const double top = pane.y - screen.y, bottom = screen.bottom() - pane.bottom();
+    const double nearest = std::min({left, right, top, bottom});
+    const double away = 1.0 - std::clamp(t, 0.0, 1.0);
+    if (nearest == right) return OpenedPush{(screen.right() - pane.x) * away, 0.0, true};
+    if (nearest == left) return OpenedPush{(screen.x - pane.right()) * away, 0.0, true};
+    if (nearest == bottom) return OpenedPush{0.0, (screen.bottom() - pane.y) * away, true};
+    return OpenedPush{0.0, (screen.y - pane.bottom()) * away, true};
 }
 
 } // namespace Kadunce

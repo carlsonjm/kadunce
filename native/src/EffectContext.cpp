@@ -793,6 +793,27 @@ bool Effect::placeApplication(const QStringList &applicationIds, const QString &
     return placed;
 }
 
+void Effect::noteLaunchOrigin(const QStringList &applicationIds, double x, double y, double width, double height)
+{
+    // The dock names the icon an application is opened from just before it
+    // asks for it, so its first window, opening as a card, grows out of it.
+    if (!callerMayDrive()) return;
+    auto launch = PendingLaunch::make(applicationIds, QStringLiteral("origin"));
+    m_launchOrigin.reset();
+    if (!launch || !(width > 0.0) || !(height > 0.0)) return;
+    m_launchOrigin = LaunchOrigin{std::move(*launch), QRectF(x, y, width, height), {}};
+    m_launchOrigin->asked.start();
+}
+
+QRectF Effect::takeLaunchOrigin(KWin::EffectWindow *window)
+{
+    if (!m_launchOrigin || m_launchOrigin->asked.elapsed() > PlacementLaunchTimeoutMs
+        || !m_launchOrigin->launch.matches(applicationIdentity(window))) return {};
+    const QRectF icon = m_launchOrigin->icon;
+    m_launchOrigin.reset();
+    return icon;
+}
+
 void Effect::cancelPlacement(const QString &requestToken)
 {
     if (!callerMayDrive()) return;

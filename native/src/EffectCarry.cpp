@@ -1508,7 +1508,15 @@ std::optional<double> Effect::yieldingPaneOpacity(KWin::EffectWindow *window) co
 {
     for (const auto &yielding : m_yieldingPanes) {
         if (yielding.window != window) continue;
-        const int duration = motion(PaneArrivalDuration);
+        int duration = motion(PaneArrivalDuration);
+        // A window just opened pushing in over it: it waits for that window
+        // to show, then dims under it as a covered closing pane does and goes
+        // as the push ends (PaneLeaving.h).
+        const BentoMotion *taker = nullptr;
+        for (const auto &m : m_bentoMotions)
+            if (m.waitsFor == m.window && m.output == yielding.output && m.window
+                && openingArrival(m.window.data()).over == window) taker = &m;
+        if (taker) duration = motion(OpenedUnseenCap) + motion(PaneLeavingDuration);
         // It fades only while it is a hidden card: shown again, as a pane or
         // as a card, it is drawn as that.
         if (!window || window->isDeleted() || window->isMinimized() || !yielding.output
@@ -1519,6 +1527,9 @@ std::optional<double> Effect::yieldingPaneOpacity(KWin::EffectWindow *window) co
                 && isTabletOutput(yielding.output))
             || (m_cardStage->presentation() == CardPresentation::Active
                 && m_cardStage->selectedWindow() == window)) return std::nullopt;
+        if (taker && !taker->timer.isValid()) return 1.0;
+        if (taker) return taker->timer.elapsed() >= motion(PaneLeavingDuration) ? std::nullopt
+            : std::optional<double>(paneLeavingOpacity(double(taker->timer.elapsed()), double(motion(PaneLeavingDuration)), true));
         return 1.0 - QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
             double(yielding.timer.elapsed()) / duration);
     }
@@ -1583,7 +1594,9 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
     const bool started = m->timer.isValid();
     const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
         paneArrivalProgress(started, started ? m->timer.elapsed() : 0, duration));
-    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t,
+    // A window just opened into the layout comes in as its arrival says.
+    const QPointF in = m->waitsFor == window ? openingArrival(window).offset : QPointF();
+    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t + in,
         m->from.size()+(m->to.size()-m->from.size())*t);
 }
 

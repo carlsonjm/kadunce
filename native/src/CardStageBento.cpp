@@ -732,7 +732,13 @@ bool CardStageController::releaseCardToLiveBento(KWin::EffectWindow *card)
 {
     if (!m_active || m_launcherGuestActive || !card || card->isDeleted()
         || !card->window() || m_presentation != CardPresentation::Bento
-        || liveCardIndex(card) < 0) return false;
+        || liveCardIndex(card) < 0) {
+        // Named with the line that says the card was kept (DesktopStageArrivals).
+        qInfo() << "Kadunce" << Revision << "keeps" << (card ? card->caption() : QString()) << "as a card: active"
+                << m_active << "guest" << m_launcherGuestActive << "presentation" << int(m_presentation)
+                << "live index" << liveCardIndex(card);
+        return false;
+    }
     finishCardGrab(false);
     // §8: exactly this card leaves individual ownership, in one step, so the
     // layout never publishes a pane this stage still names as a card.
