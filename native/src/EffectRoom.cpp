@@ -12,6 +12,7 @@ namespace Kadunce
 namespace
 {
 constexpr qint64 RoomHold = 150;
+constexpr double RoomStill = 8.0;
 }
 
 void Effect::aimRoom(KWin::ScreenPrePaintData &data)
@@ -25,13 +26,16 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         for (const auto &pane : m_desktopStage->panesOn(m_carryDestination->destinationOutput()->name()))
             if (pane && pane != m_carriedWindow && QRectF(pane->frameGeometry()) == QRectF(*aim)) aim.reset();
     }
-    if (aim != m_roomAim) {
+    // The hand must rest too: a place named all the way across a pane, as a
+    // swap is, opens nothing while the hand is still heading somewhere.
+    const bool moved = !m_roomOpen && QLineF(m_roomContact, m_lastCarryContact).length() > RoomStill;
+    if (moved) m_roomContact = m_lastCarryContact;
+    if (aim != m_roomAim || moved) {
+        if (aim != m_roomAim && m_roomOpen) closeRoom();
         m_roomAim = aim;
         m_roomAimSince.restart();
-        if (m_roomOpen) closeRoom();
     } else if (aim && !m_roomOpen && m_roomAimSince.isValid() && m_roomAimSince.elapsed() >= RoomHold) {
         m_roomOpen = true;
-        m_roomContact = m_lastCarryContact;
         QTimer::singleShot(0, this, [this] { openRoom(); });
     }
     if (!m_carriedWindow && m_roomOpen) closeRoom();
