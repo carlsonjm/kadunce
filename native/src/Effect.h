@@ -718,7 +718,7 @@ private:
     [[nodiscard]] int tableCardAt(const QPointF &local) const;
     [[nodiscard]] bool tableOpenForInput() const override { return m_table.isOpen(); }
     [[nodiscard]] bool aboveActiveCardForInput(const QPointF &position) const override;
-    [[nodiscard]] bool inCardGapForInput(const QPointF &position) const override { return inCardGap(position); }
+    [[nodiscard]] bool inCardGapForInput(const QPointF &position) const override { return inCardGap(position); } [[nodiscard]] bool edgeSwipeSetForInput(int side) const override; void sendEdgeSwipeKeyFromInput(int side) override;
     void beginTableFromInput(const QPointF &position) override;
     void pressTableFromInput(const QPointF &position, bool touch) override;
     void contextTableFromInput(const QPointF &position) override;
@@ -1403,7 +1403,7 @@ private:
     struct TypedKeyboardSpy;
     std::shared_ptr<TypedKeyboardSpy> m_typedKeyboardSpy; // shared: see m_signInGlassSpy
     void watchTypedKeyboards();
-    void dropTypedKeyboardSpy();
+    void dropTypedKeyboardSpy(); void dropEdgeSwipeKeyboard();
     void keyboardTypedOn(quintptr device, quint32 code);
     void typedKeyboardsForgotten(const char *why);
     // Whether raiseKeyboard asked for the keys a moment ago.

@@ -970,6 +970,7 @@ Effect::~Effect()
     m_releasing = true;
     dropSignInGlassSpy();
     dropTypedKeyboardSpy();
+    dropEdgeSwipeKeyboard();
     // Windows the session reopened and Kadunce kept out of sight until the
     // sign-in settled are shown again as they stand, so an unload inside
     // that time never leaves an app running with no window anywhere.

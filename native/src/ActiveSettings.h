@@ -18,7 +18,8 @@ inline const QStringList &settingsKeys()
 {
     static const QStringList keys{QStringLiteral("ActiveCardGutter"), QStringLiteral("CardCornerRadius"),
         QStringLiteral("SleepingDimmed"), QStringLiteral("StackPauseMs"), QStringLiteral("StackBehind"),
-        QStringLiteral("SpreadPeek"), QStringLiteral("CardShadow")};
+        QStringLiteral("SpreadPeek"), QStringLiteral("CardShadow"),
+        QStringLiteral("EdgeSwipeLeft"), QStringLiteral("EdgeSwipeRight")};
     return keys;
 }
 

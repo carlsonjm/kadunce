@@ -47,6 +47,17 @@ inline bool atTouchBottomEdge(const QPointF &position,
         && position.y() >= display->bottomInclusive - band;
 }
 
+// Which side edge a touch at `position` starts within `band` of: -1 the
+// display's left, 1 its right, 0 neither.
+inline int atTouchSideEdge(const QPointF &position,
+    const std::optional<TouchEdgeDisplay> &display, double band)
+{
+    if (!display || !display->contains(position)) return 0;
+    if (position.x() < display->area.left() + band) return -1;
+    if (position.x() >= display->area.right() - band) return 1;
+    return 0;
+}
+
 // Whether a touch at `position` starts within `band` of its display's top.
 inline bool atTouchTopEdge(const QPointF &position,
     const std::optional<TouchEdgeDisplay> &display, double band)

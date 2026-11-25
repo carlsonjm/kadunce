@@ -79,6 +79,7 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectCarry.cpp
         src/EffectStacks.cpp
         src/EffectInput.cpp
+        src/EffectEdgeSwipe.cpp
         src/EffectKeys.cpp
         src/EffectContext.cpp
         src/EffectNotes.cpp
