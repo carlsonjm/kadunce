@@ -339,8 +339,8 @@ A minimized card never silently returns to Bento.
 
 ## 8. Arrivals at a live Bento
 
-On a display showing its Bento layout, every arrival goes into that layout. An
-arrival is a new window, or an individual card you call forward. Nothing is
+On a display showing its Bento layout, every arrival goes into that layout: a
+new window, or an individual card you call forward. Nothing is
 shown on top of live panes.
 
 ### Admitting an arrival
@@ -373,7 +373,8 @@ gives the yielding pane to that side.
 
 ### While an individual card is Active
 
-The new window becomes Active; the previous card stays a neighbor. Apps
+Once drawn, the new window becomes Active over the previous card, now a
+neighbor. Apps
 reopened at sign-in wait unseen; the one last used shows.
 
 ### While Spread is open

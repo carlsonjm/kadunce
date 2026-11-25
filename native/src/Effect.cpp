@@ -1433,6 +1433,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
+        const QPointer<KWin::EffectWindow> shownBefore = m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active
+            && !m_cardStage->presentsBento() ? m_cardStage->selectedWindow() : nullptr; // the card shown now, which it may come up over
         // §9: opened from a pane, it takes that pane, the pane's card behind it.
         if (joinStackOpenedFrom(candidate, false) || m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
@@ -1444,7 +1446,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
-            (void)joinStackOpenedFrom(candidate, false);
+            (void)joinStackOpenedFrom(candidate, false); openedAsCard(candidate, nullptr);
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
             completeLayoutForWindow(candidate);
@@ -1482,6 +1484,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             KWin::effects->activateWindow(candidate);
         }
         completeLauncherGuestForWindow(candidate);
+        openedAsCard(candidate, shownBefore);
         observeCardOwnership();
         completePlacementForWindow(candidate);
         completeBringBackForWindow(candidate);
@@ -1626,6 +1629,7 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         scheduleDependentSync();
         return;
     }
+    keysLeftOpening(window);
     // A closing pane's next card keeps the focus KWin handed elsewhere.
     if (m_closeFocusTo && window != m_closeFocusTo && isApplicationWindow(window)
         && !m_closeFocusTo->isDeleted() && m_desktopStage->managesWindow(m_closeFocusTo)) {

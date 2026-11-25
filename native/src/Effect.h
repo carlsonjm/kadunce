@@ -452,18 +452,17 @@ private:
     // unseen until it has drawn that pane, and then shows where the panes
     // that made room have drawn back (PaneReveal.h).
     struct Opening {
-        QPointer<KWin::EffectWindow> window;
-        QElapsedTimer since;
-        QSizeF size;
-        bool asked = false, reported = false;
-        qint64 seenAt = -1;
+        QPointer<KWin::EffectWindow> window, over; QElapsedTimer since; QSizeF size;
+        bool asked = false, reported = false, card = false, keys = false; qint64 seenAt = -1, kept = 0;
     };
     QList<Opening> m_opening;
     void noteOpened(KWin::EffectWindow *window);
     [[nodiscard]] KWin::EffectWindow *openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows);
-    [[nodiscard]] bool openingsWait();
-    [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool openingsWait(); [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
+    void openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over); // comes up `over` the card shown before, which stays until then
+    void keysLeftOpening(KWin::EffectWindow *activated); [[nodiscard]] bool openingCardDrawn(const KWin::EffectWindow *window) const; // journal: what moved the keys from a window coming into view
+    [[nodiscard]] std::optional<bool> paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport, KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);
     struct LeftLayout {
         bool right = false;
         QList<QPointer<KWin::EffectWindow>> partners;
