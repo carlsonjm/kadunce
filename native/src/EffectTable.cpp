@@ -1280,6 +1280,9 @@ void Effect::sendCardToWorkspace(int step)
             return std::any_of(pending.cbegin(), pending.cend(), [&deck](const auto &window) { return deck.contains(window); });
         });
     if (deck.size() > 1) m_pendingDecks[destination->id()].append(deck);
+    // Moment 2: the card in front stays drawn here a moment, sliding out by
+    // the side its workspace lies on while what it leaves closes over it.
+    sendAway(card, step, nullptr);
     for (const auto &window : std::as_const(deck))
         if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
     qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1

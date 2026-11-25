@@ -95,8 +95,8 @@ void Effect::openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over)
         opening.from = takeLaunchOrigin(window);
         qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window) << " comes up as a card over "
                           << (opening.over ? logNameOf(opening.over.data()) : QStringLiteral("nothing"))
-                          << (opening.from.isValid() ? ", growing from its dock icon at " : ", rising from 90%")
-                          << (opening.from.isValid() ? opening.from : QRectF());
+                          << (opening.from.isValid() ? ", growing from its dock icon at " : ", rising from 90%");
+        if (opening.from.isValid()) qInfo() << "Kadunce" << Revision << "  dock icon" << opening.from;
         KWin::effects->addRepaintFull();
     }
 }
@@ -262,19 +262,21 @@ Effect::OpeningArrival Effect::openingArrival(const KWin::EffectWindow *window) 
         arrival.how = push.pushes ? "pushing in beside the panes" : "opening from the seam";
         return arrival;
     }
+    // Over a pane that gives way to it, or into open room, it pushes in from
+    // the screen edge nearest its place.
+    const double t = own->timer.isValid() ? QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
+        std::clamp(double(own->timer.elapsed()) / motion(220), 0.0, 1.0)) : 0.0;
+    const OpenedPush push = openedFromNearestEdge(revealBox(own->to), revealBox(own->outputGeometry), t);
+    arrival.offset = QPointF(push.dx, push.dy);
+    arrival.shown = QRectF(own->to).translated(arrival.offset).intersected(own->to);
+    arrival.how = "pushing in from its edge into open room";
     for (const auto &yielding : m_yieldingPanes) {
         if (yielding.output != own->output || !yielding.rect.intersects(own->to)) continue;
         const QRectF common = yielding.rect.intersected(own->to);
         if (common.width() * common.height() < 0.5 * own->to.width() * own->to.height()) continue;
-        const double t = own->timer.isValid() ? QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
-            std::clamp(double(own->timer.elapsed()) / motion(220), 0.0, 1.0)) : 0.0;
-        const OpenedPush push = openedFromNearestEdge(revealBox(own->to), revealBox(own->outputGeometry), t);
-        arrival.offset = QPointF(push.dx, push.dy);
         arrival.over = yielding.window;
         arrival.how = "pushing in over the pane it takes";
-        return arrival;
     }
-    arrival.how = "alone";
     return arrival;
 }
 
@@ -283,16 +285,14 @@ bool Effect::revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::Windo
     // The opened window shows only where the panes have drawn back, a gutter
     // from each, coming in as `openingArrival` says. It is drawn as it
     // stands: the desktop's opening animation, which grows a window from its
-    // middle, has no part in a pane. With no pane to draw back from over it
-    // and none to take the place of, it comes up in its place instead.
+    // middle, has no part in a pane.
     const OpeningArrival arrival = openingArrival(window);
     if (!arrival.opening) return false;
     clip = clip.intersected(arrival.shown);
     double opacity = 1.0;
     for (Opening &opening : m_opening) {
         if (opening.window != window) continue;
-        if (!arrival.beside && !arrival.over && opening.seenAt >= 0)
-            opacity = openedAloneOpacity(opening.since.elapsed() - opening.seenAt);
+
         if (std::exchange(opening.reported, true)) continue;
         qInfo().nospace() << "Kadunce " << Revision << " opened " << logNameOf(window)
                           << " is first drawn " << arrival.how << ", offset " << arrival.offset

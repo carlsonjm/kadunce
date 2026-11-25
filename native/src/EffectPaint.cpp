@@ -279,14 +279,13 @@ void Effect::prePaintScreen(KWin::ScreenPrePaintData &data)
             data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true;
         }
     }
+    settleSentAway(data);
     for (auto it = m_yieldingPanes.begin(); it != m_yieldingPanes.end();) {
         if (!yieldingPaneOpacity(it->window)) {
             if (it->window && !it->window->isDeleted()) unredirect(it->window);
             it = m_yieldingPanes.erase(it);
         } else {
-            data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
-            m_continueRepaint = true;
-            ++it;
+            data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS; m_continueRepaint = true; ++it;
         }
     }
     if (m_carriedWindow) data.mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS;
@@ -478,7 +477,7 @@ void Effect::prePaintWindow(KWin::RenderView *view,
     grabPaneClosing(window);
     if (m_signInGlass.on && window == m_signInGlass.front) { data.setTransformed(); data.setTranslucent(); }
     else if (m_signInGlass.on && window->window() && window->window()->inherits("KWin::LayerShellV1Window")) data.setTranslucent();
-    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window)
+    if (window == m_carriedWindow || (window == m_settlingWindow && dropSettleRect()) || bentoMotionRect(window) || m_sentAway.contains(window)
         || yieldingPaneOpacity(window) || paneLeaverOpacity(window) || m_stackScrubShown.contains(window)
         || m_roomOfferShown.contains(window) || stackJoinShrink(window) || stackJoinFan(window)) {
         data.setTransformed(); data.setTranslucent();
@@ -1510,6 +1509,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
     growSignInFront(window, mask, data);
     // A panel's fade laid under the windows is drawn over the frost instead.
     if (fadeOverSettingsFrost(window)) return paintResult(true);
+    if (const auto sent = paintSentAway(renderTarget, viewport, window, mask, deviceRegion, data)) return paintResult(*sent);
     // The power question asks KDE's blur for its whole display, which would
     // haze the glass and the panels alike: it is drawn as moved, which the
     // blur leaves alone, so the glass under it shows as it is.

@@ -1636,6 +1636,12 @@ private:
     // and stands in its own again unless `refit` is false.
     void releasePairOfferPlace(KWin::EffectWindow *card, bool refit = true);
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
+    // A card sent to the workspace beside slides out toward it while it is drawn here still.
+    // So does a card sent to the display beside, sliding in there from the edge they share (`to`).
+    struct SentAway { KWin::EffectWindowVisibleRef shown; QPointer<KWin::LogicalOutput> output, to; QRectF from; int step = 0; QElapsedTimer timer; };
+    QHash<KWin::EffectWindow *, SentAway> m_sentAway; void sendAway(KWin::EffectWindow *window, int step, KWin::LogicalOutput *to);
+    [[nodiscard]] std::optional<QPointF> sentAwayShift(KWin::EffectWindow *window, KWin::LogicalOutput *painting) const; // nan x: not drawn there
+    void settleSentAway(KWin::ScreenPrePaintData &data); [[nodiscard]] std::optional<bool> paintSentAway(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport, KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);
     // Each offered card's picture, kept with its smaller copies so it reads
     // smoothly at the offer's size; taken once, on the offer's first paint.
     std::map<KWin::EffectWindow *, KeptPicture> m_offerPictures;

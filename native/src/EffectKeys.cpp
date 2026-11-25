@@ -649,6 +649,7 @@ void Effect::carryToward(KeyDirection direction)
         KWin::LogicalOutput *next = focused->screen() ? outputToward(focused->screen(), direction) : nullptr;
         if (!next || !isCardDisplay(next)) return;
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
+        sendAway(focused, right ? 1 : -1, next);
         if (!moveCardToDisplay(focused, next, true))
             qInfo() << "Kadunce" << Revision << "could not send" << logNameOf(focused) << "to" << next->name();
         return;
@@ -690,6 +691,7 @@ void Effect::carryToward(KeyDirection direction)
         // own window-to-screen key sends it (handleWindowOutputChanged).
         if (KWin::LogicalOutput *next = outputToward(output, direction)) {
             qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
+            sendAway(focused, right ? 1 : -1, next);
             // The pane it leaves on Spread's display is its again when it
             // comes back.
             if (isTabletOutput(output)) {
@@ -726,6 +728,7 @@ void Effect::carryToward(KeyDirection direction)
     }
     if (KWin::LogicalOutput *next = outputToward(output, direction)) {
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(card) << "to" << next->name();
+        sendAway(card, right ? 1 : -1, next);
         card->window()->sendToOutput(next);
     }
 }
