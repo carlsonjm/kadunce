@@ -24,11 +24,13 @@ jobs:
   scenes:
     name: Scenes
     runs-on: ubuntu-latest
-    # Arch Linux's official image as Arch publishes it to GitHub's own
-    # registry, which Actions reaches without Docker Hub's or Amazon's
-    # shared pull limits.
+    # Arch's last Plasma 6.7 day from the Arch Linux Archive, from a public
+    # copy on GitHub's own registry that holds every package below, so the
+    # job downloads nothing from the archive. Setting the repository variable
+    # ARCH_SNAPSHOT_IMAGE to ghcr.io/archlinux/archlinux:latest goes back to
+    # downloading from the archive.
     container:
-      image: ghcr.io/archlinux/archlinux:latest
+      image: ${{ vars.ARCH_SNAPSHOT_IMAGE || 'ghcr.io/carlsonjm/arch-snapshot:2026-10-14' }}
     timeout-minutes: 45
     env:
       SCENES: ${{ github.event.inputs.scenes || 'monitor-zones-runtime monitor-overflow-runtime monitor-unplug-layout-runtime divider-tablet-runtime side-runtime spread-bento-top-runtime spread-bento-top-runtime@1.75 bento-motion-runtime sleeping-pane-runtime solo-offer-runtime monitor-flee-runtime spread-display-runtime no-touch-runtime connected-runtime connected-sizes-runtime connected-stacks-runtime stacks-stress-runtime every-display-runtime every-display-wake-runtime every-display-plug-runtime every-display-carry-runtime every-display-pane-runtime every-display-full-runtime every-display-dragout-runtime connected-keys-runtime connected-bento-key-runtime connected-zones-runtime connected-desk-keys-runtime stack-runtime late-maximize-active-runtime late-maximize-signin-runtime fill-return-runtime x11-fill-return-runtime guest-float-runtime spread-signal-runtime caller-fence-runtime context-line-runtime settings-frost-runtime bento-gap-runtime gap-runtime ring-popup-runtime' }}
@@ -39,8 +41,15 @@ jobs:
           # KWin 6.8's virtual backend wants a GPU render device for OpenGL,
           # which a hosted runner lacks, so every scene would stop at start.
           # Move the date on once the scenes run headless on 6.8.
-          echo 'Server = https://archive.archlinux.org/repos/2026/10/14/$repo/os/$arch' > /etc/pacman.d/mirrorlist
-          pacman -Syyuu --noconfirm --needed \
+          # The copy already holds every package below, so pacman only checks;
+          # anything else comes from the archive itself.
+          if [ "$(cat /etc/arch-snapshot 2>/dev/null)" = 2026/10/14 ]; then
+            refresh=-S
+          else
+            echo 'Server = https://archive.archlinux.org/repos/2026/10/14/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+            refresh=-Syyuu
+          fi
+          pacman $refresh --noconfirm --needed \
             base-devel cmake extra-cmake-modules git ripgrep python file perl dbus jq patch libkscreen python-dbus python-gobject \
             qt6-base qt6-declarative qt6-tools qt6-wayland \
             kwin kdecoration kcoreaddons kconfig kservice kglobalaccel \
