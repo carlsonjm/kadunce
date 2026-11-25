@@ -86,6 +86,7 @@ void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualD
     cancelInputForCardStage();
     m_currentSession = sessionFor(current);
     scopeTo(m_currentSession, m_scopedKey);
+    showSentAhead(current);
     bool holding = false;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         if (!isCardDisplay(output)) continue;
@@ -122,6 +123,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
     if (desktop) m_unenteredDesktops.remove(desktop->id());
     // A stack carried to it and not yet dealt goes with it.
     if (desktop) m_pendingDecks.remove(desktop->id());
+    if (desktop) m_sentAhead.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
     // lets them go as a release would, and the desktop they stand on now takes
     // them as its own (DesktopRemoval.h). Removing the desktop shown can come
@@ -1292,8 +1294,44 @@ void Effect::sendCardToWorkspace(int step)
     sendAway(card, step, nullptr);
     for (const auto &window : std::as_const(deck))
         if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+    // The workspace it goes to takes it as a card now, at the size it will be
+    // shown there, so it never stands there at its own frame while that
+    // workspace slides in (showSentAhead).
+    KWin::LogicalOutput *output = card->screen();
+    DesktopSession *into = sessionFor(destination);
+    if (output && into && isCardDisplay(output)) {
+        SessionScope there(this, into, stageKeyFor(output));
+        if (m_cardStage->isActive() && !m_cardStage->presentsBento() && m_cardStage->liveCardIndex(card) < 0
+            && m_cardStage->admitArrivalAsCard(card) && card->window())
+            card->window()->moveResize(KWin::RectF(m_cardStage->activeTarget(output)));
+        m_sentAhead[destination->id()].removeAll(card);
+        m_sentAhead[destination->id()].append(card);
+    }
     qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1
             << "cards behind it to workspace" << there + 1;
+}
+
+void Effect::showSentAhead(KWin::VirtualDesktop *current)
+{
+    // Entering a workspace a card was sent to shows it by the rule that holds
+    // there, before the first frame: a layout takes it behind its panes, to
+    // come in when called; cards make it the Active card; a display holding
+    // nothing yet starts its cards with it (holdDisplaysInCards).
+    const auto sent = current ? m_sentAhead.take(current->id()) : QList<QPointer<KWin::EffectWindow>>();
+    for (const auto &card : sent) {
+        if (!card || card->isDeleted() || card->isMinimized() || !card->isOnDesktop(current)) continue;
+        KWin::LogicalOutput *output = card->screen();
+        if (!output || !isCardDisplay(output)) continue;
+        SessionScope here(this, m_currentSession, stageKeyFor(output));
+        const char *rule = "as the display's first card";
+        if (m_cardStage->presentsBento()) rule = "behind the layout, as a card the layout takes in when called";
+        else if (m_cardStage->isActive()) {
+            if (m_cardStage->liveCardIndex(card) < 0) (void)m_cardStage->admitArrivalAsCard(card);
+            rule = m_cardStage->promoteToActive(card) ? "as the Active card" : "as a card it could not make Active";
+        }
+        qInfo().nospace() << "Kadunce " << Revision << " shows " << logNameOf(card) << ", sent here before, on "
+                          << output->name() << " " << rule;
+    }
 }
 
 void Effect::landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face)

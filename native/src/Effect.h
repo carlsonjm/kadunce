@@ -775,11 +775,10 @@ private:
     // A menu bar's press held still becomes a rename.
     QTimer m_tableHold;
     bool m_tablePressTouch = false;
-    // Stacks carried by Table to a desktop, front to back, by desktop id:
-    // their windows become cards when the desktop is next shown, one by one,
-    // and then are stacked again as they left.
+    // Stacks carried by Table to a desktop, front to back, by desktop id: cards when it is next shown, restacked.
     QHash<QString, QList<QList<QPointer<KWin::EffectWindow>>>> m_pendingDecks;
-    void restackCarriedDecks();
+    QHash<QString, QList<QPointer<KWin::EffectWindow>>> m_sentAhead; // sent by the keys, shown on entering
+    void restackCarriedDecks(); void showSentAhead(KWin::VirtualDesktop *current);
     void beginTableRename(int workspace, bool touch);
     void endTableRename(bool commit);
     void removeTableWorkspace(int workspace);
