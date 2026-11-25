@@ -901,13 +901,13 @@ private:
     // The card stage a title-bar carry was prepared by; none once that carry no longer holds.
     [[nodiscard]] CardStageController *carrySourceStage(const PreparedCarrySource &source) const;
     [[nodiscard]] bool cardCarrySourceValid(const PreparedCarrySource &source) const;
-    // §11: the card goes, with its Stack, to the stage of another display
-    // holding cards, shown there when `show`, else waiting in its Spread.
-    bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show);
-    // Runs f after `ms` with the stage named now named again, while its desktop's session is still kept.
-    void onThisStageLater(int ms, const std::function<void()> &f);
-    // Shows a card sent to the stage named now there, once it stands there.
-    void showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, int tries = 20);
+    // §11: the card and its Stack go to another display's stage, shown there when `show` (beside a lone card: pairLone).
+    bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show, bool pairLone = false);
+    void onThisStageLater(int ms, const std::function<void()> &f); // later, the stage named now, while its session is kept
+    // Shows a card sent to the stage named now there, once it stands there; beside a lone card when one stands there.
+    void showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, double fromX,
+        int tries = 20);
+    bool pairMovedCard(KWin::EffectWindow *card, KWin::LogicalOutput *here, double fromX);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);

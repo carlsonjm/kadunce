@@ -570,7 +570,7 @@ bool Effect::holdDisplaysInCards(KWin::EffectWindow *arrival)
     return held;
 }
 
-bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show)
+bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show, bool pairLone)
 {
     // §11: a card leaving for another display holding its own cards is taken
     // by that display's stage from the one holding it, in one step, and its
@@ -592,6 +592,7 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
     const auto restore = record(card);
     CardStageController &into = stageOn(session, toKey);
     const QPointer<KWin::EffectWindow> moving = card;
+    const double fromX = !pairLone ? qQNaN() : card->screen() ? card->screen()->geometry().center().x() : qQNaN();
     {
         SessionScope there(this, session, toKey);
         // A Stack moves whole or not at all: one card the other display cannot
@@ -639,7 +640,7 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
         if (show && moving && !moving->isMinimized()) {
             QList<QPointer<KWin::EffectWindow>> behindIt;
             for (auto *member : std::as_const(carried)) behindIt.append(member);
-            onThisStageLater(0, [this, moving, behindIt] { showMovedCard(moving, behindIt); });
+            onThisStageLater(0, [this, moving, behindIt, fromX] { showMovedCard(moving, behindIt, fromX); });
         }
     }
     qInfo() << "Kadunce" << Revision << "moved" << logNameOf(card) << "to" << to->name()
@@ -649,7 +650,8 @@ bool Effect::moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to
     return true;
 }
 
-void Effect::showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, int tries)
+void Effect::showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, double fromX,
+    int tries)
 {
     // §11: a card sent to this display is shown here: a pane the keys carried
     // away takes back the side it left, else it joins the layout shown here,
@@ -664,8 +666,8 @@ void Effect::showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::
     // Its application answers the move in its own time, and until it has the
     // window stands on the display it left.
     if (here && card->screen() != here && tries > 0) {
-        onThisStageLater(50, [this, card = QPointer(card), behind, tries] {
-            if (card) showMovedCard(card, behind, tries - 1);
+        onThisStageLater(50, [this, card = QPointer(card), behind, fromX, tries] {
+            if (card) showMovedCard(card, behind, fromX, tries - 1);
         });
         return;
     }
@@ -676,11 +678,60 @@ void Effect::showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::
     if (!shown && here && m_cardStage->presentsBento() && m_desktopStage->hasSessionOnOutput(here->name()))
         shown = m_desktopStage->admitCardToLiveBento(card,
             [this, card = QPointer(card)] { return card && m_cardStage->releaseCardToLiveBento(card); });
+    // Sent by the keys, it pairs with a lone card there (fromX names where it came from).
+    if (!shown && here && !std::isnan(fromX)) shown = pairMovedCard(card, here, fromX);
     if (shown) keepStackBehind(card, behind, 10);
     else (void)m_cardStage->presentCardActive(card, true);
     KWin::effects->activateWindow(card);
     observeCardOwnership();
     Q_EMIT workspaceContextChanged();
+}
+
+bool Effect::pairMovedCard(KWin::EffectWindow *card, KWin::LogicalOutput *here, double fromX)
+{
+    // A lone card standing here takes the arrival as its other half: the
+    // Active card, or a half left beside the desktop. A display with nothing
+    // standing on it, or one card across its whole width, makes it Active.
+    const QRectF area(workAreaForCardStage(here));
+    const auto half = [&area](const QRectF &r) {
+        return r.width() < area.width() * 0.75 && r.height() > area.height() * 0.75;
+    };
+    KWin::EffectWindow *lone = nullptr;
+    const char *found = "nothing standing";
+    if (m_cardStage->presentation() == CardPresentation::Active) {
+        lone = m_cardStage->activeCardIdentity();
+        found = "the lone Active card";
+    } else if (m_cardStage->presentation() == CardPresentation::Desktop) {
+        int standing = 0;
+        for (const auto &window : m_cardStage->liveCards()) {
+            if (!window || window == card || window->isDeleted() || window->isMinimized()
+                || !window->isOnCurrentDesktop() || window->screen() != here || window->data(CardAsideRole).toBool())
+                continue;
+            ++standing;
+            lone = window.data();
+        }
+        if (standing != 1 || !half(QRectF(lone->frameGeometry()))) lone = nullptr;
+        else found = "a lone half beside the desktop";
+    }
+    bool paired = false;
+    if (lone && lone != card && !lone->isDeleted()) {
+        const QRectF stands(lone->frameGeometry());
+        const bool right = half(stands) ? stands.center().x() < area.center().x()
+                                        : fromX >= area.center().x();
+        const QRectF drawn(card->frameGeometry());
+        const auto reserved = m_desktopStage->prepareCardDrop(card, here, KWin::RectF(drawn),
+            DesktopStageController::CardDropIntent::ActivateBento, BentoSidePlacement{right, true, true}, lone);
+        if (reserved) {
+            const QPointer<KWin::EffectWindow> carried = card;
+            const QPointer<KWin::EffectWindow> named = reserved->namedPartner();
+            paired = m_desktopStage->activatePreparedTabletDrop(*reserved, nullptr,
+                [this, carried, named] { return carried && m_cardStage->releasePairToBento(carried, named); });
+        }
+        if (paired && card) startPaneArrival(card, here, drawn);
+    }
+    qInfo().nospace() << "Kadunce " << Revision << " shows moved " << logNameOf(card) << " on " << here->name()
+                      << ": found " << found << (paired ? ", paired beside it" : ", so it is the Active card");
+    return paired;
 }
 
 void Effect::onThisStageLater(int ms, const std::function<void()> &f)

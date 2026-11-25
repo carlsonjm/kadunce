@@ -654,7 +654,7 @@ void Effect::carryToward(KeyDirection direction)
         if (!next || !isCardDisplay(next)) return;
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
         sendAway(focused, right ? 1 : -1, next);
-        if (!moveCardToDisplay(focused, next, true))
+        if (!moveCardToDisplay(focused, next, true, true))
             qInfo() << "Kadunce" << Revision << "could not send" << logNameOf(focused) << "to" << next->name();
         return;
     }
