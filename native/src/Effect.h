@@ -1191,6 +1191,7 @@ private:
     void pageStackFromInput(int delta) override;
     void dragActiveSlideFromInput(int side, double travel) override;
     void releaseActiveSlideFromInput(int side, double travel, double speed) override;
+    void settleActiveSlideFromInput() override;
     void pageHorizontal(int delta);
     void pageStack(int delta);
     void beginCardGrab(const QPointF &position) override;

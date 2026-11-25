@@ -1,4 +1,7 @@
 #pragma once
+#include "ReleasePlace.h"
+
+#include <effect/effecthandler.h>
 #include <window.h>
 
 namespace Kadunce {
@@ -21,15 +24,26 @@ bool restoreWindowStateChecked(Client *client, const Snapshot &snapshot,
     } })) return false;
     if (!step([&] { if (manageMinimized) client->setMinimized(false); })) return false;
     if (!step([&] { client->moveResize(geometry); })) return false;
+    // Given back maximized, it keeps a smaller place to restore to: never the
+    // maximized room itself (ReleasePlace.h).
+    const bool maximized = snapshot.quickTileMode == KWin::QuickTileMode{}
+        && snapshot.maximizeMode != KWin::MaximizeRestore;
+    const auto *room = client->moveResizeOutput();
+    const QRectF work = maximized && room
+        ? QRectF(KWin::effects->clientArea(KWin::MaximizeArea, room)) : QRectF();
+    const KWin::RectF restoreBeneath = maximized
+        ? KWin::RectF(restoreBeneathMaximize(
+              preserveRestoreGeometry ? QRectF(snapshot.floatingGeometry) : QRectF(), QRectF(geometry), work))
+        : geometry;
     if (!step([&] { if (snapshot.quickTileMode != KWin::QuickTileMode{}) {
         client->setQuickTileMode(snapshot.quickTileMode, geometry.center());
     } else if (snapshot.maximizeMode != KWin::MaximizeRestore) {
-        client->maximize(snapshot.maximizeMode,
-            preserveRestoreGeometry && snapshot.floatingGeometry.isValid()
-                ? snapshot.floatingGeometry : geometry);
+        client->maximize(snapshot.maximizeMode, restoreBeneath);
     } })) return false;
     if (!step([&] { if (snapshot.fullScreen) client->setFullScreen(true); })) return false;
-    if (!step([&] { if (preserveRestoreGeometry && snapshot.floatingGeometry.isValid()) {
+    if (!step([&] { if (maximized) {
+        client->setGeometryRestore(restoreBeneath);
+    } else if (preserveRestoreGeometry && snapshot.floatingGeometry.isValid()) {
         client->setGeometryRestore(snapshot.floatingGeometry);
     } })) return false;
     if (!step([&] { if (preserveRestoreGeometry && snapshot.fullscreenRestoreGeometry.isValid()) {
