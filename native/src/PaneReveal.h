@@ -128,25 +128,63 @@ inline RevealBox revealedBeside(RevealBox pane, const RevealBox &box, double gut
     return pane;
 }
 
-// How a window opening into a layout arrives, given what of its `pane` the
-// panes drawing back have left `shown`. Left on one side only, it is drawn
-// whole with its leading edge where they have left, so it pushes in from the
-// far side, a gutter from them all the way: the offset from its pane is
-// returned. Left from two sides, it opens from the seam between them, drawn
-// where it will stand and seen only where they have left: no offset.
+// How a window opening into a layout comes in. Left on one side only by the
+// panes drawing back, it pushes in whole from the far side, its leading edge
+// a gutter from theirs all the way; left from two sides, it opens from the
+// seam between them, drawn where it will stand. The offset from its pane:
 struct OpenedPush {
     double dx = 0.0, dy = 0.0;
     bool pushes = false;
 };
 
-inline OpenedPush openedPushOffset(const RevealBox &pane, const RevealBox &shown)
+// A pane drawing back from over an opened window's `pane`: the side of it
+// that pane ends on (`to`), whether it began over it (`from`), and how far its
+// box `now` still reaches into it, a gutter included. The side is read from
+// where it ends, as a pane wholly over the window at first names none.
+enum class PushSide { None, Left, Right, Top, Bottom };
+struct NeighbourPush {
+    PushSide side = PushSide::None;
+    bool covered = false;
+    double over = 0.0;
+};
+
+inline NeighbourPush neighbourPush(const RevealBox &pane, const RevealBox &from, const RevealBox &now,
+                                   const RevealBox &to, double gutter)
 {
-    const double left = shown.x - pane.x, right = pane.right() - shown.right();
-    const double top = shown.y - pane.y, bottom = pane.bottom() - shown.bottom();
-    const int sides = (left > 0.5) + (right > 0.5) + (top > 0.5) + (bottom > 0.5);
-    if (sides != 1) return {};
-    return OpenedPush{left > 0.5 ? left : right > 0.5 ? -right : 0.0,
-                      top > 0.5 ? top : bottom > 0.5 ? -bottom : 0.0, true};
+    NeighbourPush push;
+    const double near = gutter + 2.0;
+    push.side = to.right() <= pane.x + near ? PushSide::Left : to.x >= pane.right() - near ? PushSide::Right
+        : to.bottom() <= pane.y + near ? PushSide::Top : to.y >= pane.bottom() - near ? PushSide::Bottom : PushSide::None;
+    const auto overlaps = [&pane, near](const RevealBox &box) {
+        return box.right() > pane.x + near && box.x < pane.right() - near
+            && box.bottom() > pane.y + near && box.y < pane.bottom() - near;
+    };
+    push.covered = push.side != PushSide::None && overlaps(from);
+    if (!push.covered || !overlaps(now)) return push;
+    switch (push.side) {
+    case PushSide::Left: push.over = now.right() + gutter - pane.x; break;
+    case PushSide::Right: push.over = pane.right() - (now.x - gutter); break;
+    case PushSide::Top: push.over = now.bottom() + gutter - pane.y; break;
+    case PushSide::Bottom: push.over = pane.bottom() - (now.y - gutter); break;
+    case PushSide::None: break;
+    }
+    const bool across = push.side == PushSide::Left || push.side == PushSide::Right;
+    push.over = std::clamp(push.over, 0.0, across ? pane.width : pane.height);
+    return push;
+}
+
+// The offset of an opened window pushed in by the panes drawing back from one
+// side: away from that side by as far as they still reach into its pane.
+inline OpenedPush pushedFrom(PushSide side, double over)
+{
+    switch (side) {
+    case PushSide::Left: return OpenedPush{over, 0.0, true};
+    case PushSide::Right: return OpenedPush{-over, 0.0, true};
+    case PushSide::Top: return OpenedPush{0.0, over, true};
+    case PushSide::Bottom: return OpenedPush{0.0, -over, true};
+    case PushSide::None: break;
+    }
+    return {};
 }
 
 // Where a window taking the place of a pane that gives way stands, `t` of the

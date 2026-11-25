@@ -236,17 +236,29 @@ Effect::OpeningArrival Effect::openingArrival(const KWin::EffectWindow *window) 
     const BentoMotion *own = bentoMotionOf(window);
     if (!own || own->waitsFor != window) return arrival;
     arrival.opening = true;
-    RevealBox shown = revealBox(own->to);
+    // Only panes that began over its place count; one that barely moves
+    // beside it does not make room for it.
+    const RevealBox pane = revealBox(own->to);
+    RevealBox shown = pane;
+    QList<PushSide> sides;
+    double over = 0.0;
     for (const BentoMotion &m : std::as_const(m_bentoMotions)) {
         if (m.window == window || m.waitsFor != window || m.output != own->output) continue;
+        const auto box = bentoMotionRect(m.window.data());
+        if (!box) continue;
+        const NeighbourPush push = neighbourPush(pane, revealBox(m.from), revealBox(*box), revealBox(m.to), double(bentoPaneGap()));
+        if (!push.covered) continue;
         arrival.beside = true;
-        if (const auto box = bentoMotionRect(m.window.data()))
-            shown = revealedBeside(shown, revealBox(*box), double(bentoPaneGap()));
+        if (!sides.contains(push.side)) sides.append(push.side);
+        over = std::max(over, push.over);
+        shown = revealedBeside(shown, revealBox(*box), double(bentoPaneGap()));
     }
     arrival.shown = QRectF(shown.x, shown.y, shown.width, shown.height);
     if (arrival.beside) {
-        const OpenedPush push = openedPushOffset(revealBox(own->to), shown);
+        // From one side it pushes in whole; from two, it opens from the seam.
+        const OpenedPush push = sides.size() == 1 ? pushedFrom(sides.first(), over) : OpenedPush{};
         arrival.offset = QPointF(push.dx, push.dy);
+        if (push.pushes) arrival.shown = QRectF(own->to).translated(arrival.offset).intersected(own->to);
         arrival.how = push.pushes ? "pushing in beside the panes" : "opening from the seam";
         return arrival;
     }

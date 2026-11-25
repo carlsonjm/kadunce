@@ -89,20 +89,27 @@ int main() {
     check(same(revealedBeside(lower, corner, gutter), RevealBox{2600, 723, 864, 678}),
           "a box over the window's corner took more of it than it covered");
 
-    // Left on one side only by the panes drawing back, the new window pushes
-    // in from the far side whole, its leading edge where they have left.
-    const OpenedPush fromRight = openedPushOffset(right, RevealBox{2900, 34, 564, 1367});
+    // Pushed in by the panes drawing back, from the side they end on: beside
+    // a pane drawing left it comes from the right; under one drawing up, from
+    // the bottom, even while that pane still covers it wholly.
+    const NeighbourPush besideLeft = neighbourPush(right, whole, halfway, left, gutter);
+    check(besideLeft.side == PushSide::Left && besideLeft.covered && std::abs(besideLeft.over - 518) < 0.001,
+          "a window opening beside a pane drawing left was not pushed from the right by what it still covers");
+    const OpenedPush fromRight = pushedFrom(besideLeft.side, besideLeft.over);
     check(fromRight.pushes && std::abs(fromRight.dx - 518) < 0.001 && fromRight.dy == 0.0,
           "a window opening beside a pane drawing left did not push in from the right");
-    const OpenedPush fromBottom = openedPushOffset(lower, RevealBox{2382, 1044, 1082, 357});
-    check(fromBottom.pushes && fromBottom.dx == 0.0 && std::abs(fromBottom.dy - 321) < 0.001,
-          "a window opening under a pane drawing up did not rise from the bottom");
-    const OpenedPush covered = openedPushOffset(right, revealedBeside(right, whole, gutter));
-    check(covered.pushes && std::abs(covered.dx - right.width) < 0.001, "a window still covered was not wholly past its edge");
-    check(!openedPushOffset(right, right).pushes, "a window wholly shown still pushed in");
-    // Left from both sides, it opens from the seam where it will stand.
-    const RevealBox middle{2000, 34, 700, 1367};
-    check(!openedPushOffset(middle, RevealBox{2200, 34, 300, 1367}).pushes, "a window between two panes pushed in from a side");
+    const RevealBox rightColumn{2382, 34, 1082, 1367};
+    const NeighbourPush underUpper = neighbourPush(lower, rightColumn, rightColumn, upper, gutter);
+    check(underUpper.side == PushSide::Top && underUpper.covered && std::abs(underUpper.over - lower.height) < 0.001,
+          "a window opening under a pane still covering it did not wait wholly below");
+    const OpenedPush fromBottom = pushedFrom(underUpper.side, underUpper.over);
+    check(fromBottom.pushes && fromBottom.dx == 0.0 && fromBottom.dy > 0.0, "a window opening under a pane did not rise from the bottom");
+    check(neighbourPush(lower, drawingUp, drawingUp, upper, gutter).over < lower.height,
+          "a window under a pane drawing up did not rise as it drew up");
+    // A pane that never stood over the place, however it moves, makes no room.
+    const RevealBox zenFrom{1290, 723, 1082.29, 678.29}, zenTo{1290, 723, 1082, 678};
+    check(!neighbourPush(upper, zenFrom, zenFrom, zenTo, gutter).covered, "a pane in the other column made room for the new window");
+    check(pushedFrom(PushSide::None, 100).pushes == false, "a window with no side pushed in");
     // Taking the place of a pane that gives way, it pushes in from the screen
     // edge nearest that place.
     const OpenedPush start = openedFromNearestEdge(right, whole, 0.0), end = openedFromNearestEdge(right, whole, 1.0);

@@ -1724,7 +1724,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     KWin::EffectWindow *opening = openingAmong(windows);
     for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
         auto *w = windows[i].data();
-        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || from[i] == to[i]) continue;
+        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || (from[i] == to[i] && w != opening)) continue;
         const char *still = w == m_carriedWindow ? "carried"
             : w == m_settlingWindow ? "settling from a drop"
             : !from[i].isValid() ? "not drawn before"
