@@ -1184,8 +1184,7 @@ private:
     void followBezelSpreadFromInput(double rise) override;
     void finishBezelSpreadFromInput(double rise, double speed, bool cancelled) override;
     void dismissLauncherGuestFromInput() override;
-    void tapBesideLauncherGuestFromInput(
-        const QPointF &position) override;
+    void tapBesideLauncherGuestFromInput(const QPointF &position) override;
     void pageLeftFromInput() override;
     void pageRightFromInput() override;
     void pageStackFromInput(int delta) override;
