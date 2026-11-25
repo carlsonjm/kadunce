@@ -25,6 +25,16 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         SessionScope own(this, m_currentSession, stageKeyFor(m_carryDestination->destinationOutput()));
         for (const auto &pane : m_desktopStage->panesOn(m_carryDestination->destinationOutput()->name()))
             if (pane && pane != m_carriedWindow && QRectF(pane->frameGeometry()) == QRectF(*aim)) aim.reset();
+        // Over a pane, only the outer half of a side makes room; nearer its
+        // middle the hand is heading for its Stack.
+        auto *output = m_carryDestination->destinationOutput();
+        auto *under = m_roomOpen ? roomPaneAt(output, m_lastCarryContact)
+                                 : m_desktopStage->paneAt(output, m_lastCarryContact, m_carriedWindow);
+        if (under && under != m_carriedWindow) {
+            const QRectF r = roomPreviewRect(under).value_or(QRectF(under->frameGeometry()));
+            if (!panePlaceOuter({r.x(), r.y(), r.width(), r.height()}, m_lastCarryContact.x(), m_lastCarryContact.y()))
+                aim.reset();
+        }
     }
     // The hand must rest too: a place named all the way across a pane, as a
     // swap is, opens nothing while the hand is still heading somewhere.

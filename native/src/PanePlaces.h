@@ -57,6 +57,16 @@ inline std::optional<PanePlace> panePlaceAt(const BentoRect &pane, double x, dou
     return place;
 }
 
+// Whether a contact over a pane stands in the outer half of a side's band,
+// nearer the pane's edge than its middle: only there does a carry make room.
+inline bool panePlaceOuter(const BentoRect &pane, double x, double y)
+{
+    if (pane.width <= 0.0 || pane.height <= 0.0) return false;
+    const double nx = std::abs(x - pane.x - pane.width / 2.0) / (pane.width / 2.0);
+    const double ny = std::abs(y - pane.y - pane.height / 2.0) / (pane.height / 2.0);
+    return std::max(nx, ny) >= (1.0 + PanePlaceMiddleShare) / 2.0;
+}
+
 // A Connected layout is a row of columns (BentoColumns.h). A card placed at
 // a pane's side joins that pane's column, over or under it, the column's
 // panes sharing its height; at the pane's left or right it stands in a new

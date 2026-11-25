@@ -14,6 +14,8 @@ int main() {
     const BentoRect pane{0.5, 0.0, 0.5, 1.0};
     check(!panePlaceAt(pane, 0.4, 0.5), "a contact beside the pane named one of its places");
     check(panePlaceAt(pane, 0.75, 0.5) == PanePlace::Middle, "the pane's centre did not join its Stack");
+    check(!panePlaceOuter(pane, 0.75, 0.5) && !panePlaceOuter(pane, 0.6, 0.5), "a contact near the middle made room");
+    check(panePlaceOuter(pane, 0.52, 0.5), "a contact at the pane's edge made no room");
     check(panePlaceAt(pane, 0.52, 0.5) == PanePlace::Left, "its left side was not Left");
     check(panePlaceAt(pane, 0.98, 0.5) == PanePlace::Right, "its right side was not Right");
     check(panePlaceAt(pane, 0.75, 0.05) == PanePlace::Top, "its top was not Top");
