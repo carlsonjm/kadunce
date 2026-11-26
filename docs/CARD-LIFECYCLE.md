@@ -11,21 +11,11 @@ pair at most, or Connected, a picked card joining its layout (§11).
 
 Each eligible application window has one of three owners:
 
-1. **Native**
-
-   - Plasma owns the window, outside Kadunce.
-
-2. **Individual card**
-
-   - Kadunce owns the window as an independent card.
-   - It may be Active, visible in Spread, sleeping, or hidden behind another
-     selected state.
-
-3. **Bento pane**
-
-   - Kadunce owns the window as part of the display's visible Bento.
-   - In Spread it is a card of its own, beside the layout's other panes
-     (§6, Spread order).
+1. **Native:** Plasma, outside Kadunce.
+2. **Individual card:** Kadunce, as an independent card, Active, in Spread,
+   sleeping, or hidden behind another selected state.
+3. **Bento pane:** Kadunce, as part of the display's visible Bento; in Spread a
+   card of its own beside the layout's other panes (§6).
 
 A window is never both a card and a Bento pane.
 
@@ -67,9 +57,8 @@ both. Selecting it wakes it as Active.
 ### Desktop
 
 The display that owns cards shows the ordinary desktop, with the window you
-returned to it at its bottom edge (§10) or by maximizing it. Every card and
-pane stay owned, held aside out of sight and reach. Spread brings them
-back, and going back returns here; choosing a card or opening an application
+returned to it (§10) or maximized. Every card and pane stay owned, held
+aside. Spread brings them back, and going back returns here; choosing a card or opening an application
 presents one again, and asking for a returned window shows the desktop again.
 
 ### Native desktop
@@ -86,8 +75,8 @@ ownership the same way and becomes Active.
 
 Every virtual desktop has its own ownership session, begun the first time it is
 shown. A window KWin sends to another
-desktop, Table's moves included (`TABLE.md`), leaves its session where it
-stands; that desktop takes it as a card once shown.
+desktop, Table's moves included (`TABLE.md`), leaves its session; that
+desktop takes it as a card at once, at the size it will show.
 
 On a display that cannot own cards, the first deliberate Bento action starts
 ownership. The edge entries below still answer a window carried onto a display
@@ -96,8 +85,7 @@ Kadunce does not own.
 Kadunce atomically adopts every eligible window on that display,
 each awake card held in the Active card's place.
 
-Kadunce owns a display from then until its session ends. Adoption happens
-once; later edge actions read the ownership it has.
+Kadunce owns a display until its session ends; adoption happens once.
 
 A window arriving from another display starts ownership the same way, carried
 there or leaving a layout that could not show it. It arrives as one
@@ -132,15 +120,13 @@ Placement comes from the gesture:
 - Both become Bento panes.
 - No other window joins.
 
-The partner, named when the edge is contacted, stays the partner through the
-carry.
+The partner, named at the edge, stays the partner through the carry.
 
 With no eligible partner, nothing pairs: the carried window becomes an
 individual Active card, or stays one.
 
-An entry commits completely or not at all. If adoption cannot be prepared safely,
-every window stays Native. If a pair cannot be prepared safely, both windows keep
-the ownership and presentation they had.
+An entry commits completely or not at all: an adoption that cannot be prepared
+safely leaves every window Native, and a pair, both windows as they were.
 
 ### The Bento action
 
@@ -187,7 +173,7 @@ application late, as Electron's do, follows it from then on.
 
 ### Eligible as a Bento partner
 
-The partner is the card Kadunce pairs with the carried window. It must be:
+The partner must be:
 
 - On the current display
 - On the current virtual desktop
@@ -202,9 +188,9 @@ selected member of an ordinary stack. Pairing takes a named stack member out of 
 stack and leaves the rest unchanged, whether it is the partner or the carried
 window.
 
-A partner search passes over every Spread entry that fails this test, and over
-every ordinary stack. A card leaves a stack for Bento only when you named it
-by using it, not because a search walked past it.
+A partner search passes over every entry that fails this test, and every
+ordinary stack: a card leaves a stack for Bento only when you named it by using
+it.
 
 ## 5. Bento rules
 
@@ -250,9 +236,11 @@ The window becomes an independent Spread card when it is:
 - Excluded from the current visible layout
 - Moved to another workspace
 
-It keeps no Bento position or group, and stands in the Active card's place (§3).
-One displaced by a window carried or opened in comes back when
-that window leaves, if it still waits there unused.
+It keeps no Bento group, and stands in the Active card's place (§3). One
+displaced by a window carried or opened in comes back when that window leaves,
+if it still waits there unused; called from its dock icon meanwhile, it takes
+its slot back. A pane stood whole (`INPUT.md` § Connected) leaves its layout
+waiting in Spread, and returns to the side it left.
 
 A window waits in Spread on the display that can hold it as a card, keeping
 its restore record so release still returns it where it began.
@@ -279,8 +267,7 @@ An individual card returns to a live Bento through an explicit left/right-edge
 action, or by the user calling it forward.
 
 If the Bento combination is full, the displaced pane becomes an individual card.
-Where the return was a side release, the pane that yields is the one occupying
-the side the card was released into. You see which pane will yield while dragging; no
+After a side release, the pane on that side yields, shown while dragging; no
 history decides it.
 
 A card called forward releases into no side, so §8 decides which pane yields.
@@ -335,7 +322,8 @@ The same peer entries return:
 - It becomes a sleeping individual card.
 - Bento reflows its remaining visible panes.
 
-A minimized card never silently returns to Bento.
+It never returns by itself. Woken from its dock icon, it grows back into the
+place it left; woken otherwise, it comes as a card called forward.
 
 ## 8. Arrivals at a live Bento
 
@@ -395,22 +383,22 @@ A stack:
 - Becomes an individual card when one member remains
 - Shows its active position in the label row
 - Takes no arrival from the native desktop: a carried window becomes a card
-  under §8, and joining a stack is a separate act, or `REQUESTS.md` § Opened
-  from a card
+  under §8, and joining a stack is a separate act, a drop or `Meta+Shift+S`
+  onto the card used before, or `REQUESTS.md` § Opened from a card
 
 ### Releasing a member
 
 A released member becomes an individual card just after the stack, which keeps
 its place, its order and the selection; a released front card gives way to its
 nearest neighbour. A release that does not complete leaves the stack unchanged.
-A pane's card leaves its layout the same way.
+A pane's card leaves its layout the same way. A member released to the desktop
+(§10) leaves it so too: a window there is no card.
 
 ### Reordering a member
 
-A member reordered within its stack stays with it and never reaches the row or
-an edge. It takes the place it is let go at, counted from the front, and the
-stack then shows whichever member is in front; let go where it began, the stack
-is unchanged.
+A member reordered within its stack stays with it, never reaching the row or an
+edge, and takes the place it is let go at; the stack shows whichever member is
+then in front.
 
 ## 10. Edge actions
 
@@ -429,7 +417,8 @@ Spread's side edges on the display that owns cards are not edge actions.
 
 ### Bottom edge
 
-Release the carried window to the Plasma desktop.
+Release the carried window, or by `Meta+Shift+Backspace` the Active card or
+pane, to the Plasma desktop, out of its Stack or layout.
 
 On any display showing cards (§11), §2's Desktop is then shown with it; a last
 card ends the display's session, as §12's last closure does.
@@ -478,7 +467,7 @@ Stack and all; closing or carrying it off brings back the one before. It stays
 though its application stops short (§5). Sized Connected, it plays cards into
 its layout. A card moved to
 another display goes there with its Stack in one transfer, joining a live
-layout, else Active. Let go (§13), windows
+layout or the free half beside a lone card, else Active. Let go (§13), windows
 stay windows until one opens.
 
 `kaduncerc` `[Spread] OtherDisplays=windows` keeps one Spread, on the primary
@@ -514,9 +503,9 @@ starts ownership again (§3).
 
 ## 13. Release and disable
 
-Explicit bottom-edge release affects only the carried window.
+An explicit release (§10) affects only that window.
 
-Full Kadunce release or disable:
+Full release or disable, by the tray's Cards switch or `Meta+Esc`:
 
 - Restores every owned window, on every desktop, exactly once
 - Restores original geometry, clear of a panel's room taken since
