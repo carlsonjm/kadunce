@@ -1447,7 +1447,7 @@ bool Effect::stackTableCard(const TableAction &action)
     for (const auto &window : std::as_const(carried))
         if (window && window != face) faceBack.append(window);
     SessionScope scope(this, session, *ontoKey);
-    const bool stacked = stackOnPlaces(face, anchor, faceBack);
+    const bool stacked = stackOnPlaces(face, anchor, faceBack, carried.size() == 1 && from.windows.size() > 1);
     landTableCard(destination, face);
     return stacked;
 }

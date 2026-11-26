@@ -362,8 +362,7 @@ private:
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
-    // an app's first frames at a new size can be empty. Only that window is
-    // kept, and for at most HeldPictureLimitMs.
+    // an app's first frames at a new size can be empty. Only that window is kept, and for at most HeldPictureLimitMs.
     struct HeldPicture {
         KeptPicture picture;
         QSizeF bufferAtCapture;
@@ -923,14 +922,16 @@ private:
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
     bool restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
-    // Keeps the cards behind `front` its Stack on the stage named now, as a
-    // pane's or in the row, once it is either.
+    // Keeps the cards behind `front` its Stack on the stage named now, as a pane's or in the row.
     void keepStackBehind(KWin::EffectWindow *front, const QList<QPointer<KWin::EffectWindow>> &behind, int tries);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
-    // §11, Connected: a carried pane let go on `onto` joins its Stack in
-    // front, and the next card of its own Stack takes the slot it left.
-    bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto); bool stackOnPlaces(KWin::EffectWindow *face, KWin::EffectWindow *anchor, const QList<KWin::EffectWindow *> &faceBack); // Table: pane or card onto pane or card
+    // §11, Connected: a carried pane let go on `onto` joins its Stack in front, its own Stack with it.
+    bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    // Table: `face` (a pane or card, `faceBack` behind it) onto the pane or card `anchor`, as a drag in
+    // Spread stacks them; `alone`, a pane taken out of its own Stack, leaves that Stack its slot.
+    bool stackOnPlaces(KWin::EffectWindow *face, KWin::EffectWindow *anchor,
+                       const QList<KWin::EffectWindow *> &faceBack, bool alone = false);
     bool joinStackOpenedFrom(KWin::EffectWindow *opened, bool late);
     class OpenedFromWatch *m_openedFrom = nullptr;
     // §11, Every display: the other panes of that display wait in Spread for
@@ -1262,8 +1263,7 @@ private:
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
     // §11, Connected: the Active card takes the place `side` names, alone.
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
-    // A side snap of the Active card brings back the layout Spread holds,
-    // with the card in the place the snap named.
+    // A side snap of the Active card brings back the layout Spread holds, with the card in the place the snap named.
     // A card let go out of its Stack on a Solo display joins the layout on Spread's display beside it.
     void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
                                 BentoSidePlacement side, const QRectF &drawn);
