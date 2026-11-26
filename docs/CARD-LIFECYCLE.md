@@ -323,7 +323,7 @@ The same peer entries return:
 - Bento reflows its remaining visible panes.
 
 It never returns by itself. Woken from its dock icon, it grows back into the
-place it left; woken otherwise, it comes as a card called forward.
+place it left; otherwise, as a card called forward.
 
 ## 8. Arrivals at a live Bento
 
