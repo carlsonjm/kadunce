@@ -44,6 +44,14 @@ int main() {
               && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, paneBetween)
               == KeyAction::None,
           "Meta+Ctrl+Shift's arrows on a pane did not send it only toward a workspace there is");
+    // A window a stage holds, cards not shown, is sent by Kadunce and never
+    // carried off by KDE's own key.
+    KeyContext held = desktop;
+    held.held = true;
+    held.workspaceLeft = true;
+    check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier, held)
+              == KeyAction::WorkspaceLeft,
+          "Meta+Ctrl+Shift+Left on a held window with no cards shown was left to KDE");
     // The arrows are taken only while cards are shown.
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier, desktop) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier, desktop) == KeyAction::None,

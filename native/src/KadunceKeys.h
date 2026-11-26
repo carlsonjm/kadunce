@@ -65,6 +65,9 @@ struct KeyContext {
     bool stacked = false;
     // A workspace lies to that side of the one shown.
     bool workspaceLeft = false, workspaceRight = false;
+    // The focused window is one a stage holds, shown or not: KDE's keys
+    // never carry such a window off its workspace with the person.
+    bool held = false;
 };
 
 inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const KeyContext &context)
@@ -117,9 +120,9 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         // card's Stack goes with it, and on a pane when a workspace lies that
         // way, so the pane goes alone; anywhere else they stay KDE's.
         switch (key) {
-        case Qt::Key_Left: return context.cardsShown || (context.pane && context.workspaceLeft)
+        case Qt::Key_Left: return context.cardsShown || ((context.pane || context.held) && context.workspaceLeft)
             ? KeyAction::WorkspaceLeft : KeyAction::None;
-        case Qt::Key_Right: return context.cardsShown || (context.pane && context.workspaceRight)
+        case Qt::Key_Right: return context.cardsShown || ((context.pane || context.held) && context.workspaceRight)
             ? KeyAction::WorkspaceRight : KeyAction::None;
         default: return KeyAction::None;
         }

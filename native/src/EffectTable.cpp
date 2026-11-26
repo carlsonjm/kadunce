@@ -1271,8 +1271,14 @@ void Effect::sendCardToWorkspace(int step)
     KWin::EffectWindow *card = pane ? focused
         : m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread
             ? m_cardStage->selectedWindow()
-            : m_cardStage->activeCardIdentity();
-    if (!card || card->isDeleted()) return;
+            : m_cardStage->isActive() ? m_cardStage->activeCardIdentity() : focused;
+    // Only what stands on the workspace shown goes: the keys still on a card
+    // sent away send nothing, and KDE's own keys do not carry it either.
+    if (!card || card->isDeleted() || !card->isOnCurrentDesktop() || !(pane || sessionHolding(card))) {
+        qInfo() << "Kadunce" << Revision << "sends nothing: the keys are on" << (card ? logNameOf(card) : QString())
+                << "which stands on no workspace shown here";
+        return;
+    }
     const auto desktops = KWin::effects->desktops();
     const int there = desktops.indexOf(KWin::effects->currentDesktop()) + step;
     if (there < 0 || there >= desktops.size() || there - step < 0) {
@@ -1307,15 +1313,17 @@ void Effect::sendCardToWorkspace(int step)
         m_sentAhead[destination->id()].removeAll(card);
         m_sentAhead[destination->id()].append(card);
     }
-    // The keys go on here, to what now stands in front, never to the card sent.
+    // The keys go on here, to what now stands in front, or to the desktop
+    // when nothing does: never to the card sent, which KDE's own keys would
+    // then carry off with the person.
     const auto stack = KWin::effects->stackingOrder();
-    for (auto it = stack.crbegin(); it != stack.crend(); ++it)
-        if (KWin::EffectWindow *next = *it; next && next != card && !deck.contains(next) && !next->isDeleted()
-            && !next->isMinimized() && next->isNormalWindow() && next->isOnCurrentDesktop()
-            && next->screen() == card->screen() && !next->data(CardAsideRole).toBool()) {
-            KWin::effects->activateWindow(next);
-            break;
-        }
+    KWin::EffectWindow *next = nullptr;
+    for (auto it = stack.crbegin(); it != stack.crend() && !next; ++it)
+        if (KWin::EffectWindow *w = *it; w && w != card && !deck.contains(w) && !w->isDeleted() && !w->isMinimized()
+            && w->isOnCurrentDesktop() && w->screen() == card->screen() && !w->data(CardAsideRole).toBool()
+            && (w->isNormalWindow() || w->isDesktop()))
+            next = w;
+    if (next) KWin::effects->activateWindow(next);
     qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1
             << "cards behind it to workspace" << there + 1;
 }
