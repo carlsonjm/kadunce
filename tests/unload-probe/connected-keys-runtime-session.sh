@@ -4,7 +4,7 @@
 # large, sized Connected and chosen for Spread. Meta's arrows move the focus
 # from pane to pane and on to the small display; with Shift a pane trades
 # places with the one beside it and, at the layout's edge, goes on to the
-# small display and back. The brackets move a divider. Meta+Shift+Up puts a
+# small display and back. The brackets move a divider. Meta+Shift+S puts a
 # pane with no Stack into the Stack of the pane used before it, and puts a
 # Stack's card deeper, placed when Meta is let go; Meta+Tab steps the Stack
 # and Meta+Shift+Down takes a card out of it, or a pane out of the layout, and
@@ -167,9 +167,9 @@ check 'stacks: the layout holds five panes' test "${#panes[@]}" -eq 5
 first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-} fourth=${panes[3]:-}
 focus_on "$second"
 focus_on "$first"
-meta_shift 103
+meta_shift 31
 report joined
-check 'join: Meta+Shift+Up puts the pane in front of the one used before it' behind_is "$first" "[\"$second\"]"
+check 'join: Meta+Shift+S puts the pane in front of the one used before it' behind_is "$first" "[\"$second\"]"
 check 'join: that one waits behind it' is_card "$second"
 check 'join: the other pane stayed' is_pane "$third"
 meta 15
@@ -185,19 +185,19 @@ check 'step: Meta+Shift+Tab steps back' is_pane "$first"
 # Meta let go places it there.
 focus_on "$first"
 focus_on "$third"
-meta_shift 103
+meta_shift 31
 report joined-three
 check 'join: the third joins in front' behind_is "$third" "[\"$first\",\"$second\"]"
-meta_shift 103 1
+meta_shift 31 1
 report deeper-one
-check 'deeper: Meta+Shift+Up once puts it behind the next card' behind_is "$first" "[\"$third\",\"$second\"]"
+check 'deeper: Meta+Shift+S once puts it behind the next card' behind_is "$first" "[\"$third\",\"$second\"]"
 check 'deeper: the card it passed is in front' is_pane "$first"
 focus_on "$first"
-meta_shift 103 2
+meta_shift 31 2
 report deeper-two
 check 'deeper: held, two presses put it at the back' behind_is "$third" "[\"$second\",\"$first\"]"
 focus_on "$third"
-meta_shift 103 3
+meta_shift 31 3
 report deeper-round
 check 'deeper: past the back it comes round to where it was' behind_is "$third" "[\"$second\",\"$first\"]"
 
@@ -246,7 +246,7 @@ pick "$fourth"
 check 'spread: the card let go earlier is a pane again' is_pane "$fourth"
 focus_on "$fifth"
 focus_on "$third"
-meta_shift 103
+meta_shift 31
 report spread-joined
 check 'spread: a Stack to let go of in Spread' behind_is "$third" "[\"$fifth\"]"
 spread_key

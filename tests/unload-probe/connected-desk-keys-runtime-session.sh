@@ -194,9 +194,9 @@ probe activateWindowId "$rest" >/dev/null
 sleep .6
 probe activateWindowId "$front" >/dev/null
 sleep .6
-meta_shift 103
+meta_shift 31
 report stacked
-check 'stack: Meta+Shift+Up stacks one pane on the other' together "$front" "$rest"
+check 'stack: Meta+Shift+S stacks one pane on the other' together "$front" "$rest"
 was=$(focused_id)
 meta 15
 report active-stepped

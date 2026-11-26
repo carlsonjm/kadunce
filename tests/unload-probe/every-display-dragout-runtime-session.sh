@@ -101,11 +101,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect kwin4_effect_kadunc
 sleep 1.8
 report loaded
 
-# Meta+Esc lets every window go; Meta+B on the monitor, with no layout there,
-# lays its three windows out.
-probe key 1 125 >/dev/null
-sleep 1.4
-report released
+# Meta+B on the monitor, with no layout there, lays its three windows out.
 probe pointer 2560 720 >/dev/null
 probe activateWindowId "$ma" >/dev/null
 sleep .6

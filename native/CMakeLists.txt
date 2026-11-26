@@ -80,6 +80,9 @@ kcoreaddons_add_plugin(kwin4_effect_kadunce
         src/EffectStacks.cpp
         src/EffectInput.cpp
         src/EffectEdgeSwipe.cpp
+        src/EffectSentAway.cpp
+        src/EffectStackKeys.cpp
+        src/EffectRoom.cpp
         src/EffectKeys.cpp
         src/EffectContext.cpp
         src/EffectNotes.cpp

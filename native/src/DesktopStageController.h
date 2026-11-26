@@ -307,8 +307,11 @@ public:
     // proved on a value copy that it can show the card. With `growOnly` a full
     // layout refuses the card rather than give it another pane's slot; without
     // `takesFocus` the window in use stays in use.
+    // With `ownPlace`, a card a pane's arrival pushed out takes its own slot
+    // back while that arrival stands there; only a card woken from the dock asks.
     [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
-        const std::function<bool()> &commitSource, bool growOnly = false, bool takesFocus = true);
+        const std::function<bool()> &commitSource, bool growOnly = false, bool takesFocus = true,
+        bool ownPlace = false);
     // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
     // it puts the next card in that pane's slot. Nothing else moves; the pane
     // leaving becomes a card through the same path as any yielded pane; a
@@ -386,7 +389,9 @@ public:
     [[nodiscard]] bool holdsInPlacedColumns(const KWin::LogicalOutput *output,
                                             const KWin::EffectWindow *window) const;
     // Read-only layout solve: no placement, source removal or application token.
-    [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop);
+    // With `plan`, also where each other pane of that layout would stand.
+    [[nodiscard]] std::optional<KWin::RectF> cardDropPreview(const PreparedDrop &drop,
+        QList<QPair<QPointer<KWin::EffectWindow>, KWin::RectF>> *plan = nullptr);
     // §3: Bento begins by pairing the carried window with the Active card. The
     // source gives both up in `commitSource`, after the pair layout is proven
     // and before it is published.
@@ -522,6 +527,20 @@ private:
         QPointer<KWin::EffectWindow> yielded;
     };
     QList<Displacement> m_displaced;
+    // A pane put to sleep, and the place it left: beside `by`, at `place`.
+    // Called back into that layout, it takes that place again.
+    struct SleptPlace {
+        QString outputName;
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::EffectWindow> by;
+        PanePlace place = PanePlace::Left;
+        // The layout's plan as it slept, and the panes awake then: woken while
+        // the same panes are awake, the layout stands as it did.
+        std::optional<BentoPlacedColumns> plan;
+        QList<QPointer<KWin::EffectWindow>> awake;
+    };
+    QList<SleptPlace> m_sleptPlaces;
+    void noteSleptPlace(const QString &key, KWin::EffectWindow *window);
     void returnDisplacedCards(const QString &key);
     // §5: a window leaves for the display that can hold it as a card. Where
     // none can, nothing leaves and the layout keeps the combination it has.

@@ -9,6 +9,7 @@
 #include <KStatusNotifierItem>
 
 #include <QAction>
+#include <KGlobalAccel>
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -206,6 +207,15 @@ public:
         m_notifier.setIsMenu(false);
         QObject::connect(&m_notifier, &KStatusNotifierItem::activateRequested,
                          [this](bool, const QPoint &) {
+            if (m_busy) return;
+            if (effectRunning()) disable(); else enable();
+        });
+        // Meta+Esc is the same switch, so it works with Cards off too, when
+        // the effect is not there to hear it.
+        m_key = new QAction(i18n("Cards on or off"), m_menu);
+        m_key->setObjectName(QStringLiteral("cards-on-or-off"));
+        KGlobalAccel::self()->setGlobalShortcut(m_key, QKeySequence(Qt::META | Qt::Key_Escape));
+        QObject::connect(m_key, &QAction::triggered, [this]() {
             if (m_busy) return;
             if (effectRunning()) disable(); else enable();
         });
@@ -535,6 +545,7 @@ private:
     KStatusNotifierItem m_notifier;
     QMenu *m_menu;
     QAction *m_toggle;
+    QAction *m_key = nullptr;
     QAction *m_health;
     QAction *m_repairAction;
     QAction *m_zones = nullptr;

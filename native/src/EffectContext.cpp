@@ -793,6 +793,38 @@ bool Effect::placeApplication(const QStringList &applicationIds, const QString &
     return placed;
 }
 
+void Effect::noteLaunchOrigin(const QStringList &applicationIds, double x, double y, double width, double height)
+{
+    // The dock names the icon an application is opened from just before it
+    // asks for it, so its first window, opening as a card, grows out of it.
+    if (!callerMayDrive()) return;
+    auto launch = PendingLaunch::make(applicationIds, QStringLiteral("origin"));
+    m_launchOrigin.reset();
+    if (!launch || !(width > 0.0) || !(height > 0.0)) return;
+    m_launchOrigin = LaunchOrigin{std::move(*launch), QRectF(x, y, width, height), {}};
+    m_launchOrigin->asked.start();
+    // The dock asks for the window as it names the icon, and the window can
+    // wake first: one woken just now, not yet drawn, still grows out of it.
+    for (Opening &opening : m_opening)
+        if (opening.woken && !opening.from.isValid() && opening.seenAt < 0 && opening.since.elapsed() < OpenedStill
+            && opening.window && m_launchOrigin->launch.matches(applicationIdentity(opening.window.data()))) {
+            opening.from = m_launchOrigin->icon;
+            qInfo() << "Kadunce" << Revision << "dock icon for" << logNameOf(opening.window.data())
+                    << "came after it woke; it grows from" << opening.from;
+            m_launchOrigin.reset();
+            return;
+        }
+}
+
+QRectF Effect::takeLaunchOrigin(KWin::EffectWindow *window)
+{
+    if (!m_launchOrigin || m_launchOrigin->asked.elapsed() > PlacementLaunchTimeoutMs
+        || !m_launchOrigin->launch.matches(applicationIdentity(window))) return {};
+    const QRectF icon = m_launchOrigin->icon;
+    m_launchOrigin.reset();
+    return icon;
+}
+
 void Effect::cancelPlacement(const QString &requestToken)
 {
     if (!callerMayDrive()) return;
@@ -859,7 +891,7 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
                 // as a pick from Spread would; only an open display places
                 // it alone.
                 if (!m_desktopStage->managesWindow(placed))
-                    (void)admitActivatedCardToLiveBento(placed);
+                    (void)(m_pickedFromSpread = placed, admitActivatedCardToLiveBento(placed));
                 if (!m_desktopStage->managesWindow(placed) && m_cardStage->hasBentoGroup())
                     (void)playPickedCardIntoLayout(placed);
                 if (m_desktopStage->managesWindow(placed))

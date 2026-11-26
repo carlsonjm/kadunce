@@ -86,6 +86,7 @@ void Effect::handleDesktopChanged(KWin::VirtualDesktop *previous, KWin::VirtualD
     cancelInputForCardStage();
     m_currentSession = sessionFor(current);
     scopeTo(m_currentSession, m_scopedKey);
+    showSentAhead(current);
     bool holding = false;
     for (KWin::LogicalOutput *output : KWin::effects->screens()) {
         if (!isCardDisplay(output)) continue;
@@ -122,6 +123,7 @@ void Effect::handleDesktopRemoved(KWin::VirtualDesktop *desktop)
     if (desktop) m_unenteredDesktops.remove(desktop->id());
     // A stack carried to it and not yet dealt goes with it.
     if (desktop) m_pendingDecks.remove(desktop->id());
+    if (desktop) m_sentAhead.remove(desktop->id());
     // KWin has already moved the desktop's windows to a neighbour. Its session
     // lets them go as a release would, and the desktop they stand on now takes
     // them as its own (DesktopRemoval.h). Removing the desktop shown can come
@@ -152,6 +154,13 @@ void Effect::handleWindowDesktopsChanged(KWin::EffectWindow *window)
 {
     if (!window || window->isDeleted()) return;
     DesktopSession *holder = sessionHolding(window);
+    // A window a workspace holds that stands on a second one too: named, so
+    // whatever put it there is found (it was KDE's own key on a pane).
+    if (holder && !window->isOnAllDesktops() && window->desktops().size() > 1)
+        qInfo() << "Kadunce" << Revision << logNameOf(window) << "held by workspace"
+                << (holder->desktop ? holder->desktop->name() : QString()) << "now stands on"
+                << window->desktops().size() << "workspaces; the focus is on"
+                << (KWin::effects->activeWindow() ? logNameOf(KWin::effects->activeWindow()) : QStringLiteral("nothing"));
     if (holder && holder->desktop
         && (!window->isOnDesktop(holder->desktop) || window->isOnAllDesktops())) {
         SessionScope scope(this, holder);
@@ -353,6 +362,26 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
                 if (display.first == m_cardOutputName || display.first.isEmpty())
                     stages.insert(stages.begin(), display.second->cards.get());
                 else stages.push_back(display.second->cards.get());
+            // A layout's panes are cards of their own, each with the Stack it
+            // holds behind it, so the cards of a pane's Stack are not listed
+            // again; listed after the cards, as before.
+            QList<TableCard> paneCards;
+            for (const auto &view : session->layouts->ownershipView()) {
+                for (const quintptr pane : view.panes) {
+                    auto *window = reinterpret_cast<KWin::EffectWindow *>(pane);
+                    if (!window || window->isDeleted() || taken.contains(window) || !application(window)) continue;
+                    TableCard card = cardOf(window);
+                    taken.insert(window);
+                    for (const CardStageController *cards : stages)
+                        for (KWin::EffectWindow *member : cards->paneStack(window))
+                            if (member && !member->isDeleted() && !taken.contains(member) && application(member)) {
+                                card.windows.append(member);
+                                taken.insert(member);
+                            }
+                    card.stacked = int(card.windows.size()) - 1;
+                    paneCards.append(card);
+                }
+            }
             for (const CardStageController *cards : stages) {
                 KWin::EffectWindow *front = cards->isActive() ? cards->selectedWindow() : nullptr;
                 QList<KWin::EffectWindow *> ordered;
@@ -375,15 +404,7 @@ QList<Effect::TableWorkspace> Effect::tableWorkspaces()
                     workspace.cards.append(card);
                 }
             }
-            // A layout's panes are cards of their own.
-            for (const auto &view : session->layouts->ownershipView()) {
-                for (const quintptr pane : view.panes) {
-                    auto *window = reinterpret_cast<KWin::EffectWindow *>(pane);
-                    if (!window || window->isDeleted() || taken.contains(window) || !application(window)) continue;
-                    workspace.cards.append(cardOf(window));
-                    taken.insert(window);
-                }
-            }
+            workspace.cards.append(paneCards);
         }
         // A stack carried here whose windows are not cards yet is one card.
         const auto pending = m_pendingDecks.value(desktop->id());
@@ -1130,8 +1151,8 @@ void Effect::grabbedKeyboardEvent(QKeyEvent *event)
     case Qt::Key_Left: key = shift ? Key::CarryLeft : Key::Left; break;
     case Qt::Key_Right: key = shift ? Key::CarryRight : Key::Right; break;
     case Qt::Key_Up: key = Key::Up; break;
-    // Meta+Shift+Down takes a card out of its Stack, as it does everywhere.
-    case Qt::Key_Down: key = meta && shift ? Key::TakeOut : Key::Down; break;
+    case Qt::Key_Down: key = Key::Down; break;
+    case Qt::Key_S: if (meta && shift) key = Key::TakeOut; break; // out of its Stack
     case Qt::Key_Return:
     case Qt::Key_Enter:
     case Qt::Key_Space: key = Key::Enter; break;
@@ -1262,8 +1283,14 @@ void Effect::sendCardToWorkspace(int step)
     KWin::EffectWindow *card = pane ? focused
         : m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread
             ? m_cardStage->selectedWindow()
-            : m_cardStage->activeCardIdentity();
-    if (!card || card->isDeleted()) return;
+            : m_cardStage->isActive() ? m_cardStage->activeCardIdentity() : focused;
+    // Only what stands on the workspace shown goes: the keys still on a card
+    // sent away send nothing, and KDE's own keys do not carry it either.
+    if (!card || card->isDeleted() || !card->isOnCurrentDesktop() || !(pane || sessionHolding(card))) {
+        qInfo() << "Kadunce" << Revision << "sends nothing: the keys are on" << (card ? logNameOf(card) : QString())
+                << "which stands on no workspace shown here";
+        return;
+    }
     const auto desktops = KWin::effects->desktops();
     const int there = desktops.indexOf(KWin::effects->currentDesktop()) + step;
     if (there < 0 || there >= desktops.size() || there - step < 0) {
@@ -1280,8 +1307,35 @@ void Effect::sendCardToWorkspace(int step)
             return std::any_of(pending.cbegin(), pending.cend(), [&deck](const auto &window) { return deck.contains(window); });
         });
     if (deck.size() > 1) m_pendingDecks[destination->id()].append(deck);
+    // Moment 2: the card in front stays drawn here a moment, sliding out by
+    // the side its workspace lies on while what it leaves closes over it.
+    sendAway(card, step, nullptr);
     for (const auto &window : std::as_const(deck))
         if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
+    // The workspace it goes to takes it as a card now, at the size it will be
+    // shown there, so it never stands there at its own frame while that
+    // workspace slides in (showSentAhead).
+    KWin::LogicalOutput *output = card->screen();
+    DesktopSession *into = sessionFor(destination);
+    if (output && into && isCardDisplay(output)) {
+        SessionScope there(this, into, stageKeyFor(output));
+        if (m_cardStage->isActive() && !m_cardStage->presentsBento() && m_cardStage->liveCardIndex(card) < 0
+            && m_cardStage->admitArrivalAsCard(card) && card->window())
+            card->window()->moveResize(KWin::RectF(m_cardStage->activeTarget(output)));
+        m_sentAhead[destination->id()].removeAll(card);
+        m_sentAhead[destination->id()].append(card);
+    }
+    // The keys go on here, to what now stands in front, or to the desktop
+    // when nothing does: never to the card sent, which KDE's own keys would
+    // then carry off with the person.
+    const auto stack = KWin::effects->stackingOrder();
+    KWin::EffectWindow *next = nullptr;
+    for (auto it = stack.crbegin(); it != stack.crend() && !next; ++it)
+        if (KWin::EffectWindow *w = *it; w && w != card && !deck.contains(w) && !w->isDeleted() && !w->isMinimized()
+            && w->isOnCurrentDesktop() && w->screen() == card->screen() && !w->data(CardAsideRole).toBool()
+            && (w->isNormalWindow() || w->isDesktop()))
+            next = w;
+    if (next) KWin::effects->activateWindow(next);
     qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1
             << "cards behind it to workspace" << there + 1;
 }
@@ -1328,8 +1382,7 @@ bool Effect::stackTableCard(const TableAction &action)
     KWin::VirtualDesktop *source = m_tableWorkspaces[action.workspace].desktop;
     KWin::VirtualDesktop *destination = m_tableWorkspaces[action.destination].desktop;
     if (!source || !destination) return false;
-    // RESTACK: the card carried goes in front, every card of both Stacks kept,
-    // as a card stacked onto a Stack in Spread is.
+    // RESTACK: the card carried goes in front, every card of both Stacks kept, as in Spread.
     QList<QPointer<KWin::EffectWindow>> carried = from.windows;
     if (action.member >= 0 && action.member < carried.size() && carried.size() > 1)
         carried = {carried[action.member]};
@@ -1346,8 +1399,7 @@ bool Effect::stackTableCard(const TableAction &action)
         });
     KWin::VirtualDesktop *current = KWin::effects->currentDesktop();
     if (destination != current) {
-        // A desktop not shown holds its cards for when it is: the Stack is
-        // made as that desktop is next entered, as a Stack carried there is.
+        // A desktop not shown holds its cards for when it is: the Stack is made as that desktop is next entered.
         m_pendingDecks[destination->id()].append(deck);
         if (source != destination)
             for (const auto &window : std::as_const(carried))
@@ -1356,8 +1408,7 @@ bool Effect::stackTableCard(const TableAction &action)
         return true;
     }
     if (source != destination) {
-        // Coming from another desktop, the carried cards arrive here as any
-        // window does, and are stacked once each is a card here.
+        // From another desktop the carried cards arrive as any window does, and stack once each is a card here.
         m_pendingDecks[destination->id()].append(deck);
         for (const auto &window : std::as_const(carried))
             if (window && !window->isDeleted()) KWin::effects->windowToDesktops(window, {destination});
@@ -1366,13 +1417,19 @@ bool Effect::stackTableCard(const TableAction &action)
         landTableCard(destination, face);
         return true;
     }
-    // Both on the desktop shown: one card out of a Stack leaves it first; a
-    // card on another display goes there with its Stack; then they stack on
-    // the display of the card stacked onto.
+    // Both on the desktop shown: one card out of a Stack leaves it first; a card on another display goes
+    // there with its Stack; then they stack on the display of the card stacked onto.
     KWin::EffectWindow *anchor = onto.windows.value(0);
     if (!anchor || anchor->isDeleted()) return false;
     if (carried.size() == 1 && from.windows.size() > 1) {
-        if (CardStageController *stage = stageHolding(face)) {
+        // Out of a pane's Stack, the pane keeps the rest.
+        if (CardStageController *stage = stageHolding(face); stage && stage->paneHolding(face)) {
+            KWin::EffectWindow *pane = stage->paneHolding(face);
+            QList<KWin::EffectWindow *> rest = stage->paneStack(pane);
+            rest.removeAll(face);
+            stage->forgetPaneStack(pane);
+            if (!rest.isEmpty()) stage->notePaneStack(pane, rest);
+        } else if (CardStageController *stage = stageHolding(face)) {
             DesktopSession *session = sessionHolding(face);
             const auto key = session ? session->keyHolding(face) : std::nullopt;
             if (key) {
@@ -1386,15 +1443,11 @@ bool Effect::stackTableCard(const TableAction &action)
     if (!ontoKey) return false;
     if (stageKeyOf(face) != *ontoKey && anchor->screen())
         (void)moveCardToDisplay(face, anchor->screen(), false);
-    bool stacked = false;
-    {
-        SessionScope scope(this, session, *ontoKey);
-        QList<KWin::EffectWindow *> behind;
-        for (int i = 1; i < deck.size(); ++i)
-            if (deck[i]) behind.append(deck[i]);
-        stacked = m_cardStage->liveCardIndex(face) >= 0 && m_cardStage->regroup(face, behind);
-    }
-    if (!stacked) qInfo() << "Kadunce could not stack the" << deck.size() << "cards Table brought together";
+    QList<KWin::EffectWindow *> faceBack;
+    for (const auto &window : std::as_const(carried))
+        if (window && window != face) faceBack.append(window);
+    SessionScope scope(this, session, *ontoKey);
+    const bool stacked = stackOnPlaces(face, anchor, faceBack, carried.size() == 1 && from.windows.size() > 1);
     landTableCard(destination, face);
     return stacked;
 }

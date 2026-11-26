@@ -267,7 +267,7 @@ in no Stack shown in place. Stepping back to the card that was in front
 undoes it, since the ring keeps its order.
 
 `takeOutOfStack` takes the card in front out of its Stack, as
-`Meta+Shift+Down` does: the Active card stands alone and the Stack waits
+`Meta+Shift+S` does: the Active card stands alone and the Stack waits
 beside it, and a pane's card takes a pane of its own beside the Stack, which
 shows its next card. It answers `false` for a window that is not a Stack's
 front.

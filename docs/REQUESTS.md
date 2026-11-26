@@ -20,11 +20,11 @@ interface: co.goodinput.Kadunce
 | `clearPlacementAim()` | the outline goes |
 | `placeApplication(applicationIds, windowId, x, y, requestToken)` | `true` when the request is accepted |
 | `cancelPlacement(requestToken)` | a waiting launch is dropped |
+| `noteLaunchOrigin(applicationIds, x, y, width, height)` | the icon launched from |
 | signal `placementSettled(requestToken, windowId, placed)` | where the request ended |
 
-Points are global logical pixels. `applicationIds` names the application, its
-desktop file first; `windowId` is the window's KWin internal id, or empty when
-the application is not running.
+Points are global logical pixels. `applicationIds` names the application,
+desktop file first; `windowId` is its KWin internal id, or empty if not running.
 
 ## Where a point leads
 
@@ -43,8 +43,7 @@ the application is not running.
 Kadunce places a request only where it was last aimed. It returns `false` for
 a point that aims anywhere else, and for a request with no aim.
 
-A running application's window is placed at once and `placementSettled`
-reports it. With an empty `windowId`, Kadunce waits up to 10 seconds for the
+A running application's window is placed at once, as `placementSettled` reports. With an empty `windowId`, Kadunce waits up to 10 seconds for the
 application's first window and returns `true`; the requester launches it.
 Kadunce admits that window like any other arrival and places it, and
 `placementSettled` reports it. A wait that times out, is cancelled or is
@@ -55,6 +54,11 @@ would, from where it was before it was a card. An ordinary window on another
 display asked onto the card display becomes a card there, and is then placed
 as a card already there would be. Kadunce refuses, with `false`, a Bento pane
 asked anywhere but its own display.
+
+## Launch origin
+
+The dock names a tapped icon's rect before launching; a first window opening
+as the only card within 10 s grows from it.
 
 ## Bringing apps back
 
@@ -81,8 +85,7 @@ after a crash.
 
 ### What is remembered
 
-Every minute, and once more as the session begins to end, before cards are
-given back, Kadunce writes `$XDG_DATA_HOME/kadunce/workspace-memory.json`. For
+Every minute, and once more as the session ends, Kadunce writes `$XDG_DATA_HOME/kadunce/workspace-memory.json`. For
 each window of an application with a desktop file it keeps the desktop id, the
 display's name, the workspace's id, whether it was a card or a pane, its side
 or row position, its size class and whether it was in use: no title, document
@@ -96,24 +99,21 @@ waits up to 60 seconds for each application's first window:
 
 - On the workspace shown, it is placed as a placement request on its display
   would be: a card, or a pane on its side once its partner has also arrived.
-  A pane whose partner does not come back is a card. The card that was in use
+  A pane whose partner never returns is a card. The card that was in use
   is in use again at the end.
 - On another workspace, it goes there and onto its display, and becomes a card
   when that workspace is shown.
 - A display that is gone falls back to the display in use, and a workspace
   that is gone to the one shown. An application already running stays where
-  it is. Later windows of the same application open as any window does.
+  it is; its later windows open as any does.
 
-While a session is offered or being brought back, its workspaces are not
-dissolved (`TABLE.md`).
+While offered or coming back, its workspaces stay (`TABLE.md`).
 
 ### Opened together
 
-The applications opened by hand within five minutes of the first window after
+Applications opened by hand within five minutes of the first window after
 sign-in form one set, kept in `$XDG_DATA_HOME/kadunce/open-together.json` with
-how often it has been seen. A set needs two applications. Kadunce switched on
-with windows already open gathers nothing, and applications brought back are
-not counted. The 32 most recently seen sets are kept.
+its count. A set needs two applications. Nothing is gathered when switched on with windows open, nor are applications brought back counted. The 32 most recently seen sets are kept.
 
 ## Opened from a card
 

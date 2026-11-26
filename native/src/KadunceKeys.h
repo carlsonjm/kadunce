@@ -45,6 +45,23 @@ enum class KeyAction {
     // the person stays where they are, as KDE's own keys for a window do.
     WorkspaceLeft,
     WorkspaceRight,
+    // Meta+Shift+Up: a pane becomes the card the display shows whole, its
+    // layout held in Spread; Meta+Shift+Down puts it back in its place there.
+    Fill,
+    Unfill,
+    // Meta+Shift+S, stacking's own key as on COSMIC: a pane, the centred card
+    // of Spread or the Active card joins the Stack of the one used just
+    // before it; pressed again, it goes one deeper.
+    StackToggle,
+    // Meta+Shift+PgDown and PgUp: the card in front of the focused Stack goes
+    // one place back, or forward again.
+    StackBack,
+    StackForward,
+    // Meta+Shift+Backspace: the focused card or pane goes back to the Plasma
+    // desktop, as at the bottom edge.
+    ToDesktop,
+    // Delete in Spread: the centred card's app closes, as flicked up.
+    CloseCard,
 };
 
 struct KeyContext {
@@ -63,6 +80,11 @@ struct KeyContext {
     bool lone = false;
     // The Active card a display shows fronts a Stack.
     bool stacked = false;
+    // A workspace lies to that side of the one shown.
+    bool workspaceLeft = false, workspaceRight = false;
+    // The focused window is one a stage holds, shown or not: KDE's keys
+    // never carry such a window off its workspace with the person.
+    bool held = false;
 };
 
 inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const KeyContext &context)
@@ -78,7 +100,6 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_S: return KeyAction::Spread;
         case Qt::Key_W: return context.table ? KeyAction::Table : KeyAction::None;
         case Qt::Key_B: return KeyAction::Bento;
-        case Qt::Key_Escape: return KeyAction::Release;
         case Qt::Key_Left: return pane ? KeyAction::FocusLeft
             : context.cardsShown ? KeyAction::Previous : KeyAction::None;
         case Qt::Key_Right: return pane ? KeyAction::FocusRight
@@ -104,18 +125,27 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Backtab: return stack ? KeyAction::StackPrevious : KeyAction::None;
         case Qt::Key_Left: return carry ? KeyAction::CarryLeft : KeyAction::None;
         case Qt::Key_Right: return carry ? KeyAction::CarryRight : KeyAction::None;
-        case Qt::Key_Up: return pane ? KeyAction::Deeper : KeyAction::None;
-        case Qt::Key_Down: return pane || context.spreadShown || context.stacked
-            ? KeyAction::LetGo : KeyAction::None;
+        // Up and Down change a card's size, as on most desktops.
+        case Qt::Key_Up: return pane ? KeyAction::Fill : KeyAction::None;
+        case Qt::Key_Down: return pane || context.spreadShown ? KeyAction::LetGo
+            : (context.lone || context.stacked) && !context.spreadShown ? KeyAction::Unfill : KeyAction::None;
+        case Qt::Key_S: return pane || context.cardsShown ? KeyAction::StackToggle : KeyAction::None;
+        case Qt::Key_PageDown: return pane || context.cardsShown ? KeyAction::StackBack : KeyAction::None;
+        case Qt::Key_PageUp: return pane || context.cardsShown ? KeyAction::StackForward : KeyAction::None;
+        case Qt::Key_Backspace: return pane || (context.cardsShown && !context.spreadShown)
+            ? KeyAction::ToDesktop : KeyAction::None;
         default: return KeyAction::None;
         }
     }
     if (relevant == (Qt::MetaModifier | Qt::ControlModifier | Qt::ShiftModifier)) {
         // KDE's Window One Desktop keys, taken while cards are shown so a
-        // card's Stack goes with it; anywhere else they stay KDE's.
+        // card's Stack goes with it, and on a pane when a workspace lies that
+        // way, so the pane goes alone; anywhere else they stay KDE's.
         switch (key) {
-        case Qt::Key_Left: return context.cardsShown ? KeyAction::WorkspaceLeft : KeyAction::None;
-        case Qt::Key_Right: return context.cardsShown ? KeyAction::WorkspaceRight : KeyAction::None;
+        case Qt::Key_Left: return context.cardsShown || ((context.pane || context.held) && context.workspaceLeft)
+            ? KeyAction::WorkspaceLeft : KeyAction::None;
+        case Qt::Key_Right: return context.cardsShown || ((context.pane || context.held) && context.workspaceRight)
+            ? KeyAction::WorkspaceRight : KeyAction::None;
         default: return KeyAction::None;
         }
     }
@@ -128,6 +158,7 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Return:
         case Qt::Key_Enter: return KeyAction::Open;
         case Qt::Key_Escape: return KeyAction::Back;
+        case Qt::Key_Delete: return KeyAction::CloseCard;
         default: return KeyAction::None;
         }
     }
@@ -163,6 +194,8 @@ inline bool keyActionRepeats(KeyAction action)
     case KeyAction::Deeper:
     case KeyAction::DividerLeft:
     case KeyAction::DividerRight:
+    case KeyAction::StackBack:
+    case KeyAction::StackForward:
     case KeyAction::Hold: return true;
     default: return false;
     }

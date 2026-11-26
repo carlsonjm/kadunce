@@ -373,14 +373,15 @@ public:
     }
 
     // CarryLeft and CarryRight are Shift's arrows, and Drop is Shift let go.
-    // TakeOut is Meta+Shift+Down, which takes a card out of its Stack everywhere.
+    // TakeOut is Meta+Shift+S, which takes a card out of its Stack.
     enum class Key { Left, Right, Up, Down, Enter, Escape, Rename, CarryLeft, CarryRight, Drop, TakeOut };
 
     // The keyboard: left and right choose, down and up change level, Enter
     // goes where the displays show, F2 renames the workspace they show,
     // Escape cancels. Shift's arrows on a chosen card lift it and carry it
     // across the tabs and +, and letting go of Shift sets it down there, as
-    // a finger letting go does.
+    // a finger letting go does. Shift and down while carrying aim at the cards
+    // of the workspace it is over, and letting go stacks it on the one aimed.
     TableAction key(Key key)
     {
         if (!m_open) return {};
@@ -391,10 +392,15 @@ public:
         if (m_carrying) {
             switch (key) {
             case Key::CarryLeft:
-                carryStep(-1);
-                break;
             case Key::CarryRight:
-                carryStep(1);
+                if (m_aim >= 0) aimStep(key == Key::CarryLeft ? -1 : 1);
+                else carryStep(key == Key::CarryLeft ? -1 : 1);
+                break;
+            case Key::Down:
+                if (m_aim < 0 && m_over == Over::Workspace) aimStep(0);
+                break;
+            case Key::Up:
+                dropAim();
                 break;
             case Key::Drop:
                 return dropKeyCarry();
@@ -863,6 +869,21 @@ private:
         }
     }
 
+    // The keys aim the card in hand at a card of the workspace it is over,
+    // never at itself, `steps` along from the one aimed at.
+    void aimStep(int steps)
+    {
+        if (m_overWorkspace < 0 || m_overWorkspace >= m_cards.size()) return;
+        const int count = int(m_cards[m_overWorkspace].size());
+        const auto self = [this](int at) { return m_overWorkspace == m_carryFrom && at == m_carryCard && m_carryMember < 0; };
+        int at = m_aim < 0 ? 0 : m_aim + steps;
+        const int dir = steps < 0 ? -1 : 1;
+        while (at >= 0 && at < count && self(at)) at += dir;
+        if (at < 0 || at >= count) return;
+        m_aim = at;
+        m_aimArmed = true;
+    }
+
     // The card the keys carry goes back to its place, chosen again.
     void putBack()
     {
@@ -896,9 +917,13 @@ private:
         const int member = m_carryMember;
         const Over over = m_over;
         const int destination = m_overWorkspace;
+        const int target = m_aimArmed ? m_aim : -1;
         putBack();
         if (over != Over::Nothing && member >= 0) fold();
         if (over == Over::Plus) return {TableAction::Kind::Create, from, card, -1, member};
+        // Aimed at a card: it stacks there, in front, and Table stays open.
+        if (over == Over::Workspace && target >= 0)
+            return {TableAction::Kind::Stack, from, card, destination, member, target};
         if (over == Over::Workspace && destination != from)
             return {TableAction::Kind::Move, from, card, destination, member};
         return {TableAction::Kind::StayOpen};

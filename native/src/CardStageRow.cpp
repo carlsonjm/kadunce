@@ -500,6 +500,19 @@ void CardStageController::throwLifted(double velocity)
     window->closeWindow();
 }
 
+bool CardStageController::closeSelected()
+{
+    auto *window = selectedWindow();
+    if (!m_active || m_presentation != CardPresentation::Spread || !window || window->isDeleted()
+        || m_cardGrabActive || m_launcherGuestActive || m_lift.phase != Lift::Phase::None) return false;
+    // Lifted where it stands and thrown up, as a flick does.
+    m_lift = Lift{};
+    m_lift.window = window;
+    m_lift.phase = Lift::Phase::Drag;
+    throwLifted(-CloseThrowSpeed / 1000.0);
+    return true;
+}
+
 void CardStageController::pullOutLifted()
 {
     const QPointer<KWin::EffectWindow> window = m_lift.window;

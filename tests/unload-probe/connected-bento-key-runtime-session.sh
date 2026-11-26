@@ -196,6 +196,22 @@ check 'held: one Meta+B lays the layout held behind it out again' panes_are 3
 check 'held: the Active card is a pane of it' \
     context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
 
+# Meta+Shift+Up stands a pane whole as the Active card, its layout held
+# behind it in Spread; Meta+Shift+Down puts it back in its place there.
+probe activateWindowId "$browser" >/dev/null
+sleep .6
+probe keyHeld 103 1 125 42 >/dev/null
+sleep 1.6
+report whole
+check 'whole: Meta+Shift+Up makes the pane the Active card' \
+    context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.6
+report put-back
+check 'put back: Meta+Shift+Down lays the layout out again with it' panes_are 3
+check 'put back: it is a pane of it' \
+    context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
+
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect kwin4_effect_kadunce
 sleep .8
 check 'switched off: every window is an ordinary window on a display that exists' \

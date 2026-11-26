@@ -1433,6 +1433,8 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
+        const QPointer<KWin::EffectWindow> shownBefore = m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active
+            && !m_cardStage->presentsBento() ? m_cardStage->selectedWindow() : nullptr; // the card shown now, which it may come up over
         // §9: opened from a pane, it takes that pane, the pane's card behind it.
         if (joinStackOpenedFrom(candidate, false) || m_desktopStage->handleWindowAdded(candidate)) {
             observeCardOwnership();
@@ -1444,7 +1446,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         // §3: a display that can own cards and holds none takes the arrival
         // as its Active card, with every other window there as a card.
         if (!m_cardStage->isActive() && startTabletInCards(candidate)) {
-            (void)joinStackOpenedFrom(candidate, false);
+            (void)joinStackOpenedFrom(candidate, false); openedAsCard(candidate, nullptr);
             completePlacementForWindow(candidate);
             completeBringBackForWindow(candidate);
             completeLayoutForWindow(candidate);
@@ -1482,6 +1484,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
             KWin::effects->activateWindow(candidate);
         }
         completeLauncherGuestForWindow(candidate);
+        openedAsCard(candidate, shownBefore);
         observeCardOwnership();
         completePlacementForWindow(candidate);
         completeBringBackForWindow(candidate);
@@ -1564,17 +1567,17 @@ void Effect::handleWindowClosed(KWin::EffectWindow *window)
         }
     }
     // A pane of the shown layout, read before the layout lets it go.
-    KWin::LogicalOutput *paneOutput = nullptr;
+    KWin::LogicalOutput *paneOutput = nullptr, *cardOutput = nullptr;
     {
         SessionScope scope(this, m_scopedSession, stageKeyOf(window));
-        if (m_desktopStage->managesWindow(window)) paneOutput = window->screen();
+        if (m_desktopStage->managesWindow(window)) paneOutput = window->screen(); else if (closesAsOnlyCard(window)) cardOutput = window->screen();
     }
     // The window may be held by a desktop that is not shown, on any display.
     forEachSession([&] {
         m_desktopStage->handleWindowClosed(window);
         forEachDisplayStage([&](CardStageController &stage) { stage.handleWindowClosed(window); });
     });
-    holdLeavingPane(window, paneOutput);
+    holdLeavingPane(window, paneOutput ? paneOutput : cardOutput);
     // §11, Connected: a placed card keeps its place as its partner goes, and
     // the room the pane leaves offers the display's other cards, as after a
     // side snap. A layout auto layout began fills the display again instead.
@@ -1626,6 +1629,7 @@ void Effect::handleWindowActivated(KWin::EffectWindow *window)
         scheduleDependentSync();
         return;
     }
+    keysLeftOpening(window);
     // A closing pane's next card keeps the focus KWin handed elsewhere.
     if (m_closeFocusTo && window != m_closeFocusTo && isApplicationWindow(window)
         && !m_closeFocusTo->isDeleted() && m_desktopStage->managesWindow(m_closeFocusTo)) {
@@ -1721,12 +1725,11 @@ bool Effect::callAloneAsItLeft(KWin::EffectWindow *window)
 
 bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
 {
-    // §8: a display presenting its layout answers a called card with the
-    // layout. §2 names three presentations and none of them is a card drawn
-    // over live panes, so where the layout cannot show the card the layout
-    // stops being what the display presents rather than being covered.
-    if (!window || window->isDeleted() || !isCardWindow(window)
-        || !m_cardStage->presentsBento()
+    // §8: a display presenting its layout answers a called card with the layout. §2 names three presentations
+    // and none of them is a card drawn over live panes, so where the layout cannot show the card the layout
+    // stops being what the display presents. Called other than by a Spread pick, it takes its own place back.
+    const bool ownPlace = std::exchange(m_pickedFromSpread, nullptr) != window;
+    if (!window || window->isDeleted() || !isCardWindow(window) || !m_cardStage->presentsBento()
         || m_cardStage->liveCardIndex(window) < 0) return false;
     // §11, Connected: a card waiting behind a pane, called, comes to the
     // front of that pane. It never takes a pane of its own, which would part
@@ -1737,13 +1740,13 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
     qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"
             << logNameOf(window);
+    noteWoken(window, takeLaunchOrigin(window)); // never drawn here as a pane, it comes up in its place
     if (m_desktopStage->admitCardToLiveBento(window,
-            [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
+            [this, window] { return m_cardStage->releaseCardToLiveBento(window); }, false, true, ownPlace)) {
         observeCardOwnership();
         return true;
     }
-    // No slot the card's minimum size fits, so §8's other answer applies: the
-    // layout becomes a Spread group and the card can be Active beside it.
+    // No slot fits the card's minimum size, so §8's other answer applies: the layout becomes a Spread group.
     if (!retireLayoutIntoSpreadGroup(output)) {
         // Rejection retains Bento. Answering here is what keeps the refusal
         // from falling through to a card drawn over it.
@@ -1772,7 +1775,7 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
         }
         // §8: grow, or the pane used longest ago yields. With no pane the
         // pick fits, the layout returns to Spread and the pick is Active.
-        if (!admitActivatedCardToLiveBento(picked)) {
+        if (m_pickedFromSpread = picked; !admitActivatedCardToLiveBento(picked)) {
             m_cardStage->handleWindowActivated(picked);
             return true;
         }

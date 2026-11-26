@@ -490,6 +490,11 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, co
         && m_cardStage->activeCardIdentity()
         && (connectedForCardStage()
             || (m_cardsOnEveryDisplay && m_cardStage->activeCardIdentity() == focused));
+    const auto desktops = KWin::effects->desktops();
+    const int shown = desktops.indexOf(KWin::effects->currentDesktop());
+    context.workspaceLeft = shown > 0;
+    context.workspaceRight = shown >= 0 && shown + 1 < desktops.size();
+    context.held = focused && (m_desktopStage->managesWindow(focused) || sessionHolding(focused));
     context.stacked = context.cardsShown && m_cardStage->presentation() == CardPresentation::Active
         && m_cardStage->stackFrontToBack(m_cardStage->activeCardIdentity()).size() > 1;
     // Plain keys go to an effect holding the keyboard, as Table does while open.
@@ -509,6 +514,13 @@ bool Effect::answerKey(int key, Qt::KeyboardModifiers modifiers, bool repeat, co
         }
     }
     const KeyAction action = keyActionFor(key, modifiers, context);
+    // Every Meta key, as received, so a key that does the wrong thing names what it was taken for.
+    if ((modifiers & Qt::MetaModifier) && !repeat)
+        qInfo().nospace() << "Kadunce " << Revision << " key " << QKeySequence(key | int(modifiers)).toString()
+                          << " (" << Qt::hex << key << ", modifiers " << int(modifiers) << Qt::dec << ") is action "
+                          << int(action) << "; focused " << (focused ? logNameOf(focused) : QStringLiteral("nothing"))
+                          << " at " << (focused ? QRectF(focused->frameGeometry()) : QRectF()) << ", pane " << context.pane
+                          << ", lone " << context.lone << ", cards shown " << context.cardsShown;
     if (action == KeyAction::None || (repeat && !keyActionRepeats(action))) return false;
     // Open, Table keeps every key but its own.
     if (m_table.isOpen() && action != KeyAction::Table) return false;
@@ -557,6 +569,13 @@ void Effect::runKeyAction(KeyAction action)
         break;
     case KeyAction::DividerLeft: moveDividerByKey(-1); break;
     case KeyAction::DividerRight: moveDividerByKey(1); break;
+    case KeyAction::Fill: fillPaneByKeys(); break;
+    case KeyAction::Unfill: unfillByKeys(); break;
+    case KeyAction::StackToggle: stackByKeys(); break;
+    case KeyAction::StackBack: moveInStackByKeys(1); break;
+    case KeyAction::StackForward: moveInStackByKeys(-1); break;
+    case KeyAction::ToDesktop: sendFocusedToDesktop(); break;
+    case KeyAction::CloseCard: (void)m_cardStage->closeSelected(); break;
     case KeyAction::WorkspaceLeft: sendCardToWorkspace(-1); break;
     case KeyAction::WorkspaceRight: sendCardToWorkspace(1); break;
     case KeyAction::Hold:
@@ -642,7 +661,8 @@ void Effect::carryToward(KeyDirection direction)
         KWin::LogicalOutput *next = focused->screen() ? outputToward(focused->screen(), direction) : nullptr;
         if (!next || !isCardDisplay(next)) return;
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
-        if (!moveCardToDisplay(focused, next, true))
+        sendAway(focused, right ? 1 : -1, next);
+        if (!moveCardToDisplay(focused, next, true, true))
             qInfo() << "Kadunce" << Revision << "could not send" << logNameOf(focused) << "to" << next->name();
         return;
     }
@@ -683,6 +703,7 @@ void Effect::carryToward(KeyDirection direction)
         // own window-to-screen key sends it (handleWindowOutputChanged).
         if (KWin::LogicalOutput *next = outputToward(output, direction)) {
             qInfo() << "Kadunce" << Revision << "sends" << logNameOf(focused) << "to" << next->name();
+            sendAway(focused, right ? 1 : -1, next);
             // The pane it leaves on Spread's display is its again when it
             // comes back.
             if (isTabletOutput(output)) {
@@ -719,6 +740,7 @@ void Effect::carryToward(KeyDirection direction)
     }
     if (KWin::LogicalOutput *next = outputToward(output, direction)) {
         qInfo() << "Kadunce" << Revision << "sends" << logNameOf(card) << "to" << next->name();
+        sendAway(card, right ? 1 : -1, next);
         card->window()->sendToOutput(next);
     }
 }
@@ -830,6 +852,54 @@ void Effect::letPaneGo(KWin::EffectWindow *pane)
             latest = standing.data();
     }
     if (latest && KWin::effects->activeWindow() == released) KWin::effects->activateWindow(latest);
+}
+
+void Effect::fillPaneByKeys()
+{
+    // As a pane carried to the top edge: it stands whole as the display's
+    // Active card, its Stack with it, and the layout it left waits in Spread.
+    KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    KWin::LogicalOutput *output = pane ? pane->screen() : nullptr;
+    if (!pane || !output || !m_desktopStage->managesWindow(pane)) return;
+    SessionScope scope(this, m_scopedSession, stageKeyOf(pane));
+    const QRectF drawn(pane->frameGeometry());
+    const bool right = drawn.center().x() > QRectF(output->geometry()).center().x();
+    m_cardStage->setActiveWidth(pane, 1.0);
+    if (!m_desktopStage->extractPaneToCards(pane, [] { return true; })) return;
+    (void)m_cardStage->promoteToActive(pane);
+    m_cardStage->settlePaneStacks();
+    glideIntoActive(pane, output, drawn);
+    m_leftLayouts.insert(pane, LeftLayout{right, {}});
+    qInfo() << "Kadunce" << Revision << "made" << logNameOf(pane) << "whole by the keys from the"
+            << (right ? "right" : "left");
+    if (!isTabletOutput(output)) return;
+    markAloneOnPurpose(pane);
+    if (connectedForCardStage() && m_desktopStage->hasSessionOnOutput(output->name())) {
+        const QPointer<KWin::EffectWindow> whole = pane;
+        QTimer::singleShot(motion(260), this, [this, whole, output = QPointer(output)] {
+            if (whole && output) holdLayoutLeftBehind(whole, output);
+        });
+    }
+    observeCardOwnership();
+}
+
+void Effect::unfillByKeys()
+{
+    // The card made whole goes back to the side it left, the layout laid out
+    // again from Spread around it.
+    KWin::EffectWindow *card = m_cardStage->activeCardIdentity();
+    KWin::LogicalOutput *output = card ? card->screen() : nullptr;
+    const auto left = card ? m_leftLayouts.constFind(card) : m_leftLayouts.cend();
+    if (!card || !output || left == m_leftLayouts.cend() || !m_aloneOnPurpose.contains(card)) {
+        // Not made whole by the keys: in front of a Stack, it leaves it.
+        if (card && m_cardStage->stackFrontToBack(card).size() > 1) letActiveCardGo();
+        else qInfo() << "Kadunce" << Revision << "has no place to put" << (card ? logNameOf(card) : QString())
+                     << "back in by the keys";
+        return;
+    }
+    const bool right = left->right;
+    m_leftLayouts.remove(card);
+    layOutHeldLayoutBeside(card, output, BentoSidePlacement{right, true, true}, QRectF(card->frameGeometry()));
 }
 
 void Effect::letActiveCardGo()

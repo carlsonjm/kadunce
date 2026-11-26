@@ -466,6 +466,8 @@ public:
     // Meta+Shift+Down in Spread: the centred card leaves its Stack, or on
     // Connected a pane with none leaves the layout, as one pulled down does.
     bool pullOutSelected();
+    // Delete in Spread: the centred card's app is asked to close, as flicked up.
+    bool closeSelected();
     // The Active card leaves the Stack it fronts and stays the card shown; the
     // Stack waits in Spread just before it.
     bool letActiveCardOutOfStack();

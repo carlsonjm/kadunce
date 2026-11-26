@@ -7,6 +7,7 @@
 #include <opengl/gltexture.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glshader.h>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <algorithm>
 #include <cmath>
@@ -35,11 +36,19 @@ public:
             QPainter painter(&label);
             painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
             painter.scale(scale / 2.0 * Grow, scale / 2.0 * Grow);
-            // A plate behind ring and words, so they read over any window.
+            // A plate behind ring and words, so they read over any window,
+            // fitted to them with one margin all round.
+            QFont font; font.setPixelSize(26); font.setWeight(QFont::DemiBold);
+            const QString text = step >= Steps ? i18n("Stack") : i18n("Hold to stack");
+            const QFontMetricsF metrics(font);
+            const double wordsWidth = metrics.horizontalAdvance(text), wordsHeight = metrics.height();
+            const double plateWidth = std::min(Laid, std::max(Ring, wordsWidth) + 2 * Margin);
+            const double plateHeight = Margin + Ring + Gap + wordsHeight + Margin;
+            const double top = (LaidHeight - plateHeight) / 2;
             painter.setPen(Qt::NoPen);
             painter.setBrush(tone.pillFill(210));
-            painter.drawRoundedRect(QRectF(Laid / 2 - 110, 0, 220, LaidHeight), 28, 28);
-            const QRectF ring(Laid / 2 - 26, 8, 52, 52);
+            painter.drawRoundedRect(QRectF((Laid - plateWidth) / 2, top, plateWidth, plateHeight), 28, 28);
+            const QRectF ring(Laid / 2 - Ring / 2, top + Margin, Ring, Ring);
             QColor track = words; track.setAlphaF(0.22);
             painter.setPen(QPen(track, 6)); painter.setBrush(Qt::NoBrush);
             painter.drawEllipse(ring);
@@ -47,10 +56,8 @@ public:
                 painter.setPen(QPen(words, 6, Qt::SolidLine, Qt::RoundCap));
                 painter.drawArc(ring, 90 * 16, -int(360 * 16 * step / Steps));
             }
-            QFont font; font.setPixelSize(26); font.setWeight(QFont::DemiBold);
             painter.setFont(font); painter.setPen(words);
-            painter.drawText(QRectF(0, 72, Laid, 40), Qt::AlignCenter,
-                             step >= Steps ? i18n("Stack") : i18n("Hold to stack"));
+            painter.drawText(QRectF(0, ring.bottom() + Gap, Laid, wordsHeight), Qt::AlignCenter, text);
             painter.end();
             m_texture = KWin::GLTexture::upload(label);
             if (m_texture) m_texture->setFilter(GL_LINEAR);
@@ -77,9 +84,10 @@ public:
         if (!blended) glDisable(GL_BLEND);
     }
 private:
-    // Laid out at twice a 160 by 60 label, drawn a quarter larger.
-    static constexpr double Grow = 1.25, Laid = 320.0, LaidHeight = 120.0;
-    static constexpr int Width = 200, Height = 76, Steps = 40;
+    // Laid out at twice a 160 by 72 label, drawn a quarter larger: a ring and
+    // its words, a margin round them and a gap between.
+    static constexpr double Grow = 1.25, Laid = 320.0, LaidHeight = 144.0, Ring = 52.0, Margin = 22.0, Gap = 10.0;
+    static constexpr int Width = 200, Height = 90, Steps = 40;
     int m_step = -1;
     double m_scale = 0.0;
     QColor m_words;

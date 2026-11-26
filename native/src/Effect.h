@@ -240,6 +240,7 @@ public Q_SLOTS:
     Q_SCRIPTABLE bool placeApplication(const QStringList &applicationIds, const QString &windowId,
                                        double x, double y, const QString &requestToken);
     Q_SCRIPTABLE void cancelPlacement(const QString &requestToken);
+    Q_SCRIPTABLE void noteLaunchOrigin(const QStringList &applicationIds, double x, double y, double width, double height);
     // Workspace memory (docs/REQUESTS.md § Bringing apps back): the session
     // remembered at the last sign-out, bringing its apps back to their
     // places, and the sets of apps opened together after signing in.
@@ -361,8 +362,7 @@ private:
     void redirectPreviewSource(KWin::EffectWindow *window);
     // A card Kadunce resizes while Spread shows it keeps its last good picture,
     // fitted to its new frame, until the app has drawn itself at that size:
-    // an app's first frames at a new size can be empty. Only that window is
-    // kept, and for at most HeldPictureLimitMs.
+    // an app's first frames at a new size can be empty. Only that window is kept, and for at most HeldPictureLimitMs.
     struct HeldPicture {
         KeptPicture picture;
         QSizeF bufferAtCapture;
@@ -397,23 +397,16 @@ private:
     // Where each shadow falls, in logical pixels, so the screen is redrawn
     // where one leaves or arrives: where its window stands, for the frame
     // that moves it, and where it was last drawn, for one drawn elsewhere.
-    struct ShadowTrace {
-        QRectF expected;
-        QRectF drawn;
-    };
+    struct ShadowTrace { QRectF expected, drawn; };
     QHash<KWin::EffectWindow *, ShadowTrace> m_shadowTraces;
     KWin::Region m_shadowRepaint;
     void traceShadows(KWin::ScreenPrePaintData &data);
     struct BentoMotion {
-        QPointer<KWin::EffectWindow> window;
-        QPointer<KWin::LogicalOutput> output;
-        QRectF from, to, outputGeometry;
-        QElapsedTimer timer;
+        QPointer<KWin::EffectWindow> window; QPointer<KWin::LogicalOutput> output;
+        QRectF from, to, outputGeometry; QElapsedTimer timer;
         // A card let go on a pane waits at `from` from when its move was
         // `asked` for, and its `timer` starts once a frame has drawn it moving (PaneArrival.h).
-        bool arrival = false;
-        bool drawnMoving = false;
-        QElapsedTimer asked;
+        bool arrival = false, drawnMoving = false; QElapsedTimer asked;
         // Frames that drew it moving, for the line that reports its end.
         int frames = 0;
         // What the frames that drew it drew, for that line too.
@@ -452,18 +445,20 @@ private:
     // unseen until it has drawn that pane, and then shows where the panes
     // that made room have drawn back (PaneReveal.h).
     struct Opening {
-        QPointer<KWin::EffectWindow> window;
-        QElapsedTimer since;
-        QSizeF size;
-        bool asked = false, reported = false;
-        qint64 seenAt = -1;
+        QPointer<KWin::EffectWindow> window, over; QElapsedTimer since; QSizeF size; QRectF from; [[nodiscard]] int rise() const;
+        bool asked = false, reported = false, card = false, keys = false, woken = false; qint64 seenAt = -1, kept = 0;
     };
+    struct OpeningArrival { QRectF shown; QPointF offset; QPointer<KWin::EffectWindow> over; bool opening = false, beside = false; const char *how = ""; };
+    [[nodiscard]] OpeningArrival openingArrival(const KWin::EffectWindow *window) const;
     QList<Opening> m_opening;
-    void noteOpened(KWin::EffectWindow *window);
+    void noteOpened(KWin::EffectWindow *window); void noteWoken(KWin::EffectWindow *window, const QRectF &icon); // a hidden card called into a layout comes up in its place (PaneReveal.h)
+    [[nodiscard]] std::optional<QRectF> wokenBox(const KWin::EffectWindow *window, const QRectF &to, const QRectF &screen, double *opacity) const;
     [[nodiscard]] KWin::EffectWindow *openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows);
-    [[nodiscard]] bool openingsWait();
-    [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
+    [[nodiscard]] bool openingsWait(); [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);
+    void openedAsCard(KWin::EffectWindow *window, KWin::EffectWindow *over); // comes up `over` the card shown before, which stays until then
+    void keysLeftOpening(KWin::EffectWindow *activated); [[nodiscard]] bool openingCardDrawn(const KWin::EffectWindow *window) const; // journal: what moved the keys from a window coming into view
+    [[nodiscard]] std::optional<bool> paintOpeningCard(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport, KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);
     struct LeftLayout {
         bool right = false;
         QList<QPointer<KWin::EffectWindow>> partners;
@@ -479,12 +474,7 @@ private:
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.
-    struct YieldingPane {
-        QPointer<KWin::EffectWindow> window;
-        QPointer<KWin::LogicalOutput> output;
-        QRectF rect, outputGeometry;
-        QElapsedTimer timer;
-    };
+    struct YieldingPane { QPointer<KWin::EffectWindow> window; QPointer<KWin::LogicalOutput> output; QRectF rect, outputGeometry; QElapsedTimer timer; };
     QList<YieldingPane> m_yieldingPanes;
     void paneYieldedForDesktopStage(KWin::EffectWindow *window, KWin::LogicalOutput *output,
                                     const QRectF &drawn) override;
@@ -785,11 +775,10 @@ private:
     // A menu bar's press held still becomes a rename.
     QTimer m_tableHold;
     bool m_tablePressTouch = false;
-    // Stacks carried by Table to a desktop, front to back, by desktop id:
-    // their windows become cards when the desktop is next shown, one by one,
-    // and then are stacked again as they left.
+    // Stacks carried by Table to a desktop, front to back, by desktop id: cards when it is next shown, restacked.
     QHash<QString, QList<QList<QPointer<KWin::EffectWindow>>>> m_pendingDecks;
-    void restackCarriedDecks();
+    QHash<QString, QList<QPointer<KWin::EffectWindow>>> m_sentAhead; // sent by the keys, shown on entering
+    void restackCarriedDecks(); void showSentAhead(KWin::VirtualDesktop *current);
     void beginTableRename(int workspace, bool touch);
     void endTableRename(bool commit);
     void removeTableWorkspace(int workspace);
@@ -911,13 +900,13 @@ private:
     // The card stage a title-bar carry was prepared by; none once that carry no longer holds.
     [[nodiscard]] CardStageController *carrySourceStage(const PreparedCarrySource &source) const;
     [[nodiscard]] bool cardCarrySourceValid(const PreparedCarrySource &source) const;
-    // §11: the card goes, with its Stack, to the stage of another display
-    // holding cards, shown there when `show`, else waiting in its Spread.
-    bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show);
-    // Runs f after `ms` with the stage named now named again, while its desktop's session is still kept.
-    void onThisStageLater(int ms, const std::function<void()> &f);
-    // Shows a card sent to the stage named now there, once it stands there.
-    void showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, int tries = 20);
+    // §11: the card and its Stack go to another display's stage, shown there when `show` (beside a lone card: pairLone).
+    bool moveCardToDisplay(KWin::EffectWindow *card, KWin::LogicalOutput *to, bool show, bool pairLone = false);
+    void onThisStageLater(int ms, const std::function<void()> &f); // later, the stage named now, while its session is kept
+    // Shows a card sent to the stage named now there, once it stands there; beside a lone card when one stands there.
+    void showMovedCard(KWin::EffectWindow *card, const QList<QPointer<KWin::EffectWindow>> &behind, double fromX,
+        int tries = 20);
+    bool pairMovedCard(KWin::EffectWindow *card, KWin::LogicalOutput *here, double fromX);
     // A pane's Stack steps in place (CARD-LIFECYCLE.md §11).
     bool stepPane(KWin::EffectWindow *pane, int delta);
     void activateShownPane(KWin::EffectWindow *pane);
@@ -933,14 +922,16 @@ private:
     [[nodiscard]] bool steppingInUnseen(const KWin::EffectWindow *window) const;
     bool restoreLeftLayout(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
     void rejoinStack(KWin::EffectWindow *front, const QList<KWin::EffectWindow *> &behind);
-    // Keeps the cards behind `front` its Stack on the stage named now, as a
-    // pane's or in the row, once it is either.
+    // Keeps the cards behind `front` its Stack on the stage named now, as a pane's or in the row.
     void keepStackBehind(KWin::EffectWindow *front, const QList<QPointer<KWin::EffectWindow>> &behind, int tries);
     [[nodiscard]] bool justOpened(const KWin::EffectWindow *window) const;
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
-    // §11, Connected: a carried pane let go on `onto` joins its Stack in
-    // front, and the next card of its own Stack takes the slot it left.
+    // §11, Connected: a carried pane let go on `onto` joins its Stack in front, its own Stack with it.
     bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    // Table: `face` (a pane or card, `faceBack` behind it) onto the pane or card `anchor`, as a drag in
+    // Spread stacks them; `alone`, a pane taken out of its own Stack, leaves that Stack its slot.
+    bool stackOnPlaces(KWin::EffectWindow *face, KWin::EffectWindow *anchor,
+                       const QList<KWin::EffectWindow *> &faceBack, bool alone = false);
     bool joinStackOpenedFrom(KWin::EffectWindow *opened, bool late);
     class OpenedFromWatch *m_openedFrom = nullptr;
     // §11, Every display: the other panes of that display wait in Spread for
@@ -969,7 +960,7 @@ private:
     void commitKeyLadder();
     // The pane given, else the window in use.
     void letPaneGo(KWin::EffectWindow *pane = nullptr);
-    void letActiveCardGo();
+    void letActiveCardGo(); void fillPaneByKeys(); void unfillByKeys(); void stackByKeys(); void moveInStackByKeys(int delta); void sendFocusedToDesktop(); QPointer<KWin::EffectWindow> m_movingInStack; // keys: whole, back; stack, deeper; to the desktop (EffectStackKeys.cpp)
     // The application window with this KWin identity, if one is open.
     [[nodiscard]] KWin::EffectWindow *applicationWindowWithIdentity(const QString &windowId) const;
     void moveDividerByKey(int delta);
@@ -1257,10 +1248,10 @@ private:
     void handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleWindowActivated(KWin::EffectWindow *window);
-    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the
-    // user calls forward joins that layout. True means the activation was
-    // answered here; false leaves it to Card Stage, which by then is no longer presenting Bento.
+    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the user calls forward joins that
+    // layout. True means the activation was answered here; false leaves it to Card Stage, no longer presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    QPointer<KWin::EffectWindow> m_pickedFromSpread; // a Spread pick takes the slot used longest ago (§11), never its own place
     void markAloneOnPurpose(KWin::EffectWindow *card);
     [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;
@@ -1272,8 +1263,7 @@ private:
     [[nodiscard]] bool playPickedCardIntoLayout(KWin::EffectWindow *picked);
     // §11, Connected: the Active card takes the place `side` names, alone.
     bool placeActiveCardAlone(KWin::LogicalOutput *output, BentoSidePlacement side);
-    // A side snap of the Active card brings back the layout Spread holds,
-    // with the card in the place the snap named.
+    // A side snap of the Active card brings back the layout Spread holds, with the card in the place the snap named.
     // A card let go out of its Stack on a Solo display joins the layout on Spread's display beside it.
     void layOutHeldLayoutBeside(KWin::EffectWindow *card, KWin::LogicalOutput *output,
                                 BentoSidePlacement side, const QRectF &drawn);
@@ -1464,8 +1454,7 @@ private:
     // motion already under way then carries on.
     bool m_motionOutlivesInterrupt = false;
     [[nodiscard]] QRectF carriedPose() const;
-    // A carry let go as the Active card glides from the hand into its place.
-    void glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from);
+    void glideIntoActive(KWin::EffectWindow *window, KWin::LogicalOutput *output, const QRectF &from); // a carry let go as the Active card glides into place
     std::optional<DesktopStageController::PreparedDrop> m_carryDestination;
     std::optional<DesktopStageController::PreparedDrop> m_lineDestination;
     // A tablet edge action that admits to Card Stage has no Bento reservation
@@ -1540,6 +1529,9 @@ private:
     std::unique_ptr<KWin::GLShader> m_keyboardOutlineShader;
     std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
+    // Moment 3: held still on a place for a moment, the layout opens that room before the drop, drawn only (EffectRoom.cpp).
+    struct RoomPreview { QPointer<KWin::EffectWindow> window; QRectF from, to; QElapsedTimer timer; }; QList<RoomPreview> m_roomPreview; std::optional<KWin::RectF> m_roomAim; QElapsedTimer m_roomAimSince; bool m_roomOpen = false; QPointF m_roomContact; struct RoomRest { std::optional<KWin::RectF> leaving, closed; QElapsedTimer leavingSince, closedSince, clock; QList<qint64> opens; } m_roomRest;
+    void aimRoom(KWin::ScreenPrePaintData &data); void openRoom(); void closeRoom(); [[nodiscard]] std::optional<QRectF> roomPreviewRect(const KWin::EffectWindow *window) const; [[nodiscard]] KWin::EffectWindow *roomPaneAt(KWin::LogicalOutput *output, QPointF contact) const;
     // §11, Connected: the pane a carried pane rests over, which it joins in a Stack once rested there;
     // the pane it would join, once it would; and the aim read again when the dwell runs out.
     PaneStackAim<QPointer<KWin::EffectWindow>> m_paneStackAim;
@@ -1646,6 +1638,12 @@ private:
     // and stands in its own again unless `refit` is false.
     void releasePairOfferPlace(KWin::EffectWindow *card, bool refit = true);
     QHash<KWin::EffectWindow *, KWin::EffectWindowVisibleRef> m_roomOfferShown;
+    // A card sent to the workspace beside slides out toward it while it is drawn here still.
+    // So does a card sent to the display beside, sliding in there from the edge they share (`to`).
+    struct SentAway { KWin::EffectWindowVisibleRef shown; QPointer<KWin::LogicalOutput> output, to; QRectF from; int step = 0; QElapsedTimer timer; };
+    QHash<KWin::EffectWindow *, SentAway> m_sentAway; void sendAway(KWin::EffectWindow *window, int step, KWin::LogicalOutput *to);
+    [[nodiscard]] std::optional<QPointF> sentAwayShift(KWin::EffectWindow *window, KWin::LogicalOutput *painting) const; // nan x: not drawn there
+    void settleSentAway(KWin::ScreenPrePaintData &data); [[nodiscard]] std::optional<bool> paintSentAway(const KWin::RenderTarget &renderTarget, const KWin::RenderViewport &viewport, KWin::EffectWindow *window, int mask, const KWin::Region &deviceRegion, KWin::WindowPaintData &data);
     // Each offered card's picture, kept with its smaller copies so it reads
     // smoothly at the offer's size; taken once, on the offer's first paint.
     std::map<KWin::EffectWindow *, KeptPicture> m_offerPictures;
@@ -1826,7 +1824,7 @@ private:
     struct PaneLeaver { KWin::EffectWindowDeletedRef ref; QPointer<KWin::LogicalOutput> output; QRectF rect;
                         QElapsedTimer timer; mutable bool covered = false; };
     std::map<KWin::EffectWindow *, PaneLeaver> m_paneLeavers;
-    void grabPaneClosing(KWin::EffectWindow *window);
+    void grabPaneClosing(KWin::EffectWindow *window); [[nodiscard]] bool closesAsOnlyCard(const KWin::EffectWindow *window) const;
     void holdLeavingPane(KWin::EffectWindow *window, KWin::LogicalOutput *output);
     [[nodiscard]] std::optional<double> paneLeaverOpacity(const KWin::EffectWindow *window) const;
     void settlePaneLeavers();
@@ -1987,6 +1985,8 @@ private:
     std::optional<KWin::RectF> m_placementPreview;
     QPointer<KWin::LogicalOutput> m_placementPreviewOutput;
     std::optional<PendingLaunch> m_placementLaunch;
+    struct LaunchOrigin { PendingLaunch launch; QRectF icon; QElapsedTimer asked; }; std::optional<LaunchOrigin> m_launchOrigin;
+    [[nodiscard]] QRectF takeLaunchOrigin(KWin::EffectWindow *window);
     PlacementAim m_placementLaunchAim;
     QPointF m_placementLaunchPoint;
     quint64 m_placementGeneration = 0;

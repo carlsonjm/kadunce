@@ -1467,4 +1467,82 @@ void Effect::applyStackStepPose(KWin::EffectWindow *window, KWin::WindowPaintDat
         (f.center().y() - e.y()) / data.yScale(), 0.0));
 }
 
+bool Effect::stackOnPlaces(KWin::EffectWindow *face, KWin::EffectWindow *anchor,
+                           const QList<KWin::EffectWindow *> &faceBack, bool alone)
+{
+    // Table stacks two cards as a drag in Spread would (stackWhenLanded): a
+    // pane onto a pane joins its Stack; a pane onto a card takes that card's
+    // Stack behind it; a card onto a pane takes the pane's place in front of
+    // its Stack; a card onto a card regroups them. The stage named now is
+    // the anchor's.
+    const auto kind = [this](KWin::EffectWindow *window) {
+        return m_desktopStage->managesWindow(window) ? "pane"
+            : m_cardStage->liveCardIndex(window) < 0 ? "not a card here"
+            : m_cardStage->isActive() && m_cardStage->presentsBento() ? "hidden card" : "card";
+    };
+    const char *faceKind = kind(face), *anchorKind = kind(anchor);
+    const bool paneFace = m_desktopStage->managesWindow(face), paneAnchor = m_desktopStage->managesWindow(anchor);
+    bool stacked = false;
+    // A pane taken out of its Stack alone leaves the next card of it its slot.
+    const QList<KWin::EffectWindow *> rest = alone && paneFace ? m_cardStage->paneStack(face) : QList<KWin::EffectWindow *>();
+    if (!rest.isEmpty() && paneAnchor && face->screen() == anchor->screen()) {
+        KWin::EffectWindow *next = rest.first();
+        const QList<KWin::EffectWindow *> ontoBehind = m_cardStage->paneStack(anchor);
+        stacked = m_desktopStage->stackPaneOnto(face, anchor, next,
+            [this, next] { return m_cardStage->releaseCardToLiveBento(next); });
+        if (stacked) {
+            m_cardStage->forgetPaneStack(face);
+            m_cardStage->forgetPaneStack(anchor);
+            if (rest.size() > 1) m_cardStage->notePaneStack(next, rest.mid(1));
+            m_cardStage->notePaneStack(face, QList<KWin::EffectWindow *>{anchor} + ontoBehind);
+            m_cardStage->settlePaneStacks();
+        }
+    } else if (!rest.isEmpty()) {
+        qInfo() << "Kadunce" << Revision << "takes" << logNameOf(face) << "out of its Stack only onto a pane beside it";
+    } else if (paneFace && paneAnchor) {
+        stacked = face->screen() == anchor->screen() && stackPaneOnto(face, anchor);
+    } else if (paneFace && m_cardStage->liveCardIndex(anchor) >= 0) {
+        QList<KWin::EffectWindow *> behind = m_cardStage->stackFrontToBack(anchor);
+        if (behind.isEmpty()) behind.append(anchor);
+        behind.append(m_cardStage->paneStack(face));
+        m_cardStage->notePaneStack(face, behind);
+        m_cardStage->settlePaneStacks();
+        stacked = true;
+    } else if (paneAnchor && m_cardStage->liveCardIndex(face) >= 0) {
+        // The card carried goes in front, the pane and its Stack behind it.
+        // Its own Stack next, then the pane and the pane's Stack.
+        const QList<KWin::EffectWindow *> held = m_cardStage->paneStack(anchor);
+        QList<KWin::EffectWindow *> behind = faceBack;
+        behind.removeAll(anchor);
+        behind.append(anchor);
+        for (KWin::EffectWindow *window : held)
+            if (!behind.contains(window)) behind.append(window);
+        m_cardStage->forgetPaneStack(anchor);
+        m_cardStage->notePaneStack(face, behind);
+        stacked = m_desktopStage->replacePaneWithCard(anchor, face,
+            [this, face] { return m_cardStage->releaseCardToLiveBento(face); });
+        if (!stacked) {
+            m_cardStage->forgetPaneStack(face);
+            if (!held.isEmpty()) m_cardStage->notePaneStack(anchor, held);
+        } else {
+            m_cardStage->settlePaneStacks();
+        }
+    } else if (m_cardStage->liveCardIndex(face) >= 0 && m_cardStage->liveCardIndex(anchor) >= 0) {
+        QList<KWin::EffectWindow *> behind = faceBack;
+        QList<KWin::EffectWindow *> under = m_cardStage->stackFrontToBack(anchor);
+        if (under.isEmpty()) under.append(anchor);
+        for (KWin::EffectWindow *window : std::as_const(under))
+            if (!behind.contains(window) && window != face) behind.append(window);
+        stacked = m_cardStage->regroup(face, behind);
+    }
+    qInfo() << "Kadunce" << Revision << (stacked ? "stacked" : "could not stack") << logNameOf(face) << "(" << faceKind
+            << ") onto" << logNameOf(anchor) << "(" << anchorKind << ") in Table";
+    if (stacked) {
+        observeCardOwnership();
+        Q_EMIT workspaceContextChanged();
+        KWin::effects->addRepaintFull();
+    }
+    return stacked;
+}
+
 } // namespace Kadunce

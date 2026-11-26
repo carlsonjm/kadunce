@@ -670,6 +670,11 @@ QString Effect::nativeCarryState() const
 
 void Effect::updateNativeCarryDestination(QPointF contact)
 {
+    // Moment 3: a hand over the room open for it aims as it did when the room
+    // opened, so the place stays, filled as it was and never a Stack ring;
+    // elsewhere, panes are found where the open room has drawn them.
+    const bool inRoom = m_roomOpen && m_roomAim && QRectF(*m_roomAim).contains(contact);
+    if (inRoom) contact = m_roomContact;
     // A Stack being scrubbed has no destination: it goes back in its pane.
     if (m_stackScrub.active()) return;
     const auto traceDestination = qScopeGuard([this] {
@@ -1189,8 +1194,8 @@ void Effect::updateNativeCarryDestination(QPointF contact)
     // pane's Stack in front, however the display is sized; let go sooner, the
     // two swap below.
     KWin::EffectWindow *over = local && bento && !desktopWindow && !edge && !paneWidth
-        && isCardDisplay(target)
-        ? m_desktopStage->paneAt(target, contact, m_carriedWindow) : nullptr;
+        && isCardDisplay(target) && !inRoom
+        ? (m_roomOpen ? roomPaneAt(target, contact) : m_desktopStage->paneAt(target, contact, m_carriedWindow)) : nullptr;
     // The pane it would join shows outlined, its ring filling as the hand
     // rests, as a pane's middle does for a card from another display.
     if (over) {
@@ -1508,7 +1513,15 @@ std::optional<double> Effect::yieldingPaneOpacity(KWin::EffectWindow *window) co
 {
     for (const auto &yielding : m_yieldingPanes) {
         if (yielding.window != window) continue;
-        const int duration = motion(PaneArrivalDuration);
+        int duration = motion(PaneArrivalDuration);
+        // A window just opened pushing in over it: it waits for that window
+        // to show, then dims under it as a covered closing pane does and goes
+        // as the push ends (PaneLeaving.h).
+        const BentoMotion *taker = nullptr;
+        for (const auto &m : m_bentoMotions)
+            if (m.waitsFor == m.window && m.output == yielding.output && m.window
+                && openingArrival(m.window.data()).over == window) taker = &m;
+        if (taker) duration = motion(OpenedUnseenCap) + motion(PaneLeavingDuration);
         // It fades only while it is a hidden card: shown again, as a pane or
         // as a card, it is drawn as that.
         if (!window || window->isDeleted() || window->isMinimized() || !yielding.output
@@ -1519,6 +1532,9 @@ std::optional<double> Effect::yieldingPaneOpacity(KWin::EffectWindow *window) co
                 && isTabletOutput(yielding.output))
             || (m_cardStage->presentation() == CardPresentation::Active
                 && m_cardStage->selectedWindow() == window)) return std::nullopt;
+        if (taker && !taker->timer.isValid()) return 1.0;
+        if (taker) return taker->timer.elapsed() >= motion(PaneLeavingDuration) ? std::nullopt
+            : std::optional<double>(paneLeavingOpacity(double(taker->timer.elapsed()), double(motion(PaneLeavingDuration)), true));
         return 1.0 - QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
             double(yielding.timer.elapsed()) / duration);
     }
@@ -1583,7 +1599,12 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
     const bool started = m->timer.isValid();
     const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
         paneArrivalProgress(started, started ? m->timer.elapsed() : 0, duration));
-    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t,
+    // A window just opened into the layout comes in as its arrival says; one
+    // woken into its place comes up there (wokenBox).
+    if (m->waitsFor == window)
+        if (const auto woken = wokenBox(window, m->to, m->outputGeometry, nullptr)) return woken;
+    const QPointF in = m->waitsFor == window ? openingArrival(window).offset : QPointF();
+    return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t + in,
         m->from.size()+(m->to.size()-m->from.size())*t);
 }
 
@@ -1711,7 +1732,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
     KWin::EffectWindow *opening = openingAmong(windows);
     for (int i = 0; i < windows.size() && i < from.size() && i < to.size(); ++i) {
         auto *w = windows[i].data();
-        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || from[i] == to[i]) continue;
+        if (!w || w->isDeleted() || !w->window() || w->isMinimized() || (from[i] == to[i] && w != opening)) continue;
         const char *still = w == m_carriedWindow ? "carried"
             : w == m_settlingWindow ? "settling from a drop"
             : !from[i].isValid() ? "not drawn before"
@@ -1731,7 +1752,9 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
                               << ": " << from[i] << " to " << to[i];
             if (!standsInPlace) continue;
         }
-        m_bentoMotions.append({w,output,standsInPlace ? to[i] : from[i],to[i],QRectF(output->geometry()),clock});
+        // A pane already drawn opening room for a drop moves on from there.
+        const QRectF start = roomPreviewRect(w).value_or(from[i]);
+        m_bentoMotions.append({w,output,standsInPlace ? to[i] : start,to[i],QRectF(output->geometry()),clock});
         m_bentoMotions.last().startFrame = w->frameGeometry().size();
         m_bentoMotions.last().keepsPicture = !standsInPlace
             && (to[i].width() < from[i].width() - 2.0 || to[i].height() < from[i].height() - 2.0);
@@ -1746,6 +1769,7 @@ void Effect::animateBentoLayout(KWin::LogicalOutput *output,
             m_bentoMotions.last().asked.start();
         }
     }
+    m_roomPreview.removeIf([&windows](const RoomPreview &room) { return windows.contains(room.window); });
     if (!m_bentoMotions.isEmpty()) KWin::effects->addRepaintFull();
 }
 

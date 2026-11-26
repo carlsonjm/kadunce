@@ -14,7 +14,7 @@ include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core DBus Gui Widgets)
-find_package(KF6 6.26 REQUIRED COMPONENTS Config I18n StatusNotifierItem)
+find_package(KF6 6.26 REQUIRED COMPONENTS Config GlobalAccel I18n StatusNotifierItem)
 
 qt_add_executable(kadunce-control
     src/main.cpp
@@ -40,6 +40,7 @@ target_link_libraries(kadunce-control PRIVATE
     Qt6::Gui
     Qt6::Widgets
     KF6::ConfigCore
+    KF6::GlobalAccel
     KF6::I18n
     KF6::StatusNotifierItem
 )
