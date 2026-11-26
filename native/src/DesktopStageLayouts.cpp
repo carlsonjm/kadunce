@@ -1092,6 +1092,21 @@ bool DesktopStageController::applySession(Session &session, bool activateLead,
             m_zoned.append(client);
     }
     releaseStrayZones();
+    // A window left plain on this display stands under the layout in KWin's
+    // stacking too, as it is drawn, so a press on a pane never reaches it.
+    if (current()) {
+        const auto stack = KWin::effects->stackingOrder();
+        bool paneBelow = false, plainAbove = false;
+        for (KWin::EffectWindow *window : stack) {
+            if (!window || window->isDeleted()) continue;
+            if (plan.windows.contains(window)) paneBelow = true;
+            else if (paneBelow && window->isNormalWindow() && !window->isMinimized() && !window->keepAbove()
+                     && window->screen() == output && window->isOnCurrentDesktop()) plainAbove = true;
+        }
+        if (plainAbove)
+            for (const auto &pane : plan.windows)
+                if (pane && !pane->isDeleted() && pane->window()) KWin::workspace()->raiseWindow(pane->window());
+    }
     const QPointer<KWin::EffectWindow> lead = focus && plan.windows.contains(focus)
         ? QPointer<KWin::EffectWindow>(focus) : plan.windows.value(0);
     if (activateLead && current() && lead && !lead->isDeleted() && lead->window()) {
