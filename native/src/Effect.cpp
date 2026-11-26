@@ -1725,10 +1725,10 @@ bool Effect::callAloneAsItLeft(KWin::EffectWindow *window)
 
 bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
 {
-    // §8: a display presenting its layout answers a called card with the
-    // layout. §2 names three presentations and none of them is a card drawn
-    // over live panes, so where the layout cannot show the card the layout
-    // stops being what the display presents rather than being covered.
+    // §8: a display presenting its layout answers a called card with the layout. §2 names three presentations
+    // and none of them is a card drawn over live panes, so where the layout cannot show the card the layout
+    // stops being what the display presents. Called other than by a Spread pick, it takes its own place back.
+    const bool ownPlace = std::exchange(m_pickedFromSpread, nullptr) != window;
     if (!window || window->isDeleted() || !isCardWindow(window) || !m_cardStage->presentsBento()
         || m_cardStage->liveCardIndex(window) < 0) return false;
     // §11, Connected: a card waiting behind a pane, called, comes to the
@@ -1740,10 +1740,9 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
     qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"
             << logNameOf(window);
-    // It was never drawn here as a pane, so it comes up in its place (noteWoken).
-    noteWoken(window, takeLaunchOrigin(window));
+    noteWoken(window, takeLaunchOrigin(window)); // never drawn here as a pane, it comes up in its place
     if (m_desktopStage->admitCardToLiveBento(window,
-            [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
+            [this, window] { return m_cardStage->releaseCardToLiveBento(window); }, false, true, ownPlace)) {
         observeCardOwnership();
         return true;
     }
@@ -1776,7 +1775,7 @@ bool Effect::playPickedCardIntoLayout(KWin::EffectWindow *picked)
         }
         // §8: grow, or the pane used longest ago yields. With no pane the
         // pick fits, the layout returns to Spread and the pick is Active.
-        if (!admitActivatedCardToLiveBento(picked)) {
+        if (m_pickedFromSpread = picked; !admitActivatedCardToLiveBento(picked)) {
             m_cardStage->handleWindowActivated(picked);
             return true;
         }

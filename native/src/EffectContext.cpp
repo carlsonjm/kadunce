@@ -891,7 +891,7 @@ bool Effect::placeWindow(KWin::EffectWindow *window, const PlacementAim &aim, QP
                 // as a pick from Spread would; only an open display places
                 // it alone.
                 if (!m_desktopStage->managesWindow(placed))
-                    (void)admitActivatedCardToLiveBento(placed);
+                    (void)(m_pickedFromSpread = placed, admitActivatedCardToLiveBento(placed));
                 if (!m_desktopStage->managesWindow(placed) && m_cardStage->hasBentoGroup())
                     (void)playPickedCardIntoLayout(placed);
                 if (m_desktopStage->managesWindow(placed))

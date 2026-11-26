@@ -307,8 +307,11 @@ public:
     // proved on a value copy that it can show the card. With `growOnly` a full
     // layout refuses the card rather than give it another pane's slot; without
     // `takesFocus` the window in use stays in use.
+    // With `ownPlace`, a card a pane's arrival pushed out takes its own slot
+    // back while that arrival stands there; only a card woken from the dock asks.
     [[nodiscard]] bool admitCardToLiveBento(KWin::EffectWindow *window,
-        const std::function<bool()> &commitSource, bool growOnly = false, bool takesFocus = true);
+        const std::function<bool()> &commitSource, bool growOnly = false, bool takesFocus = true,
+        bool ownPlace = false);
     // CARD-LIFECYCLE.md §11, Connected: a Stack fills one pane, and stepping
     // it puts the next card in that pane's slot. Nothing else moves; the pane
     // leaving becomes a card through the same path as any yielded pane; a

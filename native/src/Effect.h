@@ -1247,10 +1247,10 @@ private:
     void handleWindowAdded(KWin::EffectWindow *window);
     void handleWindowClosed(KWin::EffectWindow *window);
     void handleWindowActivated(KWin::EffectWindow *window);
-    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the
-    // user calls forward joins that layout. True means the activation was
-    // answered here; false leaves it to Card Stage, which by then is no longer presenting Bento.
+    // CARD-LIFECYCLE.md §8: while a display presents its layout, a card the user calls forward joins that
+    // layout. True means the activation was answered here; false leaves it to Card Stage, no longer presenting Bento.
     [[nodiscard]] bool admitActivatedCardToLiveBento(KWin::EffectWindow *window);
+    QPointer<KWin::EffectWindow> m_pickedFromSpread; // a Spread pick takes the slot used longest ago (§11), never its own place
     void markAloneOnPurpose(KWin::EffectWindow *card);
     [[nodiscard]] bool callAloneAsItLeft(KWin::EffectWindow *window);
     [[nodiscard]] DisplaySizing sizingFor(const KWin::LogicalOutput *output) const;

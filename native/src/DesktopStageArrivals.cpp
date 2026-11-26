@@ -319,7 +319,7 @@ std::optional<int> DesktopStageController::paneCap(const KWin::LogicalOutput *ou
 }
 
 bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
-    const std::function<bool()> &commitSource, bool growOnly, bool takesFocus)
+    const std::function<bool()> &commitSource, bool growOnly, bool takesFocus, bool ownPlace)
 {
     // Why a card was refused a pane, for the journal.
     const auto refuse = [window](const char *why) {
@@ -347,7 +347,7 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     // back, and nothing else in the layout moves.
     Session candidate = live;
     int ownSlot = -1;
-    if (!growOnly)
+    if (ownPlace && !growOnly)
         for (const auto &held : std::as_const(m_displaced))
             if (held.yielded == window && held.outputName == live.outputName && held.arrival)
                 ownSlot = int(live.windows.indexOf(held.arrival));
@@ -359,7 +359,7 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     // stood by, while that pane still stands here.
     bool slept = false, restored = false;
     for (const auto &place : std::as_const(m_sleptPlaces)) {
-        if (returned || growOnly || place.window != window || place.outputName != live.outputName || !live.placed) continue;
+        if (returned || growOnly || !ownPlace || place.window != window || place.outputName != live.outputName || !live.placed) continue;
         // The same panes awake as when it slept: the layout stands as it did.
         QList<QPointer<KWin::EffectWindow>> awake;
         for (const auto &pane : live.windows)
