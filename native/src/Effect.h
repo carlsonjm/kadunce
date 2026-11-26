@@ -1530,7 +1530,7 @@ private:
     std::unique_ptr<KWin::GLShader> m_keyboardEdgeShader;
     std::optional<KWin::RectF> m_carryPreview;
     // Moment 3: held still on a place for a moment, the layout opens that room before the drop, drawn only (EffectRoom.cpp).
-    struct RoomPreview { QPointer<KWin::EffectWindow> window; QRectF from, to; QElapsedTimer timer; }; QList<RoomPreview> m_roomPreview; std::optional<KWin::RectF> m_roomAim; QElapsedTimer m_roomAimSince; bool m_roomOpen = false; QPointF m_roomContact;
+    struct RoomPreview { QPointer<KWin::EffectWindow> window; QRectF from, to; QElapsedTimer timer; }; QList<RoomPreview> m_roomPreview; std::optional<KWin::RectF> m_roomAim; QElapsedTimer m_roomAimSince; bool m_roomOpen = false; QPointF m_roomContact; struct RoomRest { std::optional<KWin::RectF> leaving, closed; QElapsedTimer leavingSince, closedSince, clock; QList<qint64> opens; } m_roomRest;
     void aimRoom(KWin::ScreenPrePaintData &data); void openRoom(); void closeRoom(); [[nodiscard]] std::optional<QRectF> roomPreviewRect(const KWin::EffectWindow *window) const; [[nodiscard]] KWin::EffectWindow *roomPaneAt(KWin::LogicalOutput *output, QPointF contact) const;
     // §11, Connected: the pane a carried pane rests over, which it joins in a Stack once rested there;
     // the pane it would join, once it would; and the aim read again when the dwell runs out.

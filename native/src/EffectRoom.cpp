@@ -21,6 +21,10 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
     if (m_carriedWindow && m_carryDestination && m_carryPreview && !m_carryDestination->detachesToDesktop()
         && m_carryDestination->destinationOutput()) {
         aim = m_carryPreview;
+    }
+    // An open room is read from its own plan, so its motion never moves the
+    // aim: the tests below are for a room not open yet.
+    if (aim && !m_roomOpen) {
         // The middle of a pane, joining its Stack, stays a highlight only.
         SessionScope own(this, m_currentSession, stageKeyFor(m_carryDestination->destinationOutput()));
         for (const auto &pane : m_desktopStage->panesOn(m_carryDestination->destinationOutput()->name()))
@@ -28,8 +32,7 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         // Over a pane, only the outer half of a side makes room; nearer its
         // middle the hand is heading for its Stack.
         auto *output = m_carryDestination->destinationOutput();
-        auto *under = m_roomOpen ? roomPaneAt(output, m_lastCarryContact)
-                                 : m_desktopStage->paneAt(output, m_lastCarryContact, m_carriedWindow);
+        auto *under = m_desktopStage->paneAt(output, m_lastCarryContact, m_carriedWindow);
         if (under && under != m_carriedWindow) {
             const QRectF r = roomPreviewRect(under).value_or(QRectF(under->frameGeometry()));
             if (!panePlaceOuter({r.x(), r.y(), r.width(), r.height()}, m_lastCarryContact.x(), m_lastCarryContact.y()))
@@ -40,12 +43,37 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
     // swap is, opens nothing while the hand is still heading somewhere.
     const bool moved = !m_roomOpen && QLineF(m_roomContact, m_lastCarryContact).length() > RoomStill;
     if (moved) m_roomContact = m_lastCarryContact;
-    if (aim != m_roomAim || moved) {
-        if (aim != m_roomAim && m_roomOpen) closeRoom();
+    if (!m_roomRest.clock.isValid()) m_roomRest.clock.start();
+    if (m_roomOpen && aim != m_roomAim && m_carriedWindow) {
+        // An open room closes only once the hand has rested on another place.
+        if (m_roomRest.leaving != aim || !m_roomRest.leavingSince.isValid()) {
+            m_roomRest.leaving = aim;
+            m_roomRest.leavingSince.restart();
+        }
+        m_continueRepaint = true;
+        if (m_roomRest.leavingSince.elapsed() >= RoomHold) {
+            m_roomRest.closed = m_roomAim;
+            m_roomRest.closedSince.restart();
+            closeRoom();
+            m_roomAim = aim;
+            m_roomAimSince.restart();
+        }
+    } else if (m_roomOpen) {
+        m_roomRest.leavingSince.invalidate();
+    } else if (aim != m_roomAim || moved) {
         m_roomAim = aim;
         m_roomAimSince.restart();
-    } else if (aim && !m_roomOpen && m_roomAimSince.isValid() && m_roomAimSince.elapsed() >= RoomHold) {
+    } else if (aim && m_roomAimSince.isValid() && m_roomAimSince.elapsed() >= RoomHold
+               // The place a room just closed on opens again only once that motion is over.
+               && !(m_roomRest.closed == aim && m_roomRest.closedSince.isValid()
+                    && m_roomRest.closedSince.elapsed() < motion(220))) {
         m_roomOpen = true;
+        const qint64 now = m_roomRest.clock.elapsed();
+        m_roomRest.opens.removeIf([now](qint64 at) { return now - at > 2000; });
+        m_roomRest.opens.append(now);
+        if (m_roomRest.opens.size() > 2)
+            qWarning() << "Kadunce" << Revision << "opened a room" << m_roomRest.opens.size()
+                       << "times in 2 s: the aim is not holding";
         QTimer::singleShot(0, this, [this] { openRoom(); });
     }
     // A hand held perfectly still sends no motion, so keep the clock looking.
