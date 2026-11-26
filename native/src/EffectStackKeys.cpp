@@ -3,7 +3,7 @@
 // INPUT.md: Meta+Shift+S stacks the card or pane in use onto the one used
 // before it, and pressed again puts it one deeper; Meta+Shift+PgDown and
 // PgUp move a Stack's front card one place back or forward again; and
-// Meta+Shift+Esc gives the card or pane in use back to the Plasma desktop,
+// Meta+Shift+Backspace gives the card or pane in use back to the Plasma desktop,
 // as the bottom edge does.
 #include "EffectInternal.h"
 

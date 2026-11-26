@@ -1152,8 +1152,7 @@ void Effect::grabbedKeyboardEvent(QKeyEvent *event)
     case Qt::Key_Right: key = shift ? Key::CarryRight : Key::Right; break;
     case Qt::Key_Up: key = Key::Up; break;
     case Qt::Key_Down: key = Key::Down; break;
-    // Meta+Shift+S takes a card out of its Stack.
-    case Qt::Key_S: if (meta && shift) key = Key::TakeOut; break;
+    case Qt::Key_S: if (meta && shift) key = Key::TakeOut; break; // out of its Stack
     case Qt::Key_Return:
     case Qt::Key_Enter:
     case Qt::Key_Space: key = Key::Enter; break;

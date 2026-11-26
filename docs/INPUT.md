@@ -141,5 +141,5 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | Input | What happens |
 | --- | --- |
 | Switch Cards off in the tray, or `Meta+Esc` | Every window returns to the desktop, then Kadunce unloads. |
-| Drag the Active card or a pane to the bottom edge, or `Meta+Shift+Esc` | It returns to the Plasma desktop; other cards wait in Spread. |
+| Drag the Active card or a pane to the bottom edge, or `Meta+Shift+Backspace` | It returns to the Plasma desktop; other cards wait in Spread. |
 | Switch Cards on in the tray | Every display's windows become cards, the one in use Active. |

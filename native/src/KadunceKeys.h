@@ -57,7 +57,7 @@ enum class KeyAction {
     // one place back, or forward again.
     StackBack,
     StackForward,
-    // Meta+Shift+Esc: the focused card or pane goes back to the Plasma
+    // Meta+Shift+Backspace: the focused card or pane goes back to the Plasma
     // desktop, as at the bottom edge.
     ToDesktop,
     // Delete in Spread: the centred card's app closes, as flicked up.
@@ -132,7 +132,7 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_S: return pane || context.cardsShown ? KeyAction::StackToggle : KeyAction::None;
         case Qt::Key_PageDown: return pane || context.cardsShown ? KeyAction::StackBack : KeyAction::None;
         case Qt::Key_PageUp: return pane || context.cardsShown ? KeyAction::StackForward : KeyAction::None;
-        case Qt::Key_Escape: return pane || (context.cardsShown && !context.spreadShown)
+        case Qt::Key_Backspace: return pane || (context.cardsShown && !context.spreadShown)
             ? KeyAction::ToDesktop : KeyAction::None;
         default: return KeyAction::None;
         }

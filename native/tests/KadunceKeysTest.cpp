@@ -90,7 +90,7 @@ int main() {
               && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackToggle
               && keyActionFor(Qt::Key_PageDown, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackBack
               && keyActionFor(Qt::Key_PageUp, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackForward
-              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::ToDesktop,
+              && keyActionFor(Qt::Key_Backspace, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::ToDesktop,
           "Meta+Shift's keys did not move, fill, let go, stack, reorder or give back the pane");
     check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, pane) == KeyAction::StackNext
               && keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, pane) == KeyAction::DividerLeft
@@ -108,7 +108,7 @@ int main() {
               && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::StackToggle
               && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::LetGo
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
-              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
+              && keyActionFor(Qt::Key_Backspace, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
               && keyActionFor(Qt::Key_Delete, Qt::NoModifier, spread) == KeyAction::CloseCard
               && keyActionFor(Qt::Key_Delete, Qt::NoModifier, active) == KeyAction::None,
           "Meta+Shift+S did not stack the centred card of Spread, or Delete did not close it");
@@ -126,7 +126,7 @@ int main() {
     check(keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::StackToggle
               && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::StackToggle
               && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::Unfill
-              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::ToDesktop
+              && keyActionFor(Qt::Key_Backspace, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::ToDesktop
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::None,
           "Meta+Shift+S, Down or Esc did not answer for the Active card");
     // Off a pane, Meta+Shift's arrows and the brackets stay KDE's, but for
