@@ -1729,8 +1729,7 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     // layout. §2 names three presentations and none of them is a card drawn
     // over live panes, so where the layout cannot show the card the layout
     // stops being what the display presents rather than being covered.
-    if (!window || window->isDeleted() || !isCardWindow(window)
-        || !m_cardStage->presentsBento()
+    if (!window || window->isDeleted() || !isCardWindow(window) || !m_cardStage->presentsBento()
         || m_cardStage->liveCardIndex(window) < 0) return false;
     // §11, Connected: a card waiting behind a pane, called, comes to the
     // front of that pane. It never takes a pane of its own, which would part
@@ -1743,11 +1742,12 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
             << logNameOf(window);
     if (m_desktopStage->admitCardToLiveBento(window,
             [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
+        // Woken from its dock icon, it grows out of that icon into its place.
+        if (const QRectF icon = takeLaunchOrigin(window); icon.isValid()) startPaneArrival(window, output, icon);
         observeCardOwnership();
         return true;
     }
-    // No slot the card's minimum size fits, so §8's other answer applies: the
-    // layout becomes a Spread group and the card can be Active beside it.
+    // No slot fits the card's minimum size, so §8's other answer applies: the layout becomes a Spread group.
     if (!retireLayoutIntoSpreadGroup(output)) {
         // Rejection retains Bento. Answering here is what keeps the refusal
         // from falling through to a card drawn over it.

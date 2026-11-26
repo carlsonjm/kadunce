@@ -341,13 +341,25 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     const RestoreSnapshot snapshot = makeSnapshot(window);
     if (!snapshot.valid) return refuse("no record");
     const Session live = *session;
+    // A pane an arrival made yield, called back while that arrival still
+    // stands in its slot, takes its own place again: the arrival yields it
+    // back, and nothing else in the layout moves.
+    Session candidate = live;
+    int ownSlot = -1;
+    if (!growOnly)
+        for (const auto &held : std::as_const(m_displaced))
+            if (held.yielded == window && held.outputName == live.outputName && held.arrival)
+                ownSlot = int(live.windows.indexOf(held.arrival));
+    const bool returned = ownSlot >= 0 && takeSlotAtCap(candidate, ownSlot, snapshot);
+    if (!returned) candidate = live;
+    qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "into the layout"
+            << (returned ? "in its own place, which the pane there gives back" : "by the layout's own rule");
     // §8: grow first. A layout with room takes the arrival beside everything it
     // already shows, and an empty remainder is what says so.
-    Session candidate = live;
-    candidate.snapshots.append(snapshot);
+    if (!returned) candidate.snapshots.append(snapshot);
     QList<QPointer<KWin::EffectWindow>> unshowable;
-    const bool grew = reflowSession(candidate, window, true, true, &unshowable)
-        && unshowable.isEmpty();
+    const bool grew = returned || (reflowSession(candidate, window, true, true, &unshowable)
+        && unshowable.isEmpty());
     if (!grew && growOnly) return false;
     if (!grew) {
         // The layout is full, so the arrival takes one slot and only that
