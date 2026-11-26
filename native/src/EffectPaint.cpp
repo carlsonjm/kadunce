@@ -1654,7 +1654,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         // travelling box exactly, whichever picture its client has drawn (PaneResizePicture.h).
         const BentoMotion *layoutMotion = window != m_settlingWindow && settle.has_value()
             ? bentoMotionOf(window) : nullptr;
-        const bool fitted = (layoutMotion && !layoutMotion->arrival) || (window == m_settlingWindow && m_settleFitted) || (!layoutMotion && settle && roomPreviewRect(window));
+        const bool fitted = (layoutMotion && !layoutMotion->arrival && !(layoutMotion->waitsFor == window && wokenBox(window, layoutMotion->to, layoutMotion->outputGeometry, nullptr) && *wokenBox(window, layoutMotion->to, layoutMotion->outputGeometry, nullptr) != layoutMotion->to)) || (window == m_settlingWindow && m_settleFitted) || (!layoutMotion && settle && roomPreviewRect(window));
         const KWin::Rect target = KWin::RectF(leaned).toRect();
         const QRectF frameRect(window->frameGeometry());
         const QSizeF frameSize = frameRect.size();

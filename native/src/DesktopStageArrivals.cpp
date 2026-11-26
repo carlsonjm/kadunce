@@ -357,23 +357,52 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
             << (returned ? "in its own place, which the pane there gives back" : "by the layout's own rule");
     // A pane put to sleep comes back to the place it left, beside the pane it
     // stood by, while that pane still stands here.
-    bool slept = false;
-    for (const auto &place : std::as_const(m_sleptPlaces))
-        if (!returned && !growOnly && place.window == window && place.outputName == live.outputName && place.by
-            && live.windows.contains(place.by) && live.placed) {
+    bool slept = false, restored = false;
+    for (const auto &place : std::as_const(m_sleptPlaces)) {
+        if (returned || growOnly || place.window != window || place.outputName != live.outputName || !live.placed) continue;
+        // The same panes awake as when it slept: the layout stands as it did.
+        QList<QPointer<KWin::EffectWindow>> awake;
+        for (const auto &pane : live.windows)
+            if (pane && pane != window && !pane->isMinimized()) awake.append(pane);
+        if (place.plan && awake.size() == place.awake.size()
+            && std::all_of(awake.cbegin(), awake.cend(), [&place](const auto &pane) { return place.awake.contains(pane); })) {
+            candidate.placed = place.plan;
+            restored = true;
+            continue;
+        }
+        if (place.by && live.windows.contains(place.by)) {
             candidate.side = BentoSidePlacement{place.place == PanePlace::Right, true, true, false, false, 0.0, place.place,
                                                 reinterpret_cast<std::uintptr_t>(place.by.data())};
             candidate.sideWindow = window;
             slept = true;
         }
+    }
     m_sleptPlaces.removeIf([window](const SleptPlace &place) { return !place.window || place.window == window; });
-    if (slept) qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "back to the place it slept from";
+    if (restored) qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "back into the layout as it slept from it";
+    else if (slept) qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "back to the place it slept from";
     // §8: grow first. A layout with room takes the arrival beside everything it
     // already shows, and an empty remainder is what says so.
     if (!returned) candidate.snapshots.append(snapshot);
     QList<QPointer<KWin::EffectWindow>> unshowable;
-    const bool grew = returned || (reflowSession(candidate, window, true, true, &unshowable)
+    bool grew = returned || (reflowSession(candidate, window, true, true, &unshowable)
         && unshowable.isEmpty());
+    // Waking never carries a pane left awake across a row and a column at
+    // once; a solve that would is refused for the layout's own rule.
+    if (grew && (slept || restored)) {
+        for (int i = 0; i < live.windows.size() && i < int(live.rects.size()); ++i) {
+            const int at = int(candidate.windows.indexOf(live.windows.at(i)));
+            if (at < 0 || at >= int(candidate.rects.size())) continue;
+            const BentoRect &was = live.rects[std::size_t(i)], &now = candidate.rects[std::size_t(at)];
+            if (std::abs(was.x - now.x) <= 12.0 || std::abs(was.y - now.y) <= 12.0) continue;
+            qInfo() << "Kadunce" << Revision << "refused waking" << window->caption() << "where it would carry"
+                    << live.windows.at(i)->caption() << "across the layout; it joins by the layout's own rule";
+            candidate = live;
+            candidate.snapshots.append(snapshot);
+            unshowable.clear();
+            grew = reflowSession(candidate, window, true, true, &unshowable) && unshowable.isEmpty();
+            break;
+        }
+    }
     if (!grew && growOnly) return false;
     if (!grew) {
         // The layout is full, so the arrival takes one slot and only that
@@ -1170,7 +1199,11 @@ void DesktopStageController::noteSleptPlace(const QString &key, KWin::EffectWind
             else if (c + 1 < columns.size() && !columns[c + 1].empty() && awake(columns[c + 1].front()))
                 found = SleptPlace{key, window, columns[c + 1].front().window, PanePlace::Left};
             m_sleptPlaces.removeIf([window](const SleptPlace &place) { return !place.window || place.window == window; });
-            if (found) m_sleptPlaces.append(*found);
+            if (!found) found = SleptPlace{key, window, nullptr, PanePlace::Left};
+            found->plan = session->placed;
+            for (const auto &pane : session->windows)
+                if (pane && pane != window && !pane->isMinimized()) found->awake.append(pane);
+            m_sleptPlaces.append(*found);
             return;
         }
 }

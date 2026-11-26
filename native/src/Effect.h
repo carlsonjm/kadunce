@@ -447,12 +447,13 @@ private:
     // that made room have drawn back (PaneReveal.h).
     struct Opening {
         QPointer<KWin::EffectWindow> window, over; QElapsedTimer since; QSizeF size; QRectF from; [[nodiscard]] int rise() const;
-        bool asked = false, reported = false, card = false, keys = false; qint64 seenAt = -1, kept = 0;
+        bool asked = false, reported = false, card = false, keys = false, woken = false; qint64 seenAt = -1, kept = 0;
     };
     struct OpeningArrival { QRectF shown; QPointF offset; QPointer<KWin::EffectWindow> over; bool opening = false, beside = false; const char *how = ""; };
     [[nodiscard]] OpeningArrival openingArrival(const KWin::EffectWindow *window) const;
     QList<Opening> m_opening;
-    void noteOpened(KWin::EffectWindow *window);
+    void noteOpened(KWin::EffectWindow *window); void noteWoken(KWin::EffectWindow *window, const QRectF &icon); // a hidden card called into a layout comes up in its place (PaneReveal.h)
+    [[nodiscard]] std::optional<QRectF> wokenBox(const KWin::EffectWindow *window, const QRectF &to, const QRectF &screen, double *opacity) const;
     [[nodiscard]] KWin::EffectWindow *openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows);
     [[nodiscard]] bool openingsWait(); [[nodiscard]] bool openingUnseen(const KWin::EffectWindow *window) const;
     bool revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::WindowPaintData &data);

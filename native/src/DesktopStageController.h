@@ -531,6 +531,10 @@ private:
         QPointer<KWin::EffectWindow> window;
         QPointer<KWin::EffectWindow> by;
         PanePlace place = PanePlace::Left;
+        // The layout's plan as it slept, and the panes awake then: woken while
+        // the same panes are awake, the layout stands as it did.
+        std::optional<BentoPlacedColumns> plan;
+        QList<QPointer<KWin::EffectWindow>> awake;
     };
     QList<SleptPlace> m_sleptPlaces;
     void noteSleptPlace(const QString &key, KWin::EffectWindow *window);

@@ -1599,7 +1599,10 @@ std::optional<QRectF> Effect::bentoMotionRect(KWin::EffectWindow *window) const
     const bool started = m->timer.isValid();
     const double t = QEasingCurve(QEasingCurve::OutCubic).valueForProgress(
         paneArrivalProgress(started, started ? m->timer.elapsed() : 0, duration));
-    // A window just opened into the layout comes in as its arrival says.
+    // A window just opened into the layout comes in as its arrival says; one
+    // woken into its place comes up there (wokenBox).
+    if (m->waitsFor == window)
+        if (const auto woken = wokenBox(window, m->to, m->outputGeometry, nullptr)) return woken;
     const QPointF in = m->waitsFor == window ? openingArrival(window).offset : QPointF();
     return QRectF(m->from.topLeft()+(m->to.topLeft()-m->from.topLeft())*t + in,
         m->from.size()+(m->to.size()-m->from.size())*t);

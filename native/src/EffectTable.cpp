@@ -1307,31 +1307,17 @@ void Effect::sendCardToWorkspace(int step)
         m_sentAhead[destination->id()].removeAll(card);
         m_sentAhead[destination->id()].append(card);
     }
+    // The keys go on here, to what now stands in front, never to the card sent.
+    const auto stack = KWin::effects->stackingOrder();
+    for (auto it = stack.crbegin(); it != stack.crend(); ++it)
+        if (KWin::EffectWindow *next = *it; next && next != card && !deck.contains(next) && !next->isDeleted()
+            && !next->isMinimized() && next->isNormalWindow() && next->isOnCurrentDesktop()
+            && next->screen() == card->screen() && !next->data(CardAsideRole).toBool()) {
+            KWin::effects->activateWindow(next);
+            break;
+        }
     qInfo() << "Kadunce" << Revision << "sent" << logNameOf(card) << "with" << deck.size() - 1
             << "cards behind it to workspace" << there + 1;
-}
-
-void Effect::showSentAhead(KWin::VirtualDesktop *current)
-{
-    // Entering a workspace a card was sent to shows it by the rule that holds
-    // there, before the first frame: a layout takes it behind its panes, to
-    // come in when called; cards make it the Active card; a display holding
-    // nothing yet starts its cards with it (holdDisplaysInCards).
-    const auto sent = current ? m_sentAhead.take(current->id()) : QList<QPointer<KWin::EffectWindow>>();
-    for (const auto &card : sent) {
-        if (!card || card->isDeleted() || card->isMinimized() || !card->isOnDesktop(current)) continue;
-        KWin::LogicalOutput *output = card->screen();
-        if (!output || !isCardDisplay(output)) continue;
-        SessionScope here(this, m_currentSession, stageKeyFor(output));
-        const char *rule = "as the display's first card";
-        if (m_cardStage->presentsBento()) rule = "behind the layout, as a card the layout takes in when called";
-        else if (m_cardStage->isActive()) {
-            if (m_cardStage->liveCardIndex(card) < 0) (void)m_cardStage->admitArrivalAsCard(card);
-            rule = m_cardStage->promoteToActive(card) ? "as the Active card" : "as a card it could not make Active";
-        }
-        qInfo().nospace() << "Kadunce " << Revision << " shows " << logNameOf(card) << ", sent here before, on "
-                          << output->name() << " " << rule;
-    }
 }
 
 void Effect::landTableCard(KWin::VirtualDesktop *destination, KWin::EffectWindow *face)

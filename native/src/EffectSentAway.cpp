@@ -72,4 +72,37 @@ std::optional<bool> Effect::paintSentAway(const KWin::RenderTarget &renderTarget
         mask | PAINT_WINDOW_TRANSFORMED, clip, data); });
 }
 
+void Effect::showSentAhead(KWin::VirtualDesktop *current)
+{
+    // Entering a workspace a card was sent to shows it by the rule that holds
+    // there, before the first frame: a layout takes it behind its panes, to
+    // come in when called; cards make it the Active card; a display holding
+    // nothing yet starts its cards with it (holdDisplaysInCards).
+    const auto sent = current ? m_sentAhead.take(current->id()) : QList<QPointer<KWin::EffectWindow>>();
+    for (const auto &card : sent) {
+        if (!card || card->isDeleted() || card->isMinimized() || !card->isOnDesktop(current)) continue;
+        KWin::LogicalOutput *output = card->screen();
+        if (!output || !isCardDisplay(output)) continue;
+        SessionScope here(this, m_currentSession, stageKeyFor(output));
+        const char *rule = "as the display's first card";
+        if (m_cardStage->presentsBento() && m_desktopStage->hasSessionOnOutput(output->name())) {
+            // A layout takes it in as a window opening there does, never
+            // moving it from a frame drawn on another workspace.
+            if (m_cardStage->liveCardIndex(card) < 0) (void)m_cardStage->admitArrivalAsCard(card);
+            noteOpened(card);
+            const QPointer<KWin::EffectWindow> sent = card;
+            rule = m_cardStage->liveCardIndex(card) >= 0 && m_desktopStage->admitCardToLiveBento(card,
+                       [this, sent] { return sent && m_cardStage->releaseCardToLiveBento(sent); })
+                ? "in the layout, coming in as a window opening there does"
+                : "behind the layout, as a card the layout takes in when called";
+        } else if (m_cardStage->presentsBento()) rule = "behind the layout, as a card the layout takes in when called";
+        else if (m_cardStage->isActive()) {
+            if (m_cardStage->liveCardIndex(card) < 0) (void)m_cardStage->admitArrivalAsCard(card);
+            rule = m_cardStage->promoteToActive(card) ? "as the Active card" : "as a card it could not make Active";
+        }
+        qInfo().nospace() << "Kadunce " << Revision << " shows " << logNameOf(card) << ", sent here before, on "
+                          << output->name() << " " << rule;
+    }
+}
+
 } // namespace Kadunce

@@ -57,6 +57,43 @@ void Effect::noteOpened(KWin::EffectWindow *window)
     m_opening.append(opening);
 }
 
+void Effect::noteWoken(KWin::EffectWindow *window, const QRectF &icon)
+{
+    // A card waking into a layout from a frame never drawn there comes up in
+    // its own place as one opening does, unseen until it has drawn its pane:
+    // out of its dock icon when its place stands on the dock's edge, else
+    // from 90% of its size about its middle. It never crosses another pane.
+    noteOpened(window);
+    if (!window || m_opening.isEmpty() || m_opening.last().window != window) return;
+    m_opening.last().woken = true;
+    m_opening.last().from = icon;
+}
+
+std::optional<QRectF> Effect::wokenBox(const KWin::EffectWindow *window, const QRectF &to, const QRectF &screen,
+                                       double *opacity) const
+{
+    for (const Opening &opening : m_opening) {
+        if (opening.window != window || !opening.woken) continue;
+        if (opening.seenAt < 0) return to;
+        const qint64 risen = opening.since.elapsed() - opening.seenAt;
+        // Out of the icon only into a place on the dock's edge, so nothing
+        // stands between them.
+        const bool fromIcon = opening.from.isValid() && to.bottom() >= screen.bottom() - 2.0 * bentoPaneGap() - 64.0;
+        const double rise = openedCardRise(risen, motion(fromIcon ? OpenedCardGrow : OpenedCardRise));
+        if (rise >= 1.0) return std::nullopt;
+        if (fromIcon) {
+            if (opacity) *opacity = openedCardRise(risen, motion(OpenedCardGrowFade));
+            const RevealBox box = openedCardFromIcon(revealBox(opening.from), revealBox(to),
+                QEasingCurve(QEasingCurve::OutCubic).valueForProgress(rise));
+            return QRectF(box.x, box.y, box.width, box.height);
+        }
+        if (opacity) *opacity = rise;
+        const double scale = openedCardScale(rise);
+        return QRectF(to.center() - QPointF(to.width(), to.height()) * scale / 2.0, to.size() * scale);
+    }
+    return std::nullopt;
+}
+
 KWin::EffectWindow *Effect::openingAmong(const QList<QPointer<KWin::EffectWindow>> &windows)
 {
     // The layout that takes a window just opened asks it for its pane, and
@@ -197,7 +234,7 @@ bool Effect::openingsWait()
             continue;
         }
         // Frames come while a card that opened is coming up, too.
-        if (it->card && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < it->rise()) waits = true;
+        if ((it->card || it->woken) && it->seenAt >= 0 && it->since.elapsed() - it->seenAt < it->rise()) waits = true;
         if (it->asked && it->seenAt < 0) {
             const QRectF frame(window->frameGeometry());
             const QRectF asked(window->window()->moveResizeGeometry());
@@ -236,6 +273,14 @@ Effect::OpeningArrival Effect::openingArrival(const KWin::EffectWindow *window) 
     const BentoMotion *own = bentoMotionOf(window);
     if (!own || own->waitsFor != window) return arrival;
     arrival.opening = true;
+    // A card woken into its place comes up there, where nothing else stands.
+    for (const Opening &opening : m_opening)
+        if (opening.window == window && opening.woken) {
+            arrival.shown = own->to;
+            arrival.how = opening.from.isValid() && own->to.bottom() >= own->outputGeometry.bottom() - 2.0 * bentoPaneGap() - 64.0
+                ? "growing from its dock icon into its place" : "coming up in its place";
+            return arrival;
+        }
     // Only panes that began over its place count; one that barely moves
     // beside it does not make room for it.
     const RevealBox pane = revealBox(own->to);
@@ -299,6 +344,7 @@ bool Effect::revealOpening(KWin::EffectWindow *window, QRectF &clip, KWin::Windo
                           << ", with scale " << data.xScale() << "x" << data.yScale()
                           << " and opacity " << data.opacity() << " from the effects before this one";
     }
+    if (const auto own = bentoMotionOf(window)) (void)wokenBox(window, own->to, own->outputGeometry, &opacity);
     data.setOpacity(opacity);
     return true;
 }

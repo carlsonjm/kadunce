@@ -803,6 +803,17 @@ void Effect::noteLaunchOrigin(const QStringList &applicationIds, double x, doubl
     if (!launch || !(width > 0.0) || !(height > 0.0)) return;
     m_launchOrigin = LaunchOrigin{std::move(*launch), QRectF(x, y, width, height), {}};
     m_launchOrigin->asked.start();
+    // The dock asks for the window as it names the icon, and the window can
+    // wake first: one woken just now, not yet drawn, still grows out of it.
+    for (Opening &opening : m_opening)
+        if (opening.woken && !opening.from.isValid() && opening.seenAt < 0 && opening.since.elapsed() < OpenedStill
+            && opening.window && m_launchOrigin->launch.matches(applicationIdentity(opening.window.data()))) {
+            opening.from = m_launchOrigin->icon;
+            qInfo() << "Kadunce" << Revision << "dock icon for" << logNameOf(opening.window.data())
+                    << "came after it woke; it grows from" << opening.from;
+            m_launchOrigin.reset();
+            return;
+        }
 }
 
 QRectF Effect::takeLaunchOrigin(KWin::EffectWindow *window)

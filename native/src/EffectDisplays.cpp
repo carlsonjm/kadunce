@@ -1038,6 +1038,7 @@ void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWi
     const QList<KWin::EffectWindow *> stack = m_cardStage->stackFrontToBack(card);
     if (!stack.isEmpty() && stack.first() != card) return;
     const QPointer<KWin::EffectWindow> back = card;
+    noteWoken(card, takeLaunchOrigin(card));
     if (!m_desktopStage->admitCardToLiveBento(card,
             [this, back] { return back && m_cardStage->releaseCardToLiveBento(back); }, true, false)) {
         qInfo() << "Kadunce" << Revision << "kept" << logNameOf(card) << "waiting behind the layout on"
@@ -1047,8 +1048,6 @@ void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWi
     // It was lowered under the panes as a hidden card. A pane again, it stands
     // above the cards still hidden there, or a press on it would reach one.
     if (back && back->window()) KWin::workspace()->raiseWindow(back->window());
-    // Called from its dock icon as it comes back, it grows out of that icon.
-    if (const QRectF icon = back ? takeLaunchOrigin(back) : QRectF(); icon.isValid()) startPaneArrival(back, output, icon);
     if (stack.size() > 1) m_cardStage->notePaneStack(card, stack.mid(1));
     m_cardStage->settlePaneStacks();
     qInfo() << "Kadunce" << Revision << "brought" << logNameOf(card) << "back to the layout on"

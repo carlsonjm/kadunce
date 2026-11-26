@@ -1740,10 +1740,10 @@ bool Effect::admitActivatedCardToLiveBento(KWin::EffectWindow *window)
     if (!output || !m_desktopStage->hasSessionOnOutput(output->name())) return false;
     qInfo() << "Kadunce" << Revision << "a hidden card was activated while Bento shows:"
             << logNameOf(window);
+    // It was never drawn here as a pane, so it comes up in its place (noteWoken).
+    noteWoken(window, takeLaunchOrigin(window));
     if (m_desktopStage->admitCardToLiveBento(window,
             [this, window] { return m_cardStage->releaseCardToLiveBento(window); })) {
-        // Woken from its dock icon, it grows out of that icon into its place.
-        if (const QRectF icon = takeLaunchOrigin(window); icon.isValid()) startPaneArrival(window, output, icon);
         observeCardOwnership();
         return true;
     }
