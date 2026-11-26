@@ -1597,14 +1597,24 @@ void Effect::restackCarriedDecks()
             it = decks.erase(it);
             continue;
         }
-        // Until every one of its windows is a card here, it waits.
+        // Until every one of its windows is a card or a pane here, it waits.
         if (!std::all_of(alive.cbegin(), alive.cend(), [this](KWin::EffectWindow *window) {
-                return m_cardStage->liveCardIndex(window) >= 0; })) {
+                return m_cardStage->liveCardIndex(window) >= 0 || m_desktopStage->managesWindow(window); })) {
             ++it;
             continue;
         }
-        if (!m_cardStage->regroup(alive.first(), alive.mid(1)))
+        // Stacked onto a pane, or carried as one, it stacks as Table does on
+        // the desktop shown (stackOnPlaces): onto the first pane after its front.
+        int anchorAt = -1;
+        for (int i = 1; i < alive.size() && anchorAt < 0; ++i)
+            if (m_desktopStage->managesWindow(alive[i])) anchorAt = i;
+        if (anchorAt > 0 || m_desktopStage->managesWindow(alive.first())) {
+            const int at = anchorAt > 0 ? anchorAt : 1;
+            SessionScope scope(this, m_currentSession, stageKeyOf(alive[at]));
+            (void)stackOnPlaces(alive.first(), alive[at], alive.mid(1, at - 1));
+        } else if (!m_cardStage->regroup(alive.first(), alive.mid(1))) {
             qInfo() << "Kadunce could not stack again the" << alive.size() << "cards Table carried here";
+        }
         it = decks.erase(it);
     }
     if (decks.isEmpty()) m_pendingDecks.erase(found);

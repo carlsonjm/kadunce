@@ -930,7 +930,7 @@ private:
     bool callPaneStackCard(KWin::EffectWindow *pane, KWin::EffectWindow *card);
     // §11, Connected: a carried pane let go on `onto` joins its Stack in
     // front, and the next card of its own Stack takes the slot it left.
-    bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto);
+    bool stackPaneOnto(KWin::EffectWindow *pane, KWin::EffectWindow *onto); bool stackOnPlaces(KWin::EffectWindow *face, KWin::EffectWindow *anchor, const QList<KWin::EffectWindow *> &faceBack); // Table: pane or card onto pane or card
     bool joinStackOpenedFrom(KWin::EffectWindow *opened, bool late);
     class OpenedFromWatch *m_openedFrom = nullptr;
     // §11, Every display: the other panes of that display wait in Spread for
