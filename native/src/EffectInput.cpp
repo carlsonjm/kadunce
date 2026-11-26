@@ -215,6 +215,11 @@ void Effect::releaseActiveSlideFromInput(int side, double travel, double speed)
     m_cardStage->releaseActiveSlide(side, travel, speed);
 }
 
+void Effect::settleActiveSlideFromInput()
+{
+    m_cardStage->settleActiveSlide();
+}
+
 bool Effect::hasActiveDesktopStage() const
 {
     return m_desktopStage && m_desktopStage->hasActiveSession();

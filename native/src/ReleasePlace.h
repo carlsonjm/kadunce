@@ -6,6 +6,7 @@
 #include <QString>
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 
 namespace Kadunce
@@ -111,5 +112,26 @@ inline QRectF carriedPlace(const QRectF &place, const QRectF &from, const QRectF
         ? (place.y() - from.y()) / (from.height() - place.height()) : 0.5;
     return QRectF(work.x() + std::clamp(across, 0.0, 1.0) * (work.width() - width),
         work.y() + std::clamp(down, 0.0, 1.0) * (work.height() - height), width, height);
+}
+
+// The size a window given back maximized returns to when its own button, or a
+// double click, restores it. A place that fills the room it is maximized in
+// is no size of its own: a window handed that would have a restore button
+// that changes nothing, as a window maximized while it was a card can be
+// recorded at its maximized size. Its own floating place is kept where it has
+// one, else the place given back; where neither is smaller than the room, a
+// size two thirds of the room, centred in it.
+inline QRectF restoreBeneathMaximize(const QRectF &floating, const QRectF &place, const QRectF &work)
+{
+    if (work.width() <= 0 || work.height() <= 0) return floating.isValid() ? floating : place;
+    const auto fills = [&](const QRectF &rect) {
+        return rect.width() <= 0 || rect.height() <= 0
+            || (rect.width() >= work.width() - 1.0 && rect.height() >= work.height() - 1.0);
+    };
+    if (!fills(floating)) return floating;
+    if (!fills(place)) return place;
+    QRectF own(0.0, 0.0, std::round(work.width() * 2.0 / 3.0), std::round(work.height() * 2.0 / 3.0));
+    own.moveCenter(work.center());
+    return QRectF(std::round(own.x()), std::round(own.y()), own.width(), own.height());
 }
 } // namespace Kadunce

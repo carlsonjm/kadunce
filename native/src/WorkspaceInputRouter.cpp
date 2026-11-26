@@ -1032,8 +1032,8 @@ bool WorkspaceInputRouter::routeTouchCancel()
 {
     // A cancelled swipe takes the strip back to the card it started on.
     if (m_activeSwipe.live) {
-        m_target->releaseActiveSlideFromInput(m_touchMode == TouchMode::ActiveLeft ? -1 : 1, 0.0, 0.0);
         m_activeSwipe = {};
+        m_target->settleActiveSlideFromInput();
     }
     if (m_railTouch >= 0) {
         m_railHoldTimer.stop(); m_railReady = false;
@@ -1175,6 +1175,10 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
     m_holdSource = HoldSource::None;
     const auto bezel = m_bezelSpread;
     const qint32 bezelTouch = bezel.live && bezel.asking ? m_touchId : -1;
+    // A swipe in the gap beside the Active card has the strip under the
+    // finger. Its contact now drains unseen, so no lift will ever finish it:
+    // it is settled here, or the strip stays wherever the finger left it.
+    const bool swiping = m_activeSwipe.live;
     resetTouch();
     if (bezelTouch >= 0) {
         // Spread opening under the bezel swipe goes on following its finger.
@@ -1186,6 +1190,11 @@ void WorkspaceInputRouter::cancelWorkspaceInteraction()
         m_bezelSpread = bezel;
     }
     if (rollback) m_target->finishCardGrab(false);
+    if (swiping) {
+        qInfo() << "Kadunce swipe beside the Active card cancelled under the finger;"
+                << "the strip springs back";
+        m_target->settleActiveSlideFromInput();
+    }
     // Forwarded panel, client and Tette contacts retain their original owner.
 }
 
@@ -1402,8 +1411,14 @@ void WorkspaceInputRouter::finishTouchGesture()
         // Let go: the strip goes on or springs back; a touch that never
         // swiped is a tap, the card before or after.
         const int side = m_touchMode == TouchMode::ActiveLeft ? -1 : 1;
-        if (m_activeSwipe.live)
-            m_target->releaseActiveSlideFromInput(side, (m_touchCurrent - m_touchStart).x(), activeSwipeSpeed());
+        // The swipe is over before the target hears of it: a step it takes
+        // cancels workspace input, which must not find the swipe still live
+        // and spring the strip back under the step.
+        const bool swiped = m_activeSwipe.live;
+        const double speed = activeSwipeSpeed();
+        m_activeSwipe = {};
+        if (swiped)
+            m_target->releaseActiveSlideFromInput(side, (m_touchCurrent - m_touchStart).x(), speed);
         else
             side < 0 ? m_target->pageLeftFromInput() : m_target->pageRightFromInput();
     } else if (m_touchMode == TouchMode::StackBefore) {

@@ -173,6 +173,10 @@ public:
     // travel is the finger's, rightward positive; speed in pixels per ms.
     virtual void dragActiveSlideFromInput(int side, double travel) = 0;
     virtual void releaseActiveSlideFromInput(int side, double travel, double speed) = 0;
+    // A swipe the router lets go of without its contact lifting, as when the
+    // workspace is cancelled under it: the strip springs back to the card it
+    // started on, and nothing is paged. A swipe always finishes or cancels.
+    virtual void settleActiveSlideFromInput() = 0;
     virtual void activateSelectedFromInput() = 0;
     virtual void beginCardGrab(const QPointF &position) = 0;
     virtual void updateCardGrab(const QPointF &position) = 0;

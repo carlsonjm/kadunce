@@ -5,6 +5,7 @@
 // window is given back where no display shows it.
 #include "ReleasePlace.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 
@@ -108,6 +109,26 @@ int main()
             "a layout and a card give the same place back on the tablet");
     require(layoutPlace.left() > Tablet.work.left() && layoutPlace.right() < Tablet.work.right(),
             "a place carried off a gone display is not pinned to an edge");
+
+    // Given back maximized, a window keeps a smaller place to restore to. One
+    // recorded at its maximized size, as the browser maximized while it was a
+    // card was, would otherwise have a restore button that changes nothing.
+    const QRectF room(0, 24, 1280, 724);
+    const QRectF ownFloat(120, 80, 900, 560);
+    require(restoreBeneathMaximize(ownFloat, room, room) == ownFloat,
+            "a window's own floating place is not the one it restores to");
+    require(restoreBeneathMaximize(QRectF(), ownFloat, room) == ownFloat,
+            "a window with no floating place does not restore to the place given back");
+    const QRectF fallback = restoreBeneathMaximize(room, room, room);
+    require(fallback.width() < room.width() && fallback.height() < room.height()
+                && room.contains(fallback)
+                && std::abs(fallback.center().x() - room.center().x()) <= 1.0
+                && std::abs(fallback.center().y() - room.center().y()) <= 1.0,
+            "a window recorded only at its maximized size restores to that size again");
+    require(restoreBeneathMaximize(QRectF(), room, room) == fallback,
+            "a window with no floating place restores to its maximized size");
+    require(restoreBeneathMaximize(QRectF(0, 24, 1280, 500), room, room) == QRectF(0, 24, 1280, 500),
+            "a window as wide as the room but shorter is not its own size");
 
     std::cout << "release-place: ok\n";
     return 0;
