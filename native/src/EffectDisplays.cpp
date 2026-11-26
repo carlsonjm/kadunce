@@ -710,6 +710,12 @@ bool Effect::pairMovedCard(KWin::EffectWindow *card, KWin::LogicalOutput *here, 
             ++standing;
             lone = window.data();
         }
+        // A layout left holding one pane, its other half open, stands too.
+        for (const auto &pane : m_desktopStage->panesOn(here->name())) {
+            if (!pane || pane == card || pane->isDeleted() || pane->isMinimized()) continue;
+            ++standing;
+            lone = pane.data();
+        }
         if (standing != 1 || !half(QRectF(lone->frameGeometry()))) lone = nullptr;
         else found = "a lone half beside the desktop";
     }
@@ -720,7 +726,8 @@ bool Effect::pairMovedCard(KWin::EffectWindow *card, KWin::LogicalOutput *here, 
                                         : fromX >= area.center().x();
         const QRectF drawn(card->frameGeometry());
         const auto reserved = m_desktopStage->prepareCardDrop(card, here, KWin::RectF(drawn),
-            DesktopStageController::CardDropIntent::ActivateBento, BentoSidePlacement{right, true, true}, lone);
+            DesktopStageController::CardDropIntent::ActivateBento, BentoSidePlacement{right, true, true},
+            m_cardStage->liveCardIndex(lone) >= 0 ? lone : nullptr);
         if (reserved) {
             const QPointer<KWin::EffectWindow> carried = card;
             const QPointer<KWin::EffectWindow> named = reserved->namedPartner();
