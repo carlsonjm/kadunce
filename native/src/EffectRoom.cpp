@@ -28,7 +28,7 @@ void Effect::aimRoom(KWin::ScreenPrePaintData &data)
         // The middle of a pane, joining its Stack, stays a highlight only.
         SessionScope own(this, m_currentSession, stageKeyFor(m_carryDestination->destinationOutput()));
         for (const auto &pane : m_desktopStage->panesOn(m_carryDestination->destinationOutput()->name()))
-            if (pane && pane != m_carriedWindow && QRectF(pane->frameGeometry()) == QRectF(*aim)) aim.reset();
+            if (aim && pane && pane != m_carriedWindow && QRectF(pane->frameGeometry()) == QRectF(*aim)) aim.reset();
         // Over a pane, only the outer half of a side makes room; nearer its
         // middle the hand is heading for its Stack.
         auto *output = m_carryDestination->destinationOutput();
