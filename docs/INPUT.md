@@ -49,7 +49,7 @@ bottom edge is theirs.
 | A slow sideways stroke begun on the centred Stack | Its cards come to the front in turn. A quick one moves the row. |
 | Wheel over the centred Stack | Steps through its cards. |
 | Tap or click a card fanned behind the centred Stack's front | It comes to the front; Spread stays open. |
-| Pull a Stack's card down, or `Meta+Shift+Down` on the centred or Active one | It leaves the Stack as a card after it; the Stack keeps its place and order. |
+| Pull a Stack's card down, or `Meta+Shift+S` on the centred or Active one | It leaves the Stack as a card after it; the Stack keeps its place and order. |
 | Hold a Stack's card | It lifts out and the Stack parts at an outlined place; sideways moves it, left toward back. Let go, it goes there. Held still longer, the whole Stack gathers and carries. |
 
 ## Active card
@@ -95,8 +95,8 @@ On a display sized Connected (`CARD-LIFECYCLE.md` §11):
 | `Meta+Shift+Left`, `Right` on a pane or lone card | It swaps with the pane there, or takes the room, or goes to that display. |
 | `Meta+[`, `Meta+]` | The pane's divider moves. |
 | `Meta+Tab`, `Meta+Shift+Tab` on a pane, or a touchscreen's bottom swipe | Its Stack steps in place. |
-| `Meta+Shift+Up` on a pane | Its card goes one deeper, placed on releasing `Meta`; with no Stack, it joins the pane used before. |
-| `Meta+Shift+Down` on a pane or lone card | It leaves its Stack for its own pane; else waits in Spread. |
+| `Meta+Shift+Up` on a pane | It stands whole; its layout waits in Spread. `Meta+Shift+Down` returns it. |
+| `Meta+Shift+S` on a pane | It leaves its Stack for its own pane; with none, joins the pane used before. |
 | Hold a pane's title bar, then drag up or turn the wheel | Its Stack's title bars show; its card passes them and goes in where let go. |
 | Wheel while dragging on a monitor | It resizes in place, its app keeping that width; whole, it fills. Slow turns pause at common widths. |
 | Drag from another display onto a pane | Rest in middle: Stack; top, bottom: column; side: new column. |

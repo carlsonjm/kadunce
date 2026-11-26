@@ -569,6 +569,19 @@ void Effect::runKeyAction(KeyAction action)
         break;
     case KeyAction::DividerLeft: moveDividerByKey(-1); break;
     case KeyAction::DividerRight: moveDividerByKey(1); break;
+    case KeyAction::Fill: fillPaneByKeys(); break;
+    case KeyAction::Unfill: unfillByKeys(); break;
+    case KeyAction::StackToggle:
+        if (m_stackScrubByKeys) stepKeyLadder(1);
+        else if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
+            (void)m_cardStage->pullOutSelected();
+        else if (KWin::EffectWindow *focused = KWin::effects->activeWindow();
+                 focused && m_desktopStage->managesWindow(focused)) {
+            SessionScope scope(this, m_scopedSession, stageKeyOf(focused));
+            if (m_cardStage->paneStack(focused).isEmpty()) stepKeyLadder(1);
+            else letPaneGo(focused);
+        } else letActiveCardGo();
+        break;
     case KeyAction::WorkspaceLeft: sendCardToWorkspace(-1); break;
     case KeyAction::WorkspaceRight: sendCardToWorkspace(1); break;
     case KeyAction::Hold:
@@ -845,6 +858,52 @@ void Effect::letPaneGo(KWin::EffectWindow *pane)
             latest = standing.data();
     }
     if (latest && KWin::effects->activeWindow() == released) KWin::effects->activateWindow(latest);
+}
+
+void Effect::fillPaneByKeys()
+{
+    // As a pane carried to the top edge: it stands whole as the display's
+    // Active card, its Stack with it, and the layout it left waits in Spread.
+    KWin::EffectWindow *pane = KWin::effects->activeWindow();
+    KWin::LogicalOutput *output = pane ? pane->screen() : nullptr;
+    if (!pane || !output || !m_desktopStage->managesWindow(pane)) return;
+    SessionScope scope(this, m_scopedSession, stageKeyOf(pane));
+    const QRectF drawn(pane->frameGeometry());
+    const bool right = drawn.center().x() > QRectF(output->geometry()).center().x();
+    m_cardStage->setActiveWidth(pane, 1.0);
+    if (!m_desktopStage->extractPaneToCards(pane, [] { return true; })) return;
+    (void)m_cardStage->promoteToActive(pane);
+    m_cardStage->settlePaneStacks();
+    glideIntoActive(pane, output, drawn);
+    m_leftLayouts.insert(pane, LeftLayout{right, {}});
+    qInfo() << "Kadunce" << Revision << "made" << logNameOf(pane) << "whole by the keys from the"
+            << (right ? "right" : "left");
+    if (!isTabletOutput(output)) return;
+    markAloneOnPurpose(pane);
+    if (connectedForCardStage() && m_desktopStage->hasSessionOnOutput(output->name())) {
+        const QPointer<KWin::EffectWindow> whole = pane;
+        QTimer::singleShot(motion(260), this, [this, whole, output = QPointer(output)] {
+            if (whole && output) holdLayoutLeftBehind(whole, output);
+        });
+    }
+    observeCardOwnership();
+}
+
+void Effect::unfillByKeys()
+{
+    // The card made whole goes back to the side it left, the layout laid out
+    // again from Spread around it.
+    KWin::EffectWindow *card = m_cardStage->activeCardIdentity();
+    KWin::LogicalOutput *output = card ? card->screen() : nullptr;
+    const auto left = card ? m_leftLayouts.constFind(card) : m_leftLayouts.cend();
+    if (!card || !output || left == m_leftLayouts.cend() || !m_aloneOnPurpose.contains(card)) {
+        qInfo() << "Kadunce" << Revision << "has no place to put" << (card ? logNameOf(card) : QString())
+                << "back in by the keys";
+        return;
+    }
+    const bool right = left->right;
+    m_leftLayouts.remove(card);
+    layOutHeldLayoutBeside(card, output, BentoSidePlacement{right, true, true}, QRectF(card->frameGeometry()));
 }
 
 void Effect::letActiveCardGo()

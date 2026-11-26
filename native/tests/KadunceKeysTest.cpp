@@ -84,9 +84,10 @@ int main() {
           "Meta's arrows did not move the focus between panes");
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryLeft
               && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryRight
-              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::Deeper
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::LetGo,
-          "Meta+Shift's arrows did not move the pane");
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::Fill
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::None
+              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackToggle,
+          "Meta+Shift's arrows did not move or fill the pane, or Meta+Shift+S did not stack it");
     check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, pane) == KeyAction::StackNext
               && keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, pane) == KeyAction::DividerLeft
               && keyActionFor(Qt::Key_BracketRight, Qt::MetaModifier, pane) == KeyAction::DividerRight
@@ -99,31 +100,31 @@ int main() {
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier, spreadOverPane) == KeyAction::Previous
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::None,
           "A pane and Spread disagreed over a key");
-    check(keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::LetGo
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::LetGo
+    check(keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::StackToggle
+              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::StackToggle
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None,
-          "Meta+Shift+Down did not let the centred card of Spread go");
+          "Meta+Shift+S did not let the centred card of Spread go");
     // The Active card alone on a Connected display moves as a pane does, and
     // its plain arrows still go along the row.
     const KeyContext lone{true, false, false, false, true};
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::CarryLeft
               && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::CarryRight
               && keyActionFor(Qt::Key_Left, Qt::MetaModifier, lone) == KeyAction::Previous
-              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None,
-          "The lone card did not move by the keys");
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::Unfill,
+          "The lone card did not move, or go back to its place, by the keys");
     // The Active card in front of a Stack lets go of it by Shift+Down.
     const KeyContext stacked{true, false, false, false, false, true};
-    check(keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::LetGo
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None
+    check(keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::StackToggle
+              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::None,
-          "Meta+Shift+Down did not let the Active card go from its Stack");
-    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's, but for
-    // Shift+Down in Spread, which lets the centred card go from its Stack.
+          "Meta+Shift+S did not let the Active card go from its Stack");
+    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's.
     for (const auto &context : {desktop, active, spread}) {
         for (int key : {Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down})
-            if (key != Qt::Key_Down || !context.spreadShown)
-                check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
-                      "Meta+Shift's arrows were taken off a pane");
+            check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
+                  "Meta+Shift's arrows were taken off a pane");
         check(keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, context) == KeyAction::None,
               "A bracket was taken off a pane");
     }

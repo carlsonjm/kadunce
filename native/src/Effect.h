@@ -960,7 +960,7 @@ private:
     void commitKeyLadder();
     // The pane given, else the window in use.
     void letPaneGo(KWin::EffectWindow *pane = nullptr);
-    void letActiveCardGo();
+    void letActiveCardGo(); void fillPaneByKeys(); void unfillByKeys(); // Meta+Shift+Up and Down: whole, and back to its place
     // The application window with this KWin identity, if one is open.
     [[nodiscard]] KWin::EffectWindow *applicationWindowWithIdentity(const QString &windowId) const;
     void moveDividerByKey(int delta);

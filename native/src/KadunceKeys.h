@@ -45,6 +45,14 @@ enum class KeyAction {
     // the person stays where they are, as KDE's own keys for a window do.
     WorkspaceLeft,
     WorkspaceRight,
+    // Meta+Shift+Up: a pane becomes the card the display shows whole, its
+    // layout held in Spread; Meta+Shift+Down puts it back in its place there.
+    Fill,
+    Unfill,
+    // Meta+Shift+S, stacking's own key as on COSMIC: a pane in a Stack, the
+    // centred card of Spread or the Active card leaves its Stack; a pane in
+    // none joins the Stack of the pane used just before it.
+    StackToggle,
 };
 
 struct KeyContext {
@@ -109,9 +117,11 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Backtab: return stack ? KeyAction::StackPrevious : KeyAction::None;
         case Qt::Key_Left: return carry ? KeyAction::CarryLeft : KeyAction::None;
         case Qt::Key_Right: return carry ? KeyAction::CarryRight : KeyAction::None;
-        case Qt::Key_Up: return pane ? KeyAction::Deeper : KeyAction::None;
-        case Qt::Key_Down: return pane || context.spreadShown || context.stacked
-            ? KeyAction::LetGo : KeyAction::None;
+        // Up and Down change a card's size, as on most desktops.
+        case Qt::Key_Up: return pane ? KeyAction::Fill : KeyAction::None;
+        case Qt::Key_Down: return context.lone && !context.spreadShown ? KeyAction::Unfill : KeyAction::None;
+        case Qt::Key_S: return pane || context.spreadShown || context.stacked
+            ? KeyAction::StackToggle : KeyAction::None;
         default: return KeyAction::None;
         }
     }
