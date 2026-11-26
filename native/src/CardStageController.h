@@ -435,6 +435,8 @@ public:
     // `side` is the gap the swipe began in: -1 the left, for the card before.
     void dragActiveSlide(int side, double travel);
     void releaseActiveSlide(int side, double travel, double speed);
+    // A swipe let go of without a lift springs back; nothing is paged.
+    void settleActiveSlide();
     // How far a card of the strip stands from its place, while the strip moves.
     [[nodiscard]] std::optional<double> activeSlideShift(const KWin::EffectWindow *window) const;
     // A narrowed Stack stepping in place: where each of its two cards stands.

@@ -75,7 +75,9 @@ struct Target : WorkspaceInputTarget {
     int edgeSends = 0, edgeSide = 0;
     bool edgeSwipeSetForInput(int side) const override { return edgeSet == side || edgeSet == 2; }
     void sendEdgeSwipeKeyFromInput(int side) override { ++edgeSends; edgeSide = side; }
-    int activeSideForPoint(const QPointF &) const override { return 0; }
+    // The gap beside the Active card a point is in: -1 left, 1 right.
+    int activeSide = 0;
+    int activeSideForPoint(const QPointF &) const override { return activeSide; }
     bool selectedStackContains(const QPointF &) const override { return false; }
     // The centred card and one beside it; a hold picks up either.
     QRectF sideCard{860,150,140,400};
@@ -98,8 +100,13 @@ struct Target : WorkspaceInputTarget {
     void pageLeftFromInput() override { ++actions; if (onPage) onPage(); }
     void pageRightFromInput() override { ++actions; if (onPage) onPage(); }
     void pageStackFromInput(int) override { ++actions; }
-    void dragActiveSlideFromInput(int, double) override {}
-    void releaseActiveSlideFromInput(int, double, double) override { ++actions; }
+    int slideDrags = 0, slideReleases = 0, slideSettles = 0;
+    std::function<void()> onSlideRelease;
+    void dragActiveSlideFromInput(int, double) override { ++slideDrags; }
+    void releaseActiveSlideFromInput(int, double, double) override {
+        ++actions; ++slideReleases; if (onSlideRelease) onSlideRelease();
+    }
+    void settleActiveSlideFromInput() override { ++slideSettles; }
     void activateSelectedFromInput() override { ++actions; if (onActivate) onActivate(); }
     QPointF pickup, carried, dropped;
     int carryMoves = 0, drops = 0;
@@ -117,6 +124,38 @@ void require(bool value, const char *message) {
     if (!value) { std::cerr << message << '\n'; std::exit(1); }
 }
 int main(int argc, char **argv) {
+    // A swipe beside the Active card always finishes or cancels. One the
+    // workspace cancels under the finger, as a window taking itself forward
+    // does, springs back at once, and its lift, drained, pages nothing.
+    {
+        Target target; target.presentation = WorkspacePresentation::Active; target.activeSide = -1;
+        WorkspaceInputRouter router(&target);
+        KWin::TouchDownEvent down{401,{150,300},{}};
+        KWin::TouchMotionEvent across{401,{450,305},{}};
+        KWin::TouchUpEvent up{401,{}};
+        require(router.touchDown(&down) && router.touchMotion(&across) && target.slideDrags == 1,
+                "A swipe beside the Active card did not carry the strip");
+        router.cancelWorkspaceInteraction();
+        require(target.slideSettles == 1 && target.slideReleases == 0,
+                "A swipe cancelled under the finger left the strip where the finger had it");
+        require(router.touchUp(&up) && target.slideReleases == 0 && target.slideSettles == 1
+                    && target.actions == 0,
+                "The drained lift of a cancelled swipe paged or settled again");
+        // Lifted, it is released once; the step the release takes cancels
+        // workspace input, which must not spring the strip back as well.
+        target.onSlideRelease = [&] { router.cancelWorkspaceInteraction(); };
+        down.id = across.id = up.id = 402;
+        require(router.touchDown(&down) && router.touchMotion(&across) && router.touchUp(&up)
+                    && target.slideReleases == 1 && target.slideSettles == 1,
+                "A lifted swipe was not released once, or was settled under its own step");
+        // Cancelled by the touch stream, it springs back without paging.
+        target.onSlideRelease = nullptr;
+        down.id = across.id = 403;
+        require(router.touchDown(&down) && router.touchMotion(&across), "Third swipe not carried");
+        (void)router.touchCancel();
+        require(target.slideSettles == 2 && target.slideReleases == 1,
+                "A cancelled touch paged instead of springing back");
+    }
     // Edge swipes: a swipe in from a bare side edge sends that edge's key
     // once, the window under it losing the contact; with no key set, in
     // Spread, or a swipe that does not come in, the edge is as it was.

@@ -72,8 +72,20 @@ void CardStageController::pageHorizontal(int delta)
         if (wasActive && members.size() > 1)
             (void)m_workspace.selectCard(delta > 0 ? members.front() : members.back());
     }
+    // §2: a sleeping card is woken by stepping to it, as picking it in
+    // Spread or from the dock wakes it; Active cannot admit it asleep.
+    if (wasActive) {
+        KWin::EffectWindow *arriving = selectedWindow();
+        if (arriving && !arriving->isDeleted() && arriving->isMinimized() && arriving->window()) {
+            qInfo() << "Kadunce" << Revision << "wakes the sleeping card" << logNameOf(arriving)
+                    << "stepped to from the Active card";
+            arriving->window()->setMinimized(false);
+        }
+    }
     if (wasActive && !enterActive()) {
         m_presentation = CardPresentation::Spread;
+        // Nothing went on: no strip is left drawn half across.
+        endActiveSlide();
     }
     if (wasActive && m_presentation == CardPresentation::Active)
         continueActiveSlide(leaving, delta > 0 ? 1 : -1);
@@ -1055,6 +1067,18 @@ void CardStageController::releaseActiveSlide(int side, double travel, double spe
     const double from = slide.position;
     startActiveSlide(leaving, arriving, slide.side, from, 0.0, ActiveSlideMotion::Shape::Out,
                      ActiveSlideDuration);
+}
+
+void CardStageController::settleActiveSlide()
+{
+    auto &slide = m_activeSlide;
+    if (!slide.tracking) return;
+    if (!m_active || m_presentation != CardPresentation::Active) {
+        endActiveSlide();
+        return;
+    }
+    startActiveSlide(slide.leaving, slide.arriving, slide.side, slide.position, 0.0,
+                     ActiveSlideMotion::Shape::Out, ActiveSlideDuration);
 }
 
 void CardStageController::advanceMotion()
