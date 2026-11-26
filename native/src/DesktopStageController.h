@@ -524,6 +524,16 @@ private:
         QPointer<KWin::EffectWindow> yielded;
     };
     QList<Displacement> m_displaced;
+    // A pane put to sleep, and the place it left: beside `by`, at `place`.
+    // Called back into that layout, it takes that place again.
+    struct SleptPlace {
+        QString outputName;
+        QPointer<KWin::EffectWindow> window;
+        QPointer<KWin::EffectWindow> by;
+        PanePlace place = PanePlace::Left;
+    };
+    QList<SleptPlace> m_sleptPlaces;
+    void noteSleptPlace(const QString &key, KWin::EffectWindow *window);
     void returnDisplacedCards(const QString &key);
     // §5: a window leaves for the display that can hold it as a card. Where
     // none can, nothing leaves and the layout keeps the combination it has.

@@ -137,6 +137,7 @@ void DesktopStageController::handleWindowMinimizedChanged(KWin::EffectWindow *wi
             picked = record;
             break;
         }
+        if (window->isMinimized()) noteSleptPlace(key, window);
         saved->userMinimized = window->isMinimized();
         saved->parked = false;
         session.participationDirty = true;
@@ -354,6 +355,19 @@ bool DesktopStageController::admitCardToLiveBento(KWin::EffectWindow *window,
     if (!returned) candidate = live;
     qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "into the layout"
             << (returned ? "in its own place, which the pane there gives back" : "by the layout's own rule");
+    // A pane put to sleep comes back to the place it left, beside the pane it
+    // stood by, while that pane still stands here.
+    bool slept = false;
+    for (const auto &place : std::as_const(m_sleptPlaces))
+        if (!returned && !growOnly && place.window == window && place.outputName == live.outputName && place.by
+            && live.windows.contains(place.by) && live.placed) {
+            candidate.side = BentoSidePlacement{place.place == PanePlace::Right, true, true, false, false, 0.0, place.place,
+                                                reinterpret_cast<std::uintptr_t>(place.by.data())};
+            candidate.sideWindow = window;
+            slept = true;
+        }
+    m_sleptPlaces.removeIf([window](const SleptPlace &place) { return !place.window || place.window == window; });
+    if (slept) qInfo() << "Kadunce" << Revision << "calls" << window->caption() << "back to the place it slept from";
     // §8: grow first. A layout with room takes the arrival beside everything it
     // already shows, and an empty remainder is what says so.
     if (!returned) candidate.snapshots.append(snapshot);
@@ -1127,6 +1141,38 @@ bool DesktopStageController::transferCardWindow(KWin::EffectWindow *window, KWin
         if (valid()) KWin::workspace()->activateWindow(client, true);
     }
     return true;
+}
+
+} // namespace Kadunce
+
+namespace Kadunce
+{
+
+void DesktopStageController::noteSleptPlace(const QString &key, KWin::EffectWindow *window)
+{
+    // The place a pane leaves as it goes to sleep, named by a neighbour that
+    // stays: the pane over or under it in its column, else the column beside.
+    const auto session = m_sessions.constFind(key);
+    if (session == m_sessions.cend() || !session->placed || !window) return;
+    const auto &columns = session->placed->columns;
+    const auto awake = [window](const BentoColumnSlot<QPointer<KWin::EffectWindow>> &slot) {
+        return !slot.open && slot.window && slot.window != window && !slot.window->isMinimized();
+    };
+    for (std::size_t c = 0; c < columns.size(); ++c)
+        for (std::size_t s = 0; s < columns[c].size(); ++s) {
+            if (columns[c][s].open || columns[c][s].window != window) continue;
+            std::optional<SleptPlace> found;
+            if (s > 0 && awake(columns[c][s - 1])) found = SleptPlace{key, window, columns[c][s - 1].window, PanePlace::Bottom};
+            else if (s + 1 < columns[c].size() && awake(columns[c][s + 1]))
+                found = SleptPlace{key, window, columns[c][s + 1].window, PanePlace::Top};
+            else if (c > 0 && !columns[c - 1].empty() && awake(columns[c - 1].front()))
+                found = SleptPlace{key, window, columns[c - 1].front().window, PanePlace::Right};
+            else if (c + 1 < columns.size() && !columns[c + 1].empty() && awake(columns[c + 1].front()))
+                found = SleptPlace{key, window, columns[c + 1].front().window, PanePlace::Left};
+            m_sleptPlaces.removeIf([window](const SleptPlace &place) { return !place.window || place.window == window; });
+            if (found) m_sleptPlaces.append(*found);
+            return;
+        }
 }
 
 } // namespace Kadunce

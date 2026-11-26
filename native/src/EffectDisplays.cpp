@@ -1047,6 +1047,8 @@ void Effect::displacedCardMayReturnForDesktopStage(KWin::EffectWindow *card, KWi
     // It was lowered under the panes as a hidden card. A pane again, it stands
     // above the cards still hidden there, or a press on it would reach one.
     if (back && back->window()) KWin::workspace()->raiseWindow(back->window());
+    // Called from its dock icon as it comes back, it grows out of that icon.
+    if (const QRectF icon = back ? takeLaunchOrigin(back) : QRectF(); icon.isValid()) startPaneArrival(back, output, icon);
     if (stack.size() > 1) m_cardStage->notePaneStack(card, stack.mid(1));
     m_cardStage->settlePaneStacks();
     qInfo() << "Kadunce" << Revision << "brought" << logNameOf(card) << "back to the layout on"
