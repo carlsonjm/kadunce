@@ -13,7 +13,7 @@ Git history.
 A dialog is part of the application that opened it,
 not a card or a Bento pane; when that application is not in front, the dialog
 waits hidden and unfocused and the application is marked as wanting attention
-(`CARD-LIFECYCLE.md` §4). Rejected: bringing the application forward on its own,
+(`CARD-LIFECYCLE.md` §3). Rejected: bringing the application forward on its own,
 which lets any application interrupt whatever you are doing. The cost is a
 dialog that can go unnoticed; hence the mark.
 
@@ -42,7 +42,7 @@ restore record. Rejected: panels ignoring cards behind the Active card.
 ### A side snap admits one card; Bento needs two named windows
 
 A window is a Bento pane only because a gesture named it: the carried window and
-one partner (`CARD-LIFECYCLE.md` §3). Rejected: letting one side snap fill every
+one partner (`CARD-LIFECYCLE.md` §5). Rejected: letting one side snap fill every
 remaining pane from whatever else was eligible. That made the solver, not the
 person, decide membership, and every window it could not place became retained
 overflow that §14 gives to the card stage while the implementation kept it
@@ -52,14 +52,14 @@ ordinary Active card, because a one-window Bento must not exist.
 
 ### The card used before selects the partner; the gesture places it
 
-Use answers who, and the gesture where (`CARD-LIFECYCLE.md` §3): the window
+Use answers who, and the gesture where (`CARD-LIFECYCLE.md` §5): the window
 meant is the one used just before, visible without opening Spread. Rejected:
 the Spread neighbour first, which nobody could predict from the screen; it is
 the fallback, and its walk wraps, the row's ends (§6) being presentation. The
 carried window takes its release edge and the partner the other. Rejected: the
 partner keeping its Spread side, so a window dragged right could land left.
 
-Partner eligibility (`CARD-LIFECYCLE.md` §4) is one question asked in one place,
+Partner eligibility (`CARD-LIFECYCLE.md` §5) is one question asked in one place,
 by both pairing cases, so neither drifts into its own idea of who may be
 paired. A composed group or a stack is broken only
 by a partner you named, never by one a walk found.
@@ -67,7 +67,7 @@ by a partner you named, never by one a walk found.
 ### A Stack is a ring that keeps its room
 
 A side step from an open member goes round its Stack, never on along the row
-(`CARD-LIFECYCLE.md` §9): a Stack is chosen by hand, and Spread or the dock
+(`CARD-LIFECYCLE.md` §6): a Stack is chosen by hand, and Spread or the dock
 leave it. Every Stack keeps its fan's room, so the row moves only under the
 finger. Rejected: moving on past a Stack's end; re-centring the row on landing.
 
@@ -104,8 +104,8 @@ becomes carries the record it had before Bento placed it, not the pane rectangle
 ### A layout ends into card ownership, never into Plasma
 
 When Bento falls to one visible pane, that pane becomes an individual card
-(`CARD-LIFECYCLE.md` §5). Rejected: restoring it to the desktop, because
-§13 reserves the native desktop for explicit release and
+(`CARD-LIFECYCLE.md` §7). Rejected: restoring it to the desktop, because
+§11 reserves the native desktop for explicit release and
 disable. The remaining pane leaves by the same eviction a window the layout
 cannot show uses, which gives it its pre-Bento record. Where no display can own
 cards, §5's destination does not exist and the session keeps its single pane.
@@ -128,7 +128,7 @@ produces.
 
 ### A display presenting a layout answers every arrival with the layout
 
-A window is never shown on top of live panes (`CARD-LIFECYCLE.md` §8). Rejected:
+A window is never shown on top of live panes (`CARD-LIFECYCLE.md` §5). Rejected:
 growth-only admission, which drew the arrival over a full layout, the one state
 §2 does not name.
 Both arrival paths, launch and activation, retire the layout into a Spread group
@@ -147,7 +147,7 @@ size.
 
 ### The arrival claims one slot, and only its occupant leaves
 
-A full layout is not re-solved around an arrival (`CARD-LIFECYCLE.md` §8).
+A full layout is not re-solved around an arrival (`CARD-LIFECYCLE.md` §5).
 Rejected after physical review: re-solving while keeping the
 most recently used resident, which moved two windows when you asked for
 one and changed the survivor's size and side. Fit alone answers what recency was
@@ -162,7 +162,7 @@ at hardware, when what matters is whether the work area has room.
 
 ### The Bento shortcut names a pair, and targets a display rather than the pointer
 
-It targets the display `CARD-LIFECYCLE.md` §3 gives it. It used to read the
+It targets the display `CARD-LIFECYCLE.md` §5 gives it. It used to read the
 pointer, which on a touch tablet is wherever the pointer was last left, so it
 acted on a display you were not looking at; that path was removed rather than kept as
 a second rule. On a display that can own cards it names a pair the way a side
@@ -254,7 +254,7 @@ narrowing the ticket payload removed.
 ### A display shows cards or the desktop, never both
 
 A window let go at its bottom edge lands on the desktop, shown with it; the rest
-waits in Spread (`CARD-LIFECYCLE.md` §2). Rejected: windows over cards, which
+waits in Spread (`CARD-LIFECYCLE.md` §4). Rejected: windows over cards, which
 the keys, dock and Spread assume away; only the last card leaving.
 
 ## Transfer and native placement
@@ -451,7 +451,7 @@ displays; launching from the compositor; keeping titles.
 
 On every display a layout in Spread is its panes' cards, side by side in
 layout order until moved. A card's name adds the panes beside it, a Stack's
-the cards behind it (`CARD-LIFECYCLE.md` §2, §6). Choosing one resumes the
+the cards behind it (`CARD-LIFECYCLE.md` §4). Choosing one resumes the
 session without a solve; a pane its client moved meanwhile goes back to its
 stored rect. Rejected: one group card for a Solo display's pair,
 the one place a window was not its own card, with gestures of its own.
@@ -464,7 +464,7 @@ one global session, which makes every tablet gesture a multi-display event.
 
 ### A display without cards organizes everything it shows
 
-With `[Spread] OtherDisplays=windows` (`CARD-LIFECYCLE.md` §11). A window with no room waits in the
+With `[Spread] OtherDisplays=windows` (`CARD-LIFECYCLE.md` §2). A window with no room waits in the
 dock, never moves to another display on its own, and comes back when room frees
 up. An application too big for any slot takes the Active size, because one you
 just opened has to appear. Rejected: overflow on another desktop.
@@ -554,7 +554,7 @@ diagonal hand-off from the edge.
 ### A Spread on every display
 
 Every window is a card on every display, and each display has its own Spread, Active card and Stacks
-(`CARD-LIFECYCLE.md` §11). A card belongs to the
+(`CARD-LIFECYCLE.md` §2). A card belongs to the
 display its window stands on, so no card waits on a display it is not shown
 on, and each context line reads its own display. A card moved across takes
 its Stack in one step; a display plugged in takes the dock display's, so
@@ -571,7 +571,7 @@ one-step way back.
 ### A big display plays cards into its layout
 
 A display with room for more than two panes is Connected
-(`CARD-LIFECYCLE.md` §11): one card, then halves, then under a half.
+(`CARD-LIFECYCLE.md` §5): one card, then halves, then under a half.
 Full, the pane used longest ago yields. Rejected: three strips.
 
 ### Opened windows join by ticket
@@ -636,7 +636,7 @@ Keyboard's handle. Contract:
 
 Games and Android apps size themselves; guessing fights them, as does taking
 a size asked in answer to a maximize. Rejected: both. See
-`CARD-LIFECYCLE.md` § A card that sizes itself.
+`CARD-LIFECYCLE.md` § Apps that size themselves.
 
 ### Edge swipes type on Kadunce's own keyboard
 

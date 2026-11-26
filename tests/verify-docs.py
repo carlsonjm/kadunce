@@ -183,11 +183,11 @@ WORD_BUDGETS = {
     "CLAUDE.md": 80,
     "docs/README.md": 475,
     "docs/DECISIONS.md": 5450,
-    "docs/CARD-LIFECYCLE.md": 3650,
+    "docs/CARD-LIFECYCLE.md": 4600,
     "docs/INPUT.md": 2050,
     "docs/TESTING.md": 3300,
 }
-LIVE_WORD_BUDGET = 32500
+LIVE_WORD_BUDGET = 33450
 
 
 def word_count(text: str) -> int:

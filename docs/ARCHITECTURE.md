@@ -113,11 +113,11 @@ animation. Paint scheduling requests only the frames needed to reach an endpoint
 Every native geometry mutation has one authoritative restore record owned by the
 controller that owns the physical layout. Explicit release, unload, or an accepted
 transfer consumes the record. A presentation change never consumes it and never
-returns a window to the native desktop (`CARD-LIFECYCLE.md` §14).
+returns a window to the native desktop (`CARD-LIFECYCLE.md` §12).
 
 Card Stage release clears its live registry. Identity is stable by window handle or
 UUID while the effect is loaded; array indices are compatibility data, not durable
-identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §13) but where
+identity. Nothing persists across unload (`CARD-LIFECYCLE.md` §11) but where
 applications stood, which `REQUESTS.md` § Bringing apps back reads.
 
 Constrained new windows use the Bento admission solver or prepared individual-card
@@ -166,7 +166,7 @@ and a pane returned to its original slot consumes the drop without a native
 placement.
 
 A deliberate edge destination that means a pair prepares only the two windows
-`CARD-LIFECYCLE.md` §3 names. Nothing else on the display is an input to the
+`CARD-LIFECYCLE.md` §5 names. Nothing else on the display is an input to the
 solve, the preview, or the revalidation, and a plan with any other pane set is
 rejected. A display the pairing rules do not reach prepares its eligible
 resident batch plus the arrival. Open space without an existing Bento remains
@@ -174,7 +174,7 @@ ordinary native desktop space on a display that cannot own cards. On a display
 that can, an arrival there is admitted to the card stage, publishing membership
 before presentation cleanup, and may seed Spread's center-and-expand motion from
 its released pose. A stack takes no arrival from the native desktop
-(`CARD-LIFECYCLE.md` §9).
+(`CARD-LIFECYCLE.md` §6).
 
 Committed monitor placement may retain a short compositor-only settle while KWin's
 requested output and geometry still match the reservation. The input route is already
@@ -315,7 +315,7 @@ workspace. Its Settings window holds preferences without adding preference state
 to the compositor plugin, and every word it shows comes from its
 `kadunce-control` translation catalog. On unload, input
 routes are canceled and destroyed while controllers remain alive, then every
-managed client is restored, as `CARD-LIFECYCLE.md` §13 lists, before the effect
+managed client is restored, as `CARD-LIFECYCLE.md` §11 lists, before the effect
 disappears. No timer, native observer, or callback survives its owner.
 
 `TESTING.md` says what each check proves and gives the rules for private
@@ -325,8 +325,8 @@ compositors.
 
 1. A client has one physical KWin output and one owning native restore record.
 2. Spread never takes what another display shows, and never changes the
-   geometry of a window on any display but its own (`CARD-LIFECYCLE.md` §11,
-   Every display). A window it resizes on its own display, a pane standing in
+   geometry of a window on any display but its own (`CARD-LIFECYCLE.md` §2).
+   A window it resizes on its own display, a pane standing in
    a card's place or going back to its layout, keeps its picture until its
    application has drawn at the new size.
 3. Destination acceptance precedes source removal.

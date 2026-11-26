@@ -38,7 +38,7 @@ code comments say the same thing.
 - **Display sizing** is an internal term. A display is sized **Solo**, one card
   at a time over the whole work area and a Bento pair at most, or
   **Connected**, room for more than two panes, where a picked card joins the
-  layout (`CARD-LIFECYCLE.md` §11). Solo, Connected and "display sizing" stay
+  layout (`CARD-LIFECYCLE.md` §2). Solo, Connected and "display sizing" stay
   out of on-screen words; there a display simply shows one card or a layout.
 
 ## Enforcement
