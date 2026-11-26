@@ -325,10 +325,10 @@ which talk to Kadunce every frame; and the recognizer reaching over the dock.
 A filter ahead of KDE's shortcuts takes Kadunce's keys only while it runs,
 the arrows only while cards or a layout show (`INPUT.md`). An arrow
 moves the focus that way; with `Shift` the window goes, at a layout's edge on
-to the next display. `Meta+Tab` steps a Stack; `Meta+Shift+Up` makes a pane whole
-and `Down` returns it, as most desktops size; `Meta+Shift+S` stacks, as COSMIC.
-Rejected: KGlobalAccel, which writes keys to your settings; `Ctrl`, which
-belongs to applications; `Meta+Up` stepping a Stack, giving down two meanings.
+to the next display. `Meta+Shift+Up` makes a pane whole and `Down` returns it;
+`Meta+Shift+S` stacks, as COSMIC. `Meta+Esc` is the tray's (KGlobalAccel), so
+it turns Cards on too. Rejected: KGlobalAccel for the rest; `Ctrl`, which
+belongs to applications.
 
 ### KDE's Overview is set aside while Kadunce runs
 

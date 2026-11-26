@@ -49,10 +49,19 @@ enum class KeyAction {
     // layout held in Spread; Meta+Shift+Down puts it back in its place there.
     Fill,
     Unfill,
-    // Meta+Shift+S, stacking's own key as on COSMIC: a pane in a Stack, the
-    // centred card of Spread or the Active card leaves its Stack; a pane in
-    // none joins the Stack of the pane used just before it.
+    // Meta+Shift+S, stacking's own key as on COSMIC: a pane, the centred card
+    // of Spread or the Active card joins the Stack of the one used just
+    // before it; pressed again, it goes one deeper.
     StackToggle,
+    // Meta+Shift+PgDown and PgUp: the card in front of the focused Stack goes
+    // one place back, or forward again.
+    StackBack,
+    StackForward,
+    // Meta+Shift+Esc: the focused card or pane goes back to the Plasma
+    // desktop, as at the bottom edge.
+    ToDesktop,
+    // Delete in Spread: the centred card's app closes, as flicked up.
+    CloseCard,
 };
 
 struct KeyContext {
@@ -91,7 +100,6 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_S: return KeyAction::Spread;
         case Qt::Key_W: return context.table ? KeyAction::Table : KeyAction::None;
         case Qt::Key_B: return KeyAction::Bento;
-        case Qt::Key_Escape: return KeyAction::Release;
         case Qt::Key_Left: return pane ? KeyAction::FocusLeft
             : context.cardsShown ? KeyAction::Previous : KeyAction::None;
         case Qt::Key_Right: return pane ? KeyAction::FocusRight
@@ -119,9 +127,13 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Right: return carry ? KeyAction::CarryRight : KeyAction::None;
         // Up and Down change a card's size, as on most desktops.
         case Qt::Key_Up: return pane ? KeyAction::Fill : KeyAction::None;
-        case Qt::Key_Down: return context.lone && !context.spreadShown ? KeyAction::Unfill : KeyAction::None;
-        case Qt::Key_S: return pane || context.spreadShown || context.stacked
-            ? KeyAction::StackToggle : KeyAction::None;
+        case Qt::Key_Down: return pane || context.spreadShown ? KeyAction::LetGo
+            : (context.lone || context.stacked) && !context.spreadShown ? KeyAction::Unfill : KeyAction::None;
+        case Qt::Key_S: return pane || context.cardsShown ? KeyAction::StackToggle : KeyAction::None;
+        case Qt::Key_PageDown: return pane || context.cardsShown ? KeyAction::StackBack : KeyAction::None;
+        case Qt::Key_PageUp: return pane || context.cardsShown ? KeyAction::StackForward : KeyAction::None;
+        case Qt::Key_Escape: return pane || (context.cardsShown && !context.spreadShown)
+            ? KeyAction::ToDesktop : KeyAction::None;
         default: return KeyAction::None;
         }
     }
@@ -146,6 +158,7 @@ inline KeyAction keyActionFor(int key, Qt::KeyboardModifiers modifiers, const Ke
         case Qt::Key_Return:
         case Qt::Key_Enter: return KeyAction::Open;
         case Qt::Key_Escape: return KeyAction::Back;
+        case Qt::Key_Delete: return KeyAction::CloseCard;
         default: return KeyAction::None;
         }
     }
@@ -181,6 +194,8 @@ inline bool keyActionRepeats(KeyAction action)
     case KeyAction::Deeper:
     case KeyAction::DividerLeft:
     case KeyAction::DividerRight:
+    case KeyAction::StackBack:
+    case KeyAction::StackForward:
     case KeyAction::Hold: return true;
     default: return false;
     }

@@ -571,17 +571,11 @@ void Effect::runKeyAction(KeyAction action)
     case KeyAction::DividerRight: moveDividerByKey(1); break;
     case KeyAction::Fill: fillPaneByKeys(); break;
     case KeyAction::Unfill: unfillByKeys(); break;
-    case KeyAction::StackToggle:
-        if (m_stackScrubByKeys) stepKeyLadder(1);
-        else if (m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Spread)
-            (void)m_cardStage->pullOutSelected();
-        else if (KWin::EffectWindow *focused = KWin::effects->activeWindow();
-                 focused && m_desktopStage->managesWindow(focused)) {
-            SessionScope scope(this, m_scopedSession, stageKeyOf(focused));
-            if (m_cardStage->paneStack(focused).isEmpty()) stepKeyLadder(1);
-            else letPaneGo(focused);
-        } else letActiveCardGo();
-        break;
+    case KeyAction::StackToggle: stackByKeys(); break;
+    case KeyAction::StackBack: moveInStackByKeys(1); break;
+    case KeyAction::StackForward: moveInStackByKeys(-1); break;
+    case KeyAction::ToDesktop: sendFocusedToDesktop(); break;
+    case KeyAction::CloseCard: (void)m_cardStage->closeSelected(); break;
     case KeyAction::WorkspaceLeft: sendCardToWorkspace(-1); break;
     case KeyAction::WorkspaceRight: sendCardToWorkspace(1); break;
     case KeyAction::Hold:
@@ -897,8 +891,10 @@ void Effect::unfillByKeys()
     KWin::LogicalOutput *output = card ? card->screen() : nullptr;
     const auto left = card ? m_leftLayouts.constFind(card) : m_leftLayouts.cend();
     if (!card || !output || left == m_leftLayouts.cend() || !m_aloneOnPurpose.contains(card)) {
-        qInfo() << "Kadunce" << Revision << "has no place to put" << (card ? logNameOf(card) : QString())
-                << "back in by the keys";
+        // Not made whole by the keys: in front of a Stack, it leaves it.
+        if (card && m_cardStage->stackFrontToBack(card).size() > 1) letActiveCardGo();
+        else qInfo() << "Kadunce" << Revision << "has no place to put" << (card ? logNameOf(card) : QString())
+                     << "back in by the keys";
         return;
     }
     const bool right = left->right;

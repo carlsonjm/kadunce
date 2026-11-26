@@ -18,7 +18,8 @@ int main() {
         check(keyActionFor(Qt::Key_B, Qt::MetaModifier, context) == KeyAction::Bento, "Meta+B did not start Bento");
         check(keyActionFor(Qt::Key_B, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::ZoneMode,
               "Meta+Shift+B did not switch the monitors' zones");
-        check(keyActionFor(Qt::Key_Escape, Qt::MetaModifier, context) == KeyAction::Release, "Meta+Esc did not let go");
+        // Meta+Esc is the Cards switch, which the tray answers even with Cards off.
+        check(keyActionFor(Qt::Key_Escape, Qt::MetaModifier, context) == KeyAction::None, "Meta+Esc was taken from the switch");
         for (int key : {Qt::Key_S, Qt::Key_B, Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down, Qt::Key_Escape})
             check(keyActionFor(key, Qt::ControlModifier, context) == KeyAction::None, "A Ctrl key was taken from applications");
     }
@@ -85,9 +86,12 @@ int main() {
     check(keyActionFor(Qt::Key_Left, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryLeft
               && keyActionFor(Qt::Key_Right, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::CarryRight
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::Fill
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::None
-              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackToggle,
-          "Meta+Shift's arrows did not move or fill the pane, or Meta+Shift+S did not stack it");
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::LetGo
+              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackToggle
+              && keyActionFor(Qt::Key_PageDown, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackBack
+              && keyActionFor(Qt::Key_PageUp, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::StackForward
+              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, pane) == KeyAction::ToDesktop,
+          "Meta+Shift's keys did not move, fill, let go, stack, reorder or give back the pane");
     check(keyActionFor(Qt::Key_Tab, Qt::MetaModifier, pane) == KeyAction::StackNext
               && keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, pane) == KeyAction::DividerLeft
               && keyActionFor(Qt::Key_BracketRight, Qt::MetaModifier, pane) == KeyAction::DividerRight
@@ -102,9 +106,12 @@ int main() {
           "A pane and Spread disagreed over a key");
     check(keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::StackToggle
               && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, spreadOverPane) == KeyAction::StackToggle
-              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
-              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None,
-          "Meta+Shift+S did not let the centred card of Spread go");
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::LetGo
+              && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
+              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, spread) == KeyAction::None
+              && keyActionFor(Qt::Key_Delete, Qt::NoModifier, spread) == KeyAction::CloseCard
+              && keyActionFor(Qt::Key_Delete, Qt::NoModifier, active) == KeyAction::None,
+          "Meta+Shift+S did not stack the centred card of Spread, or Delete did not close it");
     // The Active card alone on a Connected display moves as a pane does, and
     // its plain arrows still go along the row.
     const KeyContext lone{true, false, false, false, true};
@@ -117,14 +124,18 @@ int main() {
     // The Active card in front of a Stack lets go of it by Shift+Down.
     const KeyContext stacked{true, false, false, false, false, true};
     check(keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::StackToggle
-              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::None
+              && keyActionFor(Qt::Key_S, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::StackToggle
+              && keyActionFor(Qt::Key_Down, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::Unfill
+              && keyActionFor(Qt::Key_Escape, Qt::MetaModifier | Qt::ShiftModifier, lone) == KeyAction::ToDesktop
               && keyActionFor(Qt::Key_Up, Qt::MetaModifier | Qt::ShiftModifier, stacked) == KeyAction::None,
-          "Meta+Shift+S did not let the Active card go from its Stack");
-    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's.
+          "Meta+Shift+S, Down or Esc did not answer for the Active card");
+    // Off a pane, Meta+Shift's arrows and the brackets stay KDE's, but for
+    // Shift+Down in Spread, which lets the centred card go from its Stack.
     for (const auto &context : {desktop, active, spread}) {
         for (int key : {Qt::Key_Left, Qt::Key_Right, Qt::Key_Up, Qt::Key_Down})
-            check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
-                  "Meta+Shift's arrows were taken off a pane");
+            if (key != Qt::Key_Down || !context.spreadShown)
+                check(keyActionFor(key, Qt::MetaModifier | Qt::ShiftModifier, context) == KeyAction::None,
+                      "Meta+Shift's arrows were taken off a pane");
         check(keyActionFor(Qt::Key_BracketLeft, Qt::MetaModifier, context) == KeyAction::None,
               "A bracket was taken off a pane");
     }
@@ -158,6 +169,7 @@ int main() {
     check(keyActionRepeats(KeyAction::Next) && keyActionRepeats(KeyAction::StackPrevious)
               && keyActionRepeats(KeyAction::FocusLeft) && keyActionRepeats(KeyAction::Deeper)
               && !keyActionRepeats(KeyAction::CarryLeft) && !keyActionRepeats(KeyAction::LetGo)
+              && keyActionRepeats(KeyAction::StackBack) && !keyActionRepeats(KeyAction::ToDesktop)
               && !keyActionRepeats(KeyAction::Spread) && !keyActionRepeats(KeyAction::Release),
           "A held key repeated what should happen once");
     // In Spread, typing opens Search; Shift only chooses the character, and

@@ -151,7 +151,7 @@ check 'hand: rested on the other pane, it stacks there' together "$righty" "$lef
 meta_shift 106
 report hand-placed
 check 'hand: one Meta+Shift+Right sets the Stack in the right half' on_right_half "$righty"
-(( $(pane_count) < 2 )) && meta_shift 31
+(( $(pane_count) < 2 )) && meta_shift 108
 report hand-apart
 check 'hand: its card behind lets go beside it' test "$(pane_count)" -eq 2
 # Then, as on the desk: the right pane carried to the left by its title bar,
@@ -181,7 +181,7 @@ meta_shift 106
 report hand-back
 check 'hand: Meta+Shift+Right brings the Stack back as a pane' is_pane "$lefty"
 # Its card behind lets go into the open half, two panes again.
-(( $(pane_count) < 2 )) && meta_shift 31
+(( $(pane_count) < 2 )) && meta_shift 108
 report hand-split
 
 # Both laid out again, one stacked on the other, and the Stack carried across.
@@ -227,7 +227,7 @@ check 'stack: still one Stack' together "$front" "$rest"
 # Laid out again as two panes, Spread shows two cards, not one Stack.
 # The Stack back in the pane it left alone, its card behind lets go into the
 # open half; Meta+B there would end the layout of one.
-(( $(pane_count) < 2 )) && meta_shift 31
+(( $(pane_count) < 2 )) && meta_shift 108
 report relaid-again
 (( $(pane_count) < 2 )) && meta 48
 report split

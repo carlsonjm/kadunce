@@ -171,6 +171,31 @@ check 'back: one Meta+B lays out every open card again' panes_are 3
 check 'back: the card carried to the top is a pane of it' \
     context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
 
+# A pane let go with Meta+Shift+Down waits as a card. With Spread open over
+# the layout, the card called up by its application, as the dock does, is the
+# Active card in front of the layout Spread holds, whose panes are no
+# partners for it. One Meta+B lays the layout out again with it.
+probe activateWindowId "$browser" >/dev/null
+sleep .6
+probe keyHeld 108 1 125 42 >/dev/null
+sleep 1.4
+report waiting
+check 'waiting: the pane let go waits as a card' panes_are 2
+spread_key
+report spread-held
+check 'held: Meta+S opens Spread over the layout of two' presents cardLine
+probe activateWindowId "$browser" >/dev/null
+sleep 1.4
+report called
+check 'called: the waiting card is Active in front of the layout' \
+    context --arg id "$browser" '.cardStage.presentation == "active" and .cardStage.selectedCardId == $id'
+probe key 48 125 >/dev/null
+sleep 1.6
+report held-back-in
+check 'held: one Meta+B lays the layout held behind it out again' panes_are 3
+check 'held: the Active card is a pane of it' \
+    context --arg id "$browser" 'first(.applications[] | select(.windowId == $id)) | .pane and (.hasCard | not)'
+
 # Meta+Shift+Up stands a pane whole as the Active card, its layout held
 # behind it in Spread; Meta+Shift+Down puts it back in its place there.
 probe activateWindowId "$browser" >/dev/null
