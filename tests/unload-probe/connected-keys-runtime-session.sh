@@ -4,12 +4,12 @@
 # large, sized Connected and chosen for Spread. Meta's arrows move the focus
 # from pane to pane and on to the small display; with Shift a pane trades
 # places with the one beside it and, at the layout's edge, goes on to the
-# small display and back. The brackets move a divider. Meta+Shift+Up puts a
-# pane with no Stack into the Stack of the pane used before it, and puts a
-# Stack's card deeper, placed when Meta is let go; Meta+Tab steps the Stack
-# and Meta+Shift+Down takes a card out of it, or a pane out of the layout, and
-# in Spread the centred card out of its Stack. A pane carried to the small
-# display takes its Stack with it.
+# small display and back. The brackets move a divider. Meta+Shift+S puts a
+# pane with no Stack into the Stack of the pane used before it, and takes a
+# Stack's card out of it, and in Spread the centred card out of its Stack;
+# Meta+Tab steps the Stack. Meta+Shift+Up stands a pane whole and
+# Meta+Shift+Down puts it back. A pane carried to the small display takes
+# its Stack with it.
 # Every check is reported, so a failure does not hide the rest.
 set -uo pipefail
 [[ ${XDG_RUNTIME_DIR:-} == /tmp/kadunce-unload-*/runtime ]] || exit 1
@@ -167,9 +167,9 @@ check 'stacks: the layout holds five panes' test "${#panes[@]}" -eq 5
 first=${panes[0]:-} second=${panes[1]:-} third=${panes[2]:-} fourth=${panes[3]:-}
 focus_on "$second"
 focus_on "$first"
-meta_shift 103
+meta_shift 31
 report joined
-check 'join: Meta+Shift+Up puts the pane in front of the one used before it' behind_is "$first" "[\"$second\"]"
+check 'join: Meta+Shift+S puts the pane in front of the one used before it' behind_is "$first" "[\"$second\"]"
 check 'join: that one waits behind it' is_card "$second"
 check 'join: the other pane stayed' is_pane "$third"
 meta 15
@@ -181,79 +181,65 @@ sleep 1.4
 report tabbed-back
 check 'step: Meta+Shift+Tab steps back' is_pane "$first"
 
-# A third card, then the ladder: one press puts the card one deeper, and
-# Meta let go places it there.
+# A third card joins in front; Meta+Shift+S again takes it back out.
 focus_on "$first"
 focus_on "$third"
-meta_shift 103
+meta_shift 31
 report joined-three
 check 'join: the third joins in front' behind_is "$third" "[\"$first\",\"$second\"]"
-meta_shift 103 1
-report deeper-one
-check 'deeper: Meta+Shift+Up once puts it behind the next card' behind_is "$first" "[\"$third\",\"$second\"]"
-check 'deeper: the card it passed is in front' is_pane "$first"
-focus_on "$first"
-meta_shift 103 2
-report deeper-two
-check 'deeper: held, two presses put it at the back' behind_is "$third" "[\"$second\",\"$first\"]"
-focus_on "$third"
-meta_shift 103 3
-report deeper-round
-check 'deeper: past the back it comes round to where it was' behind_is "$third" "[\"$second\",\"$first\"]"
-
-# Down lets go: out of the Stack, then out of the layout.
-focus_on "$third"
-meta_shift 108
+meta_shift 31
 report let-go
-check 'let go: Meta+Shift+Down takes the card out of its Stack' behind_is "$third" '[]'
+check 'let go: Meta+Shift+S takes the card out of its Stack' behind_is "$third" '[]'
 check 'let go: it joins the layout as a pane of its own' is_pane "$third"
-check 'let go: the next card takes the pane' behind_is "$second" "[\"$first\"]"
-check 'let go: it is a pane' is_pane "$second"
+check 'let go: the next card takes the pane' behind_is "$first" "[\"$second\"]"
+check 'let go: it is a pane' is_pane "$first"
+# Up stands a pane whole, its layout waiting; Down puts it back.
 focus_on "$fourth"
+meta_shift 103
+report whole
+check 'whole: Meta+Shift+Up makes the pane the card the monitor shows' shown_card "$fourth"
+check 'whole: the layout waits, out of view' context '.cardStage.presentation != "bento"'
 meta_shift 108
-report left-layout
-check 'let go: a pane with no Stack leaves the layout as a card' is_card "$fourth"
-check 'let go: the layout stays in view, with no card over it' context '.cardStage.presentation == "bento"'
-check 'let go: a pane of the layout has the keys' context 'first(.applications[] | select(.focused)) | .pane and (.hasCard | not)'
+report put-back
+check 'put back: Meta+Shift+Down makes it a pane again' is_pane "$fourth"
+check 'put back: the layout is in view' context '.cardStage.presentation == "bento"'
 
 # A pane carried to another display takes its whole Stack with it.
 together() { context --arg a "$1" --arg b "$2" '[.applications[] | select(.windowId == $a or .windowId == $b)] as $two
     | (first($two[] | select(.windowId == $a)) | .paneStack == [$b])
       or (($two | length) == 2 and ($two | map(.stackId) | unique | length) == 1 and $two[0].stackId != null)'; }
-focus_on "$second"
+focus_on "$first"
 for _ in 1 2 3 4 5; do
-    on_output "$second" Virtual-0 && break
+    on_output "$first" Virtual-0 && break
     meta_shift 105
-    focus_on "$second"
+    focus_on "$first"
 done
 report stack-carried
-check 'carry: a pane holding a Stack reaches the small display' on_output "$second" Virtual-0
-check 'carry: its Stack came with it, in order' together "$second" "$first"
-check 'carry: there it is the card that display shows' shown_card "$second"
+check 'carry: a pane holding a Stack reaches the small display' on_output "$first" Virtual-0
+check 'carry: its Stack came with it, in order' together "$first" "$second"
+check 'carry: there it is the card that display shows' shown_card "$first"
 meta 15
 report stack-carried-step
-check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $first 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"
-check 'carry: the card behind now shows there' focused "$first"
+check 'carry: Meta+Tab steps that Stack on the small display' bash -c "[[ \$(qdbus6 org.kde.KWin /Kadunce workspaceContext | jq -r --arg id $second 'first(.applications[] | select(.windowId == \$id)) | .output') == Virtual-0 ]]"
+check 'carry: the card behind now shows there' focused "$second"
 
-# In Spread, Meta+Shift+Down takes the centred card out of its Stack, as a
+# In Spread, Meta+Shift+S takes the centred card out of its Stack, as a
 # pull down does; the Stack keeps the pane with its next card.
 # The card let go earlier comes back, so the layout outlasts the join.
 fifth=${panes[4]:-}
 # Spread opens on the display in use, so a pane of the large display is used first.
 focus_on "$fifth"
-spread_key
-pick "$fourth"
-check 'spread: the card let go earlier is a pane again' is_pane "$fourth"
+check 'spread: the card put back is a pane' is_pane "$fourth"
 focus_on "$fifth"
 focus_on "$third"
-meta_shift 103
+meta_shift 31
 report spread-joined
 check 'spread: a Stack to let go of in Spread' behind_is "$third" "[\"$fifth\"]"
 spread_key
 select_card "$third" || echo "could not select $third"
-meta_shift 108
+meta_shift 31
 report spread-let-go
-check 'spread: Meta+Shift+Down takes the centred card out of its Stack' \
+check 'spread: Meta+Shift+S takes the centred card out of its Stack' \
     context --arg id "$third" 'first(.applications[] | select(.windowId == $id)) | .stackSize == 1'
 check 'spread: Spread stays open' context '.cardStage.presentation == "cardLine"'
 select_card "$fifth" || echo "could not select $fifth"
