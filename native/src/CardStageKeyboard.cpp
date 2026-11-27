@@ -326,13 +326,12 @@ void CardStageController::stepWorkAreaFollow()
         m_workAreaFollow.reset();
         return;
     }
-    // Growing, the size the place will have a step from now, since the client
-    // answers a step late; shrinking, the size it has now. Either way the
-    // client is a little larger than its place and is cut, never stretched.
-    // The last one is the place itself, asked for even if the card has left
-    // Active meanwhile, so it is never left part of the way.
-    const bool growing = follow.to.height() * follow.to.width() > follow.from.height() * follow.from.width();
-    const qint64 ahead = follow.since.elapsed() + (growing ? 2 * WorkAreaStepInterval : 0);
+    // The size the place will have two steps from now, since the client
+    // answers late. Shrinking, that keeps the client inside its place, so it
+    // never reaches the panel coming in, which goes black for a window that
+    // touches it. The last one is the place itself, asked for even if the
+    // card has left Active meanwhile, so it is never left part of the way.
+    const qint64 ahead = follow.since.elapsed() + 2 * WorkAreaStepInterval;
     const bool last = follow.since.elapsed() + WorkAreaStepInterval >= follow.duration || !m_active || m_presentation != CardPresentation::Active;
     QRectF ask = follow.to;
     if (!last) {
