@@ -29,7 +29,7 @@ desktop file first; `windowId` is its KWin internal id, or empty if not running.
 ## Where a point leads
 
 - Over the dock's band, at the bottom of any display: `none`.
-- On the display that owns cards (`CARD-LIFECYCLE.md` § 11): a side edge pairs
+- On the display that owns cards (`CARD-LIFECYCLE.md` §2): a side edge pairs
   the application into Bento as the Active card carried there would
   (§ 3, § 10); anywhere else, the top edge included, makes it the Active card.
   A side edge on a display Kadunce does not yet own makes it the Active card,
@@ -165,7 +165,7 @@ A window is not placed by its pair when:
 - it opened on another display than that card;
 - it does not fit the card's pane, or a window is being carried.
 
-Where a window in front stands (`CARD-LIFECYCLE.md` §9, §11):
+Where a window in front stands (`CARD-LIFECYCLE.md` §6, §5):
 
 - From the Active card, it is the Active card in front of that card's Stack,
   on a Connected display too, where it would otherwise stand beside the card.

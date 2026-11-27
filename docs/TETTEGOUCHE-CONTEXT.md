@@ -172,7 +172,7 @@ selects the incoming real card. A press outside the launcher and the keys is
 Kadunce's (`INPUT.md` § Spread): it never reaches the application under it, so
 it cannot promote that application to Active. Kadunce accepts the launcher only
 while Spread is shown, and does not open Spread for it (`CARD-LIFECYCLE.md`
-§11). Any rejected begin
+§2). Any rejected begin
 request leaves both applications in their existing standalone behavior; a
 rejection may name the `output` the launcher floats on, where the person is
 working. Until the launcher then signals `shown(false)` on `/Launcher`, Spread
@@ -234,8 +234,7 @@ included, is the launcher guest's. Two rules apply:
 
 - Over an Active card a companion, refused as the launcher is, draws its own
   card, and an application it launches takes the Active card's place, with
-  Spread never shown (`CARD-LIFECYCLE.md` §8, While an individual card is
-  Active).
+  Spread never shown (`CARD-LIFECYCLE.md` §4, Active).
 - Spread has one center. A guest asking while another holds it takes it, and
   Kadunce sends the one it replaces `dismissGuest` first; the launcher guest
   follows the same rule.
