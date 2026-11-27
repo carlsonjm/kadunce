@@ -57,13 +57,15 @@ public:
     ~NativeMoveObserver() override { clearWindows(); }
     const CarryContacts &contacts() const { return m_contacts; }
     quint64 deviceToken(KWin::InputDevice *device) const { return m_devices.value(device).token; }
-    // A move Kadunce started itself for a window opened under the one contact
-    // down (EffectTouchCarry.cpp): that contact proves it, as a title bar's
-    // press proves a drag.
-    bool identifyOpenedUnderContact(KWin::Window *window)
+    // A move Kadunce started itself, this turn, for a window opened under the
+    // one contact down (EffectTouchCarry.cpp): that contact proves that move
+    // alone, as a title bar's press proves a drag. Its caller asks once.
+    bool identifyOpenedUnderContact(KWin::Window *window, qint32 contactId)
     {
         const auto ticket = m_contacts.soleCandidate();
-        if (!ticket || !window || !window->isInteractiveMove() || !identified) return false;
+        if (!ticket || ticket->owner().kind != CarryDevice::Touch || ticket->owner().contact != contactId
+            || !window || !window->isInteractiveMove() || KWin::workspace()->moveResizeWindow() != window
+            || !identified) return false;
         const auto contact = m_contacts.resolve(*ticket);
         if (!contact) return false;
         identified(window, *ticket, contact->position, Proof::OpenedUnderContact);

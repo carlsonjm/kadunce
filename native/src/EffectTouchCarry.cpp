@@ -92,7 +92,7 @@ bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::funct
         return false;
     }
     // KWin moves it; Kadunce's carry takes it as it takes a title bar's drag.
-    const bool proven = m_carryRuntime && m_carryRuntime->observer.identifyOpenedUnderContact(client);
+    const bool proven = m_carryRuntime && m_carryRuntime->observer.identifyOpenedUnderContact(client, contact.id);
     qInfo().noquote() << "Kadunce" << Revision << "carries" << logNameOf(window) << "under contact" << contact.id
                       << (proven ? "with its edges" : "without its edges")
                       << "at" << point << "size" << size;
