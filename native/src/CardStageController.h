@@ -532,8 +532,9 @@ public:
     /// Where the Active card is drawn this frame while it follows a panel
     /// taking or giving back room; none once it stands where it was asked to.
     [[nodiscard]] std::optional<QRectF> workAreaFollowRect(const KWin::EffectWindow *window) const;
-    /// Draws it there; false when it stands where it was asked to.
-    bool applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
+    /// Draws it there, and answers the place to cut it to; none when it
+    /// stands where it was asked to.
+    std::optional<QRectF> applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
 
     void syncSelectedElevation();
     // §2 Desktop: the desktop is shown and every card is held aside.
@@ -967,6 +968,7 @@ private:
         QElapsedTimer since;
     };
     std::optional<WorkAreaFollow> m_workAreaFollow;
+    mutable QStringList m_workAreaFollowTrace;
     void drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows);
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it

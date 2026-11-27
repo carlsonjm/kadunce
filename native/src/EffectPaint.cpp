@@ -1797,7 +1797,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         }
         // A narrowed Stack steps in place; its strip then stands still.
         if (const auto step = m_cardStage->activeStackStepPose(window)) applyStackStepPose(window, data, *step);
-        if (m_cardStage->applyWorkAreaFollow(window, data)) mask |= PAINT_WINDOW_TRANSFORMED; // in step with a panel's slide
+        if (const auto place = m_cardStage->applyWorkAreaFollow(window, data)) return paintResult(painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(*place))), data); }));
         if (const auto shift = m_cardStage->activeSlideShift(window)) {
             // The strip: each card moves with it, and stops at the display's
             // edge rather than reaching the next display.
