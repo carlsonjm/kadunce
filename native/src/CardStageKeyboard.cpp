@@ -6,6 +6,8 @@
 // The room the card stage keeps for the on-screen keyboard.
 #include "CardStageInternal.h"
 
+#include <effect/effect.h>
+
 namespace Kadunce
 {
 
@@ -155,6 +157,32 @@ void CardStageController::keepKeyboardRoomPlacement()
     client->moveResize(KWin::RectF(target));
 }
 
+namespace
+{
+// Whether a panel still stands on the display at an edge the card's place
+// grew toward: its window stays while it is only out of view.
+bool panelStandsWhereRoomCameBack(const KWin::LogicalOutput *output, const KWin::Rect &current, const KWin::Rect &target)
+{
+    if (!output) return false;
+    const QRectF screen(output->geometry());
+    for (auto *dock : KWin::effects->stackingOrder()) {
+        if (!dock || dock->isDeleted() || !dock->isDock() || !dock->isOnCurrentDesktop()
+            || !dock->window() || !dock->window()->isShown()) continue;
+        const QRectF panel(dock->frameGeometry());
+        if (!screen.intersects(panel)) continue;
+        constexpr double Near = 2.0;
+        if ((target.y() < current.y() && std::abs(panel.top() - screen.top()) < Near && panel.width() > panel.height())
+            || (target.y() + target.height() > current.y() + current.height()
+                && std::abs(panel.bottom() - screen.bottom()) < Near && panel.width() > panel.height())
+            || (target.x() < current.x() && std::abs(panel.left() - screen.left()) < Near && panel.height() > panel.width())
+            || (target.x() + target.width() > current.x() + current.width()
+                && std::abs(panel.right() - screen.right()) < Near && panel.height() > panel.width()))
+            return true;
+    }
+    return false;
+}
+}
+
 void CardStageController::followWorkArea(bool now)
 {
     m_workAreaGrowTimer.stop();
@@ -201,24 +229,84 @@ void CardStageController::followWorkArea(bool now)
     const bool grows = target.x() <= current.x() && target.y() <= current.y()
         && target.x() + target.width() >= current.x() + current.width()
         && target.y() + target.height() >= current.y() + current.height();
-    if (m_workAreaYield && m_workAreaYield->window != window) m_workAreaYield.reset();
-    if (grows && m_workAreaYield && target == m_workAreaYield->from) {
-        // The card stood here a moment ago and a panel only lent it out.
-        now = true;
-        m_workAreaYield.reset();
-    } else if (!grows && !m_workAreaYield) {
-        m_workAreaYield = WorkAreaYield{window, current};
-    }
-    if (!now && grows) {
+    // A panel still standing at the edge it gave room back at is only out of
+    // view, brought from its edge a moment ago: the card grows with its slide.
+    // One that is gone may be coming back, as the shell restarting.
+    const bool slidOut = grows && panelStandsWhereRoomCameBack(tablet, current, target);
+    if (!now && grows && !slidOut) {
         m_workAreaGrowTimer.start();
         qInfo() << "Kadunce Active card waits before growing into room a panel gave up"
                 << logNameOf(window) << "to" << target;
         return;
     }
+    if (!grows || slidOut) drawWorkAreaFollow(window, target, grows);
+    else m_workAreaFollow.reset();
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
     client->moveResize(KWin::RectF(target));
     qInfo() << "Kadunce Active card follows the work area" << logNameOf(window)
-            << "to" << target;
+            << "to" << target << (m_workAreaFollow ? "drawn with the panel" : "at once");
+}
+
+void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows)
+{
+    // The panel's own motion (Shuffle's PANEL-SHOWING.md § Out of view): in
+    // over 320 ms easing out, out over 120 ms easing in, at Plasma's speed.
+    const int duration = motion(grows ? PanelSlideOutDuration : PanelSlideInDuration);
+    if (duration <= 1 || !window->window()) {
+        m_workAreaFollow.reset();
+        return;
+    }
+    // A second word mid-slide, as a panel settling its thickness, carries on
+    // from where the card is drawn now.
+    const auto drawn = workAreaFollowRect(window);
+    const QRectF frame(window->frameGeometry());
+    WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(target), frame.size(), duration,
+                          grows ? QEasingCurve::InCubic : QEasingCurve::OutCubic, {}};
+    if (drawn && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {
+        follow.duration = std::max(60, int(m_workAreaFollow->duration - m_workAreaFollow->since.elapsed()));
+        follow.curve = m_workAreaFollow->curve;
+    }
+    follow.since.start();
+    m_workAreaFollow = follow;
+    KWin::effects->addRepaintFull();
+}
+
+std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::EffectWindow *window) const
+{
+    if (!m_workAreaFollow || m_workAreaFollow->window != window || !window || window->isDeleted()
+        || !m_active || m_presentation != CardPresentation::Active) return std::nullopt;
+    const auto &follow = *m_workAreaFollow;
+    const qint64 elapsed = follow.since.elapsed();
+    if (elapsed >= follow.duration) {
+        // There, and held there until its client has drawn nearer the size
+        // asked for, so the client's own answer never shows as a jump. One
+        // that keeps its size, or trims itself as a terminal does, is let go.
+        constexpr qint64 Unanswered = 1000;
+        const QSizeF frame = window->frameGeometry().size();
+        const auto off = [&follow](const QSizeF &size) {
+            return std::abs(size.width() - follow.to.width()) + std::abs(size.height() - follow.to.height());
+        };
+        if (elapsed >= follow.duration + Unanswered || off(frame) < off(follow.asked) || off(follow.asked) < 1.0)
+            return std::nullopt;
+        return follow.to;
+    }
+    const double p = QEasingCurve(follow.curve).valueForProgress(double(elapsed) / follow.duration);
+    const auto mix = [p](double from, double to) { return from + (to - from) * p; };
+    return QRectF(mix(follow.from.x(), follow.to.x()), mix(follow.from.y(), follow.to.y()),
+                  mix(follow.from.width(), follow.to.width()), mix(follow.from.height(), follow.to.height()));
+}
+
+bool CardStageController::applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const
+{
+    const auto place = workAreaFollowRect(window);
+    const QRectF frame(window->frameGeometry());
+    if (!place || frame.width() <= 0.0 || frame.height() <= 0.0) return false;
+    // Scaled about its top left corner, then moved: whatever size its client
+    // has drawn yet fills the place the card has now.
+    data.setXScale(data.xScale() * place->width() / frame.width());
+    data.setYScale(data.yScale() * place->height() / frame.height());
+    data.translate(place->x() - frame.x(), place->y() - frame.y());
+    return true;
 }
 
 void CardStageController::repaintKeyboardEdge(const KWin::RectF &from,

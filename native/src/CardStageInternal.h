@@ -50,6 +50,9 @@ namespace Kadunce
 constexpr auto Revision = KADUNCE_REVISION;
 constexpr int PreviewTransitionDuration = 280;
 constexpr int ArrivalExpandDuration = 220;
+// A Shuffle panel's slide in from its edge and out again.
+constexpr int PanelSlideInDuration = 320;
+constexpr int PanelSlideOutDuration = 120;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr double LauncherGuestDragPreview = 0.18;
 

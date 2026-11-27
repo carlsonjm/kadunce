@@ -397,9 +397,8 @@ void Effect::postPaintScreen()
     settlePaneLeavers();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
-    // Spread, Bento and the rest open and close along many paths, and every
-    // one ends in a frame, so the context is announced here whenever the
-    // presentation it reports changes, or Spread starts closing: the dock and the Context Bar follow at once.
+    // Spread, Bento and the rest open and close along many paths, each ending in a frame, so the context is
+    // announced here whenever the presentation it reports changes, or Spread starts closing: the panels follow at once.
     QString presentation;
     eachCardDisplay([&](KWin::LogicalOutput *output) {
         presentation += output->name() + QLatin1Char(' ')
@@ -502,8 +501,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
         && m_cardStage->presentation() != CardPresentation::Desktop
         && m_cardStage->paintSlot(window) == 99) data.setTranslucent();
     // The Active card's strip draws its two cards off their places, so neither
-    // hides the other, and each is drawn beyond its own bounds.
-    if (m_cardStage->activeSlideShift(window)) {
+    // hides the other, and each is drawn beyond its own bounds; so is a card following a panel's slide.
+    if (m_cardStage->activeSlideShift(window) || m_cardStage->workAreaFollowRect(window)) {
         data.setTransformed();
         data.setTranslucent();
     }
@@ -1798,6 +1797,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         }
         // A narrowed Stack steps in place; its strip then stands still.
         if (const auto step = m_cardStage->activeStackStepPose(window)) applyStackStepPose(window, data, *step);
+        if (m_cardStage->applyWorkAreaFollow(window, data)) mask |= PAINT_WINDOW_TRANSFORMED; // in step with a panel's slide
         if (const auto shift = m_cardStage->activeSlideShift(window)) {
             // The strip: each card moves with it, and stops at the display's
             // edge rather than reaching the next display.

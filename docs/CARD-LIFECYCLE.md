@@ -120,10 +120,12 @@ hidden. A new window, once drawn, becomes Active over the previous card, now a
 neighbour. Applications reopened at sign-in wait unseen; the one last used
 shows.
 
-The Active card follows the work area. A panel taking room makes way at once;
-room given back is grown into after a wait, except room the card stood in a
-moment before, which a panel brought from its edge only borrowed: the card
-grows back as that panel leaves.
+The Active card follows the work area. A panel taking room makes way, and the
+card is drawn moving with the panel's slide, over its duration and on its
+curve, whatever size its client has drawn yet; its client is asked for the new
+size once. Room given back by a panel that still stands at that edge, only out
+of view, is grown into the same way as it slides out. Room given back by a
+panel that is gone is grown into after a wait, since it may be coming back.
 
 ### Layout
 

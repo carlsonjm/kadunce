@@ -22,6 +22,7 @@
 
 #include <effect/effectwindow.h>
 
+#include <QEasingCurve>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QList>
@@ -36,6 +37,7 @@
 namespace KWin
 {
 class LogicalOutput;
+class WindowPaintData;
 }
 
 namespace Kadunce
@@ -527,6 +529,11 @@ public:
     /// new card is growing to its Active place, or the row is folding back
     /// under fingers let go short.
     [[nodiscard]] bool spreadClosing() const;
+    /// Where the Active card is drawn this frame while it follows a panel
+    /// taking or giving back room; none once it stands where it was asked to.
+    [[nodiscard]] std::optional<QRectF> workAreaFollowRect(const KWin::EffectWindow *window) const;
+    /// Draws it there; false when it stands where it was asked to.
+    bool applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
 
     void syncSelectedElevation();
     // §2 Desktop: the desktop is shown and every card is held aside.
@@ -946,15 +953,21 @@ private:
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     QTimer m_workAreaGrowTimer;
-    // The place the Active card stood before a panel's room took part of it.
-    // Room given back that returns the card exactly there is the same panel
-    // leaving again, brought from its edge for a moment, and is grown into at
-    // once rather than after the wait.
-    struct WorkAreaYield {
+    // The Active card drawn from the place it stood to the place the work
+    // area gives it now, in step with the panel sliding in or out beside it:
+    // the panel's own duration and curve. Its client is asked for the new
+    // size once, and is drawn into the moving place whatever it has drawn yet.
+    struct WorkAreaFollow {
         QPointer<KWin::EffectWindow> window;
-        KWin::Rect from;
+        QRectF from;
+        QRectF to;
+        QSizeF asked; // the client's frame when the new size was asked for
+        int duration = 0;
+        QEasingCurve::Type curve = QEasingCurve::OutCubic;
+        QElapsedTimer since;
     };
-    std::optional<WorkAreaYield> m_workAreaYield;
+    std::optional<WorkAreaFollow> m_workAreaFollow;
+    void drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows);
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the
