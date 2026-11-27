@@ -534,7 +534,10 @@ public:
     [[nodiscard]] std::optional<QRectF> workAreaFollowRect(const KWin::EffectWindow *window) const;
     /// Draws it there, and answers the place to cut it to; none when it
     /// stands where it was asked to.
-    std::optional<QRectF> applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
+    // Where to draw it: the card inside `clip`, then, moved by `drop`, the
+    // shadow under its cut edge inside `under`.
+    struct WorkAreaDraw { QRectF clip; QRectF under; double drop = 0.0; };
+    std::optional<WorkAreaDraw> applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
 
     void syncSelectedElevation();
     // §2 Desktop: the desktop is shown and every card is held aside.

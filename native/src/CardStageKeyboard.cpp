@@ -298,7 +298,7 @@ std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::Effect
                   mix(follow.from.width(), follow.to.width()), mix(follow.from.height(), follow.to.height()));
 }
 
-std::optional<QRectF> CardStageController::applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const
+std::optional<CardStageController::WorkAreaDraw> CardStageController::applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const
 {
     const auto place = workAreaFollowRect(window);
     const QRectF frame(window->frameGeometry());
@@ -313,13 +313,31 @@ std::optional<QRectF> CardStageController::applyWorkAreaFollow(const KWin::Effec
     // Never squeezed: a client still drawn larger than the place is cut at
     // the place's edges, as a panel sliding over it would cut it, and as the
     // keys do. One drawn smaller is stretched to fill it until it answers.
-    data.setXScale(data.xScale() * std::max(1.0, place->width() / frame.width()));
-    data.setYScale(data.yScale() * std::max(1.0, place->height() / frame.height()));
+    const double wide = std::max(1.0, place->width() / frame.width());
+    const double tall = std::max(1.0, place->height() / frame.height());
+    data.setXScale(data.xScale() * wide);
+    data.setYScale(data.yScale() * tall);
     data.translate(place->x() - frame.x(), place->y() - frame.y());
+    // Its shadow stays on every edge, the cut one too: cut away with the
+    // client, it came back all at once when the slide ended. Under a cut
+    // edge it is drawn a second time, brought up to that edge.
+    const QRectF whole(window->expandedGeometry());
+    const double left = std::max(0.0, frame.left() - whole.left()) * wide;
+    const double top = std::max(0.0, frame.top() - whole.top()) * tall;
+    const double right = frame.width() > place->width() ? 0.0 : std::max(0.0, whole.right() - frame.right()) * wide;
+    const double bottom = std::max(0.0, whole.bottom() - frame.bottom()) * tall;
+    WorkAreaDraw draw{place->adjusted(-left, -top, right, bottom), {}, 0.0};
+    if (frame.height() > place->height()) {
+        draw.clip.setBottom(place->bottom());
+        if (bottom > 0.0) {
+            draw.under = QRectF(draw.clip.left(), place->bottom(), draw.clip.width(), bottom);
+            draw.drop = place->height() - frame.height();
+        }
+    }
     if (m_workAreaFollowTrace.size() < 400)
         m_workAreaFollowTrace.append(QStringLiteral("%1 %2 %3 %4").arg(m_workAreaFollow->since.elapsed())
             .arg(place->top(), 0, 'f', 1).arg(place->bottom(), 0, 'f', 1).arg(frame.height(), 0, 'f', 0));
-    return place;
+    return draw;
 }
 
 void CardStageController::repaintKeyboardEdge(const KWin::RectF &from,
