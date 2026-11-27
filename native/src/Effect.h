@@ -476,7 +476,8 @@ private:
     void admitWithoutCarry(KWin::EffectWindow *window, const std::function<void()> &admit);
     void touchCarryLifted(qint32 id);
     void watchTouchCarry();
-    struct { QPointer<KWin::EffectWindow> window, passed; qint32 contact = -1; std::function<void()> admit; } m_touchCarry;
+    bool pairCarriedWithSource(KWin::EffectWindow *window, KWin::EffectWindow *source, QPointF lift);
+    struct { QPointer<KWin::EffectWindow> window, passed, source; qint32 contact = -1; std::function<void()> admit; } m_touchCarry;
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.

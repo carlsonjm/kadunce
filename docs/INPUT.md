@@ -34,7 +34,7 @@ Apps and Files.
 | Pull a held card down | The row zooms out until pushed up. |
 | Let a held card go in a gap | It lands there as the row regrows to three across. |
 | Let a held card go on another card, once it has risen | They become a Stack; on a pane's card, it fills that pane. |
-| Let a held card go on another display | It becomes that display's card, or joins its layout. |
+| Let a held card go on another display | It becomes that display's card or pane. |
 | Tap or click a card's Gooseberry note, dot or stack | Its card opens, a tapped note ready to type; hold a note or the stack and let go on another card to stick it. |
 | Tap or click outside Search and the on-screen keys | Search closes; a card tapped beside it opens. A stroke leaves it open. |
 | Plasma's bottom or top touch edge, where no touchscreen drives a display | The bottom opens Spread, the top closes it; three fingers up bring Table. |
@@ -47,8 +47,8 @@ bottom edge is theirs.
 | Input | What happens |
 | --- | --- |
 | A slow sideways stroke begun on the centred Stack | Its cards come forward; a quick one moves the row. |
-| Wheel over the centred Stack | Steps through its cards. |
-| Tap or click a card fanned behind the centred Stack's front | It comes to the front; Spread stays open. |
+| Wheel over the centred Stack | Steps through it. |
+| Tap or click a card fanned behind the centred Stack's front | It comes to the front. |
 | Pull a Stack's card down, or `Meta+Shift+Down` on the Active one | It leaves the Stack, a card after it; the Stack keeps its place. |
 | `Meta+Shift+S` on the centred or Active card | It joins the card used before; again, one deeper. |
 | `Meta+Shift+PgDown`, `PgUp` | The front card moves back or forward. |
@@ -64,7 +64,7 @@ bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; first, every window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
-| Pull a tab out by touch | Its window follows, as if dragged by its title bar. |
+| Pull a tab out by touch | Its window follows like a title bar drag; let go elsewhere, it pairs with its source. |
 | Swipe in from a touchscreen's side edge | Sends that edge's key from Settings › Shortcuts › Edge swipes; with none, the window keeps it. |
 | Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in, round a Stack's ring. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |

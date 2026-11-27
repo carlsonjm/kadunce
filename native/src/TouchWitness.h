@@ -3,6 +3,8 @@
 #include "StaleTouchRelease.h"
 #include <input.h>
 #include <input_event.h>
+#include <window.h>
+#include <QPointer>
 #include <QDebug>
 #include <QHash>
 #include <QLineF>
@@ -48,6 +50,7 @@ public:
         QPointF last;
         QString under;
         QString application;
+        QPointer<KWin::Window> window;
         double travelled = 0.0;
         qint64 lastMoved = 0;
     };
@@ -65,7 +68,8 @@ public:
         m_down.insert(event->id);
         const QString on = describeUnder ? describeUnder(event->pos) : QString();
         m_contacts.insert(event->id, {event->id, event->pos, event->pos, on,
-            applicationAt ? applicationAt(event->pos) : QString(), 0.0, now()});
+            applicationAt ? applicationAt(event->pos) : QString(),
+            KWin::input()->findToplevel(event->pos), 0.0, now()});
         qInfo().noquote() << "Kadunce touch" << event->id << "down at" << event->pos << "on" << on;
         if (inBottomBezel && inBottomBezel(event->pos)) m_unseenBottom.insert(event->id, event->pos);
         else m_unseenBottom.remove(event->id);

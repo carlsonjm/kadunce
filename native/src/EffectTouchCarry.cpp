@@ -54,16 +54,21 @@ bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::funct
     };
     const auto &contacts = m_touchWitness->contacts();
     if (contacts.isEmpty()) {
-        // The finger lifted before the window was ready: it opens where the
-        // finger let go, as a dock drop does.
+        // The finger lifted before the window was ready: let go at an edge it
+        // goes there, as a dock drop does; anywhere else it is a pane beside
+        // the window it was pulled from.
         const TouchWitness::Contact &lifted = m_touchWitness->lifted();
         const qint64 since = m_touchWitness->sinceLift();
         if (!pulled(lifted, TouchWitness::now() - lifted.lastMoved) || since > PullFreshMs) return false;
         qInfo().noquote() << "Kadunce" << Revision << "contact lifted" << since << "ms before"
                           << logNameOf(window) << "was ready; places it at the lift point" << lifted.last;
+        const QPointer<KWin::EffectWindow> source = lifted.window ? lifted.window->effectWindow() : nullptr;
         admitWithoutCarry(window, admit);
         const PlacementAim aim = placementAimAt(lifted.last);
-        if (aim.kind != PlacementAimKind::None) (void)placeWindow(window, aim, lifted.last);
+        const bool edge = aim.kind == PlacementAimKind::Left || aim.kind == PlacementAimKind::Right
+            || aim.kind == PlacementAimKind::Top || aim.kind == PlacementAimKind::Display;
+        if (edge) (void)placeWindow(window, aim, lifted.last);
+        else (void)pairCarriedWithSource(window, source, lifted.last);
         return true;
     }
     if (contacts.size() != 1) return false;
@@ -82,6 +87,7 @@ bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::funct
     const QPointF grab(std::min(size.width() / 4.0, GrabAcrossMax), GrabDown);
     client->moveResize(KWin::RectF(point - grab, size));
     m_touchCarry.window = window;
+    m_touchCarry.source = contact.window ? contact.window->effectWindow() : nullptr;
     m_touchCarry.contact = contact.id;
     m_touchCarry.admit = admit;
     if (!client->performMousePressCommand(KWin::Options::MouseMove, point) && !window->isUserMove()) {
@@ -109,13 +115,16 @@ void Effect::admitWithoutCarry(KWin::EffectWindow *window, const std::function<v
 void Effect::touchCarryLifted(qint32 id)
 {
     if (!m_touchCarry.window || id != m_touchCarry.contact) return;
-    // The carry's own finish places it; a window it leaves unplaced, let go
-    // where nothing takes it, is admitted as it would have been on opening.
+    // The carry's own finish places it at an edge, on a card or on another
+    // display; let go where nothing takes it, it is a pane beside the window
+    // it was pulled from.
     const QPointer<KWin::EffectWindow> window = m_touchCarry.window;
+    const QPointer<KWin::EffectWindow> source = std::exchange(m_touchCarry.source, nullptr);
+    const QPointF lift = m_touchWitness ? m_touchWitness->lifted().last : QPointF();
     m_touchCarry.window.clear();
     m_touchCarry.contact = -1;
     auto admit = std::exchange(m_touchCarry.admit, nullptr);
-    QTimer::singleShot(400, this, [this, window, admit] {
+    QTimer::singleShot(400, this, [this, window, source, lift, admit] {
         if (!window || window->isDeleted() || window->isUserMove() || !admit) return;
         SessionScope scope(this, m_scopedSession, stageKeyOf(window));
         if (m_desktopStage->managesWindow(window) || m_cardStage->liveCardIndex(window) >= 0) {
@@ -123,9 +132,37 @@ void Effect::touchCarryLifted(qint32 id)
             return;
         }
         qInfo().noquote() << "Kadunce" << Revision << "carried" << logNameOf(window)
-                          << "was let go where nothing took it; admits it as opened";
+                          << "was let go where nothing took it";
         admitWithoutCarry(window, admit);
+        (void)pairCarriedWithSource(window, source, lift);
     });
+}
+
+bool Effect::pairCarriedWithSource(KWin::EffectWindow *window, KWin::EffectWindow *source, QPointF lift)
+{
+    // J: a tab pulled out is pulled out to see more at once, so it stands
+    // beside its source, on the side it was let go: with the Active card as a
+    // pair, or in the source's layout as a pick from Spread joins it.
+    KWin::LogicalOutput *display = window ? window->screen() : nullptr;
+    // §3, §5: only with an awake card or pane on the display let go on, in
+    // this workspace; else it stays as it was admitted, the Active card.
+    if (!window || window->isDeleted() || !source || source->isDeleted() || source == window || !display
+        || source->screen() != display || !QRectF(display->geometry()).contains(lift)
+        || source->isMinimized() || !source->isOnCurrentDesktop()) return false;
+    SessionScope scope(this, m_scopedSession, stageKeyFor(display));
+    const bool right = lift.x() >= QRectF(display->geometry()).center().x();
+    bool paired = false;
+    if (m_desktopStage->managesWindow(source)) {
+        paired = playPickedCardIntoLayout(window) && m_desktopStage->managesWindow(window);
+    } else if (m_cardStage->liveCardIndex(source) >= 0 && m_cardStage->liveCardIndex(window) >= 0) {
+        paired = pairCardsIntoBento(display, window, source,
+            BentoSidePlacement{right, true, connectedOutputForDesktopStage(display), false});
+        if (paired) KWin::effects->activateWindow(window);
+    }
+    qInfo().noquote() << "Kadunce" << Revision << (paired ? "pairs" : "could not pair") << "carried"
+                      << logNameOf(window) << "with its source" << logNameOf(source) << "on the"
+                      << (right ? "right" : "left");
+    return paired;
 }
 
 } // namespace Kadunce
