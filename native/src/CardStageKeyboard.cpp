@@ -244,6 +244,9 @@ void CardStageController::followWorkArea(bool now)
     const KWin::Rect target = activePlacement(tablet);
     const KWin::Rect current = client->moveResizeGeometry().toRect();
     if (current == target) return;
+    // Already on its way there: the same place told again changes nothing.
+    if (m_workAreaFollow && m_workAreaFollow->window == window && m_workAreaStep.isActive()
+        && m_workAreaFollow->to == QRectF(KWin::RectF(target))) return;
     const bool grows = target.x() <= current.x() && target.y() <= current.y()
         && target.x() + target.width() >= current.x() + current.width()
         && target.y() + target.height() >= current.y() + current.height();
@@ -286,6 +289,15 @@ void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const K
     const QRectF frame(window->frameGeometry());
     WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(KWin::RectF(target)), frame.size(), false, duration,
                           grows ? QEasingCurve::InCubic : QEasingCurve::OutCubic, {}};
+    // A panel leaves ever faster and is gone. A card growing a long way on
+    // that curve would be at its fastest as it stops, which reads as a jolt:
+    // it starts with the panel, never ahead of it, and eases into its place
+    // a little after the panel has gone. A short way, it keeps the panel's.
+    if (grows && std::max(std::abs(follow.to.top() - follow.from.top()),
+                          std::abs(follow.to.bottom() - follow.from.bottom())) > PanelSlideOutFar) {
+        follow.duration = motion(PanelSlideOutSettle);
+        follow.curve = QEasingCurve::InOutCubic;
+    }
     follow.since.start();
     if (drawn && m_workAreaFollow->curve == follow.curve
         && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {

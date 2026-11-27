@@ -53,6 +53,9 @@ constexpr int ArrivalExpandDuration = 220;
 // A Shuffle panel's slide in from its edge and out again.
 constexpr int PanelSlideInDuration = 320;
 constexpr int PanelSlideOutDuration = 120;
+// Growing further than this, the card takes longer than the panel and eases in.
+inline constexpr double PanelSlideOutFar = 32.0;
+inline constexpr int PanelSlideOutSettle = 200;
 // How often the card's client is asked for its next size on the way.
 inline constexpr int WorkAreaStepInterval = 8;
 constexpr double LauncherGuestCommitDistance = 58.0;

@@ -129,7 +129,8 @@ for each size on the way, a step at a time as an edge dragged by hand asks,
 so what it shows travels with its edge. Cards behind it that the panel's room
 made smaller have their height back when the room is, and so has the Active
 card under Spread, so a card picked next arrives at its size. Room given back by a panel that still stands at that edge, only out
-of view, is grown into the same way as it slides out. Room given back by a
+of view, is grown into the same way as it slides out; a long way, the card
+eases into its place a little after the panel has gone, and is never ahead of it. Room given back by a
 panel that is gone is grown into after a wait, since it may be coming back.
 
 ### Layout
