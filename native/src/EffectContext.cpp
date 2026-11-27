@@ -219,6 +219,9 @@ QJsonObject Effect::cardStageContext() const
     return QJsonObject{
         {QStringLiteral("active"), m_cardStage->isActive()},
         {QStringLiteral("presentation"), presentation},
+        // Said as the closing begins, so what leaves with Spread is gone by
+        // the time the card is whole.
+        {QStringLiteral("spreadClosing"), m_cardStage->isActive() && m_cardStage->spreadClosing()},
         {QStringLiteral("launcherGuestActive"), m_cardStage->launcherGuestActive()},
         {QStringLiteral("selectedCardId"), workspace.selectedCardId.isEmpty()
             ? QJsonValue(QJsonValue::Null) : QJsonValue(workspace.selectedCardId)},

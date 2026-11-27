@@ -523,6 +523,10 @@ public:
     [[nodiscard]] double spreadOpenProgress() const;
     // Spread is forming under the fingers, or going back short of halfway.
     [[nodiscard]] bool spreadOpening() const { return m_openProgress.has_value(); }
+    /// Spread is still shown but already on its way to Active: the chosen or
+    /// new card is growing to its Active place, or the row is folding back
+    /// under fingers let go short.
+    [[nodiscard]] bool spreadClosing() const;
 
     void syncSelectedElevation();
     // §2 Desktop: the desktop is shown and every card is held aside.
