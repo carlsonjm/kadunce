@@ -201,6 +201,14 @@ void CardStageController::followWorkArea(bool now)
     const bool grows = target.x() <= current.x() && target.y() <= current.y()
         && target.x() + target.width() >= current.x() + current.width()
         && target.y() + target.height() >= current.y() + current.height();
+    if (m_workAreaYield && m_workAreaYield->window != window) m_workAreaYield.reset();
+    if (grows && m_workAreaYield && target == m_workAreaYield->from) {
+        // The card stood here a moment ago and a panel only lent it out.
+        now = true;
+        m_workAreaYield.reset();
+    } else if (!grows && !m_workAreaYield) {
+        m_workAreaYield = WorkAreaYield{window, current};
+    }
     if (!now && grows) {
         m_workAreaGrowTimer.start();
         qInfo() << "Kadunce Active card waits before growing into room a panel gave up"

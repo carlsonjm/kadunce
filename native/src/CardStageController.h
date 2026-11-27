@@ -946,6 +946,15 @@ private:
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     QTimer m_workAreaGrowTimer;
+    // The place the Active card stood before a panel's room took part of it.
+    // Room given back that returns the card exactly there is the same panel
+    // leaving again, brought from its edge for a moment, and is grown into at
+    // once rather than after the wait.
+    struct WorkAreaYield {
+        QPointer<KWin::EffectWindow> window;
+        KWin::Rect from;
+    };
+    std::optional<WorkAreaYield> m_workAreaYield;
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the

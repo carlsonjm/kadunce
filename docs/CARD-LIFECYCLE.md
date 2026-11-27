@@ -120,6 +120,11 @@ hidden. A new window, once drawn, becomes Active over the previous card, now a
 neighbour. Applications reopened at sign-in wait unseen; the one last used
 shows.
 
+The Active card follows the work area. A panel taking room makes way at once;
+room given back is grown into after a wait, except room the card stood in a
+moment before, which a panel brought from its edge only borrowed: the card
+grows back as that panel leaves.
+
 ### Layout
 
 The display's panes are shown; its cards stay owned and hidden. Nothing is
