@@ -286,11 +286,27 @@ void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const K
     const QRectF frame(window->frameGeometry());
     WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(KWin::RectF(target)), frame.size(), false, duration,
                           grows ? QEasingCurve::InCubic : QEasingCurve::OutCubic, {}};
-    if (drawn && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {
-        follow.duration = std::max(60, int(m_workAreaFollow->duration - m_workAreaFollow->since.elapsed()));
-        follow.curve = m_workAreaFollow->curve;
-    }
     follow.since.start();
+    if (drawn && m_workAreaFollow->curve == follow.curve
+        && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {
+        // The same slide, told a second place part of the way: it keeps its
+        // clock and its curve and only ends somewhere else, so it neither
+        // stops nor starts again. Its start is moved so the card is drawn
+        // where it is now.
+        const auto &old = *m_workAreaFollow;
+        const double p = QEasingCurve(old.curve).valueForProgress(double(old.since.elapsed()) / old.duration);
+        if (p < 0.85) {
+            const auto back = [p](double now, double to) { return (now - to * p) / (1.0 - p); };
+            follow.from = QRectF(back(drawn->x(), follow.to.x()), back(drawn->y(), follow.to.y()),
+                                 back(drawn->width(), follow.to.width()), back(drawn->height(), follow.to.height()));
+            follow.duration = old.duration;
+            follow.since = old.since;
+        } else {
+            // Nearly there: the little that is left, at an even pace.
+            follow.duration = std::max(40, int(old.duration - old.since.elapsed()));
+            follow.curve = QEasingCurve::Linear;
+        }
+    }
     m_workAreaFollow = follow;
     m_workAreaFollowTrace.append(QStringLiteral("to %1,%2 %3x%4 in %5 ms").arg(target.x()).arg(target.y())
         .arg(target.width()).arg(target.height()).arg(follow.duration));
@@ -310,14 +326,17 @@ void CardStageController::stepWorkAreaFollow()
         m_workAreaFollow.reset();
         return;
     }
-    // The size the place will have a step from now, since the client answers
-    // a step late; the last one is the place itself, asked for even if the
-    // card has left Active meanwhile, so it is never left part of the way.
-    const qint64 ahead = follow.since.elapsed() + WorkAreaStepInterval;
-    const bool last = ahead >= follow.duration || !m_active || m_presentation != CardPresentation::Active;
+    // Growing, the size the place will have a step from now, since the client
+    // answers a step late; shrinking, the size it has now. Either way the
+    // client is a little larger than its place and is cut, never stretched.
+    // The last one is the place itself, asked for even if the card has left
+    // Active meanwhile, so it is never left part of the way.
+    const bool growing = follow.to.height() * follow.to.width() > follow.from.height() * follow.from.width();
+    const qint64 ahead = follow.since.elapsed() + (growing ? 2 * WorkAreaStepInterval : 0);
+    const bool last = follow.since.elapsed() + WorkAreaStepInterval >= follow.duration || !m_active || m_presentation != CardPresentation::Active;
     QRectF ask = follow.to;
     if (!last) {
-        const double p = QEasingCurve(follow.curve).valueForProgress(double(ahead) / follow.duration);
+        const double p = QEasingCurve(follow.curve).valueForProgress(std::min(1.0, double(ahead) / follow.duration));
         const auto mix = [p](double from, double to) { return std::round(from + (to - from) * p); };
         ask = QRectF(mix(follow.from.x(), follow.to.x()), mix(follow.from.y(), follow.to.y()),
                      mix(follow.from.width(), follow.to.width()), mix(follow.from.height(), follow.to.height()));
