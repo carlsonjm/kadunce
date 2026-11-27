@@ -22,6 +22,7 @@
 
 #include <effect/effectwindow.h>
 
+#include <QEasingCurve>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QList>
@@ -36,6 +37,7 @@
 namespace KWin
 {
 class LogicalOutput;
+class WindowPaintData;
 }
 
 namespace Kadunce
@@ -523,6 +525,21 @@ public:
     [[nodiscard]] double spreadOpenProgress() const;
     // Spread is forming under the fingers, or going back short of halfway.
     [[nodiscard]] bool spreadOpening() const { return m_openProgress.has_value(); }
+    /// Spread is still shown but already on its way to Active: the chosen or
+    /// new card is growing to its Active place, or the row is folding back
+    /// under fingers let go short.
+    [[nodiscard]] bool spreadClosing() const;
+    /// Where the Active card is drawn this frame while it follows a panel
+    /// taking or giving back room; none once it stands where it was asked to.
+    [[nodiscard]] std::optional<QRectF> workAreaFollowRect(const KWin::EffectWindow *window) const;
+    // The card last drawn following a panel: its kept picture fills its frame and fades.
+    [[nodiscard]] bool followedWorkArea(const KWin::EffectWindow *window) const { return m_presentation == CardPresentation::Active && m_workAreaFollow && m_workAreaFollow->window == window; }
+    /// Draws it there, and answers the place to cut it to; none when it
+    /// stands where it was asked to.
+    // Where to draw it: the card inside `clip`, then, moved by `drop`, the
+    // shadow under its cut edge inside `under`.
+    struct WorkAreaDraw { QRectF clip; QRectF under; double drop = 0.0; };
+    std::optional<WorkAreaDraw> applyWorkAreaFollow(const KWin::EffectWindow *window, KWin::WindowPaintData &data) const;
 
     void syncSelectedElevation();
     // §2 Desktop: the desktop is shown and every card is held aside.
@@ -942,6 +959,29 @@ private:
     bool m_applyingWindowState = false;
     QTimer m_activeSettleTimer;
     QTimer m_workAreaGrowTimer;
+    // The Active card drawn from the place it stood to the place the work
+    // area gives it now, in step with the panel sliding in or out beside it:
+    // the panel's own duration and curve. It is drawn into the moving place
+    // from one picture the whole way; its client is asked for the new size
+    // once, when making way is over or as growing starts.
+    struct WorkAreaFollow {
+        QPointer<KWin::EffectWindow> window;
+        QRectF from;
+        QRectF to;
+        QSizeF asked; // the client's frame when the last size was asked for
+        bool settled = false; // the last size has been asked for
+        int duration = 0;
+        QEasingCurve::Type curve = QEasingCurve::OutCubic;
+        QElapsedTimer since;
+    };
+    std::optional<WorkAreaFollow> m_workAreaFollow;
+    mutable QStringList m_workAreaFollowTrace;
+    void drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows);
+    QTimer m_workAreaStep;
+    void stepWorkAreaFollow();
+    // Cards behind the Active one that a panel's room made smaller, given
+    // their height back when the room is.
+    QList<QPointer<KWin::EffectWindow>> m_workAreaShrunk;
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the

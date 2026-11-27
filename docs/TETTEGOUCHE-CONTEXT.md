@@ -86,7 +86,11 @@ must reject unknown major versions instead of guessing at fields.
   layout while Card Stage holds its cards hidden), `desktop` (the card display
   shows the Plasma desktop while Card Stage holds its cards hidden), or
   `active`. `cardLine` is a frozen interface value that a later versioned
-  migration renames.
+  migration renames. `spreadClosing` is `true` while the presentation is
+  still `cardLine` but already on its way to `active`: the chosen or new card
+  growing to its Active place, or the row folding back under three fingers
+  let go short. It is signalled as the closing begins, so a panel that leaves
+  with Spread can be gone by the time the card is whole.
 - `desktopStage`: whether any output currently owns a Bento session.
 - `table`: whether Table is open (`open`). A change is signalled as Table
   opens and as it closes.

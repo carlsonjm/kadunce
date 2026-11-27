@@ -50,6 +50,16 @@ namespace Kadunce
 constexpr auto Revision = KADUNCE_REVISION;
 constexpr int PreviewTransitionDuration = 280;
 constexpr int ArrivalExpandDuration = 220;
+// A Shuffle panel's slide in from its edge and out again.
+constexpr int PanelSlideInDuration = 320;
+constexpr int PanelSlideOutDuration = 120;
+// Growing further than this, the card takes longer than the panel and eases in.
+inline constexpr double PanelSlideOutFar = 32.0;
+inline constexpr int PanelSlideOutSettle = 200;
+// How often the card's client is asked for its next size on the way.
+inline constexpr int WorkAreaStepInterval = 8;
+// How long before a slide ends a card making way is asked for its size.
+inline constexpr int WorkAreaAskEarly = 80;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr double LauncherGuestDragPreview = 0.18;
 

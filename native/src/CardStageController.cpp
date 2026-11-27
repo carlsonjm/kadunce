@@ -131,6 +131,9 @@ CardStageController::CardStageController(CardStageHost *host)
     m_workAreaGrowTimer.setInterval(WorkAreaGrowWait);
     QObject::connect(&m_workAreaGrowTimer, &QTimer::timeout, &m_workAreaGrowTimer,
                      [this]() { followWorkArea(true); });
+    m_workAreaStep.setInterval(WorkAreaStepInterval);
+    m_workAreaStep.setTimerType(Qt::PreciseTimer);
+    QObject::connect(&m_workAreaStep, &QTimer::timeout, &m_workAreaStep, [this]() { stepWorkAreaFollow(); });
     m_activeSettleTimer.setSingleShot(true);
     m_activeSettleTimer.setInterval(0);
     QObject::connect(&m_activeSettleTimer, &QTimer::timeout, &m_activeSettleTimer, [this]() {
@@ -138,7 +141,8 @@ CardStageController::CardStageController(CardStageHost *host)
         auto *tablet = m_host->tabletOutputForCardStage();
         if (!m_active || m_presentation != CardPresentation::Active
             || !m_activeRestore.valid || !window || window->isDeleted()
-            || !window->window() || !tablet || m_activeSettleRemaining <= 0) return;
+            || !window->window() || !tablet || m_activeSettleRemaining <= 0
+            || m_workAreaStep.isActive()) return;
         auto *client = window->window();
         if (client->isInteractiveMove() || client->isInteractiveResize()
             || client->isFullScreen() || client->maximizeMode() != KWin::MaximizeRestore

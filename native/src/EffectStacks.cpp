@@ -116,6 +116,12 @@ bool Effect::holdPictureBeforeResizeForCardStage(KWin::EffectWindow *window,
         if (!guard) return;
         const auto it = m_heldPictures.find(guard.data());
         if (it == m_heldPictures.end()) return;
+        // The card in use never loses it in one frame: it fades from here.
+        if (!it->second.resize && it->second.picture.taken() && m_cardStage->followedWorkArea(guard.data())) {
+            if (!it->second.fade.isValid()) it->second.fade.start();
+            KWin::effects->addRepaintFull();
+            return;
+        }
         auto resize = std::move(it->second.resize);
         releaseHeldPicture(guard.data());
         if (resize) resize();
@@ -130,6 +136,42 @@ void Effect::releaseHeldPicture(KWin::EffectWindow *window)
     if (it == m_heldPictures.end()) return;
     disconnect(it->second.damaged);
     m_heldPictures.erase(it);
+}
+
+// How much of a window's kept picture is drawn: 1 alone, in place of the
+// window; less, over the window as it fades; 0 when none is kept. A card
+// resized under Spread is let go at once when its app has drawn twice at the
+// new size. The card in use is faded out over the app's new picture, since
+// the two are laid out apart and swapped in one frame they jump.
+double Effect::heldPictureShare(KWin::EffectWindow *window)
+{
+    const auto held = m_heldPictures.find(window);
+    if (held == m_heldPictures.end()) return 0.0;
+    auto &kept = held->second;
+    if (!kept.fade.isValid()) {
+        if (kept.resize || kept.drawnSince < 2) return 1.0;
+        if (m_cardStage->followedWorkArea(window)) kept.fade.start();
+    }
+    const double left = kept.fade.isValid() ? 1.0 - double(kept.fade.elapsed()) / KeptPictureFadeMs : 0.0;
+    if (left > 0.0) return std::min(left, 0.999);
+    releaseHeldPicture(window);
+    return 0.0;
+}
+
+bool Effect::drawHeldPicture(const KWin::RenderViewport &viewport, const KWin::RenderTarget &renderTarget,
+                             KWin::EffectWindow *window, const KWin::Region &deviceRegion,
+                             KWin::WindowPaintData &data, double share)
+{
+    const auto held = m_heldPictures.find(window);
+    if (held == m_heldPictures.end()) return false;
+    // Over the card in use it fills the window's frame, as the card was drawn
+    // while it followed a panel; under Spread it is fitted whole inside it.
+    const qreal whole = data.opacity();
+    data.setOpacity(whole * share);
+    const bool drawn = held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data,
+        held->second.fade.isValid() || m_cardStage->followedWorkArea(window));
+    data.setOpacity(whole);
+    return drawn;
 }
 
 void Effect::captureOfferPictures()

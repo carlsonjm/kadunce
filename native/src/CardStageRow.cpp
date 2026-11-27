@@ -808,6 +808,12 @@ void CardStageController::finishOpenSpread(bool open)
     KWin::effects->addRepaintFull();
 }
 
+bool CardStageController::spreadClosing() const
+{
+    return m_active && m_presentation == CardPresentation::Spread
+        && ((m_arrivalExpanding && m_arrivalWindow) || m_openReturn.isValid());
+}
+
 double CardStageController::spreadOpenProgress() const
 {
     if (!m_openProgress) return 1.0;

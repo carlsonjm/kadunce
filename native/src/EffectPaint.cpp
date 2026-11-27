@@ -397,13 +397,12 @@ void Effect::postPaintScreen()
     settlePaneLeavers();
     KWin::effects->postPaintScreen();
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
-    // Spread, Bento and the rest open and close along many paths, and every
-    // one ends in a frame, so the context is announced here whenever the
-    // presentation it reports changes: the dock's Spread button and the Context Bar follow at once.
+    // Spread, Bento and the rest open and close along many paths, each ending in a frame, so the context is
+    // announced here whenever the presentation it reports changes, or Spread starts closing: the panels follow at once.
     QString presentation;
     eachCardDisplay([&](KWin::LogicalOutput *output) {
         presentation += output->name() + QLatin1Char(' ')
-            + QString::number(m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1) + QLatin1Char(' ');
+            + QString::number(m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1) + QLatin1String(m_cardStage->spreadClosing() ? " closing " : " ");
     });
     // What a context line says changes the same way, while one is claimed.
     const QString line = m_contextLineClaims.isEmpty() ? QString() : contextLineSignature();
@@ -502,8 +501,8 @@ void Effect::prePaintWindow(KWin::RenderView *view,
         && m_cardStage->presentation() != CardPresentation::Desktop
         && m_cardStage->paintSlot(window) == 99) data.setTranslucent();
     // The Active card's strip draws its two cards off their places, so neither
-    // hides the other, and each is drawn beyond its own bounds.
-    if (m_cardStage->activeSlideShift(window)) {
+    // hides the other, and each is drawn beyond its own bounds; so is a card following a panel's slide.
+    if (m_cardStage->activeSlideShift(window) || m_cardStage->workAreaFollowRect(window)) {
         data.setTransformed();
         data.setTranslucent();
     }
@@ -1378,14 +1377,13 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         m_drawnAs.insert(window, QStringLiteral("offered picture"));
         return paintResult(true);
     }
-    if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
-        // Let go once the app has drawn twice at its new size.
-        if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
-        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) {
-            m_drawnAs.insert(window, QStringLiteral("kept picture"));
-            return paintResult(true);
-        }
+    // A kept picture is drawn alone, then faded out over the window once the app has drawn anew.
+    const double kept = heldPictureShare(window);
+    if (kept >= 1.0 && drawHeldPicture(viewport, renderTarget, window, deviceRegion, data, 1.0)) {
+        m_drawnAs.insert(window, QStringLiteral("kept picture"));
+        return paintResult(true);
     }
+    const auto fadeOver = qScopeGuard([&] { if (kept > 0.0 && kept < 1.0) (void)drawHeldPicture(viewport, renderTarget, window, deviceRegion, data, kept); });
     const bool useFanAperture = window == m_fanApertureWindow
         && m_fanApertureShader
         && !m_fanPaintSize.isEmpty()
@@ -1798,6 +1796,7 @@ PaintResult Effect::paintWindow(const KWin::RenderTarget &renderTarget,
         }
         // A narrowed Stack steps in place; its strip then stands still.
         if (const auto step = m_cardStage->activeStackStepPose(window)) applyStackStepPose(window, data, *step);
+        if (const auto follow = m_cardStage->applyWorkAreaFollow(window, data)) { const auto cut = [&](const QRectF &clip) { return painted([&] { return KWin::effects->paintWindow(renderTarget, viewport, window, mask | PAINT_WINDOW_TRANSFORMED, deviceRegion & KWin::Region(viewport.mapToDeviceCoordinatesAligned(KWin::RectF(clip))), data); }); }; if (!cut(follow->clip)) return paintResult(false); if (follow->drop != 0.0) { data.translate(0.0, follow->drop); (void)cut(follow->under); } return paintResult(true); }
         if (const auto shift = m_cardStage->activeSlideShift(window)) {
             // The strip: each card moves with it, and stops at the display's
             // edge rather than reaching the next display.

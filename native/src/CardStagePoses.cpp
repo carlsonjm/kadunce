@@ -306,6 +306,7 @@ KWin::Rect CardStageController::carryTarget(KWin::LogicalOutput *output,
 bool CardStageController::animationsRunning() const
 {
     return m_row.moving() || activeSlideRunning() || m_lift.phase == Lift::Phase::Return
+        || (m_workAreaFollow && workAreaFollowRect(m_workAreaFollow->window))
         || m_lift.phase == Lift::Phase::Throw
         || (m_cardGrabActive && (m_carry.animating || (m_cardGrabScaleTimer.isValid()
             && m_cardGrabScaleTimer.elapsed() < motion(HeldPickupDuration))))
