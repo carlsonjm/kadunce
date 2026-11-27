@@ -153,7 +153,10 @@ bool Effect::pairCarriedWithSource(KWin::EffectWindow *window, KWin::EffectWindo
     const bool right = lift.x() >= QRectF(display->geometry()).center().x();
     bool paired = false;
     if (m_desktopStage->managesWindow(source)) {
-        paired = playPickedCardIntoLayout(window) && m_desktopStage->managesWindow(window);
+        // Opened on a display showing the source's layout, the layout took it
+        // as it opened (§8); else it joins as a pick does.
+        paired = m_desktopStage->managesWindow(window)
+            || (playPickedCardIntoLayout(window) && m_desktopStage->managesWindow(window));
     } else if (m_cardStage->liveCardIndex(source) >= 0 && m_cardStage->liveCardIndex(window) >= 0) {
         paired = pairCardsIntoBento(display, window, source,
             BentoSidePlacement{right, true, connectedOutputForDesktopStage(display), false});
