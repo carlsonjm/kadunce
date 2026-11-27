@@ -140,7 +140,7 @@ void Effect::touchCarryLifted(qint32 id)
 
 bool Effect::pairCarriedWithSource(KWin::EffectWindow *window, KWin::EffectWindow *source, QPointF lift)
 {
-    // J: a tab pulled out is pulled out to see more at once, so it stands
+    // A tab is pulled out to see more at once, so it stands
     // beside its source, on the side it was let go: with the Active card as a
     // pair, or in the source's layout as a pick from Spread joins it.
     KWin::LogicalOutput *display = window ? window->screen() : nullptr;
