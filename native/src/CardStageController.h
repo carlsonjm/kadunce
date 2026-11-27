@@ -532,6 +532,8 @@ public:
     /// Where the Active card is drawn this frame while it follows a panel
     /// taking or giving back room; none once it stands where it was asked to.
     [[nodiscard]] std::optional<QRectF> workAreaFollowRect(const KWin::EffectWindow *window) const;
+    // The card last drawn following a panel: its kept picture fills its frame and fades.
+    [[nodiscard]] bool followedWorkArea(const KWin::EffectWindow *window) const { return m_presentation == CardPresentation::Active && m_workAreaFollow && m_workAreaFollow->window == window; }
     /// Draws it there, and answers the place to cut it to; none when it
     /// stands where it was asked to.
     // Where to draw it: the card inside `clip`, then, moved by `drop`, the

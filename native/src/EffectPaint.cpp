@@ -1377,14 +1377,13 @@ PaintResult Effect::drawWindow(const KWin::RenderTarget &renderTarget,
         m_drawnAs.insert(window, QStringLiteral("offered picture"));
         return paintResult(true);
     }
-    if (const auto held = m_heldPictures.find(window); held != m_heldPictures.end()) {
-        // Let go once the app has drawn twice at its new size.
-        if (!held->second.resize && held->second.drawnSince >= 2) releaseHeldPicture(window);
-        else if (held->second.picture.draw(viewport, renderTarget, window, deviceRegion, data)) {
-            m_drawnAs.insert(window, QStringLiteral("kept picture"));
-            return paintResult(true);
-        }
+    // A kept picture is drawn alone, then faded out over the window once the app has drawn anew.
+    const double kept = heldPictureShare(window);
+    if (kept >= 1.0 && drawHeldPicture(viewport, renderTarget, window, deviceRegion, data, 1.0)) {
+        m_drawnAs.insert(window, QStringLiteral("kept picture"));
+        return paintResult(true);
     }
+    const auto fadeOver = qScopeGuard([&] { if (kept > 0.0 && kept < 1.0) (void)drawHeldPicture(viewport, renderTarget, window, deviceRegion, data, kept); });
     const bool useFanAperture = window == m_fanApertureWindow
         && m_fanApertureShader
         && !m_fanPaintSize.isEmpty()

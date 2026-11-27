@@ -362,15 +362,27 @@ void CardStageController::stepWorkAreaFollow()
     auto *client = window->window();
     const QRectF placed(client->moveResizeGeometry());
     const bool growing = follow.to.width() * follow.to.height() >= placed.width() * placed.height();
-    const bool over = follow.since.elapsed() >= follow.duration || !m_active
+    // Making way, it is asked a little before the slide ends, so its new
+    // picture arrives as the card comes to rest and not after.
+    const bool over = follow.since.elapsed() >= follow.duration - WorkAreaAskEarly || !m_active
         || m_presentation != CardPresentation::Active;
     if (!growing && !over) return;
     follow.asked = QRectF(window->frameGeometry()).size();
     follow.settled = true;
     m_workAreaStep.stop();
     if (placed == follow.to) return;
-    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-    client->moveResize(KWin::RectF(follow.to));
+    // The picture it has is kept and drawn in the new one's place until the
+    // application has drawn at the new size, then faded out over it: the
+    // first frames at a new size can be empty or stale, and the two pictures
+    // are laid out apart, so swapped in one frame they flash and jump.
+    const QPointer<KWin::EffectWindow> held(window);
+    const auto resize = [this, held, to = KWin::RectF(follow.to)] {
+        if (!held || held->isDeleted() || !held->window()) return;
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        held->window()->moveResize(to);
+    };
+    if (!m_active || m_presentation != CardPresentation::Active
+        || !m_host->holdPictureBeforeResizeForCardStage(window, resize)) resize();
 }
 
 std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::EffectWindow *window) const

@@ -58,6 +58,8 @@ inline constexpr double PanelSlideOutFar = 32.0;
 inline constexpr int PanelSlideOutSettle = 200;
 // How often the card's client is asked for its next size on the way.
 inline constexpr int WorkAreaStepInterval = 8;
+// How long before a slide ends a card making way is asked for its size.
+inline constexpr int WorkAreaAskEarly = 80;
 constexpr double LauncherGuestCommitDistance = 58.0;
 constexpr double LauncherGuestDragPreview = 0.18;
 

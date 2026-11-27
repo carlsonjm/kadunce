@@ -28,6 +28,8 @@
 
 namespace Kadunce
 {
+// How long a kept picture takes to fade out over the window's new one.
+inline constexpr double KeptPictureFadeMs = 140.0;
 // One window's picture as it stood a moment ago, kept while the window is
 // resized: an application's first frames at a new size can be empty. It is
 // taken from the window itself and fitted whole inside where the window now
@@ -81,12 +83,13 @@ public:
     // with the window's own paint transform, opacity and saturation.
     bool draw(const KWin::RenderViewport &viewport, const KWin::RenderTarget &renderTarget,
               KWin::EffectWindow *window, const KWin::Region &deviceRegion,
-              const KWin::WindowPaintData &data) const
+              const KWin::WindowPaintData &data, bool fill = false) const
     {
         if (!taken() || !window) return false;
         const QPointF origin(window->x(), window->y());
         const QRectF box = QRectF(window->expandedGeometry()).translated(-origin);
         if (box.isEmpty()) return false;
+        if (fill) return drawPlaced(viewport, renderTarget, window, deviceRegion, data, box);
         const double fit = std::min(box.width() / m_size.width(), box.height() / m_size.height());
         const QSizeF fitted = m_size * fit;
         return drawPlaced(viewport, renderTarget, window, deviceRegion, data,

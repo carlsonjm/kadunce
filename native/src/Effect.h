@@ -367,13 +367,13 @@ private:
         KeptPicture picture;
         QSizeF bufferAtCapture;
         std::function<void()> resize;
-        int drawnSince = 0;
+        int drawnSince = 0; QElapsedTimer fade;
         QMetaObject::Connection damaged;
     };
     std::map<KWin::EffectWindow *, HeldPicture> m_heldPictures;
     KWin::EffectWindow *m_capturingHeld = nullptr;
     void captureHeldPictures();
-    void releaseHeldPicture(KWin::EffectWindow *window);
+    void releaseHeldPicture(KWin::EffectWindow *window); [[nodiscard]] double heldPictureShare(KWin::EffectWindow *window); bool drawHeldPicture(const KWin::RenderViewport &viewport, const KWin::RenderTarget &renderTarget, KWin::EffectWindow *window, const KWin::Region &deviceRegion, KWin::WindowPaintData &data, double share);
     // Redirects a window into its own picture, taken again when its frame and
     // buffer stop lining up; true when the picture is new.
     bool redirectSource(KWin::EffectWindow *window, bool reportChange);

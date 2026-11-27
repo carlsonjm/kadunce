@@ -125,7 +125,10 @@ card is drawn moving with the panel's slide, over its duration and on its
 curve: it is drawn into its moving place from one picture the whole way, a
 few parts in a hundred smaller, so what it shows travels with its edge. Its
 client is asked for the new size once, at the end of the slide that holds the
-larger picture: making way, when the slide is over; growing, as it starts.
+larger picture: making way, a moment before the slide is over; growing, as it
+starts. The picture it had is kept in the new one's place until its
+application has drawn at the new size, then fades out over it, so the new
+picture never arrives in one frame.
 Until then its own frame still reaches the panel, which does not go black for
 it (Shuffle's `PANEL-SHOWING.md`). Cards behind it that the panel's room
 made smaller have their height back when the room is, and so has the Active
