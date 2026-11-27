@@ -1417,7 +1417,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     // Kept as a function of its own, so a window the session reopens can be
     // admitted later, when it settles.
     const auto admitReadyWindow = std::make_shared<std::function<void()>>();
-    *admitReadyWindow = [this, candidate, shownAtOpen,
+    *admitReadyWindow = [this, candidate, shownAtOpen, openedAt = TouchWitness::now(),
                          self = std::weak_ptr<std::function<void()>>(admitReadyWindow)]() {
         // A window that opens on a desktop not shown is not a card here; that
         // desktop takes it when it is next shown.
@@ -1429,7 +1429,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
         // Under a finger still pulling, it follows the finger (EffectTouchCarry.cpp).
         if (const auto again = self.lock(); again && m_touchCarry.passed != candidate
-            && carryOpenedUnderFinger(candidate, *again)) return;
+            && carryOpenedUnderFinger(candidate, *again, openedAt)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
         const QPointer<KWin::EffectWindow> shownBefore = m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active

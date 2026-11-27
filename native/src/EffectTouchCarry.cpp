@@ -43,7 +43,7 @@ void Effect::watchTouchCarry()
     m_touchWitness->onLift = [this](qint32 id) { touchCarryLifted(id); };
 }
 
-bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::function<void()> &admit)
+bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::function<void()> &admit, qint64 openedAt)
 {
     if (!m_touchWitness || !window || !window->window() || !window->isNormalWindow()
         || window->isModal() || window->transientFor()) return false;
@@ -59,7 +59,10 @@ bool Effect::carryOpenedUnderFinger(KWin::EffectWindow *window, const std::funct
         // the window it was pulled from.
         const TouchWitness::Contact &lifted = m_touchWitness->lifted();
         const qint64 since = m_touchWitness->sinceLift();
-        if (!pulled(lifted, TouchWitness::now() - lifted.lastMoved) || since > PullFreshMs) return false;
+        // Only a window that opened while the finger was still down: one
+        // opened after a drag ended was not pulled out by it.
+        if (!pulled(lifted, TouchWitness::now() - lifted.lastMoved) || since > PullFreshMs
+            || openedAt > TouchWitness::now() - since) return false;
         qInfo().noquote() << "Kadunce" << Revision << "contact lifted" << since << "ms before"
                           << logNameOf(window) << "was ready; places it at the lift point" << lifted.last;
         const QPointer<KWin::EffectWindow> source = lifted.window ? lifted.window->effectWindow() : nullptr;

@@ -472,7 +472,7 @@ private:
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
     bool nothingHoldsTheMove() const;
     // A window opened under a finger still pulling follows it (EffectTouchCarry.cpp).
-    bool carryOpenedUnderFinger(KWin::EffectWindow *window, const std::function<void()> &admit);
+    bool carryOpenedUnderFinger(KWin::EffectWindow *window, const std::function<void()> &admit, qint64 openedAt);
     void admitWithoutCarry(KWin::EffectWindow *window, const std::function<void()> &admit);
     void touchCarryLifted(qint32 id);
     void watchTouchCarry();
