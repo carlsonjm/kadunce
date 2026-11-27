@@ -399,13 +399,11 @@ void Effect::postPaintScreen()
     if (std::exchange(m_framingTablet, false)) noteTabletFrameEnd(continueRepaint);
     // Spread, Bento and the rest open and close along many paths, and every
     // one ends in a frame, so the context is announced here whenever the
-    // presentation it reports changes, and as Spread starts closing: the dock's Spread button
-    // and the Context Bar follow at once, and panels that leave with Spread are gone before the card is whole.
+    // presentation it reports changes, or Spread starts closing: the dock and the Context Bar follow at once.
     QString presentation;
     eachCardDisplay([&](KWin::LogicalOutput *output) {
         presentation += output->name() + QLatin1Char(' ')
-            + QString::number(m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1)
-            + (m_cardStage->spreadClosing() ? QStringLiteral(" closing ") : QStringLiteral(" "));
+            + QString::number(m_cardStage->isActive() ? int(m_cardStage->presentation()) : -1) + QLatin1String(m_cardStage->spreadClosing() ? " closing " : " ");
     });
     // What a context line says changes the same way, while one is claimed.
     const QString line = m_contextLineClaims.isEmpty() ? QString() : contextLineSignature();
