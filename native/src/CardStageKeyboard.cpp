@@ -249,7 +249,7 @@ void CardStageController::followWorkArea(bool now)
 
 void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows)
 {
-    // The panel's own motion (Shuffle's PANEL-SHOWING.md § Out of view): in
+    // A panel's own slide from its edge and back: in
     // over 320 ms easing out, out over 120 ms easing in, at Plasma's speed.
     const int duration = motion(grows ? PanelSlideOutDuration : PanelSlideInDuration);
     if (duration <= 1 || !window->window()) {
@@ -260,7 +260,7 @@ void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const K
     // from where the card is drawn now.
     const auto drawn = workAreaFollowRect(window);
     const QRectF frame(window->frameGeometry());
-    WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(target), frame.size(), duration,
+    WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(KWin::RectF(target)), frame.size(), duration,
                           grows ? QEasingCurve::InCubic : QEasingCurve::OutCubic, {}};
     if (drawn && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {
         follow.duration = std::max(60, int(m_workAreaFollow->duration - m_workAreaFollow->since.elapsed()));
@@ -282,7 +282,7 @@ std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::Effect
         // asked for, so the client's own answer never shows as a jump. One
         // that keeps its size, or trims itself as a terminal does, is let go.
         constexpr qint64 Unanswered = 1000;
-        const QSizeF frame = window->frameGeometry().size();
+        const QSizeF frame = QRectF(window->frameGeometry()).size();
         const auto off = [&follow](const QSizeF &size) {
             return std::abs(size.width() - follow.to.width()) + std::abs(size.height() - follow.to.height());
         };
