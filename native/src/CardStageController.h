@@ -959,13 +959,16 @@ private:
     QTimer m_workAreaGrowTimer;
     // The Active card drawn from the place it stood to the place the work
     // area gives it now, in step with the panel sliding in or out beside it:
-    // the panel's own duration and curve. Its client is asked for the new
-    // size once, and is drawn into the moving place whatever it has drawn yet.
+    // the panel's own duration and curve. Its client is asked for each size
+    // on the way, a step at a time as an edge dragged by hand asks, so what
+    // it shows travels with its edge and never arrives in one jump; it is
+    // drawn into the moving place whatever it has drawn yet.
     struct WorkAreaFollow {
         QPointer<KWin::EffectWindow> window;
         QRectF from;
         QRectF to;
-        QSizeF asked; // the client's frame when the new size was asked for
+        QSizeF asked; // the client's frame when the last size was asked for
+        bool settled = false; // the last size has been asked for
         int duration = 0;
         QEasingCurve::Type curve = QEasingCurve::OutCubic;
         QElapsedTimer since;
@@ -973,6 +976,11 @@ private:
     std::optional<WorkAreaFollow> m_workAreaFollow;
     mutable QStringList m_workAreaFollowTrace;
     void drawWorkAreaFollow(KWin::EffectWindow *window, const KWin::Rect &target, bool grows);
+    QTimer m_workAreaStep;
+    void stepWorkAreaFollow();
+    // Cards behind the Active one that a panel's room made smaller, given
+    // their height back when the room is.
+    QList<QPointer<KWin::EffectWindow>> m_workAreaShrunk;
     int m_activeSettleRemaining = 0;
     // The Active card's own placement while a keyboard is up, and the height it
     // stands at above the keys. The placement is where the card was when the

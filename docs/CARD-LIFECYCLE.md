@@ -124,7 +124,11 @@ The Active card follows the work area. A panel taking room makes way, and the
 card is drawn moving with the panel's slide, over its duration and on its
 curve, whatever size its client has drawn yet: a client still larger than the
 place is cut at its edges and never squeezed, its shadow kept under the cut
-edge, and one still smaller is stretched until it answers. Its client is asked for the new size once. Room given back by a panel that still stands at that edge, only out
+edge, and one still smaller is stretched until it answers. Its client is asked
+for each size on the way, a step at a time as an edge dragged by hand asks,
+so what it shows travels with its edge. Cards behind it that the panel's room
+made smaller have their height back when the room is, and so has the Active
+card under Spread, so a card picked next arrives at its size. Room given back by a panel that still stands at that edge, only out
 of view, is grown into the same way as it slides out. Room given back by a
 panel that is gone is grown into after a wait, since it may be coming back.
 

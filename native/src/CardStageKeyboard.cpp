@@ -215,6 +215,24 @@ void CardStageController::followWorkArea(bool now)
         if (!reaching.isEmpty()) {
             qInfo() << "Kadunce cards behind the Active one follow the work area:" << reaching.size();
             settleCardsInActivePlace(reaching);
+            for (const auto &card : std::as_const(reaching))
+                if (!m_workAreaShrunk.contains(card)) m_workAreaShrunk.append(card);
+        } else if (!m_workAreaShrunk.isEmpty()) {
+            // The room is back: those it made smaller stand in the whole
+            // place again, so one picked next arrives at its size and does
+            // not settle into it after.
+            qInfo() << "Kadunce cards behind the Active one take back the room:" << m_workAreaShrunk.size();
+            settleCardsInActivePlace(std::exchange(m_workAreaShrunk, {}));
+        }
+        // The Active card made smaller, then Spread opened over it: it has
+        // the whole place back before it is picked again.
+        if (m_presentation == CardPresentation::Spread && !spreadClosing() && m_activeRestore.valid
+            && window && !window->isDeleted() && window->window() && window->screen() == tablet
+            && !m_host->sizesItselfForCardStage(window)
+            && window->window()->moveResizeGeometry().toRect() != activePlacement(tablet)) {
+            m_workAreaFollow.reset();
+            m_workAreaStep.stop();
+            settleCardsInActivePlace({window}, tablet, KWin::RectF(activePlacement(tablet)));
         }
     }
     if (m_presentation != CardPresentation::Active || !m_activeRestore.valid
@@ -241,8 +259,14 @@ void CardStageController::followWorkArea(bool now)
     }
     if (!grows || slidOut) drawWorkAreaFollow(window, target, grows);
     else m_workAreaFollow.reset();
-    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-    client->moveResize(KWin::RectF(target));
+    if (m_workAreaFollow) {
+        m_workAreaStep.start();
+        stepWorkAreaFollow();
+    } else {
+        m_workAreaStep.stop();
+        QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+        client->moveResize(KWin::RectF(target));
+    }
     qInfo() << "Kadunce Active card follows the work area" << logNameOf(window)
             << "to" << target << (m_workAreaFollow ? "drawn with the panel" : "at once");
 }
@@ -260,7 +284,7 @@ void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const K
     // from where the card is drawn now.
     const auto drawn = workAreaFollowRect(window);
     const QRectF frame(window->frameGeometry());
-    WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(KWin::RectF(target)), frame.size(), duration,
+    WorkAreaFollow follow{window, drawn ? *drawn : frame, QRectF(KWin::RectF(target)), frame.size(), false, duration,
                           grows ? QEasingCurve::InCubic : QEasingCurve::OutCubic, {}};
     if (drawn && m_workAreaFollow->since.elapsed() < m_workAreaFollow->duration) {
         follow.duration = std::max(60, int(m_workAreaFollow->duration - m_workAreaFollow->since.elapsed()));
@@ -273,6 +297,42 @@ void CardStageController::drawWorkAreaFollow(KWin::EffectWindow *window, const K
     KWin::effects->addRepaintFull();
 }
 
+void CardStageController::stepWorkAreaFollow()
+{
+    if (!m_workAreaFollow) {
+        m_workAreaStep.stop();
+        return;
+    }
+    auto &follow = *m_workAreaFollow;
+    const auto window = follow.window;
+    if (!window || window->isDeleted() || !window->window()) {
+        m_workAreaStep.stop();
+        m_workAreaFollow.reset();
+        return;
+    }
+    // The size the place will have a step from now, since the client answers
+    // a step late; the last one is the place itself, asked for even if the
+    // card has left Active meanwhile, so it is never left part of the way.
+    const qint64 ahead = follow.since.elapsed() + WorkAreaStepInterval;
+    const bool last = ahead >= follow.duration || !m_active || m_presentation != CardPresentation::Active;
+    QRectF ask = follow.to;
+    if (!last) {
+        const double p = QEasingCurve(follow.curve).valueForProgress(double(ahead) / follow.duration);
+        const auto mix = [p](double from, double to) { return std::round(from + (to - from) * p); };
+        ask = QRectF(mix(follow.from.x(), follow.to.x()), mix(follow.from.y(), follow.to.y()),
+                     mix(follow.from.width(), follow.to.width()), mix(follow.from.height(), follow.to.height()));
+    }
+    auto *client = window->window();
+    if (last) {
+        follow.asked = QRectF(window->frameGeometry()).size();
+        follow.settled = true;
+        m_workAreaStep.stop();
+    }
+    if (QRectF(client->moveResizeGeometry()) == ask) return;
+    QScopedValueRollback<bool> applying(m_applyingWindowState, true);
+    client->moveResize(KWin::RectF(ask));
+}
+
 std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::EffectWindow *window) const
 {
     if (!m_workAreaFollow || m_workAreaFollow->window != window || !window || window->isDeleted()
@@ -283,13 +343,13 @@ std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::Effect
         // There, and held there until its client has drawn nearer the size
         // asked for, so the client's own answer never shows as a jump. One
         // that keeps its size, or trims itself as a terminal does, is let go.
-        constexpr qint64 Unanswered = 1000;
+        constexpr qint64 Unanswered = 400;
         const QSizeF frame = QRectF(window->frameGeometry()).size();
         const auto off = [&follow](const QSizeF &size) {
             return std::abs(size.width() - follow.to.width()) + std::abs(size.height() - follow.to.height());
         };
-        if (elapsed >= follow.duration + Unanswered || off(frame) < off(follow.asked) || off(follow.asked) < 1.0)
-            return std::nullopt;
+        if (follow.settled && (elapsed >= follow.duration + Unanswered || off(frame) < off(follow.asked)
+                               || off(follow.asked) < 1.0)) return std::nullopt;
         return follow.to;
     }
     const double p = QEasingCurve(follow.curve).valueForProgress(double(elapsed) / follow.duration);
