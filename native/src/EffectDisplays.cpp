@@ -142,7 +142,12 @@ void Effect::enterInputScope(const QPointF &position, InputReach reach, qint64 c
             m_strokeContacts.removeIf([&](qint64 held) {
                 return held >= 0 && held != contact && !down->contains(qint32(held));
             });
-    const bool stroking = !m_strokeContacts.isEmpty();
+    // A touch strokes with other touches only: the pointer's press, whose
+    // release a popup's grab can keep from here, never carries a finger to
+    // the display it was on.
+    const bool stroking = contact >= 0 && reach == InputReach::Press
+        ? std::any_of(m_strokeContacts.cbegin(), m_strokeContacts.cend(), [](qint64 held) { return held >= 0; })
+        : !m_strokeContacts.isEmpty();
     QString key = stroking ? m_strokeKey : m_scopedKey;
     if (!stroking && (reach == InputReach::Press || reach == InputReach::Within))
         if (KWin::LogicalOutput *at = KWin::effects->screenAt(position.toPoint()); isCardDisplay(at))
