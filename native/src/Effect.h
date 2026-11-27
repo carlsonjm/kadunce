@@ -471,6 +471,13 @@ private:
         const QList<QRectF> &from, const QList<QRectF> &to) override;
     std::optional<QRectF> bentoMotionRect(KWin::EffectWindow *window) const;
     bool nothingHoldsTheMove() const;
+    // A window opened under a finger still pulling follows it (EffectTouchCarry.cpp).
+    bool carryOpenedUnderFinger(KWin::EffectWindow *window, const std::function<void()> &admit, qint64 openedAt);
+    void admitWithoutCarry(KWin::EffectWindow *window, const std::function<void()> &admit);
+    void touchCarryLifted(qint32 id);
+    void watchTouchCarry();
+    bool pairCarriedWithSource(KWin::EffectWindow *window, KWin::EffectWindow *source, QPointF lift);
+    struct { QPointer<KWin::EffectWindow> window, passed, source; qint32 contact = -1; std::function<void()> admit; } m_touchCarry;
     void clearBentoMotions();
     // CARD-LIFECYCLE.md §8: a pane that yields to an arrival fades where it
     // stood while the arrival takes its place, rather than vanishing.
@@ -948,12 +955,8 @@ private:
     [[nodiscard]] std::optional<std::pair<QRectF, QRectF>> stackScrubRung(const KWin::EffectWindow *window) const;
     bool reorderPaneStack(KWin::EffectWindow *pane, int place);
     // INPUT.md § Connected, by the keys: Meta's arrows move the focus to the
-    // window beside, on this display or the next; with Shift the pane goes
-    // there, swapping with a pane beside it, into open room toward that edge,
-    // or on to the display beside. Shift+Up puts it deeper in its Stack, shown
-    // on the ladder until Meta is let go, or with no Stack joins the pane used
-    // before it; Shift+Down takes it out of its Stack, or out of the layout.
-    // The brackets move the divider beside it.
+    // window beside; with Shift the pane goes there, or deeper in or out of
+    // its Stack. The brackets move the divider beside it.
     void focusToward(KeyDirection direction);
     void carryToward(KeyDirection direction);
     void stepKeyLadder(int delta);
@@ -1407,12 +1410,9 @@ private:
     [[nodiscard]] const char *keyboardRefusal(const KWin::InputMethod &method) const;
     void keepUnaskedKeyboardDown();
     // Keys the compositor hid while they still had a picture, drawn on until
-    // the keyboard lets go of it, so a keyboard that slides out when typing
-    // ends is seen doing so. Held no longer than the keyboard's longest wait
-    // before it sets off plus the slide itself: after the Tette Dot it waits up
-    // to 900 ms for Search's field to take the keys, and a picture let go
-    // sooner left the keys blank, then refused them to Search, which raised
-    // them from the bottom again.
+    // the keyboard lets go of it, so a keyboard that slides out is seen doing
+    // so; held no longer than its longest wait (900 ms after the Tette Dot)
+    // plus the slide itself.
     std::unique_ptr<KWin::EffectWindowVisibleRef> m_leavingKeys;
     QPointer<KWin::EffectWindow> m_leavingPanel;
     QMetaObject::Connection m_leavingKeysUnmap;

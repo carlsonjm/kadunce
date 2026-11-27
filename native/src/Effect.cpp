@@ -854,11 +854,9 @@ Effect::Effect()
         m_touchWitness->describeTitleTouch = [this](const QPointF &position) {
             return describeTitleTouch(position);
         };
-        // A title bar can be left holding a contact whose lift it never saw,
-        // as when the tap that chose a card in Spread was Kadunce's. KWin's
-        // title bar handling then ignores every press until a contact with
-        // that number lifts, so the next drag of a title does nothing. With
-        // only this contact down, whatever it holds is stale.
+        // A title bar can be left holding a contact whose lift it never saw
+        // (a Spread tap Kadunce took), and then ignores every press until that
+        // number lifts. With only this contact down, whatever it holds is stale.
         m_touchWitness->beforeTouchDown = [](qint32 id) {
             KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
             if (!touch || touch->decorationPressId() == -1 || touch->touchPointCount() > 1) return;
@@ -867,12 +865,10 @@ Effect::Effect()
             touch->setDecorationPressId(-1);
         };
         // A carry Kadunce takes from a title bar keeps the contact's lift, so
-        // KWin's title bar handling never hears it and holds the contact on.
-        // KWin aims each new contact before any filter sees it, and while
-        // that hold stands it aims at nothing: the next touch, a swipe up
-        // say, would be spent before the hold above is cleared. Once a lift
-        // has passed every filter, a hold on it with no contact down is let
-        // go there and then.
+        // the title bar holds the contact on, and KWin aims the next touch at
+        // nothing. Once a lift has passed every filter, a hold on it with no
+        // contact down is let go there and then.
+        watchTouchCarry();
         m_touchWitness->onTouchUp = [this](qint32 id) {
             QTimer::singleShot(0, this, [id] {
                 KWin::TouchInputRedirection *touch = KWin::input() ? KWin::input()->touch() : nullptr;
@@ -1421,7 +1417,7 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
     // Kept as a function of its own, so a window the session reopens can be
     // admitted later, when it settles.
     const auto admitReadyWindow = std::make_shared<std::function<void()>>();
-    *admitReadyWindow = [this, candidate, shownAtOpen,
+    *admitReadyWindow = [this, candidate, shownAtOpen, openedAt = TouchWitness::now(),
                          self = std::weak_ptr<std::function<void()>>(admitReadyWindow)]() {
         // A window that opens on a desktop not shown is not a card here; that
         // desktop takes it when it is next shown.
@@ -1431,6 +1427,9 @@ void Effect::handleWindowAdded(KWin::EffectWindow *window)
         }
         // The apps the session reopens wait out of sight until they settle.
         if (const auto again = self.lock(); again && holdForSignIn(candidate, *again)) return;
+        // Under a finger still pulling, it follows the finger (EffectTouchCarry.cpp).
+        if (const auto again = self.lock(); again && m_touchCarry.passed != candidate
+            && carryOpenedUnderFinger(candidate, *again, openedAt)) return;
         // §11, Every display: it is a card of the display it opened on.
         SessionScope own(this, m_scopedSession, stageKeyFor(candidate->screen()));
         const QPointer<KWin::EffectWindow> shownBefore = m_cardStage->isActive() && m_cardStage->presentation() == CardPresentation::Active
