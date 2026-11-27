@@ -122,11 +122,12 @@ shows.
 
 The Active card follows the work area. A panel taking room makes way, and the
 card is drawn moving with the panel's slide, over its duration and on its
-curve, whatever size its client has drawn yet: a client still larger than the
-place is cut at its edges and never squeezed, its shadow kept under the cut
-edge, and one still smaller is stretched until it answers. Its client is asked
-for each size on the way, a step at a time as an edge dragged by hand asks,
-so what it shows travels with its edge. Cards behind it that the panel's room
+curve: it is drawn into its moving place from one picture the whole way, a
+few parts in a hundred smaller, so what it shows travels with its edge. Its
+client is asked for the new size once, at the end of the slide that holds the
+larger picture: making way, when the slide is over; growing, as it starts.
+Until then its own frame still reaches the panel, which does not go black for
+it (Shuffle's `PANEL-SHOWING.md`). Cards behind it that the panel's room
 made smaller have their height back when the room is, and so has the Active
 card under Spread, so a card picked next arrives at its size. Room given back by a panel that still stands at that edge, only out
 of view, is grown into the same way as it slides out; a long way, the card

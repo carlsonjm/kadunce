@@ -243,7 +243,19 @@ void CardStageController::followWorkArea(bool now)
         || client->quickTileMode() != KWin::QuickTileMode{}) return;
     const KWin::Rect target = activePlacement(tablet);
     const KWin::Rect current = client->moveResizeGeometry().toRect();
-    if (current == target) return;
+    if (current == target) {
+        // Making way and not yet asked for the smaller size, and the room is
+        // back already: it is drawn back to where it stands.
+        if (m_workAreaFollow && m_workAreaFollow->window == window && workAreaFollowRect(window)
+            && m_workAreaFollow->to != QRectF(KWin::RectF(target))) {
+            drawWorkAreaFollow(window, target, true);
+            if (m_workAreaFollow) {
+                m_workAreaStep.start();
+                stepWorkAreaFollow();
+            }
+        }
+        return;
+    }
     // Already on its way there: the same place told again changes nothing.
     if (m_workAreaFollow && m_workAreaFollow->window == window && m_workAreaStep.isActive()
         && m_workAreaFollow->to == QRectF(KWin::RectF(target))) return;
@@ -338,29 +350,27 @@ void CardStageController::stepWorkAreaFollow()
         m_workAreaFollow.reset();
         return;
     }
-    // The size the place will have two steps from now, since the client
-    // answers late. Shrinking, that keeps the client inside its place, so it
-    // never reaches the panel coming in, which goes black for a window that
-    // touches it. The last one is the place itself, asked for even if the
-    // card has left Active meanwhile, so it is never left part of the way.
-    const qint64 ahead = follow.since.elapsed() + 2 * WorkAreaStepInterval;
-    const bool last = follow.since.elapsed() + WorkAreaStepInterval >= follow.duration || !m_active || m_presentation != CardPresentation::Active;
-    QRectF ask = follow.to;
-    if (!last) {
-        const double p = QEasingCurve(follow.curve).valueForProgress(std::min(1.0, double(ahead) / follow.duration));
-        const auto mix = [p](double from, double to) { return std::round(from + (to - from) * p); };
-        ask = QRectF(mix(follow.from.x(), follow.to.x()), mix(follow.from.y(), follow.to.y()),
-                     mix(follow.from.width(), follow.to.width()), mix(follow.from.height(), follow.to.height()));
-    }
+    // Its client is asked for its new size once, and at the end of the slide
+    // that holds the larger of the two pictures: making way, when the slide
+    // is over; growing, as it starts. So the card is drawn from one picture
+    // the whole way, drawn smaller into its moving place, and what it shows
+    // travels with its edge. Asked a step at a time instead, an application
+    // laid itself out again at every step, which showed as a jitter; asked
+    // at the start of making way, it jumped to its new picture mid-slide.
+    // It is asked even if the card has left Active meanwhile, so it is never
+    // left at the old size.
     auto *client = window->window();
-    if (last) {
-        follow.asked = QRectF(window->frameGeometry()).size();
-        follow.settled = true;
-        m_workAreaStep.stop();
-    }
-    if (QRectF(client->moveResizeGeometry()) == ask) return;
+    const QRectF placed(client->moveResizeGeometry());
+    const bool growing = follow.to.width() * follow.to.height() >= placed.width() * placed.height();
+    const bool over = follow.since.elapsed() >= follow.duration || !m_active
+        || m_presentation != CardPresentation::Active;
+    if (!growing && !over) return;
+    follow.asked = QRectF(window->frameGeometry()).size();
+    follow.settled = true;
+    m_workAreaStep.stop();
+    if (placed == follow.to) return;
     QScopedValueRollback<bool> applying(m_applyingWindowState, true);
-    client->moveResize(KWin::RectF(ask));
+    client->moveResize(KWin::RectF(follow.to));
 }
 
 std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::EffectWindow *window) const
@@ -373,7 +383,7 @@ std::optional<QRectF> CardStageController::workAreaFollowRect(const KWin::Effect
         // There, and held there until its client has drawn nearer the size
         // asked for, so the client's own answer never shows as a jump. One
         // that keeps its size, or trims itself as a terminal does, is let go.
-        constexpr qint64 Unanswered = 400;
+        constexpr qint64 Unanswered = 600;
         const QSizeF frame = QRectF(window->frameGeometry()).size();
         const auto off = [&follow](const QSizeF &size) {
             return std::abs(size.width() - follow.to.width()) + std::abs(size.height() - follow.to.height());
@@ -400,30 +410,19 @@ std::optional<CardStageController::WorkAreaDraw> CardStageController::applyWorkA
                               << std::exchange(m_workAreaFollowTrace, {}).join(QStringLiteral(" | "));
         return std::nullopt;
     }
-    // Never squeezed: a client still drawn larger than the place is cut at
-    // the place's edges, as a panel sliding over it would cut it, and as the
-    // keys do. One drawn smaller is stretched to fill it until it answers.
-    const double wide = std::max(1.0, place->width() / frame.width());
-    const double tall = std::max(1.0, place->height() / frame.height());
+    // Drawn into its place at whatever size its client has drawn: smaller,
+    // a few parts in a hundred, while the larger picture is the one it has.
+    // Its shadow goes with it on every edge.
+    const double wide = place->width() / frame.width();
+    const double tall = place->height() / frame.height();
     data.setXScale(data.xScale() * wide);
     data.setYScale(data.yScale() * tall);
     data.translate(place->x() - frame.x(), place->y() - frame.y());
-    // Its shadow stays on every edge, the cut one too: cut away with the
-    // client, it came back all at once when the slide ended. Under a cut
-    // edge it is drawn a second time, brought up to that edge.
     const QRectF whole(window->expandedGeometry());
-    const double left = std::max(0.0, frame.left() - whole.left()) * wide;
-    const double top = std::max(0.0, frame.top() - whole.top()) * tall;
-    const double right = frame.width() > place->width() ? 0.0 : std::max(0.0, whole.right() - frame.right()) * wide;
-    const double bottom = std::max(0.0, whole.bottom() - frame.bottom()) * tall;
-    WorkAreaDraw draw{place->adjusted(-left, -top, right, bottom), {}, 0.0};
-    if (frame.height() > place->height()) {
-        draw.clip.setBottom(place->bottom());
-        if (bottom > 0.0) {
-            draw.under = QRectF(draw.clip.left(), place->bottom(), draw.clip.width(), bottom);
-            draw.drop = place->height() - frame.height();
-        }
-    }
+    const WorkAreaDraw draw{place->adjusted(-std::max(0.0, frame.left() - whole.left()) * wide,
+                                            -std::max(0.0, frame.top() - whole.top()) * tall,
+                                            std::max(0.0, whole.right() - frame.right()) * wide,
+                                            std::max(0.0, whole.bottom() - frame.bottom()) * tall), {}, 0.0};
     if (m_workAreaFollowTrace.size() < 400)
         m_workAreaFollowTrace.append(QStringLiteral("%1 %2 %3 %4").arg(m_workAreaFollow->since.elapsed())
             .arg(place->top(), 0, 'f', 1).arg(place->bottom(), 0, 'f', 1).arg(frame.height(), 0, 'f', 0));
