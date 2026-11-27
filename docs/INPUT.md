@@ -1,6 +1,6 @@
 # Input
 
-Every gesture and key Kadunce handles, and what happens. Anything else goes to the application. A gesture Kadunce refuses
+Every gesture and key Kadunce handles, and what happens. Anything else goes to the application. A refused gesture
 springs back with a note why. `CARD-LIFECYCLE.md` says what each
 result does to a window.
 
@@ -21,17 +21,17 @@ Apps and Files.
 | Input | What happens |
 | --- | --- |
 | Swipe up from the bottom edge | Spread follows your finger; a flick opens it. |
-| Three fingers down on the touchscreen, or four on a touchpad | Spread opens under your fingers. |
-| `Meta+S` | Spread opens, or closes back to the Active card; a layout shrinks into the row as its panes' cards. |
-| Drag the row sideways | The row follows, coasts and springs back at each end. |
-| Wheel over the row | The row moves one card. |
-| `Left`, `Right`, `Up`, `Down`, `Meta+Left`, `Meta+Right` in Spread | The row, or the centred Stack, moves one card. |
+| Three fingers down on a touchscreen, four on a touchpad | Spread opens under your fingers. |
+| `Meta+S` | Spread opens or closes; a layout shrinks into the row as its panes' cards. |
+| Drag the row sideways | It follows, coasts and springs back at each end. |
+| Wheel over the row | It moves one card. |
+| Arrow keys, `Meta+Left`, `Meta+Right` in Spread | The row, or the centred Stack, moves one card. |
 | Tap or click empty space, or `Escape` | Back to where Spread opened. |
 | Type | Search opens holding what you typed. |
 | Flick a card up | Its application closes, or one that asks first comes forward. A short lift springs back. |
 | Pull down on a pane's card | That pane leaves its layout as its own card. |
 | Hold a card | It rises to be carried; held off the middle, the row slides under it. |
-| Pull a held card down | The row zooms out to one set view until pushed up. |
+| Pull a held card down | The row zooms out until pushed up. |
 | Let a held card go in a gap | It lands there as the row regrows to three across. |
 | Let a held card go on another card, once it has risen | They become a Stack; on a pane's card, it fills that pane. |
 | Let a held card go on another display | It becomes that display's card, or joins its layout. |
@@ -64,13 +64,14 @@ bottom edge is theirs.
 | Let a held card go at the top edge | It becomes the Active card. |
 | Drag a window by its title bar to the top edge | It becomes the Active card, a pane leaving its layout; first, every window there becomes a card. |
 | Drag a window onto a card display | It becomes its card. |
+| Pull a tab out by touch | Its window follows, as if dragged by its title bar. |
 | Swipe in from a touchscreen's side edge | Sends that edge's key from Settings › Shortcuts › Edge swipes; with none, the window keeps it. |
 | Tap, click or swipe inward in the gap beside the Active card, or another display's lone card | The card before (left) or after (right) slides in, round a Stack's ring. |
 | Wheel in the gap beside the Active card | Up: the card before; down: the one after. |
 | `Meta+Left`, `Meta+Right` | The card before or after opens, round a Stack. |
 | `Meta+Tab`, `Meta+Shift+Tab` | The next or previous card of the Stack. |
 | `Meta+Ctrl+Shift+Left`, `Right` | It and its Stack go to the workspace beside. |
-| Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise for that window; the Active card makes room. After typing on a keyboard, taps bring none until it goes. |
+| Keyboard in Control Center or the tray, or a tap in a terminal | The keys rise; the Active card makes room. After a keyboard types, taps bring none until it goes. |
 | Point in any other gutter | An arrow; nothing resizes there. |
 
 ## Bento
