@@ -31,7 +31,7 @@ namespace Kadunce {
 // native geometry. A separate owner routes/drains the stream after adoption.
 class NativeMoveObserver final : public QObject {
 public:
-    enum class Proof { ApplicationRequest, DecorationMotion, XwaylandRequest };
+    enum class Proof { ApplicationRequest, DecorationMotion, XwaylandRequest, OpenedUnderContact };
     using Candidate = CarryContacts::Candidate;
     std::function<void(KWin::Window *)> started;
     std::function<void(KWin::Window *, Candidate, QPointF, Proof)> identified;
@@ -57,6 +57,18 @@ public:
     ~NativeMoveObserver() override { clearWindows(); }
     const CarryContacts &contacts() const { return m_contacts; }
     quint64 deviceToken(KWin::InputDevice *device) const { return m_devices.value(device).token; }
+    // A move Kadunce started itself for a window opened under the one contact
+    // down (EffectTouchCarry.cpp): that contact proves it, as a title bar's
+    // press proves a drag.
+    bool identifyOpenedUnderContact(KWin::Window *window)
+    {
+        const auto ticket = m_contacts.soleCandidate();
+        if (!ticket || !window || !window->isInteractiveMove() || !identified) return false;
+        const auto contact = m_contacts.resolve(*ticket);
+        if (!contact) return false;
+        identified(window, *ticket, contact->position, Proof::OpenedUnderContact);
+        return true;
+    }
     void clearContacts()
     {
         m_contacts.clear(); m_pointerSurface.clear(); forgetDecoration();

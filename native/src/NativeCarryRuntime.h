@@ -44,6 +44,7 @@ public:
         observer.identified = [this](KWin::Window *w, auto ticket, QPointF pos, auto proof) {
             if (observed) observed(w, proof == NativeMoveObserver::Proof::ApplicationRequest
                 ? (ticket.owner().kind == CarryDevice::Touch ? "proof-app-touch" : "proof-app-pointer")
+                : proof == NativeMoveObserver::Proof::OpenedUnderContact ? "proof-opened-under-contact"
                 : proof == NativeMoveObserver::Proof::XwaylandRequest
                     ? (ticket.owner().kind == CarryDevice::Touch ? "proof-xwayland-touch" : "proof-xwayland-pointer")
                     : (ticket.owner().kind == CarryDevice::Touch ? "proof-decoration-touch" : "proof-decoration-pointer"));
